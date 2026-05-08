@@ -1671,12 +1671,21 @@ async function fetchScheduledReleaseGate(candidateVersion) {
       `${API_URL}/ows-store/projects?nocache=${Date.now()}`,
       { cache: 'no-store', headers: { 'User-Agent': 'OWS-Store-Updater' } }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      logToFile(`ScheduledReleaseGate: API error ${res.status}`);
+      return null;
+    }
     const projects = await res.json();
+    logToFile(`ScheduledReleaseGate: Got ${projects?.length || 0} projects`);
     const owsProject = Array.isArray(projects)
       ? projects.find((p) => String(p?.slug || '').toLowerCase() === 'ows-store')
       : null;
+    if (!owsProject) {
+      logToFile('ScheduledReleaseGate: ows-store project not found');
+      return null;
+    }
     const sr = owsProject?.metadata?.scheduled_release || owsProject?.scheduled_release || null;
+    logToFile(`ScheduledReleaseGate: sr=${JSON.stringify(sr)}, candidate=${candidateVersion}`);
     if (!sr || !sr.available_at || !sr.version) return null;
 
     // Normalize both versions for comparison (strip leading 'v', whitespace)

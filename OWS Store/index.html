@@ -1,16 +1,19 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://api.mymemory.translated.net; frame-src https:;">
     <title>OWS Store - Central Studio Hub</title>
+    <meta name="app-version" content="2026.5.2-t0014">
+    <meta name="app-name" content="OWS Store">
+    <script>window.APP_VERSION = '2026.5.2-t0014'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* ================================================
-           OWS STORE — REWORK 2026.3.16
-           Command Center aesthetic — dark glass + neon
+           OWS STORE ÔÇö REWORK 2026.3.16
+           Command Center aesthetic ÔÇö dark glass + neon
         ================================================ */
         :root {
             --bg:          #080c12;
@@ -140,13 +143,13 @@
                 radial-gradient(ellipse 500px 400px at 50% 120%, rgba(40,217,138,0.05) 0%, transparent 60%);
         }
 
-        /* ── SCROLLBAR ── */
+        /* ÔöÇÔöÇ SCROLLBAR ÔöÇÔöÇ */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
 
-        /* ── BOOT OVERLAY ── */
+        /* ÔöÇÔöÇ BOOT OVERLAY ÔöÇÔöÇ */
         .boot-overlay {
             position: fixed; inset: 0; z-index: 12000;
             display: none; align-items: center; justify-content: center;
@@ -1220,7 +1223,7 @@
             }
         }
 
-        /* ── GAME OVERLAY ── */
+        /* ÔöÇÔöÇ GAME OVERLAY ÔöÇÔöÇ */
         #game-overlay { display:none; position:fixed; inset:0; z-index:9000; background:var(--bg); flex-direction:column; }
         #game-overlay.active { display:flex; }
         #game-frame { flex:1; border:none; }
@@ -1282,10 +1285,10 @@
             cursor: pointer;
         }
 
-        /* ── APP SHELL ── */
+        /* ÔöÇÔöÇ APP SHELL ÔöÇÔöÇ */
         .app-container { position:relative; z-index:1; display:flex; height:100vh; overflow:hidden; }
 
-        /* ── SIDEBAR ── */
+        /* ÔöÇÔöÇ SIDEBAR ÔöÇÔöÇ */
         .sidebar {
             width: var(--sidebar-w);
             flex-shrink: 0;
@@ -1438,7 +1441,7 @@
         @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
         #app-version { font-size:0.6rem; color:var(--ink-3); margin-top:0.3rem; font-family:var(--font-mono); }
 
-        /* ── UPDATE BANNER ── */
+        /* ÔöÇÔöÇ UPDATE BANNER ÔöÇÔöÇ */
         .update-banner {
             display: none;
             position: sticky; top: 0; z-index: 100;
@@ -1460,7 +1463,7 @@
         .btn-update { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); font-weight:600; }
         .btn-close-update:hover, .btn-update:hover { filter:brightness(1.1); }
 
-        /* ── MAIN CONTENT ── */
+        /* ÔöÇÔöÇ MAIN CONTENT ÔöÇÔöÇ */
         .main-content {
             flex: 1;
             overflow-y: auto;
@@ -1470,7 +1473,7 @@
             min-width: 0;
         }
 
-        /* ── HEADER / TOPBAR ── */
+        /* ÔöÇÔöÇ HEADER / TOPBAR ÔöÇÔöÇ */
         .topbar {
             height: var(--header-h);
             background: var(--surface-0);
@@ -1521,10 +1524,10 @@
         .topbar-btn:hover { background:var(--surface-3); color:var(--ink-0); border-color:var(--border-mid); }
         .topbar-btn i { font-size:12px; }
 
-        /* ── SECTIONS ── */
+        /* ÔöÇÔöÇ SECTIONS ÔöÇÔöÇ */
         .section { padding: 1.5rem 1.25rem; flex:1; }
 
-        /* ── HOME / EXPLORE ── */
+        /* ÔöÇÔöÇ HOME / EXPLORE ÔöÇÔöÇ */
         .hero-band {
             background:
                 radial-gradient(circle at 12% -5%, rgba(58, 235, 230, 0.16), transparent 42%),
@@ -1875,7 +1878,7 @@
         }
         .btn-install.full { width:100%; justify-content:center; }
 
-        /* ── LIBRARY ── */
+        /* ÔöÇÔöÇ LIBRARY ÔöÇÔöÇ */
         .library-shell {
             display:flex;
             flex-direction:column;
@@ -1915,7 +1918,7 @@
         .library-filter-btn.active { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); font-weight:600; }
 
 
-<!-- ═══ EVENT DETAIL MODAL ═══ -->
+<!-- ÔòÉÔòÉÔòÉ EVENT DETAIL MODAL ÔòÉÔòÉÔòÉ -->
 <div id="event-detail-modal" onclick="if(event.target===this)closeEventDetailModal()">
     <div class="event-detail-shell">
         <div id="event-detail-cover-wrap"></div>
@@ -1932,7 +1935,7 @@
     </div>
 </div>
 
-        /* ═══ IMPORT MODAL ═══ */
+        /* ÔòÉÔòÉÔòÉ IMPORT MODAL ÔòÉÔòÉÔòÉ */
         #import-modal {
             position: fixed; inset: 0; z-index: 5800;
             display: none; align-items: center; justify-content: center;
@@ -2170,7 +2173,7 @@
             .version-center-row .hide-sm { display: none; }
         }
 
-        /* ── UPDATES / CENTRO ── */
+        /* ÔöÇÔöÇ UPDATES / CENTRO ÔöÇÔöÇ */
         .updates-shell {
             display:flex;
             flex-direction:column;
@@ -2312,7 +2315,7 @@
         .notification-time { font-size:0.65rem; color:var(--ink-2); font-family:var(--font-mono); margin-bottom:0.2rem; }
         .notification-text { font-size:0.8rem; font-weight:600; color:var(--ink-0); }
 
-        /* ── DETAILS MODAL ── */
+        /* ÔöÇÔöÇ DETAILS MODAL ÔöÇÔöÇ */
         #details-modal {
             display: none;
             position: fixed; inset:0; z-index:5000;
@@ -2742,7 +2745,7 @@
         }
         .offer-checkout-btn:disabled { opacity:0.45; cursor:not-allowed; }
 
-        /* ── CHANGELOG MODAL (panel lateral) ── */
+        /* ÔöÇÔöÇ CHANGELOG MODAL (panel lateral) ÔöÇÔöÇ */
         #store-news-modal {
             display: none;
             position: fixed; inset:0; z-index:5500;
@@ -2930,18 +2933,18 @@
             .news-article-shell { max-height: 92vh; }
         }
 
-        /* ── ECOSYSTEM LIST (all projects) ── */
+        /* ÔöÇÔöÇ ECOSYSTEM LIST (all projects) ÔöÇÔöÇ */
         .ecosystem-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; }
         .ecosystem-pulse { display:flex; align-items:center; gap:0.4rem; font-size:0.68rem; color:var(--ink-2); font-family:var(--font-mono); }
         .dot { width:6px; height:6px; background:var(--green); border-radius:50%; box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
 
-        /* ── STORE TIMELINE COMPACT ── */
+        /* ÔöÇÔöÇ STORE TIMELINE COMPACT ÔöÇÔöÇ */
         .store-timeline-card { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-lg); padding:1rem; margin-bottom:1rem; }
         .store-timeline-preview { display:flex; flex-direction:column; gap:0.4rem; min-height:60px; }
         .store-timeline-actions { margin-top:0.75rem; }
         .info-note-card { font-size:0.78rem; color:var(--ink-2); padding:0.75rem; background:var(--surface-2); border-radius:var(--r-sm); border:1px solid var(--border); }
 
-        /* ── MISC ── */
+        /* ÔöÇÔöÇ MISC ÔöÇÔöÇ */
         .mobile-queue-fab { display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:3000; width:52px; height:52px; border-radius:50%; background:var(--cyan); border:none; color:#000; font-size:18px; cursor:pointer; box-shadow:0 4px 20px var(--cyan-glow); align-items:center; justify-content:center; }
         #mobile-queue-fab-count { position:absolute; top:-4px; right:-4px; background:var(--orange); color:#fff; border-radius:99px; padding:1px 5px; font-size:10px; font-weight:800; display:none; }
         @media (max-width:768px) {
@@ -3350,7 +3353,7 @@
             }
         }
 
-        /* ── COUNTDOWN ── */
+        /* ÔöÇÔöÇ COUNTDOWN ÔöÇÔöÇ */
         .countdown-wrap { font-family:var(--font-mono); font-size:0.7rem; color:var(--yellow); }
         .countdown-badge { display:inline-flex; gap:0.3rem; align-items:center; background:var(--yellow-dim); border:1px solid rgba(245,197,66,0.2); border-radius:99px; padding:2px 8px; }
 
@@ -3404,9 +3407,9 @@
         .install-target-btn.selected { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); }
 
     
-        /* ═══════════════════════════════════════════════
-           ECOSYSTEM / PROJECT CARDS — EPIC
-        ═══════════════════════════════════════════════ */
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+           ECOSYSTEM / PROJECT CARDS ÔÇö EPIC
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         /* Override project-grid for ecosystem row layout */
         #projects-container.project-grid.ecosystem-layout-classic {
@@ -3666,7 +3669,7 @@
             padding: 4px;
         }
 
-        /* icon-bg: div with background-image — renders .ico/.jpg/.png reliably in Electron/Chromium */
+        /* icon-bg: div with background-image ÔÇö renders .ico/.jpg/.png reliably in Electron/Chromium */
         .icon-bg {
             width: 48px;
             height: 48px;
@@ -3898,9 +3901,9 @@
             transition: width 0.3s ease;
         }
 
-        /* ═══════════════════════════════════════════════
-           LIBRARY CARDS — EPIC
-        ═══════════════════════════════════════════════ */
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+           LIBRARY CARDS ÔÇö EPIC
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         .library-card {
             background: var(--surface-1);
@@ -4070,9 +4073,9 @@
             }
         }
 
-        /* ═══════════════════════════════════════════════
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
            NEWS HUB ITEMS
-        ═══════════════════════════════════════════════ */
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         .news-hub-item {
             background: var(--surface-1);
@@ -4232,9 +4235,9 @@
 
         .news-hub-event-copy { }
 
-        /* ═══════════════════════════════════════════════
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
            PROJECT UPDATES LIST
-        ═══════════════════════════════════════════════ */
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         .project-updates-toolbar {
             display: flex;
@@ -4598,9 +4601,9 @@
             font-style: italic;
         }
 
-        /* ═══════════════════════════════════════════════
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
            SPOTLIGHT LIST ITEMS
-        ═══════════════════════════════════════════════ */
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         .spotlight-list-item {
             display: flex;
@@ -4619,9 +4622,9 @@
             background: var(--surface-2);
         }
 
-        /* ═══════════════════════════════════════════════
-           MODAL — project detail inner fixes
-        ═══════════════════════════════════════════════ */
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+           MODAL ÔÇö project detail inner fixes
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         .modal-icon-wrap img.icon-fit-ecoxion {
             object-fit: contain;
@@ -4655,9 +4658,9 @@
             color: var(--cyan);
         }
 
-        /* ═══════════════════════════════════════════════
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
            MISC OVERRIDES
-        ═══════════════════════════════════════════════ */
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         /* text-dim compat alias */
         :root { --text-dim: var(--ink-2); --brand-2: var(--cyan); --brand: var(--orange); --accent-primary: var(--cyan); --accent-secondary: var(--orange); --ok: var(--green); --warn: var(--yellow); --bg-card: var(--surface-1); --ink: var(--ink-0); --ink-soft: var(--ink-1); --paper: var(--surface-1); --surface: var(--surface-2); --line: var(--border); --glass-border: var(--border-mid); }
@@ -4693,9 +4696,9 @@
         }
 
 
-        /* ═══════════════════════════════════════════════
-           BOOT OVERLAY REWORK — MODAL CON PASOS
-        ═══════════════════════════════════════════════ */
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+           BOOT OVERLAY REWORK ÔÇö MODAL CON PASOS
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         /* Steps list */
         .boot-steps-list {
@@ -4816,9 +4819,9 @@
         }
         .boot-canvas-wrap { min-height: 120px; }
 
-        /* ═══════════════════════════════════════════════
-           OCEAN PAY SIDEBAR — MINIMIZADO Y COLAPSABLE
-        ═══════════════════════════════════════════════ */
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+           OCEAN PAY SIDEBAR ÔÇö MINIMIZADO Y COLAPSABLE
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         .sidebar-oceanpay {
             margin: 0.5rem 0.75rem 0.75rem;
@@ -4907,9 +4910,9 @@
             font-family: var(--font-mono);
         }
 
-        /* ═══════════════════════════════════════════════
-           EVENTS FIX — news-hub-event-status classes
-        ═══════════════════════════════════════════════ */
+        /* ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+           EVENTS FIX ÔÇö news-hub-event-status classes
+        ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ */
 
         /* Fix for dynamic class names from getEventStatusLabel */
         .news-hub-event-status.status-active,
@@ -4926,7 +4929,7 @@
         .news-hub-event-status[class*="end"] { background: var(--surface-3) !important; color: var(--ink-2) !important; }
 
 
-        /* ═══ NEWS HUB TABS ═══ */
+        /* ÔòÉÔòÉÔòÉ NEWS HUB TABS ÔòÉÔòÉÔòÉ */
         .news-hub-tabs-bar {
             display: flex;
             gap: 0.35rem;
@@ -4953,7 +4956,7 @@
         .news-hub-panel { display: none; }
         .news-hub-panel.active { display: block; }
 
-        /* ═══ EVENT STATUS — fix for dynamic klass values ═══ */
+        /* ÔòÉÔòÉÔòÉ EVENT STATUS ÔÇö fix for dynamic klass values ÔòÉÔòÉÔòÉ */
         .news-hub-event-status {
             font-size: 0.58rem; font-family: var(--font-mono); font-weight: 700;
             text-transform: uppercase; letter-spacing: 0.3px;
@@ -4979,14 +4982,14 @@
         }
 
 
-        /* ═══ EVENT CARD LAYOUT FIX ═══ */
+        /* ÔòÉÔòÉÔòÉ EVENT CARD LAYOUT FIX ÔòÉÔòÉÔòÉ */
         .news-hub-list {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
         }
 
-        /* ═══ EVENTS DEDICATED SECTION ═══ */
+        /* ÔòÉÔòÉÔòÉ EVENTS DEDICATED SECTION ÔòÉÔòÉÔòÉ */
         .events-section { margin-bottom: 2rem; }
         .events-section-header {
             display: flex;
@@ -5000,7 +5003,7 @@
             gap: 0.85rem;
         }
 
-        /* ═══ EVENT CARD REWORK ═══ */
+        /* ÔòÉÔòÉÔòÉ EVENT CARD REWORK ÔòÉÔòÉÔòÉ */
         .news-hub-event-card {
             position: relative;
             border-radius: var(--r-md);
@@ -5119,7 +5122,7 @@
         .news-hub-event-card.empty { opacity: 0.45; cursor: default; }
         .news-hub-event-card.empty:hover { transform: none; box-shadow: none; }
 
-        /* ── Banner horizontal layout ── */
+        /* ÔöÇÔöÇ Banner horizontal layout ÔöÇÔöÇ */
         .news-hub-event-card.layout-banner { flex-direction: column; }
         .news-hub-event-card.layout-banner .news-hub-event-visual {
             width: 100%; height: 168px;
@@ -5128,7 +5131,7 @@
         }
         .news-hub-event-card.layout-banner .news-hub-event-copy { padding: 0.85rem 0.9rem 0.9rem; }
 
-        /* ── Poster vertical layout ── */
+        /* ÔöÇÔöÇ Poster vertical layout ÔöÇÔöÇ */
         .news-hub-event-card.layout-poster { flex-direction: row; align-items: stretch; }
         .news-hub-event-card.layout-poster .news-hub-event-visual {
             width: 90px; min-height: 120px; flex-shrink: 0;
@@ -5137,7 +5140,7 @@
         }
         .news-hub-event-card.layout-poster .news-hub-event-copy { padding: 0.85rem; flex: 1; min-width: 0; }
 
-        /* ── Icon fallback layout ── */
+        /* ÔöÇÔöÇ Icon fallback layout ÔöÇÔöÇ */
         .news-hub-event-card.layout-icon {
             flex-direction: row; align-items: flex-start;
             padding: 0.9rem; gap: 0.8rem;
@@ -5243,7 +5246,7 @@
             height: 2px; background: linear-gradient(90deg, transparent, rgba(40,217,138,0.6), transparent);
         }
 
-        /* ═══ EVENT DETAIL MODAL ═══ */
+        /* ÔòÉÔòÉÔòÉ EVENT DETAIL MODAL ÔòÉÔòÉÔòÉ */
         #event-detail-modal {
             position: fixed; inset: 0; z-index: 5900;
             display: none; align-items: center; justify-content: center;
@@ -5299,11 +5302,11 @@
         .event-detail-changes { margin-bottom: 0.85rem; }
         .event-detail-changes-title { font-size: 0.65rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-2); margin-bottom: 0.4rem; }
         .event-detail-change-item { font-size: 0.75rem; color: var(--ink-1); padding: 0.25rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; gap: 0.5rem; }
-        .event-detail-change-item::before { content: '›'; color: var(--cyan); flex-shrink: 0; }
+        .event-detail-change-item::before { content: 'ÔÇ║'; color: var(--cyan); flex-shrink: 0; }
         .event-detail-footer { padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
 
 
-        /* ═══ SEARCH DROPDOWN ═══ */
+        /* ÔòÉÔòÉÔòÉ SEARCH DROPDOWN ÔòÉÔòÉÔòÉ */
         .search-dropdown {
             position: absolute;
             top: calc(100% + 6px);
@@ -5405,7 +5408,7 @@
         }
 
 
-        /* ═══ EVENT CARD LAYOUT OVERRIDES (scoped, icon-only) ═══ */
+        /* ÔòÉÔòÉÔòÉ EVENT CARD LAYOUT OVERRIDES (scoped, icon-only) ÔòÉÔòÉÔòÉ */
         #news-hub-events-grid .news-hub-event-card.layout-icon,
         #news-hub-events .news-hub-event-card.layout-icon,
         #news-hub-events-wrap .news-hub-event-card.layout-icon {
@@ -5559,7 +5562,7 @@
                     <span>OWS Store</span>
                 </div>
                 <h1 class="prelogin-headline">OWS Store</h1>
-                <p class="prelogin-lead">Inteligencia oceánica para el ecosistema digital moderno.</p>
+                <p class="prelogin-lead">Inteligencia oce├ínica para el ecosistema digital moderno.</p>
                 <div class="prelogin-benefits">
                     <div class="prelogin-benefit">
                         <span class="prelogin-benefit-icon"><i class="fas fa-shield-halved"></i></span>
@@ -5572,7 +5575,7 @@
                         <span class="prelogin-benefit-icon"><i class="fas fa-wave-square"></i></span>
                         <div>
                             <div class="prelogin-benefit-title">Interfaz fluida</div>
-                            <div class="prelogin-benefit-text">Navega el ecosistema desde un único hub adaptable.</div>
+                            <div class="prelogin-benefit-text">Navega el ecosistema desde un ├║nico hub adaptable.</div>
                         </div>
                     </div>
                 </div>
@@ -5593,7 +5596,7 @@
                     <label class="prelogin-field" for="prelogin-password">
                         <div class="prelogin-field-head">
                             <span class="prelogin-label">Contrasena</span>
-                            <a href="#" class="prelogin-link">Olvidé mi clave</a>
+                            <a href="#" class="prelogin-link">Olvid├® mi clave</a>
                         </div>
                         <div class="prelogin-input-wrap">
                             <i class="prelogin-input-icon fas fa-lock"></i>
@@ -5608,10 +5611,10 @@
                             <button id="prelogin-submit" class="prelogin-btn" type="submit">Entrar a OWS Store <i class="fas fa-arrow-right"></i></button>
                             <div id="prelogin-status" class="prelogin-status" aria-live="polite"></div>
                 </form>
-                <div class="prelogin-register">¿No tienes una cuenta? <a href="#">Regístrate</a></div>
+                <div class="prelogin-register">┬┐No tienes una cuenta? <a href="#">Reg├¡strate</a></div>
                 <div class="prelogin-footer-links">
-                    <span>Política de privacidad</span>
-                    <span>Términos del servicio</span>
+                    <span>Pol├¡tica de privacidad</span>
+                    <span>T├®rminos del servicio</span>
                     <span>Ajustes de cookies</span>
                 </div>
             </div>
@@ -5661,7 +5664,7 @@
     </div>
 </div>
 
-<!-- ═══ BOOT OVERLAY ═══ -->
+<!-- ÔòÉÔòÉÔòÉ BOOT OVERLAY ÔòÉÔòÉÔòÉ -->
 <div id="brand-splash-overlay" class="brand-splash-overlay" aria-hidden="true">
     <div class="brand-splash-core">
         <div class="brand-splash-orbit" aria-hidden="true"></div>
@@ -5755,7 +5758,7 @@
 
 </div>
 
-<!-- ═══ GAME OVERLAY ═══ -->
+<!-- ÔòÉÔòÉÔòÉ GAME OVERLAY ÔòÉÔòÉÔòÉ -->
 <div id="game-overlay">
     <div class="game-controls">
         <button class="topbar-btn" onclick="closeGame()"><i class="fas fa-house"></i> Volver</button>
@@ -5765,7 +5768,7 @@
     <iframe id="game-frame" title="OWS Game" allowfullscreen></iframe>
 </div>
 
-<!-- ═══ DETAILS MODAL ═══ -->
+<!-- ÔòÉÔòÉÔòÉ DETAILS MODAL ÔòÉÔòÉÔòÉ -->
 <div id="details-modal" onclick="if (event.target === this) closeDetails()">
     <div class="details-modal-shell">
         <button class="btn-close-modal" onclick="closeDetails()"><i class="fas fa-times"></i></button>
@@ -5788,7 +5791,7 @@
                 <div class="modal-stats">
                     <div class="stat-box">
                         <div class="stat-label">Ultima Actualizacion</div>
-                        <div class="stat-value" id="m-last-update">v1.0.0 · Sin datos</div>
+                        <div class="stat-value" id="m-last-update">v1.0.0 ┬À Sin datos</div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-label">Estado de Proyecto</div>
@@ -5856,9 +5859,9 @@
                     <div class="prelogin-two-factor-card">
                         <div class="prelogin-two-factor-kicker">Seguridad Ocean Pay</div>
                         <h3 class="prelogin-two-factor-title">Verificacion en 2 pasos</h3>
-                        <p id="prelogin-two-factor-text" class="prelogin-two-factor-text">Para continuar, abre Ocean Pay, ve a Configuración > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.</p>
+                        <p id="prelogin-two-factor-text" class="prelogin-two-factor-text">Para continuar, abre Ocean Pay, ve a Configuraci├│n > Seguridad, copia el c├│digo solicitado por OWS Store y p├®galo aqu├¡.</p>
                         <label class="prelogin-two-factor-field" for="prelogin-two-factor-code">
-                            <span>Código de verificación</span>
+                            <span>C├│digo de verificaci├│n</span>
                             <input id="prelogin-two-factor-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
                         </label>
                         <div id="prelogin-two-factor-status" class="prelogin-two-factor-status"></div>
@@ -5873,7 +5876,7 @@
     </div>
 </div>
 
-<!-- ═══ APP SHELL ═══ -->
+<!-- ÔòÉÔòÉÔòÉ APP SHELL ÔòÉÔòÉÔòÉ -->
 <div class="app-container">
 
     <!-- SIDEBAR -->
@@ -6007,7 +6010,7 @@
             </div>
         </header>
 
-        <!-- ══ HOME ══ -->
+        <!-- ÔòÉÔòÉ HOME ÔòÉÔòÉ -->
         <section id="home-view" class="section">
 
             <!-- Hero -->
@@ -6239,7 +6242,7 @@
             </div>
         </section>
 
-        <!-- ══ LIBRARY ══ -->
+        <!-- ÔòÉÔòÉ LIBRARY ÔòÉÔòÉ -->
         <section id="library-view" class="section" style="display:none;">
             <div class="library-shell">
                 <div class="library-hero">
@@ -6291,7 +6294,7 @@
             </div>
         </section>
 
-        <!-- ══ UPDATES ══ -->
+        <!-- ÔòÉÔòÉ UPDATES ÔòÉÔòÉ -->
         <section id="updates-view" class="section" style="display:none;">
             <div class="updates-shell">
                 <div class="updates-title-area">
@@ -6347,6 +6350,12 @@
                             <button class="btn-install" style="width:fit-content;" onclick="openStoreAndroidDownload()">
                                 <i class="fas fa-mobile-screen-button"></i> Descargar Android
                             </button>
+                        </div>
+                    </div>
+                    <div class="stat-box" id="updates-store-scheduled-wrap" style="display:none;">
+                        <div class="stat-label">OWS Store Update</div>
+                        <div class="stat-value" id="updates-store-scheduled" style="display:flex;flex-direction:column;gap:0.4rem;">
+                            <span>-</span>
                         </div>
                     </div>
                 </div>
@@ -6410,9 +6419,9 @@
                     <div class="stat-box" style="grid-column:1 / -1;">
                         <div class="stat-label" data-i18n="settings.language">Idioma</div>
                         <div class="stat-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;">
-                            <span id="settings-language-current">Español</span>
+                            <span id="settings-language-current">Espa├▒ol</span>
                             <select id="settings-language-select" class="btn-install" onchange="changeLanguage(this.value)" style="padding:0.5rem 1rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--ink-0);cursor:pointer;">
-                                <option value="es">Español</option>
+                                <option value="es">Espa├▒ol</option>
                                 <option value="en">English</option>
                             </select>
                         </div>
@@ -6450,7 +6459,7 @@
                         </div>
                     </div>
                     <div class="stat-box" id="settings-android-theme-box" style="grid-column:1 / -1;display:none;">
-                        <div class="stat-label">Android · Apariencia</div>
+                        <div class="stat-label">Android ┬À Apariencia</div>
                         <div class="stat-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;">
                             <span id="settings-android-theme-current">Sin detectar</span>
                         </div>
@@ -6601,7 +6610,7 @@
 
 
 
-<!-- ═══ CHANGELOG MODAL (panel lateral) ═══ -->
+<!-- ÔòÉÔòÉÔòÉ CHANGELOG MODAL (panel lateral) ÔòÉÔòÉÔòÉ -->
 <div id="store-news-modal" aria-hidden="true" onclick="if(event.target===this)closeStoreTimelineModal()">
     <div class="changelog-modal-shell" id="store-news-modal-card">
         <div class="changelog-modal-header">
@@ -6745,7 +6754,7 @@
             const related = Array.isArray(entry?.projectNames) && entry.projectNames.length ? entry.projectNames[0] : 'Global';
             project.textContent = normalizeUiText(related);
             title.textContent = normalizeUiText(String(entry?.title || 'Noticia'));
-            meta.textContent = `${formatDateTime(entry?.updateDate)} · ${String(entry?.entryType || entry?.kind || 'news').toUpperCase()}`;
+            meta.textContent = `${formatDateTime(entry?.updateDate)} ┬À ${String(entry?.entryType || entry?.kind || 'news').toUpperCase()}`;
             const lead = normalizeUiText(String(entry?.description || entry?.changes?.[0] || 'Sin vista previa.'));
             preview.textContent = lead;
             const blocks = Array.isArray(entry?.changes) ? entry.changes : [];
@@ -7045,7 +7054,7 @@
             release_date: OCEAN_CINEMAS_RELEASE_DATE_ISO,
             description: 'Plataforma de cine del ecosistema OWS. Series, peliculas y estrenos exclusivos.',
             icon_url: OCEAN_CINEMAS_LOCAL_ICON
-            // scheduled_release comes from API metadata — no hardcoding needed
+            // scheduled_release comes from API metadata ÔÇö no hardcoding needed
         };
         const MYSTERY_PROJECT = {
             slug: 'mystery-project',
@@ -8347,7 +8356,7 @@
             const codeInput = document.getElementById('prelogin-two-factor-code');
             if (!modal || !text || !codeInput) return;
             pendingOceanPayTwoFactorChallenge = challengeId ? String(challengeId) : null;
-            text.textContent = 'Para continuar, abre Ocean Pay > Ajustes > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.';
+            text.textContent = 'Para continuar, abre Ocean Pay > Ajustes > Seguridad, copia el c├│digo solicitado por OWS Store y p├®galo aqu├¡.';
             codeInput.value = '';
             setPreloginTwoFactorStatus('');
             modal.classList.add('active');
@@ -8592,12 +8601,12 @@
             const performTwoFactorVerification = async () => {
                 const code = String(twoFactorCodeInput.value || '').trim();
                 if (code.length < 6) {
-                    setPreloginTwoFactorStatus('Ingresa el código completo de 6 dígitos.', 'error');
+                    setPreloginTwoFactorStatus('Ingresa el c├│digo completo de 6 d├¡gitos.', 'error');
                     return false;
                 }
                 twoFactorVerifyBtn.disabled = true;
                 twoFactorCancelBtn.disabled = true;
-                setPreloginTwoFactorStatus('Validando código con Ocean Pay...');
+                setPreloginTwoFactorStatus('Validando c├│digo con Ocean Pay...');
                 try {
                     await verifyPreloginTwoFactorCode(code);
                     closePreloginTwoFactorModal();
@@ -8620,7 +8629,7 @@
                     await startOWSStoreBootstrap();
                     return true;
                 } catch (err) {
-                    setPreloginTwoFactorStatus(err?.message || 'No se pudo validar el código.', 'error');
+                    setPreloginTwoFactorStatus(err?.message || 'No se pudo validar el c├│digo.', 'error');
                     twoFactorCodeInput.focus();
                     return false;
                 } finally {
@@ -8633,11 +8642,11 @@
                 transitionLoader.style.display = 'none';
                 transitionResult.className = 'prelogin-transition-result';
                 transitionResult.style.display = 'none';
-                transitionTitle.textContent = 'Verificación adicional requerida';
+                transitionTitle.textContent = 'Verificaci├│n adicional requerida';
                 transitionDetail.innerHTML = `
                     <div style="display:grid; gap:.55rem; margin-top:.25rem;">
                         <div style="color:#c7dbed; font-size:.86rem; line-height:1.4;">
-                            Abre Ocean Pay, copia el código solicitado y pégalo aquí para continuar.
+                            Abre Ocean Pay, copia el c├│digo solicitado y p├®galo aqu├¡ para continuar.
                         </div>
                         <input id="prelogin-inline-2fa-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
                             style="width:100%; border-radius:10px; border:1px solid rgba(130,176,206,.38); background:rgba(3,10,19,.85); color:#eaf8ff; font-size:1rem; letter-spacing:2px; text-align:center; padding:.65rem .75rem; outline:none;" />
@@ -8664,12 +8673,12 @@
                 const verifyInline = async () => {
                     const code = String(inlineCode.value || '').trim();
                     if (code.length < 6) {
-                        setInlineStatus('Ingresa el código completo de 6 dígitos.', true);
+                        setInlineStatus('Ingresa el c├│digo completo de 6 d├¡gitos.', true);
                         return;
                     }
                     inlineVerify.disabled = true;
                     inlineCancel.disabled = true;
-                    setInlineStatus('Validando código con Ocean Pay...');
+                    setInlineStatus('Validando c├│digo con Ocean Pay...');
                     try {
                         await verifyPreloginTwoFactorCode(code);
                         showTransition({
@@ -8690,7 +8699,7 @@
                         hidePreloginGate();
                         await startOWSStoreBootstrap();
                     } catch (err) {
-                        setInlineStatus(err?.message || 'No se pudo validar el código.', true);
+                        setInlineStatus(err?.message || 'No se pudo validar el c├│digo.', true);
                         inlineCode.focus();
                     } finally {
                         inlineVerify.disabled = false;
@@ -8702,7 +8711,7 @@
                     pendingOceanPayTwoFactorChallenge = null;
                     hideTransition();
                     setFormDisabled(false);
-                    setPreloginStatus('Validación 2FA cancelada.', 'error');
+                    setPreloginStatus('Validaci├│n 2FA cancelada.', 'error');
                 };
                 inlineVerify.onclick = async () => {
                     await verifyInline();
@@ -8721,7 +8730,7 @@
                 pendingOceanPayTwoFactorChallenge = null;
                 hideTransition();
                 setFormDisabled(false);
-                setPreloginStatus('Validación 2FA cancelada.', 'error');
+                setPreloginStatus('Validaci├│n 2FA cancelada.', 'error');
             };
 
             twoFactorVerifyBtn.onclick = async () => {
@@ -8802,8 +8811,8 @@
                         setFormDisabled(false);
                         showTransition({
                             mode: 'loading',
-                            title: 'Verificación adicional requerida',
-                            detail: 'Abre Ocean Pay y copia el código solicitado para validar acceso.',
+                            title: 'Verificaci├│n adicional requerida',
+                            detail: 'Abre Ocean Pay y copia el c├│digo solicitado para validar acceso.',
                             scope: 'left'
                         });
                         closePreloginTwoFactorModal();
@@ -9859,7 +9868,7 @@
             const latestProject = [...allProjects].sort((a, b) => getProjectLastUpdateMs(b) - getProjectLastUpdateMs(a))[0];
             if (latestEl) {
                 latestEl.textContent = latestProject
-                    ? `${latestProject.name} · v${getProjectDisplayVersion(latestProject) || '1.0.0'} · ${getProjectLastUpdateLabel(latestProject)}`
+                    ? `${latestProject.name} ┬À v${getProjectDisplayVersion(latestProject) || '1.0.0'} ┬À ${getProjectLastUpdateLabel(latestProject)}`
                     : 'Sin datos';
             }
 
@@ -9897,7 +9906,7 @@
                     const bFreq = getExploreUpdateFrequency(b);
                     const diffDays = Math.abs(aTs - bTs) / 86400000;
                     const newer = aTs >= bTs ? a.name : b.name;
-                    compareOut.textContent = `${a.name} (${aFreq.label}) vs ${b.name} (${bFreq.label}) · Mas reciente: ${newer} · Diferencia de update: ${diffDays.toFixed(1)} dias.`;
+                    compareOut.textContent = `${a.name} (${aFreq.label}) vs ${b.name} (${bFreq.label}) ┬À Mas reciente: ${newer} ┬À Diferencia de update: ${diffDays.toFixed(1)} dias.`;
                 }
             }
 
@@ -9956,7 +9965,7 @@
                             ${freq.note ? `<span class="version-center-freq-note">${freq.note}</span>` : ''}
                         </div>
                         <div class="hide-sm">${last}</div>
-                        <div><span class="status ${status.klass}">${status.label}</span> · <span class="hide-sm">${platform}</span></div>
+                        <div><span class="status ${status.klass}">${status.label}</span> ┬À <span class="hide-sm">${platform}</span></div>
                     </div>`;
             }).join('');
 
@@ -10820,6 +10829,67 @@
             if (!sticky) {
                 actionBannerTimer = setTimeout(() => dismissUpdateBanner(true), options.durationMs || 4800);
             }
+        }
+
+        function showScheduledStoreUpdateNotice(version, unlockAt, label = '') {
+            const banner = document.getElementById('update-banner');
+            const msg = document.getElementById('update-msg');
+            const btn = document.getElementById('btn-install-update');
+            const closeBtn = document.getElementById('btn-close-update-banner');
+            const dot = document.getElementById('update-indicator-dot');
+            const wrap = document.getElementById('update-progress-wrap');
+            const unlockDate = unlockAt.toLocaleString('es-UY', {
+                timeZone: 'America/Montevideo',
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', hour12: false,
+            });
+            const labelText = label ? ` "${label}"` : '';
+            const message = `Nueva version${labelText} v${version} programada para el ${unlockDate}. La descarga se habilitara automaticamente.`;
+            if (msg) msg.textContent = message;
+            if (banner) banner.classList.add('visible');
+            if (btn) btn.style.display = 'none';
+            if (closeBtn) {
+                closeBtn.disabled = false;
+                closeBtn.style.opacity = '1';
+                closeBtn.style.cursor = 'pointer';
+            }
+            if (wrap) wrap.style.display = 'none';
+            if (dot) dot.style.display = 'block';
+            setUpdateBannerVisual({
+                state: 'info',
+                title: 'Update programado',
+                message: message,
+                iconClass: 'fa-clock',
+                iconSpin: false,
+            });
+            appUpdateAvailable = true;
+            setStoreUpdateCheckState('scheduled', `scheduled-${version}`);
+            syncUpdatesBadge();
+            // Update the Update Center stat box
+            const scheduledWrap = document.getElementById('updates-store-scheduled-wrap');
+            const scheduledEl = document.getElementById('updates-store-scheduled');
+            if (scheduledWrap) scheduledWrap.style.display = 'block';
+            if (scheduledEl) {
+                scheduledEl.innerHTML = `<span style="color:var(--yellow);font-weight:600;">${translateText('Programado')}</span><span style="font-size:0.65rem;color:var(--ink-2);">${translateText('Nueva version v{0} programada para {1}').replace('{0}', version).replace('{1}', unlockDate)}</span><span style="font-size:0.6rem;color:var(--ink-3);">${translateText('Descarga automatica el')} ${unlockDate}</span>`;
+            }
+            addNotification(`Update programado: v${version} disponible el ${unlockDate}`, 'neutral');
+            sendSystemNotification({
+                title: 'OWS Store: Update programado',
+                body: `v${version} se descargara automaticamente el ${unlockDate}`,
+                dedupeKey: `store_update_scheduled:${version}`,
+                requireVisible: false,
+            }).catch(() => {});
+            if (actionBannerTimer) {
+                clearTimeout(actionBannerTimer);
+                actionBannerTimer = null;
+            }
+        }
+
+        function clearScheduledStoreUpdateNotice() {
+            const scheduledWrap = document.getElementById('updates-store-scheduled-wrap');
+            const scheduledEl = document.getElementById('updates-store-scheduled');
+            if (scheduledWrap) scheduledWrap.style.display = 'none';
+            if (scheduledEl) scheduledEl.innerHTML = '<span>-</span>';
         }
 
         function getRuntimeState(slug) {
@@ -12703,7 +12773,7 @@
                 if (project.pending_release === true) project.pending_release = false;
                 if (project.installer_available !== true && hasInstallerHint) project.installer_available = true;
             
-            // Detectar releases vencidas: si tiene release_date programada que ya pasó pero no hay instalador
+            // Detectar releases vencidas: si tiene release_date programada que ya pas├│ pero no hay instalador
             if (project.release_date && project.pending_release !== false) {
                 const releaseTimestamp = Date.parse(project.release_date);
                 if (releaseTimestamp && releaseTimestamp < Date.now()) {
@@ -12715,11 +12785,11 @@
             }
 
             
-            // Detectar releases vencidas: si tiene release_date programada que ya pasó pero no hay instalador
+            // Detectar releases vencidas: si tiene release_date programada que ya pas├│ pero no hay instalador
             if (project.release_date && project.pending_release !== false) {
                 const releaseTimestamp = Date.parse(project.release_date);
                 if (releaseTimestamp && releaseTimestamp < Date.now()) {
-                    // La fecha de lanzamiento ya pasó
+                    // La fecha de lanzamiento ya pas├│
                     if (!project.installer_available || project.status === 'coming_soon') {
                         // Marcar como vencida
                         project.release_overdue = true;
@@ -13986,7 +14056,7 @@
                             <button class="btn-secondary project-update-manual-confirm" title="Marcar como instalado manualmente"
                                 onclick="openManualInstallConfirm('${project.slug}', '${info.platformDetails.find(d=>d.needsUpdate)?.platform || 'windows'}', '${info.platformDetails.find(d=>d.needsUpdate)?.latestVersion || ''}')"
                                 style="font-size:0.7rem;padding:0.4rem 0.7rem;opacity:0.7;">
-                                <i class="fas fa-check-double"></i> Ya lo instalé
+                                <i class="fas fa-check-double"></i> Ya lo instal├®
                             </button>
                         </div>
                     </div>
@@ -13996,7 +14066,7 @@
             list.innerHTML = `${gateNoticeHtml}${toolbarHtml}${list.innerHTML}`;
         }
 
-        // ── MANUAL INSTALL CONFIRMATION ──────────────────────────────────────────
+        // ÔöÇÔöÇ MANUAL INSTALL CONFIRMATION ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
         function openManualInstallConfirm(slug, platform, latestVersion) {
             const project = getProjectBySlug(slug);
             if (!project) return;
@@ -14015,13 +14085,13 @@
                                     <i class="fas fa-check-double" style="color:var(--green);"></i>
                                 </div>
                                 <div>
-                                    <div style="font-weight:800;color:var(--ink-0);font-size:0.95rem;" id="mic-title">Confirmar instalación</div>
+                                    <div style="font-weight:800;color:var(--ink-0);font-size:0.95rem;" id="mic-title">Confirmar instalaci├│n</div>
                                     <div style="font-size:0.72rem;color:var(--ink-2);" id="mic-sub"></div>
                                 </div>
                             </div>
                             <p style="font-size:0.8rem;color:var(--ink-1);line-height:1.55;margin-bottom:1rem;" id="mic-desc"></p>
                             <div id="mic-version-wrap" style="margin-bottom:1rem;">
-                                <label style="font-size:0.65rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-2);display:block;margin-bottom:0.35rem;">Versión instalada (confirmar o editar)</label>
+                                <label style="font-size:0.65rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-2);display:block;margin-bottom:0.35rem;">Versi├│n instalada (confirmar o editar)</label>
                                 <input id="mic-version-input" type="text" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;color:var(--ink-0);font-family:var(--font-mono);font-size:0.82rem;outline:none;">
                             </div>
                             <div id="mic-scan-result" style="display:none;font-size:0.75rem;padding:0.5rem 0.75rem;border-radius:8px;margin-bottom:0.75rem;"></div>
@@ -14055,7 +14125,7 @@
 
             if (titleEl) titleEl.textContent = `Confirmar: ${project.name}`;
             if (subEl) subEl.textContent = `Plataforma: ${String(platform || 'windows').toUpperCase()}`;
-            if (descEl) descEl.textContent = `Si ya instalaste la versión ${latestVersion} de ${project.name} externamente, confirmalo aquí para que OWS Store no siga mostrando la update como pendiente.`;
+            if (descEl) descEl.textContent = `Si ya instalaste la versi├│n ${latestVersion} de ${project.name} externamente, confirmalo aqu├¡ para que OWS Store no siga mostrando la update como pendiente.`;
             if (versionInput) versionInput.value = latestVersion || '';
             if (scanResult) { scanResult.style.display = 'none'; scanResult.textContent = ''; }
 
@@ -14101,7 +14171,7 @@
                 
                 let detectedVersion = null;
                 
-                // Método 1: Leer package.json directamente (más preciso)
+                // M├®todo 1: Leer package.json directamente (m├ís preciso)
                 if (window.owsUpdater?.readProjectPackageJson && projectPaths[slug]) {
                     try {
                         const packageData = await window.owsUpdater.readProjectPackageJson(projectPaths[slug]);
@@ -14111,7 +14181,7 @@
                     } catch (e) {}
                 }
                 
-                // Método 2: Usar resolveInstalledApp (fallback)
+                // M├®todo 2: Usar resolveInstalledApp (fallback)
                 if (!detectedVersion) {
                     const hints = getInstallHints(project);
                     const result = await Promise.race([
@@ -14128,18 +14198,18 @@
                     scanResult.style.background = 'rgba(40,217,138,0.08)';
                     scanResult.style.border = '1px solid rgba(40,217,138,0.2)';
                     scanResult.style.color = 'var(--green)';
-                    scanResult.textContent = `✓ Detectado en disco · v${detectedVersion}`;
+                    scanResult.textContent = `Ô£ô Detectado en disco ┬À v${detectedVersion}`;
                 } else {
                     scanResult.style.background = 'rgba(245,197,66,0.08)';
                     scanResult.style.border = '1px solid rgba(245,197,66,0.2)';
                     scanResult.style.color = 'var(--yellow)';
-                    scanResult.textContent = 'No detectado automáticamente. Podés confirmar manualmente igual.';
+                    scanResult.textContent = 'No detectado autom├íticamente. Pod├®s confirmar manualmente igual.';
                 }
             } catch (_) {
                 scanResult.style.background = 'rgba(245,197,66,0.08)';
                 scanResult.style.border = '1px solid rgba(245,197,66,0.2)';
                 scanResult.style.color = 'var(--yellow)';
-                scanResult.textContent = 'Verificación automática no disponible. Confirmá manualmente.';
+                scanResult.textContent = 'Verificaci├│n autom├ítica no disponible. Confirm├í manualmente.';
             }
         }
 
@@ -14150,7 +14220,7 @@
             const version = String(versionInput?.value || window._micLatestVersion || '').trim();
 
             if (!slug || !version) {
-                addNotification('Ingresá la versión instalada para confirmar.', 'warning');
+                addNotification('Ingres├í la versi├│n instalada para confirmar.', 'warning');
                 return;
             }
 
@@ -14177,7 +14247,7 @@
             window._micPlatform = null;
             window._micLatestVersion = null;
         }
-        // ── END MANUAL INSTALL CONFIRMATION ──────────────────────────────────────
+        // ÔöÇÔöÇ END MANUAL INSTALL CONFIRMATION ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
         function notifyProjectIncompatible(slug = '', platform = '') {
             const project = getProjectBySlug(slug);
@@ -14290,7 +14360,7 @@
             const tone = toneColors[item.tone] || toneColors.neutral;
             return `
                 <div class="notification-card" style="--tone-color:${tone};">
-                    <div class="notification-time">${formatDateTime(item.date)} · ${String(item.type || 'dato').toUpperCase()} · ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
+                    <div class="notification-time">${formatDateTime(item.date)} ┬À ${String(item.type || 'dato').toUpperCase()} ┬À ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
                     <div class="notification-text">${item.title}</div>
                     <div class="notification-time" style="margin-top:0.2rem;">${item.text}</div>
                 </div>
@@ -14402,7 +14472,7 @@
                         <div class="changelog-detail-version">${escHtml(item.title || 'Sin titulo')}</div>
                         ${langToggleHtml}
                     </div>
-                    <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} · ${String(item.type || 'changelog').toUpperCase()}</div>
+                    <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} ┬À ${String(item.type || 'changelog').toUpperCase()}</div>
                     <div class="changelog-detail-platforms">${platformChips}</div>
                 </div>
                 ${activeDesc ? `<div class="changelog-detail-desc">${escHtml(activeDesc)}</div>` : ''}
@@ -14595,7 +14665,7 @@
             renderExploreInsights();
         }
 
-        // ═══ IMPORT MODAL ═══
+        // ÔòÉÔòÉÔòÉ IMPORT MODAL ÔòÉÔòÉÔòÉ
         let _importMode = 'auto'; // 'auto' | 'manual'
         let _importResults = []; // [{ slug, name, icon, version, detected, skip }]
 
@@ -14624,14 +14694,14 @@
                     </p>
                     <div class="import-mode-grid">
                         <div class="import-mode-card selected" id="import-card-auto" onclick="selectImportMode('auto')">
-                            <div class="import-mode-icon">📦</div>
-                            <div class="import-mode-label" data-i18n="Automático">Automático</div>
-                            <div class="import-mode-desc" data-i18n="Carga todos los proyectos con su versión más reciente. Edita las versiones que ya tenés instaladas antes de confirmar.">Carga todos los proyectos con su versión más reciente. Edita las versiones que ya tenés instaladas antes de confirmar.</div>
+                            <div class="import-mode-icon">­ƒôª</div>
+                            <div class="import-mode-label" data-i18n="Autom├ítico">Autom├ítico</div>
+                            <div class="import-mode-desc" data-i18n="Carga todos los proyectos con su versi├│n m├ís reciente. Edita las versiones que ya ten├®s instaladas antes de confirmar.">Carga todos los proyectos con su versi├│n m├ís reciente. Edita las versiones que ya ten├®s instaladas antes de confirmar.</div>
                         </div>
                         <div class="import-mode-card" id="import-card-manual" onclick="selectImportMode('manual')">
-                            <div class="import-mode-icon">📂</div>
+                            <div class="import-mode-icon">­ƒôé</div>
                             <div class="import-mode-label" data-i18n="Manual">Manual</div>
-                            <div class="import-mode-desc" data-i18n="Indicás la ruta del instalador de cada proyecto. Podés ignorar los que no tenés.">Indicás la ruta del instalador de cada proyecto. Podés ignorar los que no tenés.</div>
+                            <div class="import-mode-desc" data-i18n="Indic├ís la ruta del instalador de cada proyecto. Pod├®s ignorar los que no ten├®s.">Indic├ís la ruta del instalador de cada proyecto. Pod├®s ignorar los que no ten├®s.</div>
                         </div>
                     </div>
                 `;
@@ -14655,8 +14725,8 @@
                 body.innerHTML = `
                     <p style="font-size:0.78rem;color:var(--ink-2);margin-bottom:0.75rem;">
                         ${_importMode === 'auto'
-                            ? `Se detectaron <strong style="color:var(--cyan)">${detected}</strong> proyecto(s) instalado(s). Revisá y confirmá.`
-                            : `Revisá las versiones detectadas. Podés editarlas antes de importar.`}
+                            ? `Se detectaron <strong style="color:var(--cyan)">${detected}</strong> proyecto(s) instalado(s). Revis├í y confirm├í.`
+                            : `Revis├í las versiones detectadas. Pod├®s editarlas antes de importar.`}
                     </p>
                     <div id="import-results-list">
                         ${_importResults.map((r, i) => `
@@ -14664,8 +14734,8 @@
                                 <img class="import-project-icon" src="${r.icon}" onerror="this.src=''" alt="">
                                 <span class="import-project-name">${escHtml(r.name)}</span>
                                 ${r.detected
-                                    ? `<input class="import-manual-input" type="text" value="${escHtml(r.version)}" id="import-ver-${i}" placeholder="version" title="Versión detectada">`
-                                    : `<input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="no detectado" title="Ingresá la versión manualmente">`}
+                                    ? `<input class="import-manual-input" type="text" value="${escHtml(r.version)}" id="import-ver-${i}" placeholder="version" title="Versi├│n detectada">`
+                                    : `<input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="no detectado" title="Ingres├í la versi├│n manualmente">`}
                                 <span class="import-project-status ${r.detected ? 'ok' : 'skip'}">${r.detected ? 'DETECTADO' : 'NO ENCONTRADO'}</span>
                                 <button type="button" title="${r.skip ? 'Incluir' : 'Ignorar'}" onclick="toggleImportSkip(${i})"
                                     style="background:none;border:none;cursor:pointer;color:var(--ink-2);font-size:0.9rem;padding:2px 4px;">
@@ -14683,14 +14753,14 @@
                 const projects = getImportableProjects();
                 body.innerHTML = `
                     <p style="font-size:0.78rem;color:var(--ink-2);margin-bottom:0.75rem;">
-                        Ingresá la versión instalada de cada proyecto. Dejá en blanco o presioná el ojo para ignorar los que no tenés.
+                        Ingres├í la versi├│n instalada de cada proyecto. Dej├í en blanco o presion├í el ojo para ignorar los que no ten├®s.
                     </p>
                     <div id="import-results-list">
                         ${projects.map((p, i) => `
                             <div class="import-project-row" id="import-row-${i}">
                                 <img class="import-project-icon" src="${getProjectIcon(p, 32)}" onerror="this.src=''" alt="">
                                 <span class="import-project-name">${escHtml(p.name)}</span>
-                                <input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="ej: 2026.4.1" title="Versión instalada">
+                                <input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="ej: 2026.4.1" title="Versi├│n instalada">
                                 <button type="button" title="Ignorar" onclick="toggleManualSkip(${i})" id="import-skip-${i}"
                                     style="background:none;border:none;cursor:pointer;color:var(--ink-2);font-size:0.9rem;padding:2px 4px;">
                                     <i class="fas fa-eye"></i>
@@ -14709,7 +14779,7 @@
                 body.innerHTML = `
                     <div style="text-align:center;padding:2rem 0;">
                         <i class="fas fa-check-circle" style="font-size:2.5rem;color:var(--green);margin-bottom:1rem;display:block;"></i>
-                        <p style="font-size:1rem;font-weight:700;color:var(--ink-0);" id="import-done-msg">Importación completada</p>
+                        <p style="font-size:1rem;font-weight:700;color:var(--ink-0);" id="import-done-msg">Importaci├│n completada</p>
                         <p style="font-size:0.78rem;color:var(--ink-2);margin-top:0.5rem;" id="import-done-sub"></p>
                     </div>
                 `;
@@ -14736,8 +14806,8 @@
                 renderImportStep('manual');
                 return;
             }
-            // Modo automático: NO usa IPC. Muestra proyectos con versión del servidor
-            // y versión instalada conocida (localStorage). El usuario confirma o edita.
+            // Modo autom├ítico: NO usa IPC. Muestra proyectos con versi├│n del servidor
+            // y versi├│n instalada conocida (localStorage). El usuario confirma o edita.
             renderImportStep('scanning');
             const projects = getImportableProjects();
             _importResults = [];
@@ -14810,7 +14880,7 @@
             });
             renderImportStep('done');
             document.getElementById('import-done-msg').textContent = `${count} proyecto(s) importado(s)`;
-            document.getElementById('import-done-sub').textContent = 'OWS Store ya conoce las versiones instaladas y no pedirá actualizaciones innecesarias.';
+            document.getElementById('import-done-sub').textContent = 'OWS Store ya conoce las versiones instaladas y no pedir├í actualizaciones innecesarias.';
             // Refresh library
             setTimeout(() => {
                 refreshInstallationStates().then(() => {
@@ -14836,7 +14906,7 @@
             });
             renderImportStep('done');
             document.getElementById('import-done-msg').textContent = `${count} proyecto(s) importado(s)`;
-            document.getElementById('import-done-sub').textContent = 'Las versiones fueron guardadas. OWS Store las usará para comparar con futuras actualizaciones.';
+            document.getElementById('import-done-sub').textContent = 'Las versiones fueron guardadas. OWS Store las usar├í para comparar con futuras actualizaciones.';
             setTimeout(() => {
                 refreshInstallationStates().then(() => {
                     scheduleSectionRender({ projects: true, library: true, immediate: true });
@@ -14852,7 +14922,7 @@
                 if (!arr.includes(slug)) { arr.push(slug); localStorage.setItem(PROJECT_LIBRARY_KEY, JSON.stringify(arr)); }
                 } catch (_) {}
         }
-        // ═══ END IMPORT MODAL ═══
+        // ÔòÉÔòÉÔòÉ END IMPORT MODAL ÔòÉÔòÉÔòÉ
 
         async function loadProjects(options = {}) {
             const onProgress = typeof options?.onProgress === 'function' ? options.onProgress : null;
@@ -16192,7 +16262,7 @@
                 return owsStoreWindowsReleaseCache;
             }
 
-            const res = await fetch(`${OWS_STORE_RELEASES_API_URL}?nocache=${now}`, {
+            const res = await fetch(`${OWS_STORE_RELEASES_API_URL}?nocache=${Date.now()}`, {
                 cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
@@ -16206,7 +16276,12 @@
                     const name = String(a?.name || '').toLowerCase();
                     let score = scoreWindowsAssetName(name);
                     if (name.includes('ows.store') || name.includes('ows store') || name.includes('nexus store')) score += 18;
-                    return { asset: a, version: extractVersionFromText(a.name), updatedAtMs: Date.parse(a.updated_at || '') || 0, score };
+                    return {
+                        asset: a,
+                        version: extractVersionFromText(a.name),
+                        updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                        score,
+                    };
                 })
                 .sort((x, y) => {
                     if (y.score !== x.score) return y.score - x.score;
@@ -16222,41 +16297,6 @@
             }
 
             const versionFromAsset = selected?.version || '';
-
-            // Read scheduled_release from the server so we can block the update offer
-            // until the configured available_at date (e.g. OWS STORE: GRAND REWORK).
-            let scheduledRelease = null;
-            try {
-                const srRes = await fetch(`${API_URL}/ows-store/projects?nocache=${now}`, { cache: 'no-store' });
-                if (srRes.ok) {
-                    const projects = await srRes.json();
-                    const owsProject = Array.isArray(projects)
-                        ? projects.find((p) => String(p.slug || '').toLowerCase() === 'ows-store')
-                        : null;
-                    const sr = owsProject?.metadata?.scheduled_release || owsProject?.scheduled_release || null;
-                    if (sr && sr.available_at && sr.version) scheduledRelease = sr;
-                }
-            } catch (_) { /* silent */ }
-
-            // If the latest GitHub release matches the scheduled version and the unlock
-            // date has not arrived yet, suppress the update offer entirely.
-            if (scheduledRelease && scheduledRelease.available_at && scheduledRelease.version) {
-                const srVersion = normalizeReleaseVersion(String(scheduledRelease.version));
-                const ghVersion = versionFromTag || versionFromAsset;
-                const srUnlockMs = new Date(scheduledRelease.available_at).getTime();
-                const srMatches = srVersion && ghVersion && compareVersionLike(ghVersion, srVersion) === 0;
-                if (srMatches && Number.isFinite(srUnlockMs) && now < srUnlockMs) {
-                    const blockedPayload = {
-                        version: '', tagVersion: '', assetVersion: '',
-                        downloadUrl: OWS_STORE_RELEASES_URL, sizeBytes: 0,
-                        publishedAt: null, releaseNotes: '', warning: '',
-                        scheduled_release: scheduledRelease, checkedAt: now,
-                    };
-                    owsStoreWindowsReleaseCache = blockedPayload;
-                    return blockedPayload;
-                }
-            }
-
             const payload = {
                 version: versionFromTag || versionFromAsset || '',
                 tagVersion: versionFromTag || '',
@@ -16266,7 +16306,6 @@
                 publishedAt: data.published_at || data.created_at || null,
                 releaseNotes: String(data.body || '').trim(),
                 warning: selected?.asset?.browser_download_url ? '' : 'No se encontro instalador Windows (.exe) en latest release.',
-                scheduled_release: scheduledRelease,
                 checkedAt: now,
             };
             owsStoreWindowsReleaseCache = payload;
@@ -16395,6 +16434,7 @@
                 clearStoreObsoleteGate({ platform: 'windows', source: 'windows-manual-check', reason: 'up-to-date' });
                 owsStoreWindowsManualUpdateUrl = '';
                 owsStoreWindowsManualVersion = '';
+                clearScheduledStoreUpdateNotice();
                 return { needsUpdate: false, latest, current };
             }
 
@@ -16414,6 +16454,7 @@
             owsStoreWindowsManualVersion = latestVersion;
             appUpdateAvailable = true;
             setStoreUpdateCheckState('available', `windows-manual-${latestVersion}`);
+            clearScheduledStoreUpdateNotice();
             appUpdateSizeBytes = Number(latest?.sizeBytes || 0);
             appUpdateEtaSeconds = null;
             syncUpdatesBadge();
@@ -16841,10 +16882,10 @@
             let text = String(input || '');
             if (!text) return '';
             const map = [
-                ['á', 'a'], ['é', 'e'], ['í', 'i'], ['ó', 'o'], ['ú', 'u'], ['ñ', 'n'],
-                ['Á', 'A'], ['É', 'E'], ['Í', 'I'], ['Ó', 'O'], ['Ú', 'U'], ['Ñ', 'N'],
-                ['—', '-'], ['–', '-'], ['"', '"'], ['"', '"'], ["'", "'"], ["'", "'"],
-                ['•', '-'], ['…', '...']
+                ['├í', 'a'], ['├®', 'e'], ['├¡', 'i'], ['├│', 'o'], ['├║', 'u'], ['├▒', 'n'],
+                ['├ü', 'A'], ['├ë', 'E'], ['├ì', 'I'], ['├ô', 'O'], ['├Ü', 'U'], ['├æ', 'N'],
+                ['ÔÇö', '-'], ['ÔÇô', '-'], ['"', '"'], ['"', '"'], ["'", "'"], ["'", "'"],
+                ['ÔÇó', '-'], ['ÔÇª', '...']
             ];
             for (const [bad, good] of map) {
                 text = text.split(bad).join(good);
@@ -16982,7 +17023,7 @@
 
         function getEcoxionIconSource(project, size = 64) {
             const fallback = `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
-            // Use .ico directly — PNG was horizontal and looked unprofessional
+            // Use .ico directly ÔÇö PNG was horizontal and looked unprofessional
             return ECOXION_LOCAL_ICON || fallback;
         }
 
@@ -17182,7 +17223,7 @@
             const restrictionState = getProjectStoreRestrictionState(project);
             const isRework = restrictionState === 'rework';
             if (projectNameEl) projectNameEl.textContent = projectName;
-            if (projectStateEl) projectStateEl.textContent = isRework ? `Pleno Rework · ${reason}` : reason;
+            if (projectStateEl) projectStateEl.textContent = isRework ? `Pleno Rework ┬À ${reason}` : reason;
             if (textEl) textEl.textContent = `${projectName} ya no tiene soporte en OWS Store. Por seguridad, las versiones anteriores se bloquean y no se permite instalar, actualizar ni abrir hasta que vuelva a estado disponible.`;
             if (noteEl) noteEl.textContent = isRework
                 ? 'Motivo detectado: pleno rework. OWS Store volvera a habilitar la distribucion cuando cierre este proceso.'
@@ -17334,7 +17375,7 @@
                 wildWeapon.installer_size = Number(wildWeapon.installer_size || 0);
 
                     
-                    // Verificar si la fecha de lanzamiento ya llegó
+                    // Verificar si la fecha de lanzamiento ya lleg├│
                     const releaseDate = wildWeapon.release_date ? Date.parse(wildWeapon.release_date) : 0;
                     const isReleaseReady = !releaseDate || releaseDate <= Date.now();
                     
@@ -17362,7 +17403,7 @@
                     
 
                     wildWeapon.pending_release = !wildWeapon.installer_available;
-                    // scheduled_release comes from API metadata — no hardcoding needed
+                    // scheduled_release comes from API metadata ÔÇö no hardcoding needed
                     if (latest?.warning) {
                         wildWeapon.pending_release = true;
                         wildWeapon.release_warning = latest.warning;
@@ -17818,7 +17859,7 @@
                 try {
                     const latest = await fetchLatestOceanCinemasRelease();
                     
-                    // Verificar si la fecha de lanzamiento ya llegó
+                    // Verificar si la fecha de lanzamiento ya lleg├│
                     const releaseDate = oceanCinemas.release_date ? Date.parse(oceanCinemas.release_date) : 0;
                     const isReleaseReady = !releaseDate || releaseDate <= Date.now();
                     
@@ -18587,7 +18628,7 @@
             return localStorage.getItem(`installed_${slug}`) || '';
         }
         
-        // Detección automática de versiones instaladas desde archivos del sistema
+        // Detecci├│n autom├ítica de versiones instaladas desde archivos del sistema
         async function autoDetectInstalledVersions() {
             if (!window.owsUpdater?.readProjectPackageJson) return;
             
@@ -19318,7 +19359,7 @@
                 'stable': 'Estable'
             };
             const projectPhase = PHASE_MAP[phaseRaw] || 'Estable';
-            const detailNewTag = hasNewBadge(p) ? ' · NUEVO!' : '';
+            const detailNewTag = hasNewBadge(p) ? ' ┬À NUEVO!' : '';
             const displayName = normalizeUiText(String(p.name || 'Proyecto'));
             const displayShort = normalizeUiText(String(getProjectShort(p) || ''));
             const displayDesc = normalizeUiText(String(p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios."));
@@ -19329,12 +19370,12 @@
                 const launchDate = formatDateTime(p.release_date);
                 document.getElementById('m-desc').innerText += `\n\nLanzamiento Windows programado: ${launchDate}.`;
             
-            // Mostrar si la release está vencida
+            // Mostrar si la release est├í vencida
             if (p.release_overdue && p.overdue_days > 0) {
                 const overdueText = p.overdue_days === 1 
                     ? 'Lanzamiento vencido hace 1 dia. Instalador aun no publicado.'
                     : `Lanzamiento vencido hace ${p.overdue_days} dias. Instalador aun no publicado.`;
-                document.getElementById('m-desc').innerText += `\n\n⚠️ ${overdueText}`;
+                document.getElementById('m-desc').innerText += `\n\nÔÜá´©Å ${overdueText}`;
             }
 
             }
@@ -19381,7 +19422,7 @@
             const releaseDate = selectedTarget?.publishedAt || getProjectLastUpdateAt(p) || '';
             const lastUpdateEl = document.getElementById('m-last-update');
             if (lastUpdateEl) {
-                lastUpdateEl.innerText = `v${modalVersion} · ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
+                lastUpdateEl.innerText = `v${modalVersion} ┬À ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
             }
             // Scheduled release: show upcoming version info in modal
             const scheduledRel = p.scheduled_release && typeof p.scheduled_release === 'object' ? p.scheduled_release : null;
@@ -19396,7 +19437,7 @@
                             timeZone: 'America/Montevideo'
                         });
                         scheduledRelEl.style.display = 'flex';
-                        scheduledRelEl.innerHTML = `<i class="fas fa-calendar-check"></i><span>v${escHtml(scheduledRel.version)} disponible el ${relFmt}${scheduledRel.label ? ' · ' + escHtml(scheduledRel.label) : ''}</span>`;
+                        scheduledRelEl.innerHTML = `<i class="fas fa-calendar-check"></i><span>v${escHtml(scheduledRel.version)} disponible el ${relFmt}${scheduledRel.label ? ' ┬À ' + escHtml(scheduledRel.label) : ''}</span>`;
                     } else {
                         scheduledRelEl.style.display = 'none';
                     }
@@ -19433,7 +19474,7 @@
                         const lockLabel = trailerCfg.lockedUntil ? formatDateTime(trailerCfg.lockedUntil) : 'fecha por definir';
                         if (trailerLockText) trailerLockText.textContent = `Trailer bloqueado hasta ${lockLabel}.`;
                         trailerState.textContent = 'Bloqueado';
-                        trailerMeta.textContent = `${trailerCfg.title} · Disponible desde ${lockLabel}`;
+                        trailerMeta.textContent = `${trailerCfg.title} ┬À Disponible desde ${lockLabel}`;
                     } else {
                         trailerVideo.controls = true;
                         trailerLock.style.display = 'none';
@@ -20819,8 +20860,7 @@
                 const dot = document.getElementById('update-indicator-dot');
                 const closeBtn = document.getElementById('btn-close-update-banner');
                 const availableVersion = String(info?.version || '').trim();
-
-                // Scheduled-release gate: if main.js blocked the download, show notice instead
+                // Scheduled-release gate: show notice if version is not yet available
                 if (info && info._scheduledGate) {
                     const gate = info._scheduledGate;
                     const unlockAt = gate.available_at ? new Date(gate.available_at) : null;
@@ -20859,6 +20899,7 @@
                 if (dot) dot.style.display = 'block';
                 appUpdateAvailable = true;
                 setStoreUpdateCheckState('available', availableVersion || 'windows-update-available');
+                clearScheduledStoreUpdateNotice();
                 syncUpdatesBadge();
                 if (status) status.textContent = 'Update detectada: v' + (availableVersion || 'nueva') + ' (descarga automatica)';
                 if (!isExternalInstallActive()) {
@@ -21010,6 +21051,7 @@
                 if (dot) dot.style.display = 'none';
                 appUpdateAvailable = false;
                 setStoreUpdateCheckState('up_to_date', 'windows-no-update');
+                clearScheduledStoreUpdateNotice();
                 syncUpdatesBadge();
                 if (status) status.textContent = 'Sin actualizaciones pendientes';
                 if (!isExternalInstallActive()) {
@@ -21351,7 +21393,7 @@
             setTimeout(() => buildRecommendations(), 2000);
         }
 
-        // ── Search dropdown ──
+        // ÔöÇÔöÇ Search dropdown ÔöÇÔöÇ
         let searchDropdownVisible = false;
         let searchHideTimer = null;
         let recommendedProjects = [];
@@ -21439,7 +21481,7 @@
             return `<span class="search-freq-tag ${f.cls}">${f.label}</span>`;
         }
 
-        // ── Recommendation engine ──
+        // ÔöÇÔöÇ Recommendation engine ÔöÇÔöÇ
         async function buildRecommendations() {
             if (!allProjects.length) return;
             const installed = allProjects.filter(p => {
@@ -21532,7 +21574,7 @@
             };
 
             try {
-                // ── Floret: list of releases ──────────────────────────────
+                // ÔöÇÔöÇ Floret: list of releases ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
                 if (LIST_URLS[slug]) {
                     const res = await fetch(`${LIST_URLS[slug]}&nocache=${Date.now()}`,
                         { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } });
@@ -21556,20 +21598,20 @@
                     return 'low';
                 }
 
-                // ── All other tracked projects: /releases/latest ──────────
+                // ÔöÇÔöÇ All other tracked projects: /releases/latest ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
                 if (LATEST_URLS[slug]) {
                     const res = await fetch(`${LATEST_URLS[slug]}?nocache=${Date.now()}`,
                         { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } });
                     if (!res.ok) return 'single';
                     const r = await res.json();
-                    // published_at is null in this proxy — use tag_name
+                    // published_at is null in this proxy ÔÇö use tag_name
                     const ts = Date.parse(r.published_at || r.created_at || '');
                     const ms = (ts && !isNaN(ts)) ? ts : tagToMs(r.tag_name);
                     const result = grade(ms);
                     return result;
                 }
 
-                // ── metadata.repo fallback ────────────────────────────────
+                // ÔöÇÔöÇ metadata.repo fallback ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
                 const repo = String(project?.metadata?.repo || '').replace(/^OceanandWild\//i,'').trim();
                 if (repo) {
                     const res = await fetch(`${GITHUB_RELEASES_PROXY_BASE}/${repo}/releases/latest?nocache=${Date.now()}`,
@@ -22414,15 +22456,15 @@
             stopBootCanvasAnimation();
         };
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // Sistema de traducción con diccionario estático
-        // ═══════════════════════════════════════════════════════════════════════
+        // ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+        // Sistema de traducci├│n con diccionario est├ítico
+        // ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
         
         let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
         let isTranslating = false;
         
         const translations = {
-            // Navegación principal
+            // Navegaci├│n principal
             'Explorar': 'Explore',
             'Biblioteca': 'Library',
             'Actualizaciones': 'Updates',
@@ -22483,6 +22525,11 @@
             'OWS Store Android': 'OWS Store Android',
             'Buscando build Android...': 'Searching Android build...',
             'Descargar Android': 'Download Android',
+            'OWS Store Update': 'OWS Store Update',
+            'Programado': 'Scheduled',
+            'Nueva version v{0} programada para {1}': 'New version v{0} scheduled for {1}',
+            'Sin updates programados': 'No scheduled updates',
+            'Descarga automatica el': 'Auto-download on',
             'Control de Updates': 'Update Control',
             'Actualizaciones de Proyectos': 'Project Updates',
             'Estado de tus apps instaladas, pendientes y multiplataforma.': 'Status of your installed, pending and cross-platform apps.',
@@ -22501,7 +22548,7 @@
             // Ecosystem Versions
             'Ecosystem Versions': 'Ecosystem Versions',
             'Control de versiones y actividad de proyectos': 'Version Control and Project Activity',
-            'Resumen completo de versiones por proyecto, estado de actualización y comparación rápida.': 'Complete version summary by project, update status and quick comparison.',
+            'Resumen completo de versiones por proyecto, estado de actualizaci├│n y comparaci├│n r├ípida.': 'Complete version summary by project, update status and quick comparison.',
             'PROXIMAMENTE': 'COMING SOON',
             'SORT BY': 'SORT BY',
             'ORDER': 'ORDER',
@@ -22510,7 +22557,7 @@
             'Ultima actualizacion': 'Last Update',
             'Descendente': 'Descending',
             'Ascendente': 'Ascending',
-            'Selecciona dos proyectos para comparar versiones y ritmo de actualización.': 'Select two projects to compare versions and update pace.',
+            'Selecciona dos proyectos para comparar versiones y ritmo de actualizaci├│n.': 'Select two projects to compare versions and update pace.',
             'PROYECTO': 'PROJECT',
             'VERSION': 'VERSION',
             'FRECUENCIA': 'FREQUENCY',
@@ -22531,7 +22578,7 @@
             'IDIOMA': 'LANGUAGE',
             'Idioma': 'Language',
             'English': 'English',
-            'Español': 'Spanish',
+            'Espa├▒ol': 'Spanish',
             'Cambia el idioma de la interfaz de OWS Store. Los cambios se aplican inmediatamente.': 'Change the OWS Store interface language. Changes apply immediately.',
             'MODO DE ARRANQUE SILENCIOSO': 'SILENT STARTUP MODE',
             'Modo de arranque silencioso': 'Silent Startup Mode',
@@ -22553,7 +22600,7 @@
             'Firma local de datos': 'Local Data Signature',
             'Forzar actualizacion ahora': 'Force Update Now',
             'Ejecutar revision silenciosa': 'Run Silent Check',
-            'Android · Apariencia': 'Android · Appearance',
+            'Android ┬À Apariencia': 'Android ┬À Appearance',
             'Sin detectar': 'Not Detected',
             'Ajuste exclusivo para OWS Store Android. Mejora contraste y legibilidad para evitar texto invisible en claro/oscuro.': 'Exclusive setting for OWS Store Android. Improves contrast and readability to avoid invisible text in light/dark.',
             'Sistema': 'System',
@@ -22603,14 +22650,14 @@
             'Instalador programado para lanzamiento futuro.': 'Installer scheduled for future release.',
 
             'Verificacion en 2 pasos': '2-Step Verification',
-            'Para continuar, abre Ocean Pay, ve a Configuración > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.': 'To continue, open Ocean Pay, go to Settings > Security, copy the code requested by OWS Store and paste it here.',
-            'Código de verificación': 'Verification Code',
+            'Para continuar, abre Ocean Pay, ve a Configuraci├│n > Seguridad, copia el c├│digo solicitado por OWS Store y p├®galo aqu├¡.': 'To continue, open Ocean Pay, go to Settings > Security, copy the code requested by OWS Store and paste it here.',
+            'C├│digo de verificaci├│n': 'Verification Code',
             'Verificar y entrar': 'Verify and Enter',
-            'Inteligencia oceánica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
+            'Inteligencia oce├ínica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
             'Seguridad refractiva': 'Refractive Security',
             'Capas cifradas inspiradas en las profundidades.': 'Encrypted layers inspired by the depths.',
             'Interfaz fluida': 'Fluid Interface',
-            'Navega el ecosistema desde un único hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
+            'Navega el ecosistema desde un ├║nico hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
             
             // Status
             'Descargando': 'Downloading',
@@ -22668,7 +22715,7 @@
             'Reciente': 'Recent',
             'historial corto': 'short history',
             'Reciente (historial corto)': 'Recent (short history)',
-            'Catálogo:': 'Catalog:',
+            'Cat├ílogo:': 'Catalog:',
             'Catalogo:': 'Catalog:',
             'Sincronizando catalogo de proyectos': 'Syncing project catalog',
             'Catalogo de proyectos sincronizado.': 'Project catalog synced.',
@@ -22682,56 +22729,56 @@
             'Para esta plataforma': 'For This Platform',
             'En otra plataforma': 'On Another Platform',
             'Sin accion urgente': 'No Urgent Action',
-            'al día': 'up to date',
+            'al d├¡a': 'up to date',
             'instalada': 'installed',
-            'Actualización detectada para Windows.': 'Update detected for Windows.',
-            'Actualización detectada para Windows': 'Update detected for Windows',
-            'esta al día en Windows': 'is up to date on Windows',
-            'esta al día en Windows.': 'is up to date on Windows.',
+            'Actualizaci├│n detectada para Windows.': 'Update detected for Windows.',
+            'Actualizaci├│n detectada para Windows': 'Update detected for Windows',
+            'esta al d├¡a en Windows': 'is up to date on Windows',
+            'esta al d├¡a en Windows.': 'is up to date on Windows.',
             'esta al dia en Windows': 'is up to date on Windows',
             'esta al dia en Windows.': 'is up to date on Windows.',
             'esta al dia en': 'is up to date on',
-            'esta al día en': 'is up to date on',
+            'esta al d├¡a en': 'is up to date on',
             'Al dia': 'Up to date',
             'AL DIA': 'UP TO DATE',
             'al dia': 'up to date',
-            'Cada 15s (último: hace 1s)': 'Every 15s (last: 1s ago)',
-            'Cada 15s (último: hace': 'Every 15s (last:',
-            'último: hace': 'last:',
+            'Cada 15s (├║ltimo: hace 1s)': 'Every 15s (last: 1s ago)',
+            'Cada 15s (├║ltimo: hace': 'Every 15s (last:',
+            '├║ltimo: hace': 'last:',
             'Iniciando': 'Starting',
             'Iniciando...': 'Starting...',
             'No checks': 'No checks',
             'ultima:': 'latest:',
-            'última:': 'latest:',
-            'Si ya instalaste la versión': 'If you already installed version',
-            'externamente, confirmalo aquí para que OWS Store no siga mostrando la update como pendiente.': 'externally, confirm it here so OWS Store stops showing the update as pending.',
-            'Versión instalada (confirmar o editar)': 'Installed version (confirm or edit)',
-            'VERSIÓN INSTALADA (CONFIRMAR O EDITAR)': 'INSTALLED VERSION (CONFIRM OR EDIT)',
+            '├║ltima:': 'latest:',
+            'Si ya instalaste la versi├│n': 'If you already installed version',
+            'externamente, confirmalo aqu├¡ para que OWS Store no siga mostrando la update como pendiente.': 'externally, confirm it here so OWS Store stops showing the update as pending.',
+            'Versi├│n instalada (confirmar o editar)': 'Installed version (confirm or edit)',
+            'VERSI├ôN INSTALADA (CONFIRMAR O EDITAR)': 'INSTALLED VERSION (CONFIRM OR EDIT)',
             'Sin eventos vinculados a este proyecto.': 'No events linked to this project.',
             'Sin changelogs vinculados a este proyecto.': 'No changelogs linked to this project.',
             'Disponible': 'Available',
-            'Tamaño': 'Size',
+            'Tama├▒o': 'Size',
             'INSTALAR PROYECTO': 'INSTALL PROJECT',
-            'Ingresá la versión instalada para confirmar.': 'Enter the installed version to confirm.',
-            'Ingresá la versión instalada de cada proyecto. Dejá en blanco o presioná el ojo para ignorar los que no tenés.': 'Enter the installed version of each project. Leave blank or press the eye to ignore the ones you do not have.',
-            'Versión instalada': 'Installed version',
-            'Error de actualización:': 'Update error:',
+            'Ingres├í la versi├│n instalada para confirmar.': 'Enter the installed version to confirm.',
+            'Ingres├í la versi├│n instalada de cada proyecto. Dej├í en blanco o presion├í el ojo para ignorar los que no ten├®s.': 'Enter the installed version of each project. Leave blank or press the eye to ignore the ones you do not have.',
+            'Versi├│n instalada': 'Installed version',
+            'Error de actualizaci├│n:': 'Update error:',
             'Error de actualizacion:': 'Update error:',
-            'Actualización disponible para': 'Update available for',
+            'Actualizaci├│n disponible para': 'Update available for',
             'Actualizacion disponible para': 'Update available for',
             'Import installations': 'Import installations',
             'Importa proyectos que ya instalaste externamente para que OWS Store reconozca su version y no te pida actualizarlos innecesariamente.': 'Import projects you already installed externally so OWS Store recognizes their version and does not ask you to update them unnecessarily.',
-            'Automático': 'Automatic',
+            'Autom├ítico': 'Automatic',
             'Manual': 'Manual',
-            'Indicás la ruta del instalador de cada proyecto.': 'Specify the installer path for each project.',
-            'Indicás la ruta del instalador de cada proyecto. Podés ignorar los que no tenés.': 'Specify the installer path for each project. You can skip the ones you do not have.',
-            'Podés ignorar los que no tenés.': 'You can skip the ones you do not have.',
-            'Carga todos los proyectos con su versión más reciente. Edita las versiones que ya tenés instaladas antes de confirmar.': 'Load all projects with their latest version. Edit the versions you already have installed before confirming.',
+            'Indic├ís la ruta del instalador de cada proyecto.': 'Specify the installer path for each project.',
+            'Indic├ís la ruta del instalador de cada proyecto. Pod├®s ignorar los que no ten├®s.': 'Specify the installer path for each project. You can skip the ones you do not have.',
+            'Pod├®s ignorar los que no ten├®s.': 'You can skip the ones you do not have.',
+            'Carga todos los proyectos con su versi├│n m├ís reciente. Edita las versiones que ya ten├®s instaladas antes de confirmar.': 'Load all projects with their latest version. Edit the versions you already have installed before confirming.',
             'No Active Downloads': 'No Active Downloads',
             'When you start a download or update, it will appear here.': 'When you start a download or update, it will appear here.',
             'Sin actualizaciones pendientes': 'No pending updates',
             'Cada 15s': 'Every 15s',
-            'último: hace': 'last: ago',
+            '├║ltimo: hace': 'last: ago',
             'Instalador abierto para': 'Installer opened for',
             'less than 5s': 'less than 5s',
             'Unresolved tag': 'Unresolved tag',
@@ -22748,12 +22795,12 @@
             'Con update': 'With update',
             'Actualizar Windows': 'Update Windows',
             'Already Installed': 'Already Installed',
-            'Actualización detectada para Windows': 'Update detected for Windows',
-            'Actualización detectada para Windows.': 'Update detected for Windows.',
-            'Catálogo:': 'Catalog:',
+            'Actualizaci├│n detectada para Windows': 'Update detected for Windows',
+            'Actualizaci├│n detectada para Windows.': 'Update detected for Windows.',
+            'Cat├ílogo:': 'Catalog:',
             'Instalada:': 'Installed:',
             'No instalada en este dispositivo': 'Not installed on this device',
-            'última:': 'latest:',
+            '├║ltima:': 'latest:',
             'ultima:': 'latest:',
             'con update': 'with update',
             'visibles': 'visible',
@@ -22763,11 +22810,11 @@
             'Recargar e instalar': 'Reload and install',
             'para aplicar la nueva version': 'to apply the new version',
             'Descarga completa. Presiona "Recargar e instalar" para aplicar la nueva version.': 'Download complete. Press "Reload and install" to apply the new version.',
-            'Actualización disponible': 'Update available',
-            'Versión': 'Version',
+            'Actualizaci├│n disponible': 'Update available',
+            'Versi├│n': 'Version',
             'detectada': 'detected',
-            'Iniciando descarga automática': 'Starting automatic download',
-            'Iniciando descarga automática...': 'Starting automatic download...',
+            'Iniciando descarga autom├ítica': 'Starting automatic download',
+            'Iniciando descarga autom├ítica...': 'Starting automatic download...',
             'Buscando updates': 'Checking for updates',
             'Buscando updates Android': 'Checking for Android updates',
             'Comprobando nuevas versiones de OWS Store...': 'Checking for new OWS Store versions...',
@@ -22776,8 +22823,8 @@
             'Select a version in the left panel to view its details': 'Select a version in the left panel to view its details',
             'Fecha desconocida': 'Unknown date',
             'CHANGELOG': 'CHANGELOG',
-            'Versión de Windows disponible para instalar.': 'Windows version available to install.',
-            'Versión de Windows disponible para instalar': 'Windows version available to install',
+            'Versi├│n de Windows disponible para instalar.': 'Windows version available to install.',
+            'Versi├│n de Windows disponible para instalar': 'Windows version available to install',
             'Cobertura de guard de dispon': 'Guard coverage available',
             'dispon': 'available',
             'changelog': 'changelog',
@@ -22793,7 +22840,7 @@
             'Intentar de nuevo': 'Try again',
             'Reintentar': 'Retry',
             
-            // Tamaños y unidades
+            // Tama├▒os y unidades
             'bytes': 'bytes',
             'KB': 'KB',
             'MB': 'MB',
@@ -22811,8 +22858,8 @@
             'semanas': 'weeks',
             'mes': 'month',
             'meses': 'months',
-            'año': 'year',
-            'años': 'years',
+            'a├▒o': 'year',
+            'a├▒os': 'years',
             
             // Misc
             'Traduciendo...': 'Translating...',
@@ -22828,7 +22875,7 @@
             'Selector de layout': 'Layout Selector',
             'Buscar proyectos, juegos, herramientas...': 'Search projects, games, tools...',
             
-            // Más detalles de proyectos
+            // M├ís detalles de proyectos
             'Descripcion': 'Description',
             'Caracteristicas': 'Features',
             'Requisitos del sistema': 'System Requirements',
@@ -22838,7 +22885,7 @@
             'Editor': 'Publisher',
             'Fecha de lanzamiento': 'Release Date',
             'Ultima actualizacion': 'Last Update',
-            'Tamaño': 'Size',
+            'Tama├▒o': 'Size',
             'Version': 'Version',
             'Idiomas': 'Languages',
             'Genero': 'Genre',
@@ -22873,7 +22920,7 @@
             'Ordenar por': 'Sort by',
             'Nombre': 'Name',
             'Fecha': 'Date',
-            'Tamaño': 'Size',
+            'Tama├▒o': 'Size',
             'Tipo': 'Type',
             'Estado': 'Status',
             'Ascendente': 'Ascending',
@@ -22904,18 +22951,18 @@
             // Login y registro
             'Recordar datos': 'Remember Me',
             'Entrar a OWS Store': 'Enter OWS Store',
-            '¿No tienes una cuenta?': "Don't have an account?",
-            'Regístrate': 'Sign Up',
-            'Política de privacidad': 'Privacy Policy',
-            'Términos del servicio': 'Terms of Service',
+            '┬┐No tienes una cuenta?': "Don't have an account?",
+            'Reg├¡strate': 'Sign Up',
+            'Pol├¡tica de privacidad': 'Privacy Policy',
+            'T├®rminos del servicio': 'Terms of Service',
             'Ajustes de cookies': 'Cookie Settings',
             'Usuario': 'Username',
-            'Contraseña': 'Password',
-            'Correo electrónico': 'Email',
+            'Contrase├▒a': 'Password',
+            'Correo electr├│nico': 'Email',
             'Iniciar sesion': 'Sign In',
             'Cerrar sesion': 'Sign Out',
-            'Olvidaste tu contraseña?': 'Forgot your password?',
-            'Recuperar contraseña': 'Recover Password',
+            'Olvidaste tu contrase├▒a?': 'Forgot your password?',
+            'Recuperar contrase├▒a': 'Recover Password',
             'Crear cuenta': 'Create Account',
             'Ya tienes cuenta?': 'Already have an account?',
             
@@ -22966,7 +23013,7 @@
             'Mas tarde': 'Later',
             'Recordarme despues': 'Remind Me Later',
             
-            // News y artículos
+            // News y art├¡culos
             'Noticia': 'News',
             'Noticias': 'News',
             'Articulo': 'Article',
@@ -23027,7 +23074,7 @@
             'En linea': 'Online',
             'Fuera de linea': 'Offline',
             
-            // FAB y accesos rápidos
+            // FAB y accesos r├ípidos
             'Ver descargas activas': 'View Active Downloads',
             'Abrir menu': 'Open Menu',
             'Cerrar menu': 'Close Menu',
@@ -23040,7 +23087,7 @@
             'Sol': 'Sun',
             'Dispositivo': 'Device',
             
-            // Más textos de settings
+            // M├ís textos de settings
             'Preferencias': 'Preferences',
             'Opciones': 'Options',
             'Personalizar': 'Customize',
@@ -23188,7 +23235,7 @@
             'Recargar pagina': 'Reload Page',
             'Contactar administrador': 'Contact Administrator',
             
-            // Confirmaciones y diálogos
+            // Confirmaciones y di├ílogos
             'Estas seguro?': 'Are You Sure?',
             'Esta accion no se puede deshacer': 'This Action Cannot Be Undone',
             'Confirmar': 'Confirm',
@@ -23211,7 +23258,7 @@
             'Mover seleccionados': 'Move Selected',
             'Copiar seleccionados': 'Copy Selected',
             
-            // Búsqueda y filtros avanzados
+            // B├║squeda y filtros avanzados
             'Buscar...': 'Search...',
             'Buscar en': 'Search In',
             'Resultados': 'Results',
@@ -23247,7 +23294,7 @@
             'Por favor espera': 'Please Wait',
             'Esto puede tardar unos momentos': 'This May Take a Few Moments',
             
-            // Éxito y completado
+            // ├ëxito y completado
             'Exito': 'Success',
             'Completado exitosamente': 'Completed Successfully',
             'Operacion exitosa': 'Operation Successful',
@@ -23257,7 +23304,7 @@
             'Perfecto': 'Perfect',
             'Genial': 'Great',
             
-            // Vacío y sin contenido
+            // Vac├¡o y sin contenido
             'Vacio': 'Empty',
             'Sin contenido': 'No Content',
             'Nada que mostrar': 'Nothing to Show',
@@ -23288,32 +23335,32 @@
             'Aplicando cambios en': 'Applying Changes in',
             'Actualizar ahora': 'Update Now',
             
-            // Textos de Ocean Pay específicos
+            // Textos de Ocean Pay espec├¡ficos
             'Ocean Pay: identidad y wallet verificadas.': 'Ocean Pay: identity and wallet verified.',
             
-            // Más textos de boot
+            // M├ís textos de boot
             'Cada 15s': 'Every 15s',
             'Cada': 'Every',
             'iniciando...': 'starting...',
             'Revision': 'Review',
             'revision': 'review',
             
-            // Estados específicos de download
+            // Estados espec├¡ficos de download
             'Idle': 'Idle',
             'waiting': 'waiting',
             
-            // Textos con paréntesis y detalles
+            // Textos con par├®ntesis y detalles
             '(iniciando...)': '(starting...)',
             'Cada 15s (iniciando...)': 'Every 15s (starting...)',
             
-            // Más textos de versiones
+            // M├ís textos de versiones
             'v1.0.0': 'v1.0.0',
             'Sin datos': 'No Data',
             
             // Textos de hero y stats
             'ECOSISTEMA MULTIPROYECTO': 'MULTI-PROJECT ECOSYSTEM',
             
-            // Más placeholders y aria-labels
+            // M├ís placeholders y aria-labels
             'Recordar datos': 'Remember Data',
             
             // Textos de news hub
@@ -23322,14 +23369,14 @@
             'Changelog': 'Changelog',
             'Actualizaciones': 'Updates',
             
-            // Más textos de modal
+            // M├ís textos de modal
             'icon': 'icon',
             'alt': 'alt',
             
             // Textos de controles
             'Selector de layout': 'Layout Selector',
             
-            // Más estados de conexión
+            // M├ís estados de conexi├│n
             'Conectando con servidor': 'Connecting to Server',
             'Conectando con': 'Connecting to',
             'con el servidor': 'to the server',
@@ -23342,7 +23389,7 @@
             'Validando': 'Validating',
             'validando': 'validating',
             
-            // Últimos textos específicos
+            // ├Ültimos textos espec├¡ficos
             'OWS': 'OWS',
             'Ocean and Wild Studios': 'Ocean and Wild Studios',
             'OWS Studio Hub': 'OWS Studio Hub',
@@ -23355,7 +23402,7 @@
             'Muy alta': 'Very High',
             'Muy baja': 'Very Low',
             
-            // Más textos de plataforma
+            // M├ís textos de plataforma
             'WIN': 'WIN',
             'WINDOWS': 'WINDOWS',
             'ANDROID': 'ANDROID',
@@ -23364,14 +23411,14 @@
             'NSIS': 'NSIS',
             'Portable': 'Portable',
             
-            // Textos de tamaño
+            // Textos de tama├▒o
             'Ligero': 'Light',
             'Pesado': 'Heavy',
             'Grande': 'Large',
-            'Pequeño': 'Small',
+            'Peque├▒o': 'Small',
             'Mediano': 'Medium',
             
-            // Más textos de tiempo
+            // M├ís textos de tiempo
             'Rapido': 'Fast',
             'Lento': 'Slow',
             'Instantaneo': 'Instant',
@@ -23384,7 +23431,7 @@
             'Malo': 'Bad',
             'Optimo': 'Optimal',
             
-            // Más textos de acciones
+            // M├ís textos de acciones
             'Duplicar': 'Duplicate',
             'Clonar': 'Clone',
             'Exportar': 'Export',
@@ -23402,7 +23449,7 @@
             'Publico': 'Public',
             'Privado': 'Private',
             
-            // Últimos textos misceláneos
+            // ├Ültimos textos miscel├íneos
             'Opcional': 'Optional',
             'Requerido': 'Required',
             'Obligatorio': 'Mandatory',
@@ -23412,7 +23459,7 @@
             'Automatico': 'Automatic',
             'Manual': 'Manual',
             
-            // Textos de navegación
+            // Textos de navegaci├│n
             'Inicio': 'Home',
             'Principal': 'Main',
             'Atras': 'Back',
@@ -23422,13 +23469,13 @@
             'Izquierda': 'Left',
             'Derecha': 'Right',
             
-            // Últimos textos de UI
+            // ├Ültimos textos de UI
             'Minimizar': 'Minimize',
             'Maximizar': 'Maximize',
             'Restaurar': 'Restore',
             'Pantalla': 'Screen',
             'Ventana': 'Window',
-            'Pestaña': 'Tab',
+            'Pesta├▒a': 'Tab',
             'Panel': 'Panel',
             'Barra': 'Bar',
             'Menu': 'Menu',
@@ -23490,7 +23537,7 @@
             'Precargando assets visuales': 'Preloading visual assets',
             'Renderizando interfaz': 'Rendering interface',
             
-            // Más textos de loading
+            // M├ís textos de loading
             'Sincronizando': 'Syncing',
             'Cargando': 'Loading',
             'Precargando': 'Preloading',
@@ -23500,7 +23547,7 @@
             'visuales': 'visual',
             'interfaz': 'interface',
             
-            // Palabras sin puntuación
+            // Palabras sin puntuaci├│n
             'juegos': 'games',
             'inesperadas': 'unexpected',
             'y': 'and',
@@ -23512,7 +23559,7 @@
             // Login
             'Bienvenido de nuevo': 'Welcome Back',
             'Ingresa tus credenciales para acceder.': 'Enter your credentials to access.',
-            'Olvidé mi clave': 'Forgot My Password',
+            'Olvid├® mi clave': 'Forgot My Password',
             'Tu nombre de usuario': 'Your Username',
             'Tu contrasena': 'Your Password',
             
@@ -23520,14 +23567,14 @@
             'NatBee se lanza el 17 de Abril': 'NatBee launches on April 17',
             'se lanza el': 'launches on',
             
-            // Boot scenes específicas
+            // Boot scenes espec├¡ficas
             'AWQG: sincronizando build Windows y APK.': 'AWQG: syncing Windows build and APK.',
             'Ecoxion: renderizando horizonte cian activo.': 'Ecoxion: rendering active cyan horizon.',
             'Velocity Surge: telemetria de pistas en vivo.': 'Velocity Surge: live track telemetry.',
             'WildWeapon: estado tactico listo para despliegue.': 'WildWeapon: tactical status ready for deployment.',
             'SSA: fauna orbital inicializada.': 'SSA: orbital fauna initialized.',
             
-            // Sesión
+            // Sesi├│n
             'Sesion restaurada': 'Session Restored',
             'Credenciales detectadas. Ingresando automaticamente a OWS Store.': 'Credentials detected. Automatically entering OWS Store.',
             
@@ -23535,7 +23582,7 @@
             'Aplicando cambios en 5s...': 'Applying changes in 5s...',
             
             // Modal details
-            'v1.0.0 · Sin datos': 'v1.0.0 · No Data',
+            'v1.0.0 ┬À Sin datos': 'v1.0.0 ┬À No Data',
             '0 entradas': '0 entries',
             '0 eventos': '0 events',
             
@@ -23631,35 +23678,35 @@
             // Import modal
             'Importar instalaciones': 'Import Installations',
             
-            // Símbolos y caracteres especiales
-            'â—ˆ': 'â—ˆ',
-            '×': '×',
-            '→': '→',
-            '🔒': '🔒',
-            '⦸': '⦸',
+            // S├¡mbolos y caracteres especiales
+            '├óÔÇö╦å': '├óÔÇö╦å',
+            '├ù': '├ù',
+            'ÔåÆ': 'ÔåÆ',
+            '­ƒöÆ': '­ƒöÆ',
+            'Ôª©': 'Ôª©',
             
             // Otros
             'OWS Project Restriction': 'OWS Project Restriction',
             '000000': '000000',
             
-            // Login y verificación (pre-boot)
+            // Login y verificaci├│n (pre-boot)
             'Verificando si hay credenciales guardadas...': 'Checking for saved credentials...',
             'Comprobando sesion guardada de Ocean Pay.': 'Checking saved Ocean Pay session.',
-            'Inteligencia oceánica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
+            'Inteligencia oce├ínica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
             'Capas cifradas inspiradas en las profundidades.': 'Encrypted layers inspired by the depths.',
-            'Navega el ecosistema desde un único hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
+            'Navega el ecosistema desde un ├║nico hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
             'Ingresa tus credenciales para acceder.': 'Enter your credentials to access.',
             'USUARIO': 'USERNAME',
             'Tu nombre de usuario': 'Your username',
             'CONTRASENA': 'PASSWORD',
             'Tu contrasena': 'Your password',
-            'OLVIDÉ MI CLAVE': 'FORGOT MY PASSWORD',
+            'OLVID├ë MI CLAVE': 'FORGOT MY PASSWORD',
             'Recordar datos': 'Remember me',
-            'Entrar a OWS Store →': 'Enter OWS Store →',
-            '¿No tienes una cuenta?': "Don't have an account?",
-            'Regístrate': 'Sign Up',
-            'POLÍTICA DE PRIVACIDAD': 'PRIVACY POLICY',
-            'TÉRMINOS DEL SERVICIO': 'TERMS OF SERVICE',
+            'Entrar a OWS Store ÔåÆ': 'Enter OWS Store ÔåÆ',
+            '┬┐No tienes una cuenta?': "Don't have an account?",
+            'Reg├¡strate': 'Sign Up',
+            'POL├ìTICA DE PRIVACIDAD': 'PRIVACY POLICY',
+            'T├ëRMINOS DEL SERVICIO': 'TERMS OF SERVICE',
             'AJUSTES DE COOKIES': 'COOKIE SETTINGS',
             
             // Loading modal que aparece durante boot
@@ -23669,23 +23716,23 @@
             'Precargando assets visuales': 'Preloading visual assets',
             'Renderizando interfaz': 'Rendering interface',
             
-            // Modales de sesión
+            // Modales de sesi├│n
             'Iniciando Sesion...': 'Starting Session...',
             'Validando credenciales en Ocean Pay.': 'Validating credentials in Ocean Pay.',
             'Entrando...': 'Entering...',
             'Preparando entorno del ecosistema.': 'Preparing ecosystem environment.',
             
-            // Verificación automática
+            // Verificaci├│n autom├ítica
             'Verificacion automatica completada': 'Automatic Verification Completed',
             'Sin novedades de update en esta verificacion.': 'No update news in this verification.',
             'Tamano: - | ETA: menos de 5s': 'Size: - | ETA: less than 5s',
             'menos de 5s': 'less than 5s',
             
-            // Sesión iniciada
+            // Sesi├│n iniciada
             'Sesion iniciada correctamente': 'Session Started Successfully',
             'Tu cuenta se sincronizo en OWS Store.': 'Your account synced in OWS Store.',
             
-            // Mensajes de actualización (banner)
+            // Mensajes de actualizaci├│n (banner)
             'Verificando': 'Checking',
             'Update disponible': 'Update Available',
             'Descargando': 'Downloading',
@@ -23723,6 +23770,11 @@
             'UPDATE SIZE': 'UPDATE SIZE',
             'ESTIMATED TIME': 'ESTIMATED TIME',
             'OWS STORE ANDROID': 'OWS STORE ANDROID',
+            'OWS STORE UPDATE': 'OWS STORE UPDATE',
+            'Programado': 'Scheduled',
+            'Nueva version v{0} programada para {1}': 'New version v{0} scheduled for {1}',
+            'Sin updates programados': 'No scheduled updates',
+            'Descarga automatica el': 'Auto-download on',
             'Tag sin resolver | - | sin fecha | source: release page': 'Unresolved tag | - | no date | source: release page',
             'Download Android': 'Download Android',
             'UPDATE CONTROL': 'UPDATE CONTROL',
@@ -23731,7 +23783,7 @@
             'CON UPDATE': 'WITH UPDATE',
             '14 VISIBLES': '14 VISIBLE',
             
-            // Textos de proyectos (dinámicos del servidor)
+            // Textos de proyectos (din├ímicos del servidor)
             'esta al dia en Windows.': 'is up to date on Windows.',
             'esta al dia en': 'is up to date on',
             'Catalogo:': 'Catalog:',
@@ -23741,7 +23793,7 @@
             'No instalada en este dispositivo': 'Not installed on this device',
             'ultima:': 'latest:',
             'Al dia (Windows)': 'Up to date (Windows)',
-            'Ya lo instalé': 'Already installed',
+            'Ya lo instal├®': 'Already installed',
             'AL DIA': 'UP TO DATE',
             
             // Settings adicionales
@@ -23811,7 +23863,7 @@
         const apiTranslationCache = new Map();
         
         async function translateWithAPI(text) {
-            // Usar caché
+            // Usar cach├®
             if (apiTranslationCache.has(text)) {
                 return apiTranslationCache.get(text);
             }
@@ -23834,12 +23886,12 @@
         }
         
         function translateText(text) {
-            // Buscar traducción exacta primero
+            // Buscar traducci├│n exacta primero
             if (translations[text]) {
                 return translations[text];
             }
             
-            // Intentar sin puntuación al final
+            // Intentar sin puntuaci├│n al final
             const trimmed = text.trim();
             const withoutPunctuation = trimmed.replace(/[.,;:!?]+$/, '');
             const punctuation = trimmed.slice(withoutPunctuation.length);
@@ -23848,37 +23900,37 @@
                 return translations[withoutPunctuation] + punctuation;
             }
             
-            // Intentar con la puntuación incluida
+            // Intentar con la puntuaci├│n incluida
             if (translations[trimmed]) {
                 return translations[trimmed];
             }
             
-            // Traducción automática por patrones (para textos dinámicos)
+            // Traducci├│n autom├ítica por patrones (para textos din├ímicos)
             let result = text;
             
-            // Patrón: "X esta al dia en Y" (cualquier proyecto)
+            // Patr├│n: "X esta al dia en Y" (cualquier proyecto)
             result = result.replace(/(.+?)\s+esta al dia en\s+(.+?)(\.|$)/gi, '$1 is up to date on $2$3');
-            result = result.replace(/(.+?)\s+esta al día en\s+(.+?)(\.|$)/gi, '$1 is up to date on $2$3');
+            result = result.replace(/(.+?)\s+esta al d├¡a en\s+(.+?)(\.|$)/gi, '$1 is up to date on $2$3');
             
-            // Patrón: "No instalada en este dispositivo (última: vX.X.X)"
+            // Patr├│n: "No instalada en este dispositivo (├║ltima: vX.X.X)"
             result = result.replace(/No instalada en este dispositivo\s*\(ultima:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
-            result = result.replace(/No instalada en este dispositivo\s*\(última:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
+            result = result.replace(/No instalada en este dispositivo\s*\(├║ltima:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
             result = result.replace(/No instalada en este dispositivo/gi, 'Not installed on this device');
             
-            // Patrón: Modal de confirmación de instalación
-            result = result.replace(/Si ya instalaste la versión\s+([^\s]+)\s+de\s+(.+?)\s+externamente,\s*confirmalo aquí para que OWS Store no siga mostrando la update como pendiente\./gi, 
+            // Patr├│n: Modal de confirmaci├│n de instalaci├│n
+            result = result.replace(/Si ya instalaste la versi├│n\s+([^\s]+)\s+de\s+(.+?)\s+externamente,\s*confirmalo aqu├¡ para que OWS Store no siga mostrando la update como pendiente\./gi, 
                 'If you already installed version $1 of $2 externally, confirm it here so OWS Store stops showing the update as pending.');
             
-            // Patrón: "Cada Xs (último: hace Ys)"
-            result = result.replace(/Cada\s+(\d+)s\s+\(último:\s+hace\s+(\d+)s\)/gi, 'Every $1s (last: $2s ago)');
-            result = result.replace(/último:\s+hace/gi, 'last:');
+            // Patr├│n: "Cada Xs (├║ltimo: hace Ys)"
+            result = result.replace(/Cada\s+(\d+)s\s+\(├║ltimo:\s+hace\s+(\d+)s\)/gi, 'Every $1s (last: $2s ago)');
+            result = result.replace(/├║ltimo:\s+hace/gi, 'last:');
             
-            // Si se hizo algún cambio, retornar el resultado
+            // Si se hizo alg├║n cambio, retornar el resultado
             if (result !== text) {
                 return result;
             }
             
-            // Si no está en el diccionario, retornar el texto original
+            // Si no est├í en el diccionario, retornar el texto original
             return text;
         }
         
@@ -24037,7 +24089,7 @@
             
             const current = document.getElementById('settings-language-current');
             if (current) {
-                current.textContent = lang === 'es' ? 'Español' : 'English';
+                current.textContent = lang === 'es' ? 'Espa├▒ol' : 'English';
             }
             
             const select = document.getElementById('settings-language-select');
@@ -24063,11 +24115,11 @@
             
             const current = document.getElementById('settings-language-current');
             if (current) {
-                current.textContent = savedLang === 'es' ? 'Español' : 'English';
+                current.textContent = savedLang === 'es' ? 'Espa├▒ol' : 'English';
             }
             
             if (savedLang === 'en') {
-                // Traducir inmediatamente y múltiples veces para capturar contenido dinámico
+                // Traducir inmediatamente y m├║ltiples veces para capturar contenido din├ímico
                 translatePage('en');
                 setTimeout(() => translatePage('en'), 50);
                 setTimeout(() => translatePage('en'), 100);
@@ -24080,7 +24132,7 @@
                 setTimeout(() => translatePage('en'), 8000);
                 
                 // Observador dedicado para Auto-Check (sin bloqueo por isTranslating)
-                // Intentar múltiples veces hasta que el elemento esté disponible
+                // Intentar m├║ltiples veces hasta que el elemento est├® disponible
                 function setupAutoCheckObserver() {
                     const autoCheckEl = document.getElementById('updates-auto-check');
                     if (autoCheckEl) {
@@ -24112,7 +24164,7 @@
                     setTimeout(() => setupAutoCheckObserver(), 2000);
                 }
                 
-                // Observar cambios en el DOM para traducir contenido del servidor automáticamente
+                // Observar cambios en el DOM para traducir contenido del servidor autom├íticamente
                 const observer = new MutationObserver((mutations) => {
                     if (currentLanguage === 'en' && !isTranslating) {
                         // Para elementos que cambian frecuentemente, traducir inmediatamente
@@ -24162,7 +24214,7 @@
 
     </script>
 
-<!-- ═══ IMPORT MODAL ═══ -->
+<!-- ÔòÉÔòÉÔòÉ IMPORT MODAL ÔòÉÔòÉÔòÉ -->
 <style id="import-modal-runtime-fix">
     #import-modal {
         position: fixed;

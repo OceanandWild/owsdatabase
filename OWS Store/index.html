@@ -2924,6 +2924,40 @@
             padding:0.85rem 1rem;
             box-shadow:0 8px 18px rgba(0,0,0,0.2);
         }
+        .scheduled-update-card {
+            position: relative;
+            overflow: hidden;
+            border-color: rgba(38,212,232,0.22);
+            background:
+                radial-gradient(120% 120% at 0% 0%, rgba(38,212,232,0.10), transparent 55%),
+                linear-gradient(145deg, rgba(21,35,53,0.96), rgba(10,18,31,0.96));
+        }
+        .scheduled-update-kicker {
+            font-size: 0.6rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.9px;
+            color: rgba(255,255,255,0.50);
+            margin-bottom: 0.25rem;
+        }
+        .scheduled-update-title {
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 1.05rem;
+            color: var(--yellow);
+            margin-bottom: 0.35rem;
+        }
+        .scheduled-update-line {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.72);
+            line-height: 1.35;
+        }
+        .scheduled-update-sub {
+            margin-top: 0.35rem;
+            font-size: 0.68rem;
+            color: rgba(255,255,255,0.45);
+            font-family: var(--font-mono);
+        }
         .stat-label { font-size:0.65rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-2); margin-bottom:0.35rem; }
         .stat-value { font-size:0.85rem; font-weight:600; color:var(--ink-0); }
 
@@ -8478,6 +8512,13 @@
                             </button>
                         </div>
                     </div>
+                    <div class="stat-box scheduled-update-card">
+                        <div class="scheduled-update-kicker">OWS Store Update</div>
+                        <div class="scheduled-update-title" id="updates-scheduled-title">Not scheduled</div>
+                        <div class="scheduled-update-line" id="updates-scheduled-line1">—</div>
+                        <div class="scheduled-update-line" id="updates-scheduled-line2">—</div>
+                        <div class="scheduled-update-sub">Auto-download when unlocked</div>
+                    </div>
                 </div>
 
                 <div class="project-updates-shell">
@@ -13136,6 +13177,13 @@
                 });
                 scheduledEl.innerHTML = `<span>Programado</span><span>v${version} · ${dateShort}</span>`;
             }
+
+            const updatesTitle = document.getElementById('updates-scheduled-title');
+            const updatesLine1 = document.getElementById('updates-scheduled-line1');
+            const updatesLine2 = document.getElementById('updates-scheduled-line2');
+            if (updatesTitle) updatesTitle.textContent = 'Scheduled';
+            if (updatesLine1) updatesLine1.textContent = `New version v${version}`;
+            if (updatesLine2) updatesLine2.textContent = `scheduled for ${dateFmt}`;
         }
 
         function clearScheduledStoreUpdateNotice() {
@@ -13143,6 +13191,13 @@
             const scheduledEl = document.getElementById('scheduled-update-version');
             if (scheduledWrap) scheduledWrap.style.display = 'block';  // Keep visible, show neutral state
             if (scheduledEl) scheduledEl.innerHTML = `<span>No programado</span><span>-</span>`;
+
+            const updatesTitle = document.getElementById('updates-scheduled-title');
+            const updatesLine1 = document.getElementById('updates-scheduled-line1');
+            const updatesLine2 = document.getElementById('updates-scheduled-line2');
+            if (updatesTitle) updatesTitle.textContent = 'Not scheduled';
+            if (updatesLine1) updatesLine1.textContent = '—';
+            if (updatesLine2) updatesLine2.textContent = '—';
         }
 
         async function checkScheduledStoreUpdate() {

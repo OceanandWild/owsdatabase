@@ -1,0 +1,43 @@
+{
+  "name": "wildshorts",
+  "productName": "WildShorts",
+  "version": "2026.3.28-t1142",
+  "description": "WildShorts desktop app",
+  "main": "main.js",
+  "author": "Ocean and Wild Studios",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.oceanandwild.wildshorts",
+    "productName": "WildShorts",
+    "artifactName": "${productName}-${version}-Setup.${ext}",
+    "files": [
+      "index.html",
+      "assets/**/*",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

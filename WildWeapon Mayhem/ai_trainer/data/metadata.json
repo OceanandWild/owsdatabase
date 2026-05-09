@@ -1,0 +1,14 @@
+{
+  "project_name": "WildWeapon Mayhem",
+  "analyzed_at": "2025-12-09T15:11:11.762654",
+  "total_code_blocks": 343,
+  "total_qa_pairs": 131,
+  "files_analyzed": 1,
+  "categories": {
+    "function": 71,
+    "class": 5,
+    "object": 7,
+    "html_element": 94,
+    "css_rule": 166
+  }
+}

@@ -1,0 +1,18 @@
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+admin.initializeApp();
+
+exports.getUidByEmail = functions.https.onCall(async (data, context) => {
+  // Opcional: verifica que el usuario que llama sea admin
+  if (!context.auth || !["oceanandwildstudios@gmail.com", "hachiyt001@gmail.com"].includes(context.auth.token.email)) {
+    throw new functions.https.HttpsError('permission-denied', 'Solo admins pueden usar esta función');
+  }
+  const email = data.email;
+  if (!email) throw new functions.https.HttpsError('invalid-argument', 'Email requerido');
+  try {
+    const userRecord = await admin.auth().getUserByEmail(email);
+    return { uid: userRecord.uid };
+  } catch (err) {
+    throw new functions.https.HttpsError('not-found', 'Usuario no encontrado');
+  }
+});

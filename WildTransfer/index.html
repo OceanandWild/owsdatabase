@@ -1,0 +1,394 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WildTransfer | Ocean and Wild Studios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:#070b14;--bg2:#101a2f;--card:rgba(14,24,44,.78);--line:rgba(128,170,255,.3);--txt:#ecf4ff;--muted:#9ab1cf;--cyan:#27ecff;--blue:#4b82ff;--ok:#29d78f;--warn:#ffbe5e;--danger:#ff6b78}
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Space Grotesk",system-ui,sans-serif}
+body{min-height:100vh;color:var(--txt);background:radial-gradient(circle at 8% 5%,rgba(39,236,255,.18),transparent 28%),radial-gradient(circle at 88% 10%,rgba(255,107,120,.14),transparent 30%),linear-gradient(145deg,var(--bg),var(--bg2));padding:16px}
+.shell{max-width:1160px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr)320px;gap:14px}
+.topbar{grid-column:1/-1;border:1px solid rgba(128,170,255,.26);border-radius:14px;background:linear-gradient(145deg,rgba(10,18,36,.86),rgba(7,13,25,.9));padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:6px;z-index:30;backdrop-filter:blur(10px)}
+.topbar-brand{display:flex;align-items:center;gap:8px;color:#d5e6ff}.topbar-brand .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px rgba(39,236,255,.8)}.topbar-brand strong{font-size:.86rem;letter-spacing:.03em}.topbar-brand small{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.topbar-nav{display:flex;flex-wrap:wrap;gap:6px}.topbar-btn{border:1px solid rgba(128,170,255,.32);background:rgba(15,26,49,.72);color:var(--txt);padding:7px 10px;border-radius:999px;font-size:.72rem;font-weight:700;cursor:pointer}.topbar-btn.active{border-color:rgba(39,236,255,.85);background:rgba(39,236,255,.14)}.topbar-btn.accent{background:linear-gradient(90deg,rgba(255,209,114,.9),rgba(255,156,58,.92));color:#2e1800;border-color:transparent}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.net-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border:1px solid rgba(128,170,255,.35);background:rgba(15,26,49,.7);color:#d6e5ff}
+.net-chip::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.92}
+.net-chip.online{border-color:rgba(41,215,143,.45);background:rgba(7,47,36,.62);color:#beffdf}
+.net-chip.offline{border-color:rgba(255,107,120,.5);background:rgba(64,17,29,.66);color:#ffd8dd}
+.main{border:1px solid var(--line);border-radius:20px;background:linear-gradient(160deg,rgba(15,23,42,.9),rgba(7,13,25,.88));overflow:hidden}
+.hero{padding:20px;border-bottom:1px solid rgba(128,170,255,.2);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.hero h1{font-size:2rem;letter-spacing:-.03em}.hero h1 span{background:linear-gradient(90deg,var(--cyan),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin-top:8px;color:var(--muted);font-size:.95rem;max-width:620px}
+.hero-chip{margin-top:12px;display:inline-flex;gap:8px;align-items:center;border:1px solid rgba(39,236,255,.45);border-radius:999px;padding:6px 12px;background:rgba(10,24,46,.6);color:#d7f9ff;font-size:.76rem;letter-spacing:.04em;text-transform:uppercase}
+.hero-chip.tier-core,.hero-chip.tier-plus,.hero-chip.tier-ultra{position:relative;overflow:hidden}
+.hero-chip.tier-core{border-color:rgba(39,236,255,.65);background:linear-gradient(90deg,rgba(11,49,82,.85),rgba(18,74,126,.85));animation:chipPulseCore 2.4s ease-in-out infinite}
+.hero-chip.tier-plus{border-color:rgba(156,120,255,.68);background:linear-gradient(90deg,rgba(46,21,88,.86),rgba(94,52,166,.86));animation:chipPulsePlus 2.1s ease-in-out infinite}
+.hero-chip.tier-ultra{border-color:rgba(255,198,102,.74);background:linear-gradient(90deg,rgba(79,35,8,.9),rgba(146,67,20,.92));animation:chipPulseUltra 1.8s ease-in-out infinite}
+.hero-chip.tier-ultra::after,.hero-chip.tier-plus::after,.hero-chip.tier-core::after{content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent,rgba(255,255,255,.25),transparent);transform:translateX(-120%);animation:chipShine 2.6s linear infinite}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:240px}
+.kpi{border:1px solid rgba(128,170,255,.26);border-radius:10px;padding:8px;text-align:center;background:rgba(7,15,30,.55)}
+.kpi strong{display:block;color:var(--cyan);font-size:.9rem}.kpi span{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px;border-bottom:1px solid rgba(128,170,255,.2)}
+.tab{border:1px solid rgba(128,170,255,.25);border-radius:999px;background:rgba(15,26,49,.7);color:var(--muted);padding:10px 12px;font-weight:600;cursor:pointer}
+.tab.active{color:var(--txt);border-color:rgba(39,236,255,.8);background:linear-gradient(90deg,rgba(39,236,255,.12),rgba(75,130,255,.2))}
+.panel{display:none;padding:14px}.panel.active{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1fr)280px;gap:12px}
+.card{border:1px solid rgba(128,170,255,.2);border-radius:14px;background:var(--card)}
+.card h2{font-size:1rem;padding:12px 14px 0}.sub{padding:6px 14px 0;color:var(--muted);font-size:.84rem}.body{padding:12px 14px 14px}
+.drop{border:1px dashed rgba(128,170,255,.5);border-radius:12px;padding:18px;text-align:center;cursor:pointer;background:rgba(18,33,62,.42)}
+.drop:hover,.drop.drag{border-color:rgba(39,236,255,.9);background:rgba(18,45,84,.46)}
+.drop p{font-size:.92rem}.drop small{display:block;margin-top:5px;color:var(--muted);font-size:.78rem}
+.queue{margin-top:10px;display:grid;gap:8px;max-height:250px;overflow:auto}.empty{border:1px dashed rgba(128,170,255,.35);border-radius:10px;padding:11px;color:var(--muted);font-size:.82rem;text-align:center}
+.item{display:grid;grid-template-columns:auto minmax(0,1fr)auto auto;gap:8px;align-items:center;border:1px solid rgba(128,170,255,.2);background:rgba(12,22,43,.6);border-radius:10px;padding:9px}
+.icon{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:rgba(39,236,255,.15);color:var(--cyan);font-size:.7rem;font-weight:700;text-transform:uppercase}
+.meta strong{display:block;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta span{font-size:.73rem;color:var(--muted)}
+.size{color:var(--cyan);font-size:.77rem;font-weight:600}.mini{border:1px solid rgba(128,170,255,.3);background:rgba(10,18,35,.65);color:var(--muted);padding:5px 8px;border-radius:8px;font-size:.73rem;cursor:pointer}
+.actions{margin-top:10px;display:grid;grid-template-columns:minmax(0,1fr)auto;gap:8px}
+.btn{border:none;border-radius:10px;padding:10px 12px;font-weight:600;cursor:pointer}
+.btn.primary{background:linear-gradient(90deg,var(--cyan),var(--blue));color:#001023}.btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:rgba(14,26,49,.55);border:1px solid rgba(128,170,255,.35);color:var(--txt)}.btn.warn{background:linear-gradient(90deg,#ffd172,#ff9c3a);color:#2e1800}.btn.danger{background:rgba(69,17,30,.7);border:1px solid rgba(255,107,120,.55);color:#ffd6dc}
+.stat{margin-top:10px;border:1px solid rgba(128,170,255,.24);border-radius:10px;padding:10px;background:rgba(10,19,37,.72);display:none;gap:8px}
+.row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;font-size:.78rem;color:var(--muted)}
+.track{height:9px;border-radius:999px;background:rgba(89,122,183,.36);overflow:hidden}.fill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--blue));transition:width .12s linear}
+.miniGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.pill{border:1px solid rgba(128,170,255,.24);border-radius:9px;padding:8px;background:rgba(9,17,34,.72)}
+.pill strong{display:block;font-size:.82rem;color:var(--cyan)}.pill span{font-size:.64rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.result{margin-top:10px;border:1px solid rgba(41,215,143,.5);border-radius:12px;padding:12px;display:none;gap:8px;background:rgba(5,35,27,.45)}
+.code{border:1px solid rgba(41,215,143,.6);border-radius:10px;padding:10px;font-size:1.8rem;letter-spacing:.28em;text-align:center;color:#b7ffe0;background:rgba(6,27,21,.65)}
+.result .actions{margin-top:0}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.metrics div{border:1px solid rgba(72,209,156,.35);border-radius:9px;padding:7px;text-align:center;background:rgba(7,30,23,.55)}
+.metrics strong{display:block;color:#b8f9dc;font-size:.8rem}.metrics span{font-size:.64rem;color:rgba(214,255,237,.8);text-transform:uppercase;letter-spacing:.08em}
+.qr{display:grid;place-items:center}.qr img{width:148px;height:148px;padding:8px;background:#fff;border-radius:12px}
+.input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(128,170,255,.35);background:rgba(10,18,35,.82);color:var(--txt);text-align:center;letter-spacing:.35em;text-transform:uppercase;font-size:1.2rem}
+.recvMeta,.history{display:grid;gap:8px}.recvMeta{margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr));display:none}.recvList{margin-top:10px;display:grid;gap:8px;max-height:320px;overflow:auto}
+.historyWrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.side{display:grid;gap:12px}.tips{list-style:none;display:grid;gap:8px}
+.tips li{border:1px solid rgba(128,170,255,.2);border-radius:10px;background:rgba(11,21,40,.55);padding:9px;color:var(--muted);font-size:.8rem;line-height:1.34}.tips strong{display:block;color:var(--txt);font-size:.83rem;margin-bottom:2px}
+.status-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700}.status-chip.ok{background:rgba(41,215,143,.15);border:1px solid rgba(41,215,143,.4);color:#baffdd}.status-chip.warn{background:rgba(255,190,94,.15);border:1px solid rgba(255,190,94,.4);color:#ffe1b0}.status-chip.neutral{background:rgba(128,170,255,.12);border:1px solid rgba(128,170,255,.35);color:#d3ddff}
+.status-chip.plan-core{border-color:rgba(39,236,255,.6);background:linear-gradient(90deg,rgba(8,49,88,.72),rgba(16,86,133,.72));color:#d9f8ff;animation:chipPulseCore 2.4s ease-in-out infinite}
+.status-chip.plan-plus{border-color:rgba(163,122,255,.62);background:linear-gradient(90deg,rgba(47,24,90,.78),rgba(86,53,160,.78));color:#eadbff;animation:chipPulsePlus 2.1s ease-in-out infinite}
+.status-chip.plan-ultra{border-color:rgba(255,206,109,.68);background:linear-gradient(90deg,rgba(83,39,11,.82),rgba(158,73,19,.85));color:#ffe8be;animation:chipPulseUltra 1.8s ease-in-out infinite}
+.plan-list{display:grid;gap:8px;margin-top:10px}.plan-item{border:1px solid rgba(128,170,255,.25);border-radius:10px;background:rgba(11,22,41,.65);padding:10px;position:relative;overflow:hidden}.plan-item strong{display:block;color:var(--txt);font-size:.84rem}.plan-item span{color:var(--muted);font-size:.74rem}.plan-item-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.plan-item-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:.63rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border:1px solid rgba(128,170,255,.4);background:rgba(14,30,56,.7);color:#d7e8ff}.plan-item.active{border-color:rgba(41,215,143,.62)}.plan-item.active .plan-item-badge{border-color:rgba(41,215,143,.6);background:rgba(20,74,53,.55);color:#c9ffea}.plan-item.tier-core{border-color:rgba(39,236,255,.5);background:linear-gradient(145deg,rgba(8,33,56,.85),rgba(10,25,46,.78))}.plan-item.tier-plus{border-color:rgba(157,121,255,.55);background:linear-gradient(145deg,rgba(37,20,75,.85),rgba(25,16,49,.78))}.plan-item.tier-ultra{border-color:rgba(255,197,97,.62);background:linear-gradient(145deg,rgba(73,36,12,.86),rgba(35,20,8,.8))}.plan-item.tier-ultra::after,.plan-item.tier-plus::after,.plan-item.tier-core::after{content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent,rgba(255,255,255,.18),transparent);transform:translateX(-120%);animation:chipShine 3.2s linear infinite}
+.relay-balance-panel{margin-top:10px;border:1px solid rgba(39,236,255,.35);border-radius:12px;background:rgba(8,24,42,.7);padding:10px;display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:center}
+.relay-currency-canvas{width:44px;height:44px;background:rgba(39,236,255,.08);border:1px solid rgba(39,236,255,.25);border-radius:10px}
+.relay-balance-copy small{display:block;font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.relay-balance-copy strong{display:block;font-size:1rem;color:var(--cyan)}
+.footer{color:var(--muted);font-size:.76rem;text-align:center;padding:4px}
+.modal-overlay{position:fixed;inset:0;background:rgba(2,6,14,.75);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:120;padding:14px}.modal-overlay.active{display:flex}
+.modal-card{width:min(760px,100%);border:1px solid rgba(128,170,255,.35);background:linear-gradient(160deg,rgba(10,20,38,.98),rgba(8,14,30,.97));border-radius:16px;overflow:hidden}.modal-header{padding:14px 16px;border-bottom:1px solid rgba(128,170,255,.2);display:flex;justify-content:space-between;align-items:center}
+.modal-close{width:32px;height:32px;border-radius:8px;border:1px solid rgba(128,170,255,.35);background:rgba(15,30,52,.72);color:#d6e5ff;cursor:pointer}.modal-body{padding:14px 16px 16px}
+.field{margin-top:10px;display:grid;gap:6px}.field label{font-size:.76rem;color:var(--muted);text-transform:uppercase}.input-line,.select-line{width:100%;border-radius:10px;border:1px solid rgba(128,170,255,.35);background:rgba(10,18,35,.9);color:var(--txt);padding:10px 12px;font-size:.9rem}
+.plan-grid{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px}.plan-card{border:1px solid rgba(128,170,255,.24);background:rgba(11,22,41,.68);border-radius:12px;padding:10px;cursor:pointer}.plan-card.active{border-color:rgba(39,236,255,.82);background:linear-gradient(160deg,rgba(39,236,255,.12),rgba(75,130,255,.2))}
+.checkout-summary{margin-top:14px;border:1px solid rgba(128,170,255,.24);border-radius:12px;background:rgba(8,17,33,.72);padding:10px;display:grid;gap:6px}.checkout-summary .line{display:flex;justify-content:space-between;font-size:.84rem;color:var(--muted)}.checkout-summary .line.total{font-size:.98rem;color:#fcffff;border-top:1px dashed rgba(128,170,255,.35);padding-top:7px}
+.modal-actions{margin-top:14px;display:grid;grid-template-columns:minmax(0,1fr)auto;gap:8px}
+.toastZone{position:fixed;right:12px;bottom:12px;z-index:140;display:grid;gap:8px;width:min(340px,calc(100vw - 24px))}.toast{border-radius:10px;padding:10px;font-size:.83rem;border:1px solid rgba(128,170,255,.25);background:rgba(7,16,32,.95)}.toast.ok{border-color:rgba(41,215,143,.5);background:rgba(8,34,27,.95)}.toast.warn{border-color:rgba(255,190,94,.55);background:rgba(45,31,10,.95)}.toast.error{border-color:rgba(255,107,120,.55);background:rgba(45,14,20,.95)}
+@keyframes chipPulseCore{0%,100%{box-shadow:0 0 0 0 rgba(39,236,255,.25)}50%{box-shadow:0 0 0 8px rgba(39,236,255,0)}}@keyframes chipPulsePlus{0%,100%{box-shadow:0 0 0 0 rgba(163,122,255,.24)}50%{box-shadow:0 0 0 10px rgba(163,122,255,0)}}@keyframes chipPulseUltra{0%,100%{box-shadow:0 0 0 0 rgba(255,190,94,.26)}50%{box-shadow:0 0 0 12px rgba(255,190,94,0)}}@keyframes chipShine{0%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+@media(max-width:1060px){.shell{grid-template-columns:minmax(0,1fr)}.hero{flex-direction:column}.kpis{grid-template-columns:repeat(4,minmax(0,1fr));min-width:0}.grid{grid-template-columns:minmax(0,1fr)}.side{grid-template-columns:repeat(2,minmax(0,1fr))}.plan-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){body{padding:8px}.topbar{padding:8px 10px;align-items:flex-start;flex-direction:column;top:0}.topbar-nav{width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px}.topbar-btn{flex:1 1 calc(50% - 6px);text-align:center;white-space:nowrap}.hero{padding:14px}.tabs{padding:10px}.panel{padding:10px}.actions,.miniGrid,.metrics,.recvMeta,.historyWrap,.modal-actions{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.side{grid-template-columns:minmax(0,1fr)}.plan-grid{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="topbar"><div class="topbar-brand"><span class="dot"></span><strong>WildTransfer Control</strong><small>Panel operativo</small></div><div class="topbar-right"><div id="netStatusChip" class="net-chip online">En linea</div><nav class="topbar-nav"><button id="topSend" class="topbar-btn active" type="button">Enviar</button><button id="topReceive" class="topbar-btn" type="button">Recibir</button><button id="topHistory" class="topbar-btn" type="button">Actividad</button><button id="topSubs" class="topbar-btn accent" type="button">Suscripciones</button></nav></div></header>
+<section class="main">
+<header class="hero">
+<div><h1>Wild<span>Transfer</span></h1><p>Comparte archivos por codigo unico con cola de envio, progreso real y flujo premium semanal con Ocean Pay.</p><div id="heroSubscriptionState" class="hero-chip">Plan Free Relay</div></div>
+<div class="kpis"><div class="kpi"><strong id="kpiFiles">3</strong><span>Max archivos</span></div><div class="kpi"><strong id="kpiSize">150 MB</strong><span>Lote maximo</span></div><div class="kpi"><strong id="kpiTier">Free</strong><span>Nivel relay</span></div><div class="kpi"><strong>Semanal</strong><span>Cadencia plan</span></div></div>
+</header>
+<nav class="tabs"><button class="tab active" data-tab="send">Enviar</button><button class="tab" data-tab="receive">Recibir</button><button class="tab" data-tab="history">Actividad</button></nav>
+<section id="panel-send" class="panel active"><div class="grid"><article class="card"><h2>Centro de envio</h2><p class="sub">Arrastra archivos, valida la cola y sube con control total.</p><div class="body"><div id="drop" class="drop" role="button" tabindex="0"><p>Arrastra archivos o toca para seleccionar</p><small id="dropHint">Limite Free: 3 archivos por lote</small></div><input id="input" type="file" multiple hidden><div id="queue" class="queue"></div><div class="actions"><button id="uploadBtn" class="btn primary" disabled>Subir archivos</button><button id="clearBtn" class="btn ghost">Limpiar</button></div><div id="stat" class="stat"><div class="row"><span id="label">Preparando...</span><div class="track"><div id="fill" class="fill"></div></div><strong id="pct">0%</strong></div><div class="miniGrid"><div class="pill"><strong id="speed">0 MB/s</strong><span>Velocidad</span></div><div class="pill"><strong id="eta">--</strong><span>Tiempo</span></div><div class="pill"><strong id="bytes">0 MB / 0 MB</strong><span>Transferido</span></div></div><button id="cancelBtn" class="btn ghost">Cancelar subida</button></div><div id="result" class="result"><h2 style="padding:0;font-size:1rem">Envio completado</h2><div id="code" class="code">------</div><div class="metrics"><div><strong id="mCount">0</strong><span>archivos</span></div><div><strong id="mSize">0 MB</strong><span>tamano</span></div><div><strong id="mExp">24h</strong><span>expira</span></div></div><div class="actions"><button id="copyCode" class="btn ghost">Copiar codigo</button><button id="copyLink" class="btn ghost">Copiar link</button><button id="openReceive" class="btn ghost">Abrir recibir</button></div><div class="qr"><img id="qr" alt="qr" src=""></div></div></div></article><aside class="side"><article class="card"><h2>Ventajas Relay</h2><p class="sub">Tu plan semanal mejora capacidad y prioridad.</p><div class="body"><ul class="tips"><li><strong>Free Relay</strong>Subida basica para pruebas y lotes chicos.</li><li><strong>Relay Core</strong>Mas archivos por lote y ventana de sincronizacion prioritaria.</li><li><strong>Relay Plus / Ultra</strong>Transferencias pesadas con mayor limite y prioridad alta.</li></ul></div></article><article class="card"><h2>Resumen</h2><p class="sub">Estado actual de tu cola.</p><div class="body"><ul class="tips"><li><strong>En cola</strong><span id="sFiles">0</span></li><li><strong>Total</strong><span id="sSize">0 MB</span></li><li><strong>Listo</strong><span id="sReady">No</span></li></ul></div></article></aside></div></section>
+<section id="panel-receive" class="panel"><div class="grid" style="grid-template-columns:minmax(0,1fr)280px"><article class="card"><h2>Buscar por codigo</h2><p class="sub">Ingresa codigo de 6 caracteres para listar y descargar.</p><div class="body"><input id="recvCode" class="input" maxlength="6" placeholder="ABC123" autocomplete="off" spellcheck="false"><div class="actions" style="margin-top:8px"><button id="lookupBtn" class="btn primary">Buscar archivos</button><button id="resetRecv" class="btn ghost">Limpiar vista</button></div><div id="recvMeta" class="recvMeta"><div><strong id="rCount">0</strong><span>archivos</span></div><div><strong id="rSize">0 MB</strong><span>total</span></div><div><strong id="rExp">--</strong><span>expira</span></div></div><div id="recvList" class="recvList"></div><div class="actions"><button id="allBtn" class="btn primary" disabled>Descargar todo</button><button id="backSend" class="btn ghost">Volver a enviar</button></div></div></article><aside class="side"><article class="card"><h2>Tips de recepcion</h2><p class="sub">Evita errores durante descarga.</p><div class="body"><ul class="tips"><li><strong>Codigo exacto</strong>Usa letras y numeros exactos.</li><li><strong>Lote completo</strong>Descargar todo requiere suscripcion activa.</li><li><strong>Expiracion</strong>Si expiro, pide un nuevo envio.</li></ul></div></article></aside></div></section>
+<section id="panel-history" class="panel"><div class="historyWrap"><article class="card"><h2>Envios recientes</h2><p class="sub">Guardados en este dispositivo.</p><div class="body"><div id="sentHistory" class="history"></div></div></article><article class="card"><h2>Busquedas recientes</h2><p class="sub">Codigos consultados en recibir.</p><div class="body"><div id="recvHistory" class="history"></div></div></article></div></section>
+</section>
+<aside class="side"><article class="card"><h2>Cuenta Ocean Pay</h2><p class="sub">Vincula tu cuenta para activar planes semanales de WildTransfer.</p><div class="body"><div id="opStatusChip" class="status-chip neutral">No vinculada</div><ul class="tips" style="margin-top:10px"><li><strong>Usuario</strong><span id="opUserName">No conectado</span></li><li><strong>Suscripcion</strong><span id="opSubState">Sin plan activo</span></li><li><strong>Proxima renovacion</strong><span id="opSubEnds">-</span></li></ul><div class="relay-balance-panel"><canvas class="relay-currency-canvas" data-currency="relayshards" width="44" height="44"></canvas><div class="relay-balance-copy"><small>RelayShards</small><strong id="opRelayBalance">0</strong></div></div><div class="actions" style="grid-template-columns:1fr"><button id="connectOceanBtn" class="btn primary">Vincular Ocean Pay</button><button id="openCheckoutBtn" class="btn warn">Suscripciones</button><button id="refreshOceanBtn" class="btn ghost">Actualizar estado</button><button id="disconnectOceanBtn" class="btn danger">Desvincular</button></div></div></article><article class="card"><h2>Planes semanales</h2><p class="sub">Pago semanal fijo en RelayShards, divisa nativa de WildTransfer.</p><div class="body"><div class="plan-list" id="sidePlanList"></div></div></article><article class="card"><h2>Accesos rapidos</h2><p class="sub">Navegacion y utilidades.</p><div class="body"><div class="actions" style="grid-template-columns:1fr;margin-top:0"><button id="goSend" class="btn ghost">Ir a Enviar</button><button id="goRecv" class="btn ghost">Ir a Recibir</button><button id="clearHistory" class="btn ghost">Borrar historial local</button></div></div></article><p class="footer">Ocean and Wild Studios - 2026</p></aside>
+</div>
+<div id="opAuthModal" class="modal-overlay" aria-hidden="true"><div class="modal-card"><div class="modal-header"><h3>Vincular cuenta de Ocean Pay</h3><button id="closeAuthModal" class="modal-close" aria-label="Cerrar">x</button></div><div class="modal-body"><p style="color:var(--muted);font-size:.86rem;line-height:1.4">Esta vinculacion permite procesar el checkout semanal sin salir de WildTransfer.</p><div class="field"><label for="opUsername">Usuario Ocean Pay</label><input id="opUsername" class="input-line" type="text" autocomplete="username" placeholder="Tu usuario"></div><div class="field"><label for="opPassword">Contrasena</label><input id="opPassword" class="input-line" type="password" autocomplete="current-password" placeholder="Tu contrasena"></div><p id="authModalMsg" style="margin-top:10px;font-size:.8rem;color:var(--muted)"></p><div class="modal-actions"><button id="authSubmitBtn" class="btn primary">Vincular y continuar</button><button id="authCancelBtn" class="btn ghost">Cancelar</button></div></div></div></div>
+<div id="wtCheckoutModal" class="modal-overlay" aria-hidden="true"><div class="modal-card"><div class="modal-header"><h3>Checkout WildTransfer (Semanal)</h3><button id="closeCheckoutModal" class="modal-close" aria-label="Cerrar">x</button></div><div class="modal-body"><p style="color:var(--muted);font-size:.86rem;line-height:1.4">Selecciona plan y tarjeta. El checkout usa RelayShards de forma fija para evitar errores de cobro.</p><div id="checkoutPlanGrid" class="plan-grid"></div><div class="field"><label>Divisa de pago</label><div id="checkoutCurrencyFixed" class="input-line">RelayShards (WT)</div></div><div class="field"><label for="checkoutCard">Tarjeta Ocean Pay</label><select id="checkoutCard" class="select-line"></select></div><div class="checkout-summary" id="checkoutSummary"><div class="line"><span>Plan</span><strong id="summaryPlan">-</strong></div><div class="line"><span>Cadencia</span><strong>Semanal</strong></div><div class="line"><span>Divisa</span><strong id="summaryCurrency">-</strong></div><div class="line total"><span>Total</span><strong id="summaryTotal">0</strong></div></div><p id="checkoutMsg" style="margin-top:10px;font-size:.8rem;color:var(--muted)"></p><div class="modal-actions"><button id="checkoutConfirmBtn" class="btn primary">Confirmar compra</button><button id="checkoutCancelBtn" class="btn ghost">Cancelar</button></div></div></div></div>
+<div id="toastZone" class="toastZone" aria-live="polite"></div>
+<script src="https://owsdatabase.onrender.com/shared/ows-project-guard.js"></script>
+<script>
+const HISTORY_KEY = "wildtransfer-history-v3";
+const OCEAN_SESSION_KEY = "wt-oceanpay-auth-v1";
+const isRenderHost = /(^|\.)onrender\.com$/i.test(String(location.hostname || ""));
+const API_BASE = isRenderHost && location.origin ? location.origin : "https://owsdatabase.onrender.com";
+if (window.OWSProjectRestrictionGuard && typeof window.OWSProjectRestrictionGuard.mount === "function") {
+  window.OWSProjectRestrictionGuard.mount({
+    apiBaseUrl: API_BASE,
+    projectSlug: "wildtransfer",
+    projectName: "WildTransfer",
+    checkIntervalMs: 30000
+  });
+}
+const TRANSFER_API = `${API_BASE}/api/wild-transfer`;
+const OCEAN_PAY_API = `${API_BASE}/ocean-pay`;
+const WT_SUBS_API = `${API_BASE}/wildtransfer/subscription`;
+const WT_RELAY_CURRENCY = "relayshards";
+const WT_RELAY_CURRENCY_LABEL = "RelayShards";
+const FREE_LIMITS = { maxFiles: 3, maxBatchBytes: 150 * 1024 * 1024, allowBulkDownload: false, tier: "Free Relay" };
+
+const FALLBACK_PLANS = [
+  { id: "relay-core", label: "Relay Core", perks: ["10 archivos por lote", "2 GB por lote", "Ventana prioritaria"], limits: { maxFiles: 10, maxBatchMb: 2048 }, priceByCurrency: { relayshards: 160 } },
+  { id: "relay-plus", label: "Relay Plus", perks: ["20 archivos por lote", "8 GB por lote", "Fast lane"], limits: { maxFiles: 20, maxBatchMb: 8192 }, priceByCurrency: { relayshards: 340 } },
+  { id: "relay-ultra", label: "Relay Ultra", perks: ["40 archivos por lote", "20 GB por lote", "Maxima prioridad"], limits: { maxFiles: 40, maxBatchMb: 20480 }, priceByCurrency: { relayshards: 560 } }
+];
+
+const state = {
+  files: [], xhr: null, uploadStart: 0, code: "", shareUrl: "", recvFiles: [],
+  history: loadHistory(),
+  netOnline: navigator.onLine !== false,
+  ocean: { token: "", user: null, cards: [], plans: FALLBACK_PLANS.slice(), subscription: null, selectedPlanId: "relay-core" }
+};
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return { sent: [], received: [] };
+    const parsed = JSON.parse(raw);
+    return { sent: Array.isArray(parsed.sent) ? parsed.sent : [], received: Array.isArray(parsed.received) ? parsed.received : [] };
+  } catch (_e) { return { sent: [], received: [] }; }
+}
+function saveHistory() { localStorage.setItem(HISTORY_KEY, JSON.stringify(state.history)); }
+function addHistory(type, item) { const list = state.history[type] || []; list.unshift(item); state.history[type] = list.slice(0, 20); saveHistory(); renderHistory(); }
+function toast(msg, type = "") { const el = document.createElement("div"); el.className = `toast ${type}`.trim(); el.textContent = msg; $("#toastZone").appendChild(el); setTimeout(() => el.style.opacity = "0", 2600); setTimeout(() => el.remove(), 3000); }
+function fmtBytes(bytes) { if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB"; const units = ["B", "KB", "MB", "GB"]; const p = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1); const v = bytes / (1024 ** p); return `${v.toFixed(v >= 10 || p === 0 ? 0 : 1)} ${units[p]}`; }
+function fmtEta(seconds) { if (!Number.isFinite(seconds) || seconds < 0) return "--"; if (seconds < 60) return `${Math.ceil(seconds)}s`; const m = Math.floor(seconds / 60); const s = Math.ceil(seconds % 60); if (m < 60) return `${m}m ${s}s`; const h = Math.floor(m / 60); return `${h}h ${m % 60}m`; }
+function relTime(iso) { const ts = new Date(iso).getTime(); if (!Number.isFinite(ts)) return "--"; const d = ts - Date.now(); if (d <= 0) return "Expirado"; const min = Math.round(d / 60000); if (min < 60) return `${min} min`; const hr = Math.round(min / 60); return hr < 48 ? `${hr} h` : `${Math.round(hr / 24)} d`; }
+function cleanCode(input) { return (input || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6); }
+function copy(text) { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text); const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.left = "-9999px"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); return Promise.resolve(); }
+function esc(v) { return String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;"); }
+function fileIcon(name) { const ext = (name.split(".").pop() || "").toLowerCase(); const map = { png: "img", jpg: "img", jpeg: "img", webp: "img", gif: "img", mp4: "vid", mov: "vid", mkv: "vid", mp3: "aud", wav: "aud", zip: "zip", rar: "zip", "7z": "zip", pdf: "pdf", txt: "txt", md: "txt" }; return map[ext] || "file"; }
+function formatCurrencyLabel(code) { return String(code || "").toLowerCase() === WT_RELAY_CURRENCY ? WT_RELAY_CURRENCY_LABEL : String(code || "").toUpperCase(); }
+function getPrimaryCard() { return state.ocean.cards.find((c) => c.is_primary) || state.ocean.cards[0] || null; }
+function getRelayBalance() { return Number(getPrimaryCard()?.balances?.[WT_RELAY_CURRENCY] || 0); }
+function renderRelayBalance() { const el = $("#opRelayBalance"); if (el) el.textContent = Math.round(getRelayBalance()).toLocaleString("es-ES"); }
+function applyRelayReward(reward) {
+  if (!reward || String(reward.currency || "").toLowerCase() !== WT_RELAY_CURRENCY) return;
+  const card = getPrimaryCard();
+  if (!card) return;
+  if (!card.balances || typeof card.balances !== "object") card.balances = {};
+  card.balances[WT_RELAY_CURRENCY] = Number(reward.newBalance || (Number(card.balances[WT_RELAY_CURRENCY] || 0) + Number(reward.amount || 0)));
+  renderRelayBalance();
+}
+function drawRelayShardsIcon(ctx, x, y, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.shadowBlur = size * 0.45;
+  ctx.shadowColor = "rgba(0, 243, 255, 0.55)";
+  const body = ctx.createLinearGradient(-size * 0.45, -size * 0.45, size * 0.45, size * 0.45);
+  body.addColorStop(0, "#b2fbff");
+  body.addColorStop(0.5, "#00f3ff");
+  body.addColorStop(1, "#2e5dff");
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = ((Math.PI * 2) / 6) * i - Math.PI / 2;
+    ctx.lineTo(Math.cos(angle) * size * 0.42, Math.sin(angle) * size * 0.42);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.45)";
+  ctx.lineWidth = size * 0.05;
+  ctx.stroke();
+  ctx.fillStyle = "rgba(7,11,20,0.35)";
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = size * 0.04;
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.12, 0);
+  ctx.lineTo(size * 0.12, 0);
+  ctx.moveTo(0, -size * 0.12);
+  ctx.lineTo(0, size * 0.12);
+  ctx.stroke();
+  ctx.restore();
+}
+function renderCurrencyCanvases() {
+  document.querySelectorAll('.relay-currency-canvas,[data-currency="relayshards"]').forEach((canvas) => {
+    const ctx = canvas.getContext("2d");
+    const size = Number(canvas.width || 44);
+    ctx.clearRect(0, 0, size, size);
+    drawRelayShardsIcon(ctx, size / 2, size / 2, size * 0.9);
+  });
+}
+function setTab(tab) { $$(".tab").forEach((el) => el.classList.toggle("active", el.dataset.tab === tab)); $("#panel-send").classList.toggle("active", tab === "send"); $("#panel-receive").classList.toggle("active", tab === "receive"); $("#panel-history").classList.toggle("active", tab === "history"); const map = { send: "#topSend", receive: "#topReceive", history: "#topHistory" }; ["#topSend", "#topReceive", "#topHistory"].forEach((sel) => { const el = $(sel); if (el) el.classList.remove("active"); }); const activeTop = $(map[tab] || ""); if (activeTop) activeTop.classList.add("active"); }
+function renderNetworkStatus() {
+  const chip = $("#netStatusChip");
+  if (!chip) return;
+  chip.classList.remove("online", "offline");
+  if (state.netOnline) {
+    chip.classList.add("online");
+    chip.textContent = "En linea";
+  } else {
+    chip.classList.add("offline");
+    chip.textContent = "Sin conexion";
+  }
+}
+function getActiveSubscription() { const sub = state.ocean.subscription; if (!sub || !sub.endsAt) return null; const end = new Date(sub.endsAt).getTime(); if (!Number.isFinite(end) || end <= Date.now()) return null; return sub; }
+function getCurrentLimits() { const active = getActiveSubscription(); if (!active) return FREE_LIMITS; const maxFiles = Number(active.limits?.maxFiles || FREE_LIMITS.maxFiles); const maxBatchMb = Number(active.limits?.maxBatchMb || (FREE_LIMITS.maxBatchBytes / 1024 / 1024)); return { maxFiles, maxBatchBytes: maxBatchMb * 1024 * 1024, allowBulkDownload: true, tier: active.planName || "Relay" }; }
+function getSubscriptionTierClass(activeSub) { if (!activeSub) return "tier-free"; const ref = `${String(activeSub.planName || "").toLowerCase()} ${String(activeSub.planId || "").toLowerCase()}`; if (ref.includes("ultra")) return "tier-ultra"; if (ref.includes("plus")) return "tier-plus"; if (ref.includes("core")) return "tier-core"; return "tier-core"; }
+function renderHeroStatus() { const limits = getCurrentLimits(); const active = getActiveSubscription(); const heroChip = $("#heroSubscriptionState"); const tierClass = getSubscriptionTierClass(active); $("#kpiFiles").textContent = String(limits.maxFiles); $("#kpiSize").textContent = fmtBytes(limits.maxBatchBytes); $("#kpiTier").textContent = active ? (active.planName || "Relay") : "Free"; $("#dropHint").textContent = active ? `Plan activo: hasta ${limits.maxFiles} archivos por lote` : `Limite Free: ${limits.maxFiles} archivos por lote (vincula Ocean Pay para mas)`; if (heroChip) { heroChip.className = `hero-chip ${tierClass}`; heroChip.textContent = active ? `Plan ${active.planName || "Relay"} activo hasta ${new Date(active.endsAt).toLocaleString("es-ES")}` : "Plan Free Relay"; } }
+function renderQueue() {
+  const root = $("#queue");
+  if (state.files.length === 0) {
+    root.innerHTML = '<div class="empty">No hay archivos en cola. Agrega al menos 1 archivo.</div>';
+  } else {
+    root.innerHTML = state.files.map((f, i) => `
+      <div class="item">
+        <div class="icon">${fileIcon(f.name)}</div>
+        <div class="meta"><strong title="${esc(f.name)}">${esc(f.name)}</strong><span>${new Date(f.lastModified).toLocaleString("es-ES")}</span></div>
+        <span class="size">${fmtBytes(f.size)}</span>
+        <button class="mini" data-remove="${i}">Quitar</button>
+      </div>
+    `).join("");
+  }
+  root.querySelectorAll("[data-remove]").forEach((btn) => btn.addEventListener("click", () => { state.files.splice(Number(btn.dataset.remove), 1); renderQueue(); }));
+  const total = state.files.reduce((a, b) => a + b.size, 0);
+  $("#sFiles").textContent = String(state.files.length);
+  $("#sSize").textContent = fmtBytes(total);
+  $("#sReady").textContent = state.files.length > 0 ? "Si" : "No";
+  $("#uploadBtn").disabled = state.files.length === 0;
+}
+
+function renderHistory() {
+  const sent = $("#sentHistory");
+  const recv = $("#recvHistory");
+  sent.innerHTML = !state.history.sent.length ? '<div class="empty">Sin envios guardados.</div>' : state.history.sent.map((h, i) => `<div class="item" style="grid-template-columns:minmax(0,1fr) auto;"><div class="meta"><strong>${esc(h.code)}</strong><span>${h.count} archivos - ${fmtBytes(h.size)} - ${new Date(h.at).toLocaleString("es-ES")}</span></div><button class="mini" data-sent-copy="${i}">Copiar</button></div>`).join("");
+  recv.innerHTML = !state.history.received.length ? '<div class="empty">Sin codigos consultados.</div>' : state.history.received.map((h, i) => `<div class="item" style="grid-template-columns:minmax(0,1fr) auto auto;"><div class="meta"><strong>${esc(h.code)}</strong><span>${h.count} archivos - ${fmtBytes(h.size)} - ${new Date(h.at).toLocaleString("es-ES")}</span></div><button class="mini" data-recv-open="${i}">Abrir</button><button class="mini" data-recv-copy="${i}">Copiar</button></div>`).join("");
+  sent.querySelectorAll("[data-sent-copy]").forEach((btn) => btn.addEventListener("click", async () => { const item = state.history.sent[Number(btn.dataset.sentCopy)]; await copy(item.code); toast("Codigo copiado", "ok"); }));
+  recv.querySelectorAll("[data-recv-open]").forEach((btn) => btn.addEventListener("click", () => { const item = state.history.received[Number(btn.dataset.recvOpen)]; setTab("receive"); $("#recvCode").value = item.code; lookup(); }));
+  recv.querySelectorAll("[data-recv-copy]").forEach((btn) => btn.addEventListener("click", async () => { const item = state.history.received[Number(btn.dataset.recvCopy)]; await copy(item.code); toast("Codigo copiado", "ok"); }));
+}
+
+function addFiles(list) {
+  const limits = getCurrentLimits();
+  const incoming = Array.from(list || []);
+  for (const f of incoming) {
+    if (state.files.length >= limits.maxFiles) { toast(`Tu limite actual es ${limits.maxFiles} archivos por lote.`, "warn"); break; }
+    const exists = state.files.some((x) => x.name === f.name && x.size === f.size && x.lastModified === f.lastModified);
+    if (!exists) state.files.push(f);
+  }
+  const total = state.files.reduce((a, b) => a + b.size, 0);
+  if (total > limits.maxBatchBytes) toast(`El lote supera el limite de tu plan (${fmtBytes(limits.maxBatchBytes)}).`, "warn");
+  renderQueue();
+}
+
+function resetUpload() { state.files = []; renderQueue(); $("#stat").style.display = "none"; $("#result").style.display = "none"; $("#fill").style.width = "0%"; $("#pct").textContent = "0%"; $("#speed").textContent = "0 MB/s"; $("#eta").textContent = "--"; $("#bytes").textContent = "0 MB / 0 MB"; $("#label").textContent = "Preparando..."; }
+function setProgress(p, loaded, total) { $("#fill").style.width = `${Math.max(0, Math.min(100, p)).toFixed(1)}%`; $("#pct").textContent = `${Math.round(p)}%`; $("#bytes").textContent = `${fmtBytes(loaded)} / ${fmtBytes(total)}`; }
+function ensureOceanLinked() { if (state.ocean.token) return true; toast("Debes vincular Ocean Pay para usar WildTransfer.", "warn"); openAuthModal(); return false; }
+
+function startUpload() {
+  if (!state.netOnline) { toast("Sin conexion: revisa internet antes de subir archivos.", "error"); return; }
+  if (!ensureOceanLinked()) return;
+  if (!state.files.length) { toast("Agrega archivos antes de subir.", "warn"); return; }
+  const limits = getCurrentLimits();
+  const total = state.files.reduce((a, b) => a + b.size, 0);
+  if (state.files.length > limits.maxFiles) { toast(`Tu plan permite hasta ${limits.maxFiles} archivos por lote.`, "warn"); return; }
+  if (total > limits.maxBatchBytes) { toast(`El lote supera el limite de tu plan (${fmtBytes(limits.maxBatchBytes)}).`, "warn"); return; }
+  const form = new FormData(); state.files.forEach((f) => form.append("files", f));
+  $("#stat").style.display = "grid"; $("#result").style.display = "none"; $("#uploadBtn").disabled = true; $("#clearBtn").disabled = true; $("#label").textContent = "Subiendo..."; state.uploadStart = Date.now();
+  const xhr = new XMLHttpRequest(); state.xhr = xhr; xhr.open("POST", `${TRANSFER_API}/upload`, true);
+  if (state.ocean.token) xhr.setRequestHeader("Authorization", `Bearer ${state.ocean.token}`);
+  xhr.upload.onprogress = (evt) => { if (!evt.lengthComputable) return; const elapsed = Math.max((Date.now() - state.uploadStart) / 1000, 0.1); const speed = evt.loaded / elapsed; const remain = Math.max(evt.total - evt.loaded, 0); setProgress((evt.loaded / evt.total) * 100, evt.loaded, evt.total); $("#speed").textContent = `${fmtBytes(speed)}/s`; $("#eta").textContent = fmtEta(speed > 0 ? remain / speed : 0); };
+  xhr.onerror = () => { state.xhr = null; $("#label").textContent = "Error de red"; $("#uploadBtn").disabled = false; $("#clearBtn").disabled = false; toast("Fallo de conexion en subida.", "error"); };
+  xhr.onabort = () => { state.xhr = null; $("#label").textContent = "Subida cancelada"; $("#uploadBtn").disabled = false; $("#clearBtn").disabled = false; toast("Subida cancelada.", "warn"); };
+  xhr.onload = () => {
+    state.xhr = null; $("#uploadBtn").disabled = false; $("#clearBtn").disabled = false;
+    let data = {}; try { data = JSON.parse(xhr.responseText || "{}"); } catch (_e) {}
+    if (xhr.status < 200 || xhr.status >= 300 || !data.success) { $("#label").textContent = "Fallo la subida"; toast(data.error || "No se pudo subir el lote.", "error"); return; }
+    setProgress(100, total, total); $("#speed").textContent = "Completado"; $("#eta").textContent = "0s"; $("#label").textContent = "Subida finalizada";
+    state.code = data.code; state.shareUrl = `${location.origin}${location.pathname}?code=${encodeURIComponent(data.code)}`; const expires = data.expiresAt || new Date(Date.now() + 86400000).toISOString();
+    $("#code").textContent = state.code; $("#mCount").textContent = String(state.files.length); $("#mSize").textContent = fmtBytes(total); $("#mExp").textContent = relTime(expires); $("#qr").src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(state.shareUrl)}`; $("#result").style.display = "grid";
+    addHistory("sent", { code: state.code, size: total, count: state.files.length, at: new Date().toISOString() });
+    if (data.reward) {
+      applyRelayReward(data.reward);
+      toast(`Archivos subidos. +${data.reward.amount} ${WT_RELAY_CURRENCY_LABEL}.`, "ok");
+    } else {
+      toast("Archivos subidos. Codigo listo para compartir.", "ok");
+    }
+  };
+  xhr.send(form);
+}
+
+async function lookup() { const code = cleanCode($("#recvCode").value); $("#recvCode").value = code; if (code.length !== 6) { toast("Ingresa un codigo de 6 caracteres.", "warn"); return; } if (!state.netOnline) { toast("Sin conexion: no se puede consultar el codigo ahora.", "error"); return; } $("#lookupBtn").disabled = true; $("#lookupBtn").textContent = "Buscando..."; try { const res = await fetch(`${TRANSFER_API}/info/${encodeURIComponent(code)}`); const data = await res.json(); if (!res.ok || !data.success) { toast(data.error || "Codigo no encontrado.", "error"); $("#recvList").innerHTML = ""; $("#recvMeta").style.display = "none"; $("#allBtn").disabled = true; return; } state.recvFiles = Array.isArray(data.files) ? data.files : []; renderReceive(); const totalSize = typeof data.totalSize === "number" ? data.totalSize : state.recvFiles.reduce((a, b) => a + (b.size || 0), 0); const expires = data.expiresAt || ""; $("#rCount").textContent = String(state.recvFiles.length); $("#rSize").textContent = fmtBytes(totalSize); $("#rExp").textContent = expires ? relTime(expires) : "24h"; $("#recvMeta").style.display = "grid"; $("#allBtn").disabled = state.recvFiles.length === 0; addHistory("received", { code, size: totalSize, count: state.recvFiles.length, at: new Date().toISOString() }); toast(`Codigo ${code} listo para descargar.`, "ok"); } catch (_e) { toast("Error consultando el servicio.", "error"); } finally { $("#lookupBtn").disabled = false; $("#lookupBtn").textContent = "Buscar archivos"; } }
+function renderReceive() { const root = $("#recvList"); if (!state.recvFiles.length) { root.innerHTML = '<div class="empty">No hay archivos en este codigo.</div>'; return; } root.innerHTML = state.recvFiles.map((f) => `<div class="item"><div class="icon">${fileIcon(f.name || "")}</div><div class="meta"><strong title="${esc(f.name || "")}">${esc(f.name || "sin_nombre")}</strong><span>ID: ${esc(f.id || "-")}</span></div><span class="size">${fmtBytes(f.size || 0)}</span><button class="mini" data-dl-id="${esc(f.id || "")}" data-dl-name="${esc(f.name || "archivo")}">Descargar</button></div>`).join(""); root.querySelectorAll("[data-dl-id]").forEach((btn) => btn.addEventListener("click", () => dl(btn.dataset.dlId, btn.dataset.dlName))); }
+async function dl(id, suggestedName = "archivo", silent = false) {
+  try {
+    const headers = {};
+    if (state.ocean.token) headers.Authorization = `Bearer ${state.ocean.token}`;
+    const res = await fetch(`${TRANSFER_API}/download-file/${encodeURIComponent(id)}`, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = suggestedName || id;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    const rewardAmount = Number(res.headers.get("X-WT-Reward-Amount") || 0);
+    const rewardBalance = Number(res.headers.get("X-WT-New-Balance") || 0);
+    if (rewardAmount > 0) {
+      applyRelayReward({ currency: WT_RELAY_CURRENCY, amount: rewardAmount, newBalance: rewardBalance });
+      if (!silent) toast(`Descarga lista. +${rewardAmount} ${WT_RELAY_CURRENCY_LABEL}.`, "ok");
+      return;
+    }
+    if (!silent) toast("Descarga iniciada.", "ok");
+  } catch (_e) {
+    if (!silent) toast("No se pudo descargar el archivo.", "error");
+  }
+}
+function resetReceive() { state.recvFiles = []; $("#recvCode").value = ""; $("#recvList").innerHTML = ""; $("#recvMeta").style.display = "none"; $("#allBtn").disabled = true; }
+function persistOceanSession() { localStorage.setItem(OCEAN_SESSION_KEY, JSON.stringify({ token: state.ocean.token || "", user: state.ocean.user || null, subscription: state.ocean.subscription || null })); }
+function hydrateOceanSession() { try { const raw = localStorage.getItem(OCEAN_SESSION_KEY); if (!raw) return; const parsed = JSON.parse(raw); state.ocean.token = parsed.token || ""; state.ocean.user = parsed.user || null; state.ocean.subscription = parsed.subscription || null; } catch (_e) { state.ocean.token = ""; state.ocean.user = null; state.ocean.subscription = null; } }
+function clearOceanSession() { state.ocean.token = ""; state.ocean.user = null; state.ocean.cards = []; state.ocean.subscription = null; persistOceanSession(); }
+async function authedFetch(url, options = {}) { const headers = { ...(options.headers || {}) }; if (state.ocean.token) headers.Authorization = `Bearer ${state.ocean.token}`; return fetch(url, { ...options, headers }); }
+function getPlanById(planId) { return state.ocean.plans.find((p) => p.id === planId) || state.ocean.plans[0] || FALLBACK_PLANS[0]; }
+function renderSidePlans() {
+  const root = $("#sidePlanList");
+  const active = getActiveSubscription();
+  root.innerHTML = state.ocean.plans.map((plan) => {
+    const firstCurrency = Object.keys(plan.priceByCurrency || {})[0] || WT_RELAY_CURRENCY;
+    const firstPrice = Number(plan.priceByCurrency?.[firstCurrency] ?? 0);
+    const ref = `${String(plan.id || "").toLowerCase()} ${String(plan.label || "").toLowerCase()}`;
+    const tierClass = ref.includes("ultra") ? "tier-ultra" : (ref.includes("plus") ? "tier-plus" : "tier-core");
+    const isActivePlan = Boolean(active) && (String(active.planId || "") === String(plan.id || ""));
+    const badge = isActivePlan ? "ACTIVO" : (tierClass === "tier-ultra" ? "TOP" : (tierClass === "tier-plus" ? "PRO" : "CORE"));
+    return `
+      <div class="plan-item ${tierClass} ${isActivePlan ? "active" : ""}">
+        <div class="plan-item-head">
+          <strong>${esc(plan.label)}</strong>
+          <span class="plan-item-badge">${badge}</span>
+        </div>
+        <span>${esc((plan.perks || [])[0] || "Plan semanal")}. ${firstPrice} ${formatCurrencyLabel(firstCurrency)} / semana</span>
+      </div>
+    `;
+  }).join("");
+}
+function renderOceanPanel() { const active = getActiveSubscription(); const linked = Boolean(state.ocean.token && state.ocean.user); const chip = $("#opStatusChip"); if (!linked) { chip.className = "status-chip neutral"; chip.textContent = "No vinculada"; $("#opUserName").textContent = "No conectado"; $("#opSubState").textContent = "Sin plan activo"; $("#opSubEnds").textContent = "-"; } else if (!active) { chip.className = "status-chip warn"; chip.textContent = "Vinculada sin plan"; $("#opUserName").textContent = state.ocean.user?.username || `ID ${state.ocean.user?.id || "-"}`; $("#opSubState").textContent = "Sin suscripcion semanal activa"; $("#opSubEnds").textContent = "-"; } else { const tierClass = getSubscriptionTierClass(active).replace("tier-", "plan-"); chip.className = `status-chip ok ${tierClass}`; chip.textContent = `${active.planName || "Plan Relay"} activo`; $("#opUserName").textContent = state.ocean.user?.username || `ID ${state.ocean.user?.id || "-"}`; $("#opSubState").textContent = `${active.planName || "Relay"} (${formatCurrencyLabel(active.currency || WT_RELAY_CURRENCY)})`; $("#opSubEnds").textContent = new Date(active.endsAt).toLocaleString("es-ES"); } $("#disconnectOceanBtn").style.display = linked ? "block" : "none"; $("#connectOceanBtn").textContent = linked ? "Re-vincular Ocean Pay" : "Vincular Ocean Pay"; renderHeroStatus(); renderQueue(); renderRelayBalance(); renderCurrencyCanvases(); }
+async function loadPlans() { try { const res = await fetch(`${WT_SUBS_API}/plans`); if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); if (Array.isArray(data.plans) && data.plans.length) state.ocean.plans = data.plans; else state.ocean.plans = FALLBACK_PLANS.slice(); } catch (_e) { state.ocean.plans = FALLBACK_PLANS.slice(); } renderSidePlans(); }
+async function refreshOceanStatus(showToasts = false) { if (!state.ocean.token) { renderOceanPanel(); return; } try { const [meRes, statusRes] = await Promise.all([authedFetch(`${OCEAN_PAY_API}/me`), authedFetch(`${WT_SUBS_API}/status`)]); if (meRes.status === 401 || statusRes.status === 401) { clearOceanSession(); renderOceanPanel(); if (showToasts) toast("Sesion de Ocean Pay expirada. Vuelve a vincular.", "warn"); return; } if (meRes.ok) { const meData = await meRes.json(); state.ocean.user = { id: meData.id, username: meData.username }; state.ocean.cards = Array.isArray(meData.cards) ? meData.cards : []; } if (statusRes.ok) { const statusData = await statusRes.json(); if (Array.isArray(statusData.plans) && statusData.plans.length) state.ocean.plans = statusData.plans; if (Array.isArray(statusData.cards) && statusData.cards.length && state.ocean.cards.length === 0) state.ocean.cards = statusData.cards; state.ocean.subscription = statusData.subscription || null; } persistOceanSession(); renderSidePlans(); renderOceanPanel(); if (showToasts) toast("Estado de Ocean Pay actualizado.", "ok"); } catch (_e) { if (showToasts) toast("No se pudo actualizar el estado de Ocean Pay.", "error"); } }
+function openAuthModal() { $("#authModalMsg").textContent = ""; $("#opPassword").value = ""; $("#opAuthModal").classList.add("active"); }
+function closeAuthModal() { $("#opAuthModal").classList.remove("active"); }
+async function linkOceanPayAccount() { const username = ($("#opUsername").value || "").trim(); const password = ($("#opPassword").value || "").trim(); if (!username || !password) { $("#authModalMsg").textContent = "Completa usuario y contrasena."; return; } const btn = $("#authSubmitBtn"); const prev = btn.textContent; btn.disabled = true; btn.textContent = "Vinculando..."; $("#authModalMsg").textContent = ""; try { const res = await fetch(`${OCEAN_PAY_API}/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) }); const data = await res.json().catch(() => ({})); if (!res.ok || !data.token) throw new Error(data.error || `Error ${res.status}`); state.ocean.token = data.token; state.ocean.user = { id: data.user?.id || 0, username: data.user?.username || username }; state.ocean.subscription = null; persistOceanSession(); await refreshOceanStatus(); closeAuthModal(); toast("Cuenta Ocean Pay vinculada correctamente.", "ok"); } catch (e) { $("#authModalMsg").textContent = `No se pudo vincular: ${e.message}`; } finally { btn.disabled = false; btn.textContent = prev; } }
+function openCheckoutModal() { if (!state.ocean.token) { toast("Primero vincula tu cuenta Ocean Pay.", "warn"); openAuthModal(); return; } if (!state.ocean.plans.length) state.ocean.plans = FALLBACK_PLANS.slice(); if (!state.ocean.selectedPlanId) state.ocean.selectedPlanId = state.ocean.plans[0]?.id || "relay-core"; renderCheckoutPlans(); renderCheckoutCards(); renderCheckoutSummary(); $("#checkoutMsg").textContent = ""; $("#wtCheckoutModal").classList.add("active"); }
+function closeCheckoutModal() { $("#wtCheckoutModal").classList.remove("active"); }
+function renderCheckoutPlans() { const root = $("#checkoutPlanGrid"); root.innerHTML = state.ocean.plans.map((plan) => { const active = plan.id === state.ocean.selectedPlanId; const perks = (plan.perks || []).slice(0, 2).join(" · "); return `<div class="plan-card ${active ? "active" : ""}" data-plan-id="${esc(plan.id)}"><h4>${esc(plan.label)}</h4><p>${esc(perks || "Plan semanal")}</p></div>`; }).join(""); root.querySelectorAll("[data-plan-id]").forEach((el) => el.addEventListener("click", () => { state.ocean.selectedPlanId = el.dataset.planId; renderCheckoutPlans(); renderCheckoutSummary(); })); }
+function renderCheckoutCards() { const select = $("#checkoutCard"); const cards = state.ocean.cards || []; if (!cards.length) { select.innerHTML = '<option value="">Sin tarjeta disponible</option>'; return; } select.innerHTML = cards.map((card) => { const title = `${card.card_name || "Ocean Card"}${card.is_primary ? " (Principal)" : ""}`; const suffix = card.card_number ? `****${String(card.card_number).slice(-4)}` : `ID ${card.id}`; return `<option value="${card.id}">${esc(title)} - ${esc(suffix)}</option>`; }).join(""); const primary = cards.find((c) => c.is_primary) || cards[0]; select.value = String(primary.id); }
+function renderCheckoutSummary() { const plan = getPlanById(state.ocean.selectedPlanId); const currency = WT_RELAY_CURRENCY; const price = Number(plan.priceByCurrency?.[currency] || 0); $("#summaryPlan").textContent = plan.label; $("#summaryCurrency").textContent = formatCurrencyLabel(currency); $("#summaryTotal").textContent = `${price} ${formatCurrencyLabel(currency)}`; }
+async function confirmCheckout() { const plan = getPlanById(state.ocean.selectedPlanId); const cardId = Number($("#checkoutCard").value || 0); if (!plan?.id || !cardId) { $("#checkoutMsg").textContent = "Completa plan y tarjeta."; return; } const btn = $("#checkoutConfirmBtn"); const prev = btn.textContent; btn.disabled = true; btn.textContent = "Procesando..."; $("#checkoutMsg").textContent = ""; try { const res = await authedFetch(`${WT_SUBS_API}/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId: plan.id, cardId }) }); const data = await res.json().catch(() => ({})); if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`); state.ocean.subscription = data.subscription || null; persistOceanSession(); await refreshOceanStatus(); closeCheckoutModal(); toast("Suscripcion WildTransfer activada correctamente.", "ok"); } catch (e) { $("#checkoutMsg").textContent = `No se pudo completar el checkout: ${e.message}`; } finally { btn.disabled = false; btn.textContent = prev; } }
+async function dlAll() { if (!state.recvFiles.length) return; const limits = getCurrentLimits(); if (!limits.allowBulkDownload) { toast("Descargar todo es una ventaja de suscripcion Relay.", "warn"); openCheckoutModal(); return; } $("#allBtn").disabled = true; $("#allBtn").textContent = "Lanzando descargas..."; for (let i = 0; i < state.recvFiles.length; i++) { await dl(state.recvFiles[i].id, state.recvFiles[i].name || "archivo", true); await new Promise((r) => setTimeout(r, 320)); } $("#allBtn").disabled = false; $("#allBtn").textContent = "Descargar todo"; toast("Descargas iniciadas.", "ok"); }
+
+function bind() { $$(".tab").forEach((t) => t.addEventListener("click", () => setTab(t.dataset.tab))); const topSend = $("#topSend"), topReceive = $("#topReceive"), topHistory = $("#topHistory"), topSubs = $("#topSubs"); if (topSend) topSend.addEventListener("click", () => setTab("send")); if (topReceive) topReceive.addEventListener("click", () => setTab("receive")); if (topHistory) topHistory.addEventListener("click", () => setTab("history")); if (topSubs) topSubs.addEventListener("click", openCheckoutModal); $("#goSend").addEventListener("click", () => setTab("send")); $("#goRecv").addEventListener("click", () => setTab("receive")); $("#clearHistory").addEventListener("click", () => { state.history = { sent: [], received: [] }; saveHistory(); renderHistory(); toast("Historial local borrado.", "ok"); }); const drop = $("#drop"); const input = $("#input"); drop.addEventListener("click", () => input.click()); drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } }); input.addEventListener("change", (e) => { addFiles(e.target.files); input.value = ""; }); ["dragenter", "dragover"].forEach((evt) => drop.addEventListener(evt, (e) => { e.preventDefault(); drop.classList.add("drag"); })); ["dragleave", "drop"].forEach((evt) => drop.addEventListener(evt, (e) => { e.preventDefault(); drop.classList.remove("drag"); })); drop.addEventListener("drop", (e) => addFiles(e.dataTransfer?.files || [])); $("#uploadBtn").addEventListener("click", startUpload); $("#clearBtn").addEventListener("click", resetUpload); $("#cancelBtn").addEventListener("click", () => { if (state.xhr) state.xhr.abort(); }); $("#copyCode").addEventListener("click", async () => { if (!state.code) return; await copy(state.code); toast("Codigo copiado.", "ok"); }); $("#copyLink").addEventListener("click", async () => { if (!state.shareUrl) return; await copy(state.shareUrl); toast("Link copiado.", "ok"); }); $("#openReceive").addEventListener("click", () => { if (!state.code) return; setTab("receive"); $("#recvCode").value = state.code; lookup(); }); $("#recvCode").addEventListener("input", (e) => { e.target.value = cleanCode(e.target.value); }); $("#recvCode").addEventListener("keydown", (e) => { if (e.key === "Enter") lookup(); }); $("#lookupBtn").addEventListener("click", lookup); $("#allBtn").addEventListener("click", dlAll); $("#resetRecv").addEventListener("click", resetReceive); $("#backSend").addEventListener("click", () => setTab("send")); $("#connectOceanBtn").addEventListener("click", openAuthModal); $("#openCheckoutBtn").addEventListener("click", openCheckoutModal); $("#refreshOceanBtn").addEventListener("click", () => refreshOceanStatus(true)); $("#disconnectOceanBtn").addEventListener("click", () => { clearOceanSession(); renderOceanPanel(); toast("Cuenta Ocean Pay desvinculada.", "ok"); }); $("#closeAuthModal").addEventListener("click", closeAuthModal); $("#authCancelBtn").addEventListener("click", closeAuthModal); $("#authSubmitBtn").addEventListener("click", linkOceanPayAccount); $("#opPassword").addEventListener("keydown", (e) => { if (e.key === "Enter") linkOceanPayAccount(); }); $("#closeCheckoutModal").addEventListener("click", closeCheckoutModal); $("#checkoutCancelBtn").addEventListener("click", closeCheckoutModal); $("#checkoutConfirmBtn").addEventListener("click", confirmCheckout); $("#checkoutCard").addEventListener("change", renderCheckoutSummary); $("#opAuthModal").addEventListener("click", (e) => { if (e.target.id === "opAuthModal") closeAuthModal(); }); $("#wtCheckoutModal").addEventListener("click", (e) => { if (e.target.id === "wtCheckoutModal") closeCheckoutModal(); }); window.addEventListener("online", () => { state.netOnline = true; renderNetworkStatus(); toast("Conexion restablecida.", "ok"); }); window.addEventListener("offline", () => { state.netOnline = false; renderNetworkStatus(); toast("Sin conexion. WildTransfer queda en modo local.", "warn"); }); }
+function hydrateQuery() { const p = new URLSearchParams(location.search); const code = cleanCode(p.get("code") || ""); if (!code) return; setTab("receive"); $("#recvCode").value = code; lookup(); }
+async function init() { bind(); hydrateOceanSession(); renderNetworkStatus(); renderQueue(); renderHistory(); await loadPlans(); renderOceanPanel(); renderRelayBalance(); renderCurrencyCanvases(); if (state.ocean.token) await refreshOceanStatus(); hydrateQuery(); }
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "name": "naturepedia",
+  "productName": "Naturepedia",
+  "version": "2026.4.13-t0001",
+  "description": "Naturepedia desktop app",
+  "main": "main.js",
+  "author": "Ocean and Wild Studios",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.oceanandwild.naturepedia",
+    "productName": "Naturepedia",
+    "artifactName": "Naturepedia-${version}-Setup.${ext}",
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "package.json",
+      "build/**/*",
+      "assets/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/naturepedia-icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

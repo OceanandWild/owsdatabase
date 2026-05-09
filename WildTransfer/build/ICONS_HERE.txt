@@ -1,0 +1,3 @@
+﻿Place your icons here before building:
+- icon.ico (Windows executable/installer icon)
+- icon.png (runtime/icon fallback)

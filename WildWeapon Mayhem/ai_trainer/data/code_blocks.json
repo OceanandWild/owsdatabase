@@ -1,0 +1,4404 @@
+[
+  {
+    "id": "584233627b96",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.02; this.size += 15; }",
+    "start_line": 8984,
+    "end_line": 8984,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "3f35e769b038",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                        ctx.strokeStyle = '#00ffff';\n                        ctx.lineWidth = 5 * this.life;\n                        ctx.globalAlpha = this.life;\n                        ctx.beginPath();\n                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);\n                        ctx.stroke();\n                        ctx.globalAlpha = 1.0;\n                    }",
+    "start_line": 8985,
+    "end_line": 8993,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "f225d7036244",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                        ctx.strokeStyle = color;\n                        ctx.lineWidth = 3 * this.life;\n                        ctx.shadowBlur = 10;\n                        ctx.shadowColor = color;\n                        ctx.beginPath();\n                        ctx.moveTo(x1, y1);\n                        // Jagged line\n                        let cx = x1, cy = y1;\n                        const steps = 10;\n                        const dx = (x2 - x1) / steps;\n             ...",
+    "start_line": 9055,
+    "end_line": 9076,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "583162f0598f",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { }",
+    "start_line": 9077,
+    "end_line": 9077,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "56012e75a0ff",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.02; }",
+    "start_line": 9338,
+    "end_line": 9338,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "e923ff714bbc",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    ctx.fillStyle = `rgba(0, 255, 100, ${this.life * 0.3})`;\n                                    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);\n                                }",
+    "start_line": 9339,
+    "end_line": 9342,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "74371c2c6832",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.radius += 30; this.life -= 0.02; }",
+    "start_line": 9440,
+    "end_line": 9440,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "ce8378beae3f",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(153, 102, 255, ${this.life})`;\n                                    ctx.lineWidth = 5;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                    ctx.stroke();\n                                }",
+    "start_line": 9441,
+    "end_line": 9447,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "6a3712b0ab68",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.05; this.intensity *= 0.9; }",
+    "start_line": 9463,
+    "end_line": 9463,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "6ce500d7a376",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    ctx.save();\n                                    ctx.translate((Math.random() - 0.5) * this.intensity, (Math.random() - 0.5) * this.intensity);\n                                }",
+    "start_line": 9464,
+    "end_line": 9467,
+    "description": "Dibuja elementos en el canvas",
+    "tags": [
+      "save"
+    ]
+  },
+  {
+    "id": "06bcba6df4e0",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.x += 25; this.life -= 0.01; }",
+    "start_line": 9504,
+    "end_line": 9504,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "dd92a9e58de7",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    const gradient = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);\n                                    gradient.addColorStop(0, 'rgba(0, 100, 200, 0)');\n                                    gradient.addColorStop(0.5, `rgba(0, 150, 255, ${this.life * 0.7})`);\n                                    gradient.addColorStop(1, 'rgba(0, 100, 200, 0)');\n                                    ctx.fillStyle = gradient;\n                        ...",
+    "start_line": 9505,
+    "end_line": 9512,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "082380e80ac8",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.03; }",
+    "start_line": 9560,
+    "end_line": 9560,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "551858ce2fe3",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    ctx.fillStyle = `rgba(255, 200, 100, ${this.life * 0.5})`;\n                                    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);\n                                }",
+    "start_line": 9561,
+    "end_line": 9564,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "b22d9c9f2b58",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.radius += 15; this.life -= 0.02; this.rotation += 0.3; }",
+    "start_line": 9668,
+    "end_line": 9668,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "1e41d06f13d8",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    ctx.save();\n                                    ctx.translate(this.x, this.y);\n                                    ctx.rotate(this.rotation);\n                                    ctx.strokeStyle = `rgba(255, 0, 85, ${this.life})`;\n                                    ctx.lineWidth = 8;\n                                    ctx.beginPath();\n                                    ctx.arc(0, 0, this.radius, 0, Math.PI * 1.5);\n                     ...",
+    "start_line": 9669,
+    "end_line": 9679,
+    "description": "Dibuja elementos en el canvas",
+    "tags": [
+      "save"
+    ]
+  },
+  {
+    "id": "6a1cad86badd",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.x += this.vx; this.y += this.vy; this.life -= 0.02; }",
+    "start_line": 9711,
+    "end_line": 9711,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "74cad188550a",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                        ctx.fillStyle = `rgba(255, 0, 0, ${this.life})`;\n                                        ctx.font = '20px Arial';\n                                        ctx.fillText('❤️', this.x, this.y);\n                                    }",
+    "start_line": 9712,
+    "end_line": 9716,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "4975969e26b1",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.x += 20; if (this.x > game.width + 50) this.life = 0; }",
+    "start_line": 9737,
+    "end_line": 9737,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": [
+      "game"
+    ]
+  },
+  {
+    "id": "cef18a66ade2",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                            ctx.fillStyle = '#8b4513';\n                                            ctx.font = '40px Arial';\n                                            ctx.fillText('🦌', this.x, this.y);\n                                            // Damage enemies in path\n                                            game.targets.forEach(t => {\n                                                if (t.active && Math.abs(t.x - this.x) < 40 && Math.abs(t.y - this.y...",
+    "start_line": 9738,
+    "end_line": 9749,
+    "description": "Dibuja elementos en el canvas",
+    "tags": [
+      "weapon",
+      "enemy",
+      "game"
+    ]
+  },
+  {
+    "id": "c2e3ce0113bb",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.radius += 25; this.life -= 0.03; }",
+    "start_line": 9838,
+    "end_line": 9838,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "860d15fd7e6f",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(255, 200, 0, ${this.life})`;\n                                    ctx.lineWidth = 8;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, -0.5, 0.5);\n                                    ctx.stroke();\n                                }",
+    "start_line": 9839,
+    "end_line": 9845,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "f430c973249d",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () {\n                                    this.life -= 0.01;\n                                    // Damage enemies in pool\n                                    game.targets.forEach(t => {\n                                        if (t.active && Math.hypot(t.x - this.x, t.y - this.y) < this.radius) {\n                                            t.hp -= 0.5;\n                                            if (Math.random() < 0.05) game.createFloatingText(t.x, t.y, \"☠️\", \"#00ff00\");\n      ...",
+    "start_line": 9868,
+    "end_line": 9877,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": [
+      "weapon",
+      "enemy",
+      "game"
+    ]
+  },
+  {
+    "id": "686b4424fdb9",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);\n                                    gradient.addColorStop(0, `rgba(0, 255, 0, ${this.life * 0.5})`);\n                                    gradient.addColorStop(0.5, `rgba(50, 200, 50, ${this.life * 0.3})`);\n                                    gradient.addColorStop(1, 'rgba(0, 100, 0, 0)');\n                                    ctx.fillStyle = gradient...",
+    "start_line": 9878,
+    "end_line": 9887,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "54abefa5c0ce",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.016; }",
+    "start_line": 9929,
+    "end_line": 9929,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "22d704e64d7c",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(222, 184, 135, ${this.life * 0.5})`;\n                                    ctx.lineWidth = 3;\n                                    ctx.setLineDash([5, 5]);\n                                    ctx.beginPath();\n                                    ctx.arc(CONSTANTS.WEAPON_X, CONSTANTS.WEAPON_Y, 60, 0, Math.PI * 2);\n                                    ctx.stroke();\n                                    ctx.setLineDash([]);...",
+    "start_line": 9930,
+    "end_line": 9938,
+    "description": "Dibuja elementos en el canvas",
+    "tags": [
+      "weapon"
+    ]
+  },
+  {
+    "id": "01252138e276",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () {\n                                    this.y += 30;\n                                    this.life -= 0.02;\n                                    // Kill enemies in path\n                                    game.targets.forEach(t => {\n                                        if (t.active && Math.hypot(t.x - this.x, t.y - this.y) < 50) {\n                                            t.hp -= 50; // Massive damage\n                                            if (t.hp <= 0) { t.active = ...",
+    "start_line": 9995,
+    "end_line": 10006,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": [
+      "weapon",
+      "enemy",
+      "game"
+    ]
+  },
+  {
+    "id": "eb99f056f8f5",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    ctx.fillStyle = '#4169e1';\n                                    ctx.font = '50px Arial';\n                                    ctx.fillText('🦅', this.x - 25, this.y);\n                                }",
+    "start_line": 10007,
+    "end_line": 10011,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "88609b0cf553",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () {\n                                            this.x += 25;\n                                            if (this.x > game.width + 50) this.life = 0;\n                                            // Damage enemies\n                                            game.targets.forEach(t => {\n                                                if (t.active && Math.abs(t.x - this.x) < 40 && Math.abs(t.y - this.y) < 40) {\n                                                    t.hp -= 15;\n       ...",
+    "start_line": 10130,
+    "end_line": 10140,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": [
+      "weapon",
+      "enemy",
+      "game"
+    ]
+  },
+  {
+    "id": "75fb1d0c54f2",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                            ctx.font = '50px Arial';\n                                            ctx.fillText(this.animal, this.x, this.y);\n                                        }",
+    "start_line": 10141,
+    "end_line": 10144,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "793ec99d5cec",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.02; }",
+    "start_line": 10175,
+    "end_line": 10175,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "4605643f9e2a",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                    const gradient = ctx.createRadialGradient(game.width / 2, 50, 0, game.width / 2, 50, game.height);\n                                    gradient.addColorStop(0, `rgba(255, 200, 0, ${this.life * 0.5})`);\n                                    gradient.addColorStop(0.5, `rgba(255, 100, 0, ${this.life * 0.3})`);\n                                    gradient.addColorStop(1, 'rgba(255, 50, 0, 0)');\n                                    ctx.fillStyle...",
+    "start_line": 10176,
+    "end_line": 10183,
+    "description": "Dibuja elementos en el canvas",
+    "tags": [
+      "game"
+    ]
+  },
+  {
+    "id": "0855c0b45da9",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.x += this.vx; this.y += this.vy; this.life -= 0.02; }",
+    "start_line": 10247,
+    "end_line": 10247,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "4cb0e75a85a2",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                        ctx.globalAlpha = this.life; ctx.fillStyle = this.color;\n                        ctx.font = \"bold 20px Outfit\"; ctx.fillText(this.text, this.x, this.y);\n                        ctx.globalAlpha = 1.0;\n                    }",
+    "start_line": 10248,
+    "end_line": 10252,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "3ea3762db4d3",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.05; }",
+    "start_line": 10333,
+    "end_line": 10333,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "8aa71e911548",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                        ctx.strokeStyle = `rgba(0, 255, 100, ${this.life})`;\n                                        ctx.lineWidth = 4 * this.life;\n                                        ctx.shadowColor = '#00ff66';\n                                        ctx.shadowBlur = 20;\n                                        ctx.beginPath();\n                                        // Jagged lightning\n                                        ctx.moveTo(this.startX, th...",
+    "start_line": 10334,
+    "end_line": 10348,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "982e903f4976",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.03; }",
+    "start_line": 10439,
+    "end_line": 10439,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "19028a3133d1",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                const gradient = ctx.createRadialGradient(\n                                    this.x, this.y, 0,\n                                    this.x, this.y, this.radius\n                                );\n                                if (this.killZone) {\n                                    gradient.addColorStop(0, 'rgba(0, 255, 0, 0.4)');\n                                    gradient.addColorStop(0.5, 'rgba(34, 139, 34, 0.3)');\n                   ...",
+    "start_line": 10440,
+    "end_line": 10464,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "eb32944647b4",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () {\n                                this.x += this.vx;\n                                this.y += this.vy;\n                                this.life -= 0.02;\n                            }",
+    "start_line": 10494,
+    "end_line": 10498,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "49018d44359b",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                ctx.fillStyle = `rgba(245, 222, 179, ${this.life})`;\n                                ctx.shadowColor = '#f5deb3';\n                                ctx.shadowBlur = 5;\n                                ctx.beginPath();\n                                ctx.ellipse(this.x, this.y, 8, 4, Math.random() * Math.PI, 0, Math.PI * 2);\n                                ctx.fill();\n                                ctx.shadowBlur = 0;\n                          ...",
+    "start_line": 10499,
+    "end_line": 10507,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "327399e3a8e5",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () {\n                                this.y += this.vy;\n                                if (this.y > game.height) this.life = 0;\n                            }",
+    "start_line": 10565,
+    "end_line": 10568,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": [
+      "game"
+    ]
+  },
+  {
+    "id": "9ff322aa26ae",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                const gradient = ctx.createLinearGradient(this.x, this.y - 15, this.x, this.y + 15);\n                                gradient.addColorStop(0, 'rgba(50, 205, 50, 0.2)');\n                                gradient.addColorStop(0.5, 'rgba(50, 205, 50, 0.8)');\n                                gradient.addColorStop(1, 'rgba(50, 205, 50, 0.2)');\n                                ctx.fillStyle = gradient;\n                                ctx.beginPath();...",
+    "start_line": 10569,
+    "end_line": 10578,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "2080e71e9f0c",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () {\n                                this.x += this.vx;\n                                this.y += this.vy;\n                                this.life -= 0.03;\n                                this.size *= 0.98;\n                            }",
+    "start_line": 10611,
+    "end_line": 10616,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "039db409a990",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);\n                                gradient.addColorStop(0, `rgba(255, 200, 0, ${this.life})`);\n                                gradient.addColorStop(0.5, `rgba(255, 100, 0, ${this.life * 0.7})`);\n                                gradient.addColorStop(1, `rgba(255, 0, 0, 0)`);\n                                ctx.fillStyle = gradient;\n                        ...",
+    "start_line": 10617,
+    "end_line": 10626,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "ff7d047ce41a",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.1; }",
+    "start_line": 10859,
+    "end_line": 10859,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "d33ea221a0bc",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                                ctx.strokeStyle = '#ffff00';\n                                                ctx.lineWidth = 3 * this.life;\n                                                ctx.globalAlpha = this.life;\n                                                ctx.beginPath();\n                                                ctx.moveTo(startX, startY);\n                                                ctx.lineTo(endX, endY);\n                               ...",
+    "start_line": 10860,
+    "end_line": 10869,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "c3c6288f07cf",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.05; }",
+    "start_line": 10902,
+    "end_line": 10902,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "e26d1f9dab31",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                            ctx.strokeStyle = '#00ff9d';\n                                            ctx.lineWidth = 2;\n                                            ctx.globalAlpha = this.life;\n                                            ctx.beginPath();\n                                            ctx.arc(this.x, this.y, 30 * (1 - this.life), 0, Math.PI * 2);\n                                            ctx.stroke();\n                                          ...",
+    "start_line": 10903,
+    "end_line": 10911,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "e744a474430d",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.1; }",
+    "start_line": 10932,
+    "end_line": 10932,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "3a271966a5f4",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                                    ctx.strokeStyle = '#ff0000';\n                                                    ctx.lineWidth = 1;\n                                                    ctx.globalAlpha = this.life;\n                                                    ctx.beginPath();\n                                                    ctx.moveTo(other.x, other.y);\n                                                    ctx.lineTo(t.x, t.y);\n                   ...",
+    "start_line": 10933,
+    "end_line": 10942,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "5d3f19024ecc",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () {\n                                        this.life -= 0.03;\n                                        this.radius += 8;\n                                    }",
+    "start_line": 10994,
+    "end_line": 10997,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "b7759c2ea4eb",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#1e90ff';\n                                        ctx.lineWidth = 4 * this.life;\n                                        ctx.globalAlpha = this.life;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                        ctx.stroke();\n                                        ctx.globalAlpha = 1.0;\n...",
+    "start_line": 10998,
+    "end_line": 11006,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "03fa8a409587",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () {\n                                        this.life -= 0.025;\n                                        this.radius += 6;\n                                    }",
+    "start_line": 11012,
+    "end_line": 11015,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "a97325f0bfe1",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#00ffff';\n                                        ctx.lineWidth = 2 * this.life;\n                                        ctx.globalAlpha = this.life * 0.5;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                        ctx.stroke();\n                                        ctx.globalAlpha =...",
+    "start_line": 11016,
+    "end_line": 11024,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "2062f024ba91",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.04; this.radius += 10; }",
+    "start_line": 11174,
+    "end_line": 11174,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "31dd010f3485",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#4682b4';\n                                        ctx.lineWidth = 3 * this.life;\n                                        ctx.globalAlpha = this.life;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                        ctx.stroke();\n                                        ctx.globalAlpha = 1.0;\n...",
+    "start_line": 11175,
+    "end_line": 11183,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "d69ad0a228a1",
+    "type": "function",
+    "name": "update",
+    "content": "update: function () { this.life -= 0.03; this.width += 15; }",
+    "start_line": 11248,
+    "end_line": 11248,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": []
+  },
+  {
+    "id": "364b10a682c9",
+    "type": "function",
+    "name": "draw",
+    "content": "draw: function (ctx) {\n                                        ctx.fillStyle = '#00ced1';\n                                        ctx.globalAlpha = this.life * 0.3;\n                                        ctx.fillRect(this.x - this.width, this.y - 50, this.width * 2, 100);\n                                        ctx.globalAlpha = 1.0;\n                                    }",
+    "start_line": 11249,
+    "end_line": 11254,
+    "description": "Dibuja elementos en el canvas",
+    "tags": []
+  },
+  {
+    "id": "a8376476dd75",
+    "type": "function",
+    "name": "type",
+    "content": "type = () => {\n                    if (i < step.text.length) {\n                        textEl.innerHTML += step.text.charAt(i);\n                        i++;\n                        setTimeout(type, 30);\n                    }\n                }",
+    "start_line": 11788,
+    "end_line": 11794,
+    "description": "Función type",
+    "tags": []
+  },
+  {
+    "id": "fad26c339259",
+    "type": "function",
+    "name": "onmouseover",
+    "content": "onmouseover = () => { card.style.borderColor = set.color; card.style.transform = 'translateY(-3px)'; }",
+    "start_line": 12374,
+    "end_line": 12374,
+    "description": "Callback de evento",
+    "tags": []
+  },
+  {
+    "id": "29304dfb3c54",
+    "type": "function",
+    "name": "onmouseout",
+    "content": "onmouseout = () => { card.style.borderColor = isComplete ? rarityInfo.color : set.color + '40'; card.style.transform = 'translateY(0)'; }",
+    "start_line": 12375,
+    "end_line": 12375,
+    "description": "Callback de evento",
+    "tags": []
+  },
+  {
+    "id": "62d49c778933",
+    "type": "function",
+    "name": "onclick",
+    "content": "onclick = () => this.startGameWithAmmoSet(key);\n                        }\n\n                        card.innerHTML = `\n                            <div style=\"display:flex;align-items:center;gap:1rem;margin-bottom:0.8rem;\">\n                                <div style=\"\n                                    width:50px;height:50px;\n                                    background:linear-gradient(135deg,${set.color}",
+    "start_line": 12376,
+    "end_line": 12383,
+    "description": "Callback de evento",
+    "tags": [
+      "game",
+      "audio"
+    ]
+  },
+  {
+    "id": "7567dff9ba37",
+    "type": "function",
+    "name": "onmouseover",
+    "content": "onmouseover = () => {\n                            card.style.transform = 'translateY(-8px) scale(1.02)';\n                            card.style.boxShadow = `0 10px 40px ${rarity.glow}, 0 0 30px ${rarity.glow}`;\n                        }",
+    "start_line": 13146,
+    "end_line": 13149,
+    "description": "Callback de evento",
+    "tags": []
+  },
+  {
+    "id": "b920f16950b1",
+    "type": "function",
+    "name": "onmouseout",
+    "content": "onmouseout = () => {\n                            card.style.transform = 'translateY(0) scale(1)';\n                            card.style.boxShadow = `0 0 15px ${rarity.glow}, inset 0 0 20px ${rarity.glow}`;\n                        }",
+    "start_line": 13150,
+    "end_line": 13153,
+    "description": "Callback de evento",
+    "tags": []
+  },
+  {
+    "id": "c08d3f277ea5",
+    "type": "function",
+    "name": "onclick",
+    "content": "onclick = () => this.buyWeapon(w);\n                    }\n\n                    grid.appendChild(card);\n\n                    // Draw weapon model\n                    requestAnimationFrame(() => {\n                        const canvas = document.getElementById(canvasId);\n                        if (canvas) WeaponRenderer.drawWeapon(canvas, w.id, 1.2);\n                    }",
+    "start_line": 13154,
+    "end_line": 13163,
+    "description": "Callback de evento",
+    "tags": [
+      "weapon",
+      "ui"
+    ]
+  },
+  {
+    "id": "35d359f6fd11",
+    "type": "function",
+    "name": "onclick",
+    "content": "onclick = () => {\n                        game.currentWeapon = w;\n                        game.fuel = game.maxFuel; // Reset fuel when switching weapons\n                        this.updateFuelBar(); // Show/hide fuel bar based on weapon type\n                        this.renderInventory();\n                        sfx.ui();\n                    }",
+    "start_line": 13315,
+    "end_line": 13321,
+    "description": "Callback de evento",
+    "tags": [
+      "weapon",
+      "ui",
+      "game",
+      "audio"
+    ]
+  },
+  {
+    "id": "0b8effbd5d73",
+    "type": "function",
+    "name": "createMenuParticles",
+    "content": "function createMenuParticles() {\n            const container = document.getElementById('menu-particles');\n            if (!container) return;\n\n            // Clear existing particles\n            container.innerHTML = '';\n\n            // Create multiple particles\n            for (let i = 0; i < 20; i++) {\n                const particle = document.createElement('div');\n                particle.className = 'particle';\n                particle.style.left = `${Math.random() * 100}%`;\n                ...",
+    "start_line": 13628,
+    "end_line": 13650,
+    "description": "Crea una nueva instancia",
+    "tags": [
+      "ui",
+      "animation"
+    ]
+  },
+  {
+    "id": "2bb28f8b4231",
+    "type": "function",
+    "name": "updateMenuStats",
+    "content": "function updateMenuStats() {\n            const highScoreEl = document.getElementById('menu-highscore');\n            const creditsEl = document.getElementById('menu-credits');\n            const weaponsEl = document.getElementById('menu-weapons');\n\n            if (highScoreEl) {\n                highScoreEl.textContent = game.highScore ? game.highScore.toLocaleString() : '0';\n            }\n            if (creditsEl) {\n                creditsEl.textContent = game.money ? game.money.toLocaleString() ...",
+    "start_line": 13653,
+    "end_line": 13668,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": [
+      "weapon",
+      "ui",
+      "game"
+    ]
+  },
+  {
+    "id": "71519578619e",
+    "type": "function",
+    "name": "showMenu",
+    "content": "showMenu = function () {\n            originalShowMenu();\n            updateMenuStats();\n            createMenuParticles();\n            updateEventBanner();\n        }",
+    "start_line": 13676,
+    "end_line": 13681,
+    "description": "Muestra un elemento de la UI",
+    "tags": [
+      "ui",
+      "animation"
+    ]
+  },
+  {
+    "id": "cd184e69d82e",
+    "type": "function",
+    "name": "updateEventBanner",
+    "content": "function updateEventBanner() {\n            // The old Christmas-specific banner elements were removed.\n            // Now we just update the active event mini-banner if it exists\n            const activeBanner = document.getElementById('active-event-mini');\n            if (!activeBanner) return;\n\n            // Jurassic event dates\n            const now = new Date();\n            const jurStart = new Date('2025-12-14T00:00:00');\n            const jurEnd = new Date('2025-12-24T23:59:59');\n\n       ...",
+    "start_line": 13684,
+    "end_line": 13710,
+    "description": "Actualiza el estado del juego cada frame",
+    "tags": [
+      "boss"
+    ]
+  },
+  {
+    "id": "e4716ac7fa25",
+    "type": "function",
+    "name": "drawEventWeaponPreviews",
+    "content": "function drawEventWeaponPreviews() {\n            // Legacy function - kept for compatibility but now optional\n            // Frost Cannon\n            const canvas1 = document.getElementById('event-weapon-1');\n            if (canvas1) {\n                const ctx1 = canvas1.getContext('2d');\n                ctx1.clearRect(0, 0, 55, 40);\n                ctx1.save();\n                ctx1.translate(30, 20);\n                ctx1.scale(0.5, 0.5);\n                WeaponRenderer.drawFrostCannon(ctx1, '#8...",
+    "start_line": 13712,
+    "end_line": 13749,
+    "description": "Dibuja elementos en el canvas",
+    "tags": [
+      "weapon",
+      "ui",
+      "save"
+    ]
+  },
+  {
+    "id": "15b94b031eed",
+    "type": "class",
+    "name": "Particle",
+    "content": "class Particle {\n            constructor(x, y, color, speed, size, type = 'normal') {\n                this.x = x; this.y = y; this.color = color;\n                this.size = size || Math.random() * 3 + 1;\n                this.type = type;\n\n                const angle = Math.random() * Math.PI * 2;\n                let velocity = Math.random() * speed;\n\n                if (type === 'spark') velocity *= 1.5;\n                if (type === 'smoke') velocity *= 0.5;\n\n                this.vx = Math.cos(angle) * velocity;\n                this.vy = Math.sin(angle) * velocity;\n                this.life = 1.0;\n                this.decay = Math.random() * 0.03 + 0.01;\n\n                if (type === 'smoke') {\n                    this.vy -= 1; // Smoke rises\n                    this.decay = 0.015; // Las...",
+    "start_line": 6415,
+    "end_line": 6468,
+    "description": "Clase Particle",
+    "tags": [
+      "class",
+      "particle"
+    ]
+  },
+  {
+    "id": "0d84b2fe1221",
+    "type": "class",
+    "name": "Projectile",
+    "content": "class Projectile {\n            constructor(x, y, angle, speed, color, size, isWeaponThrow = false, type = 'energy', bouncesLeft = 0) {\n                this.x = x; this.y = y;\n                this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;\n                this.color = color; this.size = size;\n                this.active = true; this.isWeaponThrow = isWeaponThrow;\n                this.rotation = 0; this.rotSpeed = isWeaponThrow ? 0.2 : 0;\n                this.history = []; this.maxHistory = 5;\n                this.type = type;\n                this.bouncesLeft = bouncesLeft; // For Nova Destroyer bouncing\n\n                // Specific properties\n                if (this.type === 'explosive') {\n                    this.tumble = 0;\n                    this.tumbleSpeed = 0.1...",
+    "start_line": 6470,
+    "end_line": 7738,
+    "description": "Clase Projectile",
+    "tags": [
+      "class",
+      "projectile"
+    ]
+  },
+  {
+    "id": "24db063b6d60",
+    "type": "class",
+    "name": "Target",
+    "content": "class Target {\n            constructor(type = 'normal') {\n                this.reset(type);\n            }\n            reset(type) {\n                const mode = game.difficulty || MODES.MEDIUM;\n                const minX = 250;\n                const maxX = Math.min(CONSTANTS.CANVAS_WIDTH - 100, 1200);\n                this.x = Math.random() * (maxX - minX) + minX;\n                this.y = CONSTANTS.CANVAS_HEIGHT + 50;\n                this.radius = (Math.random() * 20 + 15) * mode.sizeMult;\n                this.type = type;\n                this.isBad = true; // Most new types are bad\n                this.hp = 1;\n                this.maxHp = 1;\n                this.shield = 0;\n                this.opacity = 1;\n                this.timer = 0;\n\n                // Default movement\n              ...",
+    "start_line": 7740,
+    "end_line": 8067,
+    "description": "Clase Target",
+    "tags": [
+      "class",
+      "target"
+    ]
+  },
+  {
+    "id": "9a01d3a6583a",
+    "type": "class",
+    "name": "Boss",
+    "content": "class Boss {\n            constructor() {\n                this.active = false;\n                this.x = CONSTANTS.CANVAS_WIDTH / 2;\n                this.y = -200;\n                this.targetY = 150;\n                this.hp = 100;\n                this.maxHp = 100;\n                this.color = '#ff0000';\n                this.radius = 60;\n                this.state = 'ENTERING'; // ENTERING, IDLE, ATTACK\n                this.timer = 0;\n                this.vx = 2;\n            }\n            spawn(difficultyMult) {\n                this.active = true;\n                this.hp = 100 * difficultyMult;\n                this.maxHp = this.hp;\n                this.y = -200;\n                this.state = 'ENTERING';\n                this.name = 'MEGA CORE';\n                this.color = '#ff0000';\n          ...",
+    "start_line": 8069,
+    "end_line": 8503,
+    "description": "Clase Boss",
+    "tags": [
+      "class",
+      "boss"
+    ]
+  },
+  {
+    "id": "046e838ae1e1",
+    "type": "class",
+    "name": "Powerup",
+    "content": "class Powerup {\n            constructor() {\n                this.x = Math.random() * (CONSTANTS.CANVAS_WIDTH - 400) + 300;\n                this.y = -50;\n                this.vy = Math.random() * 2 + 1;\n                this.type = ['rapidFire', 'multiShot', 'shield'][Math.floor(Math.random() * 3)];\n                this.active = true;\n                this.size = 20;\n                this.color = this.type === 'rapidFire' ? '#ffeb3b' : (this.type === 'multiShot' ? '#00f3ff' : '#ff00ff');\n            }\n            update() {\n                this.y += this.vy;\n                if (this.y > CONSTANTS.CANVAS_HEIGHT + 50) this.active = false;\n            }\n            draw(ctx) {\n                ctx.save(); ctx.translate(this.x, this.y);\n                ctx.shadowBlur = 15; ctx.shadowColor = this.co...",
+    "start_line": 8505,
+    "end_line": 8541,
+    "description": "Clase Powerup",
+    "tags": [
+      "class",
+      "powerup"
+    ]
+  },
+  {
+    "id": "3ed00bbe94d3",
+    "type": "object",
+    "name": "WEAPONS_DB",
+    "content": "[\n            { id: 'basic_cannon', name: 'Pulse Cannon', type: 'energy', color: '#00f3ff', price: 0, owned: true, speed: 25, size: 10, cooldown: 20, level: 1, rarity: 'common' },\n            { id: 'uzi', name: 'Uzi SMG', type: 'rapid', color: '#ffeb3b', price: 350, owned: false, speed: 40, size: 6, cooldown: 5, level: 1, rarity: 'uncommon' },\n            { id: 'desert_eagle', name: 'Desert Eagle', type: 'pistol', color: '#c0c0c0', price: 600, owned: false, speed: 50, size: 8, cooldown: 35, level: 1, rarity: 'uncommon', penetration: true },\n            { id: 'plasma_blaster', name: 'Plasma Bla...",
+    "start_line": 3371,
+    "end_line": 3441,
+    "description": "Objeto/Constante principal: WEAPONS_DB",
+    "tags": [
+      "object",
+      "constant",
+      "weapons_db"
+    ]
+  },
+  {
+    "id": "005ae8d92116",
+    "type": "object",
+    "name": "CONSTANTS",
+    "content": " {\n            GRAVITY: 0.2,\n            FRICTION: 0.99,\n            CANVAS_WIDTH: window.innerWidth,\n            CANVAS_HEIGHT: window.innerHeight,\n            WEAPON_X: 100,\n            WEAPON_Y: window.innerHeight / 2,\n        }",
+    "start_line": 2782,
+    "end_line": 2789,
+    "description": "Objeto/Constante principal: CONSTANTS",
+    "tags": [
+      "object",
+      "constant",
+      "constants"
+    ]
+  },
+  {
+    "id": "cc0a238c5b4f",
+    "type": "object",
+    "name": "MODES",
+    "content": " {\n            CLASSIC: { name: 'CLASSIC', speedMult: 0.8, sizeMult: 2.5, spawnMult: 1.3, scoreMult: 1, color: '#ffffff' },\n            EASY: { name: 'EASY', speedMult: 0.6, sizeMult: 1.5, spawnMult: 1.5, scoreMult: 0.5, color: '#00ff9d' },\n            MEDIUM: { name: 'MEDIUM', speedMult: 0.9, sizeMult: 1.2, spawnMult: 1.1, scoreMult: 1, color: '#00f3ff' },\n            HARD: { name: 'HARD', speedMult: 1.2, sizeMult: 1.0, spawnMult: 0.9, scoreMult: 2, color: '#ffeb3b' },\n            EXTREME: { name: 'EXTREME', speedMult: 1.5, sizeMult: 0.9, spawnMult: 0.7, scoreMult: 5, color: '#ff2a6d' },\n    ...",
+    "start_line": 2791,
+    "end_line": 2800,
+    "description": "Objeto/Constante principal: MODES",
+    "tags": [
+      "object",
+      "constant",
+      "modes"
+    ]
+  },
+  {
+    "id": "49a35b0b6bb6",
+    "type": "object",
+    "name": "RARITIES",
+    "content": " {\n            common: { name: 'Común', color: '#9e9e9e', glow: 'rgba(158, 158, 158, 0.3)', ammoRequired: 75 },\n            uncommon: { name: 'Poco Común', color: '#4caf50', glow: 'rgba(76, 175, 80, 0.3)', ammoRequired: 150 },\n            rare: { name: 'Raro', color: '#2196f3', glow: 'rgba(33, 150, 243, 0.3)', ammoRequired: 300 },\n            epic: { name: 'Épico', color: '#9c27b0', glow: 'rgba(156, 39, 176, 0.3)', ammoRequired: 400 },\n            legendary: { name: 'Legendario', color: '#ff9800', glow: 'rgba(255, 152, 0, 0.4)', ammoRequired: 500 },\n            mythic: { name: 'Mítico', color:...",
+    "start_line": 2803,
+    "end_line": 2810,
+    "description": "Objeto/Constante principal: RARITIES",
+    "tags": [
+      "object",
+      "constant",
+      "rarities"
+    ]
+  },
+  {
+    "id": "f6f07db0d648",
+    "type": "object",
+    "name": "game",
+    "content": " {\n            canvas: document.getElementById('gameCanvas'),\n            ctx: document.getElementById('gameCanvas').getContext('2d'),\n            state: 'MENU', // MENU, PLAYING, GAMEOVER, PAUSED\n            width: window.innerWidth,\n            height: window.innerHeight,\n\n            score: 0, lives: 3, money: 0,\n            projectiles: [], targets: [], particles: [], powerups: [], stars: [],\n            activePowerups: { rapidFire: 0, multiShot: 0, shield: 0 },\n            boss: new Boss(),\n\n            mouseY: window.innerHeight / 2,\n            angle: 0,\n            currentWeapon: WEAPO...",
+    "start_line": 8545,
+    "end_line": 11759,
+    "description": "Objeto/Constante principal: game",
+    "tags": [
+      "object",
+      "constant",
+      "game"
+    ]
+  },
+  {
+    "id": "9cd48c319c07",
+    "type": "object",
+    "name": "ui",
+    "content": " {\n            showScreen(id) {\n                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));\n                if (id) document.getElementById(id).classList.add('active');\n            },\n            showMenu() { this.showScreen('menu-screen'); sfx.ui(); },\n            showDifficultySelect() {\n                this.showScreen('difficulty-screen');\n                this.updateModeUI();\n                this.updateDifficultyUI();\n                sfx.ui();\n            },\n            showShop() { this.renderShop(); this.showScreen('shop-screen'); sfx.ui(); },\n        ...",
+    "start_line": 12240,
+    "end_line": 13611,
+    "description": "Objeto/Constante principal: ui",
+    "tags": [
+      "object",
+      "constant",
+      "ui"
+    ]
+  },
+  {
+    "id": "2822b32afdb9",
+    "type": "object",
+    "name": "sfx",
+    "content": " {\n            ctx: null,\n            init() {\n                window.AudioContext = window.AudioContext || window.webkitAudioContext;\n                this.ctx = new AudioContext();\n            },\n            playTone(freq, type, duration, vol = 0.1) {\n                // Check if sound is enabled (game object may not exist yet)\n                if (typeof game !== 'undefined' && game.soundEnabled === false) return;\n                if (!this.ctx) this.init();\n                const osc = this.ctx.createOscillator();\n                const gain = this.ctx.createGain();\n                osc.type = ty...",
+    "start_line": 2735,
+    "end_line": 2779,
+    "description": "Objeto/Constante principal: sfx",
+    "tags": [
+      "object",
+      "constant",
+      "sfx"
+    ]
+  },
+  {
+    "id": "8cac4ba12eb3",
+    "type": "html_element",
+    "name": "game-container",
+    "content": "<div id=\"game-container\">",
+    "start_line": 1490,
+    "end_line": 1490,
+    "description": "Elemento HTML <div> con id='game-container'",
+    "tags": [
+      "html",
+      "div",
+      "game-container"
+    ]
+  },
+  {
+    "id": "4c3263ee0a00",
+    "type": "html_element",
+    "name": "gameCanvas",
+    "content": "<canvas id=\"gameCanvas\"></canvas>",
+    "start_line": 1491,
+    "end_line": 1491,
+    "description": "Elemento HTML <canvas> con id='gameCanvas'",
+    "tags": [
+      "html",
+      "canvas",
+      "gameCanvas"
+    ]
+  },
+  {
+    "id": "78043d97a6fe",
+    "type": "html_element",
+    "name": "menu-screen",
+    "content": "<div id=\"menu-screen\" class=\"screen active interactive\">",
+    "start_line": 1494,
+    "end_line": 1494,
+    "description": "Elemento HTML <div> con id='menu-screen'",
+    "tags": [
+      "html",
+      "div",
+      "menu-screen"
+    ]
+  },
+  {
+    "id": "bde0f395f4a3",
+    "type": "html_element",
+    "name": "menu-particles",
+    "content": "<div class=\"menu-particles\" id=\"menu-particles\"></div>",
+    "start_line": 1497,
+    "end_line": 1497,
+    "description": "Elemento HTML <div> con id='menu-particles'",
+    "tags": [
+      "html",
+      "div",
+      "menu-particles"
+    ]
+  },
+  {
+    "id": "43785489d25e",
+    "type": "html_element",
+    "name": "menu-highscore",
+    "content": "<span style=\"font-size:1.3rem;font-weight:900;color:#00f3ff;\" id=\"menu-highscore\">0</span>",
+    "start_line": 1576,
+    "end_line": 1576,
+    "description": "Elemento HTML <span> con id='menu-highscore'",
+    "tags": [
+      "html",
+      "span",
+      "menu-highscore"
+    ]
+  },
+  {
+    "id": "36c77dbd80ac",
+    "type": "html_element",
+    "name": "menu-weapons",
+    "content": "<span style=\"font-size:1.3rem;font-weight:900;color:#00ff9d;\" id=\"menu-weapons\">1</span>",
+    "start_line": 1581,
+    "end_line": 1581,
+    "description": "Elemento HTML <span> con id='menu-weapons'",
+    "tags": [
+      "html",
+      "span",
+      "menu-weapons"
+    ]
+  },
+  {
+    "id": "30909f30cad9",
+    "type": "html_element",
+    "name": "codes-screen",
+    "content": "<div id=\"codes-screen\" class=\"screen interactive\" style=\"padding:1.5rem;\">",
+    "start_line": 1765,
+    "end_line": 1765,
+    "description": "Elemento HTML <div> con id='codes-screen'",
+    "tags": [
+      "html",
+      "div",
+      "codes-screen"
+    ]
+  },
+  {
+    "id": "0077787bef62",
+    "type": "html_element",
+    "name": "promo-code-input",
+    "content": "<input type=\"text\" id=\"promo-code-input\" placeholder=\"INGRESA-TU-CÓDIGO\" style=\"",
+    "start_line": 1793,
+    "end_line": 1793,
+    "description": "Elemento HTML <input> con id='promo-code-input'",
+    "tags": [
+      "html",
+      "input",
+      "promo-code-input"
+    ]
+  },
+  {
+    "id": "dbd715f11a0e",
+    "type": "html_element",
+    "name": "code-result",
+    "content": "<div id=\"code-result\"",
+    "start_line": 1822,
+    "end_line": 1822,
+    "description": "Elemento HTML <div> con id='code-result'",
+    "tags": [
+      "html",
+      "div",
+      "code-result"
+    ]
+  },
+  {
+    "id": "079f3b50f7c2",
+    "type": "html_element",
+    "name": "redeemed-codes-list",
+    "content": "<div id=\"redeemed-codes-list\" style=\"max-height:150px;overflow-y:auto;\">",
+    "start_line": 1836,
+    "end_line": 1836,
+    "description": "Elemento HTML <div> con id='redeemed-codes-list'",
+    "tags": [
+      "html",
+      "div",
+      "redeemed-codes-list"
+    ]
+  },
+  {
+    "id": "8f60e7d16bb6",
+    "type": "html_element",
+    "name": "difficulty-screen",
+    "content": "<div id=\"difficulty-screen\" class=\"screen interactive\" style=\"padding:0;\">",
+    "start_line": 1844,
+    "end_line": 1844,
+    "description": "Elemento HTML <div> con id='difficulty-screen'",
+    "tags": [
+      "html",
+      "div",
+      "difficulty-screen"
+    ]
+  },
+  {
+    "id": "a7c675d8fbf7",
+    "type": "html_element",
+    "name": "mode-selection",
+    "content": "<div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:0.8rem;\" id=\"mode-selection\">",
+    "start_line": 1874,
+    "end_line": 1874,
+    "description": "Elemento HTML <div> con id='mode-selection'",
+    "tags": [
+      "html",
+      "div",
+      "mode-selection"
+    ]
+  },
+  {
+    "id": "35ce006e5a32",
+    "type": "html_element",
+    "name": "difficulty-selection",
+    "content": "id=\"difficulty-selection\">",
+    "start_line": 1940,
+    "end_line": 1940,
+    "description": "Elemento HTML <element> con id='difficulty-selection'",
+    "tags": [
+      "html",
+      "element",
+      "difficulty-selection"
+    ]
+  },
+  {
+    "id": "9f98ed4767b5",
+    "type": "html_element",
+    "name": "ammo-set-screen",
+    "content": "<div id=\"ammo-set-screen\" class=\"screen interactive\">",
+    "start_line": 2019,
+    "end_line": 2019,
+    "description": "Elemento HTML <div> con id='ammo-set-screen'",
+    "tags": [
+      "html",
+      "div",
+      "ammo-set-screen"
+    ]
+  },
+  {
+    "id": "3e0245a4f313",
+    "type": "html_element",
+    "name": "selected-difficulty-badge",
+    "content": "<div id=\"selected-difficulty-badge\"",
+    "start_line": 2026,
+    "end_line": 2026,
+    "description": "Elemento HTML <div> con id='selected-difficulty-badge'",
+    "tags": [
+      "html",
+      "div",
+      "selected-difficulty-badge"
+    ]
+  },
+  {
+    "id": "bd35d05efb49",
+    "type": "html_element",
+    "name": "ammo-set-grid",
+    "content": "<div id=\"ammo-set-grid\" style=\"",
+    "start_line": 2032,
+    "end_line": 2032,
+    "description": "Elemento HTML <div> con id='ammo-set-grid'",
+    "tags": [
+      "html",
+      "div",
+      "ammo-set-grid"
+    ]
+  },
+  {
+    "id": "9c425621180d",
+    "type": "html_element",
+    "name": "shop-screen",
+    "content": "<div id=\"shop-screen\" class=\"screen interactive\" style=\"padding:0;\">",
+    "start_line": 2050,
+    "end_line": 2050,
+    "description": "Elemento HTML <div> con id='shop-screen'",
+    "tags": [
+      "html",
+      "div",
+      "shop-screen"
+    ]
+  },
+  {
+    "id": "fd8c6b1fbcfb",
+    "type": "html_element",
+    "name": "shop-grid",
+    "content": "<div class=\"grid-container\" id=\"shop-grid\" style=\"",
+    "start_line": 2078,
+    "end_line": 2078,
+    "description": "Elemento HTML <div> con id='shop-grid'",
+    "tags": [
+      "html",
+      "div",
+      "shop-grid"
+    ]
+  },
+  {
+    "id": "5810b11534b6",
+    "type": "html_element",
+    "name": "inventory-screen",
+    "content": "<div id=\"inventory-screen\" class=\"screen interactive\">",
+    "start_line": 2091,
+    "end_line": 2091,
+    "description": "Elemento HTML <div> con id='inventory-screen'",
+    "tags": [
+      "html",
+      "div",
+      "inventory-screen"
+    ]
+  },
+  {
+    "id": "251e2ffa5987",
+    "type": "html_element",
+    "name": "inventory-grid",
+    "content": "<div class=\"grid-container\" id=\"inventory-grid\"></div>",
+    "start_line": 2094,
+    "end_line": 2094,
+    "description": "Elemento HTML <div> con id='inventory-grid'",
+    "tags": [
+      "html",
+      "div",
+      "inventory-grid"
+    ]
+  },
+  {
+    "id": "0872505d25ae",
+    "type": "html_element",
+    "name": "gameover-screen",
+    "content": "<div id=\"gameover-screen\" class=\"screen interactive\">",
+    "start_line": 2098,
+    "end_line": 2098,
+    "description": "Elemento HTML <div> con id='gameover-screen'",
+    "tags": [
+      "html",
+      "div",
+      "gameover-screen"
+    ]
+  },
+  {
+    "id": "51838792b347",
+    "type": "html_element",
+    "name": "final-score",
+    "content": "<h2 id=\"final-score\">Score: 0</h2>",
+    "start_line": 2100,
+    "end_line": 2100,
+    "description": "Elemento HTML <h2> con id='final-score'",
+    "tags": [
+      "html",
+      "h2",
+      "final-score"
+    ]
+  },
+  {
+    "id": "958b15add41e",
+    "type": "html_element",
+    "name": "pause-screen",
+    "content": "<div id=\"pause-screen\" class=\"screen interactive\" style=\"background: rgba(0,0,0,0.6);\">",
+    "start_line": 2106,
+    "end_line": 2106,
+    "description": "Elemento HTML <div> con id='pause-screen'",
+    "tags": [
+      "html",
+      "div",
+      "pause-screen"
+    ]
+  },
+  {
+    "id": "d99ae896e27b",
+    "type": "html_element",
+    "name": "hud",
+    "content": "<div id=\"hud\">",
+    "start_line": 2113,
+    "end_line": 2113,
+    "description": "Elemento HTML <div> con id='hud'",
+    "tags": [
+      "html",
+      "div",
+      "hud"
+    ]
+  },
+  {
+    "id": "7d172a793192",
+    "type": "html_element",
+    "name": "score-display",
+    "content": "<div class=\"hud-panel score-box\">SCORE: <span id=\"score-display\">0</span></div>",
+    "start_line": 2115,
+    "end_line": 2115,
+    "description": "Elemento HTML <div> con id='score-display'",
+    "tags": [
+      "html",
+      "div",
+      "score-display"
+    ]
+  },
+  {
+    "id": "bc341ff2e709",
+    "type": "html_element",
+    "name": "lives-display",
+    "content": "<div class=\"hud-panel lives-box\" id=\"lives-display\">",
+    "start_line": 2117,
+    "end_line": 2117,
+    "description": "Elemento HTML <div> con id='lives-display'",
+    "tags": [
+      "html",
+      "div",
+      "lives-display"
+    ]
+  },
+  {
+    "id": "26f985de8a86",
+    "type": "html_element",
+    "name": "mode-indicator-el",
+    "content": "<div class=\"mode-indicator\" id=\"mode-indicator-el\">",
+    "start_line": 2121,
+    "end_line": 2121,
+    "description": "Elemento HTML <div> con id='mode-indicator-el'",
+    "tags": [
+      "html",
+      "div",
+      "mode-indicator-el"
+    ]
+  },
+  {
+    "id": "277d699aa4f8",
+    "type": "html_element",
+    "name": "fire-mode-display",
+    "content": "<span class=\"mode-key\">R-Click/Tap</span> to Switch: <span id=\"fire-mode-display\"",
+    "start_line": 2122,
+    "end_line": 2122,
+    "description": "Elemento HTML <span> con id='fire-mode-display'",
+    "tags": [
+      "html",
+      "span",
+      "fire-mode-display"
+    ]
+  },
+  {
+    "id": "a79e080347dc",
+    "type": "html_element",
+    "name": "difficulty-display",
+    "content": "<div class=\"difficulty-badge\" id=\"difficulty-display\">MEDIUM</div>",
+    "start_line": 2125,
+    "end_line": 2125,
+    "description": "Elemento HTML <div> con id='difficulty-display'",
+    "tags": [
+      "html",
+      "div",
+      "difficulty-display"
+    ]
+  },
+  {
+    "id": "142b30a8817c",
+    "type": "html_element",
+    "name": "fuel-bar-container",
+    "content": "<div id=\"fuel-bar-container\"",
+    "start_line": 2128,
+    "end_line": 2128,
+    "description": "Elemento HTML <div> con id='fuel-bar-container'",
+    "tags": [
+      "html",
+      "div",
+      "fuel-bar-container"
+    ]
+  },
+  {
+    "id": "72b5acede32a",
+    "type": "html_element",
+    "name": "fuel-bar-fill",
+    "content": "<div id=\"fuel-bar-fill\" style=\"width:100%;height:100%;background:#ff5722;transition:width 0.1s;\">",
+    "start_line": 2132,
+    "end_line": 2132,
+    "description": "Elemento HTML <div> con id='fuel-bar-fill'",
+    "tags": [
+      "html",
+      "div",
+      "fuel-bar-fill"
+    ]
+  },
+  {
+    "id": "e39369e5a195",
+    "type": "html_element",
+    "name": "ability-indicator",
+    "content": "<div id=\"ability-indicator\" style=\"position:absolute;bottom:2rem;right:2rem;text-align:center;\">",
+    "start_line": 2138,
+    "end_line": 2138,
+    "description": "Elemento HTML <div> con id='ability-indicator'",
+    "tags": [
+      "html",
+      "div",
+      "ability-indicator"
+    ]
+  },
+  {
+    "id": "e6839b0f1f22",
+    "type": "html_element",
+    "name": "ability-bar-fill",
+    "content": "<div id=\"ability-bar-fill\" style=\"width:100%;height:100%;background:#00ffff;transition:width 0.1s;\">",
+    "start_line": 2143,
+    "end_line": 2143,
+    "description": "Elemento HTML <div> con id='ability-bar-fill'",
+    "tags": [
+      "html",
+      "div",
+      "ability-bar-fill"
+    ]
+  },
+  {
+    "id": "b2705551e26d",
+    "type": "html_element",
+    "name": "ability-status",
+    "content": "<div id=\"ability-status\" style=\"font-size:0.7rem;color:#fff;margin-top:0.3rem;\">READY</div>",
+    "start_line": 2146,
+    "end_line": 2146,
+    "description": "Elemento HTML <div> con id='ability-status'",
+    "tags": [
+      "html",
+      "div",
+      "ability-status"
+    ]
+  },
+  {
+    "id": "ad70908489b8",
+    "type": "html_element",
+    "name": "glacial-bar-container",
+    "content": "<div id=\"glacial-bar-container\"",
+    "start_line": 2149,
+    "end_line": 2149,
+    "description": "Elemento HTML <div> con id='glacial-bar-container'",
+    "tags": [
+      "html",
+      "div",
+      "glacial-bar-container"
+    ]
+  },
+  {
+    "id": "70c2ef2eeb97",
+    "type": "html_element",
+    "name": "glacial-bar-title",
+    "content": "<div id=\"glacial-bar-title\"",
+    "start_line": 2151,
+    "end_line": 2151,
+    "description": "Elemento HTML <div> con id='glacial-bar-title'",
+    "tags": [
+      "html",
+      "div",
+      "glacial-bar-title"
+    ]
+  },
+  {
+    "id": "dacd3a4a9bbe",
+    "type": "html_element",
+    "name": "glacial-bar-fill",
+    "content": "<div id=\"glacial-bar-fill\"",
+    "start_line": 2154,
+    "end_line": 2154,
+    "description": "Elemento HTML <div> con id='glacial-bar-fill'",
+    "tags": [
+      "html",
+      "div",
+      "glacial-bar-fill"
+    ]
+  },
+  {
+    "id": "4b2915392a19",
+    "type": "html_element",
+    "name": "glock-bar-container",
+    "content": "<div id=\"glock-bar-container\"",
+    "start_line": 2160,
+    "end_line": 2160,
+    "description": "Elemento HTML <div> con id='glock-bar-container'",
+    "tags": [
+      "html",
+      "div",
+      "glock-bar-container"
+    ]
+  },
+  {
+    "id": "d1a3d21de070",
+    "type": "html_element",
+    "name": "glock-bar-title",
+    "content": "<div id=\"glock-bar-title\" style=\"font-size:0.8rem;color:#ff4444;margin-bottom:0.2rem;font-weight:bold;\">",
+    "start_line": 2162,
+    "end_line": 2162,
+    "description": "Elemento HTML <div> con id='glock-bar-title'",
+    "tags": [
+      "html",
+      "div",
+      "glock-bar-title"
+    ]
+  },
+  {
+    "id": "0e61e434d865",
+    "type": "html_element",
+    "name": "glock-bar-fill",
+    "content": "<div id=\"glock-bar-fill\"",
+    "start_line": 2165,
+    "end_line": 2165,
+    "description": "Elemento HTML <div> con id='glock-bar-fill'",
+    "tags": [
+      "html",
+      "div",
+      "glock-bar-fill"
+    ]
+  },
+  {
+    "id": "90da79a9b7e7",
+    "type": "html_element",
+    "name": "special-ability-hud",
+    "content": "<div id=\"special-ability-hud\"",
+    "start_line": 2172,
+    "end_line": 2172,
+    "description": "Elemento HTML <div> con id='special-ability-hud'",
+    "tags": [
+      "html",
+      "div",
+      "special-ability-hud"
+    ]
+  },
+  {
+    "id": "eb1adafa0c03",
+    "type": "html_element",
+    "name": "ability-hud-icon",
+    "content": "<span id=\"ability-hud-icon\" style=\"font-size:1.5rem;\">⚡</span>",
+    "start_line": 2175,
+    "end_line": 2175,
+    "description": "Elemento HTML <span> con id='ability-hud-icon'",
+    "tags": [
+      "html",
+      "span",
+      "ability-hud-icon"
+    ]
+  },
+  {
+    "id": "e5693cbdb832",
+    "type": "html_element",
+    "name": "ability-hud-name",
+    "content": "<div id=\"ability-hud-name\"",
+    "start_line": 2177,
+    "end_line": 2177,
+    "description": "Elemento HTML <div> con id='ability-hud-name'",
+    "tags": [
+      "html",
+      "div",
+      "ability-hud-name"
+    ]
+  },
+  {
+    "id": "a2c788fa4f41",
+    "type": "html_element",
+    "name": "ability-hud-status",
+    "content": "<div id=\"ability-hud-status\" style=\"font-size:0.65rem;color:#888;\">Charging...</div>",
+    "start_line": 2180,
+    "end_line": 2180,
+    "description": "Elemento HTML <div> con id='ability-hud-status'",
+    "tags": [
+      "html",
+      "div",
+      "ability-hud-status"
+    ]
+  },
+  {
+    "id": "719f506a3fd2",
+    "type": "html_element",
+    "name": "ability-hud-fill",
+    "content": "<div id=\"ability-hud-fill\"",
+    "start_line": 2185,
+    "end_line": 2185,
+    "description": "Elemento HTML <div> con id='ability-hud-fill'",
+    "tags": [
+      "html",
+      "div",
+      "ability-hud-fill"
+    ]
+  },
+  {
+    "id": "a6c373081207",
+    "type": "html_element",
+    "name": "ability-hud-progress",
+    "content": "<span id=\"ability-hud-progress\" style=\"font-size:0.7rem;color:#fff;\">0/10</span>",
+    "start_line": 2190,
+    "end_line": 2190,
+    "description": "Elemento HTML <span> con id='ability-hud-progress'",
+    "tags": [
+      "html",
+      "span",
+      "ability-hud-progress"
+    ]
+  },
+  {
+    "id": "c0928cfc83d1",
+    "type": "html_element",
+    "name": "ability-hud-ready",
+    "content": "<span id=\"ability-hud-ready\" style=\"font-size:0.7rem;color:#00ff66;display:none;\">⚡ READY!</span>",
+    "start_line": 2191,
+    "end_line": 2191,
+    "description": "Elemento HTML <span> con id='ability-hud-ready'",
+    "tags": [
+      "html",
+      "span",
+      "ability-hud-ready"
+    ]
+  },
+  {
+    "id": "a098d5f9ab28",
+    "type": "html_element",
+    "name": "ammo-farming-hud",
+    "content": "<div id=\"ammo-farming-hud\"",
+    "start_line": 2196,
+    "end_line": 2196,
+    "description": "Elemento HTML <div> con id='ammo-farming-hud'",
+    "tags": [
+      "html",
+      "div",
+      "ammo-farming-hud"
+    ]
+  },
+  {
+    "id": "cd8872d6f6ce",
+    "type": "html_element",
+    "name": "ammo-hud-icon",
+    "content": "<span id=\"ammo-hud-icon\" style=\"font-size:1.3rem;\">🎯</span>",
+    "start_line": 2199,
+    "end_line": 2199,
+    "description": "Elemento HTML <span> con id='ammo-hud-icon'",
+    "tags": [
+      "html",
+      "span",
+      "ammo-hud-icon"
+    ]
+  },
+  {
+    "id": "c3049983032a",
+    "type": "html_element",
+    "name": "ammo-hud-target",
+    "content": "<div id=\"ammo-hud-target\" style=\"font-size:0.7rem;color:#ff8c00;font-weight:bold;\">Objetivo: ---",
+    "start_line": 2201,
+    "end_line": 2201,
+    "description": "Elemento HTML <div> con id='ammo-hud-target'",
+    "tags": [
+      "html",
+      "div",
+      "ammo-hud-target"
+    ]
+  },
+  {
+    "id": "b708faf3fa24",
+    "type": "html_element",
+    "name": "ammo-hud-earned",
+    "content": "<div id=\"ammo-hud-earned\" style=\"font-size:1rem;font-weight:900;color:#fff;\">+0</div>",
+    "start_line": 2203,
+    "end_line": 2203,
+    "description": "Elemento HTML <div> con id='ammo-hud-earned'",
+    "tags": [
+      "html",
+      "div",
+      "ammo-hud-earned"
+    ]
+  },
+  {
+    "id": "5597b4af020b",
+    "type": "html_element",
+    "name": "ammo-hud-progress",
+    "content": "<div id=\"ammo-hud-progress\"",
+    "start_line": 2207,
+    "end_line": 2207,
+    "description": "Elemento HTML <div> con id='ammo-hud-progress'",
+    "tags": [
+      "html",
+      "div",
+      "ammo-hud-progress"
+    ]
+  },
+  {
+    "id": "76a7f19b04e0",
+    "type": "html_element",
+    "name": "ammo-hud-total",
+    "content": "<div id=\"ammo-hud-total\" style=\"font-size:0.6rem;color:#888;text-align:center;margin-top:0.3rem;\">0 / 0",
+    "start_line": 2211,
+    "end_line": 2211,
+    "description": "Elemento HTML <div> con id='ammo-hud-total'",
+    "tags": [
+      "html",
+      "div",
+      "ammo-hud-total"
+    ]
+  },
+  {
+    "id": "60c64e6be86b",
+    "type": "html_element",
+    "name": "boss-hud",
+    "content": "<div id=\"boss-hud\">",
+    "start_line": 2217,
+    "end_line": 2217,
+    "description": "Elemento HTML <div> con id='boss-hud'",
+    "tags": [
+      "html",
+      "div",
+      "boss-hud"
+    ]
+  },
+  {
+    "id": "c7d17b7c4dab",
+    "type": "html_element",
+    "name": "boss-name-display",
+    "content": "<div class=\"boss-name\" id=\"boss-name-display\">MEGA CORE</div>",
+    "start_line": 2218,
+    "end_line": 2218,
+    "description": "Elemento HTML <div> con id='boss-name-display'",
+    "tags": [
+      "html",
+      "div",
+      "boss-name-display"
+    ]
+  },
+  {
+    "id": "e4912a3f81b4",
+    "type": "html_element",
+    "name": "boss-health-fill",
+    "content": "<div class=\"health-bar-fill\" id=\"boss-health-fill\"></div>",
+    "start_line": 2220,
+    "end_line": 2220,
+    "description": "Elemento HTML <div> con id='boss-health-fill'",
+    "tags": [
+      "html",
+      "div",
+      "boss-health-fill"
+    ]
+  },
+  {
+    "id": "84fd0429c686",
+    "type": "html_element",
+    "name": "next-boss-indicator",
+    "content": "<div id=\"next-boss-indicator\" style=\"",
+    "start_line": 2225,
+    "end_line": 2225,
+    "description": "Elemento HTML <div> con id='next-boss-indicator'",
+    "tags": [
+      "html",
+      "div",
+      "next-boss-indicator"
+    ]
+  },
+  {
+    "id": "db74a6d048ed",
+    "type": "html_element",
+    "name": "next-boss-name",
+    "content": "<div style=\"font-size:1.2rem;font-weight:800;color:#fff;margin:0.2rem 0;\" id=\"next-boss-name\">🦖 T-REX</div>",
+    "start_line": 2241,
+    "end_line": 2241,
+    "description": "Elemento HTML <div> con id='next-boss-name'",
+    "tags": [
+      "html",
+      "div",
+      "next-boss-name"
+    ]
+  },
+  {
+    "id": "85dcbb90f29c",
+    "type": "html_element",
+    "name": "next-boss-timer",
+    "content": "<div style=\"font-size:1rem;font-weight:900;color:#ff8c00;\" id=\"next-boss-timer\">2:00</div>",
+    "start_line": 2242,
+    "end_line": 2242,
+    "description": "Elemento HTML <div> con id='next-boss-timer'",
+    "tags": [
+      "html",
+      "div",
+      "next-boss-timer"
+    ]
+  },
+  {
+    "id": "d2cdac7a2dee",
+    "type": "html_element",
+    "name": "special-meter-container",
+    "content": "<div id=\"special-meter-container\"",
+    "start_line": 2260,
+    "end_line": 2260,
+    "description": "Elemento HTML <div> con id='special-meter-container'",
+    "tags": [
+      "html",
+      "div",
+      "special-meter-container"
+    ]
+  },
+  {
+    "id": "29a5adaee012",
+    "type": "html_element",
+    "name": "special-meter-fill",
+    "content": "<div id=\"special-meter-fill\"",
+    "start_line": 2266,
+    "end_line": 2266,
+    "description": "Elemento HTML <div> con id='special-meter-fill'",
+    "tags": [
+      "html",
+      "div",
+      "special-meter-fill"
+    ]
+  },
+  {
+    "id": "e0bc305e9d15",
+    "type": "html_element",
+    "name": "tutorial-overlay",
+    "content": "<div id=\"tutorial-overlay\">",
+    "start_line": 2274,
+    "end_line": 2274,
+    "description": "Elemento HTML <div> con id='tutorial-overlay'",
+    "tags": [
+      "html",
+      "div",
+      "tutorial-overlay"
+    ]
+  },
+  {
+    "id": "65caf493c071",
+    "type": "html_element",
+    "name": "tut-spotlight",
+    "content": "<div class=\"tutorial-spotlight\" id=\"tut-spotlight\"></div>",
+    "start_line": 2275,
+    "end_line": 2275,
+    "description": "Elemento HTML <div> con id='tut-spotlight'",
+    "tags": [
+      "html",
+      "div",
+      "tut-spotlight"
+    ]
+  },
+  {
+    "id": "cda9bade2a3c",
+    "type": "html_element",
+    "name": "tut-box",
+    "content": "<div class=\"tutorial-box\" id=\"tut-box\">",
+    "start_line": 2276,
+    "end_line": 2276,
+    "description": "Elemento HTML <div> con id='tut-box'",
+    "tags": [
+      "html",
+      "div",
+      "tut-box"
+    ]
+  },
+  {
+    "id": "2da668282db1",
+    "type": "html_element",
+    "name": "tut-text",
+    "content": "<div class=\"typewriter-text\" id=\"tut-text\"></div>",
+    "start_line": 2277,
+    "end_line": 2277,
+    "description": "Elemento HTML <div> con id='tut-text'",
+    "tags": [
+      "html",
+      "div",
+      "tut-text"
+    ]
+  },
+  {
+    "id": "a7aa05c526f2",
+    "type": "html_element",
+    "name": "weapon-unlock-overlay",
+    "content": "<div id=\"weapon-unlock-overlay\" style=\"",
+    "start_line": 2284,
+    "end_line": 2284,
+    "description": "Elemento HTML <div> con id='weapon-unlock-overlay'",
+    "tags": [
+      "html",
+      "div",
+      "weapon-unlock-overlay"
+    ]
+  },
+  {
+    "id": "4736eaefc9e3",
+    "type": "html_element",
+    "name": "unlock-particles",
+    "content": "<div id=\"unlock-particles\"",
+    "start_line": 2298,
+    "end_line": 2298,
+    "description": "Elemento HTML <div> con id='unlock-particles'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-particles"
+    ]
+  },
+  {
+    "id": "d29ce18f560d",
+    "type": "html_element",
+    "name": "unlock-rays",
+    "content": "<div id=\"unlock-rays\" style=\"",
+    "start_line": 2302,
+    "end_line": 2302,
+    "description": "Elemento HTML <div> con id='unlock-rays'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-rays"
+    ]
+  },
+  {
+    "id": "2988d4145bad",
+    "type": "html_element",
+    "name": "unlock-glow-ring",
+    "content": "<div id=\"unlock-glow-ring\" style=\"",
+    "start_line": 2313,
+    "end_line": 2313,
+    "description": "Elemento HTML <div> con id='unlock-glow-ring'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-glow-ring"
+    ]
+  },
+  {
+    "id": "4adb7bbfb4ed",
+    "type": "html_element",
+    "name": "unlock-content",
+    "content": "<div id=\"unlock-content\" style=\"",
+    "start_line": 2325,
+    "end_line": 2325,
+    "description": "Elemento HTML <div> con id='unlock-content'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-content"
+    ]
+  },
+  {
+    "id": "812d375cda9b",
+    "type": "html_element",
+    "name": "unlock-title",
+    "content": "<div id=\"unlock-title\" style=\"",
+    "start_line": 2334,
+    "end_line": 2334,
+    "description": "Elemento HTML <div> con id='unlock-title'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-title"
+    ]
+  },
+  {
+    "id": "4a366a2e5868",
+    "type": "html_element",
+    "name": "unlock-weapon-canvas",
+    "content": "<canvas id=\"unlock-weapon-canvas\" width=\"250\" height=\"180\" style=\"",
+    "start_line": 2345,
+    "end_line": 2345,
+    "description": "Elemento HTML <canvas> con id='unlock-weapon-canvas'",
+    "tags": [
+      "html",
+      "canvas",
+      "unlock-weapon-canvas"
+    ]
+  },
+  {
+    "id": "1fc8e5e9170d",
+    "type": "html_element",
+    "name": "unlock-shine",
+    "content": "<div id=\"unlock-shine\" style=\"",
+    "start_line": 2351,
+    "end_line": 2351,
+    "description": "Elemento HTML <div> con id='unlock-shine'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-shine"
+    ]
+  },
+  {
+    "id": "25a1a0a9604b",
+    "type": "html_element",
+    "name": "unlock-weapon-name",
+    "content": "<div id=\"unlock-weapon-name\" style=\"",
+    "start_line": 2363,
+    "end_line": 2363,
+    "description": "Elemento HTML <div> con id='unlock-weapon-name'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-weapon-name"
+    ]
+  },
+  {
+    "id": "11cbffb5de58",
+    "type": "html_element",
+    "name": "unlock-rarity",
+    "content": "<div id=\"unlock-rarity\" style=\"",
+    "start_line": 2374,
+    "end_line": 2374,
+    "description": "Elemento HTML <div> con id='unlock-rarity'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-rarity"
+    ]
+  },
+  {
+    "id": "ce21bdcfed92",
+    "type": "html_element",
+    "name": "unlock-description",
+    "content": "<div id=\"unlock-description\" style=\"",
+    "start_line": 2387,
+    "end_line": 2387,
+    "description": "Elemento HTML <div> con id='unlock-description'",
+    "tags": [
+      "html",
+      "div",
+      "unlock-description"
+    ]
+  },
+  {
+    "id": "9b2757045f98",
+    "type": "html_element",
+    "name": "unlock-equip-btn",
+    "content": "<button id=\"unlock-equip-btn\" onclick=\"ui.equipUnlockedWeapon()\" style=\"",
+    "start_line": 2397,
+    "end_line": 2397,
+    "description": "Elemento HTML <button> con id='unlock-equip-btn'",
+    "tags": [
+      "html",
+      "button",
+      "unlock-equip-btn"
+    ]
+  },
+  {
+    "id": "f97eda06244e",
+    "type": "html_element",
+    "name": "unlock-skip-btn",
+    "content": "<button id=\"unlock-skip-btn\" onclick=\"ui.closeUnlockOverlay()\" style=\"",
+    "start_line": 2416,
+    "end_line": 2416,
+    "description": "Elemento HTML <button> con id='unlock-skip-btn'",
+    "tags": [
+      "html",
+      "button",
+      "unlock-skip-btn"
+    ]
+  },
+  {
+    "id": "75541046ce55",
+    "type": "html_element",
+    "name": "settings-screen",
+    "content": "<div id=\"settings-screen\" class=\"screen interactive\">",
+    "start_line": 2431,
+    "end_line": 2431,
+    "description": "Elemento HTML <div> con id='settings-screen'",
+    "tags": [
+      "html",
+      "div",
+      "settings-screen"
+    ]
+  },
+  {
+    "id": "ea83179ac3ab",
+    "type": "html_element",
+    "name": "setting-single-shot",
+    "content": "<button id=\"setting-single-shot\" onclick=\"ui.setFireMode('single')\" class=\"btn btn-small\"",
+    "start_line": 2444,
+    "end_line": 2444,
+    "description": "Elemento HTML <button> con id='setting-single-shot'",
+    "tags": [
+      "html",
+      "button",
+      "setting-single-shot"
+    ]
+  },
+  {
+    "id": "8946a51839d0",
+    "type": "html_element",
+    "name": "setting-throw-weapon",
+    "content": "<button id=\"setting-throw-weapon\" onclick=\"ui.setFireMode('throw')\" class=\"btn btn-small\"",
+    "start_line": 2450,
+    "end_line": 2450,
+    "description": "Elemento HTML <button> con id='setting-throw-weapon'",
+    "tags": [
+      "html",
+      "button",
+      "setting-throw-weapon"
+    ]
+  },
+  {
+    "id": "7a255e5a6f9c",
+    "type": "html_element",
+    "name": "setting-sound-on",
+    "content": "<button id=\"setting-sound-on\" onclick=\"ui.setSound(true)\" class=\"btn btn-small\" style=\"flex:1;\">",
+    "start_line": 2464,
+    "end_line": 2464,
+    "description": "Elemento HTML <button> con id='setting-sound-on'",
+    "tags": [
+      "html",
+      "button",
+      "setting-sound-on"
+    ]
+  },
+  {
+    "id": "bc31772c3bfa",
+    "type": "html_element",
+    "name": "setting-sound-off",
+    "content": "<button id=\"setting-sound-off\" onclick=\"ui.setSound(false)\" class=\"btn btn-small\" style=\"flex:1;\">",
+    "start_line": 2467,
+    "end_line": 2467,
+    "description": "Elemento HTML <button> con id='setting-sound-off'",
+    "tags": [
+      "html",
+      "button",
+      "setting-sound-off"
+    ]
+  },
+  {
+    "id": "e5dccdb5289b",
+    "type": "html_element",
+    "name": "save-info",
+    "content": "<div id=\"save-info\" style=\"font-size:0.75rem;color:#888;margin-bottom:1rem;\"></div>",
+    "start_line": 2477,
+    "end_line": 2477,
+    "description": "Elemento HTML <div> con id='save-info'",
+    "tags": [
+      "html",
+      "div",
+      "save-info"
+    ]
+  },
+  {
+    "id": "403b4cb933d0",
+    "type": "html_element",
+    "name": "events-screen",
+    "content": "<div id=\"events-screen\" class=\"screen\" style=\"padding:0;\">",
+    "start_line": 2498,
+    "end_line": 2498,
+    "description": "Elemento HTML <div> con id='events-screen'",
+    "tags": [
+      "html",
+      "div",
+      "events-screen"
+    ]
+  },
+  {
+    "id": "96c1a3ecbf24",
+    "type": "html_element",
+    "name": "events-container",
+    "content": "<div class=\"events-container\" id=\"events-container\">",
+    "start_line": 2528,
+    "end_line": 2528,
+    "description": "Elemento HTML <div> con id='events-container'",
+    "tags": [
+      "html",
+      "div",
+      "events-container"
+    ]
+  },
+  {
+    "id": "96a1c657b272",
+    "type": "html_element",
+    "name": "jurassic-countdown",
+    "content": "<div class=\"event-countdown\" id=\"jurassic-countdown\">",
+    "start_line": 2554,
+    "end_line": 2554,
+    "description": "Elemento HTML <div> con id='jurassic-countdown'",
+    "tags": [
+      "html",
+      "div",
+      "jurassic-countdown"
+    ]
+  },
+  {
+    "id": "cfb9a7855801",
+    "type": "html_element",
+    "name": "jur-days",
+    "content": "<div class=\"countdown-value\" id=\"jur-days\">--</div>",
+    "start_line": 2556,
+    "end_line": 2556,
+    "description": "Elemento HTML <div> con id='jur-days'",
+    "tags": [
+      "html",
+      "div",
+      "jur-days"
+    ]
+  },
+  {
+    "id": "ddf80fadcacf",
+    "type": "html_element",
+    "name": "jur-hours",
+    "content": "<div class=\"countdown-value\" id=\"jur-hours\">--</div>",
+    "start_line": 2560,
+    "end_line": 2560,
+    "description": "Elemento HTML <div> con id='jur-hours'",
+    "tags": [
+      "html",
+      "div",
+      "jur-hours"
+    ]
+  },
+  {
+    "id": "7b579fcfb962",
+    "type": "html_element",
+    "name": "jur-mins",
+    "content": "<div class=\"countdown-value\" id=\"jur-mins\">--</div>",
+    "start_line": 2564,
+    "end_line": 2564,
+    "description": "Elemento HTML <div> con id='jur-mins'",
+    "tags": [
+      "html",
+      "div",
+      "jur-mins"
+    ]
+  },
+  {
+    "id": "7453166b5066",
+    "type": "html_element",
+    "name": "jur-secs",
+    "content": "<div class=\"countdown-value\" id=\"jur-secs\">--</div>",
+    "start_line": 2568,
+    "end_line": 2568,
+    "description": "Elemento HTML <div> con id='jur-secs'",
+    "tags": [
+      "html",
+      "div",
+      "jur-secs"
+    ]
+  },
+  {
+    "id": "a719cbdd019f",
+    "type": "html_element",
+    "name": "${canvasId}",
+    "content": "<canvas id=\"${canvasId}\" width=\"100\" height=\"100\" style=\"margin:0;\"></canvas>",
+    "start_line": 12094,
+    "end_line": 12094,
+    "description": "Elemento HTML <canvas> con id='${canvasId}'",
+    "tags": [
+      "html",
+      "canvas",
+      "${canvasId}"
+    ]
+  },
+  {
+    "id": "c5d7b8ca5726",
+    "type": "html_element",
+    "name": "${canvasId}",
+    "content": "<canvas id=\"${canvasId}\" width=\"120\" height=\"90\" style=\"width:100%;height:100%;\"></canvas>",
+    "start_line": 13107,
+    "end_line": 13107,
+    "description": "Elemento HTML <canvas> con id='${canvasId}'",
+    "tags": [
+      "html",
+      "canvas",
+      "${canvasId}"
+    ]
+  },
+  {
+    "id": "1453adb1c0c5",
+    "type": "html_element",
+    "name": "${canvasId}",
+    "content": "<canvas id=\"${canvasId}\" width=\"130\" height=\"100\" style=\"width:100%;height:100%;\"></canvas>",
+    "start_line": 13234,
+    "end_line": 13234,
+    "description": "Elemento HTML <canvas> con id='${canvasId}'",
+    "tags": [
+      "html",
+      "canvas",
+      "${canvasId}"
+    ]
+  },
+  {
+    "id": "f844cc8a226b",
+    "type": "css_rule",
+    "name": "root",
+    "content": "root { --primary: #00f3ff;\n            --secondary: #bc13fe;\n            --danger: #ff2a6d;\n            --success: #00ff9d;\n            --warning: #ffeb3b;\n            --bg: #050510;\n            --glass: rgba(255, 255, 255, 0.03);\n            --glass-hover: rgba(255, 255, 255, 0.1);\n            --glass-border: rgba(255, 255, 255, 0.1);\n            --text: #ffffff;\n            --neon-shadow: 0 0 10px rgba(0, 243, 255, 0.5), 0 0 20px rgba(0, 243, 255, 0.3); }",
+    "start_line": 11,
+    "end_line": 21,
+    "description": "Regla CSS para root",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "fa228f75d526",
+    "type": "css_rule",
+    "name": "body",
+    "content": "body { font-family: 'Outfit', sans-serif;\n            background: radial-gradient(circle at center, #1a1a2e 0%, #050510 100%);\n            color: var(--text);\n            overflow: hidden;\n            width: 100vw;\n            height: 100vh;\n            touch-action: none; }",
+    "start_line": 33,
+    "end_line": 39,
+    "description": "Regla CSS para body",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "29c37571015c",
+    "type": "css_rule",
+    "name": "#game-container",
+    "content": "#game-container { position: relative;\n            width: 100%;\n            height: 100%; }",
+    "start_line": 43,
+    "end_line": 45,
+    "description": "Regla CSS para #game-container",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "686e7ee914b9",
+    "type": "css_rule",
+    "name": "canvas",
+    "content": "canvas { display: block;\n            width: 100%;\n            height: 100%; }",
+    "start_line": 49,
+    "end_line": 51,
+    "description": "Regla CSS para canvas",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "9b1604636b19",
+    "type": "css_rule",
+    "name": ".ui-layer",
+    "content": ".ui-layer { position: absolute;\n            top: 0;\n            left: 0;\n            width: 100%;\n            height: 100%;\n            pointer-events: none;\n            display: flex;\n            flex-direction: column;\n            justify-content: center;\n            align-items: center; }",
+    "start_line": 56,
+    "end_line": 65,
+    "description": "Regla CSS para .ui-layer",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "783531af5f81",
+    "type": "css_rule",
+    "name": ".interactive",
+    "content": ".interactive { pointer-events: auto; }",
+    "start_line": 69,
+    "end_line": 69,
+    "description": "Regla CSS para .interactive",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4e761fc847a5",
+    "type": "css_rule",
+    "name": ".screen",
+    "content": ".screen { position: absolute;\n            top: 0;\n            left: 0;\n            display: none;\n            flex-direction: column;\n            align-items: center;\n            justify-content: flex-start;\n            width: 100%;\n            height: 100%;\n            background: rgba(5, 5, 16, 0.92);\n            backdrop-filter: blur(20px);\n            z-index: 20;\n            transition: opacity 0.4s ease;\n            padding: 1.5rem;\n            box-sizing: border-box;\n            overflow-y: auto; }",
+    "start_line": 74,
+    "end_line": 89,
+    "description": "Regla CSS para .screen",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "1165930737aa",
+    "type": "css_rule",
+    "name": ".active",
+    "content": ".active { display: flex;\n            animation: fadeIn 0.5s ease forwards; }",
+    "start_line": 93,
+    "end_line": 94,
+    "description": "Regla CSS para .active",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "f7282423c39f",
+    "type": "css_rule",
+    "name": "fadeIn",
+    "content": "fadeIn { from {\n                opacity: 0;\n                transform: scale(0.95); }",
+    "start_line": 98,
+    "end_line": 100,
+    "description": "Regla CSS para fadeIn",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "8271dcc8ea4d",
+    "type": "css_rule",
+    "name": "to",
+    "content": "to { opacity: 1;\n                transform: scale(1); }",
+    "start_line": 104,
+    "end_line": 105,
+    "description": "Regla CSS para to",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d708694b7a23",
+    "type": "css_rule",
+    "name": "h1",
+    "content": "h1 { font-size: 5rem;\n            font-weight: 800;\n            text-transform: uppercase;\n            background: linear-gradient(135deg, var(--primary) 0%, #fff 50%, var(--secondary) 100%);\n            background-clip: text;\n            -webkit-background-clip: text;\n            -webkit-text-fill-color: transparent;\n            margin-bottom: 3rem;\n            filter: drop-shadow(0 0 20px rgba(0, 243, 255, 0.4));\n            letter-spacing: 4px;\n            text-align: center;\n            animation: float 6s ease-in-out infinite; }",
+    "start_line": 110,
+    "end_line": 121,
+    "description": "Regla CSS para h1",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "622b4a14836d",
+    "type": "css_rule",
+    "name": "float",
+    "content": "float { 0%,\n            100% {\n                transform: translateY(0); }",
+    "start_line": 125,
+    "end_line": 127,
+    "description": "Regla CSS para float",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "940a1d5130eb",
+    "type": "css_rule",
+    "name": "h2",
+    "content": "h2 { font-size: 2.5rem;\n            margin-bottom: 2rem;\n            color: #fff;\n            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);\n            text-transform: uppercase;\n            letter-spacing: 2px; }",
+    "start_line": 137,
+    "end_line": 142,
+    "description": "Regla CSS para h2",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "09f45d721cb1",
+    "type": "css_rule",
+    "name": ".btn",
+    "content": ".btn { background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);\n            border: 1px solid var(--glass-border);\n            color: var(--text);\n            padding: 1.2rem 3rem;\n            font-size: 1.2rem;\n            font-family: 'Outfit', sans-serif;\n            font-weight: 600;\n            text-transform: uppercase;\n            cursor: pointer;\n            margin: 0.8rem;\n            border-radius: 12px;\n            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n            min-width: 250px;\n            text-align: center;\n            position: relative;\n            overflow: hidden;\n            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);\n            backdrop-filter: blur(5px);\n            letter-spacing: 1px; }",
+    "start_line": 146,
+    "end_line": 164,
+    "description": "Regla CSS para .btn",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "7e47aea66646",
+    "type": "css_rule",
+    "name": "before",
+    "content": "before { content: '';\n            position: absolute;\n            top: 0;\n            left: -100%;\n            width: 100%;\n            height: 100%;\n            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);\n            transition: 0.5s; }",
+    "start_line": 168,
+    "end_line": 175,
+    "description": "Regla CSS para before",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b6c5572efc00",
+    "type": "css_rule",
+    "name": "before",
+    "content": "before { left: 100%; }",
+    "start_line": 179,
+    "end_line": 179,
+    "description": "Regla CSS para before",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "7e201a0adee9",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { background: rgba(255, 255, 255, 0.1);\n            border-color: var(--primary);\n            box-shadow: 0 0 30px rgba(0, 243, 255, 0.3);\n            transform: translateY(-3px) scale(1.02);\n            color: #fff; }",
+    "start_line": 183,
+    "end_line": 187,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4f6a52c2529c",
+    "type": "css_rule",
+    "name": "active",
+    "content": "active { transform: translateY(-1px) scale(0.98); }",
+    "start_line": 191,
+    "end_line": 191,
+    "description": "Regla CSS para active",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "26d77d025236",
+    "type": "css_rule",
+    "name": ".btn-secondary",
+    "content": ".btn-secondary { font-size: 1rem;\n            padding: 1rem 2rem;\n            opacity: 0.7;\n            border-color: transparent; }",
+    "start_line": 195,
+    "end_line": 198,
+    "description": "Regla CSS para .btn-secondary",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "9ef9e76fca1a",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { opacity: 1;\n            border-color: rgba(255, 255, 255, 0.3); }",
+    "start_line": 202,
+    "end_line": 203,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b0a3238cf2b5",
+    "type": "css_rule",
+    "name": ".btn-small",
+    "content": ".btn-small { padding: 0.6rem 1.2rem;\n            font-size: 0.9rem;\n            min-width: auto;\n            background: var(--primary);\n            color: #000;\n            border: none;\n            font-weight: 800; }",
+    "start_line": 207,
+    "end_line": 213,
+    "description": "Regla CSS para .btn-small",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "06486fbdd032",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { background: #fff;\n            box-shadow: 0 0 20px #fff;\n            color: #000; }",
+    "start_line": 217,
+    "end_line": 219,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b1e1da591f3a",
+    "type": "css_rule",
+    "name": ".mode-grid",
+    "content": ".mode-grid { display: grid;\n            grid-template-columns: repeat(3, 1fr);\n            gap: 1.5rem;\n            margin-bottom: 2rem;\n            width: 100%;\n            max-width: 800px; }",
+    "start_line": 224,
+    "end_line": 229,
+    "description": "Regla CSS para .mode-grid",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "7bfb0d1b41cf",
+    "type": "css_rule",
+    "name": ".btn-mode",
+    "content": ".btn-mode { min-width: 100px;\n            font-size: 1.1rem;\n            height: 100px;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            border-width: 2px; }",
+    "start_line": 233,
+    "end_line": 239,
+    "description": "Regla CSS para .btn-mode",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "83b80a6bf640",
+    "type": "css_rule",
+    "name": "#hud",
+    "content": "#hud { position: absolute;\n            top: 0;\n            left: 0;\n            width: 100%;\n            height: 100%;\n            pointer-events: none;\n            display: none;\n            padding: 2rem;\n            z-index: 10; }",
+    "start_line": 244,
+    "end_line": 252,
+    "description": "Regla CSS para #hud",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "462d89827d34",
+    "type": "css_rule",
+    "name": ".hud-top",
+    "content": ".hud-top { display: flex;\n            justify-content: space-between;\n            width: 100%;\n            font-size: 1.5rem;\n            font-weight: 600; }",
+    "start_line": 256,
+    "end_line": 260,
+    "description": "Regla CSS para .hud-top",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4cc7e1c2cdb1",
+    "type": "css_rule",
+    "name": ".hud-panel",
+    "content": ".hud-panel { background: rgba(0, 0, 0, 0.5);\n            backdrop-filter: blur(10px);\n            padding: 0.8rem 1.5rem;\n            border-radius: 30px;\n            border: 1px solid rgba(255, 255, 255, 0.1);\n            display: flex;\n            align-items: center;\n            gap: 1rem; }",
+    "start_line": 264,
+    "end_line": 271,
+    "description": "Regla CSS para .hud-panel",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "09ddeaa0e2b6",
+    "type": "css_rule",
+    "name": ".score-box",
+    "content": ".score-box { color: var(--primary);\n            text-shadow: 0 0 10px var(--primary); }",
+    "start_line": 275,
+    "end_line": 276,
+    "description": "Regla CSS para .score-box",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "7256e1a1678c",
+    "type": "css_rule",
+    "name": ".lives-box",
+    "content": ".lives-box { color: var(--danger);\n            text-shadow: 0 0 10px var(--danger);\n            display: flex;\n            gap: 0.5rem; }",
+    "start_line": 280,
+    "end_line": 283,
+    "description": "Regla CSS para .lives-box",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b7a69494f696",
+    "type": "css_rule",
+    "name": ".mode-indicator",
+    "content": ".mode-indicator { position: absolute;\n            bottom: 2rem;\n            left: 2rem;\n            color: rgba(255, 255, 255, 0.8);\n            font-size: 1.2rem;\n            background: rgba(0, 0, 0, 0.5);\n            padding: 1rem 2rem;\n            border-radius: 30px;\n            border: 1px solid rgba(255, 255, 255, 0.1);\n            backdrop-filter: blur(5px); }",
+    "start_line": 287,
+    "end_line": 296,
+    "description": "Regla CSS para .mode-indicator",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "bc19e1a8a609",
+    "type": "css_rule",
+    "name": ".mode-key",
+    "content": ".mode-key { background: rgba(255, 255, 255, 0.15);\n            padding: 0.3rem 0.8rem;\n            border-radius: 6px;\n            border: 1px solid rgba(255, 255, 255, 0.3);\n            margin-right: 0.8rem;\n            font-weight: 800;\n            color: #fff; }",
+    "start_line": 300,
+    "end_line": 306,
+    "description": "Regla CSS para .mode-key",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "805a47c452de",
+    "type": "css_rule",
+    "name": ".difficulty-badge",
+    "content": ".difficulty-badge { position: absolute;\n            bottom: 2rem;\n            right: 2rem;\n            font-size: 1.5rem;\n            font-weight: 800;\n            text-transform: uppercase;\n            opacity: 0.8;\n            background: rgba(0, 0, 0, 0.5);\n            padding: 0.5rem 1.5rem;\n            border-radius: 8px;\n            border: 1px solid currentColor; }",
+    "start_line": 310,
+    "end_line": 320,
+    "description": "Regla CSS para .difficulty-badge",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "8cbf78d4aac4",
+    "type": "css_rule",
+    "name": ".pause-btn",
+    "content": ".pause-btn { position: absolute;\n            top: 2rem;\n            right: 50%;\n            transform: translateX(50%);\n            pointer-events: auto;\n            background: rgba(255, 255, 255, 0.1);\n            border: 1px solid rgba(255, 255, 255, 0.2);\n            color: #fff;\n            width: 50px;\n            height: 50px;\n            border-radius: 50%;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            cursor: pointer;\n            font-size: 1.5rem;\n            transition: all 0.3s ease; }",
+    "start_line": 324,
+    "end_line": 340,
+    "description": "Regla CSS para .pause-btn",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "eeaa90c2fac4",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { background: rgba(255, 255, 255, 0.2);\n            transform: translateX(50%) scale(1.1); }",
+    "start_line": 344,
+    "end_line": 345,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "a15daf9d923b",
+    "type": "css_rule",
+    "name": ".grid-container",
+    "content": ".grid-container { display: grid;\n            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));\n            gap: 1.5rem;\n            width: 95%;\n            max-width: 1400px;\n            max-height: 75vh;\n            overflow-y: auto;\n            padding: 1rem;\n            scrollbar-width: thin;\n            scrollbar-color: var(--primary) transparent; }",
+    "start_line": 350,
+    "end_line": 359,
+    "description": "Regla CSS para .grid-container",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "e25f3fe0a26f",
+    "type": "css_rule",
+    "name": "webkit-scrollbar",
+    "content": "webkit-scrollbar { width: 6px; }",
+    "start_line": 363,
+    "end_line": 363,
+    "description": "Regla CSS para webkit-scrollbar",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "632141c9b778",
+    "type": "css_rule",
+    "name": "webkit-scrollbar-track",
+    "content": "webkit-scrollbar-track { background: transparent; }",
+    "start_line": 367,
+    "end_line": 367,
+    "description": "Regla CSS para webkit-scrollbar-track",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "e403d2a1c5ee",
+    "type": "css_rule",
+    "name": "webkit-scrollbar-thumb",
+    "content": "webkit-scrollbar-thumb { background: var(--primary);\n            border-radius: 3px; }",
+    "start_line": 371,
+    "end_line": 372,
+    "description": "Regla CSS para webkit-scrollbar-thumb",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "29bd0b735cec",
+    "type": "css_rule",
+    "name": ".card",
+    "content": ".card { background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);\n            border: 1px solid var(--glass-border);\n            border-radius: 16px;\n            padding: 1.5rem;\n            display: flex;\n            flex-direction: column;\n            align-items: center;\n            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);\n            cursor: pointer;\n            position: relative;\n            overflow: visible;\n            min-height: auto; }",
+    "start_line": 376,
+    "end_line": 387,
+    "description": "Regla CSS para .card",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "39447c4ce68e",
+    "type": "css_rule",
+    "name": "after",
+    "content": "after { content: '';\n            position: absolute;\n            inset: 0;\n            border-radius: 16px;\n            padding: 2px;\n            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);\n            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);\n            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);\n            -webkit-mask-composite: xor;\n            mask-composite: exclude;\n            opacity: 0.5; }",
+    "start_line": 391,
+    "end_line": 401,
+    "description": "Regla CSS para after",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "81af9cee0976",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { border-color: rgba(255, 255, 255, 0.3);\n            background: rgba(255, 255, 255, 0.08);\n            transform: translateY(-10px);\n            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }",
+    "start_line": 405,
+    "end_line": 408,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "30070d472d9f",
+    "type": "css_rule",
+    "name": ".selected",
+    "content": ".selected { border-color: var(--primary);\n            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);\n            background: linear-gradient(145deg, rgba(0, 243, 255, 0.1) 0%, rgba(0, 0, 0, 0) 100%); }",
+    "start_line": 412,
+    "end_line": 414,
+    "description": "Regla CSS para .selected",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "5f66023fa445",
+    "type": "css_rule",
+    "name": ".card-icon",
+    "content": ".card-icon { width: 70px;\n            height: 70px;\n            background: rgba(0, 0, 0, 0.3);\n            border-radius: 50%;\n            margin-bottom: 1.5rem;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            font-size: 2rem;\n            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);\n            border: 1px solid rgba(255, 255, 255, 0.1); }",
+    "start_line": 418,
+    "end_line": 428,
+    "description": "Regla CSS para .card-icon",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "2939db3b8d0c",
+    "type": "css_rule",
+    "name": ".card-title",
+    "content": ".card-title { font-size: 1.3rem;\n            font-weight: 700;\n            margin-bottom: 0.5rem;\n            text-align: center; }",
+    "start_line": 432,
+    "end_line": 435,
+    "description": "Regla CSS para .card-title",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "1020c5953d7f",
+    "type": "css_rule",
+    "name": ".card-price",
+    "content": ".card-price { font-size: 1rem;\n            color: var(--primary);\n            font-weight: 600;\n            margin-bottom: 1rem; }",
+    "start_line": 439,
+    "end_line": 442,
+    "description": "Regla CSS para .card-price",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "416d67cad5f5",
+    "type": "css_rule",
+    "name": ".upgrade-stats",
+    "content": ".upgrade-stats { width: 100%;\n            margin-top: 1.5rem;\n            font-size: 0.9rem;\n            color: rgba(255, 255, 255, 0.7);\n            background: rgba(0, 0, 0, 0.2);\n            padding: 1rem;\n            border-radius: 8px; }",
+    "start_line": 446,
+    "end_line": 452,
+    "description": "Regla CSS para .upgrade-stats",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "a37c62473bc6",
+    "type": "css_rule",
+    "name": ".stat-row",
+    "content": ".stat-row { display: flex;\n            justify-content: space-between;\n            margin-bottom: 0.4rem;\n            border-bottom: 1px solid rgba(255, 255, 255, 0.05);\n            padding-bottom: 0.2rem; }",
+    "start_line": 456,
+    "end_line": 460,
+    "description": "Regla CSS para .stat-row",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "310ccb2f21c2",
+    "type": "css_rule",
+    "name": "last-child",
+    "content": "last-child { border-bottom: none;\n            margin-bottom: 0;\n            padding-bottom: 0; }",
+    "start_line": 464,
+    "end_line": 466,
+    "description": "Regla CSS para last-child",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "7c230dd7641d",
+    "type": "css_rule",
+    "name": ".back-btn",
+    "content": ".back-btn { position: absolute;\n            top: 2rem;\n            left: 2rem;\n            z-index: 30; }",
+    "start_line": 470,
+    "end_line": 473,
+    "description": "Regla CSS para .back-btn",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "25bdf30425c3",
+    "type": "css_rule",
+    "name": "#tutorial-overlay",
+    "content": "#tutorial-overlay { position: absolute;\n            top: 0;\n            left: 0;\n            width: 100%;\n            height: 100%;\n            background: rgba(0, 0, 0, 0.8);\n            z-index: 100;\n            display: none;\n            pointer-events: auto;\n            backdrop-filter: blur(5px); }",
+    "start_line": 478,
+    "end_line": 487,
+    "description": "Regla CSS para #tutorial-overlay",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "07a0954a095a",
+    "type": "css_rule",
+    "name": ".tutorial-spotlight",
+    "content": ".tutorial-spotlight { position: absolute;\n            border-radius: 50%;\n            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85);\n            transition: all 0.5s ease;\n            pointer-events: none; }",
+    "start_line": 491,
+    "end_line": 495,
+    "description": "Regla CSS para .tutorial-spotlight",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4b931196d26c",
+    "type": "css_rule",
+    "name": ".tutorial-box",
+    "content": ".tutorial-box { position: absolute;\n            background: rgba(20, 20, 30, 0.95);\n            border: 1px solid var(--primary);\n            padding: 2.5rem;\n            border-radius: 16px;\n            max-width: 450px;\n            color: #fff;\n            box-shadow: 0 0 50px rgba(0, 243, 255, 0.3);\n            transition: all 0.5s ease; }",
+    "start_line": 499,
+    "end_line": 507,
+    "description": "Regla CSS para .tutorial-box",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d4337cf2208d",
+    "type": "css_rule",
+    "name": ".typewriter-text",
+    "content": ".typewriter-text { font-family: 'Outfit', sans-serif;\n            font-size: 1.3rem;\n            line-height: 1.6;\n            min-height: 80px; }",
+    "start_line": 511,
+    "end_line": 514,
+    "description": "Regla CSS para .typewriter-text",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "05ca07b88ccf",
+    "type": "css_rule",
+    "name": ".tutorial-next",
+    "content": ".tutorial-next { margin-top: 1.5rem;\n            float: right;\n            background: var(--primary);\n            color: #000;\n            border: none;\n            padding: 0.8rem 2rem;\n            border-radius: 8px;\n            cursor: pointer;\n            font-weight: 800;\n            text-transform: uppercase;\n            letter-spacing: 1px;\n            transition: all 0.3s ease; }",
+    "start_line": 518,
+    "end_line": 529,
+    "description": "Regla CSS para .tutorial-next",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b2747d1d8026",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { background: #fff;\n            box-shadow: 0 0 20px #fff; }",
+    "start_line": 533,
+    "end_line": 534,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "453345d90121",
+    "type": "css_rule",
+    "name": "#boss-hud",
+    "content": "#boss-hud { position: absolute;\n            top: 15%;\n            left: 50%;\n            transform: translateX(-50%);\n            width: 60%;\n            display: none;\n            flex-direction: column;\n            align-items: center; }",
+    "start_line": 539,
+    "end_line": 546,
+    "description": "Regla CSS para #boss-hud",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "26f837d49978",
+    "type": "css_rule",
+    "name": ".boss-name",
+    "content": ".boss-name { font-size: 2rem;\n            color: var(--danger);\n            text-transform: uppercase;\n            font-weight: 900;\n            margin-bottom: 0.8rem;\n            text-shadow: 0 0 20px var(--danger);\n            letter-spacing: 3px; }",
+    "start_line": 550,
+    "end_line": 556,
+    "description": "Regla CSS para .boss-name",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b168fb57a2a1",
+    "type": "css_rule",
+    "name": ".health-bar-bg",
+    "content": ".health-bar-bg { width: 100%;\n            height: 24px;\n            background: rgba(0, 0, 0, 0.5);\n            border: 1px solid rgba(255, 42, 109, 0.3);\n            border-radius: 12px;\n            overflow: hidden;\n            backdrop-filter: blur(5px); }",
+    "start_line": 560,
+    "end_line": 566,
+    "description": "Regla CSS para .health-bar-bg",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "e1ca1edd9865",
+    "type": "css_rule",
+    "name": ".health-bar-fill",
+    "content": ".health-bar-fill { width: 100%;\n            height: 100%;\n            background: linear-gradient(90deg, #ff2a6d, #ff5722);\n            box-shadow: 0 0 30px var(--danger);\n            transition: width 0.2s ease; }",
+    "start_line": 570,
+    "end_line": 574,
+    "description": "Regla CSS para .health-bar-fill",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "99d3ef2efe58",
+    "type": "css_rule",
+    "name": "webkit-scrollbar",
+    "content": "webkit-scrollbar { width: 10px; }",
+    "start_line": 579,
+    "end_line": 579,
+    "description": "Regla CSS para webkit-scrollbar",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "cce9de906ab5",
+    "type": "css_rule",
+    "name": "webkit-scrollbar-track",
+    "content": "webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); }",
+    "start_line": 583,
+    "end_line": 583,
+    "description": "Regla CSS para webkit-scrollbar-track",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "6ced0e39f402",
+    "type": "css_rule",
+    "name": "webkit-scrollbar-thumb",
+    "content": "webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1);\n            border-radius: 5px; }",
+    "start_line": 587,
+    "end_line": 588,
+    "description": "Regla CSS para webkit-scrollbar-thumb",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "7a471415c5bc",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { background: rgba(255, 255, 255, 0.3); }",
+    "start_line": 592,
+    "end_line": 592,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "fc14a6e9ef3c",
+    "type": "css_rule",
+    "name": ".menu-bg-grid",
+    "content": ".menu-bg-grid { position: absolute;\n            top: 0;\n            left: 0;\n            width: 100%;\n            height: 100%;\n            background-image:\n                linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),\n                linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);\n            background-size: 60px 60px;\n            animation: gridMove 20s linear infinite;\n            pointer-events: none; }",
+    "start_line": 601,
+    "end_line": 611,
+    "description": "Regla CSS para .menu-bg-grid",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "2b6dd8f8c47e",
+    "type": "css_rule",
+    "name": "after",
+    "content": "after { content: '';\n            position: absolute;\n            top: 0;\n            left: 0;\n            width: 100%;\n            height: 100%;\n            background: radial-gradient(ellipse at center, transparent 0%, rgba(5, 5, 16, 0.8) 100%); }",
+    "start_line": 615,
+    "end_line": 621,
+    "description": "Regla CSS para after",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "cf0353e60d11",
+    "type": "css_rule",
+    "name": "gridMove",
+    "content": "gridMove { 0% {\n                transform: perspective(500px) rotateX(60deg) translateY(0); }",
+    "start_line": 625,
+    "end_line": 626,
+    "description": "Regla CSS para gridMove",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "9c7ae7c6b790",
+    "type": "css_rule",
+    "name": ".menu-particles",
+    "content": ".menu-particles { position: absolute;\n            top: 0;\n            left: 0;\n            width: 100%;\n            height: 100%;\n            overflow: hidden;\n            pointer-events: none; }",
+    "start_line": 636,
+    "end_line": 642,
+    "description": "Regla CSS para .menu-particles",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "98df85331069",
+    "type": "css_rule",
+    "name": ".particle",
+    "content": ".particle { position: absolute;\n            width: 4px;\n            height: 4px;\n            background: var(--primary);\n            border-radius: 50%;\n            box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary);\n            animation: floatParticle 15s linear infinite;\n            opacity: 0.6; }",
+    "start_line": 646,
+    "end_line": 653,
+    "description": "Regla CSS para .particle",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "8cad0c823424",
+    "type": "css_rule",
+    "name": "floatParticle",
+    "content": "floatParticle { 0% {\n                transform: translateY(100vh) translateX(0) scale(0);\n                opacity: 0; }",
+    "start_line": 657,
+    "end_line": 659,
+    "description": "Regla CSS para floatParticle",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "10dff77b99d7",
+    "type": "css_rule",
+    "name": ".menu-content",
+    "content": ".menu-content { display: flex;\n            flex-direction: column;\n            align-items: center;\n            z-index: 10;\n            gap: 1.5rem;\n            padding: 2rem;\n            width: 100%;\n            max-width: 400px;\n            max-height: 90vh;\n            overflow-y: auto; }",
+    "start_line": 678,
+    "end_line": 687,
+    "description": "Regla CSS para .menu-content",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "6234a9aae5c1",
+    "type": "css_rule",
+    "name": "webkit-scrollbar",
+    "content": "webkit-scrollbar { width: 6px; }",
+    "start_line": 691,
+    "end_line": 691,
+    "description": "Regla CSS para webkit-scrollbar",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "0b5bb1030bf2",
+    "type": "css_rule",
+    "name": "webkit-scrollbar-track",
+    "content": "webkit-scrollbar-track { background: transparent; }",
+    "start_line": 695,
+    "end_line": 695,
+    "description": "Regla CSS para webkit-scrollbar-track",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d2efd1d69de8",
+    "type": "css_rule",
+    "name": "webkit-scrollbar-thumb",
+    "content": "webkit-scrollbar-thumb { background: var(--primary);\n            border-radius: 3px; }",
+    "start_line": 699,
+    "end_line": 700,
+    "description": "Regla CSS para webkit-scrollbar-thumb",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "130fdf985342",
+    "type": "css_rule",
+    "name": ".logo-container",
+    "content": ".logo-container { position: relative;\n            text-align: center;\n            margin-bottom: 1rem; }",
+    "start_line": 705,
+    "end_line": 707,
+    "description": "Regla CSS para .logo-container",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "a200653e7af1",
+    "type": "css_rule",
+    "name": ".logo-glow",
+    "content": ".logo-glow { position: absolute;\n            top: 50%;\n            left: 50%;\n            transform: translate(-50%, -50%);\n            width: 400px;\n            height: 200px;\n            background: radial-gradient(ellipse, rgba(0, 243, 255, 0.15) 0%, transparent 70%);\n            filter: blur(30px);\n            pointer-events: none;\n            animation: logoGlowPulse 4s ease-in-out infinite; }",
+    "start_line": 711,
+    "end_line": 720,
+    "description": "Regla CSS para .logo-glow",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "707486df20ae",
+    "type": "css_rule",
+    "name": "logoGlowPulse",
+    "content": "logoGlowPulse { 0%,\n            100% {\n                opacity: 0.5;\n                transform: translate(-50%, -50%) scale(1); }",
+    "start_line": 724,
+    "end_line": 727,
+    "description": "Regla CSS para logoGlowPulse",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "6991216e8cdb",
+    "type": "css_rule",
+    "name": ".game-logo",
+    "content": ".game-logo { font-size: 4.5rem;\n            font-weight: 900;\n            text-transform: uppercase;\n            letter-spacing: 8px;\n            line-height: 1.1;\n            margin: 0;\n            display: flex;\n            flex-direction: column;\n            align-items: center;\n            position: relative;\n            filter: none;\n            background: none;\n            -webkit-background-clip: unset;\n            background-clip: unset;\n            -webkit-text-fill-color: unset; }",
+    "start_line": 738,
+    "end_line": 752,
+    "description": "Regla CSS para .game-logo",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d1340f8b1a9f",
+    "type": "css_rule",
+    "name": ".logo-line",
+    "content": ".logo-line { display: block;\n            background: linear-gradient(180deg, #ffffff 0%, #a0a0a0 100%);\n            -webkit-background-clip: text;\n            -webkit-text-fill-color: transparent;\n            background-clip: text;\n            text-shadow: none;\n            position: relative; }",
+    "start_line": 756,
+    "end_line": 762,
+    "description": "Regla CSS para .logo-line",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "8d1c2578c686",
+    "type": "css_rule",
+    "name": ".accent",
+    "content": ".accent { font-size: 5.5rem;\n            background: linear-gradient(135deg, var(--primary) 0%, #00fff7 50%, var(--secondary) 100%);\n            -webkit-background-clip: text;\n            -webkit-text-fill-color: transparent;\n            background-clip: text;\n            filter: drop-shadow(0 0 30px rgba(0, 243, 255, 0.5));\n            animation: logoGlitch 5s ease-in-out infinite; }",
+    "start_line": 766,
+    "end_line": 772,
+    "description": "Regla CSS para .accent",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "95d02bd9e295",
+    "type": "css_rule",
+    "name": "logoGlitch",
+    "content": "logoGlitch { 0%,\n            90%,\n            100% {\n                transform: translateX(0);\n                filter: drop-shadow(0 0 30px rgba(0, 243, 255, 0.5)); }",
+    "start_line": 776,
+    "end_line": 780,
+    "description": "Regla CSS para logoGlitch",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d82ce32daf38",
+    "type": "css_rule",
+    "name": ".logo-subtitle",
+    "content": ".logo-subtitle { margin-top: 1rem;\n            font-size: 1rem;\n            letter-spacing: 12px;\n            color: rgba(255, 255, 255, 0.5);\n            font-weight: 300;\n            text-transform: uppercase; }",
+    "start_line": 806,
+    "end_line": 811,
+    "description": "Regla CSS para .logo-subtitle",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "964205a399cf",
+    "type": "css_rule",
+    "name": ".logo-decoration",
+    "content": ".logo-decoration { display: flex;\n            align-items: center;\n            justify-content: center;\n            margin-top: 1.5rem;\n            gap: 1rem; }",
+    "start_line": 815,
+    "end_line": 819,
+    "description": "Regla CSS para .logo-decoration",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "19cd7897a3bc",
+    "type": "css_rule",
+    "name": ".deco-line",
+    "content": ".deco-line { width: 80px;\n            height: 1px;\n            background: linear-gradient(90deg, transparent, var(--primary), transparent); }",
+    "start_line": 823,
+    "end_line": 825,
+    "description": "Regla CSS para .deco-line",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "fc7e34c0951f",
+    "type": "css_rule",
+    "name": ".deco-icon",
+    "content": ".deco-icon { color: var(--primary);\n            font-size: 0.8rem;\n            animation: decoSpin 4s linear infinite; }",
+    "start_line": 829,
+    "end_line": 831,
+    "description": "Regla CSS para .deco-icon",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "86499e725a41",
+    "type": "css_rule",
+    "name": "decoSpin",
+    "content": "decoSpin { 0% {\n                transform: rotate(0deg); }",
+    "start_line": 835,
+    "end_line": 836,
+    "description": "Regla CSS para decoSpin",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "8543ec8b666c",
+    "type": "css_rule",
+    "name": ".menu-nav",
+    "content": ".menu-nav { display: flex;\n            flex-direction: column;\n            gap: 0.8rem;\n            width: 100%;\n            max-width: 350px; }",
+    "start_line": 846,
+    "end_line": 850,
+    "description": "Regla CSS para .menu-nav",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "e74a59f2886d",
+    "type": "css_rule",
+    "name": ".menu-btn",
+    "content": ".menu-btn { position: relative;\n            display: flex;\n            align-items: center;\n            justify-content: flex-start;\n            gap: 1rem;\n            padding: 1.2rem 1.8rem;\n            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);\n            border: 1px solid rgba(255, 255, 255, 0.08);\n            border-radius: 12px;\n            color: rgba(255, 255, 255, 0.8);\n            font-family: 'Outfit', sans-serif;\n            font-size: 1.1rem;\n            font-weight: 600;\n            letter-spacing: 2px;\n            cursor: pointer;\n            overflow: hidden;\n            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);\n            backdrop-filter: blur(10px); }",
+    "start_line": 854,
+    "end_line": 871,
+    "description": "Regla CSS para .menu-btn",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "f661ccf0ceba",
+    "type": "css_rule",
+    "name": "before",
+    "content": "before { content: '';\n            position: absolute;\n            top: 0;\n            left: -100%;\n            width: 100%;\n            height: 100%;\n            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.1), transparent);\n            transition: left 0.6s ease; }",
+    "start_line": 875,
+    "end_line": 882,
+    "description": "Regla CSS para before",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "8a91156c9817",
+    "type": "css_rule",
+    "name": "before",
+    "content": "before { left: 100%; }",
+    "start_line": 886,
+    "end_line": 886,
+    "description": "Regla CSS para before",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4a4d47964418",
+    "type": "css_rule",
+    "name": "after",
+    "content": "after { content: '';\n            position: absolute;\n            top: 0;\n            left: 0;\n            width: 3px;\n            height: 100%;\n            background: var(--primary);\n            transform: scaleY(0);\n            transition: transform 0.3s ease; }",
+    "start_line": 890,
+    "end_line": 898,
+    "description": "Regla CSS para after",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "149ed1d40cce",
+    "type": "css_rule",
+    "name": "after",
+    "content": "after { transform: scaleY(1); }",
+    "start_line": 902,
+    "end_line": 902,
+    "description": "Regla CSS para after",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4a32a2e9502d",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { background: linear-gradient(135deg, rgba(0, 243, 255, 0.1) 0%, rgba(188, 19, 254, 0.05) 100%);\n            border-color: rgba(0, 243, 255, 0.3);\n            color: #ffffff;\n            transform: translateX(8px);\n            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2), inset 0 0 20px rgba(0, 243, 255, 0.05); }",
+    "start_line": 906,
+    "end_line": 910,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "c66e509b6128",
+    "type": "css_rule",
+    "name": ".primary",
+    "content": ".primary { background: linear-gradient(135deg, rgba(0, 243, 255, 0.15) 0%, rgba(0, 243, 255, 0.05) 100%);\n            border-color: rgba(0, 243, 255, 0.3);\n            color: var(--primary);\n            animation: primaryPulse 2s ease-in-out infinite; }",
+    "start_line": 914,
+    "end_line": 917,
+    "description": "Regla CSS para .primary",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "64ad37e34f4b",
+    "type": "css_rule",
+    "name": "primaryPulse",
+    "content": "primaryPulse { 0%,\n            100% {\n                box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }",
+    "start_line": 921,
+    "end_line": 923,
+    "description": "Regla CSS para primaryPulse",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "029272eae486",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { background: linear-gradient(135deg, rgba(0, 243, 255, 0.25) 0%, rgba(188, 19, 254, 0.1) 100%);\n            border-color: var(--primary); }",
+    "start_line": 933,
+    "end_line": 934,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "a761317cbbeb",
+    "type": "css_rule",
+    "name": ".secondary",
+    "content": ".secondary { opacity: 0.6;\n            padding: 0.9rem 1.5rem;\n            font-size: 0.95rem; }",
+    "start_line": 938,
+    "end_line": 940,
+    "description": "Regla CSS para .secondary",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d3d9212a3700",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { opacity: 1; }",
+    "start_line": 944,
+    "end_line": 944,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "601c8adb463f",
+    "type": "css_rule",
+    "name": ".btn-icon",
+    "content": ".btn-icon { display: flex;\n            align-items: center;\n            justify-content: center;\n            width: 40px;\n            height: 40px;\n            background: rgba(0, 0, 0, 0.3);\n            border-radius: 10px;\n            font-size: 1.2rem;\n            border: 1px solid rgba(255, 255, 255, 0.1);\n            transition: all 0.3s ease; }",
+    "start_line": 948,
+    "end_line": 957,
+    "description": "Regla CSS para .btn-icon",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "835867df8874",
+    "type": "css_rule",
+    "name": ".btn-icon",
+    "content": ".btn-icon { background: rgba(0, 243, 255, 0.2);\n            border-color: rgba(0, 243, 255, 0.4);\n            transform: scale(1.1) rotate(5deg); }",
+    "start_line": 961,
+    "end_line": 963,
+    "description": "Regla CSS para .btn-icon",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b8059f0546cf",
+    "type": "css_rule",
+    "name": ".btn-icon",
+    "content": ".btn-icon { background: rgba(0, 243, 255, 0.2);\n            border-color: rgba(0, 243, 255, 0.3); }",
+    "start_line": 967,
+    "end_line": 968,
+    "description": "Regla CSS para .btn-icon",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "015b515b265b",
+    "type": "css_rule",
+    "name": ".btn-text",
+    "content": ".btn-text { flex: 1; }",
+    "start_line": 972,
+    "end_line": 972,
+    "description": "Regla CSS para .btn-text",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "e9e2a076638f",
+    "type": "css_rule",
+    "name": ".btn-glow",
+    "content": ".btn-glow { position: absolute;\n            top: 50%;\n            right: 1.5rem;\n            width: 8px;\n            height: 8px;\n            background: var(--primary);\n            border-radius: 50%;\n            transform: translateY(-50%);\n            opacity: 0;\n            transition: opacity 0.3s ease;\n            box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary); }",
+    "start_line": 976,
+    "end_line": 986,
+    "description": "Regla CSS para .btn-glow",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "c194809bcfb6",
+    "type": "css_rule",
+    "name": ".btn-glow",
+    "content": ".btn-glow { opacity: 1;\n            animation: btnGlowPulse 1s ease-in-out infinite; }",
+    "start_line": 990,
+    "end_line": 991,
+    "description": "Regla CSS para .btn-glow",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "2dbf963efee9",
+    "type": "css_rule",
+    "name": "btnGlowPulse",
+    "content": "btnGlowPulse { 0%,\n            100% {\n                transform: translateY(-50%) scale(1); }",
+    "start_line": 995,
+    "end_line": 997,
+    "description": "Regla CSS para btnGlowPulse",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "91ace644162c",
+    "type": "css_rule",
+    "name": ".stats-panel",
+    "content": ".stats-panel { display: flex;\n            align-items: center;\n            gap: 1.5rem;\n            padding: 1rem 2rem;\n            background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 100%);\n            border: 1px solid rgba(255, 255, 255, 0.1);\n            border-radius: 50px;\n            margin-top: 1rem;\n            backdrop-filter: blur(10px); }",
+    "start_line": 1008,
+    "end_line": 1016,
+    "description": "Regla CSS para .stats-panel",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "0e8a769d6b41",
+    "type": "css_rule",
+    "name": ".stat-item",
+    "content": ".stat-item { display: flex;\n            flex-direction: column;\n            align-items: center;\n            gap: 0.3rem; }",
+    "start_line": 1020,
+    "end_line": 1023,
+    "description": "Regla CSS para .stat-item",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4276f172290a",
+    "type": "css_rule",
+    "name": ".stat-icon",
+    "content": ".stat-icon { font-size: 1.2rem;\n            color: var(--primary);\n            filter: drop-shadow(0 0 5px var(--primary)); }",
+    "start_line": 1027,
+    "end_line": 1029,
+    "description": "Regla CSS para .stat-icon",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "603d509cdb2a",
+    "type": "css_rule",
+    "name": ".stat-label",
+    "content": ".stat-label { font-size: 0.65rem;\n            color: rgba(255, 255, 255, 0.4);\n            letter-spacing: 1px;\n            text-transform: uppercase; }",
+    "start_line": 1033,
+    "end_line": 1036,
+    "description": "Regla CSS para .stat-label",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "17f2a15a6dcd",
+    "type": "css_rule",
+    "name": ".stat-value",
+    "content": ".stat-value { font-size: 1.2rem;\n            font-weight: 700;\n            color: #ffffff;\n            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }",
+    "start_line": 1040,
+    "end_line": 1043,
+    "description": "Regla CSS para .stat-value",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "887ec2b26218",
+    "type": "css_rule",
+    "name": ".stat-divider",
+    "content": ".stat-divider { width: 1px;\n            height: 40px;\n            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.2), transparent); }",
+    "start_line": 1047,
+    "end_line": 1049,
+    "description": "Regla CSS para .stat-divider",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "5a35b68ba9a8",
+    "type": "css_rule",
+    "name": ".version-badge",
+    "content": ".version-badge { position: absolute;\n            bottom: 1.5rem;\n            right: 1.5rem;\n            font-size: 0.75rem;\n            color: rgba(255, 255, 255, 0.3);\n            letter-spacing: 1px;\n            z-index: 10; }",
+    "start_line": 1054,
+    "end_line": 1060,
+    "description": "Regla CSS para .version-badge",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "05c2294940fc",
+    "type": "css_rule",
+    "name": ".game-logo",
+    "content": ".game-logo { font-size: 2.5rem; }",
+    "start_line": 1066,
+    "end_line": 1066,
+    "description": "Regla CSS para .game-logo",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "86a0bf34247f",
+    "type": "css_rule",
+    "name": ".accent",
+    "content": ".accent { font-size: 3rem; }",
+    "start_line": 1070,
+    "end_line": 1070,
+    "description": "Regla CSS para .accent",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "f354d658e428",
+    "type": "css_rule",
+    "name": ".logo-subtitle",
+    "content": ".logo-subtitle { font-size: 0.7rem;\n                letter-spacing: 6px; }",
+    "start_line": 1074,
+    "end_line": 1075,
+    "description": "Regla CSS para .logo-subtitle",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "9af543742111",
+    "type": "css_rule",
+    "name": ".menu-nav",
+    "content": ".menu-nav { max-width: 280px; }",
+    "start_line": 1079,
+    "end_line": 1079,
+    "description": "Regla CSS para .menu-nav",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "f61d432d62f4",
+    "type": "css_rule",
+    "name": ".menu-btn",
+    "content": ".menu-btn { padding: 1rem 1.2rem;\n                font-size: 0.95rem; }",
+    "start_line": 1083,
+    "end_line": 1084,
+    "description": "Regla CSS para .menu-btn",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "067b62f3840a",
+    "type": "css_rule",
+    "name": ".stats-panel",
+    "content": ".stats-panel { flex-wrap: wrap;\n                justify-content: center;\n                padding: 0.8rem 1.2rem;\n                gap: 1rem; }",
+    "start_line": 1088,
+    "end_line": 1091,
+    "description": "Regla CSS para .stats-panel",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "51027f63e7ca",
+    "type": "css_rule",
+    "name": ".stat-divider",
+    "content": ".stat-divider { display: none; }",
+    "start_line": 1095,
+    "end_line": 1095,
+    "description": "Regla CSS para .stat-divider",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "a728e89a0815",
+    "type": "css_rule",
+    "name": "float",
+    "content": "float { 0%,\n            100% {\n                transform: translateY(0); }",
+    "start_line": 1101,
+    "end_line": 1103,
+    "description": "Regla CSS para float",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "949c63c0e9a5",
+    "type": "css_rule",
+    "name": "rotateRays",
+    "content": "rotateRays { from {\n                transform: rotate(0deg); }",
+    "start_line": 1114,
+    "end_line": 1115,
+    "description": "Regla CSS para rotateRays",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "a9860ac1cfad",
+    "type": "css_rule",
+    "name": "to",
+    "content": "to { transform: rotate(360deg); }",
+    "start_line": 1119,
+    "end_line": 1119,
+    "description": "Regla CSS para to",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "efb7c5237915",
+    "type": "css_rule",
+    "name": "unlockShine",
+    "content": "unlockShine { 0% {\n                left: -100%; }",
+    "start_line": 1124,
+    "end_line": 1125,
+    "description": "Regla CSS para unlockShine",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4ac701128d3e",
+    "type": "css_rule",
+    "name": "unlockPulse",
+    "content": "unlockPulse { 0%,\n            100% {\n                transform: scale(1);\n                box-shadow: 0 0 30px rgba(0, 243, 255, 0.5); }",
+    "start_line": 1134,
+    "end_line": 1137,
+    "description": "Regla CSS para unlockPulse",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "9727647af84d",
+    "type": "css_rule",
+    "name": "unlockParticle",
+    "content": "unlockParticle { 0% {\n                transform: translate(0, 0) scale(1);\n                opacity: 1; }",
+    "start_line": 1148,
+    "end_line": 1150,
+    "description": "Regla CSS para unlockParticle",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "78811e8cb24a",
+    "type": "css_rule",
+    "name": "unlockRingExpand",
+    "content": "unlockRingExpand { 0% {\n                transform: scale(0);\n                opacity: 1; }",
+    "start_line": 1160,
+    "end_line": 1162,
+    "description": "Regla CSS para unlockRingExpand",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "922d0e52275e",
+    "type": "css_rule",
+    "name": "shimmer",
+    "content": "shimmer { 0% {\n                transform: translateX(-100%); }",
+    "start_line": 1176,
+    "end_line": 1177,
+    "description": "Regla CSS para shimmer",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "130a4fca88d2",
+    "type": "css_rule",
+    "name": "primaryGlow",
+    "content": "primaryGlow { 0%,\n            100% {\n                box-shadow: 0 0 20px rgba(0, 243, 255, 0.4); }",
+    "start_line": 1186,
+    "end_line": 1188,
+    "description": "Regla CSS para primaryGlow",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "0243bd85c2e8",
+    "type": "css_rule",
+    "name": "float",
+    "content": "float { 0%,\n            100% {\n                transform: translateY(0); }",
+    "start_line": 1198,
+    "end_line": 1200,
+    "description": "Regla CSS para float",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "9d0a188626e1",
+    "type": "css_rule",
+    "name": ".event-btn",
+    "content": ".event-btn { background: linear-gradient(135deg, rgba(255, 140, 0, 0.2), rgba(255, 69, 0, 0.15));\n            border-color: #ff8c00;\n            color: #ff8c00;\n            animation: eventPulse 2s ease-in-out infinite;\n            position: relative; }",
+    "start_line": 1211,
+    "end_line": 1215,
+    "description": "Regla CSS para .event-btn",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "5f8e32a9ab1f",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { background: linear-gradient(135deg, rgba(255, 140, 0, 0.35), rgba(255, 69, 0, 0.25));\n            border-color: #ffa500;\n            box-shadow: 0 0 30px rgba(255, 140, 0, 0.5); }",
+    "start_line": 1219,
+    "end_line": 1221,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "5b905400064d",
+    "type": "css_rule",
+    "name": "eventPulse",
+    "content": "eventPulse { 0%,\n            100% {\n                box-shadow: 0 0 10px rgba(255, 140, 0, 0.3); }",
+    "start_line": 1225,
+    "end_line": 1227,
+    "description": "Regla CSS para eventPulse",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "43083986af61",
+    "type": "css_rule",
+    "name": ".event-badge",
+    "content": ".event-badge { position: absolute;\n            top: -8px;\n            right: -8px;\n            background: linear-gradient(135deg, #ff2a6d, #ff6b35);\n            color: #fff;\n            font-size: 0.6rem;\n            font-weight: 800;\n            padding: 0.2rem 0.5rem;\n            border-radius: 10px;\n            text-transform: uppercase;\n            letter-spacing: 1px;\n            animation: badgeBounce 1.5s ease-in-out infinite;\n            box-shadow: 0 0 10px rgba(255, 42, 109, 0.5); }",
+    "start_line": 1237,
+    "end_line": 1249,
+    "description": "Regla CSS para .event-badge",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "18cab577fa84",
+    "type": "css_rule",
+    "name": "badgeBounce",
+    "content": "badgeBounce { 0%,\n            100% {\n                transform: scale(1) rotate(-5deg); }",
+    "start_line": 1253,
+    "end_line": 1255,
+    "description": "Regla CSS para badgeBounce",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "920f7d2fa85f",
+    "type": "css_rule",
+    "name": ".events-container",
+    "content": ".events-container { display: flex;\n            flex-direction: column;\n            gap: 1.5rem;\n            width: 100%;\n            max-width: 1000px;\n            flex: 1;\n            overflow-y: auto;\n            padding: 1rem 1.5rem 2rem;\n            margin: 0 auto; }",
+    "start_line": 1266,
+    "end_line": 1274,
+    "description": "Regla CSS para .events-container",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4b1421e571c3",
+    "type": "css_rule",
+    "name": ".event-card",
+    "content": ".event-card { background: linear-gradient(145deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.3));\n            border-radius: 20px;\n            padding: 1.5rem;\n            position: relative;\n            overflow: hidden;\n            transition: all 0.4s ease;\n            cursor: pointer; }",
+    "start_line": 1278,
+    "end_line": 1284,
+    "description": "Regla CSS para .event-card",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "404b5f73c1bb",
+    "type": "css_rule",
+    "name": "before",
+    "content": "before { content: '';\n            position: absolute;\n            top: 0;\n            left: 0;\n            right: 0;\n            height: 4px;\n            background: var(--event-color); }",
+    "start_line": 1288,
+    "end_line": 1294,
+    "description": "Regla CSS para before",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "3de5034c3bf1",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { transform: translateY(-5px);\n            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4); }",
+    "start_line": 1298,
+    "end_line": 1299,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "0ff73e6bf192",
+    "type": "css_rule",
+    "name": ".active",
+    "content": ".active { border: 2px solid var(--event-color);\n            box-shadow: 0 0 30px var(--event-glow); }",
+    "start_line": 1303,
+    "end_line": 1304,
+    "description": "Regla CSS para .active",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d0fa09fa006a",
+    "type": "css_rule",
+    "name": ".upcoming",
+    "content": ".upcoming { opacity: 0.7;\n            filter: grayscale(0.3); }",
+    "start_line": 1308,
+    "end_line": 1309,
+    "description": "Regla CSS para .upcoming",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "cd6f58f02744",
+    "type": "css_rule",
+    "name": ".ended",
+    "content": ".ended { opacity: 0.4;\n            filter: grayscale(0.8); }",
+    "start_line": 1313,
+    "end_line": 1314,
+    "description": "Regla CSS para .ended",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "9fd6d8288947",
+    "type": "css_rule",
+    "name": ".event-header",
+    "content": ".event-header { display: flex;\n            align-items: center;\n            gap: 1rem;\n            margin-bottom: 1rem; }",
+    "start_line": 1318,
+    "end_line": 1321,
+    "description": "Regla CSS para .event-header",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "bdf1a5ae2465",
+    "type": "css_rule",
+    "name": ".event-icon",
+    "content": ".event-icon { font-size: 3rem;\n            filter: drop-shadow(0 0 10px var(--event-color)); }",
+    "start_line": 1325,
+    "end_line": 1326,
+    "description": "Regla CSS para .event-icon",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "5584de5262ba",
+    "type": "css_rule",
+    "name": ".event-info",
+    "content": ".event-info { flex: 1; }",
+    "start_line": 1330,
+    "end_line": 1330,
+    "description": "Regla CSS para .event-info",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "38548b28558d",
+    "type": "css_rule",
+    "name": ".event-episode",
+    "content": ".event-episode { font-size: 0.7rem;\n            color: var(--event-color);\n            text-transform: uppercase;\n            letter-spacing: 2px;\n            margin-bottom: 0.3rem; }",
+    "start_line": 1334,
+    "end_line": 1338,
+    "description": "Regla CSS para .event-episode",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "5d876a7b8445",
+    "type": "css_rule",
+    "name": ".event-title",
+    "content": ".event-title { font-size: 1.3rem;\n            font-weight: 800;\n            color: #fff;\n            margin-bottom: 0.2rem; }",
+    "start_line": 1342,
+    "end_line": 1345,
+    "description": "Regla CSS para .event-title",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d0c189f3eebb",
+    "type": "css_rule",
+    "name": ".event-subtitle",
+    "content": ".event-subtitle { font-size: 0.8rem;\n            color: #aaa; }",
+    "start_line": 1349,
+    "end_line": 1350,
+    "description": "Regla CSS para .event-subtitle",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "2f5b23c106ef",
+    "type": "css_rule",
+    "name": ".event-status-badge",
+    "content": ".event-status-badge { padding: 0.4rem 1rem;\n            border-radius: 20px;\n            font-size: 0.75rem;\n            font-weight: 700;\n            text-transform: uppercase;\n            letter-spacing: 1px; }",
+    "start_line": 1354,
+    "end_line": 1359,
+    "description": "Regla CSS para .event-status-badge",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b533ff4e9628",
+    "type": "css_rule",
+    "name": ".active",
+    "content": ".active { background: linear-gradient(135deg, #00ff9d, #00cc7a);\n            color: #000;\n            animation: statusGlow 2s ease infinite; }",
+    "start_line": 1363,
+    "end_line": 1365,
+    "description": "Regla CSS para .active",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "7674b46e609b",
+    "type": "css_rule",
+    "name": ".upcoming",
+    "content": ".upcoming { background: linear-gradient(135deg, #00f3ff, #0099cc);\n            color: #000; }",
+    "start_line": 1369,
+    "end_line": 1370,
+    "description": "Regla CSS para .upcoming",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "6b44708ca943",
+    "type": "css_rule",
+    "name": ".ended",
+    "content": ".ended { background: #444;\n            color: #888; }",
+    "start_line": 1374,
+    "end_line": 1375,
+    "description": "Regla CSS para .ended",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "11febef07c27",
+    "type": "css_rule",
+    "name": "statusGlow",
+    "content": "statusGlow { 0%,\n            100% {\n                box-shadow: 0 0 10px rgba(0, 255, 157, 0.5); }",
+    "start_line": 1379,
+    "end_line": 1381,
+    "description": "Regla CSS para statusGlow",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4b019a9925c5",
+    "type": "css_rule",
+    "name": ".event-dates",
+    "content": ".event-dates { display: flex;\n            align-items: center;\n            gap: 1rem;\n            margin: 1rem 0;\n            padding: 0.8rem;\n            background: rgba(255, 255, 255, 0.05);\n            border-radius: 10px; }",
+    "start_line": 1391,
+    "end_line": 1397,
+    "description": "Regla CSS para .event-dates",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "b60ae088fccf",
+    "type": "css_rule",
+    "name": ".event-date-item",
+    "content": ".event-date-item { text-align: center;\n            flex: 1; }",
+    "start_line": 1401,
+    "end_line": 1402,
+    "description": "Regla CSS para .event-date-item",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "f8a842dbcebb",
+    "type": "css_rule",
+    "name": ".event-date-label",
+    "content": ".event-date-label { font-size: 0.6rem;\n            color: #666;\n            text-transform: uppercase; }",
+    "start_line": 1406,
+    "end_line": 1408,
+    "description": "Regla CSS para .event-date-label",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "3b002f4093f9",
+    "type": "css_rule",
+    "name": ".event-date-value",
+    "content": ".event-date-value { font-size: 0.9rem;\n            font-weight: 600;\n            color: #fff; }",
+    "start_line": 1412,
+    "end_line": 1414,
+    "description": "Regla CSS para .event-date-value",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "5097f47d05e2",
+    "type": "css_rule",
+    "name": ".event-countdown",
+    "content": ".event-countdown { display: flex;\n            justify-content: center;\n            gap: 0.5rem;\n            padding: 0.5rem;\n            background: rgba(0, 0, 0, 0.3);\n            border-radius: 10px; }",
+    "start_line": 1418,
+    "end_line": 1423,
+    "description": "Regla CSS para .event-countdown",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "4af7eb6212b7",
+    "type": "css_rule",
+    "name": ".countdown-item",
+    "content": ".countdown-item { text-align: center;\n            padding: 0.3rem 0.6rem;\n            background: rgba(255, 255, 255, 0.1);\n            border-radius: 8px; }",
+    "start_line": 1427,
+    "end_line": 1430,
+    "description": "Regla CSS para .countdown-item",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "a3269bae6a3e",
+    "type": "css_rule",
+    "name": ".countdown-value",
+    "content": ".countdown-value { font-size: 1.2rem;\n            font-weight: 800;\n            color: var(--event-color); }",
+    "start_line": 1434,
+    "end_line": 1436,
+    "description": "Regla CSS para .countdown-value",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d3ce3d2c743c",
+    "type": "css_rule",
+    "name": ".countdown-label",
+    "content": ".countdown-label { font-size: 0.5rem;\n            color: #666;\n            text-transform: uppercase; }",
+    "start_line": 1440,
+    "end_line": 1442,
+    "description": "Regla CSS para .countdown-label",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "f03de173388b",
+    "type": "css_rule",
+    "name": ".event-rewards",
+    "content": ".event-rewards { display: flex;\n            gap: 0.8rem;\n            margin-top: 1rem;\n            overflow-x: auto;\n            padding: 0.5rem 0; }",
+    "start_line": 1446,
+    "end_line": 1450,
+    "description": "Regla CSS para .event-rewards",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "850f7322d0a2",
+    "type": "css_rule",
+    "name": ".reward-item",
+    "content": ".reward-item { min-width: 100px;\n            padding: 0.8rem;\n            background: rgba(0, 0, 0, 0.4);\n            border-radius: 12px;\n            text-align: center;\n            border: 1px solid rgba(255, 255, 255, 0.1);\n            transition: all 0.3s ease; }",
+    "start_line": 1454,
+    "end_line": 1460,
+    "description": "Regla CSS para .reward-item",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "d3efe07a7ac8",
+    "type": "css_rule",
+    "name": "hover",
+    "content": "hover { border-color: var(--event-color);\n            background: rgba(255, 255, 255, 0.05); }",
+    "start_line": 1464,
+    "end_line": 1465,
+    "description": "Regla CSS para hover",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "71fdfef183af",
+    "type": "css_rule",
+    "name": ".reward-icon",
+    "content": ".reward-icon { font-size: 1.5rem;\n            margin-bottom: 0.3rem; }",
+    "start_line": 1469,
+    "end_line": 1470,
+    "description": "Regla CSS para .reward-icon",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "9616255a83f0",
+    "type": "css_rule",
+    "name": ".reward-name",
+    "content": ".reward-name { font-size: 0.7rem;\n            color: #fff;\n            font-weight: 600; }",
+    "start_line": 1474,
+    "end_line": 1476,
+    "description": "Regla CSS para .reward-name",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "23af69b39399",
+    "type": "css_rule",
+    "name": ".reward-rarity",
+    "content": ".reward-rarity { font-size: 0.55rem;\n            text-transform: uppercase;\n            letter-spacing: 1px; }",
+    "start_line": 1480,
+    "end_line": 1482,
+    "description": "Regla CSS para .reward-rarity",
+    "tags": [
+      "css",
+      "style"
+    ]
+  },
+  {
+    "id": "8bb7c9138687",
+    "type": "css_rule",
+    "name": "pulseGlow",
+    "content": "pulseGlow { 0%,\n                100% {\n                    box-shadow: 0 0 15px rgba(255, 140, 0, 0.3); }",
+    "start_line": 2246,
+    "end_line": 2248,
+    "description": "Regla CSS para pulseGlow",
+    "tags": [
+      "css",
+      "style"
+    ]
+  }
+]

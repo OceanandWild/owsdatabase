@@ -1,0 +1,2158 @@
+const { app, BrowserWindow, ipcMain, nativeImage, shell, Notification, Tray, Menu } = require('electron');
+const { autoUpdater } = require('electron-updater');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const https = require('https');
+const http = require('http');
+const crypto = require('crypto');
+const { spawn } = require('child_process');
+
+let mainWindow = null;
+let appTray = null;
+let isQuitting = false;
+let isInstallingUpdate = false;
+let backgroundHintShown = false;
+const semverTripletRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+const APP_ID = 'com.oceanwildstudios.nexusstore';
+const APP_DISPLAY_NAME = 'OWS Store';
+const API_URL = 'https://owsdatabase.onrender.com';
+const OWS_STORE_LATEST_YML_URL = 'https://github.com/OceanandWild/owsdatabase/releases/latest/download/latest.yml';
+const OWS_STORE_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/owsdatabase/releases?per_page=40';
+const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
+const INSTALLER_LAUNCH_DIR = path.join(os.tmpdir(), 'ows-store-installer-launch');
+const PUSH_STATE_FILENAME = 'ows-push-state.json';
+const RECOVERY_STATE_FILENAME = 'ows-recovery-state.json';
+const PUSH_WORKER_TASK_NAME = 'OWSStorePushWorker';
+const PUSH_REALTIME_POLL_MS = 30 * 1000;
+const RENDERER_HEALTH_TIMEOUT_MS = 20000;
+let updaterReady = false;
+let windowsUpdateDownloaded = false;
+let wnsChannelCache = '';
+let wnsChannelCacheAt = 0;
+let pushRealtimeTimer = null;
+let recoveryWindow = null;
+let rendererBootHealthy = false;
+let rendererHealthTimer = null;
+let recoveryUpdateInProgress = false;
+let recoveryVersionScanTimer = null;
+let recoveryFallbackSearchInProgress = false;
+const RECOVERY_POLL_INTERVAL_MS = 10 * 1000;
+const RECOVERY_NO_NEW_MAX_ATTEMPTS = 10;
+const RECOVERY_FALLBACK_ENABLE_MS = 6 * 60 * 60 * 1000;
+const RECOVERY_CANDIDATE_MIN_BYTES = 2 * 1024 * 1024;
+const recoveryMonitorState = {
+  active: false,
+  startedAtMs: 0,
+  badVersion: '',
+  attempts: 0,
+  noNewAttempts: 0,
+  noNewNotified: false,
+  latestSeenVersion: '',
+  latestCandidate: null,
+  rejectedVersions: new Set(),
+  fallbackEnabled: false,
+  lastCheckAtMs: 0,
+};
+const externalInstallTasks = new Map();
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32, keepAliveMsecs: 3000, scheduling: 'fifo' });
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
+const DOWNLOAD_PROGRESS_EMIT_MS = 750;        // reduce IPC chatter, keep UI responsive
+const DOWNLOAD_PROGRESS_EMIT_BYTES = 512 * 1024; // emit each 512KB downloaded
+const DOWNLOAD_PROGRESS_EMIT_STEP = 1;            // emit each 1%
+const DOWNLOAD_STALL_TIMEOUT_MS = 20 * 1000;      // 20s sin datos = estancado (antes 45s)
+const DOWNLOAD_MIN_SPEED_BPS = 30 * 1024;         // 30 KB/s velocidad minima sostenida
+const DOWNLOAD_MIN_SPEED_WINDOW_MS = 30 * 1000;   // ventana de 30s para medir velocidad minima
+const DOWNLOAD_RETRY_ATTEMPTS = 5;                 // mas reintentos (antes 3)
+const DOWNLOAD_RETRY_BASE_DELAY_MS = 800;
+const DOWNLOAD_PARALLEL_CHUNKS = 6;               // conexiones paralelas para superar throttling
+const DOWNLOAD_CHUNK_MIN_SIZE = 4 * 1024 * 1024;  // minimo 4MB por chunk para usar paralelo
+
+app.setAppUserModelId(APP_ID);
+app.setName(APP_DISPLAY_NAME);
+
+function readJsonFileSafe(filePath, fallback = null) {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function writeJsonFileSafe(filePath, data) {
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function getPushStatePath() {
+  return path.join(app.getPath('userData'), PUSH_STATE_FILENAME);
+}
+
+function getRecoveryStatePath() {
+  return path.join(app.getPath('userData'), RECOVERY_STATE_FILENAME);
+}
+
+function readRecoveryState() {
+  return readJsonFileSafe(getRecoveryStatePath(), {
+    consecutiveRendererFailures: 0,
+    lastReason: '',
+    updatedAt: null,
+  }) || {
+    consecutiveRendererFailures: 0,
+    lastReason: '',
+    updatedAt: null,
+  };
+}
+
+function writeRecoveryState(patch = {}) {
+  const current = readRecoveryState();
+  const next = {
+    ...current,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+  writeJsonFileSafe(getRecoveryStatePath(), next);
+  return next;
+}
+
+function resetRecoveryFailures() {
+  writeRecoveryState({
+    consecutiveRendererFailures: 0,
+    lastReason: '',
+  });
+}
+
+function trackRecoveryFailure(reason) {
+  const current = readRecoveryState();
+  const failures = Math.max(0, Number(current?.consecutiveRendererFailures || 0)) + 1;
+  return writeRecoveryState({
+    consecutiveRendererFailures: failures,
+    lastReason: String(reason || 'renderer-failure').slice(0, 400),
+  });
+}
+
+function getOrCreatePushState() {
+  const statePath = getPushStatePath();
+  const current = readJsonFileSafe(statePath, {});
+  const nowIso = new Date().toISOString();
+  if (!current.deviceId) {
+    current.deviceId = `ows-${crypto.randomBytes(12).toString('hex')}`;
+  }
+  current.platform = 'windows';
+  if (!current.createdAt) current.createdAt = nowIso;
+  current.updatedAt = nowIso;
+  writeJsonFileSafe(statePath, current);
+  return current;
+}
+
+async function registerPushDeviceInBackend() {
+  const state = getOrCreatePushState();
+  try {
+    const res = await fetch(`${API_URL}/ows-store/push/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: state.deviceId,
+        platform: 'windows',
+        provider: 'local',
+        metadata: {
+          source: 'ows-store-worker',
+          appVersion: app.getVersion(),
+        },
+      }),
+    });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function fetchPushInboxFromBackend(limit = 20) {
+  const state = getOrCreatePushState();
+  try {
+    const url = `${API_URL}/ows-store/push/inbox?device_id=${encodeURIComponent(state.deviceId)}&platform=windows&limit=${Math.max(1, Number(limit || 20))}&nocache=${Date.now()}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => ({}));
+    return Array.isArray(json?.notifications) ? json.notifications : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function ackPushInboxItem(id) {
+  const state = getOrCreatePushState();
+  const numericId = Number(id || 0);
+  if (!Number.isFinite(numericId) || numericId <= 0) return false;
+  try {
+    const res = await fetch(`${API_URL}/ows-store/push/inbox/${numericId}/ack`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: state.deviceId }),
+    });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+function showWorkerNotification(title, body) {
+  try {
+    if (!Notification || !Notification.isSupported()) return false;
+    const iconPath = path.join(__dirname, 'build', 'icon.ico');
+    const toast = new Notification({
+      title: String(title || APP_DISPLAY_NAME),
+      body: String(body || 'Nueva actualizacion disponible'),
+      icon: fs.existsSync(iconPath) ? iconPath : undefined,
+      silent: false,
+    });
+    toast.show();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function runPushWorkerOnce() {
+  await registerPushDeviceInBackend().catch(() => {});
+  const inbox = await fetchPushInboxFromBackend(20);
+  if (!inbox.length) return { ok: true, delivered: 0 };
+  let delivered = 0;
+  for (const item of inbox) {
+    const title = String(item?.title || 'OWS Store');
+    const body = String(item?.body || 'Nueva actualizacion disponible');
+    if (showWorkerNotification(title, body)) delivered += 1;
+    await ackPushInboxItem(item?.id).catch(() => {});
+  }
+  return { ok: true, delivered };
+}
+
+function startWindowsRealtimePushLoop() {
+  if (process.platform !== 'win32') return;
+  if (pushRealtimeTimer) return;
+  runPushWorkerOnce().catch(() => {});
+  pushRealtimeTimer = setInterval(() => {
+    runPushWorkerOnce().catch(() => {});
+  }, PUSH_REALTIME_POLL_MS);
+}
+
+function stopWindowsRealtimePushLoop() {
+  if (!pushRealtimeTimer) return;
+  clearInterval(pushRealtimeTimer);
+  pushRealtimeTimer = null;
+}
+
+function ensureWindowsPushWorkerScheduledTask() {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  const exe = process.execPath;
+  const taskAction = `"${exe}" --ows-push-worker`;
+  const args = [
+    '/Create',
+    '/F',
+    '/TN',
+    PUSH_WORKER_TASK_NAME,
+    '/SC',
+    'MINUTE',
+    '/MO',
+    '5',
+    '/TR',
+    taskAction,
+  ];
+  try {
+    const child = spawn('schtasks.exe', args, { windowsHide: true, stdio: 'ignore' });
+    child.on('error', () => {});
+  } catch (_) {}
+}
+
+function sendToRecoveryWindow(channel, payload) {
+  try {
+    if (!recoveryWindow || recoveryWindow.isDestroyed()) return;
+    recoveryWindow.webContents.send(channel, payload);
+  } catch (_) {}
+}
+
+function normalizeVersionLike(value) {
+  return String(value || '').trim().replace(/^v/i, '');
+}
+
+function compareVersionLikeLoose(a, b) {
+  const av = normalizeVersionLike(a);
+  const bv = normalizeVersionLike(b);
+  if (!av && !bv) return 0;
+  if (!av) return -1;
+  if (!bv) return 1;
+  const pa = (av.match(/\d+/g) || []).map((n) => Number(n));
+  const pb = (bv.match(/\d+/g) || []).map((n) => Number(n));
+  const max = Math.max(pa.length, pb.length);
+  for (let i = 0; i < max; i += 1) {
+    const na = Number.isFinite(pa[i]) ? pa[i] : 0;
+    const nb = Number.isFinite(pb[i]) ? pb[i] : 0;
+    if (na !== nb) return na > nb ? 1 : -1;
+  }
+  return av.localeCompare(bv);
+}
+
+function isNewerVersion(candidate, base) {
+  return compareVersionLikeLoose(candidate, base) > 0;
+}
+
+function isOlderVersion(candidate, base) {
+  return compareVersionLikeLoose(candidate, base) < 0;
+}
+
+function parseVersionFromInstallerName(name = '') {
+  const text = String(name || '');
+  const m = text.match(/(\d{4}\.\d{1,2}\.\d{1,2}-[A-Za-z0-9._-]+)/);
+  return m ? normalizeVersionLike(m[1]) : '';
+}
+
+function parseRecoveryYmlVersion(ymlText = '') {
+  const m = String(ymlText || '').match(/^\s*version:\s*["']?([^"'\r\n]+)["']?/im);
+  return m ? normalizeVersionLike(m[1]) : '';
+}
+
+function getRecoveryElapsedMs() {
+  if (!Number.isFinite(recoveryMonitorState.startedAtMs) || recoveryMonitorState.startedAtMs <= 0) return 0;
+  return Math.max(0, Date.now() - recoveryMonitorState.startedAtMs);
+}
+
+function emitRecoveryMonitorStatus(phase, message, extra = {}) {
+  const elapsedMs = getRecoveryElapsedMs();
+  const allowFallback = elapsedMs >= RECOVERY_FALLBACK_ENABLE_MS || recoveryMonitorState.fallbackEnabled;
+  sendToRecoveryWindow('ows-recovery-status', {
+    phase,
+    message,
+    attempts: Number(recoveryMonitorState.attempts || 0),
+    noNewAttempts: Number(recoveryMonitorState.noNewAttempts || 0),
+    badVersion: String(recoveryMonitorState.badVersion || ''),
+    latestSeenVersion: String(recoveryMonitorState.latestSeenVersion || ''),
+    elapsedMs,
+    allowFallback,
+    ...extra,
+  });
+}
+
+function createRecoveryWindow(reason = '') {
+  if (recoveryWindow && !recoveryWindow.isDestroyed()) {
+    recoveryWindow.focus();
+    sendToRecoveryWindow('ows-recovery-status', {
+      phase: 'info',
+      message: 'Modo recuperacion activo.',
+      reason: String(reason || ''),
+    });
+    return recoveryWindow;
+  }
+
+  recoveryWindow = new BrowserWindow({
+    width: 620,
+    height: 460,
+    resizable: false,
+    minimizable: true,
+    maximizable: false,
+    autoHideMenuBar: true,
+    title: 'OWS Store - Recuperacion',
+    backgroundColor: '#020617',
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webSecurity: true,
+    },
+  });
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>OWS Store - Recuperacion</title>
+  <style>
+    body { margin:0; font-family: Segoe UI, Arial, sans-serif; background: radial-gradient(circle at 20% 10%, #0c2946 0%, #020617 62%); color: #dbeafe; }
+    .wrap { padding: 20px; }
+    .card { border: 1px solid rgba(56,189,248,.45); border-radius: 14px; padding: 16px; background: rgba(15,23,42,.65); box-shadow: 0 12px 32px rgba(2,6,23,.65); }
+    h1 { margin: 0 0 8px; font-size: 24px; color: #7dd3fc; }
+    p { margin: 6px 0; line-height: 1.4; color: #bfdbfe; }
+    .reason { margin-top: 10px; font-family: Consolas, monospace; font-size: 12px; color: #93c5fd; opacity: .9; word-break: break-word; }
+    .status { margin-top: 14px; min-height: 68px; border: 1px solid rgba(56,189,248,.25); border-radius: 10px; padding: 10px; background: rgba(15,23,42,.85); font-size: 13px; }
+    .meta { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .meta .item { border: 1px solid rgba(56,189,248,.2); border-radius: 8px; padding: 8px; background: rgba(2,6,23,.5); font-size: 12px; color: #93c5fd; }
+    .hint { margin-top: 10px; font-size: 12px; color: #93c5fd; opacity: .9; }
+    .buttons { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-top: 14px; }
+    .buttons .full { grid-column: 1 / -1; }
+    button { border: 1px solid rgba(56,189,248,.55); background: linear-gradient(180deg,#0ea5e9,#0284c7); color: #f0f9ff; border-radius: 10px; padding: 10px 12px; font-weight: 700; cursor: pointer; }
+    button.secondary { background: linear-gradient(180deg,#1e293b,#0f172a); border-color: rgba(148,163,184,.55); }
+    button.warn { background: linear-gradient(180deg,#f59e0b,#b45309); border-color: rgba(245,158,11,.65); color: #111827; }
+    button:disabled { cursor: not-allowed; opacity: .65; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Recuperacion de OWS Store</h1>
+      <p>Se detecto un fallo critico en la interfaz principal. Podes reparar desde un instalador externo sin depender de la UI normal.</p>
+      <p class="reason" id="reason"></p>
+      <div class="status" id="status">Inicializando modo recuperacion...</div>
+      <div class="meta">
+        <div class="item" id="meta-attempts">Intentos: 0</div>
+        <div class="item" id="meta-versions">Version rota: - | Ultima: -</div>
+      </div>
+      <div class="hint" id="fallback-hint">Fallback a version anterior estable disponible tras 6 horas sin una nueva version valida.</div>
+      <div class="buttons">
+        <button id="repairNow">Reparar ahora</button>
+        <button class="secondary" id="relaunch">Reintentar apertura</button>
+        <button class="warn full" id="fallbackStable" disabled>Buscar version anterior estable (opcional)</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const { ipcRenderer } = require('electron');
+    const statusEl = document.getElementById('status');
+    const reasonEl = document.getElementById('reason');
+    const attemptsEl = document.getElementById('meta-attempts');
+    const versionsEl = document.getElementById('meta-versions');
+    const fallbackHintEl = document.getElementById('fallback-hint');
+    const repairBtn = document.getElementById('repairNow');
+    const relaunchBtn = document.getElementById('relaunch');
+    const fallbackBtn = document.getElementById('fallbackStable');
+    reasonEl.textContent = ${JSON.stringify(String(reason || 'Fallo de carga del renderer'))};
+    ipcRenderer.on('ows-recovery-status', (_event, payload) => {
+      const msg = String(payload && payload.message ? payload.message : 'Sin estado');
+      const phase = String(payload && payload.phase ? payload.phase : 'info').toUpperCase();
+      statusEl.textContent = '[' + phase + '] ' + msg;
+      if (payload && payload.reason) reasonEl.textContent = String(payload.reason);
+      const attempts = Number(payload && payload.attempts || 0);
+      const noNewAttempts = Number(payload && payload.noNewAttempts || 0);
+      attemptsEl.textContent = 'Intentos: ' + attempts + ' | Sin nueva: ' + noNewAttempts;
+      const bad = String(payload && payload.badVersion || '-');
+      const latest = String(payload && payload.latestSeenVersion || '-');
+      versionsEl.textContent = 'Version rota: ' + bad + ' | Ultima: ' + latest;
+      const allowFallback = Boolean(payload && payload.allowFallback);
+      fallbackBtn.disabled = !allowFallback;
+      fallbackHintEl.textContent = allowFallback
+        ? 'Ya pasaron 6 horas sin version nueva valida. Puedes intentar una version anterior estable (opcional).'
+        : 'OWS Store Recover seguira buscando una version mas reciente cada 10 segundos.';
+      if (payload && payload.phase === 'done') {
+        repairBtn.disabled = false;
+        relaunchBtn.disabled = false;
+        fallbackBtn.disabled = !allowFallback;
+      }
+    });
+    repairBtn.addEventListener('click', async () => {
+      repairBtn.disabled = true;
+      relaunchBtn.disabled = true;
+      fallbackBtn.disabled = true;
+      const result = await ipcRenderer.invoke('ows-recovery-start-update');
+      if (!result || !result.ok) {
+        statusEl.textContent = '[ERROR] ' + String(result && (result.error || result.reason) ? (result.error || result.reason) : 'No se pudo iniciar la reparacion.');
+        repairBtn.disabled = false;
+        relaunchBtn.disabled = false;
+        if (fallbackHintEl.textContent.includes('6 horas')) fallbackBtn.disabled = false;
+      } else {
+        statusEl.textContent = '[DONE] Se abrio el instalador. Completa la instalacion y vuelve a abrir OWS Store.';
+        repairBtn.disabled = false;
+      }
+    });
+    fallbackBtn.addEventListener('click', async () => {
+      fallbackBtn.disabled = true;
+      repairBtn.disabled = true;
+      relaunchBtn.disabled = true;
+      const result = await ipcRenderer.invoke('ows-recovery-install-fallback');
+      if (!result || !result.ok) {
+        statusEl.textContent = '[ERROR] ' + String(result && (result.error || result.reason) ? (result.error || result.reason) : 'No se encontro fallback estable.');
+        repairBtn.disabled = false;
+        relaunchBtn.disabled = false;
+        fallbackBtn.disabled = false;
+      } else {
+        statusEl.textContent = '[DONE] Se abrio una version anterior estable. Completa la instalacion y reabre OWS Store.';
+        repairBtn.disabled = false;
+        relaunchBtn.disabled = false;
+      }
+    });
+    relaunchBtn.addEventListener('click', async () => {
+      await ipcRenderer.invoke('ows-recovery-relaunch');
+    });
+  </script>
+</body>
+</html>`;
+
+  recoveryWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  recoveryWindow.on('closed', () => {
+    clearRecoveryVersionMonitor();
+    recoveryMonitorState.active = false;
+    recoveryWindow = null;
+  });
+  return recoveryWindow;
+}
+
+function fetchTextWithRedirects(url, maxRedirects = 6) {
+  return new Promise((resolve, reject) => {
+    const seen = new Set();
+    const requestUrl = (target, redirectsLeft) => {
+      const normalized = String(target || '').trim();
+      if (!normalized) return reject(new Error('URL vacia.'));
+      if (seen.has(normalized)) return reject(new Error('Redireccion circular detectada.'));
+      seen.add(normalized);
+      const urlObj = new URL(normalized);
+      const client = urlObj.protocol === 'http:' ? http : https;
+      const req = client.request(urlObj, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'OWS-Store-Recovery-Updater',
+          'Accept': 'text/plain,application/octet-stream,*/*',
+          'Cache-Control': 'no-cache',
+        },
+        agent: urlObj.protocol === 'http:' ? httpAgent : httpsAgent,
+      }, (res) => {
+        const status = Number(res.statusCode || 0);
+        const location = res.headers?.location ? String(res.headers.location).trim() : '';
+        if ([301, 302, 303, 307, 308].includes(status) && location) {
+          res.resume();
+          if (redirectsLeft <= 0) return reject(new Error('Demasiadas redirecciones.'));
+          const nextUrl = new URL(location, urlObj).toString();
+          return requestUrl(nextUrl, redirectsLeft - 1);
+        }
+        if (status < 200 || status >= 300) {
+          const chunks = [];
+          res.on('data', (c) => chunks.push(c));
+          res.on('end', () => reject(new Error(`HTTP ${status}: ${Buffer.concat(chunks).toString('utf8').slice(0, 180)}`)));
+          return;
+        }
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      });
+      req.on('error', reject);
+      req.setTimeout(45000, () => req.destroy(new Error('Timeout descargando texto de release.')));
+      req.end();
+    };
+    requestUrl(url, maxRedirects);
+  });
+}
+
+async function resolveLatestStoreInstallerFromChannel() {
+  const yml = await fetchTextWithRedirects(OWS_STORE_LATEST_YML_URL);
+  const lines = String(yml || '').split(/\r?\n/);
+  let installerName = '';
+  let installerSize = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    const matchUrl = line.match(/^-?\s*url:\s*(.+)$/i);
+    if (matchUrl && /\.exe(\?.*)?$/i.test(matchUrl[1].trim())) {
+      installerName = matchUrl[1].trim();
+      const nextLine = (lines[i + 1] || '').trim();
+      const sizeMatch = nextLine.match(/^size:\s*(\d+)$/i);
+      installerSize = sizeMatch ? Number(sizeMatch[1]) : 0;
+      break;
+    }
+  }
+  if (!installerName) {
+    const pathMatch = String(yml || '').match(/^\s*path:\s*(.+)$/im);
+    if (pathMatch && /\.exe(\?.*)?$/i.test(pathMatch[1].trim())) {
+      installerName = pathMatch[1].trim();
+    }
+  }
+  if (!installerName) throw new Error('No se encontro .exe en latest.yml');
+  const installerUrl = new URL(installerName, OWS_STORE_LATEST_YML_URL).toString();
+  const parsedVersion = parseRecoveryYmlVersion(yml);
+  const fallbackVersion = parseVersionFromInstallerName(installerName);
+  return {
+    installerUrl,
+    installerName: sanitizeInstallerName(path.basename(installerName.split('?')[0] || 'OWS.Store.Setup.exe')),
+    installerSize: Number(installerSize || 0),
+    version: parsedVersion || fallbackVersion || '',
+  };
+}
+
+function clearRecoveryVersionMonitor() {
+  if (recoveryVersionScanTimer) {
+    clearInterval(recoveryVersionScanTimer);
+    recoveryVersionScanTimer = null;
+  }
+}
+
+function extractInstallerAssetFromRelease(release = {}) {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  const exeAsset = assets.find((asset) => /\.exe$/i.test(String(asset?.name || '')));
+  if (!exeAsset) return null;
+  return {
+    installerUrl: String(exeAsset.browser_download_url || '').trim(),
+    installerName: sanitizeInstallerName(String(exeAsset.name || 'OWS.Store.Setup.exe')),
+    installerSize: Number(exeAsset.size || 0),
+    version: normalizeVersionLike(release?.tag_name || release?.name || parseVersionFromInstallerName(exeAsset.name) || ''),
+    sourceTag: String(release?.tag_name || '').trim(),
+    sourceName: String(release?.name || '').trim(),
+  };
+}
+
+async function fetchOwsStoreReleases() {
+  const res = await fetch(OWS_STORE_RELEASES_API_URL, {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'OWS-Store-Recovery-Updater',
+      'Accept': 'application/vnd.github+json',
+      'Cache-Control': 'no-cache',
+    },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`No se pudo consultar releases (${res.status}).`);
+  }
+  const rows = await res.json();
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function verifyRecoveryInstallerCandidate(candidate) {
+  if (!candidate?.installerUrl) return { ok: false, reason: 'candidate-missing-url' };
+  const name = sanitizeInstallerName(candidate.installerName || 'OWS.Store.Setup.fallback.exe');
+  const probePath = getInstallerCachePath(`probe-${Date.now()}-${name}`);
+  try {
+    await downloadInstallerWithRetries(candidate.installerUrl, probePath, null, null, 2);
+    if (!safeExists(probePath)) return { ok: false, reason: 'probe-not-found' };
+    const stats = fs.statSync(probePath);
+    if (!stats.isFile() || Number(stats.size || 0) < RECOVERY_CANDIDATE_MIN_BYTES) {
+      return { ok: false, reason: 'probe-too-small' };
+    }
+    if (!isLikelyWindowsExecutable(probePath)) {
+      return { ok: false, reason: 'probe-not-exe' };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: err?.message || String(err) };
+  } finally {
+    try { if (safeExists(probePath)) fs.unlinkSync(probePath); } catch (_) {}
+  }
+}
+
+async function performRecoveryInstallFromCandidate(candidate, mode = 'latest') {
+  if (!candidate?.installerUrl) {
+    return { ok: false, reason: 'No se encontro URL de instalador valida.' };
+  }
+  const label = mode === 'fallback' ? 'version estable anterior' : 'version mas reciente';
+  emitRecoveryMonitorStatus('downloading', `Descargando ${label}...`, { latestSeenVersion: String(candidate.version || recoveryMonitorState.latestSeenVersion || '') });
+  const targetPath = getInstallerCachePath(candidate.installerName || `OWS.Store.Setup.${mode}.exe`);
+  try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+  await downloadInstallerWithRetries(candidate.installerUrl, targetPath, null, (progress) => {
+    emitRecoveryMonitorStatus('downloading', buildDownloadMessage(progress), { latestSeenVersion: String(candidate.version || recoveryMonitorState.latestSeenVersion || '') });
+  });
+  if (!isLikelyWindowsExecutable(targetPath)) {
+    try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+    throw new Error('El instalador descargado no paso la validacion de ejecutable.');
+  }
+  emitRecoveryMonitorStatus('launching', 'Abriendo instalador externo...');
+  const launchPath = prepareInstallerLaunchPath(targetPath, candidate.installerName || 'OWS.Store.Setup.exe');
+  const launchErr = await openPathWithRetry(launchPath);
+  if (launchErr) throw new Error(launchErr);
+  emitRecoveryMonitorStatus('done', 'Instalador abierto. Completa la reparacion y luego reabre OWS Store.');
+  return { ok: true, filePath: launchPath, version: String(candidate.version || '') };
+}
+
+async function checkRecoveryForNewVersion() {
+  recoveryMonitorState.attempts += 1;
+  recoveryMonitorState.lastCheckAtMs = Date.now();
+  try {
+    const latest = await resolveLatestStoreInstallerFromChannel();
+    const latestVersion = normalizeVersionLike(latest?.version || '');
+    if (latestVersion) recoveryMonitorState.latestSeenVersion = latestVersion;
+    const badVersion = normalizeVersionLike(recoveryMonitorState.badVersion || '');
+    const newer = latestVersion && (!badVersion || isNewerVersion(latestVersion, badVersion));
+    if (newer) {
+      recoveryMonitorState.noNewAttempts = 0;
+      recoveryMonitorState.noNewNotified = false;
+      recoveryMonitorState.latestCandidate = {
+        installerUrl: latest.installerUrl,
+        installerName: latest.installerName,
+        installerSize: Number(latest.installerSize || 0),
+        version: latestVersion,
+      };
+      emitRecoveryMonitorStatus('update-found', `Nueva version detectada (${latestVersion}). Puedes reparar ahora.`);
+      return;
+    }
+    recoveryMonitorState.latestCandidate = null;
+    recoveryMonitorState.noNewAttempts += 1;
+    if (recoveryMonitorState.noNewAttempts >= RECOVERY_NO_NEW_MAX_ATTEMPTS && !recoveryMonitorState.noNewNotified) {
+      recoveryMonitorState.noNewNotified = true;
+      emitRecoveryMonitorStatus('monitoring', 'No hay una version mas reciente todavia. OWS Store Recover seguira buscando una nueva version.');
+    } else {
+      emitRecoveryMonitorStatus('monitoring', 'Buscando version mas reciente cada 10 segundos...');
+    }
+    if (getRecoveryElapsedMs() >= RECOVERY_FALLBACK_ENABLE_MS) {
+      recoveryMonitorState.fallbackEnabled = true;
+      emitRecoveryMonitorStatus('fallback-ready', 'Sin nueva version valida tras 6 horas. Ya puedes intentar una version anterior estable (opcional).', { allowFallback: true });
+    }
+  } catch (err) {
+    emitRecoveryMonitorStatus('warning', `Busqueda temporalmente no disponible: ${err?.message || String(err)}`);
+  }
+}
+
+function startRecoveryVersionMonitor() {
+  clearRecoveryVersionMonitor();
+  recoveryMonitorState.active = true;
+  recoveryMonitorState.startedAtMs = Date.now();
+  recoveryMonitorState.attempts = 0;
+  recoveryMonitorState.noNewAttempts = 0;
+  recoveryMonitorState.noNewNotified = false;
+  recoveryMonitorState.latestCandidate = null;
+  recoveryMonitorState.latestSeenVersion = '';
+  recoveryMonitorState.rejectedVersions = new Set();
+  recoveryMonitorState.fallbackEnabled = false;
+  recoveryMonitorState.badVersion = normalizeVersionLike(app.getVersion());
+  emitRecoveryMonitorStatus('monitoring', 'Iniciando vigilancia de nuevas versiones...', { badVersion: recoveryMonitorState.badVersion });
+  checkRecoveryForNewVersion().catch(() => {});
+  recoveryVersionScanTimer = setInterval(() => {
+    checkRecoveryForNewVersion().catch(() => {});
+  }, RECOVERY_POLL_INTERVAL_MS);
+}
+
+async function runEmergencyStoreRepairUpdate() {
+  if (recoveryUpdateInProgress || recoveryFallbackSearchInProgress) {
+    return { ok: false, reason: 'already-running' };
+  }
+  recoveryUpdateInProgress = true;
+  try {
+    let candidate = recoveryMonitorState.latestCandidate;
+    if (!candidate) {
+      const latest = await resolveLatestStoreInstallerFromChannel();
+      const latestVersion = normalizeVersionLike(latest?.version || '');
+      const badVersion = normalizeVersionLike(recoveryMonitorState.badVersion || app.getVersion());
+      if (latestVersion && badVersion && !isNewerVersion(latestVersion, badVersion)) {
+        throw new Error(`La ultima version (${latestVersion}) coincide o no supera la version rota (${badVersion}). OWS Store Recover seguira buscando.`);
+      }
+      candidate = {
+        installerUrl: latest.installerUrl,
+        installerName: latest.installerName,
+        installerSize: Number(latest.installerSize || 0),
+        version: latestVersion,
+      };
+    }
+    return await performRecoveryInstallFromCandidate(candidate, 'latest');
+  } catch (err) {
+    const message = err?.message || String(err);
+    emitRecoveryMonitorStatus('error', message);
+    return { ok: false, reason: message };
+  } finally {
+    recoveryUpdateInProgress = false;
+  }
+}
+
+async function installRecoveryFallbackStableVersion() {
+  if (recoveryUpdateInProgress || recoveryFallbackSearchInProgress) {
+    return { ok: false, reason: 'already-running' };
+  }
+  const elapsedMs = getRecoveryElapsedMs();
+  if (elapsedMs < RECOVERY_FALLBACK_ENABLE_MS) {
+    const waitMinutes = Math.ceil((RECOVERY_FALLBACK_ENABLE_MS - elapsedMs) / (60 * 1000));
+    return { ok: false, reason: `Fallback disponible en ~${waitMinutes} min.` };
+  }
+  recoveryFallbackSearchInProgress = true;
+  try {
+    emitRecoveryMonitorStatus('searching-fallback', 'Buscando una version anterior estable...');
+    const badVersion = normalizeVersionLike(recoveryMonitorState.badVersion || app.getVersion());
+    const releases = await fetchOwsStoreReleases();
+    const candidates = releases
+      .filter((r) => !r?.draft)
+      .map((r) => extractInstallerAssetFromRelease(r))
+      .filter(Boolean)
+      .filter((c) => c.version && badVersion ? isOlderVersion(c.version, badVersion) : true)
+      .filter((c) => !recoveryMonitorState.rejectedVersions.has(c.version))
+      .sort((a, b) => compareVersionLikeLoose(b.version, a.version));
+    if (!candidates.length) {
+      emitRecoveryMonitorStatus('monitoring', 'No se encontraron versiones anteriores candidatas. Se mantiene la vigilancia de nuevas versiones.');
+      return { ok: false, reason: 'no-fallback-candidates' };
+    }
+    for (let i = 0; i < candidates.length; i += 1) {
+      const candidate = candidates[i];
+      emitRecoveryMonitorStatus('searching-fallback', `Validando fallback ${candidate.version} (${i + 1}/${candidates.length})...`);
+      const probe = await verifyRecoveryInstallerCandidate(candidate);
+      if (!probe.ok) {
+        recoveryMonitorState.rejectedVersions.add(String(candidate.version || `candidate-${i}`));
+        continue;
+      }
+      try {
+        const result = await performRecoveryInstallFromCandidate(candidate, 'fallback');
+        if (result?.ok) return result;
+      } catch (_) {
+        recoveryMonitorState.rejectedVersions.add(String(candidate.version || `candidate-${i}`));
+      }
+    }
+    emitRecoveryMonitorStatus('monitoring', 'Ningun fallback paso validacion. OWS Store Recover seguira buscando versiones estables.');
+    return { ok: false, reason: 'fallback-validation-failed' };
+  } catch (err) {
+    const message = err?.message || String(err);
+    emitRecoveryMonitorStatus('error', message);
+    return { ok: false, reason: message };
+  } finally {
+    recoveryFallbackSearchInProgress = false;
+  }
+}
+
+function triggerRecoveryMode(reason = 'renderer-failure') {
+  const state = trackRecoveryFailure(reason);
+  createRecoveryWindow(reason);
+  if (!recoveryMonitorState.active) {
+    startRecoveryVersionMonitor();
+  }
+  sendToRecoveryWindow('ows-recovery-status', {
+    phase: 'warning',
+    message: `Se detecto un fallo critico del renderer (intento ${state?.consecutiveRendererFailures || 1}).`,
+    reason: String(reason || ''),
+  });
+}
+
+function createWindow() {
+  const iconPath = path.join(__dirname, 'build', 'icon.ico');
+  const appIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : null;
+
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    titleBarStyle: 'default',
+    title: APP_DISPLAY_NAME,
+    backgroundColor: '#020617',
+    show: false,
+  });
+
+  rendererBootHealthy = false;
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  if (process.platform === 'win32' && appIcon && !appIcon.isEmpty()) {
+    mainWindow.setIcon(appIcon);
+  }
+
+  if (rendererHealthTimer) {
+    clearTimeout(rendererHealthTimer);
+    rendererHealthTimer = null;
+  }
+  rendererHealthTimer = setTimeout(() => {
+    if (!rendererBootHealthy && mainWindow && !mainWindow.isDestroyed()) {
+      triggerRecoveryMode('renderer-start-timeout');
+    }
+  }, RENDERER_HEALTH_TIMEOUT_MS);
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    const reason = `did-fail-load(${errorCode}): ${errorDescription || 'unknown'}`;
+    triggerRecoveryMode(reason);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    const reason = `render-process-gone: ${details?.reason || 'unknown'}`;
+    triggerRecoveryMode(reason);
+  });
+
+  mainWindow.webContents.on('console-message', (_event, level, message) => {
+    if (rendererBootHealthy) return;
+    const text = String(message || '');
+    const isCritical =
+      Number(level) === 3 &&
+      /(Uncaught SyntaxError|SyntaxError|ReferenceError|Unexpected token|Cannot access .* before initialization)/i.test(text);
+    if (!isCritical) return;
+    triggerRecoveryMode(`renderer-console: ${text.slice(0, 240)}`);
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererBootHealthy = true;
+    if (rendererHealthTimer) {
+      clearTimeout(rendererHealthTimer);
+      rendererHealthTimer = null;
+    }
+    resetRecoveryFailures();
+  });
+
+  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.on('close', (event) => {
+    if (isQuitting || isInstallingUpdate || process.platform === 'darwin') return;
+    event.preventDefault();
+    mainWindow.hide();
+    mainWindow.setSkipTaskbar(true);
+    if (!backgroundHintShown && Notification && Notification.isSupported()) {
+      backgroundHintShown = true;
+      try {
+        const toast = new Notification({
+          title: APP_DISPLAY_NAME,
+          body: 'OWS Store sigue activo en segundo plano para alertas de updates.'
+        });
+        toast.show();
+      } catch (_) {}
+    }
+  });
+  mainWindow.on('show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setSkipTaskbar(false);
+  });
+  mainWindow.on('closed', () => {
+    if (rendererHealthTimer) {
+      clearTimeout(rendererHealthTimer);
+      rendererHealthTimer = null;
+    }
+    mainWindow = null;
+  });
+
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (!mainWindow.isVisible()) mainWindow.show();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.setSkipTaskbar(false);
+  mainWindow.focus();
+}
+
+function createTray() {
+  if (appTray || process.platform !== 'win32') return;
+  const iconPath = path.join(__dirname, 'build', 'icon.ico');
+  const fallbackPath = path.join(__dirname, 'resources', 'icon.png');
+  const trayIconPath = fs.existsSync(iconPath) ? iconPath : fallbackPath;
+  if (!fs.existsSync(trayIconPath)) return;
+  appTray = new Tray(trayIconPath);
+  appTray.setToolTip(APP_DISPLAY_NAME);
+  const menu = Menu.buildFromTemplate([
+    { label: 'Abrir OWS Store', click: () => showMainWindow() },
+    { type: 'separator' },
+    {
+      label: 'Salir',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+  appTray.setContextMenu(menu);
+  appTray.on('double-click', () => showMainWindow());
+  appTray.on('click', () => showMainWindow());
+}
+
+function sendToRenderer(channel, ...args) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args);
+  }
+}
+
+function sanitizeInstallerName(rawName) {
+  const base = String(rawName || 'installer.exe').replace(/[^a-zA-Z0-9._-]/g, '_');
+  return base.toLowerCase().endsWith('.exe') ? base : `${base}.exe`;
+}
+
+function sanitizeTaskId(rawId) {
+  const base = String(rawId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+  return base || `task_${Date.now()}`;
+}
+
+function uniqNonEmpty(values) {
+  return Array.from(new Set((Array.isArray(values) ? values : [])
+    .map((v) => String(v || '').trim())
+    .filter(Boolean)));
+}
+
+function safeExists(filePath) {
+  try {
+    return fs.existsSync(filePath);
+  } catch (_) {
+    return false;
+  }
+}
+
+function ensureDir(dirPath) {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function getInstallerCachePath(installerName) {
+  ensureDir(INSTALLER_CACHE_DIR);
+  return path.join(INSTALLER_CACHE_DIR, installerName);
+}
+
+function getInstallerLaunchPath(installerName) {
+  ensureDir(INSTALLER_LAUNCH_DIR);
+  const ext = path.extname(installerName) || '.exe';
+  const base = path.basename(installerName, ext).replace(/[^a-zA-Z0-9._-]/g, '_') || 'installer';
+  return path.join(INSTALLER_LAUNCH_DIR, `${base}-${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`);
+}
+
+function cleanupOldLauncherCopies(maxAgeMs = 24 * 60 * 60 * 1000) {
+  try {
+    ensureDir(INSTALLER_LAUNCH_DIR);
+    const now = Date.now();
+    const entries = fs.readdirSync(INSTALLER_LAUNCH_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const filePath = path.join(INSTALLER_LAUNCH_DIR, entry.name);
+      try {
+        const stats = fs.statSync(filePath);
+        if (!stats.isFile()) continue;
+        const ageMs = now - Number(stats.mtimeMs || 0);
+        if (Number.isFinite(ageMs) && ageMs >= maxAgeMs) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+function prepareInstallerLaunchPath(sourcePath, installerName) {
+  const isExe = /\.exe$/i.test(String(sourcePath || ''));
+  if (!isExe || !safeExists(sourcePath)) return sourcePath;
+  cleanupOldLauncherCopies();
+  const launchPath = getInstallerLaunchPath(installerName || path.basename(sourcePath));
+  fs.copyFileSync(sourcePath, launchPath);
+  return launchPath;
+}
+
+function buildRequestOptions(url, method = 'GET') {
+  const parsed = new URL(url);
+  // Use browser-like headers for GitHub releases to avoid throttling
+  const isGitHub = parsed.hostname.includes('github.com') || parsed.hostname.includes('objects.githubusercontent.com');
+  return {
+    protocol: parsed.protocol,
+    hostname: parsed.hostname,
+    port: parsed.port || undefined,
+    path: `${parsed.pathname}${parsed.search}`,
+    method,
+    headers: isGitHub ? {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/octet-stream',
+      'Accept-Encoding': 'identity',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    } : {
+      'User-Agent': 'OWS-Store-Installer/1.0',
+      'Accept': '*/*',
+    },
+    agent: parsed.protocol === 'https:' ? httpsAgent : httpAgent,
+  };
+}
+
+function canReuseCachedInstaller(filePath, expectedSize = 0) {
+  if (!safeExists(filePath)) return false;
+  try {
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile() || stats.size <= 0) return false;
+    // Never trust cache if the file does not look like a Windows executable.
+    if (!isLikelyWindowsExecutable(filePath)) return false;
+    const expected = Number(expectedSize || 0);
+    if (expected > 0) return stats.size === expected;
+    return stats.size > 2 * 1024 * 1024;
+  } catch (_) {
+    return false;
+  }
+}
+
+function fetchRemoteFileSizeWithRedirects(url, redirectsLeft = 4) {
+  return new Promise((resolve) => {
+    if (!/^https?:\/\//i.test(String(url || ''))) return resolve(0);
+    const transport = url.startsWith('https://') ? https : http;
+    const options = buildRequestOptions(url, 'HEAD');
+    const req = transport.request(options, (response) => {
+      const code = response.statusCode || 0;
+      const location = response.headers.location;
+      if ([301, 302, 303, 307, 308].includes(code) && location && redirectsLeft > 0) {
+        response.resume();
+        const redirected = new URL(location, url).toString();
+        return resolve(fetchRemoteFileSizeWithRedirects(redirected, redirectsLeft - 1));
+      }
+      if (code < 200 || code >= 300) {
+        response.resume();
+        return resolve(0);
+      }
+      const size = Number(response.headers['content-length'] || 0);
+      response.resume();
+      resolve(Number.isFinite(size) ? size : 0);
+    });
+    req.setTimeout(10000, () => {
+      req.destroy(new Error('HEAD timeout'));
+      resolve(0);
+    });
+    req.on('error', () => resolve(0));
+    req.end();
+  });
+}
+
+function resolveInstalledPaths(payload) {
+  if (process.platform !== 'win32') return { installed: false };
+
+  const installDirNames = uniqNonEmpty(payload?.installDirNames);
+  const executableNames = uniqNonEmpty(payload?.executableNames);
+  const uninstallerNames = uniqNonEmpty(payload?.uninstallerNames);
+  const roots = uniqNonEmpty([
+    path.join(process.env.LOCALAPPDATA || '', 'Programs'),
+    process.env.ProgramFiles || '',
+    process.env['ProgramFiles(x86)'] || '',
+  ]);
+
+  const candidates = [];
+  for (const root of roots) {
+    for (const dirName of installDirNames) {
+      const dir = path.join(root, dirName);
+      if (!safeExists(dir)) continue;
+      for (const exeName of executableNames) {
+        candidates.push({ type: 'exe', filePath: path.join(dir, exeName), installDir: dir });
+      }
+      for (const unName of uninstallerNames) {
+        candidates.push({ type: 'uninstall', filePath: path.join(dir, unName), installDir: dir });
+      }
+    }
+  }
+
+  let exePath = '';
+  let uninstallPath = '';
+  let installDir = '';
+  for (const c of candidates) {
+    if (!safeExists(c.filePath)) continue;
+    if (!installDir) installDir = c.installDir;
+    if (c.type === 'exe' && !exePath) exePath = c.filePath;
+    if (c.type === 'uninstall' && !uninstallPath) uninstallPath = c.filePath;
+  }
+  let exeLastWriteMs = 0;
+  let installDirLastWriteMs = 0;
+  if (exePath && safeExists(exePath)) {
+    try {
+      const st = fs.statSync(exePath);
+      exeLastWriteMs = Number(st.mtimeMs || 0);
+    } catch (_) {}
+  }
+  if (installDir && safeExists(installDir)) {
+    try {
+      const st = fs.statSync(installDir);
+      installDirLastWriteMs = Number(st.mtimeMs || 0);
+    } catch (_) {}
+  }
+
+  return {
+    installed: Boolean(exePath),
+    exePath,
+    uninstallPath,
+    installDir,
+    exeLastWriteMs: Number.isFinite(exeLastWriteMs) ? exeLastWriteMs : 0,
+    installDirLastWriteMs: Number.isFinite(installDirLastWriteMs) ? installDirLastWriteMs : 0,
+  };
+}
+
+function humanSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let n = bytes;
+  let idx = 0;
+  while (n >= 1024 && idx < units.length - 1) {
+    n /= 1024;
+    idx += 1;
+  }
+  return `${n.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`;
+}
+
+function buildDownloadMessage(progress) {
+  const downloaded = humanSize(progress.downloadedBytes || 0);
+  const total = progress.totalBytes > 0 ? humanSize(progress.totalBytes) : null;
+  const speed = progress.bytesPerSecond > 0 ? `${humanSize(progress.bytesPerSecond)}/s` : null;
+  if (total && Number.isFinite(progress.percent)) {
+    return `Descargando instalador... ${Math.round(progress.percent)}% (${downloaded} / ${total})${speed ? ` - ${speed}` : ''}`;
+  }
+  return `Descargando instalador... ${downloaded}${speed ? ` - ${speed}` : ''}`;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Resolve final URL after redirects (HEAD request) to get content-length and check Range support
+function resolveDownloadUrl(url, redirectsLeft = 6) {
+  return new Promise((resolve) => {
+    if (!/^https?:\/\//i.test(String(url || ''))) return resolve({ url, size: 0, acceptsRanges: false });
+    const transport = url.startsWith('https://') ? https : http;
+    const options = buildRequestOptions(url, 'HEAD');
+    const req = transport.request(options, (res) => {
+      const code = res.statusCode || 0;
+      const location = res.headers.location;
+      if ([301, 302, 303, 307, 308].includes(code) && location && redirectsLeft > 0) {
+        res.resume();
+        return resolve(resolveDownloadUrl(new URL(location, url).toString(), redirectsLeft - 1));
+      }
+      res.resume();
+      const size = Number(res.headers['content-length'] || 0);
+      const acceptsRanges = String(res.headers['accept-ranges'] || '').toLowerCase() === 'bytes';
+      resolve({ url, size: Number.isFinite(size) ? size : 0, acceptsRanges });
+    });
+    req.setTimeout(12000, () => { req.destroy(); resolve({ url, size: 0, acceptsRanges: false }); });
+    req.on('error', () => resolve({ url, size: 0, acceptsRanges: false }));
+    req.end();
+  });
+}
+
+// Download a single byte range into a buffer
+function downloadChunk(url, start, end, taskRef) {
+  return new Promise((resolve, reject) => {
+    if (taskRef?.cancelled) return reject(new Error('Descarga cancelada.'));
+    const transport = url.startsWith('https://') ? https : http;
+    const options = buildRequestOptions(url, 'GET');
+    options.headers = { ...options.headers, 'Range': `bytes=${start}-${end}` };
+    const req = transport.request(options, (res) => {
+      const code = res.statusCode || 0;
+      if (code !== 206 && code !== 200) {
+        res.resume();
+        return reject(new Error(`Chunk HTTP ${code} para rango ${start}-${end}`));
+      }
+      const chunks = [];
+      res.on('data', (c) => {
+        if (taskRef?.cancelled) { res.destroy(); return reject(new Error('Descarga cancelada.')); }
+        chunks.push(c);
+      });
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    });
+    req.setTimeout(60000, () => { req.destroy(new Error(`Chunk timeout ${start}-${end}`)); });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// Parallel chunked download — splits file into N chunks and downloads simultaneously
+async function downloadParallel(url, destinationPath, totalBytes, taskRef, onProgress) {
+  const numChunks = DOWNLOAD_PARALLEL_CHUNKS;
+  const chunkSize = Math.ceil(totalBytes / numChunks);
+  const ranges = [];
+  for (let i = 0; i < numChunks; i++) {
+    const start = i * chunkSize;
+    const end = Math.min(start + chunkSize - 1, totalBytes - 1);
+    ranges.push({ start, end, index: i });
+  }
+
+  const startedAt = Date.now();
+  const chunkProgress = new Array(numChunks).fill(0); // bytes downloaded per chunk
+  const SPEED_WINDOW_MS = 8000;
+  const speedSamples = [];
+  let speedWindowBytes = 0;
+  let lastEmit = 0;
+  let lastEmitBytes = 0;
+  let lastEmitPercent = -1;
+
+  const emitProgress = () => {
+    if (!onProgress) return;
+    const now = Date.now();
+    while (speedSamples.length > 0 && (now - speedSamples[0].t) > SPEED_WINDOW_MS) {
+      speedWindowBytes -= speedSamples[0].bytes;
+      speedSamples.shift();
+    }
+    const windowElapsedSec = Math.min((now - startedAt) / 1000, SPEED_WINDOW_MS / 1000);
+    const bytesPerSecond = windowElapsedSec > 0.5 ? speedWindowBytes / Math.min(windowElapsedSec, SPEED_WINDOW_MS / 1000) : 0;
+    const downloadedBytes = chunkProgress.reduce((a, b) => a + b, 0);
+    const percent = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : null;
+    const percentInt = Number.isFinite(percent) ? Math.floor(percent) : -1;
+    const dueByTime = (now - lastEmit) >= DOWNLOAD_PROGRESS_EMIT_MS;
+    const dueByBytes = (downloadedBytes - lastEmitBytes) >= DOWNLOAD_PROGRESS_EMIT_BYTES;
+    const dueByPercent = percentInt >= 0 && (percentInt - lastEmitPercent) >= DOWNLOAD_PROGRESS_EMIT_STEP;
+    if (!(dueByTime || dueByBytes || dueByPercent)) return;
+    lastEmit = now;
+    lastEmitBytes = downloadedBytes;
+    if (percentInt >= 0) lastEmitPercent = percentInt;
+    onProgress({ downloadedBytes, totalBytes, bytesPerSecond, percent });
+  };
+
+  // Download all chunks in parallel with per-chunk retry
+  const buffers = await Promise.all(ranges.map(async ({ start, end, index }) => {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (taskRef?.cancelled) throw new Error('Descarga cancelada.');
+      try {
+        // Wrap downloadChunk to track progress incrementally
+        const chunkLen = end - start + 1;
+        const transport = url.startsWith('https://') ? https : http;
+        const options = buildRequestOptions(url, 'GET');
+        options.headers = { ...options.headers, 'Range': `bytes=${start}-${end}` };
+        const buf = await new Promise((resolve, reject) => {
+          const req = transport.request(options, (res) => {
+            const code = res.statusCode || 0;
+            if (code !== 206 && code !== 200) { res.resume(); return reject(new Error(`HTTP ${code}`)); }
+            const chunks = [];
+            let received = 0;
+            res.on('data', (c) => {
+              if (taskRef?.cancelled) { res.destroy(); return reject(new Error('Cancelado.')); }
+              chunks.push(c);
+              received += c.length;
+              const delta = c.length;
+              chunkProgress[index] += delta;
+              const now = Date.now();
+              speedSamples.push({ t: now, bytes: delta });
+              speedWindowBytes += delta;
+              emitProgress();
+            });
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+            res.on('error', reject);
+          });
+          req.setTimeout(90000, () => req.destroy(new Error('Chunk timeout')));
+          req.on('error', reject);
+          req.end();
+        });
+        return buf;
+      } catch (err) {
+        lastErr = err;
+        chunkProgress[index] = 0; // reset progress for retry
+        if (attempt < 3) await wait(600 * (attempt + 1));
+      }
+    }
+    throw lastErr || new Error(`Chunk ${index} fallido`);
+  }));
+
+  // Write all chunks sequentially to file
+  const file = fs.createWriteStream(destinationPath);
+  await new Promise((resolve, reject) => {
+    file.on('finish', resolve);
+    file.on('error', reject);
+    for (const buf of buffers) file.write(buf);
+    file.end();
+  });
+
+  // Final progress emit
+  if (onProgress) {
+    const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+    onProgress({ downloadedBytes: totalBytes, totalBytes, bytesPerSecond: totalBytes / elapsedSec, percent: 100 });
+  }
+}
+
+async function downloadInstallerWithRetries(url, destinationPath, taskRef, onProgress, attempts = DOWNLOAD_RETRY_ATTEMPTS) {
+  let lastError = null;
+  const maxAttempts = Math.max(1, Number(attempts || DOWNLOAD_RETRY_ATTEMPTS));
+
+  // Resolve final URL and check if server supports Range requests
+  let resolvedUrl = url;
+  let totalBytes = 0;
+  let acceptsRanges = false;
+  try {
+    const info = await resolveDownloadUrl(url);
+    resolvedUrl = info.url || url;
+    totalBytes = info.size || 0;
+    acceptsRanges = info.acceptsRanges;
+  } catch (_) {}
+
+  const useParallel = acceptsRanges && totalBytes >= DOWNLOAD_CHUNK_MIN_SIZE;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (taskRef?.cancelled) throw new Error('Descarga cancelada por el usuario.');
+    try {
+      if (attempt > 1 && safeExists(destinationPath)) {
+        try { fs.unlinkSync(destinationPath); } catch (_) {}
+      }
+      if (useParallel) {
+        await downloadParallel(resolvedUrl, destinationPath, totalBytes, taskRef, onProgress);
+      } else {
+        await downloadWithRedirects(url, destinationPath, taskRef, onProgress);
+      }
+      return destinationPath;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err || 'Error de descarga desconocido.'));
+      if (taskRef?.cancelled) throw new Error('Descarga cancelada por el usuario.');
+      if (attempt >= maxAttempts) break;
+      await wait(DOWNLOAD_RETRY_BASE_DELAY_MS * attempt);
+    }
+  }
+  throw lastError || new Error('No se pudo descargar el instalador.');
+}
+
+function isValidSemverVersion(version) {
+  const value = String(version || '').trim();
+  const match = semverTripletRegex.exec(value);
+  if (!match) return false;
+  const prerelease = match[4] || '';
+  if (!prerelease) return true;
+  const parts = prerelease.split('.');
+  for (const part of parts) {
+    if (/^\d+$/.test(part) && part.length > 1 && part.startsWith('0')) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function openPathWithRetry(filePath, attempts = 6, delayMs = 350) {
+  const isExe = /\.exe$/i.test(String(filePath || ''));
+  const launchDirect = () => {
+    const child = spawn(filePath, [], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+    });
+    child.unref();
+  };
+  const launchViaPowerShell = () => {
+    const escapedPath = String(filePath || '').replace(/'/g, "''");
+    const child = spawn('powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-Command',
+      `Start-Process -FilePath '${escapedPath}'`,
+    ], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    child.unref();
+  };
+
+  let lastError = '';
+  for (let i = 0; i < attempts; i += 1) {
+    if (isExe) {
+      try {
+        launchDirect();
+        return '';
+      } catch (err) {
+        lastError = err && err.message ? err.message : String(err);
+        if (/being used by another process|used by another process|in use|locked|bloquead/i.test(String(lastError))) {
+          await wait(delayMs);
+          continue;
+        }
+      }
+      try {
+        launchViaPowerShell();
+        return '';
+      } catch (err) {
+        lastError = err && err.message ? err.message : String(err);
+        if (/being used by another process|used by another process|in use|locked|bloquead/i.test(String(lastError))) {
+          await wait(delayMs);
+          continue;
+        }
+      }
+    }
+
+    const error = await shell.openPath(filePath);
+    if (!error) return '';
+    lastError = error;
+    if (/being used by another process|used by another process|in use|locked|bloquead/i.test(String(error))) {
+      await wait(delayMs);
+      continue;
+    }
+    break;
+  }
+  return lastError || 'No se pudo abrir instalador.';
+}
+
+function isLikelyWindowsExecutable(filePath) {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const header = Buffer.alloc(2);
+    const read = fs.readSync(fd, header, 0, 2, 0);
+    fs.closeSync(fd);
+    if (read < 2) return false;
+    return header[0] === 0x4d && header[1] === 0x5a; // "MZ"
+  } catch (_) {
+    return false;
+  }
+}
+
+function resolveWnsChannelUriViaPowerShell(timeoutMs = 20000) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve({ ok: false, reason: 'not-windows' });
+    const psScript = `
+try {
+  Add-Type -AssemblyName System.Runtime.WindowsRuntime | Out-Null
+  $op = [Windows.Networking.PushNotifications.PushNotificationChannelManager, Windows.Networking.PushNotifications, ContentType=WindowsRuntime]::CreatePushNotificationChannelForApplicationAsync()
+  $task = [System.WindowsRuntimeSystemExtensions]::AsTask($op)
+  $null = $task.Wait(${Math.max(5000, Number(timeoutMs || 20000))})
+  if ($task.IsCompleted -and $task.Result -and $task.Result.Uri) {
+    Write-Output $task.Result.Uri
+    exit 0
+  }
+  exit 2
+} catch {
+  Write-Output $_.Exception.Message
+  exit 1
+}
+`.trim();
+
+    let stdout = '';
+    let stderr = '';
+    const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    const killer = setTimeout(() => {
+      try { child.kill(); } catch (_) {}
+      resolve({ ok: false, reason: 'timeout', stderr: stderr.trim() });
+    }, Math.max(5000, Number(timeoutMs || 20000)));
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (err) => {
+      clearTimeout(killer);
+      resolve({ ok: false, reason: err?.message || 'spawn-error', stderr: stderr.trim() });
+    });
+    child.on('close', (code) => {
+      clearTimeout(killer);
+      const uri = String(stdout || '').trim();
+      if (code === 0 && uri) return resolve({ ok: true, uri });
+      return resolve({ ok: false, reason: `exit-${code}`, stderr: String(stderr || stdout || '').trim() });
+    });
+  });
+}
+
+function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redirectsLeft = 5) {
+  return new Promise((resolve, reject) => {
+    if (taskRef?.cancelled) return reject(new Error('Descarga cancelada por el usuario.'));
+    const transport = url.startsWith('https://') ? https : http;
+    const requestOptions = buildRequestOptions(url, 'GET');
+    const request = transport.request(requestOptions, (response) => {
+      if (taskRef) taskRef.request = request;
+      const code = response.statusCode || 0;
+      const location = response.headers.location;
+
+      if ([301, 302, 303, 307, 308].includes(code) && location) {
+        response.resume();
+        if (redirectsLeft <= 0) return reject(new Error('Demasiadas redirecciones al descargar instalador.'));
+        const redirectedUrl = new URL(location, url).toString();
+        return resolve(downloadWithRedirects(redirectedUrl, destinationPath, taskRef, onProgress, redirectsLeft - 1));
+      }
+
+      if (code < 200 || code >= 300) {
+        response.resume();
+        return reject(new Error(`Descarga fallida (HTTP ${code}).`));
+      }
+
+      const totalBytes = Number(response.headers['content-length'] || 0);
+      let downloadedBytes = 0;
+      const startedAt = Date.now();
+      let lastEmit = 0;
+      let lastEmitBytes = 0;
+      let lastEmitPercent = -1;
+      let lastChunkAt = Date.now();
+      // Sliding window for speed calculation (last 8 seconds)
+      const SPEED_WINDOW_MS = 8000;
+      const speedSamples = []; // { t, bytes }
+      let speedWindowBytes = 0;
+      // Minimum speed tracking
+      let minSpeedWindowStart = Date.now();
+      let minSpeedWindowBytes = 0;
+      let settled = false;
+      let stallTimer = null;
+      // 64KB write buffer — avoids backpressure stalls that throttle the TCP receive window.
+      const file = fs.createWriteStream(destinationPath, { highWaterMark: 64 * 1024 });
+      if (taskRef) taskRef.file = file;
+
+      const fail = (err) => {
+        if (settled) return;
+        settled = true;
+        if (stallTimer) {
+          clearInterval(stallTimer);
+          stallTimer = null;
+        }
+        try { file.destroy(); } catch (_) {}
+        try { response.destroy(); } catch (_) {}
+        fs.unlink(destinationPath, () => reject(err));
+      };
+
+      const emitProgress = () => {
+        if (!onProgress) return;
+        const now = Date.now();
+        // Sliding window speed: drop samples older than SPEED_WINDOW_MS
+        while (speedSamples.length > 0 && (now - speedSamples[0].t) > SPEED_WINDOW_MS) {
+          speedWindowBytes -= speedSamples[0].bytes;
+          speedSamples.shift();
+        }
+        const windowElapsedSec = Math.min((now - startedAt) / 1000, SPEED_WINDOW_MS / 1000);
+        const bytesPerSecond = windowElapsedSec > 0.5 ? speedWindowBytes / Math.min(windowElapsedSec, SPEED_WINDOW_MS / 1000) : 0;
+        const percent = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : null;
+        const percentInt = Number.isFinite(percent) ? Math.floor(percent) : -1;
+        const dueByTime = (now - lastEmit) >= DOWNLOAD_PROGRESS_EMIT_MS;
+        const dueByBytes = (downloadedBytes - lastEmitBytes) >= DOWNLOAD_PROGRESS_EMIT_BYTES;
+        const dueByPercent = percentInt >= 0 && (percentInt - lastEmitPercent) >= DOWNLOAD_PROGRESS_EMIT_STEP;
+        const reachedEnd = totalBytes > 0 && downloadedBytes >= totalBytes;
+        if (!(dueByTime || dueByBytes || dueByPercent || reachedEnd)) return;
+        lastEmit = now;
+        lastEmitBytes = downloadedBytes;
+        if (percentInt >= 0) lastEmitPercent = percentInt;
+        onProgress({ downloadedBytes, totalBytes, bytesPerSecond, percent });
+      };
+
+      // Manual backpressure handling: pause response when write buffer is full,
+      // resume on 'drain'. This prevents TCP window shrinkage that stalls downloads.
+      response.on('data', (chunk) => {
+        if (taskRef?.cancelled) return fail(new Error('Descarga cancelada por el usuario.'));
+        const now = Date.now();
+        lastChunkAt = now;
+        downloadedBytes += chunk.length;
+        // Update sliding window
+        speedSamples.push({ t: now, bytes: chunk.length });
+        speedWindowBytes += chunk.length;
+        // Update min-speed window
+        minSpeedWindowBytes += chunk.length;
+        if ((now - minSpeedWindowStart) >= DOWNLOAD_MIN_SPEED_WINDOW_MS) {
+          const windowSec = (now - minSpeedWindowStart) / 1000;
+          const windowSpeedBps = minSpeedWindowBytes / windowSec;
+          // If sustained speed is below minimum, abort for retry
+          if (downloadedBytes > 2 * 1024 * 1024 && windowSpeedBps < DOWNLOAD_MIN_SPEED_BPS) {
+            return fail(new Error(`Velocidad insuficiente (${Math.round(windowSpeedBps / 1024)} KB/s). Reintentando con nueva conexion...`));
+          }
+          // Reset window
+          minSpeedWindowStart = now;
+          minSpeedWindowBytes = 0;
+        }
+        emitProgress();
+        const canContinue = file.write(chunk);
+        if (!canContinue) {
+          response.pause();
+          file.once('drain', () => {
+            if (!taskRef?.cancelled) response.resume();
+          });
+        }
+      });
+
+      response.on('error', (err) => fail(err));
+      response.on('end', () => {
+        if (!settled) file.end();
+      });
+      stallTimer = setInterval(() => {
+        if (settled) return;
+        if ((Date.now() - lastChunkAt) > DOWNLOAD_STALL_TIMEOUT_MS) {
+          fail(new Error('La descarga del instalador se estanco. Reintentando...'));
+        }
+      }, 5000);
+      file.on('finish', () => {
+        if (settled) return;
+        if (taskRef?.cancelled) return fail(new Error('Descarga cancelada por el usuario.'));
+        if (totalBytes > 0 && downloadedBytes !== totalBytes) {
+          return fail(new Error(`Descarga incompleta (${downloadedBytes}/${totalBytes} bytes).`));
+        }
+        if (downloadedBytes < (128 * 1024)) {
+          return fail(new Error('Descarga incompleta: instalador demasiado pequeno.'));
+        }
+        settled = true;
+        if (stallTimer) {
+          clearInterval(stallTimer);
+          stallTimer = null;
+        }
+        if (onProgress) {
+          // Use sliding window speed for final emit
+          const now = Date.now();
+          while (speedSamples.length > 0 && (now - speedSamples[0].t) > SPEED_WINDOW_MS) {
+            speedWindowBytes -= speedSamples[0].bytes;
+            speedSamples.shift();
+          }
+          const windowElapsedSec = Math.min((now - startedAt) / 1000, SPEED_WINDOW_MS / 1000);
+          const bytesPerSecond = windowElapsedSec > 0.5 ? speedWindowBytes / windowElapsedSec : downloadedBytes / Math.max((now - startedAt) / 1000, 0.001);
+          const percent = totalBytes > 0 ? 100 : null;
+          onProgress({ downloadedBytes, totalBytes, bytesPerSecond, percent });
+        }
+        file.close(() => resolve(destinationPath));
+      });
+      file.on('error', (err) => fail(err));
+    });
+
+    request.setTimeout(120000, () => {
+      request.destroy(new Error('Tiempo de espera agotado descargando instalador.'));
+    });
+    request.on('error', (err) => reject(err));
+    request.end();
+  });
+}
+
+// ── Scheduled-release gate ────────────────────────────────────────────────
+// Fetches scheduled_release from the OWS Store API and returns it if the
+// available_at date has NOT yet arrived for the given version.
+// Returns null if no gate applies (update is allowed to proceed).
+async function fetchScheduledReleaseGate(candidateVersion) {
+  try {
+    const res = await fetch(
+      `${API_URL}/ows-store/projects?nocache=${Date.now()}`,
+      { cache: 'no-store', headers: { 'User-Agent': 'OWS-Store-Updater' } }
+    );
+    if (!res.ok) {
+      logToFile(`ScheduledReleaseGate: API error ${res.status}`);
+      return null;
+    }
+    const projects = await res.json();
+    logToFile(`ScheduledReleaseGate: Got ${projects?.length || 0} projects`);
+    const owsProject = Array.isArray(projects)
+      ? projects.find((p) => String(p?.slug || '').toLowerCase() === 'ows-store')
+      : null;
+    if (!owsProject) {
+      logToFile('ScheduledReleaseGate: ows-store project not found');
+      return null;
+    }
+    const sr = owsProject?.metadata?.scheduled_release || owsProject?.scheduled_release || null;
+    logToFile(`ScheduledReleaseGate: sr=${JSON.stringify(sr)}, candidate=${candidateVersion}`);
+    if (!sr || !sr.available_at || !sr.version) return null;
+
+    // Normalize both versions for comparison (strip leading 'v', whitespace)
+    const normalize = (v) => String(v || '').trim().replace(/^v/i, '');
+    const srVersion = normalize(sr.version);
+    const candidate = normalize(candidateVersion || '');
+
+    // Only gate if the candidate version matches the scheduled version exactly
+    if (!srVersion || !candidate || srVersion !== candidate) return null;
+
+    const unlockMs = new Date(sr.available_at).getTime();
+    if (!Number.isFinite(unlockMs)) return null;
+
+    // Gate is active only if the unlock date has NOT arrived yet
+    if (Date.now() < unlockMs) {
+      return { version: srVersion, available_at: sr.available_at, label: sr.label || '' };
+    }
+    return null; // date has passed — allow update
+  } catch (_) {
+    return null; // network error — allow update (fail open)
+  }
+}
+
+// Version comparison helpers for suffix-based versions (e.g., 2026.5.2-t0017)
+function normalizeVersionParts(v) {
+  const s = String(v || '').toLowerCase().trim();
+  const m = s.match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:[._-]?(t)?(\d+))?$/i);
+  if (!m) return [0, 0, 0, 0, 0];
+  const major = parseInt(m[1] || '0', 10);
+  const minor = parseInt(m[2] || '0', 10);
+  const patch = parseInt(m[3] || '0', 10);
+  const hasTag = !!m[4];
+  const tagNum = parseInt(m[5] || '0', 10);
+  return [major, minor, patch, hasTag ? 1 : 0, tagNum];
+}
+function compareVersionLike(a, b) {
+  const A = normalizeVersionParts(a);
+  const B = normalizeVersionParts(b);
+  for (let i = 0; i < 5; i++) {
+    if (A[i] !== B[i]) return A[i] - B[i];
+  }
+  return 0;
+}
+
+async function fetchLatestYmlVersion() {
+  try {
+    const yml = await new Promise((resolve, reject) => {
+      https.get(OWS_STORE_LATEST_YML_URL, { headers: { 'User-Agent': 'OWS-Store-Client', 'Accept': 'text/yaml, text/plain, */*' } }, (res) => {
+        if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+        let data = '';
+        res.on('data', (c) => data += c);
+        res.on('end', () => resolve(data));
+      }).on('error', reject);
+    });
+    const m = yml.match(/^version:\s*(.+)$/m);
+    return m ? String(m[1]).trim() : null;
+  } catch (_) { return null; }
+}
+
+function initAutoUpdater() {
+  if (!app.isPackaged || updaterReady) return;
+  try {
+    // Auto updater flow:
+    // Windows checks and downloads automatically; install remains user-driven (button restart/install).
+    // IMPORTANT: autoDownload starts as false. The update-available handler checks the
+    // scheduled_release gate before enabling it. This prevents the Grand Rework (or any
+    // future scheduled release) from being downloaded/installed before its unlock date.
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;  // Auto-install when app quits for 100% automatic updates
+    autoUpdater.allowPrerelease = true;  // Necesario: nuestro formato YYYY.M.D-tHHMM tiene sufijo que semver trata como pre-release
+    autoUpdater.channel = 'latest';
+
+    // Headers para evitar throttling de GitHub en descargas directas
+    autoUpdater.requestHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/octet-stream',
+      'Accept-Encoding': 'identity',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    };
+    autoUpdater.on('update-available', async (info) => {
+      windowsUpdateDownloaded = false;
+
+      // ── Scheduled-release gate ──────────────────────────────────────────
+      // Before allowing download, check if this version is gated by a
+      // scheduled_release date on the server. If it is and the date hasn't
+      // arrived yet, suppress the update entirely (treat as not-available).
+      const candidateVersion = String(info?.version || '').trim();
+      const gate = await fetchScheduledReleaseGate(candidateVersion);
+      if (gate) {
+        // Update exists on GitHub but is not yet unlocked — block it.
+        const unlockDate = new Date(gate.available_at).toLocaleString('es-UY', {
+          timeZone: 'America/Montevideo',
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: false,
+        });
+        const label = gate.label ? ` (${gate.label})` : '';
+        sendToRenderer('update-not-available');
+        sendToRenderer('update-error',
+          `[SCHEDULED] v${candidateVersion}${label} bloqueada hasta ${unlockDate}. ` +
+          `La descarga se habilitara automaticamente cuando llegue la fecha.`
+        );
+        // Also notify the renderer about the upcoming scheduled release
+        sendToRenderer('update-available', {
+          ...info,
+          _scheduledGate: { version: gate.version, available_at: gate.available_at, label: gate.label },
+        });
+        return; // Do NOT enable autoDownload — update is blocked
+      }
+      // ── Gate passed — allow download ────────────────────────────────────
+      autoUpdater.autoDownload = true;
+      autoUpdater.downloadUpdate().catch((err) => {
+        sendToRenderer('update-error', err?.message || String(err));
+      });
+      sendToRenderer('update-available', info);
+    });
+    autoUpdater.on('update-not-available', () => {
+      // Keep downloaded state sticky until app restart.
+      // Some providers can emit "not available" after a download was already staged.
+      sendToRenderer('update-not-available');
+    });
+    autoUpdater.on('download-progress', (p) => sendToRenderer('update-download-progress', p));
+    autoUpdater.on('error', (err) => sendToRenderer('update-error', err.message));
+    autoUpdater.on('update-downloaded', () => {
+      windowsUpdateDownloaded = true;
+      sendToRenderer('update-downloaded');
+    });
+    updaterReady = true;
+  } catch (err) {
+    updaterReady = false;
+    const message = err && err.message ? err.message : String(err);
+    sendToRenderer('update-error', `No se pudo inicializar updater: ${message}`);
+  }
+}
+
+async function checkForUpdatesSafe() {
+  if (!app.isPackaged) return { ok: false, reason: 'not-packaged' };
+  if (!updaterReady) initAutoUpdater();
+  if (!updaterReady) {
+    return { ok: false, reason: 'updater-init-failed' };
+  }
+
+  const currentVersion = app.getVersion();
+  if (!isValidSemverVersion(currentVersion)) {
+    const msg = `Auto-update deshabilitado: version invalida "${currentVersion}". Usa formato SemVer (x.y.z).`;
+    sendToRenderer('update-error', msg);
+    return { ok: false, reason: 'invalid-version', message: msg };
+  }
+
+  // Check for suffix-based version updates (e.g., t0016 -> t0017)
+  // This handles cases where semver sees them as equal but our format differs
+  const remoteVersion = await fetchLatestYmlVersion();
+  if (remoteVersion && compareVersionLike(remoteVersion, currentVersion) > 0) {
+    // Remote version is newer - trigger update check which will download
+    sendToRenderer('update-available', { version: remoteVersion, releaseDate: new Date().toISOString() });
+    // Force the updater to fetch and download
+    try {
+      // Set feed URL with cache buster to ensure fresh check
+      const feedUrl = `https://github.com/OceanandWild/owsdatabase/releases/latest/download?t=${Date.now()}`;
+      autoUpdater.setFeedURL({ provider: 'github', owner: 'OceanandWild', repo: 'owsdatabase', releaseType: 'release', private: false });
+    } catch (_) { /* ignore setFeedURL errors */ }
+  }
+
+  try {
+    await autoUpdater.checkForUpdates();
+    return { ok: true };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    sendToRenderer('update-error', message);
+    return { ok: false, reason: 'check-failed', message };
+  }
+}
+
+ipcMain.handle('install-update', () => {
+  if (!app.isPackaged) return { ok: false, reason: 'not-packaged' };
+  if (!updaterReady) initAutoUpdater();
+  if (!updaterReady) return { ok: false, reason: 'updater-not-ready' };
+  if (!windowsUpdateDownloaded) return { ok: false, reason: 'update-not-downloaded' };
+  try {
+    isInstallingUpdate = true;
+    autoUpdater.quitAndInstall(false, true);
+    return { ok: true, closing: true };
+  } catch (err) {
+    isInstallingUpdate = false;
+    const message = err && err.message ? err.message : String(err);
+    return { ok: false, reason: message };
+  }
+});
+ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.handle('check-for-updates', () => checkForUpdatesSafe());
+ipcMain.handle('ows-recovery-start-update', () => runEmergencyStoreRepairUpdate());
+ipcMain.handle('ows-recovery-install-fallback', () => installRecoveryFallbackStableVersion());
+ipcMain.handle('ows-recovery-relaunch', () => {
+  try {
+    app.relaunch();
+    app.exit(0);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: err?.message || String(err) };
+  }
+});
+ipcMain.handle('open-external-url', (_, url) => {
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return false;
+  shell.openExternal(url);
+  return true;
+});
+
+ipcMain.handle('get-wns-channel-uri', async () => {
+  if (process.platform !== 'win32') return { ok: false, reason: 'not-windows' };
+  const now = Date.now();
+  if (wnsChannelCache && (now - wnsChannelCacheAt) < (15 * 60 * 1000)) {
+    return { ok: true, uri: wnsChannelCache, cached: true };
+  }
+  const result = await resolveWnsChannelUriViaPowerShell(20000);
+  if (result?.ok && result.uri) {
+    wnsChannelCache = String(result.uri).trim();
+    wnsChannelCacheAt = now;
+    return { ok: true, uri: wnsChannelCache, cached: false };
+  }
+  return { ok: false, reason: result?.reason || 'wns-unavailable', detail: result?.stderr || '' };
+});
+
+ipcMain.handle('show-system-notification', (_, payload) => {
+  try {
+    if (!Notification || !Notification.isSupported()) {
+      return { ok: false, reason: 'unsupported' };
+    }
+    const title = String(payload?.title || APP_DISPLAY_NAME).trim() || APP_DISPLAY_NAME;
+    const body = String(payload?.body || '').trim();
+    const silent = Boolean(payload?.silent);
+    const iconPath = path.join(__dirname, 'build', 'icon.ico');
+    const toast = new Notification({
+      title,
+      body,
+      silent,
+      icon: safeExists(iconPath) ? iconPath : undefined,
+    });
+    toast.show();
+    return { ok: true };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    return { ok: false, reason: message };
+  }
+});
+
+ipcMain.handle('install-external-installer', async (_, payload) => {
+  const url = payload && typeof payload.url === 'string' ? payload.url : '';
+  const installerName = sanitizeInstallerName(payload && payload.name ? payload.name : 'installer.exe');
+  const taskId = sanitizeTaskId(payload && payload.taskId ? payload.taskId : installerName);
+  const expectedSize = Number(payload && payload.expectedSize ? payload.expectedSize : 0);
+
+  if (!/^https?:\/\//i.test(url)) {
+    return { ok: false, error: 'URL de instalador invalida.' };
+  }
+  if (externalInstallTasks.has(taskId)) {
+    return { ok: false, error: 'Ya existe una instalacion en curso para este proyecto.' };
+  }
+
+  try {
+    const taskRef = { id: taskId, cancelled: false, request: null, file: null, path: '' };
+    externalInstallTasks.set(taskId, taskRef);
+
+    const targetPath = getInstallerCachePath(installerName);
+    taskRef.path = targetPath;
+    let useCached = canReuseCachedInstaller(targetPath, expectedSize);
+
+    // If size was not provided, probe remote size and avoid reusing stale/truncated cache.
+    if (useCached && expectedSize <= 0) {
+      const remoteSize = await fetchRemoteFileSizeWithRedirects(url);
+      if (remoteSize > 0) {
+        try {
+          const localSize = fs.statSync(targetPath).size;
+          if (Number(localSize) !== Number(remoteSize)) {
+            useCached = false;
+            try { fs.unlinkSync(targetPath); } catch (_) {}
+          }
+        } catch (_) {
+          useCached = false;
+        }
+      }
+    }
+
+    if (useCached) {
+      sendToRenderer('external-install-status', {
+        taskId,
+        phase: 'launching',
+        message: 'Instalador en cache encontrado. Abriendo...',
+      });
+      let launchPath = targetPath;
+      try {
+        launchPath = prepareInstallerLaunchPath(targetPath, installerName);
+      } catch (_) {
+        launchPath = targetPath;
+      }
+      const launchCachedError = await openPathWithRetry(launchPath);
+      if (!launchCachedError) {
+        sendToRenderer('external-install-status', { taskId, phase: 'done', message: 'Instalador abierto desde cache.' });
+        return { ok: true, filePath: launchPath || targetPath, taskId, cached: true };
+      }
+      // Cache invalida o bloqueada: borrar y rehacer descarga limpia.
+      try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+      try { if (launchPath !== targetPath && safeExists(launchPath)) fs.unlinkSync(launchPath); } catch (_) {}
+      useCached = false;
+      sendToRenderer('external-install-status', {
+        taskId,
+        phase: 'downloading',
+        message: 'Cache invalida. Reintentando descarga limpia...',
+      });
+    }
+
+    try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+    sendToRenderer('external-install-status', {
+      taskId,
+      phase: 'downloading',
+      message: 'Descargando instalador...',
+    });
+
+    await downloadInstallerWithRetries(url, targetPath, taskRef, (progress) => {
+      sendToRenderer('external-install-status', {
+        taskId,
+        phase: 'downloading',
+        ...progress,
+        message: buildDownloadMessage(progress),
+      });
+    });
+
+    if (taskRef.cancelled) {
+      return { ok: false, error: 'Instalacion cancelada por el usuario.' };
+    }
+    if (!isLikelyWindowsExecutable(targetPath)) {
+      try { fs.unlinkSync(targetPath); } catch (_) {}
+      return {
+        ok: false,
+        error: 'El archivo descargado no es un instalador Windows valido. Recarga OWS Store y reintenta.'
+      };
+    }
+
+    sendToRenderer('external-install-status', { taskId, phase: 'launching', message: 'Abriendo instalador...' });
+    let launchPath = targetPath;
+    try {
+      launchPath = prepareInstallerLaunchPath(targetPath, installerName);
+    } catch (_) {
+      launchPath = targetPath;
+    }
+    const launchError = await openPathWithRetry(launchPath);
+    if (launchError) {
+      try { if (launchPath !== targetPath && safeExists(launchPath)) fs.unlinkSync(launchPath); } catch (_) {}
+      return { ok: false, error: launchError };
+    }
+
+    sendToRenderer('external-install-status', { taskId, phase: 'done', message: 'Instalador abierto.' });
+    return { ok: true, filePath: launchPath || targetPath, taskId };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    sendToRenderer('external-install-status', { taskId, phase: 'error', message });
+    return { ok: false, error: message };
+  } finally {
+    const taskRef = externalInstallTasks.get(taskId);
+    if (taskRef?.file) {
+      try { taskRef.file.destroy(); } catch (_) {}
+    }
+    externalInstallTasks.delete(taskId);
+  }
+});
+
+ipcMain.handle('cancel-external-installer', async (_, payload) => {
+  const taskId = sanitizeTaskId(payload && payload.taskId ? payload.taskId : '');
+  const taskRef = externalInstallTasks.get(taskId);
+  if (!taskRef) return { ok: false, error: 'No hay descarga activa para cancelar.' };
+
+  taskRef.cancelled = true;
+  try {
+    if (taskRef.request) taskRef.request.destroy(new Error('Cancelado por el usuario.'));
+    if (taskRef.file) taskRef.file.destroy();
+    if (taskRef.path && safeExists(taskRef.path)) fs.unlink(taskRef.path, () => {});
+  } catch (_) {}
+
+  sendToRenderer('external-install-status', { taskId, phase: 'cancelled', message: 'Instalacion cancelada.' });
+  externalInstallTasks.delete(taskId);
+  return { ok: true };
+});
+
+ipcMain.handle('resolve-installed-app', (_, payload) => {
+  try {
+    return resolveInstalledPaths(payload || {});
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    return { installed: false, error: message };
+  }
+});
+
+// Batch scan: resolve multiple projects at once in a single IPC call
+ipcMain.handle('resolve-installed-apps-batch', (_, projects) => {
+  if (!Array.isArray(projects)) return [];
+  return projects.map((p) => {
+    try {
+      const result = resolveInstalledPaths(p.hints || {});
+      return { slug: p.slug, ...result };
+    } catch (err) {
+      return { slug: p.slug, installed: false, error: String(err?.message || err) };
+    }
+  });
+});
+
+ipcMain.handle('launch-installed-app', async (_, payload) => {
+  const exePath = payload && typeof payload.exePath === 'string' ? payload.exePath : '';
+  if (!exePath || !safeExists(exePath)) return { ok: false, error: 'Ejecutable no encontrado.' };
+  const launchError = await shell.openPath(exePath);
+  if (launchError) return { ok: false, error: launchError };
+  return { ok: true };
+});
+
+ipcMain.handle('uninstall-installed-app', (_, payload) => {
+  const uninstallPath = payload && typeof payload.uninstallPath === 'string' ? payload.uninstallPath : '';
+  if (!uninstallPath || !safeExists(uninstallPath)) return { ok: false, error: 'Desinstalador no encontrado.' };
+  try {
+    const child = spawn(uninstallPath, [], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+    });
+    child.unref();
+    return { ok: true };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+});
+
+app.whenReady().then(() => {
+  if (process.argv.includes('--ows-push-worker')) {
+    runPushWorkerOnce()
+      .catch(() => {})
+      .finally(() => setTimeout(() => app.quit(), 1200));
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: true,
+        openAsHidden: true
+      });
+    } catch (_) {}
+  }
+  ensureWindowsPushWorkerScheduledTask();
+  startWindowsRealtimePushLoop();
+  registerPushDeviceInBackend().catch(() => {});
+  createWindow();
+  createTray();
+  initAutoUpdater();
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
+  isInstallingUpdate = true;
+  if (rendererHealthTimer) {
+    clearTimeout(rendererHealthTimer);
+    rendererHealthTimer = null;
+  }
+  stopWindowsRealtimePushLoop();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});

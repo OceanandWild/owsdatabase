@@ -1,0 +1,919 @@
+[
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.02; this.size += 15; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                        ctx.strokeStyle = '#00ffff';\n                        ctx.lineWidth = 5 * this.life;\n                        ctx.globalAlpha = this.life;\n                        ctx.beginPath();\n                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                        ctx.strokeStyle = '#00ffff';\n                        ctx.lineWidth = 5 * this.life;\n                        ctx.globalAlpha = this.life;\n                        ctx.beginPath();\n                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);\n                        ctx.stroke();\n                        ctx.globalAlpha = 1.0;\n              ...\n```",
+    "context": "draw: function (ctx) {\n                        ctx.strokeStyle = '#00ffff';\n                        ctx.lineWidth = 5 * this.life;\n                        ctx.globalAlpha = this.life;\n                        ctx.beginPath();\n                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);\n                        ctx.stroke();\n                        ctx.globalAlpha = 1.0;\n                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                        ctx.strokeStyle = color;\n                        ctx.lineWidth = 3 * this.life;\n                        ctx.shadowBlur = 10;\n                        ctx.shadowColor = color;\n                        ctx.beginPath();\n                        ctx.moveTo(x1,",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                        ctx.strokeStyle = color;\n                        ctx.lineWidth = 3 * this.life;\n                        ctx.shadowBlur = 10;\n                        ctx.shadowColor = color;\n                        ctx.beginPath();\n                        ctx.moveTo(x1, y1);\n                        // Jagged line\n                        let cx = x1, cy = y1;\n         ...\n```",
+    "context": "draw: function (ctx) {\n                        ctx.strokeStyle = color;\n                        ctx.lineWidth = 3 * this.life;\n                        ctx.shadowBlur = 10;\n                        ctx.shadowColor = color;\n                        ctx.beginPath();\n                        ctx.moveTo(x1, y1);\n                        // Jagged line\n                        let cx = x1, cy = y1;\n                        const steps = 10;\n                        const dx = (x2 - x1) / steps;\n                        const dy = (y2 - y1) / steps;\n                        for (let i = 1; i < steps; i++) {\n                            cx += dx;\n                            cy += dy;\n                            ctx.lineTo(cx + (Math.random() - 0.5) * 30, cy + (Math.random() - 0.5) * 30);\n                        }\n                        ctx.lineTo(x2, y2);\n                        ctx.stroke();\n                        ctx.shadowBlur = 0;\n                        this.life -= 0.1;\n                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.02; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    ctx.fillStyle = `rgba(0, 255, 100, ${this.life * 0.3})`;\n                                    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);\n                                }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    ctx.fillStyle = `rgba(0, 255, 100, ${this.life * 0.3})`;\n                                    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);\n                                }...\n```",
+    "context": "draw: function (ctx) {\n                                    ctx.fillStyle = `rgba(0, 255, 100, ${this.life * 0.3})`;\n                                    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.radius += 30; this.life -= 0.02; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(153, 102, 255, ${this.life})`;\n                                    ctx.lineWidth = 5;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, 0, Ma",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(153, 102, 255, ${this.life})`;\n                                    ctx.lineWidth = 5;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                    ctx.stroke();\n                                }...\n```",
+    "context": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(153, 102, 255, ${this.life})`;\n                                    ctx.lineWidth = 5;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                    ctx.stroke();\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.05; this.intensity *= 0.9; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    ctx.save();\n                                    ctx.translate((Math.random() - 0.5) * this.intensity, (Math.random() - 0.5) * this.intensity);\n                                }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    ctx.save();\n                                    ctx.translate((Math.random() - 0.5) * this.intensity, (Math.random() - 0.5) * this.intensity);\n                                }...\n```",
+    "context": "draw: function (ctx) {\n                                    ctx.save();\n                                    ctx.translate((Math.random() - 0.5) * this.intensity, (Math.random() - 0.5) * this.intensity);\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.x += 25; this.life -= 0.01; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    const gradient = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);\n                                    gradient.addColorStop(0, 'rgba(0, 100, 200, 0)');\n                                    gradient.addColorStop(0.5, `rgba(0, 150, ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    const gradient = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);\n                                    gradient.addColorStop(0, 'rgba(0, 100, 200, 0)');\n                                    gradient.addColorStop(0.5, `rgba(0, 150, 255, ${this.life * 0.7})`);\n                                    gradient.addColorStop(1, 'rgba(0, 10...\n```",
+    "context": "draw: function (ctx) {\n                                    const gradient = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);\n                                    gradient.addColorStop(0, 'rgba(0, 100, 200, 0)');\n                                    gradient.addColorStop(0.5, `rgba(0, 150, 255, ${this.life * 0.7})`);\n                                    gradient.addColorStop(1, 'rgba(0, 100, 200, 0)');\n                                    ctx.fillStyle = gradient;\n                                    ctx.fillRect(this.x, 0, this.width, game.height);\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.03; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    ctx.fillStyle = `rgba(255, 200, 100, ${this.life * 0.5})`;\n                                    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);\n                                }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    ctx.fillStyle = `rgba(255, 200, 100, ${this.life * 0.5})`;\n                                    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);\n                                }...\n```",
+    "context": "draw: function (ctx) {\n                                    ctx.fillStyle = `rgba(255, 200, 100, ${this.life * 0.5})`;\n                                    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.radius += 15; this.life -= 0.02; this.rotation += 0.3; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    ctx.save();\n                                    ctx.translate(this.x, this.y);\n                                    ctx.rotate(this.rotation);\n                                    ctx.strokeStyle = `rgba(255, 0, 85, ${this.life})`;\n           ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    ctx.save();\n                                    ctx.translate(this.x, this.y);\n                                    ctx.rotate(this.rotation);\n                                    ctx.strokeStyle = `rgba(255, 0, 85, ${this.life})`;\n                                    ctx.lineWidth = 8;\n                                    ctx.beginPath();\n   ...\n```",
+    "context": "draw: function (ctx) {\n                                    ctx.save();\n                                    ctx.translate(this.x, this.y);\n                                    ctx.rotate(this.rotation);\n                                    ctx.strokeStyle = `rgba(255, 0, 85, ${this.life})`;\n                                    ctx.lineWidth = 8;\n                                    ctx.beginPath();\n                                    ctx.arc(0, 0, this.radius, 0, Math.PI * 1.5);\n                                    ctx.stroke();\n                                    ctx.restore();\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.x += this.vx; this.y += this.vy; this.life -= 0.02; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                        ctx.fillStyle = `rgba(255, 0, 0, ${this.life})`;\n                                        ctx.font = '20px Arial';\n                                        ctx.fillText('❤️', this.x, this.y);\n                                    }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                        ctx.fillStyle = `rgba(255, 0, 0, ${this.life})`;\n                                        ctx.font = '20px Arial';\n                                        ctx.fillText('❤️', this.x, this.y);\n                                    }...\n```",
+    "context": "draw: function (ctx) {\n                                        ctx.fillStyle = `rgba(255, 0, 0, ${this.life})`;\n                                        ctx.font = '20px Arial';\n                                        ctx.fillText('❤️', this.x, this.y);\n                                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.x += 20; if (this.x > game.width + 50) this.life = 0; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                            ctx.fillStyle = '#8b4513';\n                                            ctx.font = '40px Arial';\n                                            ctx.fillText('🦌', this.x, this.y);\n                                            // Damage enem",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                            ctx.fillStyle = '#8b4513';\n                                            ctx.font = '40px Arial';\n                                            ctx.fillText('🦌', this.x, this.y);\n                                            // Damage enemies in path\n                                            game.targets.forEach(t => {\n                ...\n```",
+    "context": "draw: function (ctx) {\n                                            ctx.fillStyle = '#8b4513';\n                                            ctx.font = '40px Arial';\n                                            ctx.fillText('🦌', this.x, this.y);\n                                            // Damage enemies in path\n                                            game.targets.forEach(t => {\n                                                if (t.active && Math.abs(t.x - this.x) < 40 && Math.abs(t.y - this.y) < 40) {\n                                                    t.hp -= 10;\n                                                    if (t.hp <= 0) { t.active = false; game.score += 30; }\n                                                }\n                                            });\n                                        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.radius += 25; this.life -= 0.03; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(255, 200, 0, ${this.life})`;\n                                    ctx.lineWidth = 8;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, -0.5, 0",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(255, 200, 0, ${this.life})`;\n                                    ctx.lineWidth = 8;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, -0.5, 0.5);\n                                    ctx.stroke();\n                                }...\n```",
+    "context": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(255, 200, 0, ${this.life})`;\n                                    ctx.lineWidth = 8;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, -0.5, 0.5);\n                                    ctx.stroke();\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () {\n                                    this.life -= 0.01;\n                                    // Damage enemies in pool\n                                    game.targets.forEach(t => {\n                                        if (t.active && Math.hypot(t.x - this.x, t.y - this.y) < ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función update?",
+    "answer": "La función update está implementada así:\n```javascript\nupdate: function () {\n                                    this.life -= 0.01;\n                                    // Damage enemies in pool\n                                    game.targets.forEach(t => {\n                                        if (t.active && Math.hypot(t.x - this.x, t.y - this.y) < this.radius) {\n                                            t.hp -= 0.5;\n                            ...\n```",
+    "context": "update: function () {\n                                    this.life -= 0.01;\n                                    // Damage enemies in pool\n                                    game.targets.forEach(t => {\n                                        if (t.active && Math.hypot(t.x - this.x, t.y - this.y) < this.radius) {\n                                            t.hp -= 0.5;\n                                            if (Math.random() < 0.05) game.createFloatingText(t.x, t.y, \"☠️\", \"#00ff00\");\n                                        }\n                                    });\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);\n                                    gradient.addColorStop(0, `rgba(0, 255, 0, ${this.life * 0.5})`);\n                                    gradient.addC",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);\n                                    gradient.addColorStop(0, `rgba(0, 255, 0, ${this.life * 0.5})`);\n                                    gradient.addColorStop(0.5, `rgba(50, 200, 50, ${this.life * 0.3})`);\n                                    gradient...\n```",
+    "context": "draw: function (ctx) {\n                                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);\n                                    gradient.addColorStop(0, `rgba(0, 255, 0, ${this.life * 0.5})`);\n                                    gradient.addColorStop(0.5, `rgba(50, 200, 50, ${this.life * 0.3})`);\n                                    gradient.addColorStop(1, 'rgba(0, 100, 0, 0)');\n                                    ctx.fillStyle = gradient;\n                                    ctx.beginPath();\n                                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                    ctx.fill();\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.016; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(222, 184, 135, ${this.life * 0.5})`;\n                                    ctx.lineWidth = 3;\n                                    ctx.setLineDash([5, 5]);\n                                    ctx.beginPath();\n           ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(222, 184, 135, ${this.life * 0.5})`;\n                                    ctx.lineWidth = 3;\n                                    ctx.setLineDash([5, 5]);\n                                    ctx.beginPath();\n                                    ctx.arc(CONSTANTS.WEAPON_X, CONSTANTS.WEAPON_Y, 60, 0, Math.PI * 2);\n      ...\n```",
+    "context": "draw: function (ctx) {\n                                    ctx.strokeStyle = `rgba(222, 184, 135, ${this.life * 0.5})`;\n                                    ctx.lineWidth = 3;\n                                    ctx.setLineDash([5, 5]);\n                                    ctx.beginPath();\n                                    ctx.arc(CONSTANTS.WEAPON_X, CONSTANTS.WEAPON_Y, 60, 0, Math.PI * 2);\n                                    ctx.stroke();\n                                    ctx.setLineDash([]);\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () {\n                                    this.y += 30;\n                                    this.life -= 0.02;\n                                    // Kill enemies in path\n                                    game.targets.forEach(t => {\n                                        if (t.act",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función update?",
+    "answer": "La función update está implementada así:\n```javascript\nupdate: function () {\n                                    this.y += 30;\n                                    this.life -= 0.02;\n                                    // Kill enemies in path\n                                    game.targets.forEach(t => {\n                                        if (t.active && Math.hypot(t.x - this.x, t.y - this.y) < 50) {\n                                            t....\n```",
+    "context": "update: function () {\n                                    this.y += 30;\n                                    this.life -= 0.02;\n                                    // Kill enemies in path\n                                    game.targets.forEach(t => {\n                                        if (t.active && Math.hypot(t.x - this.x, t.y - this.y) < 50) {\n                                            t.hp -= 50; // Massive damage\n                                            if (t.hp <= 0) { t.active = false; game.score += 50; }\n                                            game.createFloatingText(t.x, t.y, \"💀\", \"#4169e1\");\n                                        }\n                                    });\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    ctx.fillStyle = '#4169e1';\n                                    ctx.font = '50px Arial';\n                                    ctx.fillText('🦅', this.x - 25, this.y);\n                                }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    ctx.fillStyle = '#4169e1';\n                                    ctx.font = '50px Arial';\n                                    ctx.fillText('🦅', this.x - 25, this.y);\n                                }...\n```",
+    "context": "draw: function (ctx) {\n                                    ctx.fillStyle = '#4169e1';\n                                    ctx.font = '50px Arial';\n                                    ctx.fillText('🦅', this.x - 25, this.y);\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () {\n                                            this.x += 25;\n                                            if (this.x > game.width + 50) this.life = 0;\n                                            // Damage enemies\n                                            game.targets.forEach(t =>",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función update?",
+    "answer": "La función update está implementada así:\n```javascript\nupdate: function () {\n                                            this.x += 25;\n                                            if (this.x > game.width + 50) this.life = 0;\n                                            // Damage enemies\n                                            game.targets.forEach(t => {\n                                                if (t.active && Math.abs(t.x - this.x) < 40 && Ma...\n```",
+    "context": "update: function () {\n                                            this.x += 25;\n                                            if (this.x > game.width + 50) this.life = 0;\n                                            // Damage enemies\n                                            game.targets.forEach(t => {\n                                                if (t.active && Math.abs(t.x - this.x) < 40 && Math.abs(t.y - this.y) < 40) {\n                                                    t.hp -= 15;\n                                                    if (t.hp <= 0) { t.active = false; game.score += 40; }\n                                                }\n                                            });\n                                        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                            ctx.font = '50px Arial';\n                                            ctx.fillText(this.animal, this.x, this.y);\n                                        }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                            ctx.font = '50px Arial';\n                                            ctx.fillText(this.animal, this.x, this.y);\n                                        }...\n```",
+    "context": "draw: function (ctx) {\n                                            ctx.font = '50px Arial';\n                                            ctx.fillText(this.animal, this.x, this.y);\n                                        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.02; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                    const gradient = ctx.createRadialGradient(game.width / 2, 50, 0, game.width / 2, 50, game.height);\n                                    gradient.addColorStop(0, `rgba(255, 200, 0, ${this.life * 0.5})`);\n                                    gra",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                    const gradient = ctx.createRadialGradient(game.width / 2, 50, 0, game.width / 2, 50, game.height);\n                                    gradient.addColorStop(0, `rgba(255, 200, 0, ${this.life * 0.5})`);\n                                    gradient.addColorStop(0.5, `rgba(255, 100, 0, ${this.life * 0.3})`);\n                                  ...\n```",
+    "context": "draw: function (ctx) {\n                                    const gradient = ctx.createRadialGradient(game.width / 2, 50, 0, game.width / 2, 50, game.height);\n                                    gradient.addColorStop(0, `rgba(255, 200, 0, ${this.life * 0.5})`);\n                                    gradient.addColorStop(0.5, `rgba(255, 100, 0, ${this.life * 0.3})`);\n                                    gradient.addColorStop(1, 'rgba(255, 50, 0, 0)');\n                                    ctx.fillStyle = gradient;\n                                    ctx.fillRect(0, 0, game.width, game.height);\n                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.x += this.vx; this.y += this.vy; this.life -= 0.02; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                        ctx.globalAlpha = this.life; ctx.fillStyle = this.color;\n                        ctx.font = \"bold 20px Outfit\"; ctx.fillText(this.text, this.x, this.y);\n                        ctx.globalAlpha = 1.0;\n                    }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                        ctx.globalAlpha = this.life; ctx.fillStyle = this.color;\n                        ctx.font = \"bold 20px Outfit\"; ctx.fillText(this.text, this.x, this.y);\n                        ctx.globalAlpha = 1.0;\n                    }...\n```",
+    "context": "draw: function (ctx) {\n                        ctx.globalAlpha = this.life; ctx.fillStyle = this.color;\n                        ctx.font = \"bold 20px Outfit\"; ctx.fillText(this.text, this.x, this.y);\n                        ctx.globalAlpha = 1.0;\n                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.05; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                        ctx.strokeStyle = `rgba(0, 255, 100, ${this.life})`;\n                                        ctx.lineWidth = 4 * this.life;\n                                        ctx.shadowColor = '#00ff66';\n                                        ctx.",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                        ctx.strokeStyle = `rgba(0, 255, 100, ${this.life})`;\n                                        ctx.lineWidth = 4 * this.life;\n                                        ctx.shadowColor = '#00ff66';\n                                        ctx.shadowBlur = 20;\n                                        ctx.beginPath();\n                          ...\n```",
+    "context": "draw: function (ctx) {\n                                        ctx.strokeStyle = `rgba(0, 255, 100, ${this.life})`;\n                                        ctx.lineWidth = 4 * this.life;\n                                        ctx.shadowColor = '#00ff66';\n                                        ctx.shadowBlur = 20;\n                                        ctx.beginPath();\n                                        // Jagged lightning\n                                        ctx.moveTo(this.startX, this.startY);\n                                        const midX = (this.startX + this.endX) / 2 + (Math.random() - 0.5) * 40;\n                                        const midY = (this.startY + this.endY) / 2 + (Math.random() - 0.5) * 40;\n                                        ctx.lineTo(midX, midY);\n                                        ctx.lineTo(this.endX, this.endY);\n                                        ctx.stroke();\n                                        ctx.shadowBlur = 0;\n                                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.03; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                const gradient = ctx.createRadialGradient(\n                                    this.x, this.y, 0,\n                                    this.x, this.y, this.radius\n                                );\n                                if (this.killZon",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                const gradient = ctx.createRadialGradient(\n                                    this.x, this.y, 0,\n                                    this.x, this.y, this.radius\n                                );\n                                if (this.killZone) {\n                                    gradient.addColorStop(0, 'rgba(0, 255, 0, 0.4)');\n         ...\n```",
+    "context": "draw: function (ctx) {\n                                const gradient = ctx.createRadialGradient(\n                                    this.x, this.y, 0,\n                                    this.x, this.y, this.radius\n                                );\n                                if (this.killZone) {\n                                    gradient.addColorStop(0, 'rgba(0, 255, 0, 0.4)');\n                                    gradient.addColorStop(0.5, 'rgba(34, 139, 34, 0.3)');\n                                    gradient.addColorStop(1, 'rgba(0, 100, 0, 0.1)');\n                                } else {\n                                    gradient.addColorStop(0, 'rgba(0, 200, 100, 0.2)');\n                                    gradient.addColorStop(1, 'rgba(0, 100, 50, 0.05)');\n                                }\n                                ctx.fillStyle = gradient;\n                                ctx.beginPath();\n                                ctx.arc(this.x, this.y, this.radius * this.life * 2, 0, Math.PI * 2);\n                                ctx.fill();\n\n                                // Ring outline\n                                ctx.strokeStyle = `rgba(0, 255, 100, ${this.life})`;\n                                ctx.lineWidth = 3;\n                                ctx.beginPath();\n                                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                ctx.stroke();\n                            }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () {\n                                this.x += this.vx;\n                                this.y += this.vy;\n                                this.life -= 0.02;\n                            }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función update?",
+    "answer": "La función update está implementada así:\n```javascript\nupdate: function () {\n                                this.x += this.vx;\n                                this.y += this.vy;\n                                this.life -= 0.02;\n                            }...\n```",
+    "context": "update: function () {\n                                this.x += this.vx;\n                                this.y += this.vy;\n                                this.life -= 0.02;\n                            }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                ctx.fillStyle = `rgba(245, 222, 179, ${this.life})`;\n                                ctx.shadowColor = '#f5deb3';\n                                ctx.shadowBlur = 5;\n                                ctx.beginPath();\n                              ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                ctx.fillStyle = `rgba(245, 222, 179, ${this.life})`;\n                                ctx.shadowColor = '#f5deb3';\n                                ctx.shadowBlur = 5;\n                                ctx.beginPath();\n                                ctx.ellipse(this.x, this.y, 8, 4, Math.random() * Math.PI, 0, Math.PI * 2);\n                      ...\n```",
+    "context": "draw: function (ctx) {\n                                ctx.fillStyle = `rgba(245, 222, 179, ${this.life})`;\n                                ctx.shadowColor = '#f5deb3';\n                                ctx.shadowBlur = 5;\n                                ctx.beginPath();\n                                ctx.ellipse(this.x, this.y, 8, 4, Math.random() * Math.PI, 0, Math.PI * 2);\n                                ctx.fill();\n                                ctx.shadowBlur = 0;\n                            }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () {\n                                this.y += this.vy;\n                                if (this.y > game.height) this.life = 0;\n                            }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función update?",
+    "answer": "La función update está implementada así:\n```javascript\nupdate: function () {\n                                this.y += this.vy;\n                                if (this.y > game.height) this.life = 0;\n                            }...\n```",
+    "context": "update: function () {\n                                this.y += this.vy;\n                                if (this.y > game.height) this.life = 0;\n                            }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                const gradient = ctx.createLinearGradient(this.x, this.y - 15, this.x, this.y + 15);\n                                gradient.addColorStop(0, 'rgba(50, 205, 50, 0.2)');\n                                gradient.addColorStop(0.5, 'rgba(50, 205, 50",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                const gradient = ctx.createLinearGradient(this.x, this.y - 15, this.x, this.y + 15);\n                                gradient.addColorStop(0, 'rgba(50, 205, 50, 0.2)');\n                                gradient.addColorStop(0.5, 'rgba(50, 205, 50, 0.8)');\n                                gradient.addColorStop(1, 'rgba(50, 205, 50, 0.2)');\n      ...\n```",
+    "context": "draw: function (ctx) {\n                                const gradient = ctx.createLinearGradient(this.x, this.y - 15, this.x, this.y + 15);\n                                gradient.addColorStop(0, 'rgba(50, 205, 50, 0.2)');\n                                gradient.addColorStop(0.5, 'rgba(50, 205, 50, 0.8)');\n                                gradient.addColorStop(1, 'rgba(50, 205, 50, 0.2)');\n                                ctx.fillStyle = gradient;\n                                ctx.beginPath();\n                                ctx.ellipse(this.x, this.y, 4, 12, 0, 0, Math.PI * 2);\n                                ctx.fill();\n                            }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () {\n                                this.x += this.vx;\n                                this.y += this.vy;\n                                this.life -= 0.03;\n                                this.size *= 0.98;\n                            }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función update?",
+    "answer": "La función update está implementada así:\n```javascript\nupdate: function () {\n                                this.x += this.vx;\n                                this.y += this.vy;\n                                this.life -= 0.03;\n                                this.size *= 0.98;\n                            }...\n```",
+    "context": "update: function () {\n                                this.x += this.vx;\n                                this.y += this.vy;\n                                this.life -= 0.03;\n                                this.size *= 0.98;\n                            }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);\n                                gradient.addColorStop(0, `rgba(255, 200, 0, ${this.life})`);\n                                gradient.addColorStop(0.5, `rgb",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);\n                                gradient.addColorStop(0, `rgba(255, 200, 0, ${this.life})`);\n                                gradient.addColorStop(0.5, `rgba(255, 100, 0, ${this.life * 0.7})`);\n                                gradient.addColorStop(1, `rgba...\n```",
+    "context": "draw: function (ctx) {\n                                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);\n                                gradient.addColorStop(0, `rgba(255, 200, 0, ${this.life})`);\n                                gradient.addColorStop(0.5, `rgba(255, 100, 0, ${this.life * 0.7})`);\n                                gradient.addColorStop(1, `rgba(255, 0, 0, 0)`);\n                                ctx.fillStyle = gradient;\n                                ctx.beginPath();\n                                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);\n                                ctx.fill();\n                            }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.1; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                                ctx.strokeStyle = '#ffff00';\n                                                ctx.lineWidth = 3 * this.life;\n                                                ctx.globalAlpha = this.life;\n                                            ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                                ctx.strokeStyle = '#ffff00';\n                                                ctx.lineWidth = 3 * this.life;\n                                                ctx.globalAlpha = this.life;\n                                                ctx.beginPath();\n                                                ctx.moveTo(startX, startY);\n   ...\n```",
+    "context": "draw: function (ctx) {\n                                                ctx.strokeStyle = '#ffff00';\n                                                ctx.lineWidth = 3 * this.life;\n                                                ctx.globalAlpha = this.life;\n                                                ctx.beginPath();\n                                                ctx.moveTo(startX, startY);\n                                                ctx.lineTo(endX, endY);\n                                                ctx.stroke();\n                                                ctx.globalAlpha = 1.0;\n                                            }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.05; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                            ctx.strokeStyle = '#00ff9d';\n                                            ctx.lineWidth = 2;\n                                            ctx.globalAlpha = this.life;\n                                            ctx.beginPath();\n       ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                            ctx.strokeStyle = '#00ff9d';\n                                            ctx.lineWidth = 2;\n                                            ctx.globalAlpha = this.life;\n                                            ctx.beginPath();\n                                            ctx.arc(this.x, this.y, 30 * (1 - this.life), 0, Math.PI * 2);\n...\n```",
+    "context": "draw: function (ctx) {\n                                            ctx.strokeStyle = '#00ff9d';\n                                            ctx.lineWidth = 2;\n                                            ctx.globalAlpha = this.life;\n                                            ctx.beginPath();\n                                            ctx.arc(this.x, this.y, 30 * (1 - this.life), 0, Math.PI * 2);\n                                            ctx.stroke();\n                                            ctx.globalAlpha = 1.0;\n                                        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.1; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                                    ctx.strokeStyle = '#ff0000';\n                                                    ctx.lineWidth = 1;\n                                                    ctx.globalAlpha = this.life;\n                                            ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                                    ctx.strokeStyle = '#ff0000';\n                                                    ctx.lineWidth = 1;\n                                                    ctx.globalAlpha = this.life;\n                                                    ctx.beginPath();\n                                                    ctx.moveTo(other.x, oth...\n```",
+    "context": "draw: function (ctx) {\n                                                    ctx.strokeStyle = '#ff0000';\n                                                    ctx.lineWidth = 1;\n                                                    ctx.globalAlpha = this.life;\n                                                    ctx.beginPath();\n                                                    ctx.moveTo(other.x, other.y);\n                                                    ctx.lineTo(t.x, t.y);\n                                                    ctx.stroke();\n                                                    ctx.globalAlpha = 1.0;\n                                                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () {\n                                        this.life -= 0.03;\n                                        this.radius += 8;\n                                    }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función update?",
+    "answer": "La función update está implementada así:\n```javascript\nupdate: function () {\n                                        this.life -= 0.03;\n                                        this.radius += 8;\n                                    }...\n```",
+    "context": "update: function () {\n                                        this.life -= 0.03;\n                                        this.radius += 8;\n                                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#1e90ff';\n                                        ctx.lineWidth = 4 * this.life;\n                                        ctx.globalAlpha = this.life;\n                                        ctx.beginPath();\n           ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                        ctx.strokeStyle = '#1e90ff';\n                                        ctx.lineWidth = 4 * this.life;\n                                        ctx.globalAlpha = this.life;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                 ...\n```",
+    "context": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#1e90ff';\n                                        ctx.lineWidth = 4 * this.life;\n                                        ctx.globalAlpha = this.life;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                        ctx.stroke();\n                                        ctx.globalAlpha = 1.0;\n                                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () {\n                                        this.life -= 0.025;\n                                        this.radius += 6;\n                                    }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función update?",
+    "answer": "La función update está implementada así:\n```javascript\nupdate: function () {\n                                        this.life -= 0.025;\n                                        this.radius += 6;\n                                    }...\n```",
+    "context": "update: function () {\n                                        this.life -= 0.025;\n                                        this.radius += 6;\n                                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#00ffff';\n                                        ctx.lineWidth = 2 * this.life;\n                                        ctx.globalAlpha = this.life * 0.5;\n                                        ctx.beginPath();\n     ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                        ctx.strokeStyle = '#00ffff';\n                                        ctx.lineWidth = 2 * this.life;\n                                        ctx.globalAlpha = this.life * 0.5;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n           ...\n```",
+    "context": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#00ffff';\n                                        ctx.lineWidth = 2 * this.life;\n                                        ctx.globalAlpha = this.life * 0.5;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                        ctx.stroke();\n                                        ctx.globalAlpha = 1.0;\n                                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.04; this.radius += 10; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#4682b4';\n                                        ctx.lineWidth = 3 * this.life;\n                                        ctx.globalAlpha = this.life;\n                                        ctx.beginPath();\n           ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                        ctx.strokeStyle = '#4682b4';\n                                        ctx.lineWidth = 3 * this.life;\n                                        ctx.globalAlpha = this.life;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                 ...\n```",
+    "context": "draw: function (ctx) {\n                                        ctx.strokeStyle = '#4682b4';\n                                        ctx.lineWidth = 3 * this.life;\n                                        ctx.globalAlpha = this.life;\n                                        ctx.beginPath();\n                                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);\n                                        ctx.stroke();\n                                        ctx.globalAlpha = 1.0;\n                                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función update()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "update: function () { this.life -= 0.03; this.width += 15; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué hace la función draw()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "draw: function (ctx) {\n                                        ctx.fillStyle = '#00ced1';\n                                        ctx.globalAlpha = this.life * 0.3;\n                                        ctx.fillRect(this.x - this.width, this.y - 50, this.width * 2, 100);\n                          ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función draw?",
+    "answer": "La función draw está implementada así:\n```javascript\ndraw: function (ctx) {\n                                        ctx.fillStyle = '#00ced1';\n                                        ctx.globalAlpha = this.life * 0.3;\n                                        ctx.fillRect(this.x - this.width, this.y - 50, this.width * 2, 100);\n                                        ctx.globalAlpha = 1.0;\n                                    }...\n```",
+    "context": "draw: function (ctx) {\n                                        ctx.fillStyle = '#00ced1';\n                                        ctx.globalAlpha = this.life * 0.3;\n                                        ctx.fillRect(this.x - this.width, this.y - 50, this.width * 2, 100);\n                                        ctx.globalAlpha = 1.0;\n                                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función type()?",
+    "answer": "Función type",
+    "context": "type = () => {\n                    if (i < step.text.length) {\n                        textEl.innerHTML += step.text.charAt(i);\n                        i++;\n                        setTimeout(type, 30);\n                    }\n                }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función type?",
+    "answer": "La función type está implementada así:\n```javascript\ntype = () => {\n                    if (i < step.text.length) {\n                        textEl.innerHTML += step.text.charAt(i);\n                        i++;\n                        setTimeout(type, 30);\n                    }\n                }...\n```",
+    "context": "type = () => {\n                    if (i < step.text.length) {\n                        textEl.innerHTML += step.text.charAt(i);\n                        i++;\n                        setTimeout(type, 30);\n                    }\n                }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función onmouseover()?",
+    "answer": "Callback de evento",
+    "context": "onmouseover = () => { card.style.borderColor = set.color; card.style.transform = 'translateY(-3px)'; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función onmouseover?",
+    "answer": "La función onmouseover está implementada así:\n```javascript\nonmouseover = () => { card.style.borderColor = set.color; card.style.transform = 'translateY(-3px)'; }...\n```",
+    "context": "onmouseover = () => { card.style.borderColor = set.color; card.style.transform = 'translateY(-3px)'; }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función onmouseout()?",
+    "answer": "Callback de evento",
+    "context": "onmouseout = () => { card.style.borderColor = isComplete ? rarityInfo.color : set.color + '40'; card.style.transform = 'translateY(0)'; }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función onmouseout?",
+    "answer": "La función onmouseout está implementada así:\n```javascript\nonmouseout = () => { card.style.borderColor = isComplete ? rarityInfo.color : set.color + '40'; card.style.transform = 'translateY(0)'; }...\n```",
+    "context": "onmouseout = () => { card.style.borderColor = isComplete ? rarityInfo.color : set.color + '40'; card.style.transform = 'translateY(0)'; }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función onclick()?",
+    "answer": "Callback de evento",
+    "context": "onclick = () => this.startGameWithAmmoSet(key);\n                        }\n\n                        card.innerHTML = `\n                            <div style=\"display:flex;align-items:center;gap:1rem;margin-bottom:0.8rem;\">\n                                <div style=\"\n                                ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función onclick?",
+    "answer": "La función onclick está implementada así:\n```javascript\nonclick = () => this.startGameWithAmmoSet(key);\n                        }\n\n                        card.innerHTML = `\n                            <div style=\"display:flex;align-items:center;gap:1rem;margin-bottom:0.8rem;\">\n                                <div style=\"\n                                    width:50px;height:50px;\n                                    background:linear-gradient(135deg,${...\n```",
+    "context": "onclick = () => this.startGameWithAmmoSet(key);\n                        }\n\n                        card.innerHTML = `\n                            <div style=\"display:flex;align-items:center;gap:1rem;margin-bottom:0.8rem;\">\n                                <div style=\"\n                                    width:50px;height:50px;\n                                    background:linear-gradient(135deg,${set.color}",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función onmouseover()?",
+    "answer": "Callback de evento",
+    "context": "onmouseover = () => {\n                            card.style.transform = 'translateY(-8px) scale(1.02)';\n                            card.style.boxShadow = `0 10px 40px ${rarity.glow}, 0 0 30px ${rarity.glow}`;\n                        }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función onmouseover?",
+    "answer": "La función onmouseover está implementada así:\n```javascript\nonmouseover = () => {\n                            card.style.transform = 'translateY(-8px) scale(1.02)';\n                            card.style.boxShadow = `0 10px 40px ${rarity.glow}, 0 0 30px ${rarity.glow}`;\n                        }...\n```",
+    "context": "onmouseover = () => {\n                            card.style.transform = 'translateY(-8px) scale(1.02)';\n                            card.style.boxShadow = `0 10px 40px ${rarity.glow}, 0 0 30px ${rarity.glow}`;\n                        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función onmouseout()?",
+    "answer": "Callback de evento",
+    "context": "onmouseout = () => {\n                            card.style.transform = 'translateY(0) scale(1)';\n                            card.style.boxShadow = `0 0 15px ${rarity.glow}, inset 0 0 20px ${rarity.glow}`;\n                        }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función onmouseout?",
+    "answer": "La función onmouseout está implementada así:\n```javascript\nonmouseout = () => {\n                            card.style.transform = 'translateY(0) scale(1)';\n                            card.style.boxShadow = `0 0 15px ${rarity.glow}, inset 0 0 20px ${rarity.glow}`;\n                        }...\n```",
+    "context": "onmouseout = () => {\n                            card.style.transform = 'translateY(0) scale(1)';\n                            card.style.boxShadow = `0 0 15px ${rarity.glow}, inset 0 0 20px ${rarity.glow}`;\n                        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función onclick()?",
+    "answer": "Callback de evento",
+    "context": "onclick = () => this.buyWeapon(w);\n                    }\n\n                    grid.appendChild(card);\n\n                    // Draw weapon model\n                    requestAnimationFrame(() => {\n                        const canvas = document.getElementById(canvasId);\n                        if (canv",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función onclick?",
+    "answer": "La función onclick está implementada así:\n```javascript\nonclick = () => this.buyWeapon(w);\n                    }\n\n                    grid.appendChild(card);\n\n                    // Draw weapon model\n                    requestAnimationFrame(() => {\n                        const canvas = document.getElementById(canvasId);\n                        if (canvas) WeaponRenderer.drawWeapon(canvas, w.id, 1.2);\n                    }...\n```",
+    "context": "onclick = () => this.buyWeapon(w);\n                    }\n\n                    grid.appendChild(card);\n\n                    // Draw weapon model\n                    requestAnimationFrame(() => {\n                        const canvas = document.getElementById(canvasId);\n                        if (canvas) WeaponRenderer.drawWeapon(canvas, w.id, 1.2);\n                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función onclick()?",
+    "answer": "Callback de evento",
+    "context": "onclick = () => {\n                        game.currentWeapon = w;\n                        game.fuel = game.maxFuel; // Reset fuel when switching weapons\n                        this.updateFuelBar(); // Show/hide fuel bar based on weapon type\n                        this.renderInventory();\n          ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función onclick?",
+    "answer": "La función onclick está implementada así:\n```javascript\nonclick = () => {\n                        game.currentWeapon = w;\n                        game.fuel = game.maxFuel; // Reset fuel when switching weapons\n                        this.updateFuelBar(); // Show/hide fuel bar based on weapon type\n                        this.renderInventory();\n                        sfx.ui();\n                    }...\n```",
+    "context": "onclick = () => {\n                        game.currentWeapon = w;\n                        game.fuel = game.maxFuel; // Reset fuel when switching weapons\n                        this.updateFuelBar(); // Show/hide fuel bar based on weapon type\n                        this.renderInventory();\n                        sfx.ui();\n                    }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función createMenuParticles()?",
+    "answer": "Crea una nueva instancia",
+    "context": "function createMenuParticles() {\n            const container = document.getElementById('menu-particles');\n            if (!container) return;\n\n            // Clear existing particles\n            container.innerHTML = '';\n\n            // Create multiple particles\n            for (let i = 0; i < 20; i",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función createMenuParticles?",
+    "answer": "La función createMenuParticles está implementada así:\n```javascript\nfunction createMenuParticles() {\n            const container = document.getElementById('menu-particles');\n            if (!container) return;\n\n            // Clear existing particles\n            container.innerHTML = '';\n\n            // Create multiple particles\n            for (let i = 0; i < 20; i++) {\n                const particle = document.createElement('div');\n                particle.class...\n```",
+    "context": "function createMenuParticles() {\n            const container = document.getElementById('menu-particles');\n            if (!container) return;\n\n            // Clear existing particles\n            container.innerHTML = '';\n\n            // Create multiple particles\n            for (let i = 0; i < 20; i++) {\n                const particle = document.createElement('div');\n                particle.className = 'particle';\n                particle.style.left = `${Math.random() * 100}%`;\n                particle.style.animationDelay = `${Math.random() * 15}s`;\n                particle.style.animationDuration = `${10 + Math.random() * 10}s`;\n\n                // Random colors\n                const colors = ['#00f3ff', '#bc13fe', '#ff2a6d', '#00ff9d', '#ffeb3b'];\n                particle.style.background = colors[Math.floor(Math.random() * colors.length)];\n                particle.style.boxShadow = `0 0 10px ${particle.style.background}, 0 0 20px ${particle.style.background}`;\n\n                container.appendChild(particle);\n            }\n        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función updateMenuStats()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "function updateMenuStats() {\n            const highScoreEl = document.getElementById('menu-highscore');\n            const creditsEl = document.getElementById('menu-credits');\n            const weaponsEl = document.getElementById('menu-weapons');\n\n            if (highScoreEl) {\n                highSc",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función updateMenuStats?",
+    "answer": "La función updateMenuStats está implementada así:\n```javascript\nfunction updateMenuStats() {\n            const highScoreEl = document.getElementById('menu-highscore');\n            const creditsEl = document.getElementById('menu-credits');\n            const weaponsEl = document.getElementById('menu-weapons');\n\n            if (highScoreEl) {\n                highScoreEl.textContent = game.highScore ? game.highScore.toLocaleString() : '0';\n            }\n          ...\n```",
+    "context": "function updateMenuStats() {\n            const highScoreEl = document.getElementById('menu-highscore');\n            const creditsEl = document.getElementById('menu-credits');\n            const weaponsEl = document.getElementById('menu-weapons');\n\n            if (highScoreEl) {\n                highScoreEl.textContent = game.highScore ? game.highScore.toLocaleString() : '0';\n            }\n            if (creditsEl) {\n                creditsEl.textContent = game.money ? game.money.toLocaleString() : '0';\n            }\n            if (weaponsEl) {\n                const ownedWeapons = WEAPONS_DB.filter(w => w.owned).length;\n                weaponsEl.textContent = ownedWeapons;\n            }\n        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función showMenu()?",
+    "answer": "Muestra un elemento de la UI",
+    "context": "showMenu = function () {\n            originalShowMenu();\n            updateMenuStats();\n            createMenuParticles();\n            updateEventBanner();\n        }",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función showMenu?",
+    "answer": "La función showMenu está implementada así:\n```javascript\nshowMenu = function () {\n            originalShowMenu();\n            updateMenuStats();\n            createMenuParticles();\n            updateEventBanner();\n        }...\n```",
+    "context": "showMenu = function () {\n            originalShowMenu();\n            updateMenuStats();\n            createMenuParticles();\n            updateEventBanner();\n        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función updateEventBanner()?",
+    "answer": "Actualiza el estado del juego cada frame",
+    "context": "function updateEventBanner() {\n            // The old Christmas-specific banner elements were removed.\n            // Now we just update the active event mini-banner if it exists\n            const activeBanner = document.getElementById('active-event-mini');\n            if (!activeBanner) return;\n\n  ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función updateEventBanner?",
+    "answer": "La función updateEventBanner está implementada así:\n```javascript\nfunction updateEventBanner() {\n            // The old Christmas-specific banner elements were removed.\n            // Now we just update the active event mini-banner if it exists\n            const activeBanner = document.getElementById('active-event-mini');\n            if (!activeBanner) return;\n\n            // Jurassic event dates\n            const now = new Date();\n            const jurStart = n...\n```",
+    "context": "function updateEventBanner() {\n            // The old Christmas-specific banner elements were removed.\n            // Now we just update the active event mini-banner if it exists\n            const activeBanner = document.getElementById('active-event-mini');\n            if (!activeBanner) return;\n\n            // Jurassic event dates\n            const now = new Date();\n            const jurStart = new Date('2025-12-14T00:00:00');\n            const jurEnd = new Date('2025-12-24T23:59:59');\n\n            // Determine current event status\n            let eventActive = false;\n            let eventName = '';\n            let eventIcon = '';\n\n            if (now >= jurStart && now <= jurEnd) {\n                eventActive = true;\n                eventName = 'Episodio 1 - Jurásico';\n                eventIcon = '🦖';\n            }\n\n            // Update mini banner visibility and content dynamically\n            if (eventActive) {\n                activeBanner.style.display = 'block';\n            }\n        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué hace la función drawEventWeaponPreviews()?",
+    "answer": "Dibuja elementos en el canvas",
+    "context": "function drawEventWeaponPreviews() {\n            // Legacy function - kept for compatibility but now optional\n            // Frost Cannon\n            const canvas1 = document.getElementById('event-weapon-1');\n            if (canvas1) {\n                const ctx1 = canvas1.getContext('2d');\n         ",
+    "category": "functions",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Cómo está implementada la función drawEventWeaponPreviews?",
+    "answer": "La función drawEventWeaponPreviews está implementada así:\n```javascript\nfunction drawEventWeaponPreviews() {\n            // Legacy function - kept for compatibility but now optional\n            // Frost Cannon\n            const canvas1 = document.getElementById('event-weapon-1');\n            if (canvas1) {\n                const ctx1 = canvas1.getContext('2d');\n                ctx1.clearRect(0, 0, 55, 40);\n                ctx1.save();\n                ctx1.translate(30,...\n```",
+    "context": "function drawEventWeaponPreviews() {\n            // Legacy function - kept for compatibility but now optional\n            // Frost Cannon\n            const canvas1 = document.getElementById('event-weapon-1');\n            if (canvas1) {\n                const ctx1 = canvas1.getContext('2d');\n                ctx1.clearRect(0, 0, 55, 40);\n                ctx1.save();\n                ctx1.translate(30, 20);\n                ctx1.scale(0.5, 0.5);\n                WeaponRenderer.drawFrostCannon(ctx1, '#88ddff');\n                ctx1.restore();\n            }\n\n            // Candy Blaster\n            const canvas2 = document.getElementById('event-weapon-2');\n            if (canvas2) {\n                const ctx2 = canvas2.getContext('2d');\n                ctx2.clearRect(0, 0, 55, 40);\n                ctx2.save();\n                ctx2.translate(28, 20);\n                ctx2.scale(0.5, 0.5);\n                WeaponRenderer.drawCandyBlaster(ctx2, '#ff4488');\n                ctx2.restore();\n            }\n\n            // Star Launcher\n            const canvas3 = document.getElementById('event-weapon-3');\n            if (canvas3) {\n                const ctx3 = canvas3.getContext('2d');\n                ctx3.clearRect(0, 0, 55, 40);\n                ctx3.save();\n                ctx3.translate(30, 20);\n                ctx3.scale(0.5, 0.5);\n                WeaponRenderer.drawStarLauncher(ctx3, '#ffcc00');\n                ctx3.restore();\n            }\n        }",
+    "category": "implementation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué es la clase Particle?",
+    "answer": "La clase Particle es una clase de JavaScript. Se utiliza en el juego WildWeapon Mayhem.",
+    "context": "class Particle {\n            constructor(x, y, color, speed, size, type = 'normal') {\n                this.x = x; this.y = y; this.color = color;\n                this.size = size || Math.random() * 3 + 1;\n                this.type = type;\n\n                const angle = Math.random() * Math.PI * 2;\n                let velocity = Math.random() * speed;\n\n                if (type === 'spark') velocity",
+    "category": "classes",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué métodos tiene la clase Particle?",
+    "answer": "La clase Particle tiene los siguientes métodos: constructor, if, update, if, if, draw, if",
+    "context": "class Particle {\n            constructor(x, y, color, speed, size, type = 'normal') {\n                this.x = x; this.y = y; this.color = color;\n                this.size = size || Math.random() * 3 + 1;\n                this.type = type;\n\n                const angle = Math.random() * Math.PI * 2;\n                let velocity = Math.random() * speed;\n\n                if (type === 'spark') velocity *= 1.5;\n                if (type === 'smoke') velocity *= 0.5;\n\n                this.vx = Math.cos(",
+    "category": "classes",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué es la clase Projectile?",
+    "answer": "La clase Projectile es una clase de JavaScript. Se utiliza en el juego WildWeapon Mayhem.",
+    "context": "class Projectile {\n            constructor(x, y, angle, speed, color, size, isWeaponThrow = false, type = 'energy', bouncesLeft = 0) {\n                this.x = x; this.y = y;\n                this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;\n                this.color = color; this.size = size;\n                this.active = true; this.isWeaponThrow = isWeaponThrow;\n             ",
+    "category": "classes",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué métodos tiene la clase Projectile?",
+    "answer": "La clase Projectile tiene los siguientes métodos: constructor, if, if, update, if, if, if, if, if, if",
+    "context": "class Projectile {\n            constructor(x, y, angle, speed, color, size, isWeaponThrow = false, type = 'energy', bouncesLeft = 0) {\n                this.x = x; this.y = y;\n                this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;\n                this.color = color; this.size = size;\n                this.active = true; this.isWeaponThrow = isWeaponThrow;\n                this.rotation = 0; this.rotSpeed = isWeaponThrow ? 0.2 : 0;\n                this.history = []; th",
+    "category": "classes",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué es la clase Target?",
+    "answer": "La clase Target es una clase de JavaScript. Se utiliza en el juego WildWeapon Mayhem.",
+    "context": "class Target {\n            constructor(type = 'normal') {\n                this.reset(type);\n            }\n            reset(type) {\n                const mode = game.difficulty || MODES.MEDIUM;\n                const minX = 250;\n                const maxX = Math.min(CONSTANTS.CANVAS_WIDTH - 100, 1200);\n                this.x = Math.random() * (maxX - minX) + minX;\n                this.y = CONSTANTS",
+    "category": "classes",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué métodos tiene la clase Target?",
+    "answer": "La clase Target tiene los siguientes métodos: constructor, reset, switch, update, if, if, if, if, if, if",
+    "context": "class Target {\n            constructor(type = 'normal') {\n                this.reset(type);\n            }\n            reset(type) {\n                const mode = game.difficulty || MODES.MEDIUM;\n                const minX = 250;\n                const maxX = Math.min(CONSTANTS.CANVAS_WIDTH - 100, 1200);\n                this.x = Math.random() * (maxX - minX) + minX;\n                this.y = CONSTANTS.CANVAS_HEIGHT + 50;\n                this.radius = (Math.random() * 20 + 15) * mode.sizeMult;\n      ",
+    "category": "classes",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué es la clase Boss?",
+    "answer": "La clase Boss es una clase de JavaScript. Se utiliza en el juego WildWeapon Mayhem.",
+    "context": "class Boss {\n            constructor() {\n                this.active = false;\n                this.x = CONSTANTS.CANVAS_WIDTH / 2;\n                this.y = -200;\n                this.targetY = 150;\n                this.hp = 100;\n                this.maxHp = 100;\n                this.color = '#ff0000';\n                this.radius = 60;\n                this.state = 'ENTERING'; // ENTERING, IDLE, ATT",
+    "category": "classes",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué métodos tiene la clase Boss?",
+    "answer": "La clase Boss tiene los siguientes métodos: constructor, spawn, spawnJurassic, update, if, if, attack, for, draw, drawTRex",
+    "context": "class Boss {\n            constructor() {\n                this.active = false;\n                this.x = CONSTANTS.CANVAS_WIDTH / 2;\n                this.y = -200;\n                this.targetY = 150;\n                this.hp = 100;\n                this.maxHp = 100;\n                this.color = '#ff0000';\n                this.radius = 60;\n                this.state = 'ENTERING'; // ENTERING, IDLE, ATTACK\n                this.timer = 0;\n                this.vx = 2;\n            }\n            spawn(dif",
+    "category": "classes",
+    "difficulty": "medium"
+  },
+  {
+    "question": "¿Qué es la clase Powerup?",
+    "answer": "La clase Powerup es una clase de JavaScript. Se utiliza en el juego WildWeapon Mayhem.",
+    "context": "class Powerup {\n            constructor() {\n                this.x = Math.random() * (CONSTANTS.CANVAS_WIDTH - 400) + 300;\n                this.y = -50;\n                this.vy = Math.random() * 2 + 1;\n                this.type = ['rapidFire', 'multiShot', 'shield'][Math.floor(Math.random() * 3)];\n                this.active = true;\n                this.size = 20;\n                this.color = this",
+    "category": "classes",
+    "difficulty": "easy"
+  },
+  {
+    "question": "¿Qué métodos tiene la clase Powerup?",
+    "answer": "La clase Powerup tiene los siguientes métodos: constructor, update, draw",
+    "context": "class Powerup {\n            constructor() {\n                this.x = Math.random() * (CONSTANTS.CANVAS_WIDTH - 400) + 300;\n                this.y = -50;\n                this.vy = Math.random() * 2 + 1;\n                this.type = ['rapidFire', 'multiShot', 'shield'][Math.floor(Math.random() * 3)];\n                this.active = true;\n                this.size = 20;\n                this.color = this.type === 'rapidFire' ? '#ffeb3b' : (this.type === 'multiShot' ? '#00f3ff' : '#ff00ff');\n           ",
+    "category": "classes",
+    "difficulty": "medium"
+  }
+]

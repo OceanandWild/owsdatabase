@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Floret Shop</string>
+    <string name="title_activity_main">Floret Shop</string>
+    <string name="package_name">com.ows.floretshop</string>
+    <string name="custom_url_scheme">com.ows.floretshop</string>
+</resources>

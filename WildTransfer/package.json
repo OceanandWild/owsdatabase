@@ -1,0 +1,57 @@
+{
+  "name": "wildtransfer",
+  "version": "2026.4.3-t0541",
+  "description": "WildTransfer desktop app",
+  "main": "main.js",
+  "author": "Ocean and Wild Studios",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win nsis",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "build": {
+    "appId": "com.oceanandwild.wildtransfer",
+    "productName": "WildTransfer",
+    "artifactName": "WildTransfer.Setup.${version}.${ext}",
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WildTransfer",
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/core": "^8.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.1.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  }
+}

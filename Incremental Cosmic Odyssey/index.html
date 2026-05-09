@@ -1,0 +1,4857 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incremental Cosmic Odyssey: Simulation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00f2ff;
+            --primary-glow: rgba(0, 242, 255, 0.5);
+            --secondary: #7000ff;
+            --secondary-glow: rgba(112, 0, 255, 0.5);
+            --accent: #ff0055;
+            --gold: #ffd700;
+            --bg-dark: #020205;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #e0e0f0;
+            --text-muted: #808090;
+            --success: #00ff88;
+            --ocean-blue: #00aaff;
+            --deep-space: #050510;
+            --sidebar-width: 380px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+        }
+
+        /* --- Background & Effects --- */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+            opacity: 0;
+        }
+
+        @keyframes twinkle {
+            0% {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+
+            50% {
+                opacity: var(--opacity);
+                transform: scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+        }
+
+        /* --- Layout --- */
+        #game-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            position: relative;
+        }
+
+        /* --- Sidebar: AI & Stats --- */
+        #sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(to bottom, rgba(5, 5, 10, 0.95), rgba(10, 10, 20, 0.98));
+            backdrop-filter: blur(25px);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            box-shadow: 20px 0 50px rgba(0, 0, 0, 0.8);
+        }
+
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            margin-top: 1rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #era-progress {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(to right, var(--secondary), var(--primary));
+            box-shadow: 0 0 10px var(--primary-glow);
+            transition: width 0.5s ease-out;
+        }
+
+        .currency-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        #cosmic-energy {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, var(--primary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        .per-second {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* AI Interface */
+        #ai-interface {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.35);
+            gap: 0.9rem;
+        }
+
+        .ai-core-panel {
+            border: 1px solid rgba(0, 242, 255, 0.28);
+            border-radius: 14px;
+            padding: 0.8rem;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(0, 242, 255, 0.08), transparent 50%),
+                linear-gradient(135deg, rgba(8, 16, 38, 0.95), rgba(2, 9, 23, 0.95));
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.35), 0 0 18px rgba(0, 242, 255, 0.1);
+        }
+
+        .ai-core-head {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .ai-avatar-mini {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 14px var(--primary), inset 0 0 12px rgba(0, 242, 255, 0.2);
+            position: relative;
+        }
+
+        .ai-avatar-mini::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 242, 255, 0.24);
+            animation: ai-pulse-ring 2.4s linear infinite;
+        }
+
+        .ai-eye-mini {
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: ai-blink 4s infinite;
+        }
+
+        .ai-core-title {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--primary);
+            font-size: 0.8rem;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+        }
+
+        .ai-core-sub {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            margin-top: 0.15rem;
+        }
+
+        .ai-core-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem;
+        }
+
+        .ai-stat-chip {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.34rem 0.44rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            gap: 0.4rem;
+        }
+
+        .ai-stat-chip b {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        @keyframes ai-pulse-ring {
+            0% {
+                transform: scale(0.92);
+                opacity: 0.9;
+            }
+
+            100% {
+                transform: scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        #ai-log {
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--primary);
+            text-shadow: 0 0 5px rgba(0, 242, 255, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            padding-right: 5px;
+        }
+
+        .ai-msg {
+            background: rgba(0, 242, 255, 0.05);
+            padding: 0.8rem;
+            border-left: 2px solid var(--primary);
+            border-radius: 0 8px 8px 0;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .ai-msg.system {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(255, 0, 85, 0.05);
+        }
+
+        .ai-msg.success {
+            border-color: var(--success);
+            color: var(--success);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Mission Tracker */
+        #mission-tracker {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .mission-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 0.8rem;
+        }
+
+        .mission-item {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .checkbox {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--text-muted);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mission-item.completed .checkbox {
+            border-color: var(--success);
+            background: var(--success);
+        }
+
+        .mission-item.completed span {
+            color: var(--success);
+            opacity: 0.8;
+            text-decoration: line-through;
+        }
+
+        /* Scanline Overlay for Tree */
+        #tree-area::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.01), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.01));
+            background-size: 100% 4px, 4px 100%;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.2;
+        }
+
+        /* Prestige Button */
+        #prestige-btn {
+            margin: 1.5rem;
+            padding: 1.2rem;
+            background: linear-gradient(135deg, var(--gold), #ff8c00);
+            border: none;
+            border-radius: 12px;
+            color: #000;
+            font-weight: 800;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            animation: pulse-gold 2s infinite;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        #prestige-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.6);
+        }
+
+        .prestige-icon {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #000;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes pulse-gold {
+            0% {
+                box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(255, 215, 0, 0.6);
+            }
+
+            100% {
+                box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+            }
+        }
+
+        /* --- Tree Area --- */
+        #tree-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+            background:
+                radial-gradient(ellipse at 20% 80%, rgba(138, 43, 226, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 242, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at center, #0a0a1e 0%, #050510 100%);
+            z-index: 5;
+        }
+
+        #tree-area:active {
+            cursor: grabbing;
+        }
+
+        #tree-content {
+            position: absolute;
+            top: 0%;
+            left: 0%;
+            width: 8000px;
+            height: 8000px;
+            /* Space Background (Default) - Nebula Effect */
+            background-color: #050510;
+            background-image:
+                radial-gradient(circle at 50% 50%, rgba(76, 29, 149, 0.2) 0%, transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(255, 0, 128, 0.1) 0%, transparent 30%),
+                radial-gradient(circle at 80% 20%, rgba(0, 242, 255, 0.1) 0%, transparent 30%),
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 100% 100%, 100px 100px, 100px 100px;
+        }
+
+        /* Nodes */
+        .node {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            opacity: 0.3;
+            pointer-events: none;
+            transform: scale(0.8);
+            filter: grayscale(1);
+        }
+
+        .node.visible {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(1);
+            transform: scale(0.9);
+        }
+
+        .node.unlocked {
+            opacity: 1;
+            pointer-events: auto;
+            filter: grayscale(0);
+            transform: scale(1);
+        }
+
+        .node.purchased {
+            transform: scale(1.05);
+        }
+
+        .node:hover {
+            transform: scale(1.15) !important;
+            z-index: 10;
+        }
+
+        .node-icon-wrapper {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #1a1a2e, #050510);
+            border: 2px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Holographic Ring */
+        .node::before {
+            content: '';
+            position: absolute;
+            inset: -15px;
+            border: 1px solid rgba(0, 242, 255, 0.1);
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+
+        .node.unlocked::before {
+            opacity: 1;
+            border-color: rgba(0, 242, 255, 0.15);
+            animation: pulse-ring 4s linear infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(1);
+                opacity: 0.1;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 0.3;
+            }
+
+            100% {
+                transform: scale(1.2);
+                opacity: 0.1;
+            }
+        }
+
+        .node.unlocked .node-icon-wrapper {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.4), inset 0 0 10px rgba(0, 242, 255, 0.1);
+            animation: nodeGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes nodeGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(0, 242, 255, 0.4), inset 0 0 10px rgba(0, 242, 255, 0.1);
+            }
+
+            50% {
+                box-shadow: 0 0 30px rgba(0, 242, 255, 0.6), inset 0 0 15px rgba(0, 242, 255, 0.2);
+            }
+        }
+
+        .node.purchased .node-icon-wrapper {
+            border-color: var(--gold);
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 215, 0, 0.3);
+            animation: purchasedGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes purchasedGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 25px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 215, 0, 0.3);
+                transform: scale(1);
+            }
+
+            50% {
+                box-shadow: 0 0 35px rgba(255, 215, 0, 0.8), 0 0 50px rgba(255, 215, 0, 0.5);
+                transform: scale(1.02);
+            }
+        }
+
+        .node-label {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-align: center;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px #000;
+            max-width: 140px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            opacity: 0.8;
+            transition: all 0.3s;
+        }
+
+        .node:hover .node-label {
+            opacity: 1;
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+            transform: translateY(2px);
+        }
+
+        .node.purchased .node-label {
+            color: var(--gold);
+            text-shadow: 0 2px 8px #000, 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+
+        /* CSS Icons */
+        .css-icon {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Sun - Ultra Enhanced */
+        .icon-sun::before {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            background: radial-gradient(circle, #fff 0%, #ffd700 30%, #ff8c00 60%, #ff4500 100%);
+            border-radius: 50%;
+            box-shadow:
+                0 0 40px #ff8c00,
+                0 0 80px rgba(255, 69, 0, 0.4),
+                inset 0 0 20px rgba(255, 255, 255, 0.8);
+            animation: sun-pulse 3s infinite alternate;
+            z-index: 2;
+        }
+
+        .icon-sun::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            background: repeating-conic-gradient(from 0deg,
+                    transparent 0deg,
+                    rgba(255, 215, 0, 0.2) 10deg,
+                    transparent 20deg);
+            animation: sun-rotate 20s linear infinite;
+            filter: blur(2px);
+        }
+
+        @keyframes sun-pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 40px #ff8c00, 0 0 80px rgba(255, 69, 0, 0.4);
+            }
+
+            100% {
+                transform: scale(1.08);
+                box-shadow: 0 0 60px #ff4500, 0 0 120px rgba(255, 69, 0, 0.6);
+            }
+        }
+
+        /* Planet (Rocky/Scorched) - Enhanced */
+        .icon-planet::before {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #8b0000);
+            border-radius: 50%;
+            box-shadow:
+                inset -8px -8px 20px rgba(0, 0, 0, 0.9),
+                0 0 15px rgba(255, 107, 107, 0.3);
+            overflow: hidden;
+        }
+
+        .icon-planet::after {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.4) 10%, transparent 40%),
+                repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0, 0, 0, 0.1) 4px, rgba(0, 0, 0, 0.1) 8px);
+            opacity: 0.8;
+            mix-blend-mode: overlay;
+        }
+
+        /* Planet (Gas Giant) - Enhanced */
+        .icon-planet-gas::before {
+            content: '';
+            position: absolute;
+            inset: 6px;
+            background: linear-gradient(135deg, #e0c3fc, #8ec5fc, #c2e9fb);
+            border-radius: 50%;
+            box-shadow:
+                inset -10px -10px 20px rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(142, 197, 252, 0.3);
+        }
+
+        .icon-planet-gas::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border: 4px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            transform: rotateX(75deg);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+            animation: ring-float 3s ease-in-out infinite;
+        }
+
+        @keyframes ring-float {
+
+            0%,
+            100% {
+                transform: rotateX(75deg) translateY(0);
+            }
+
+            50% {
+                transform: rotateX(75deg) translateY(-2px);
+            }
+        }
+
+        /* Planet (Ice Giant) - New */
+        .icon-planet-ice::before {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+            border-radius: 50%;
+            box-shadow: inset -5px -5px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .icon-planet-ice::after {
+            content: '';
+            position: absolute;
+            inset: 0px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            transform: scale(1.1);
+        }
+
+        /* Moon - New */
+        .icon-moon::before {
+            content: '';
+            position: absolute;
+            inset: 12px;
+            background: radial-gradient(circle at 30% 30%, #d3d3d3, #808080);
+            border-radius: 50%;
+            box-shadow: inset -2px -2px 8px rgba(0, 0, 0, 0.8);
+        }
+
+        .icon-moon::after {
+            content: '';
+            position: absolute;
+            inset: 12px;
+            border-radius: 50%;
+            background-image: radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+            background-size: 5px 5px;
+            opacity: 0.6;
+        }
+
+        /* Tech/Upgrade */
+        .icon-tech::before {
+            content: '';
+            position: absolute;
+            inset: 15px;
+            border: 2px solid var(--primary);
+            transform: rotate(45deg);
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .icon-tech::after {
+            content: '';
+            position: absolute;
+            inset: 22px;
+            background: var(--primary);
+            opacity: 0.8;
+            animation: tech-blink 2s infinite;
+        }
+
+        @keyframes tech-blink {
+
+            0%,
+            100% {
+                opacity: 0.8;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        /* Connections */
+        svg.connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            filter: drop-shadow(0 0 5px var(--primary-glow));
+        }
+
+        line {
+            stroke: var(--glass-border);
+            stroke-width: 3;
+            transition: all 0.5s;
+            opacity: 0;
+            stroke-dasharray: 10, 5;
+            animation: dashFlow 30s linear infinite;
+        }
+
+        @keyframes dashFlow {
+            to {
+                stroke-dashoffset: -1000;
+            }
+        }
+
+        line.visible {
+            opacity: 0.2;
+            stroke: rgba(100, 100, 150, 0.3);
+        }
+
+        line.active {
+            stroke: var(--primary);
+            opacity: 0.8;
+            stroke-width: 4;
+            stroke-dasharray: 15, 5;
+            filter: drop-shadow(0 0 10px var(--primary));
+            animation: dashFlow 15s linear infinite;
+        }
+
+        /* Minimap */
+        #minimap-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid var(--glass-border);
+            border-radius: 12px;
+            backdrop-filter: blur(15px);
+            z-index: 150;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .minimap-header {
+            padding: 8px;
+            font-size: 0.65rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--glass-border);
+            text-align: center;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        #minimap-content {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #0a0a20 0%, #000 100%);
+        }
+
+        .minimap-node {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.3;
+        }
+
+        .minimap-node.unlocked {
+            background: var(--primary);
+            opacity: 0.8;
+            box-shadow: 0 0 5px var(--primary);
+        }
+
+        .minimap-node.purchased {
+            background: var(--gold);
+            opacity: 1;
+            box-shadow: 0 0 8px var(--gold);
+        }
+
+        #minimap-viewport {
+            position: absolute;
+            border: 1px solid var(--primary);
+            background: rgba(0, 242, 255, 0.05);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* --- Details Panel --- */
+        #details-panel {
+            position: fixed;
+            right: -400px;
+            top: 0;
+            width: 350px;
+            height: 100%;
+            background: rgba(10, 10, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid var(--glass-border);
+            padding: 2rem;
+            transition: right 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #details-panel.open {
+            right: 0;
+        }
+
+        .panel-img {
+            width: 100%;
+            height: 180px;
+            background: #000;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--glass-border);
+            overflow: hidden;
+            /* Fix for huge icons */
+        }
+
+        .panel-img .css-icon {
+            transform: scale(1.5);
+        }
+
+        /* Reduced scale */
+
+        #buy-btn {
+            margin-top: auto;
+            padding: 1rem;
+            width: 100%;
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        #buy-btn:disabled {
+            background: var(--text-muted);
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* --- Architect Overlay (Full Screen) --- */
+        #architect-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: linear-gradient(135deg, var(--ocean-blue), var(--deep-space));
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.5s;
+            cursor: pointer;
+        }
+
+        #architect-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .arch-avatar-large {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid var(--primary);
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px var(--primary);
+            margin-bottom: 2rem;
+            animation: floatAvatar 3s ease-in-out infinite;
+        }
+
+        @keyframes floatAvatar {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .arch-eye-large {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--primary);
+            animation: ai-blink 4s infinite;
+        }
+
+        .arch-dialogue-box {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--primary);
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            min-height: 150px;
+            max-height: 60vh;
+            /* Prevent overflow off screen */
+            overflow-y: auto;
+            /* Scroll if text is too long */
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .arch-text {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem;
+            color: var(--primary);
+            line-height: 1.6;
+            text-shadow: 0 0 5px rgba(0, 242, 255, 0.3);
+            white-space: pre-wrap;
+            /* Preserves spaces and wraps text */
+            word-wrap: break-word;
+            /* Prevents long words from overflowing */
+        }
+
+        .click-hint {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            animation: pulse 1s infinite;
+            display: none;
+            /* Shown when typing finishes */
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes ai-blink {
+
+            0%,
+            90%,
+            100% {
+                transform: scaleY(1);
+            }
+
+            95% {
+                transform: scaleY(0.1);
+            }
+        }
+
+        /* --- Rebirth Modal (Simplified, now handled by Architect mostly) --- */
+        #rebirth-modal {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #rebirth-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        /* --- End Game Modal --- */
+        #endgame-modal {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #000000, #0a0a1e, #1a0033);
+            z-index: 300;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 1s;
+            overflow: hidden;
+        }
+
+        #endgame-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .endgame-stars {
+            position: absolute;
+            inset: 0;
+            background-image:
+                radial-gradient(2px 2px at 20% 30%, white, transparent),
+                radial-gradient(2px 2px at 60% 70%, white, transparent),
+                radial-gradient(1px 1px at 50% 50%, white, transparent),
+                radial-gradient(1px 1px at 80% 10%, white, transparent),
+                radial-gradient(2px 2px at 90% 60%, white, transparent);
+            background-size: 200% 200%;
+            animation: starsMove 100s linear infinite;
+        }
+
+        @keyframes starsMove {
+            from {
+                background-position: 0 0;
+            }
+
+            to {
+                background-position: 100% 100%;
+            }
+        }
+
+        .endgame-content {
+            text-align: center;
+            max-width: 800px;
+            max-height: 90vh;
+            padding: 3rem;
+            z-index: 2;
+            animation: endgameEntrance 2s ease-out forwards;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar for Endgame Modal */
+        .endgame-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .endgame-content::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        .endgame-content::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
+        }
+
+        .endgame-content::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, var(--primary), var(--gold));
+        }
+
+        @keyframes endgameEntrance {
+            from {
+                opacity: 0;
+                transform: scale(0.8) translateY(50px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .endgame-icon {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 2rem;
+            background: radial-gradient(circle, rgba(138, 43, 226, 0.3), transparent 70%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6rem;
+            animation: universeRotate 20s linear infinite, universePulse 3s ease-in-out infinite;
+            position: relative;
+        }
+
+        .endgame-icon::before {
+            content: '🌌';
+            position: absolute;
+            font-size: 8rem;
+            animation: galaxySpin 30s linear infinite;
+        }
+
+        .endgame-icon::after {
+            content: '';
+            position: absolute;
+            inset: -20px;
+            border: 2px solid rgba(138, 43, 226, 0.3);
+            border-radius: 50%;
+            animation: ringExpand 2s ease-out infinite;
+        }
+
+        @keyframes universeRotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes universePulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 50px rgba(138, 43, 226, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 100px rgba(138, 43, 226, 0.8), 0 0 150px rgba(0, 242, 255, 0.4);
+            }
+        }
+
+        @keyframes galaxySpin {
+            from {
+                transform: rotate(0deg) scale(1);
+            }
+
+            50% {
+                transform: rotate(180deg) scale(1.1);
+            }
+
+            to {
+                transform: rotate(360deg) scale(1);
+            }
+        }
+
+        @keyframes ringExpand {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        .endgame-title {
+            font-size: 3.5rem;
+            background: linear-gradient(135deg, #fff, var(--primary), var(--secondary), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            text-shadow: 0 0 30px rgba(138, 43, 226, 0.5);
+            animation: titleShimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes titleShimmer {
+
+            0%,
+            100% {
+                filter: brightness(1);
+            }
+
+            50% {
+                filter: brightness(1.3);
+            }
+        }
+
+        .endgame-subtitle {
+            font-size: 1.3rem;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            font-family: 'Share Tech Mono', monospace;
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+        }
+
+        .endgame-message {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .endgame-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin: 2rem 0;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gold);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .endgame-footer {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .continue-exploring-btn {
+            margin-top: 2rem;
+            padding: 1rem 3rem;
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            border: 2px solid var(--primary);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.3);
+        }
+
+        .continue-exploring-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(0, 242, 255, 0.6);
+        }
+
+        /* Scroll Indicator */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--primary);
+            font-size: 0.9rem;
+            animation: scrollBounce 2s ease-in-out infinite;
+            opacity: 0.7;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @keyframes scrollBounce {
+
+            0%,
+            100% {
+                transform: translateX(-50%) translateY(0);
+            }
+
+            50% {
+                transform: translateX(-50%) translateY(10px);
+            }
+        }
+
+        .scroll-indicator.hidden {
+            display: none;
+        }
+
+        /* Fixed Animation for Modal Content */
+        @keyframes modalEntrance {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .rebirth-content {
+            text-align: center;
+            max-width: 600px;
+            padding: 2rem;
+            animation: modalEntrance 0.8s forwards 0.1s;
+            opacity: 0;
+        }
+
+        .discovery-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2rem;
+            background: radial-gradient(circle, var(--gold), transparent 70%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: #fff;
+            box-shadow: 0 0 50px var(--gold);
+        }
+
+        .discovery-title {
+            font-size: 2.5rem;
+            color: var(--gold);
+            margin-bottom: 1rem;
+        }
+
+        .discovery-desc {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        #continue-btn {
+            padding: 1rem 3rem;
+            background: transparent;
+            border: 2px solid var(--gold);
+            color: var(--gold);
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #continue-btn:hover {
+            background: var(--gold);
+            color: #000;
+            box-shadow: 0 0 20px var(--gold);
+        }
+
+        /* Clicker Button (Premium Cosmic Design) */
+        #main-clicker {
+            position: fixed;
+            bottom: 3rem;
+            left: calc(var(--sidebar-width) + (100% - var(--sidebar-width)) / 2);
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            z-index: 80;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow:
+                0 0 50px rgba(0, 242, 255, 0.2),
+                inset 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        #main-clicker::before,
+        #main-clicker::after {
+            content: '';
+            position: absolute;
+            inset: -10px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            opacity: 0.3;
+            animation: clickerRotate 10s linear infinite;
+        }
+
+        #main-clicker::after {
+            inset: -20px;
+            border: 1px dashed var(--secondary);
+            animation-duration: 15s;
+            animation-direction: reverse;
+        }
+
+        #main-clicker-inner {
+            width: 80%;
+            height: 80%;
+            background: radial-gradient(circle at 30% 30%, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px var(--primary-glow);
+            transition: transform 0.1s;
+        }
+
+        @keyframes clickerRotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #main-clicker:hover {
+            transform: translateX(-50%) scale(1.1);
+            box-shadow: 0 0 80px var(--primary-glow);
+        }
+
+        #main-clicker:active {
+            transform: translateX(-50%) scale(0.9);
+        }
+
+        #main-clicker:active #main-clicker-inner {
+            transform: scale(0.9);
+        }
+
+        /* Ambient Nebula */
+        .nebula {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(112, 0, 255, 0.15), transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(0, 242, 255, 0.1), transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(255, 0, 85, 0.05), transparent 60%);
+            mix-blend-mode: screen;
+            animation: nebulaMove 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes nebulaMove {
+            0% {
+                transform: scale(1) translate(0, 0);
+            }
+
+            100% {
+                transform: scale(1.1) translate(2%, 2%);
+            }
+        }
+
+        /* Floating Text Animation (Separate from Modal) */
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-50px) scale(1.2);
+            }
+        }
+
+        /* Center View Button */
+        #center-view-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 90;
+        }
+
+        #center-view-btn:hover {
+            background: var(--glass);
+            color: white;
+        }
+
+
+        /* Dwarf Planet - New */
+        .icon-dwarf::before {
+            content: '';
+            position: absolute;
+            inset: 14px;
+            background: radial-gradient(circle at 35% 35%, #8b7355, #5c4a3a);
+            border-radius: 50%;
+            box-shadow: inset -3px -3px 10px rgba(0, 0, 0, 0.7);
+        }
+
+        .icon-dwarf::after {
+            content: '';
+            position: absolute;
+            inset: 14px;
+            border-radius: 50%;
+            background-image: radial-gradient(circle at 60% 60%, rgba(139, 115, 85, 0.3) 2px, transparent 2px);
+            background-size: 8px 8px;
+            opacity: 0.4;
+        }
+
+        /* --- NUEVOS ICONOS (Añadir al final del CSS) --- */
+
+        /* Cometa (Oort) */
+        .icon-comet::before {
+            content: '';
+            position: absolute;
+            top: 20%;
+            left: 20%;
+            width: 30%;
+            height: 30%;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #fff;
+            z-index: 2;
+        }
+
+        .icon-comet::after {
+            content: '';
+            position: absolute;
+            top: 20%;
+            left: 20%;
+            width: 60%;
+            height: 60%;
+            background: linear-gradient(45deg, rgba(255, 255, 255, 0.8), transparent);
+            transform: rotate(-45deg) scale(1.5);
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        /* Estrella Enana Roja (Proxima) */
+        .icon-star-red::before {
+            content: '';
+            position: absolute;
+            inset: 5px;
+            background: radial-gradient(circle, #ff4d4d, #800000);
+            border-radius: 50%;
+            box-shadow: 0 0 20px #ff0000;
+            animation: sun-pulse 4s infinite alternate;
+        }
+
+        /* Black Hole - Event Horizon Effect */
+        .icon-blackhole::before {
+            content: '';
+            position: absolute;
+            inset: 10px;
+            background: #000;
+            border-radius: 50%;
+            box-shadow:
+                0 0 0 2px #fff,
+                0 0 20px #a020f0,
+                0 0 40px var(--secondary-glow);
+            z-index: 3;
+        }
+
+        .icon-blackhole::after {
+            content: '';
+            position: absolute;
+            inset: -15px;
+            background:
+                conic-gradient(from 0deg,
+                    transparent,
+                    var(--secondary) 25%,
+                    var(--primary) 50%,
+                    var(--secondary) 75%,
+                    transparent);
+            border-radius: 50%;
+            animation: sun-rotate 1s linear infinite;
+            filter: blur(8px);
+            opacity: 0.6;
+        }
+
+        .icon-blackhole-acc {
+            position: absolute;
+            inset: -10px;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            transform: rotateX(80deg) rotateZ(45deg);
+            animation: acc-rotate 4s linear infinite;
+            opacity: 0.4;
+        }
+
+        @keyframes acc-rotate {
+            from {
+                transform: rotateX(80deg) rotateZ(0deg);
+            }
+
+            to {
+                transform: rotateX(80deg) rotateZ(360deg);
+            }
+        }
+
+        /* Esfera de Dyson */
+        .icon-dyson::before {
+            content: '';
+            position: absolute;
+            inset: 5px;
+            background: #111;
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--gold);
+            z-index: 1;
+        }
+
+        .icon-dyson::after {
+            content: '';
+            position: absolute;
+            inset: 5px;
+            background-image: linear-gradient(0deg, transparent 24%, var(--gold) 25%, var(--gold) 26%, transparent 27%, transparent 74%, var(--gold) 75%, var(--gold) 76%, transparent 77%),
+                linear-gradient(90deg, transparent 24%, var(--gold) 25%, var(--gold) 26%, transparent 27%, transparent 74%, var(--gold) 75%, var(--gold) 76%, transparent 77%);
+            background-size: 15px 15px;
+            border-radius: 50%;
+            box-shadow: inset 0 0 20px #000;
+            animation: sun-rotate 20s linear infinite;
+        }
+
+        /* Pulsar */
+        .icon-pulsar::before {
+            content: '';
+            position: absolute;
+            inset: 10px;
+            background: radial-gradient(circle, #00ffff, #0080ff);
+            border-radius: 50%;
+            box-shadow: 0 0 20px #00ffff;
+            animation: pulsarSpin 1s linear infinite;
+        }
+
+        .icon-pulsar::after {
+            content: '';
+            position: absolute;
+            inset: -10px;
+            background: conic-gradient(from 0deg, transparent 40%, rgba(0, 255, 255, 0.8) 50%, transparent 60%);
+            border-radius: 50%;
+            animation: pulsarBeam 1s linear infinite;
+        }
+
+        @keyframes pulsarSpin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes pulsarBeam {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Quasar */
+        .icon-quasar::before {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            background: radial-gradient(circle, #ff00ff, #8b00ff);
+            border-radius: 50%;
+            box-shadow: 0 0 25px #ff00ff;
+        }
+
+        .icon-quasar::after {
+            content: '';
+            position: absolute;
+            inset: -15px;
+            background: linear-gradient(90deg, transparent, rgba(255, 0, 255, 0.6), transparent);
+            animation: quasarJet 2s ease-in-out infinite;
+        }
+
+        @keyframes quasarJet {
+
+            0%,
+            100% {
+                opacity: 0.5;
+                transform: scaleX(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scaleX(1.5);
+            }
+        }
+
+        /* Neutron Star */
+        .icon-neutron::before {
+            content: '';
+            position: absolute;
+            inset: 12px;
+            background: radial-gradient(circle, #ffffff, #aaaaff);
+            border-radius: 50%;
+            box-shadow: 0 0 15px #fff, inset 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .icon-neutron::after {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            animation: neutronPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes neutronPulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.3);
+                opacity: 0.3;
+            }
+        }
+
+        #mission-hud {
+            position: fixed;
+            top: 20px;
+            left: 395px;
+            width: 360px;
+            max-height: calc(100vh - 40px);
+            overflow: auto;
+            background:
+                radial-gradient(circle at 15% 0%, rgba(0, 242, 255, 0.09), transparent 45%),
+                rgba(5, 5, 16, 0.86);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 242, 255, 0.24);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px 16px 16px 8px;
+            padding: 1rem;
+            z-index: 50;
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.52);
+            transition: opacity 0.3s ease;
+            pointer-events: auto;
+        }
+
+        /* Encabezado del HUD */
+        .hud-header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.35rem;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 0.6rem;
+        }
+
+        .hud-icon {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--primary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            animation: text-flicker 4s infinite;
+        }
+
+        .hud-stage-name {
+            grid-column: 1 / -1;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        .hud-stage-ratio {
+            color: var(--text-muted);
+            font-size: 0.74rem;
+        }
+
+        /* Lista de Misiones */
+        #mission-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+
+        .mission-item {
+            background: rgba(255, 255, 255, 0.028);
+            padding: 0.62rem;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: 16px 1fr auto;
+            gap: 0.52rem 0.6rem;
+            font-size: 0.83rem;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.2s;
+        }
+
+        .mission-label {
+            color: var(--text-main);
+            font-weight: 500;
+            line-height: 1.28;
+        }
+
+        .mission-status {
+            color: var(--text-muted);
+            font-size: 0.69rem;
+            align-self: start;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mission-progress-track {
+            grid-column: 2 / -1;
+            height: 5px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        .mission-progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(0, 170, 255, 0.85), rgba(0, 242, 255, 1));
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.32);
+            transition: width 0.35s ease;
+        }
+
+        .mission-item.completed {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        .mission-item.completed .mission-label {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        /* Checkbox estilizado */
+        .checkbox {
+            width: 14px;
+            height: 14px;
+            border: 1px solid var(--text-muted);
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: var(--bg-dark);
+        }
+
+        .mission-item.completed .checkbox {
+            background: var(--success);
+            border-color: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        /* Animación de texto estilo terminal */
+        @keyframes text-flicker {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            92% {
+                opacity: 1;
+            }
+
+            93% {
+                opacity: 0.5;
+            }
+
+            94% {
+                opacity: 1;
+            }
+
+            96% {
+                opacity: 0.8;
+            }
+
+            97% {
+                opacity: 1;
+            }
+        }
+
+        /* ---------------------------------------------------------------------- */
+        /* --- ESTILOS DE VISIBILIDAD Y TRANSICIÓN PARA EL REQUISITO (.tech-node-req) --- */
+        /* ---------------------------------------------------------------------- */
+
+        /* ESTILO BASE (Solo apariencia y posición, NO visibilidad) */
+        .tech-node-req {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(139, 0, 0, 0.9);
+            color: white;
+            font-size: 0.8rem;
+            padding: 3px 8px;
+            border-radius: 5px;
+            border: 1px solid red;
+            white-space: nowrap;
+            z-index: 10;
+            pointer-events: none;
+            font-family: 'Share Tech Mono', monospace;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+
+            /* ¡IMPORTANTE! Asegúrate de que no haya opacity, visibility o transition aquí. */
+        }
+
+        /* 1. MOSTRAR (Máxima Especificidad con Transición) */
+        .tech-node.locked .tech-node-req {
+            opacity: 1 !important;
+            visibility: visible !important;
+            transition: opacity 0.5s ease, visibility 0.5s;
+            /* Opcional: Si quieres forzar que ocupe espacio */
+            display: block !important;
+        }
+
+        /* 2. OCULTAR (Máxima Especificidad usando DISPLAY: NONE) */
+        .tech-node:not(.locked) .tech-node-req {
+            display: none !important;
+            /* ¡Esto mata el elemento! */
+
+            /* Estas líneas son redundantes con display: none, pero aseguran el control total */
+            opacity: 0 !important;
+            visibility: hidden !important;
+
+            transition: none !important;
+        }
+
+        /* --- Simulation Switcher --- */
+        #sim-switch-btn {
+            position: fixed;
+            top: 20px;
+            right: 210px;
+            padding: 0.6rem 1.2rem;
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 150;
+            font-family: 'Share Tech Mono', monospace;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+            font-weight: bold;
+            display: none;
+            /* Hidden until Prestige 1 */
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #sim-switch-btn:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 30px var(--primary-glow);
+            transform: translateY(-2px);
+        }
+
+        #sim-switch-btn.coming-soon {
+            opacity: 0.7;
+            cursor: not-allowed;
+            border-color: rgba(255, 255, 255, 0.25);
+            color: rgba(255, 255, 255, 0.82);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: none;
+        }
+
+        #sim-switch-btn.coming-soon:hover {
+            transform: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.85);
+            box-shadow: none;
+        }
+
+        #node-manager-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 0.6rem 1rem;
+            background: rgba(0, 242, 255, 0.12);
+            border: 1px solid rgba(0, 242, 255, 0.35);
+            color: var(--primary);
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 170;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 14px rgba(0, 242, 255, 0.14);
+        }
+
+        #node-manager-panel {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            width: min(500px, 44vw);
+            height: calc(100vh - 90px);
+            z-index: 165;
+            background:
+                radial-gradient(circle at 15% 10%, rgba(0, 242, 255, 0.08), transparent 45%),
+                rgba(4, 8, 18, 0.96);
+            border: 1px solid rgba(0, 242, 255, 0.25);
+            border-radius: 14px;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(12px);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #node-manager-panel.open {
+            display: flex;
+        }
+
+        .node-manager-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.85rem 0.95rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .node-manager-title {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.83rem;
+            letter-spacing: 1.1px;
+            text-transform: uppercase;
+            color: var(--primary);
+        }
+
+        #node-manager-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .node-item {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.55rem 0.65rem;
+            background: rgba(255, 255, 255, 0.03);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.45rem 0.8rem;
+        }
+
+        .node-item.locked {
+            opacity: 0.55;
+            filter: grayscale(0.35);
+        }
+
+        .node-item-title {
+            font-weight: 700;
+            font-size: 0.92rem;
+        }
+
+        .node-item-meta {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .node-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .node-item-controls select,
+        .node-item-controls button {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #fff;
+            border-radius: 7px;
+            padding: 0.24rem 0.45rem;
+            font-size: 0.72rem;
+            cursor: pointer;
+        }
+
+        .node-item-controls button.primary {
+            background: rgba(0, 242, 255, 0.18);
+            border-color: rgba(0, 242, 255, 0.45);
+            color: var(--primary);
+        }
+
+        /* Ocean Mode */
+        #tree-content.ocean-mode {
+            background-image:
+                radial-gradient(circle at 50% 0%, rgba(0, 100, 255, 0.2) 0%, transparent 70%),
+                linear-gradient(0deg, rgba(0, 20, 40, 1) 0%, rgba(0, 40, 80, 1) 100%);
+            background-color: #001020;
+            box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Ocean Icons - Premium Redesign */
+        .icon-vent::before {
+            content: '';
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 40px;
+            background: linear-gradient(to top, #222, #444);
+            border-radius: 4px 4px 0 0;
+            clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .icon-vent::after {
+            content: '';
+            position: absolute;
+            bottom: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            box-shadow:
+                0 -10px 0 rgba(255, 255, 255, 0.2),
+                0 -25px 0 rgba(255, 255, 255, 0.1),
+                0 -45px 0 rgba(255, 255, 255, 0.05);
+            animation: bubbleRise 1.5s infinite linear;
+        }
+
+        .icon-plankton::before {
+            content: '';
+            position: absolute;
+            inset: 15px;
+            background: rgba(0, 255, 136, 0.6);
+            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+            box-shadow: 0 0 15px var(--success);
+            animation: planktonMove 4s ease-in-out infinite;
+        }
+
+        .icon-plankton::after {
+            content: '';
+            position: absolute;
+            inset: 22px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            filter: blur(1px);
+        }
+
+        @keyframes planktonMove {
+
+            0%,
+            100% {
+                transform: translate(0, 0) rotate(0deg);
+                border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+            }
+
+            33% {
+                transform: translate(5px, -5px) rotate(10deg);
+                border-radius: 60% 40% 30% 70% / 50% 60% 40% 60%;
+            }
+
+            66% {
+                transform: translate(-3px, 5px) rotate(-10deg);
+                border-radius: 30% 70% 60% 40% / 60% 40% 70% 30%;
+            }
+        }
+
+        .icon-coral::before {
+            content: '🪸';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            filter: drop-shadow(0 0 10px #ff44aa);
+            animation: sway 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes sway {
+            from {
+                transform: rotate(-5deg) skewX(-2deg);
+            }
+
+            to {
+                transform: rotate(5deg) skewX(2deg);
+            }
+        }
+
+        .icon-jelly::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 30px;
+            background: linear-gradient(to bottom, rgba(0, 242, 255, 0.6), rgba(0, 242, 255, 0.2));
+            border-radius: 50% 50% 20% 20%;
+            box-shadow: 0 0 20px var(--primary-glow);
+            animation: jellyPulse 2s ease-in-out infinite;
+        }
+
+        .icon-jelly::after {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 40px;
+            background: repeating-linear-gradient(90deg,
+                    transparent,
+                    transparent 5px,
+                    var(--primary) 5px,
+                    var(--primary) 7px);
+            opacity: 0.4;
+            mask-image: linear-gradient(to bottom, black, transparent);
+        }
+
+        @keyframes jellyPulse {
+
+            0%,
+            100% {
+                transform: translateX(-50%) scale(1);
+            }
+
+            50% {
+                transform: translateX(-50%) scale(1.1, 0.9);
+            }
+        }
+
+        .icon-leviathan::before {
+            content: '🦑';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            filter: drop-shadow(0 0 30px #ff0000);
+            animation: leviathanFloat 6s ease-in-out infinite;
+        }
+
+        @keyframes leviathanFloat {
+
+            0%,
+            100% {
+                transform: translateY(0) rotate(0deg);
+            }
+
+            50% {
+                transform: translateY(-20px) rotate(5deg);
+            }
+        }
+
+        @keyframes bubbleRise {
+            0% {
+                transform: translateX(-50%) translateY(0) scale(1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: translateX(-50%) translateY(-30px) scale(1.5);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="stars" id="stars-container"></div>
+    <div class="nebula"></div>
+
+    <!-- Architect Overlay -->
+    <div id="architect-overlay">
+        <div class="arch-avatar-large">
+            <div class="arch-eye-large"></div>
+        </div>
+        <div class="arch-dialogue-box">
+            <div id="arch-text-content" class="arch-text"></div>
+            <div class="click-hint">Click para continuar...</div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <div class="currency-display">
+                    <div id="currency-icon" style="font-size: 1.5rem;">✨</div>
+                    <div>
+                        <div id="cosmic-energy">0</div>
+                        <div class="per-second">+<span id="eps">0</span>/s <span id="currency-name"
+                                style="font-size: 0.8rem; color: var(--text-muted);">Polvo Estelar</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ai-interface">
+                <div
+                    style="font-size: 0.7rem; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.5rem; opacity: 0.6; display: flex; align-items: center; gap: 0.5rem;">
+                    <div
+                        style="width: 8px; height: 8px; background: var(--primary); border-radius: 50%; animation: pulse 2s infinite;">
+                    </div>
+                    <span id="ai-link-status">AI_LINK_STATUS: OK</span>
+                </div>
+                <div class="ai-core-panel">
+                    <div class="ai-core-head">
+                        <div class="ai-avatar-mini">
+                            <div class="ai-eye-mini"></div>
+                        </div>
+                        <div>
+                            <div class="ai-core-title">UCI // NEXUS CORE</div>
+                            <div class="ai-core-sub" id="ai-mode-text">Modo: Calibracion Inicial</div>
+                        </div>
+                    </div>
+                    <div class="ai-core-stats">
+                        <div class="ai-stat-chip"><span>Riesgo</span><b id="ai-risk">Bajo</b></div>
+                        <div class="ai-stat-chip"><span>Ritmo</span><b id="ai-tempo">Lento</b></div>
+                        <div class="ai-stat-chip"><span>Etapa</span><b id="ai-stage">E1</b></div>
+                        <div class="ai-stat-chip"><span>Sync</span><b id="ai-sync">100%</b></div>
+                    </div>
+                </div>
+                <div id="ai-log">
+                    <!-- AI Messages go here -->
+                </div>
+            </div>
+
+
+
+            <div id="progress-section" style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--glass-border);">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 1px;">
+                    <span id="progress-label">Progreso de la Era</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+                <div class="progress-container">
+                    <div id="era-progress"></div>
+                </div>
+            </div>
+
+            <button id="prestige-btn" onclick="triggerRebirth()">
+                <div class="prestige-icon"></div>
+                Actualizar Universo
+            </button>
+
+            <button id="endgame-trigger-btn" onclick="showEndgameModal()"
+                style="display: none; margin: 1rem; padding: 0.8rem; background: linear-gradient(135deg, var(--secondary), var(--primary)); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; box-shadow: 0 0 15px rgba(138, 43, 226, 0.4);">
+                🌌 Ver Pantalla Final
+            </button>
+        </aside>
+
+        <!-- Tree Area -->
+        <main id="tree-area">
+            <button id="sim-switch-btn" onclick="toggleSimulation()">Ir al Océano</button>
+            <button id="node-manager-btn" onclick="toggleNodeManager()">Gestor de Nodos</button>
+            <button id="center-view-btn" onclick="centerView()">Centrar Vista</button>
+            <div id="mission-hud">
+                <div class="hud-header">
+                    <span class="hud-icon">MISSION_DIRECTIVE</span>
+                    <span class="hud-stage-ratio" id="mission-stage-ratio">// ONLINE</span>
+                    <span class="hud-stage-name" id="mission-stage-name">Sincronizando objetivos...</span>
+                </div>
+                <div id="mission-list">
+                </div>
+            </div>
+            <div id="tree-content">
+                <svg class="connections" id="connections-layer"></svg>
+                <!-- Nodes injected here -->
+            </div>
+
+            <!-- Floating Clicker for early game -->
+            <button id="main-clicker">
+                <div id="main-clicker-inner">✨</div>
+            </button>
+
+            <!-- Minimap -->
+            <div id="minimap-container">
+                <div class="minimap-header">SISTEMA_NAV_MAP</div>
+                <div id="minimap-content">
+                    <div id="minimap-viewport"></div>
+                    <!-- Minimap nodes injected here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Details Panel -->
+    <aside id="details-panel">
+        <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+            <h3>Detalles</h3>
+            <button onclick="closePanel()"
+                style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+        </div>
+        <div class="panel-img" id="panel-img"></div>
+        <h2 id="panel-title" style="color:var(--primary); margin-bottom:0.5rem;">Title</h2>
+        <p id="panel-desc" style="color:var(--text-muted); margin-bottom:1.5rem; font-size:0.9rem;">Desc</p>
+        <div id="panel-stats" style="margin-bottom:1rem;"></div>
+        <button id="buy-btn">Mejorar</button>
+    </aside>
+
+    <aside id="node-manager-panel">
+        <div class="node-manager-head">
+            <div class="node-manager-title">Node Control Grid</div>
+            <button onclick="toggleNodeManager()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;">×</button>
+        </div>
+        <div id="node-manager-list"></div>
+    </aside>
+
+    <!-- Rebirth Modal (Still used for the 'Discovery' moment before Architect speaks) -->
+    <div id="rebirth-modal">
+        <div class="rebirth-content">
+            <div class="discovery-icon">☀️</div>
+            <h1 class="discovery-title" id="discovery-title">Nueva Era</h1>
+            <p class="discovery-desc" id="discovery-desc">
+                Has acumulado suficiente conocimiento para reescribir las leyes de este sector.
+            </p>
+            <button id="continue-btn" onclick="finishRebirth()">Continuar Simulación</button>
+        </div>
+    </div>
+
+    <!-- End Game Modal -->
+    <div id="endgame-modal">
+        <div class="endgame-stars"></div>
+        <div class="scroll-indicator" id="scroll-indicator">
+            ▼ Desplázate para ver más ▼
+        </div>
+        <div class="endgame-content" id="endgame-content">
+            <div class="endgame-icon"></div>
+            <h1 class="endgame-title">SIMULACIÓN COMPLETADA</h1>
+            <p class="endgame-subtitle">// ARQUITECTO_SUPREMO.EXE</p>
+
+            <p class="endgame-message">
+                Has trascendido los límites del universo conocido.<br>
+                Desde una simple estrella hasta el poder de crear realidades enteras.<br>
+                Tu viaje a través del cosmos ha sido... extraordinario.
+            </p>
+
+            <div class="endgame-stats">
+                <div class="stat-box">
+                    <div class="stat-value" id="final-energy">0</div>
+                    <div class="stat-label">Energía Total</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="final-eps">0</div>
+                    <div class="stat-label">Energía/Segundo</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="final-universes">0</div>
+                    <div class="stat-label">Universos Explorados</div>
+                </div>
+            </div>
+
+            <p class="endgame-message">
+                <strong style="color: var(--primary);">El multiverso es vasto.</strong><br>
+                Nuevas dimensiones, galaxias distantes y anomalías cósmicas aguardan.<br>
+                La simulación continuará expandiéndose...<br>
+                <br>
+                <span style="color: var(--gold); font-weight: bold; animation: pulse 2s infinite;">¡NUEVO: Acceso al
+                    Océano Disponible!</span>
+            </p>
+
+            <button class="continue-exploring-btn" onclick="closeEndgame()">
+                Continuar Explorando
+            </button>
+
+            <p class="endgame-footer">
+                "En el principio, había oscuridad. Ahora, tú eres la luz."<br>
+                — El Arquitecto
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Config & Data ---
+        const techTree = [
+            {
+                id: 'sun', type: 'generator',
+                title: 'Sol',
+                desc: 'La estrella central de nuestro sistema. Una enana amarilla que proporciona la energía vital para todo lo que orbitará a su alrededor.',
+                baseCost: 10, baseProd: 2,
+                iconClass: 'icon-sun',
+                x: 4000, y: 4000,
+                parent: null, reqLevel: 0
+            },
+            // Tier 1: Sun Upgrades (Ring 1: 150px)
+            {
+                id: 'nuc_fusion', type: 'upgrade',
+                title: 'Fusión Nuclear',
+                desc: 'Optimiza las reacciones del núcleo para duplicar la salida de energía.',
+                baseCost: 1000, multiplier: 2, targetId: 'sun',
+                iconClass: 'icon-tech',
+                x: 4000, y: 3820,
+                parent: 'sun', reqLevel: 10
+            },
+            {
+                id: 'solar_flares', type: 'upgrade',
+                title: 'Erupciones Solares',
+                desc: 'Canaliza las explosiones solares para obtener picos de energía.',
+                baseCost: 500, multiplier: 1.5, targetId: 'sun',
+                iconClass: 'icon-tech',
+                x: 4180, y: 4000,
+                parent: 'sun', reqLevel: 25
+            },
+            // Tier 2: Planets (Ring 2: 400px)
+            {
+                id: 'planet_1', type: 'generator',
+                title: 'Mercurio',
+                desc: 'El planeta más cercano al Sol. Un mundo rocoso y abrasado, rico en metales pesados.',
+                baseCost: 500, baseProd: 15,
+                iconClass: 'icon-planet',
+                x: 3700, y: 4150,
+                parent: 'sun', reqLevel: 50
+            },
+            {
+                id: 'geo_harvest', type: 'upgrade',
+                title: 'Cosecha Geotérmica',
+                desc: 'Aprovecha el calor extremo de la superficie del planeta.',
+                baseCost: 2500, multiplier: 2, targetId: 'planet_1',
+                iconClass: 'icon-tech',
+                x: 3550, y: 4250,
+                parent: 'planet_1', reqLevel: 10
+            },
+            {
+                id: 'planet_2', type: 'generator',
+                title: 'Venus',
+                desc: 'Planeta cubierto de nubes ácidas con un efecto invernadero descontrolado.',
+                baseCost: 10000, baseProd: 50,
+                iconClass: 'icon-planet-gas',
+                x: 3900, y: 4400,
+                parent: 'sun', reqLevel: 100
+            },
+            {
+                id: 'planet_3', type: 'generator',
+                title: 'Marte',
+                desc: 'El Planeta Rojo, ideal para la colonización inicial.',
+                baseCost: 50000, baseProd: 200,
+                iconClass: 'icon-planet',
+                x: 4300, y: 4300,
+                parent: 'sun', reqLevel: 150
+            },
+            // Tier 3: Gas Giants (Ring 3: 800px)
+            {
+                id: 'planet_4', type: 'generator',
+                title: 'Júpiter',
+                desc: 'El Rey de los Planetas. Un gigante gaseoso masivo.',
+                baseCost: 1000000, baseProd: 2000,
+                iconClass: 'icon-planet-gas',
+                x: 4600, y: 4000,
+                parent: 'sun', reqLevel: 200
+            },
+            {
+                id: 'moon_europa', type: 'generator',
+                title: 'Europa',
+                desc: 'Luna helada con potencial para vida submarina.',
+                baseCost: 5000000, baseProd: 5000,
+                iconClass: 'icon-moon',
+                x: 4800, y: 3900,
+                parent: 'planet_4', reqLevel: 10
+            },
+            {
+                id: 'planet_5', type: 'generator',
+                title: 'Saturno',
+                desc: 'Famoso por sus majestuosos anillos de hielo.',
+                baseCost: 25000000, baseProd: 10000,
+                iconClass: 'icon-planet-gas',
+                x: 4600, y: 3600,
+                parent: 'sun', reqLevel: 250
+            },
+            {
+                id: 'moon_titan', type: 'generator',
+                title: 'Titán',
+                desc: 'Luna con atmósfera densa y lagos de metano.',
+                baseCost: 1e8, baseProd: 25000,
+                iconClass: 'icon-moon',
+                x: 4800, y: 3500,
+                parent: 'planet_5', reqLevel: 10
+            },
+            // Tier 4: Ice Giants & Outer (Ring 4: 1200px)
+            {
+                id: 'planet_6', type: 'generator',
+                title: 'Urano',
+                desc: 'El gigante de hielo que rota de lado.',
+                baseCost: 5e8, baseProd: 50000,
+                iconClass: 'icon-planet-ice',
+                x: 4200, y: 3200,
+                parent: 'sun', reqLevel: 300
+            },
+            {
+                id: 'planet_7', type: 'generator',
+                title: 'Neptuno',
+                desc: 'Gigante azul helado con vientos violentos.',
+                baseCost: 2.5e9, baseProd: 100000,
+                iconClass: 'icon-planet-ice',
+                x: 3700, y: 3300,
+                parent: 'sun', reqLevel: 350
+            },
+            {
+                id: 'moon_triton', type: 'generator',
+                title: 'Tritón',
+                desc: 'Luna extraña con géiseres de nitrógeno.',
+                baseCost: 1e10, baseProd: 250000,
+                iconClass: 'icon-moon',
+                x: 3500, y: 3150,
+                parent: 'planet_7', reqLevel: 10
+            },
+            // Dwarf Planets & Kuiper (Branching out)
+            {
+                id: 'dwarf_1', type: 'generator',
+                title: 'Ceres',
+                desc: 'Reina del Cinturón de Asteroides.',
+                baseCost: 7.5e7, baseProd: 15000,
+                iconClass: 'icon-dwarf',
+                x: 4900, y: 4200,
+                parent: 'sun', reqLevel: 280
+            },
+            {
+                id: 'dwarf_2', type: 'generator',
+                title: 'Plutón',
+                desc: 'El rey destronado del sistema exterior.',
+                baseCost: 5e9, baseProd: 150000,
+                iconClass: 'icon-dwarf',
+                x: 5200, y: 4000,
+                parent: 'sun', reqLevel: 380
+            },
+            {
+                id: 'moon_charon', type: 'generator',
+                title: 'Caronte',
+                desc: 'Compañero binario de Plutón.',
+                baseCost: 1.5e10, baseProd: 300000,
+                iconClass: 'icon-moon',
+                x: 5400, y: 4050,
+                parent: 'dwarf_2', reqLevel: 10
+            },
+            {
+                id: 'dwarf_3', type: 'generator',
+                title: 'Eris',
+                desc: 'Cuerpo masivo en el disco disperso.',
+                baseCost: 2.5e10, baseProd: 500000,
+                iconClass: 'icon-dwarf',
+                x: 5300, y: 3700,
+                parent: 'sun', reqLevel: 420
+            },
+            {
+                id: 'dwarf_5', type: 'generator',
+                title: 'Haumea',
+                desc: 'El mundo ovalado que rota velozmente.',
+                baseCost: 1e11, baseProd: 1.5e6,
+                iconClass: 'icon-dwarf',
+                x: 5500, y: 3850,
+                parent: 'sun', reqLevel: 480
+            },
+            // --- NUEVO CONTENIDO: NUBE DE OORT (Ring 5: 1800px) ---
+            {
+                id: 'oort_comet', type: 'generator',
+                title: 'Cometa Halley',
+                desc: 'Viajero legendario de la Nube de Oort.',
+                baseCost: 5e11, baseProd: 5e6,
+                iconClass: 'icon-comet',
+                x: 5800, y: 4000,
+                parent: 'dwarf_5', reqLevel: 10
+            },
+            {
+                id: 'sedna', type: 'generator',
+                title: 'Sedna',
+                desc: 'Objeto transneptuniano extremadamente lejano.',
+                baseCost: 2e12, baseProd: 1.5e7,
+                iconClass: 'icon-dwarf',
+                x: 6100, y: 3800,
+                parent: 'oort_comet', reqLevel: 20
+            },
+            // --- INTERESTELAR: PROXIMA (Ring 6: 2500px) ---
+            {
+                id: 'alpha_centauri', type: 'generator',
+                title: 'Próxima Centauri',
+                desc: 'Nuestra vecina estelar más cercana.',
+                baseCost: 1e14, baseProd: 5e8,
+                iconClass: 'icon-star-red',
+                x: 6500, y: 4000,
+                parent: 'sedna', reqLevel: 50
+            },
+            {
+                id: 'proxima_b', type: 'generator',
+                title: 'Próxima b',
+                desc: 'Exoplaneta en la zona habitable.',
+                baseCost: 5e14, baseProd: 2e9,
+                iconClass: 'icon-planet',
+                x: 6700, y: 3900,
+                parent: 'alpha_centauri', reqLevel: 25
+            },
+            {
+                id: 'warp_drive', type: 'upgrade',
+                title: 'Motor Warp',
+                desc: 'Pliega el espacio-tiempo para viajar velozmente.',
+                baseCost: 1e15, multiplier: 5, targetId: 'alpha_centauri',
+                iconClass: 'icon-tech',
+                x: 6500, y: 4200,
+                parent: 'alpha_centauri', reqLevel: 50
+            },
+            // --- GALÁCTICO: AGUJEROS NEGROS (Ring 7: 3500px) ---
+            {
+                id: 'sagittarius_a', type: 'generator',
+                title: 'Sagitario A*',
+                desc: 'El corazón gravitacional de la Vía Láctea.',
+                baseCost: 1e18, baseProd: 5e11,
+                iconClass: 'icon-blackhole',
+                x: 7500, y: 4000,
+                parent: 'alpha_centauri', reqLevel: 100
+            },
+            {
+                id: 'hawking_rad', type: 'upgrade',
+                title: 'Radiación de Hawking',
+                desc: 'Recolección cuántica del horizonte de sucesos.',
+                baseCost: 5e18, multiplier: 10, targetId: 'sagittarius_a',
+                iconClass: 'icon-tech',
+                x: 7650, y: 3850,
+                parent: 'sagittarius_a', reqLevel: 10
+            },
+            {
+                id: 'dyson_sphere', type: 'generator',
+                title: 'Esfera de Dyson',
+                desc: 'Megaestructura que captura el 100% de la luz estelar.',
+                baseCost: 1e21, baseProd: 1e15,
+                iconClass: 'icon-dyson',
+                x: 7500, y: 4300,
+                parent: 'sagittarius_a', reqLevel: 50
+            },
+            // --- PULSARES & NEUTRON (Deep Orbit) ---
+            {
+                id: 'pulsar_1', type: 'generator',
+                title: 'Pulsar Veloz',
+                desc: 'Gira 716 veces por segundo.',
+                baseCost: 1e24, baseProd: 1e18,
+                iconClass: 'icon-pulsar',
+                x: 7200, y: 3500,
+                parent: 'dyson_sphere', reqLevel: 10
+            },
+            {
+                id: 'neutron_star', type: 'generator',
+                title: 'Estrella de Neutrones',
+                desc: 'Núcleo colapsado de densidad extrema.',
+                baseCost: 1e26, baseProd: 1e20,
+                iconClass: 'icon-neutron',
+                x: 7800, y: 3500,
+                parent: 'pulsar_1', reqLevel: 20
+            },
+            {
+                id: 'universe_generator', type: 'generator',
+                title: 'Generador Universal',
+                desc: 'Máquina capaz de crear nuevos universos.',
+                baseCost: 1e33, baseProd: 1e27,
+                iconClass: 'icon-dyson',
+                x: 8200, y: 4000,
+                parent: 'neutron_star', reqLevel: 50
+            },
+            {
+                id: 'quantum_forge', type: 'generator',
+                title: 'Forja Cuantica',
+                desc: 'Moldea particulas virtuales para crear materia utilizable a escala cosmica.',
+                baseCost: 1e35, baseProd: 8e28,
+                iconClass: 'icon-tech',
+                x: 8450, y: 3870,
+                parent: 'universe_generator', reqLevel: 5
+            },
+            {
+                id: 'dark_matter_lens', type: 'upgrade',
+                title: 'Lente de Materia Oscura',
+                desc: 'Curva el vacio y enfoca energia no barionica para multiplicar la salida de la Forja Cuantica.',
+                baseCost: 5e35, multiplier: 3, targetId: 'quantum_forge',
+                iconClass: 'icon-blackhole',
+                x: 8670, y: 3720,
+                parent: 'quantum_forge', reqLevel: 10
+            },
+            {
+                id: 'multiverse_gate', type: 'generator',
+                title: 'Portal Multiversal',
+                desc: 'Un anillo de colision de dimensiones paralelas con flujo inagotable de energia.',
+                baseCost: 2e37, baseProd: 2e30,
+                iconClass: 'icon-dyson',
+                x: 8850, y: 4000,
+                parent: 'quantum_forge', reqLevel: 20
+            },
+            {
+                id: 'echo_nodes', type: 'generator',
+                title: 'Nodos de Eco Fractal',
+                desc: 'Clusters sincronizados que replican tu produccion en lineas temporales espejo.',
+                baseCost: 8e37, baseProd: 8e30,
+                iconClass: 'icon-pulsar',
+                x: 9060, y: 3830,
+                parent: 'multiverse_gate', reqLevel: 5
+            },
+            {
+                id: 'causal_engine', type: 'upgrade',
+                title: 'Motor de Causalidad',
+                desc: 'Reescribe probabilidades y ajusta el destino energetico del multiverso.',
+                baseCost: 1e39, multiplier: 4, targetId: 'multiverse_gate',
+                iconClass: 'icon-tech',
+                x: 9240, y: 4140,
+                parent: 'multiverse_gate', reqLevel: 10
+            },
+            {
+                id: 'chronicle_core', type: 'generator',
+                title: 'Nucleo Cronica',
+                desc: 'Repositorio autoconsciente de cada ciclo cosmico para convertir historia en potencia.',
+                baseCost: 3e40, baseProd: 5e31,
+                iconClass: 'icon-neutron',
+                x: 9460, y: 4000,
+                parent: 'multiverse_gate', reqLevel: 30
+            },
+            // --- OCEAN SIMULATION ---
+            {
+                id: 'hydro_vent', type: 'generator',
+                title: 'Fuente Hidrotermal',
+                desc: 'Grietas en la corteza planetaria que emiten calor y minerales. El origen de la vida.',
+                baseCost: 100, baseProd: 10,
+                iconClass: 'icon-vent',
+                x: 4000, y: 4000,
+                parent: null, reqLevel: 0,
+                simulation: 'ocean'
+            },
+            {
+                id: 'plankton', type: 'generator',
+                title: 'Fitoplancton',
+                desc: 'Microorganismos fotosintéticos. La base de toda la cadena alimenticia oceánica.',
+                baseCost: 1000, baseProd: 50,
+                iconClass: 'icon-plankton',
+                x: 4250, y: 3800,
+                parent: 'hydro_vent', reqLevel: 10,
+                simulation: 'ocean'
+            },
+            {
+                id: 'coral_reef', type: 'generator',
+                title: 'Arrecife de Coral',
+                desc: 'Estructuras vivas masivas que albergan el 25% de la vida marina.',
+                baseCost: 5000, baseProd: 250,
+                iconClass: 'icon-coral',
+                x: 4250, y: 4200,
+                parent: 'hydro_vent', reqLevel: 15,
+                simulation: 'ocean'
+            },
+            {
+                id: 'jellyfish', type: 'generator',
+                title: 'Medusa Abisal',
+                desc: 'Criaturas de luz en la oscuridad perpetua. Eficiencia energética pura.',
+                baseCost: 20000, baseProd: 1000,
+                iconClass: 'icon-jelly',
+                x: 4500, y: 4000,
+                parent: 'plankton', reqLevel: 20,
+                simulation: 'ocean'
+            },
+            {
+                id: 'leviathan', type: 'generator',
+                title: 'Leviatán Ancestral',
+                desc: 'Una entidad biológica de tamaño colosal. Su existencia desafía la lógica conocida.',
+                baseCost: 1000000, baseProd: 50000,
+                iconClass: 'icon-leviathan',
+                x: 4800, y: 4000,
+                parent: 'jellyfish', reqLevel: 50,
+                simulation: 'ocean'
+            },
+        ];
+
+        const eras = [
+            {
+                id: 0,
+                name: "Universo Primordial: El Despertar",
+                dialogue: [
+                    "Saludos, Arquitecto. Soy la Interfaz de Control Universal.",
+                    "Mi propósito es guiarte en la comprensión y expansión de este universo.",
+                    "Comenzaremos por lo básico: El Espacio.",
+                    "En este Capítulo Inicial, nos centraremos en la estrella que nos da vida: El Sol.",
+                    "Tu tarea es estabilizar su producción de Polvo Estelar para permitir la formación de cuerpos planetarios.",
+                    "Haz clic en el icono ✨ para comenzar la recolección manual de Polvo Estelar."
+                ],
+                missions: [
+                    { id: 'm1', text: "Mejora el Sol al Nivel 10", check: (s) => s.upgrades['sun'] >= 10 },
+                    { id: 'm2', text: "Desbloquea Fusión Nuclear", check: (s) => s.upgrades['nuc_fusion'] >= 1 },
+                    { id: 'm3', text: "Alcanza 50 PES (Polvo Estelar/seg)", check: (s) => s.eps >= 50 },
+                    { id: 'm4', text: "Descubre Mercurio", check: (s) => s.upgrades['planet_1'] >= 1 }
+                ],
+                discovery: {
+                    title: "Sistema Solar Primitivo",
+                    desc: "Has estabilizado la estrella y descubierto el primer cuerpo planetario. Los datos indican que este sistema tiene potencial para albergar vida compleja si se gestiona correctamente. <br><br><strong>Bonus de Renacimiento:</strong> +50% Producción de Polvo Estelar Global."
+                }
+            },
+            {
+                id: 1,
+                name: "Universo Joven: Expansión Planetaria",
+                dialogue: [
+                    "Excelente trabajo con la estrella. La simulación se ha reiniciado con parámetros optimizados.",
+                    "Ahora que entendemos la energía estelar, debemos mirar hacia afuera.",
+                    "El siguiente paso en nuestro conocimiento es la formación planetaria compleja.",
+                    "Necesitamos estudiar las atmósferas densas y los entornos hostiles.",
+                    "Tu objetivo es expandir nuestra influencia hacia Venus y más allá.",
+                    "Recuerda: cada reinicio nos hace más fuertes."
+                ],
+                missions: [
+                    { id: 'm5', text: "Mejora Mercurio al Nivel 20", check: (s) => s.upgrades['planet_1'] >= 20 },
+                    { id: 'm6', text: "Acumula 100,000 de Polvo Estelar", check: (s) => s.energy >= 100000 },
+                    { id: 'm7', text: "Descubre Venus", check: (s) => s.upgrades['planet_2'] >= 1 },
+                    { id: 'm8', text: "Descubre Marte", check: (s) => s.upgrades['planet_3'] >= 1 }
+                ],
+                discovery: {
+                    title: "Atmósferas Complejas",
+                    desc: "Venus ha revelado compuestos químicos únicos. La simulación sugiere que la manipulación atmosférica es posible. <br><br><strong>Bonus de Renacimiento:</strong> Las mejoras tecnológicas son un 20% más baratas."
+                }
+            },
+            {
+                id: 2,
+                name: "Universo Medio: Gigantes Gaseosos",
+                dialogue: [
+                    "Hemos dominado los planetas rocosos interiores.",
+                    "Ahora nos enfrentamos a los verdaderos titanes del sistema: Los Gigantes Gaseosos.",
+                    "Júpiter y Saturno poseen recursos casi infinitos, pero su gravedad es aplastante.",
+                    "Necesitarás toda la energía acumulada para estabilizar sondas en sus órbitas.",
+                    "Adelante, Arquitecto."
+                ],
+                missions: [
+                    { id: 'm9', text: "Descubre Júpiter", check: (s) => s.upgrades['planet_4'] >= 1 },
+                    { id: 'm10', text: "Alcanza 1M PES", check: (s) => s.eps >= 1000000 },
+                    { id: 'm11', text: "Descubre Saturno", check: (s) => s.upgrades['planet_5'] >= 1 }
+                ],
+                discovery: {
+                    title: "Dominio del Sistema Exterior",
+                    desc: "Los gigantes gaseosos están bajo nuestro control. El Polvo Estelar fluye como nunca antes. <br><br><strong>Bonus de Renacimiento:</strong> +100% Producción de Polvo Estelar Global."
+                }
+            },
+            {
+                id: 3,
+                name: "Universo Exterior: Los Confines Helados",
+                dialogue: [
+                    "Nos adentramos en las profundidades del sistema.",
+                    "Urano y Neptuno... mundos olvidados, congelados en la oscuridad.",
+                    "Aquí la luz del Sol es apenas un susurro.",
+                    "Estos gigantes de hielo guardan secretos que desafían nuestra comprensión.",
+                    "El Arquitecto necesita que investigues estos mundos distantes.",
+                    "¿Qué misterios ocultan en sus núcleos congelados?"
+                ],
+                missions: [
+                    { id: 'm12', text: "Descubre Urano", check: (s) => s.upgrades['planet_6'] >= 1 },
+                    { id: 'm13', text: "Alcanza 10M PES", check: (s) => s.eps >= 10000000 },
+                    { id: 'm14', text: "Descubre Neptuno", check: (s) => s.upgrades['planet_7'] >= 1 },
+                    { id: 'm15', text: "Explora Tritón", check: (s) => s.upgrades['moon_triton'] >= 1 }
+                ],
+                discovery: {
+                    title: "Frontera del Sistema",
+                    desc: "Has conquistado los mundos más remotos. Los datos de estos gigantes helados revelan composiciones químicas nunca vistas. <br><br><strong>Bonus de Renacimiento:</strong> +150% Producción de Polvo Estelar Global. Los generadores de hielo producen el doble."
+                }
+            },
+
+            {
+                id: 4,
+                name: "Universo Profundo: El Cinturón de Kuiper",
+                dialogue: [
+                    "Hemos cruzado la última frontera planetaria.",
+                    "Ante nosotros se extiende el vasto Cinturón de Kuiper.",
+                    "Miles de mundos helados, escombros de la creación del sistema solar.",
+                    "Aquí reinan los Planetas Enanos: antiguos, fríos y llenos de secretos.",
+                    "El Arquitecto exige que cataloguemos estos guardianes olvidados."
+                ],
+                missions: [
+                    { id: 'm16', text: "Descubre Ceres", check: (s) => s.upgrades['dwarf_1'] >= 1 },
+                    { id: 'm17', text: "Descubre Plutón", check: (s) => s.upgrades['dwarf_2'] >= 1 },
+                    { id: 'm18', text: "Alcanza 100M PES", check: (s) => s.eps >= 100000000 },
+                    { id: 'm19', text: "Descubre Eris", check: (s) => s.upgrades['dwarf_3'] >= 1 }
+                ],
+                discovery: {
+                    title: "Dominio Transneptuniano",
+                    desc: "Has iluminado la oscuridad más profunda. El sistema solar completo está bajo tu control. <br><br><strong>Bonus de Renacimiento:</strong> +200% Producción de Polvo Estelar Global."
+                }
+            },
+            // --- NUEVA ERA 5: LA NUBE DE OORT ---
+            {
+                id: 5,
+                name: "Universo Heliopáusico: El Vacío Profundo",
+                dialogue: [
+                    "Has conquistado cada roca del sistema solar.",
+                    "Pero más allá de Plutón y Eris, existe una esfera de hielo cósmico.",
+                    "La Nube de Oort. El caparazón de nuestro sistema.",
+                    "Allí nacen los cometas. Debemos ir más lejos que cualquier sonda Voyager."
+                ],
+                missions: [
+                    { id: 'm20', text: "Descubre Sedna", check: (s) => s.upgrades['sedna'] >= 1 },
+                    { id: 'm21', text: "Alcanza 1T PES", check: (s) => s.eps >= 1e12 },
+                    { id: 'm22', text: "Cometa Halley Nvl 10", check: (s) => s.upgrades['oort_comet'] >= 10 }
+                ],
+                discovery: {
+                    title: "Viajero del Vacío",
+                    desc: "Has cruzado la heliopausa. El Sol es solo una estrella brillante a tus espaldas. <br><br><strong>Bonus de Renacimiento:</strong> Multiplicador x5 Global."
+                }
+            },
+            // --- NUEVA ERA 6: INTERESTELAR ---
+            {
+                id: 6,
+                name: "Universo Interestelar: Salto Cósmico",
+                dialogue: [
+                    "El espacio entre las estrellas es vasto y terrorífico.",
+                    "Pero hemos detectado una señal... Próxima Centauri.",
+                    "Una enana roja. Vieja, estable y rica en energía.",
+                    "Es hora de abandonar el nido, Arquitecto."
+                ],
+                missions: [
+                    { id: 'm23', text: "Coloniza Próxima Centauri", check: (s) => s.upgrades['alpha_centauri'] >= 1 },
+                    { id: 'm24', text: "Desbloquea Motor Warp", check: (s) => s.upgrades['warp_drive'] >= 1 },
+                    { id: 'm25', text: "Alcanza 1Qa EPS", check: (s) => s.eps >= 1e15 }
+                ],
+                discovery: {
+                    title: "Civilización Tipo I",
+                    desc: "Has dominado la energía de tu estrella y has tocado otra. El universo se abre ante ti. <br><br><strong>Bonus de Renacimiento:</strong> Multiplicador x10 Global."
+                }
+            },
+            // --- NUEVA ERA 7: DOMINIO GALÁCTICO ---
+            {
+                id: 7,
+                name: "Universo Alfa: El Devorador",
+                dialogue: [
+                    "Las estrellas son baterías eficientes, pero finitas.",
+                    "En el centro de la galaxia duerme un monstruo.",
+                    "Sagitario A*. Un agujero negro supermasivo.",
+                    "Si logramos enjaularlo, tendremos energía infinita."
+                ],
+                missions: [
+                    { id: 'm26', text: "Estabiliza Sagitario A*", check: (s) => s.upgrades['sagittarius_a'] >= 1 },
+                    { id: 'm27', text: "Construye Esfera de Dyson", check: (s) => s.upgrades['dyson_sphere'] >= 1 },
+                    { id: 'm28', text: "Alcanza 1Sx EPS", check: (s) => s.eps >= 1e21 }
+                ],
+                discovery: {
+                    title: "Civilización Tipo II",
+                    desc: "Has dominado la energía de tu galaxia. Pero el universo es vasto... <br><br><strong>Bonus:</strong> Multiplicador x50 Global."
+                }
+            },
+            // --- NUEVA ERA 8: PULSARES ---
+            {
+                id: 8,
+                name: "Universo Beta: Faros Cósmicos",
+                dialogue: [
+                    "Los agujeros negros son poderosos, pero hay algo más.",
+                    "Estrellas muertas que giran mil veces por segundo.",
+                    "Pulsares. Faros del cosmos que emiten radiación letal.",
+                    "Su energía es caótica, pero si la dominas... serás imparable."
+                ],
+                missions: [
+                    { id: 'm29', text: "Descubre tu primer Pulsar", check: (s) => s.upgrades['pulsar_1'] >= 1 },
+                    { id: 'm30', text: "Alcanza 1Sp EPS", check: (s) => s.eps >= 1e24 },
+                    {
+                        id: 'm31', text: "Amplifica Pulsar Veloz al Nvl 20",
+                        check: (s) => s.upgrades['pulsar_1'] >= 20,
+                        progress: (s) => Math.min((s.upgrades['pulsar_1'] || 0) / 20, 1)
+                    }
+                ],
+                discovery: {
+                    title: "Dominio de la Radiación",
+                    desc: "Has sincronizado con los faros del universo. Su pulso es tu pulso. <br><br><strong>Bonus:</strong> Multiplicador x100 Global."
+                }
+            },
+            // --- NUEVA ERA 9: QUASARES Y AGUJEROS NEGROS MÚLTIPLES ---
+            {
+                id: 9,
+                name: "Universo Gamma: El Abismo Múltiple",
+                dialogue: [
+                    "Un agujero negro es poder. Dos son devastación.",
+                    "Hemos detectado sistemas binarios de agujeros negros.",
+                    "Y más allá... Quasares. Los objetos más brillantes del universo.",
+                    "Alimentados por agujeros negros supermasivos devorando galaxias enteras."
+                ],
+                missions: [
+                    { id: 'm32', text: "Estabiliza una Estrella de Neutrones", check: (s) => s.upgrades['neutron_star'] >= 1 },
+                    { id: 'm33', text: "Lleva Estrella de Neutrones al Nvl 10", check: (s) => s.upgrades['neutron_star'] >= 10 },
+                    { id: 'm34', text: "Alcanza 1Oc EPS", check: (s) => s.eps >= 1e27 }
+                ],
+                discovery: {
+                    title: "Señor del Abismo",
+                    desc: "Has conquistado la oscuridad misma. El universo tiembla ante tu poder. <br><br><strong>Bonus:</strong> Multiplicador x500 Global."
+                }
+            },
+            // --- NUEVA ERA 10: FINAL ---
+            {
+                id: 10,
+                name: "Universo Omega: El Arquitecto Supremo",
+                dialogue: [
+                    "Has llegado al límite de lo conocido.",
+                    "Estrellas de neutrones, pulsares, quasares, agujeros negros...",
+                    "Todo bajo tu control.",
+                    "Ahora solo queda una pregunta:",
+                    "¿Puedes crear tu propio universo?"
+                ],
+                missions: [
+                    { id: 'm35', text: "Alcanza 1No EPS", check: (s) => s.eps >= 1e30 },
+                    { id: 'm36', text: "Mejora 10 Objetos al Nivel 10+", check: (s) => Object.values(s.upgrades).filter(v => v >= 10).length >= 10 },
+                    { id: 'm37', text: "Construye el Generador Universal", check: (s) => s.upgrades['universe_generator'] >= 1 }
+                ],
+                discovery: {
+                    title: "Dios del Multiverso",
+                    desc: "Has trascendido. Ya no eres un observador. Eres el Arquitecto. <br><br><strong>FIN DEL JUEGO - ¡Gracias por jugar!</strong>"
+                }
+            },
+            {
+                id: 11,
+                name: "Universo Delta: Tejido Cuantico",
+                dialogue: [
+                    "La materia clasica dejo de ser suficiente.",
+                    "Ahora trabajamos con espuma cuantica y lineas de probabilidad.",
+                    "Cada decision altera ramas enteras del multiverso.",
+                    "Construye la infraestructura para controlar este caos."
+                ],
+                missions: [
+                    { id: 'm38', text: "Construye Forja Cuantica", check: (s) => s.upgrades['quantum_forge'] >= 1 },
+                    {
+                        id: 'm39', text: "Forja Cuantica al Nvl 15",
+                        check: (s) => s.upgrades['quantum_forge'] >= 15,
+                        progress: (s) => Math.min((s.upgrades['quantum_forge'] || 0) / 15, 1)
+                    },
+                    { id: 'm40', text: "Activa Lente de Materia Oscura", check: (s) => s.upgrades['dark_matter_lens'] >= 1 },
+                    { id: 'm41', text: "Alcanza 1Dc EPS", check: (s) => s.eps >= 1e33 }
+                ],
+                discovery: {
+                    title: "Ingenieria de lo Imposible",
+                    desc: "La Forja Cuantica responde a tu control. Ahora puedes fabricar energia desde fluctuaciones del vacio. <br><br><strong>Bonus:</strong> Costos de upgrades avanzados -15%."
+                }
+            },
+            {
+                id: 12,
+                name: "Universo Epsilon: Umbral Multiversal",
+                dialogue: [
+                    "Ya no observas un solo cosmos.",
+                    "Estas tocando universos paralelos a traves del Portal Multiversal.",
+                    "Cada eco fractal puede reforzar tu realidad.",
+                    "Si sincronizas todo, no habra limite."
+                ],
+                missions: [
+                    { id: 'm42', text: "Construye Portal Multiversal", check: (s) => s.upgrades['multiverse_gate'] >= 1 },
+                    {
+                        id: 'm43', text: "Sincroniza 3 Nodos de Eco Fractal",
+                        check: (s) => s.upgrades['echo_nodes'] >= 3,
+                        progress: (s) => Math.min((s.upgrades['echo_nodes'] || 0) / 3, 1)
+                    },
+                    { id: 'm44', text: "Activa Motor de Causalidad", check: (s) => s.upgrades['causal_engine'] >= 1 },
+                    { id: 'm45', text: "Alcanza 1Ud EPS", check: (s) => s.eps >= 1e36 }
+                ],
+                discovery: {
+                    title: "Director del Multiverso",
+                    desc: "Los ecos fractales siguen tu ritmo y el Portal Multiversal se mantiene estable. <br><br><strong>Bonus:</strong> Produccion global x2 en etapas tardias."
+                }
+            },
+            {
+                id: 13,
+                name: "Universo Zeta: Cronica Infinita",
+                dialogue: [
+                    "El final no existe. Solo una secuencia eterna de comienzos.",
+                    "El Nucleo Cronica registra cada colapso y renacimiento.",
+                    "Has llegado al rango de Arquitecto Autor.",
+                    "Ahora convierte historia en energia absoluta."
+                ],
+                missions: [
+                    { id: 'm46', text: "Despliega Nucleo Cronica", check: (s) => s.upgrades['chronicle_core'] >= 1 },
+                    {
+                        id: 'm47', text: "Portal Multiversal al Nvl 10",
+                        check: (s) => s.upgrades['multiverse_gate'] >= 10,
+                        progress: (s) => Math.min((s.upgrades['multiverse_gate'] || 0) / 10, 1)
+                    },
+                    { id: 'm48', text: "Alcanza 1Dd EPS", check: (s) => s.eps >= 1e39 }
+                ],
+                discovery: {
+                    title: "Cronista del Infinito",
+                    desc: "El arco principal de la simulacion espacial queda completo: tienes control sobre estructura, causalidad y continuidad multiversal."
+                }
+            }
+        ];
+
+        // --- Story Events (Mid-game Interruptions) ---
+        const storyEvents = [
+            {
+                id: 'evt_mars',
+                condition: (s) => s.upgrades['planet_3'] >= 1,
+                dialogue: [
+                    "¡Atención! Has establecido contacto con la superficie de Marte.",
+                    "El óxido de hierro cubre todo el planeta, pero detecto agua congelada en los polos.",
+                    "Si logramos calentarlo, podríamos iniciar la terraformación."
+                ]
+            },
+            {
+                id: 'evt_jupiter',
+                condition: (s) => s.upgrades['planet_4'] >= 1,
+                dialogue: [
+                    "Lecturas masivas de gravedad detectadas.",
+                    "Has llegado a Júpiter. Es una estrella fallida, compuesta principalmente de hidrógeno y helio.",
+                    "Su campo magnético es letal, pero la energía que podemos extraer es inmensa."
+                ]
+            },
+            {
+                id: 'evt_saturn',
+                condition: (s) => s.upgrades['planet_5'] >= 1,
+                dialogue: [
+                    "Visualizando los anillos de Saturno...",
+                    "Son hermosos, ¿verdad? Pero no te distraigas.",
+                    "Están compuestos de hielo y roca. Una mina a cielo abierto de proporciones cósmicas."
+                ]
+            },
+            {
+                id: 'evt_uranus',
+                condition: (s) => s.upgrades['planet_6'] >= 1,
+                dialogue: [
+                    "Análisis de Urano completado.",
+                    "Este planeta es... diferente. Rota completamente de lado.",
+                    "Algún impacto colosal en su pasado lo volcó para siempre.",
+                    "Sus nubes de metano le dan ese característico color azul verdoso."
+                ]
+            },
+            {
+                id: 'evt_neptune',
+                condition: (s) => s.upgrades['planet_7'] >= 1,
+                dialogue: [
+                    "Neptuno detectado. El último planeta conocido del sistema.",
+                    "Los vientos aquí superan los 2,000 km/h. Un infierno helado.",
+                    "Su atmósfera es prácticamente idéntica a Urano, pero su energía interna es sorprendente.",
+                    "Hay una tormenta del tamaño de la Tierra que lleva siglos activa."
+                ]
+            },
+            {
+                id: 'evt_triton',
+                condition: (s) => s.upgrades['moon_triton'] >= 1,
+                dialogue: [
+                    "Tritón... esta luna desafía todas las reglas.",
+                    "Orbita en dirección opuesta a la rotación de Neptuno.",
+                    "Esto significa que fue capturada, no se formó aquí.",
+                    "Despide géiseres de nitrógeno líquido hacia el espacio.",
+                    "El Arquitecto está particularmente interesado en este cuerpo celeste."
+                ]
+            },
+
+            {
+                id: 'evt_ceres',
+                condition: (s) => s.upgrades['dwarf_1'] >= 1,
+                dialogue: [
+                    "Ceres localizado en el Cinturón de Asteroides.",
+                    "Es el único planeta enano del sistema interior.",
+                    "Detecto grandes depósitos de agua bajo su superficie helada.",
+                    "Un oasis en medio del vacío rocoso."
+                ]
+            },
+            {
+                id: 'evt_pluto',
+                condition: (s) => s.upgrades['dwarf_2'] >= 1,
+                dialogue: [
+                    "Plutón... viejo amigo.",
+                    "Puede que lo hayan degradado, pero su corazón de nitrógeno sigue latiendo.",
+                    "Su danza gravitacional con Caronte es única.",
+                    "Aquí, el Sol es solo una estrella muy brillante en el cielo."
+                ]
+            },
+            {
+                id: 'evt_haumea',
+                condition: (s) => s.upgrades['dwarf_5'] >= 1,
+                dialogue: [
+                    "¡Lecturas extrañas! Este objeto no es esférico.",
+                    "Haumea gira tan rápido que se ha estirado como un balón de rugby.",
+                    "Un día aquí dura menos de 4 horas.",
+                    "La física en los límites del sistema es fascinante."
+                ]
+            },
+            {
+                id: 'evt_eris',
+                condition: (s) => s.upgrades['dwarf_3'] >= 1,
+                dialogue: [
+                    "Hemos alcanzado Eris. El objeto más masivo del disco disperso.",
+                    "Está tan lejos que su atmósfera se congela y cae como nieve.",
+                    "Es el rey solitario de la oscuridad exterior."
+                ]
+            },
+            // --- NUEVOS EVENTOS ---
+            {
+                id: 'evt_oort',
+                condition: (s) => s.upgrades['oort_comet'] >= 1,
+                dialogue: [
+                    "¡Cuidado! Estamos atravesando la Nube de Oort.",
+                    "Millones de escombros helados orbitando en silencio.",
+                    "Hemos capturado un cometa para estudiar su cola iónica."
+                ]
+            },
+            {
+                id: 'evt_proxima',
+                condition: (s) => s.upgrades['alpha_centauri'] >= 1,
+                dialogue: [
+                    "¡Contacto confirmado! Estamos en el sistema Alpha Centauri.",
+                    "La luz de esta estrella es rojiza y tenue.",
+                    "Hemos logrado lo imposible: Viaje interestelar."
+                ]
+            },
+            {
+                id: 'evt_blackhole',
+                condition: (s) => s.upgrades['sagittarius_a'] >= 1,
+                dialogue: [
+                    "ALERTA CRÍTICA: Distorsión espacio-temporal detectada.",
+                    "Estamos orbitando el Horizonte de Sucesos.",
+                    "El tiempo aquí fluye diferente. La energía extraída es... absurda."
+                ]
+            },
+            {
+                id: 'evt_dyson',
+                condition: (s) => s.upgrades['dyson_sphere'] >= 1,
+                dialogue: [
+                    "La estructura está completa.",
+                    "Hemos encerrado una estrella en una jaula de metal y circuitos.",
+                    "Toda su luz nos pertenece. Somos los dueños de la luz."
+                ]
+            },
+            {
+                id: 'evt_pulsar',
+                condition: (s) => s.upgrades['pulsar_1'] >= 1,
+                dialogue: [
+                    "¡ADVERTENCIA! Radiación extrema detectada.",
+                    "Este objeto gira 716 veces por segundo.",
+                    "Es un faro cósmico. Un pulsar.",
+                    "Su energía es caótica, pero podemos canalizarla."
+                ]
+            },
+            {
+                id: 'evt_neutron',
+                condition: (s) => s.upgrades['neutron_star'] >= 1,
+                dialogue: [
+                    "Análisis completo: Estrella de Neutrones.",
+                    "Densidad: Incomprensible. Gravedad: Aplastante.",
+                    "Una cucharada de su materia pesa más que el Monte Everest.",
+                    "Hemos tocado lo imposible."
+                ]
+            },
+            {
+                id: 'evt_quasar',
+                condition: (s) => s.upgrades['quantum_forge'] >= 1,
+                dialogue: [
+                    "Lectura confirmada: Forja Cuantica activa.",
+                    "Estas extrayendo energia del vacio mismo.",
+                    "Las fluctuaciones virtuales ya no son ruido.",
+                    "Son combustible bajo tu control."
+                ]
+            },
+            {
+                id: 'evt_binary',
+                condition: (s) => s.upgrades['multiverse_gate'] >= 1,
+                dialogue: [
+                    "Firma dimensional detectada: Portal Multiversal.",
+                    "Varias realidades comparten energia en tiempo real.",
+                    "La causalidad se vuelve un recurso utilizable.",
+                    "El siguiente paso sera sostener ese flujo sin colapsar."
+                ]
+            },
+            {
+                id: 'evt_universe_gen',
+                condition: (s) => s.upgrades['universe_generator'] >= 1,
+                dialogue: [
+                    "El Generador Universal está en línea.",
+                    "Has alcanzado el poder de los dioses.",
+                    "Puedes crear. Puedes destruir.",
+                    "El multiverso es tu lienzo.",
+                    "¿Qué harás con este poder, Arquitecto?"
+                ]
+            }
+        ];
+
+        const oceanDepths = [
+            {
+                id: 0,
+                name: "Profundidad 1: Zona Fótica",
+                dialogue: [
+                    "La luz del sol aún penetra aquí.",
+                    "La vida es abundante, pero microscópica.",
+                    "Debemos establecer una base alimenticia.",
+                    "Cultiva el fitoplancton. Es el comienzo de todo."
+                ],
+                missions: [
+                    { id: 'o1', text: "Construye 5 Fuentes Hidrotermales", check: (s) => s.upgrades['hydro_vent'] >= 5 },
+                    { id: 'o2', text: "Desbloquea Fitoplancton", check: (s) => s.upgrades['plankton'] >= 1 },
+                    { id: 'o3', text: "Alcanza 100 BPS (Biomasa/seg)", check: (s) => s.eps >= 100 }
+                ],
+                discovery: {
+                    title: "Ecosistema Establecido",
+                    desc: "La vida florece en las aguas superficiales. Hemos creado un ciclo de carbono autosuficiente.<br><br><strong>Bonus Evolutivo:</strong> +50% Producción de Biomasa."
+                }
+            },
+            {
+                id: 1,
+                name: "Profundidad 2: Zona Mesopelágica",
+                dialogue: [
+                    "Descendemos a la penumbra.",
+                    "Aquí, la fotosíntesis es imposible.",
+                    "Las criaturas deben generar su propia luz.",
+                    "Estudia la bioluminiscencia de las medusas."
+                ],
+                missions: [
+                    { id: 'o4', text: "Mejora Fitoplancton al Nivel 20", check: (s) => s.upgrades['plankton'] >= 20 },
+                    { id: 'o5', text: "Descubre Arrecifes de Coral", check: (s) => s.upgrades['coral_reef'] >= 1 },
+                    { id: 'o6', text: "Descubre Medusas Abisales", check: (s) => s.upgrades['jellyfish'] >= 1 }
+                ],
+                discovery: {
+                    title: "Bioluminiscencia Dominada",
+                    desc: "Hemos aprendido a convertir la energía química en luz pura. Las profundidades ya no son oscuras.<br><br><strong>Bonus Evolutivo:</strong> Las mejoras biológicas son un 20% más baratas."
+                }
+            },
+            {
+                id: 2,
+                name: "Profundidad 3: Zona Abisal",
+                dialogue: [
+                    "Presión crítica. Oscuridad total.",
+                    "Solo los monstruos sobreviven aquí.",
+                    "Detectamos firmas biológicas masivas.",
+                    "El Leviatán aguarda."
+                ],
+                missions: [
+                    { id: 'o7', text: "Construye 10 Medusas Abisales", check: (s) => s.upgrades['jellyfish'] >= 10 },
+                    { id: 'o8', text: "Acumula 1M de Biomasa", check: (s) => s.energy >= 1000000 },
+                    { id: 'o9', text: "Despierta al Leviatán", check: (s) => s.upgrades['leviathan'] >= 1 }
+                ],
+                discovery: {
+                    title: "Apex Predator",
+                    desc: "El Leviatán obedece. Hemos conquistado la cadena alimenticia completa.<br><br><strong>Bonus Evolutivo:</strong> Desbloqueo de 'Conciencia Oceánica' (Próximamente)."
+                }
+            }
+        ];
+
+        // --- State Management ---
+        const OCEAN_COMING_SOON = true;
+
+        const TypingSfx = {
+            ctx: null,
+            lastAt: 0,
+            ensureCtx() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            },
+            play() {
+                const now = performance.now();
+                if (now - this.lastAt < 28) return;
+                this.lastAt = now;
+
+                this.ensureCtx();
+                if (!this.ctx) return;
+
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.value = 460 + (Math.random() * 180);
+                gain.gain.setValueAtTime(0.0001, t);
+                gain.gain.exponentialRampToValueAtTime(0.03, t + 0.005);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(t);
+                osc.stop(t + 0.05);
+            }
+        };
+
+        let state = {
+            energy: 0,
+            clickPower: 1,
+            eps: 0,
+            upgrades: {},
+            eraIndex: 0,
+            oceanDepthIndex: 0,
+            prestigeMultiplier: 1,
+            prestigeLevel: 0, // NEW: Track global prestige
+            completedMissions: [],
+            triggeredEvents: [],
+            currentSimulation: 'space',
+            agentMilestones: {},
+            nodeManagerQty: {}
+        };
+
+        techTree.forEach(n => state.upgrades[n.id] = 0);
+
+        // --- Architect System ---
+        const Architect = {
+            overlay: document.getElementById('architect-overlay'),
+            textEl: document.getElementById('arch-text-content'),
+            hintEl: document.querySelector('.click-hint'),
+            queue: [],
+            isTyping: false,
+            currentText: '',
+
+            playSequence: function (messages, onComplete) {
+                this.queue = [...messages];
+                this.onComplete = onComplete;
+                this.overlay.classList.add('active');
+                this.next();
+            },
+
+            next: function () {
+                if (this.isTyping) {
+                    // Instant finish
+                    this.isTyping = false;
+                    this.textEl.innerText = this.currentText;
+                    this.hintEl.style.display = 'block';
+                    return;
+                }
+
+                if (this.queue.length === 0) {
+                    this.close();
+                    return;
+                }
+
+                this.currentText = this.queue.shift();
+                this.typeText(this.currentText);
+            },
+
+            typeText: function (text) {
+                this.isTyping = true;
+                this.textEl.innerText = '';
+                this.hintEl.style.display = 'none';
+                let i = 0;
+
+                const interval = setInterval(() => {
+                    if (!this.isTyping) {
+                        clearInterval(interval);
+                        return;
+                    }
+
+                    const ch = text.charAt(i);
+                    this.textEl.innerText += ch;
+                    if (ch.trim().length > 0) TypingSfx.play();
+                    i++;
+
+                    if (i >= text.length) {
+                        this.isTyping = false;
+                        this.hintEl.style.display = 'block';
+                        clearInterval(interval);
+                    }
+                }, 30); // Typing speed
+            },
+
+            close: function () {
+                this.overlay.classList.remove('active');
+                if (this.onComplete) this.onComplete();
+            }
+        };
+
+        Architect.overlay.addEventListener('click', () => {
+            TypingSfx.ensureCtx();
+            Architect.next();
+        });
+
+        function saveGame() {
+            localStorage.setItem('cosmicOdysseySave', JSON.stringify(state));
+            console.log('Game Saved');
+        }
+
+        function loadGame() {
+            const saved = localStorage.getItem('cosmicOdysseySave');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    state = { ...state, ...parsed };
+                    techTree.forEach(n => {
+                        if (typeof state.upgrades[n.id] === 'undefined') {
+                            state.upgrades[n.id] = 0;
+                        }
+                    });
+                    logAI("Datos de simulación restaurados.", 'system');
+                } catch (e) {
+                    console.error("Save file corrupted", e);
+                    logAI("Error al cargar datos. Iniciando nueva simulación.", 'system');
+                }
+            }
+        }
+
+        function logAI(text, type = 'normal') {
+            const log = document.getElementById('ai-log');
+            const msg = document.createElement('div');
+            msg.className = `ai-msg ${type}`;
+            msg.innerHTML = text;
+            log.appendChild(msg);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function triggerRebirth() {
+            const modal = document.getElementById('rebirth-modal');
+
+            // Select progression data based on current simulation
+            const isOcean = state.currentSimulation === 'ocean';
+            const currentProgression = isOcean ? oceanDepths[state.oceanDepthIndex] : eras[state.eraIndex];
+
+            if (!currentProgression) return;
+
+            document.getElementById('discovery-title').innerText = currentProgression.discovery.title;
+            document.getElementById('discovery-desc').innerHTML = currentProgression.discovery.desc;
+
+            // Update button text contextually
+            const continueBtn = document.getElementById('continue-btn');
+            continueBtn.innerText = isOcean ? "Evolucionar Bioma" : "Continuar Simulación";
+
+            modal.classList.add('active');
+        }
+
+        function getRootNodeBySimulation(simulation) {
+            return simulation === 'ocean' ? 'hydro_vent' : 'sun';
+        }
+
+        function getStageIndex(simulation) {
+            return simulation === 'ocean' ? state.oceanDepthIndex : state.eraIndex;
+        }
+
+        function calculateKickstartEnergy(simulation) {
+            const rootId = getRootNodeBySimulation(simulation);
+            const rootNode = techTree.find(n => n.id === rootId);
+            if (!rootNode) return 0;
+
+            const stageIndex = getStageIndex(simulation);
+            const stageScale = 12 + (stageIndex * 4);
+            const prestigeScale = Math.max(1, 0.35 * state.prestigeMultiplier);
+
+            return Math.floor(rootNode.baseCost * stageScale * prestigeScale);
+        }
+
+        function finishRebirth() {
+            const modal = document.getElementById('rebirth-modal');
+            modal.classList.remove('active');
+
+            const isOcean = state.currentSimulation === 'ocean';
+
+            // Advance the specific track
+            if (isOcean) {
+                state.oceanDepthIndex++;
+            } else {
+                state.eraIndex++;
+                // If finished Space simulation (last era), gain Prestige Level
+                if (state.eraIndex > eras.length - 1) {
+                    state.prestigeLevel++;
+                    logAI(`¡NIVEL DE PRESTIGIO AUMENTADO A ${state.prestigeLevel}!`, 'success');
+                    logAI("La Simulación Espacial ha concluido. Simulación Oceánica: Próximamente.", 'system');
+                }
+            }
+
+            state.prestigeMultiplier += 1.0;
+            state.energy = calculateKickstartEnergy(state.currentSimulation);
+            state.eps = 0;
+            state.completedMissions = [];
+            // DON'T clear triggeredEvents - story events should only play once EVER
+
+            // Reset ALL upgrades (Global Reset)
+            techTree.forEach(n => state.upgrades[n.id] = 0);
+
+            saveGame();
+            closePanel();
+            recalc();
+
+            // Play dialogue for the NEXT stage
+            const nextProgression = isOcean ? oceanDepths[state.oceanDepthIndex] : eras[state.eraIndex];
+
+            if (nextProgression) {
+                Architect.playSequence(nextProgression.dialogue, () => {
+                    const type = isOcean ? "Profundidad" : "Era";
+                    logAI(`Nueva ${type} iniciada. Objetivos actualizados.`, 'system');
+                });
+            } else {
+                // End of game reached for this track (but maybe just show endgame modal)
+                showEndgameModal();
+            }
+        }
+
+        function showEndgameModal() {
+            const modal = document.getElementById('endgame-modal');
+            const content = document.getElementById('endgame-content');
+            const scrollIndicator = document.getElementById('scroll-indicator');
+
+            // Calculate final stats
+            document.getElementById('final-energy').innerText = formatNumber(state.energy);
+            document.getElementById('final-eps').innerText = formatNumber(state.eps);
+            document.getElementById('final-universes').innerText = state.eraIndex;
+
+            modal.classList.add('active');
+
+            // Check if content needs scrolling
+            setTimeout(() => {
+                if (content.scrollHeight > content.clientHeight) {
+                    scrollIndicator.classList.remove('hidden');
+
+                    // Hide indicator when user scrolls
+                    content.addEventListener('scroll', function hideIndicator() {
+                        if (content.scrollTop > 50) {
+                            scrollIndicator.classList.add('hidden');
+                            content.removeEventListener('scroll', hideIndicator);
+                        }
+                    });
+                } else {
+                    scrollIndicator.classList.add('hidden');
+                }
+            }, 100);
+
+            // Only log if not already shown
+            if (!modal.dataset.shown) {
+                logAI("=== SIMULACIÓN COMPLETADA ===", 'success');
+                logAI("Todos los objetivos alcanzados. Esperando expansión del multiverso...", 'system');
+                modal.dataset.shown = 'true';
+            }
+        }
+
+        function closeEndgame() {
+            const modal = document.getElementById('endgame-modal');
+            modal.classList.remove('active');
+            logAI("Modo libre activado. Continúa optimizando tu universo.", 'system');
+        }
+
+        function formatNumber(num) {
+            if (num >= 1e60) return '∞'; // El universo explota
+            if (num >= 1e57) return (num / 1e57).toFixed(2) + 'Od'; // Octodecillion
+            if (num >= 1e54) return (num / 1e54).toFixed(2) + 'Sd'; // Septendecillion
+            if (num >= 1e51) return (num / 1e51).toFixed(2) + 'Sxd'; // Sexdecillion
+            if (num >= 1e48) return (num / 1e48).toFixed(2) + 'Qid'; // Quindecillion
+            if (num >= 1e45) return (num / 1e45).toFixed(2) + 'Qad'; // Quattuordecillion
+            if (num >= 1e42) return (num / 1e42).toFixed(2) + 'Td'; // Tredecillion
+            if (num >= 1e39) return (num / 1e39).toFixed(2) + 'Dd'; // Duodecillion
+            if (num >= 1e36) return (num / 1e36).toFixed(2) + 'Ud'; // Undecillion
+            if (num >= 1e33) return (num / 1e33).toFixed(2) + 'Dc';
+            if (num >= 1e30) return (num / 1e30).toFixed(2) + 'No';
+            if (num >= 1e27) return (num / 1e27).toFixed(2) + 'Oc';
+            if (num >= 1e24) return (num / 1e24).toFixed(2) + 'Sp';
+            if (num >= 1e21) return (num / 1e21).toFixed(2) + 'Sx';
+            if (num >= 1e18) return (num / 1e18).toFixed(2) + 'Qi';
+            if (num >= 1e15) return (num / 1e15).toFixed(2) + 'Qa';
+            if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'k';
+            return Math.floor(num);
+        }
+
+        // --- Core Logic ---
+
+        function centerView() {
+            const slider = document.getElementById('tree-area');
+            const centerX = 4000;
+            const centerY = 4000;
+            slider.scrollLeft = centerX - (slider.clientWidth / 2);
+            slider.scrollTop = centerY - (slider.clientHeight / 2);
+        }
+
+
+        function getNodeCostAtLevel(item, level) {
+            // Balance Fix: Smoother scaling for early game
+            let growthFactor = 1.15; // Generators scale by 15% instead of 50%
+
+            if (item.type === 'upgrade') {
+                // Upgrades scale slightly faster but not 10x anymore
+                growthFactor = (item.multiplier && item.multiplier >= 2) ? 2.5 : 1.8;
+            }
+
+            let cost = Math.floor(item.baseCost * Math.pow(growthFactor, level));
+            if (state.eraIndex > 1) cost = Math.floor(cost * 0.8);
+
+            // Era bootstrap: abarata el arranque de cada era para evitar estancamiento temprano.
+            const currentSim = state.currentSimulation || 'space';
+            const rootId = getRootNodeBySimulation(currentSim);
+            const rootLevel = state.upgrades[rootId] || 0;
+            const stageIndex = getStageIndex(currentSim);
+            const inBootstrapWindow = rootLevel < 16;
+
+            if (inBootstrapWindow) {
+                const stageBoost = Math.min(0.62, 0.16 + (stageIndex * 0.04));
+                if (item.id === rootId) {
+                    cost = Math.floor(cost * (1 - stageBoost));
+                } else if (item.parent === rootId) {
+                    cost = Math.floor(cost * (1 - (stageBoost * 0.72)));
+                } else if (item.parent && rootLevel < 8) {
+                    cost = Math.floor(cost * (1 - (stageBoost * 0.35)));
+                }
+            }
+
+            cost = Math.max(1, cost);
+            return cost;
+        }
+
+        function getCost(item) {
+            const level = state.upgrades[item.id];
+            return getNodeCostAtLevel(item, level);
+        }
+
+
+        function recalc() {
+            let eps = 0;
+            techTree.forEach(item => {
+                if (item.type === 'generator') eps += getProduction(item);
+                updateNodeUI(item);
+            });
+            state.eps = eps;
+            document.getElementById('eps').innerText = formatNumber(eps);
+
+            // Update Progress Bar
+            updateProgressBar();
+
+            checkMissions();
+            checkStoryEvents();
+            renderTreeState();
+
+            // Scale click power with EPS (10% of EPS + base)
+            state.clickPower = 1 + (state.eps * 0.1);
+
+            // Extra empuje de clicks al inicio de etapa para acelerar el despegue.
+            const currentSim = state.currentSimulation || 'space';
+            const rootId = getRootNodeBySimulation(currentSim);
+            const rootLevel = state.upgrades[rootId] || 0;
+            if (rootLevel < 10) {
+                const stageIndex = getStageIndex(currentSim);
+                const bootstrapClick = 2 + stageIndex + Math.floor(state.prestigeLevel * 0.5);
+                state.clickPower += bootstrapClick;
+            }
+        }
+
+        function updateProgressBar() {
+            const isOcean = state.currentSimulation === 'ocean';
+            const currentStage = isOcean ? oceanDepths[state.oceanDepthIndex] : eras[state.eraIndex];
+            if (!currentStage) return;
+
+            const totalMissions = currentStage.missions.length;
+            const completedCount = currentStage.missions.filter(m => state.completedMissions.includes(m.id) || m.check(state)).length;
+            const percent = Math.floor((completedCount / totalMissions) * 100);
+
+            document.getElementById('era-progress').style.width = percent + '%';
+            document.getElementById('progress-percent').innerText = percent + '%';
+            document.getElementById('progress-label').innerText = isOcean ? `Profundidad ${state.oceanDepthIndex + 1}` : `Era ${state.eraIndex + 1}`;
+        }
+
+        function renderTreeState() {
+            techTree.forEach(item => {
+                const node = document.getElementById(`node-${item.id}`);
+                const line = document.getElementById(`line-${item.id}`);
+                const level = state.upgrades[item.id];
+                let isVisible = false;
+                let isUnlocked = false;
+                let parentLevel = 0;
+                const requiredLevel = item.reqLevel || 1;
+
+                if (item.parent === null) {
+                    isVisible = true;
+                    isUnlocked = true;
+                } else {
+                    parentLevel = state.upgrades[item.parent] || 0;
+                    // Mostrar nodo bloqueado cuando ya existe progreso en su padre.
+                    isVisible = (parentLevel > 0) || (level > 0);
+                    isUnlocked = parentLevel >= requiredLevel;
+                }
+                if (item.id === 'sun') {
+                    isVisible = true;
+                    isUnlocked = true;
+                }
+
+                // --- FIX: Check if node exists (it might be in another simulation) ---
+                if (!node) return;
+
+                node.className = `node tech-node ${item.type}`;
+                if (isVisible) node.classList.add('visible');
+                if (isUnlocked && level > 0) node.classList.add('purchased');
+                if (isUnlocked) node.classList.add('unlocked');
+
+                const isLocked = !!item.parent && level === 0 && !isUnlocked;
+                if (isLocked) node.classList.add('locked');
+
+                const reqBadge = node.querySelector('.tech-node-req');
+                if (reqBadge) {
+                    reqBadge.style.display = isLocked ? 'block' : 'none';
+                }
+
+                if (line) {
+                    line.classList.remove('visible', 'active');
+                    if (isVisible) line.classList.add('visible');
+                    if (level > 0) line.classList.add('active');
+                }
+            });
+            document.getElementById('cosmic-energy').innerText = formatNumber(state.energy);
+            if (selectedItem) updatePanelBtn();
+            renderNodeManager();
+        }
+
+        function calculateEpsFromLevels(levelsMap) {
+            const sim = state.currentSimulation || 'space';
+            const simNodes = techTree.filter(n => (n.simulation || 'space') === sim);
+            const byId = {};
+            simNodes.forEach(n => byId[n.id] = n);
+
+            let total = 0;
+            simNodes.forEach(item => {
+                if (item.type !== 'generator') return;
+                const itemLevel = levelsMap[item.id] ?? state.upgrades[item.id] ?? 0;
+                let prod = item.baseProd * itemLevel;
+
+                simNodes.forEach(upg => {
+                    if (upg.type !== 'upgrade' || upg.targetId !== item.id) return;
+                    const upgLevel = levelsMap[upg.id] ?? state.upgrades[upg.id] ?? 0;
+                    if (upgLevel > 0) prod *= Math.pow(upg.multiplier, upgLevel);
+                });
+                total += prod;
+            });
+
+            return total * state.prestigeMultiplier;
+        }
+
+        function getNodeBulkPreview(item, qty) {
+            const currentLevel = state.upgrades[item.id] || 0;
+            let totalCost = 0;
+            for (let i = 0; i < qty; i++) {
+                totalCost += getNodeCostAtLevel(item, currentLevel + i);
+            }
+
+            const simulated = {};
+            simulated[item.id] = currentLevel + qty;
+            const currentEps = calculateEpsFromLevels({});
+            const nextEps = calculateEpsFromLevels(simulated);
+            return { totalCost, epsDelta: Math.max(0, nextEps - currentEps) };
+        }
+
+        function getAffordableQty(item, cap = 999) {
+            let qty = 0;
+            let remaining = state.energy;
+            let lvl = state.upgrades[item.id] || 0;
+            while (qty < cap) {
+                const c = getNodeCostAtLevel(item, lvl + qty);
+                if (remaining < c) break;
+                remaining -= c;
+                qty++;
+            }
+            return qty;
+        }
+
+        function focusNodeFromManager(itemId) {
+            const item = techTree.find(n => n.id === itemId);
+            if (!item) return;
+            const treeArea = document.getElementById('tree-area');
+            treeArea.scrollLeft = Math.max(0, item.x - (treeArea.clientWidth / 2));
+            treeArea.scrollTop = Math.max(0, item.y - (treeArea.clientHeight / 2));
+        }
+
+        function setManagerQty(itemId, value) {
+            state.nodeManagerQty[itemId] = value;
+            renderNodeManager();
+        }
+
+        function buyNodeFromManager(itemId) {
+            const item = techTree.find(n => n.id === itemId);
+            if (!item) return;
+
+            if (item.parent) {
+                const parentLevel = state.upgrades[item.parent] || 0;
+                const req = item.reqLevel || 1;
+                if (parentLevel < req) {
+                    logAI(`[${item.title}] Bloqueado. Requiere ${item.parent} Nvl ${req}.`, 'error');
+                    return;
+                }
+            }
+
+            const qtyMode = state.nodeManagerQty[itemId] || '1';
+            let qty = qtyMode === 'MAX' ? getAffordableQty(item) : Math.max(1, parseInt(qtyMode, 10) || 1);
+            if (qty <= 0) {
+                logAI(`Energía insuficiente para mejorar ${item.title}.`, 'error');
+                return;
+            }
+
+            let purchased = 0;
+            while (purchased < qty) {
+                const c = getNodeCostAtLevel(item, (state.upgrades[item.id] || 0));
+                if (state.energy < c) break;
+                state.energy -= c;
+                state.upgrades[item.id] = (state.upgrades[item.id] || 0) + 1;
+                purchased++;
+            }
+
+            if (purchased > 0) {
+                logAI(`${item.title} mejorado x${purchased}.`, 'success');
+                recalc();
+                saveGame();
+            } else {
+                logAI(`No se pudo comprar mejora para ${item.title}.`, 'error');
+            }
+        }
+
+        function toggleNodeManager() {
+            const panel = document.getElementById('node-manager-panel');
+            if (!panel) return;
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) renderNodeManager();
+        }
+
+        function renderNodeManager() {
+            const list = document.getElementById('node-manager-list');
+            if (!list || !list.parentElement.classList.contains('open')) return;
+
+            const sim = state.currentSimulation || 'space';
+            const nodes = techTree
+                .filter(n => (n.simulation || 'space') === sim)
+                .slice()
+                .sort((a, b) => {
+                    const aReq = !a.parent || ((state.upgrades[a.parent] || 0) >= (a.reqLevel || 1));
+                    const bReq = !b.parent || ((state.upgrades[b.parent] || 0) >= (b.reqLevel || 1));
+                    if (aReq !== bReq) return aReq ? -1 : 1;
+                    return (a.x - b.x) || (a.y - b.y);
+                });
+
+            list.innerHTML = '';
+            nodes.forEach(item => {
+                const parentLevel = item.parent ? (state.upgrades[item.parent] || 0) : 0;
+                const reqLevel = item.reqLevel || 0;
+                const parentTitle = item.parent ? (techTree.find(n => n.id === item.parent)?.title || item.parent) : '';
+                const reqMet = !item.parent || parentLevel >= reqLevel;
+                const discovered = !item.parent || parentLevel > 0 || (state.upgrades[item.id] || 0) > 0;
+                const locked = !reqMet;
+                const qtyMode = state.nodeManagerQty[item.id] || '1';
+                const qty = qtyMode === 'MAX' ? getAffordableQty(item) : Math.max(1, parseInt(qtyMode, 10) || 1);
+                const preview = getNodeBulkPreview(item, qty);
+                const buyEnabled = reqMet && preview.totalCost <= state.energy && qty > 0;
+
+                const row = document.createElement('div');
+                row.className = `node-item ${locked ? 'locked' : ''}`;
+                row.innerHTML = `
+                    <div>
+                        <div class="node-item-title">${item.title} <span style="opacity:0.65;font-size:0.78rem;">Nvl ${state.upgrades[item.id] || 0}</span></div>
+                        <div class="node-item-meta">
+                            <span>${item.type === 'generator' ? 'Generador' : 'Upgrade'}</span>
+                            <span>${reqMet ? 'Disponible' : `Req: ${parentTitle} Nvl ${reqLevel}`}</span>
+                            <span>+${formatNumber(getProduction(item))}/s</span>
+                            <span>Δ +${formatNumber(preview.epsDelta)}/s</span>
+                            <span>Costo: ${formatNumber(preview.totalCost || getCost(item))}</span>
+                            ${!discovered ? '<span>No descubierto</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="node-item-controls">
+                        <button onclick="focusNodeFromManager('${item.id}')">Ir</button>
+                        <select onchange="setManagerQty('${item.id}', this.value)">
+                            <option value="1" ${qtyMode === '1' ? 'selected' : ''}>x1</option>
+                            <option value="5" ${qtyMode === '5' ? 'selected' : ''}>x5</option>
+                            <option value="10" ${qtyMode === '10' ? 'selected' : ''}>x10</option>
+                            <option value="25" ${qtyMode === '25' ? 'selected' : ''}>x25</option>
+                            <option value="MAX" ${qtyMode === 'MAX' ? 'selected' : ''}>MAX</option>
+                        </select>
+                        <button class="primary" onclick="buyNodeFromManager('${item.id}')" ${buyEnabled ? '' : 'disabled'}>Comprar</button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        let selectedItem = null;
+        const panel = document.getElementById('details-panel');
+
+        function openPanel(item) {
+            const node = document.getElementById(`node-${item.id}`);
+            if (!node.classList.contains('visible')) return;
+            selectedItem = item;
+            panel.classList.add('open');
+            document.getElementById('panel-title').innerText = item.title;
+            document.getElementById('panel-desc').innerText = item.desc;
+            document.getElementById('panel-img').innerHTML = `<div class="css-icon ${item.iconClass}"></div>`;
+            updatePanelBtn();
+        }
+
+        function closePanel() {
+            panel.classList.remove('open');
+            selectedItem = null;
+        }
+
+        function updatePanelBtn() {
+            if (!selectedItem) return;
+            const btn = document.getElementById('buy-btn');
+            const cost = getCost(selectedItem);
+            const level = state.upgrades[selectedItem.id];
+            const stats = document.getElementById('panel-stats');
+
+            // Get currency based on current simulation
+            const isOcean = state.currentSimulation === 'ocean';
+            const currencyIcon = isOcean ? '🧬' : '✨';
+            const currencyName = isOcean ? 'Biomasa' : 'Polvo Estelar';
+
+            stats.innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--text-muted);"><span>Nivel</span> <span style="color:white;">${level}</span></div><div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--text-muted);"><span>Costo</span> <span style="color:var(--primary);">${currencyIcon} ${formatNumber(cost)} ${currencyName}</span></div>`;
+            if (state.energy >= cost) {
+                btn.disabled = false;
+                btn.innerText = "Mejorar";
+                btn.onclick = () => {
+                    if (state.energy >= cost) {
+                        if (Number.isFinite(state.energy)) {
+                            state.energy -= cost;
+                        }
+                        state.upgrades[selectedItem.id]++;
+                        recalc();
+                        updatePanelBtn();
+                        saveGame();
+                    }
+                };
+            } else {
+                btn.disabled = true;
+                btn.innerText = `${currencyName} Insuficiente`;
+            }
+        }
+
+        function buyUpgrade(itemId) {
+            const item = techTree.find(t => t.id === itemId);
+            if (!item) return;
+
+            // 1. CHEQUEO DE REQUISITOS (Lógica de Bloqueo)
+            const itemLevel = state.upgrades[itemId] || 0;
+
+            // Solo bloqueamos si tiene padre Y no ha sido comprado aún (Nvl 0)
+            if (item.parent && itemLevel === 0) {
+                const requiredLevel = item.reqLevel || 1;
+                const parentLevel = state.upgrades[item.parent] || 0;
+
+                // Si el padre no cumple el nivel, salimos.
+                if (parentLevel < requiredLevel) {
+                    logAI(`[${item.title}] Bloqueado. Necesitas Nvl ${requiredLevel} de ${item.parent}.`, 'error');
+                    return; // Bloquea la compra
+                }
+                // Si el requisito se cumple aquí, la compra debe proceder.
+            }
+
+            // 2. CÁLCULO DE COSTO Y COMPRA (Tu código existente)
+            const cost = calculateCost(itemId); // Asume que tienes esta función
+
+            if (state.energy >= cost) {
+                state.energy -= cost;
+                state.upgrades[itemId] = (state.upgrades[itemId] || 0) + 1;
+
+                logAI(`Comprado: ${item.title} (Nvl ${state.upgrades[itemId]})`, 'success');
+
+                // 3. ACTUALIZACIÓN INMEDIATA DE UI
+                updateNodeUI(item);  // ¡Forzamos la remoción de la clase .locked inmediatamente!
+                recalc();            // Forzamos el recálculo general
+            } else {
+                logAI(`Necesitas ${formatNumber(cost)} energía.`, 'error');
+            }
+        }
+
+        function getProduction(item) {
+            if (item.type !== 'generator') return 0;
+            let prod = item.baseProd * state.upgrades[item.id];
+            techTree.filter(u => u.type === 'upgrade' && u.targetId === item.id).forEach(u => {
+                if (state.upgrades[u.id] > 0) {
+                    prod *= Math.pow(u.multiplier, state.upgrades[u.id]);
+                }
+            });
+            return prod * state.prestigeMultiplier;
+        }
+
+        function checkStoryEvents() {
+            storyEvents.forEach(evt => {
+                if (!state.triggeredEvents.includes(evt.id) && evt.condition(state)) {
+                    state.triggeredEvents.push(evt.id);
+                    Architect.playSequence(evt.dialogue, () => {
+                        logAI("Transmisión del Arquitecto finalizada.", 'system');
+                    });
+                }
+            });
+        }
+
+        function getMissionProgress(mission, simState) {
+            if (mission.check(simState)) return 1;
+            if (typeof mission.progress === 'function') {
+                const value = mission.progress(simState);
+                return Math.max(0, Math.min(1, value || 0));
+            }
+            return 0;
+        }
+
+        function updateAgentTelemetry(currentStage, completedCount, totalMissions, isOcean) {
+            const stageIndex = isOcean ? (state.oceanDepthIndex + 1) : (state.eraIndex + 1);
+            const progressPct = totalMissions > 0 ? Math.floor((completedCount / totalMissions) * 100) : 0;
+
+            const aiMode = document.getElementById('ai-mode-text');
+            const aiRisk = document.getElementById('ai-risk');
+            const aiTempo = document.getElementById('ai-tempo');
+            const aiStage = document.getElementById('ai-stage');
+            const aiSync = document.getElementById('ai-sync');
+            const aiLink = document.getElementById('ai-link-status');
+
+            if (aiMode) aiMode.innerText = `Modo: ${isOcean ? 'Cartografia Abisal' : 'Expansion Estelar'} / ${currentStage ? currentStage.name.split(':')[0] : 'Modo Libre'}`;
+            if (aiStage) aiStage.innerText = isOcean ? `D${stageIndex}` : `E${stageIndex}`;
+            if (aiSync) aiSync.innerText = `${Math.max(60, progressPct)}%`;
+
+            let riskText = 'Bajo';
+            if (stageIndex >= 6 || state.eps >= 1e24) riskText = 'Medio';
+            if (stageIndex >= 10 || state.eps >= 1e33) riskText = 'Alto';
+            if (stageIndex >= 13 || state.eps >= 1e39) riskText = 'Critico';
+            if (aiRisk) aiRisk.innerText = riskText;
+
+            let tempoText = 'Lento';
+            if (state.eps >= 1e9) tempoText = 'Medio';
+            if (state.eps >= 1e21) tempoText = 'Alto';
+            if (state.eps >= 1e33) tempoText = 'Extremo';
+            if (aiTempo) aiTempo.innerText = tempoText;
+
+            if (aiLink) aiLink.innerText = `AI_LINK_STATUS: ${progressPct >= 100 ? 'LOCKED_IN' : 'OK'}`;
+
+            const stageKey = `${isOcean ? 'ocean' : 'space'}-${currentStage ? currentStage.id : 'free'}`;
+            if (!state.agentMilestones[stageKey]) state.agentMilestones[stageKey] = {};
+
+            const marks = [25, 50, 75];
+            marks.forEach(mark => {
+                const done = progressPct >= mark;
+                if (done && !state.agentMilestones[stageKey][mark]) {
+                    state.agentMilestones[stageKey][mark] = true;
+                    logAI(`UCI: progreso tactico ${mark}% confirmado para ${isOcean ? 'Profundidad' : 'Era'} ${stageIndex}.`, 'system');
+                }
+            });
+        }
+
+        function applySimulationLayout(currentSim) {
+            const centerY = 4000;
+            const tierGap = currentSim === 'ocean' ? 360 : 430;
+            const baseX = currentSim === 'ocean' ? 3600 : 3650;
+            const laneGap = currentSim === 'ocean' ? 280 : 240;
+
+            const tierMap = currentSim === 'ocean'
+                ? [
+                    ['hydro_vent'],
+                    ['plankton', 'coral_reef'],
+                    ['jellyfish'],
+                    ['leviathan']
+                ]
+                : [
+                    ['sun'],
+                    ['nuc_fusion', 'solar_flares', 'planet_1'],
+                    ['geo_harvest', 'planet_2', 'planet_3', 'planet_4'],
+                    ['moon_europa', 'planet_5', 'moon_titan', 'planet_6', 'planet_7', 'dwarf_1'],
+                    ['moon_triton', 'dwarf_2', 'moon_charon', 'dwarf_3', 'dwarf_5', 'oort_comet'],
+                    ['sedna', 'alpha_centauri', 'proxima_b', 'warp_drive'],
+                    ['sagittarius_a', 'hawking_rad', 'dyson_sphere'],
+                    ['pulsar_1', 'neutron_star', 'universe_generator'],
+                    ['quantum_forge', 'dark_matter_lens', 'multiverse_gate'],
+                    ['echo_nodes', 'causal_engine', 'chronicle_core']
+                ];
+
+            tierMap.forEach((tier, tierIndex) => {
+                const x = baseX + (tierIndex * tierGap);
+                const offset = (tier.length - 1) / 2;
+                tier.forEach((id, laneIndex) => {
+                    const node = techTree.find(n => n.id === id);
+                    if (!node) return;
+                    node.x = x;
+                    node.y = centerY + ((laneIndex - offset) * laneGap);
+                });
+            });
+        }
+
+        function checkMissions() {
+            const missionListEl = document.getElementById('mission-list');
+            const prestigeBtn = document.getElementById('prestige-btn');
+            const endgameTriggerBtn = document.getElementById('endgame-trigger-btn');
+            const stageNameEl = document.getElementById('mission-stage-name');
+            const stageRatioEl = document.getElementById('mission-stage-ratio');
+
+            // Determine which set of missions to show
+            const isOcean = state.currentSimulation === 'ocean';
+            const currentStage = isOcean ? oceanDepths[state.oceanDepthIndex] : eras[state.eraIndex];
+
+            if (!currentStage) {
+                missionListEl.innerHTML = '<div style="color:var(--gold); text-align:center;">Simulación Finalizada</div>';
+                if (stageNameEl) stageNameEl.innerText = 'Modo libre activo';
+                if (stageRatioEl) stageRatioEl.innerText = '// COMPLETO';
+                prestigeBtn.style.display = 'none';
+                // Show endgame trigger button for players who already finished
+                if (endgameTriggerBtn) {
+                    endgameTriggerBtn.style.display = 'flex';
+                }
+                return;
+            }
+
+            // 1. Limpiar misiones viejas si cambiamos de era/simulación
+            // Usamos un prefijo único para detectar cambios: 'mission-space-0-' o 'mission-ocean-0-'
+            const prefix = isOcean ? `mission-ocean-${currentStage.id}-` : `mission-space-${currentStage.id}-`;
+
+            if (missionListEl.children.length > 0) {
+                const firstId = missionListEl.children[0].id;
+                if (!firstId.startsWith(prefix)) {
+                    missionListEl.innerHTML = '';
+                }
+            }
+
+            let allComplete = true;
+            let completedCount = 0;
+
+            currentStage.missions.forEach((m, index) => {
+                // Lógica de estado
+                const isDone = state.completedMissions.includes(m.id) || m.check(state);
+                if (isDone && !state.completedMissions.includes(m.id)) {
+                    state.completedMissions.push(m.id);
+                    logAI(`Objetivo completado: ${m.text}`, 'success');
+                }
+                if (isDone) completedCount++;
+                if (!isDone) allComplete = false;
+                const progress = getMissionProgress(m, state);
+                const progressPct = Math.round(progress * 100);
+
+                // Lógica de Renderizado INTELIGENTE
+                const elementId = `${prefix}${m.id}`;
+                let missionRow = document.getElementById(elementId);
+
+                // Si no existe, lo creamos
+                if (!missionRow) {
+                    missionRow = document.createElement('div');
+                    missionRow.id = elementId;
+                    missionRow.className = 'mission-item';
+                    // Estructura interna
+                    missionRow.innerHTML = `
+                <div class="checkbox"></div>
+                <span class="mission-label">${m.text}</span>
+                <span class="mission-status">EN CURSO</span>
+                <div class="mission-progress-track">
+                    <div class="mission-progress-fill"></div>
+                </div>
+            `;
+                    missionListEl.appendChild(missionRow);
+                }
+
+                // Actualizamos la clase solo si cambió el estado
+                if (isDone && !missionRow.classList.contains('completed')) {
+                    missionRow.classList.add('completed');
+                    missionRow.querySelector('.checkbox').innerText = '✓';
+                }
+                const status = missionRow.querySelector('.mission-status');
+                const fill = missionRow.querySelector('.mission-progress-fill');
+                if (fill) fill.style.width = `${progressPct}%`;
+                if (status) status.innerText = isDone ? 'COMPLETADA' : `${progressPct}%`;
+            });
+
+            if (stageNameEl) {
+                const stageType = isOcean ? 'Profundidad' : 'Era';
+                stageNameEl.innerText = `${stageType} ${isOcean ? state.oceanDepthIndex + 1 : state.eraIndex + 1}: ${currentStage.name}`;
+            }
+            if (stageRatioEl) {
+                stageRatioEl.innerText = `${completedCount}/${currentStage.missions.length} // ACTIVO`;
+            }
+            updateAgentTelemetry(currentStage, completedCount, currentStage.missions.length, isOcean);
+
+            // Botón de Prestigio
+            if (allComplete) {
+                prestigeBtn.style.display = 'flex';
+
+                // Update Text based on Simulation
+                const btnText = isOcean ? "Evolucionar Bioma" : "Actualizar Universo";
+                // Only update text node, keep the icon div
+                if (prestigeBtn.lastChild.textContent.trim() !== btnText) {
+                    prestigeBtn.innerHTML = `<div style="width: 20px; height: 20px; border: 2px solid #000; border-radius: 50%;"></div> ${btnText}`;
+                }
+
+                if (prestigeBtn.dataset.visible !== 'true') {
+                    const msg = isOcean ? "Bioma estabilizado. Evolución disponible." : "Simulación completa. Datos listos para Actualización Universal.";
+                    logAI(msg, 'system');
+                    prestigeBtn.dataset.visible = 'true';
+                }
+            } else {
+                prestigeBtn.style.display = 'none';
+                prestigeBtn.dataset.visible = 'false';
+            }
+        }
+
+        // --- Input Handling ---
+        document.getElementById('main-clicker').addEventListener('click', (e) => {
+            state.energy += state.clickPower * state.prestigeMultiplier;
+            recalc();
+
+            const el = document.createElement('div');
+            el.innerText = `+ ${formatNumber(state.clickPower * state.prestigeMultiplier)}`;
+            el.style.position = 'absolute';
+            el.style.left = e.clientX + 'px';
+            el.style.top = e.clientY + 'px';
+            el.style.color = 'white';
+            el.style.pointerEvents = 'none';
+            el.style.animation = 'floatUp 1s forwards';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        });
+
+        const slider = document.getElementById('tree-area');
+        let isDown = false;
+        let startX, startY, scrollLeft, scrollTop;
+
+        slider.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.node') || e.target.closest('#main-clicker')) return;
+            isDown = true;
+            startX = e.pageX - slider.offsetLeft;
+            startY = e.pageY - slider.offsetTop;
+            scrollLeft = slider.scrollLeft;
+            scrollTop = slider.scrollTop;
+        });
+        slider.addEventListener('mouseleave', () => isDown = false);
+        slider.addEventListener('mouseup', () => isDown = false);
+        slider.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const y = e.pageY - slider.offsetTop;
+            const walkX = (x - startX) * 1;
+            const walkY = (y - startY) * 1;
+            slider.scrollLeft = scrollLeft - walkX;
+            slider.scrollTop = scrollTop - walkY;
+        });
+
+        function createStars() {
+            const container = document.getElementById('stars-container');
+            for (let i = 0; i < 200; i++) {
+                const s = document.createElement('div');
+                s.className = 'star';
+                s.style.left = Math.random() * 100 + '%';
+                s.style.top = Math.random() * 100 + '%';
+                s.style.width = Math.random() * 3 + 'px';
+                s.style.height = s.style.width;
+                s.style.setProperty('--duration', (Math.random() * 3 + 2) + 's');
+                s.style.setProperty('--opacity', Math.random());
+                container.appendChild(s);
+            }
+        }
+
+        setInterval(() => {
+            if (state.eps > 0) {
+                state.energy += state.eps / 10;
+                document.getElementById('cosmic-energy').innerText = formatNumber(state.energy);
+                updatePanelBtn();
+                checkMissions();
+            }
+        }, 100);
+
+        function updateNodeUI(item) {
+            const node = document.getElementById(`node-${item.id}`);
+            if (!node) return;
+
+            if (!item.parent) {
+                node.classList.remove('locked');
+                return;
+            }
+
+            const requiredLevel = item.reqLevel || 1;
+            const parentLevel = state.upgrades[item.parent] || 0;
+            const itemLevel = state.upgrades[item.id] || 0;
+
+            // Lógica Correcta: Bloqueado solo si Nvl 0 Y requisito del padre no cumplido
+            const isLocked = (itemLevel === 0 && parentLevel < requiredLevel);
+
+            // Encuentra el cartel de requisito una vez
+            const reqBadge = node.querySelector('.tech-node-req');
+
+            // Aplicar/Quitar la clase CSS 'locked'
+            if (isLocked) {
+                node.classList.add('locked');
+                node.title = `Bloqueado. Necesitas Nvl ${requiredLevel} de ${item.parent}.`;
+
+                // MOSTRAR: Si existe el cartel, aseguramos que se muestre (para el CSS)
+                if (reqBadge) {
+                    // Usamos 'block' o 'flex' para que el CSS decida el estilo, 
+                    // pero si tu CSS usa 'display: none !important' para ocultar por defecto,
+                    // deberíamos forzar aquí a que se muestre, o dejarlo en 'block' para que funcione
+                    // con las reglas CSS que ya tenemos (que tienen opacity/visibility).
+                    // Lo dejamos en block/flex para que el CSS (Regla 1) lo pueda animar.
+                    reqBadge.style.display = 'block';
+                }
+
+            } else {
+                node.classList.remove('locked');
+
+                // 🔥 CORRECCIÓN FINAL BRUTAL: Inyección de estilo para forzar la desaparición.
+                if (reqBadge) {
+                    // Al aplicar un estilo inline, tiene prioridad sobre la mayoría del CSS externo.
+                    reqBadge.style.display = 'none';
+                }
+
+                // Eliminamos el void node.offsetHeight ya que no es necesario con el estilo inline.
+                node.title = `${item.title} (Nvl ${itemLevel}) - Clic para comprar`;
+            }
+        }
+
+        function toggleSimulation() {
+            if (OCEAN_COMING_SOON) {
+                logAI("Simulación Oceánica: Próximamente.", 'system');
+                return;
+            }
+
+            state.currentSimulation = (state.currentSimulation === 'space') ? 'ocean' : 'space';
+            const btn = document.getElementById('sim-switch-btn');
+            const currencyIcon = document.getElementById('currency-icon');
+            const currencyName = document.getElementById('currency-name');
+            const energyDisplay = document.getElementById('cosmic-energy');
+
+            if (state.currentSimulation === 'space') {
+                btn.innerText = 'Ir al Océano';
+                currencyIcon.innerText = '✨';
+                currencyName.innerText = 'Polvo Estelar';
+                energyDisplay.style.textShadow = '0 0 10px rgba(255, 215, 0, 0.5)'; // Gold glow
+                document.documentElement.style.setProperty('--primary', '#00f2ff'); // Cyan for Space
+                document.documentElement.style.setProperty('--primary-glow', 'rgba(0, 242, 255, 0.5)');
+            } else {
+                btn.innerText = 'Volver al Espacio';
+                currencyIcon.innerText = '🧬';
+                currencyName.innerText = 'Biomasa';
+                energyDisplay.style.textShadow = '0 0 10px rgba(0, 255, 128, 0.5)'; // Green glow
+                document.documentElement.style.setProperty('--primary', '#00ffaa'); // Sea Green for Ocean
+                document.documentElement.style.setProperty('--primary-glow', 'rgba(0, 255, 170, 0.5)');
+            }
+
+            // Trigger Story Event on first entry
+            if (state.currentSimulation === 'ocean' && !state.triggeredEvents.includes('ocean_intro')) {
+                state.triggeredEvents.push('ocean_intro');
+                Architect.playSequence([
+                    "Arquitecto, detén la expansión estelar un momento.",
+                    "Hemos calculado cada órbita, cada fusión nuclear...",
+                    "Pero hemos ignorado el origen biológico.",
+                    "Solo el 5% de los océanos de tus mundos ha sido explorado.",
+                    "Iniciando Protocolo 'Abismo Azul'.",
+                    "Descubre lo que yace bajo la superficie."
+                ], () => logAI("Simulación Oceánica Activada.", 'system'));
+            }
+
+            buildTreeDOM();
+            recalc();
+            centerView();
+        }
+
+        function buildTreeDOM() {
+            const container = document.getElementById('tree-content');
+            container.innerHTML = '<svg class="connections" id="connections-layer"></svg>';
+            const newSvg = document.getElementById('connections-layer');
+
+            // Filter nodes based on current simulation
+            const currentSim = state.currentSimulation || 'space';
+            applySimulationLayout(currentSim);
+            const visibleNodes = techTree.filter(n => (n.simulation || 'space') === currentSim);
+
+            visibleNodes.forEach(item => {
+                const node = document.createElement('div');
+                node.id = `node-${item.id}`;
+                node.style.left = `${item.x}px`;
+                node.style.top = `${item.y}px`;
+                node.onclick = () => openPanel(item);
+
+                // 1. ASIGNACIÓN DE CLASES BASE Y BLOQUEO INICIAL
+                let classList = ['node', 'tech-node', item.type];
+                if (item.parent) {
+                    classList.push('locked'); // Nace bloqueado, updateNodeUI lo desbloqueará.
+                }
+                node.className = classList.join(' ');
+
+                node.innerHTML = `
+            <div class="node-icon-wrapper">
+                <div class="css-icon ${item.iconClass}"></div>
+            </div>
+            <div class="node-label">${item.title}</div>
+            `;
+
+                // 2. CREACIÓN DEL INDICADOR DE REQUISITO (MÁS ROBUSTO)
+                if (item.parent) {
+                    // Obtenemos el título del padre para el texto
+                    const parentNode = techTree.find(p => p.id === item.parent);
+                    const parentTitle = parentNode ? parentNode.title : 'Anterior';
+
+                    const reqBadge = document.createElement('div');
+                    reqBadge.className = 'tech-node-req';
+                    reqBadge.innerText = `Req: ${parentTitle} Nvl ${item.reqLevel}`;
+
+                    // Lo agregamos al nodo principal
+                    node.appendChild(reqBadge);
+                }
+                // -----------------------------------------------------------------
+
+                container.appendChild(node);
+                // Código de la línea SVG
+                if (item.parent) {
+                    const parent = techTree.find(p => p.id === item.parent);
+                    if (parent && (parent.simulation || 'space') === currentSim) {
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', parent.x + 50);
+                        line.setAttribute('y1', parent.y + 50);
+                        line.setAttribute('x2', item.x + 50);
+                        line.setAttribute('y2', item.y + 50);
+                        line.id = `line-${item.id}`;
+                        newSvg.appendChild(line);
+                    }
+                }
+            });
+
+            // Update container class for background
+            if (currentSim === 'ocean') {
+                container.classList.add('ocean-mode');
+            } else {
+                container.classList.remove('ocean-mode');
+            }
+
+            // Sync Minimap
+            updateMinimap();
+            renderNodeManager();
+        }
+
+        function updateMinimap() {
+            const mmContent = document.getElementById('minimap-content');
+            const mmViewport = document.getElementById('minimap-viewport');
+
+            // Clear nodes except viewport
+            const oldNodes = mmContent.querySelectorAll('.minimap-node');
+            oldNodes.forEach(n => n.remove());
+
+            const currentSim = state.currentSimulation || 'space';
+            const visibleNodes = techTree.filter(n => (n.simulation || 'space') === currentSim);
+
+            // Tech tree is 8000x8000
+            // Minimap is 200x200 (scale: 1/40)
+            const scale = 200 / 8000;
+
+            visibleNodes.forEach(item => {
+                const level = state.upgrades[item.id] || 0;
+                const dot = document.createElement('div');
+                dot.className = 'minimap-node';
+                if (level > 0) dot.classList.add('purchased');
+                // Basic logic for unlocked visibility
+                const node = document.getElementById(`node-${item.id}`);
+                if (node && node.classList.contains('locked')) {
+                    // stays muted
+                } else if (node) {
+                    dot.classList.add('unlocked');
+                }
+
+                dot.style.left = `${item.x * scale}px`;
+                dot.style.top = `${item.y * scale}px`;
+                mmContent.appendChild(dot);
+            });
+
+            syncMinimapViewport();
+        }
+
+        function syncMinimapViewport() {
+            const mmViewport = document.getElementById('minimap-viewport');
+            const treeArea = document.getElementById('tree-area');
+            const scale = 200 / 8000;
+
+            const w = treeArea.clientWidth * scale;
+            const h = treeArea.clientHeight * scale;
+            const x = treeArea.scrollLeft * scale;
+            const y = treeArea.scrollTop * scale;
+            mmViewport.style.width = `${w}px`;
+            mmViewport.style.height = `${h}px`;
+            mmViewport.style.left = `${x}px`;
+            mmViewport.style.top = `${y}px`;
+
+            // Parallax Effects
+            const nebula = document.querySelector('.nebula');
+            const stars = document.getElementById('stars-container');
+            if (nebula) nebula.style.transform = `translate(${-treeArea.scrollLeft * 0.05}px, ${-treeArea.scrollTop * 0.05}px)`;
+            if (stars) stars.style.transform = `translate(${-treeArea.scrollLeft * 0.02}px, ${-treeArea.scrollTop * 0.02}px)`;
+        }
+
+        // Minimap Navigation
+        document.getElementById('minimap-content').addEventListener('click', (e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const scale = 8000 / 200;
+            const treeArea = document.getElementById('tree-area');
+
+            treeArea.scrollLeft = (mouseX * scale) - (treeArea.clientWidth / 2);
+            treeArea.scrollTop = (mouseY * scale) - (treeArea.clientHeight / 2);
+        });
+
+        document.getElementById('tree-area').addEventListener('scroll', syncMinimapViewport);
+        window.addEventListener('resize', syncMinimapViewport);
+
+        function initGame() {
+            console.log("Initializing Game...");
+            loadGame();
+
+            // Ensure state has currentSimulation if loaded from old save
+            if (!state.currentSimulation) state.currentSimulation = 'space';
+            if (typeof state.oceanDepthIndex === 'undefined') state.oceanDepthIndex = 0; // Init new track
+            if (!state.agentMilestones || typeof state.agentMilestones !== 'object') state.agentMilestones = {};
+            if (!state.nodeManagerQty || typeof state.nodeManagerQty !== 'object') state.nodeManagerQty = {};
+            if (OCEAN_COMING_SOON) state.currentSimulation = 'space';
+
+            const simBtn = document.getElementById('sim-switch-btn');
+            if (simBtn) {
+                simBtn.style.display = 'block';
+                if (OCEAN_COMING_SOON) {
+                    simBtn.innerText = 'Simulación Oceánica // Próximamente';
+                    simBtn.classList.add('coming-soon');
+                } else {
+                    simBtn.classList.remove('coming-soon');
+                }
+            }
+
+            // Initialize Currency Display based on loaded state
+            const currencyIcon = document.getElementById('currency-icon');
+            const currencyName = document.getElementById('currency-name');
+            const energyDisplay = document.getElementById('cosmic-energy');
+
+            if (state.currentSimulation === 'ocean') {
+                currencyIcon.innerText = '🧬';
+                currencyName.innerText = 'Biomasa';
+                energyDisplay.style.textShadow = '0 0 10px rgba(0, 255, 128, 0.5)'; // Green glow
+                document.documentElement.style.setProperty('--primary', '#00ffaa');
+            } else {
+                currencyIcon.innerText = '✨';
+                currencyName.innerText = 'Polvo Estelar';
+                energyDisplay.style.textShadow = '0 0 10px rgba(255, 215, 0, 0.5)'; // Gold glow
+                document.documentElement.style.setProperty('--primary', '#00f2ff');
+            }
+
+            buildTreeDOM();
+
+            // Play dialogue based on current simulation context
+            const isOcean = state.currentSimulation === 'ocean';
+            const currentStage = isOcean ? oceanDepths[state.oceanDepthIndex] : eras[state.eraIndex];
+
+            const totalUpgrades = Object.values(state.upgrades).reduce((a, b) => a + b, 0);
+
+            if (totalUpgrades === 0 && currentStage) {
+                Architect.playSequence(currentStage.dialogue, () => {
+                    logAI("Sistema en línea. Esperando input del usuario.", 'system');
+                });
+            } else {
+                logAI("Bienvenido de nuevo, Arquitecto.", 'system');
+            }
+
+            recalc();
+            createStars();
+            setTimeout(centerView, 100);
+            setInterval(saveGame, 30000);
+        }
+
+        // Start safely
+        window.addEventListener('DOMContentLoaded', initGame);
+        window.addEventListener('load', centerView); // Ensure centering after full load
+
+        // Developer/Debug Commands (accessible via browser console)
+        window.cosmicDebug = {
+            showEndgame: () => showEndgameModal(),
+            skipToEnd: () => {
+                state.eraIndex = eras.length + 1; // Beyond last era
+                state.energy = 1e60;
+                state.eps = 1e50;
+                recalc();
+                logAI("DEBUG: Saltado al final del juego.", 'system');
+            },
+            resetGame: () => {
+                if (confirm('¿Resetear todo el progreso?')) {
+                    localStorage.removeItem('cosmicOdysseySave');
+                    location.reload();
+                }
+            }
+        };
+
+        console.log('%c🌌 Incremental Cosmic Odyssey', 'font-size: 20px; font-weight: bold; color: #00f2ff;');
+        console.log('%cComandos disponibles:', 'font-size: 14px; color: #a0a0b0;');
+        console.log('%c  cosmicDebug.showEndgame() - Ver pantalla final', 'color: #00ff88;');
+        console.log('%c  cosmicDebug.skipToEnd() - Saltar al final', 'color: #ffd700;');
+        console.log('%c  cosmicDebug.resetGame() - Resetear progreso', 'color: #ff0055;');
+
+    </script>
+</body>
+
+</html>
+
+

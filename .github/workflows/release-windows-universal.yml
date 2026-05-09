@@ -1,0 +1,72 @@
+name: Release Windows (Universal)
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Project slug (e.g., ows-store)'
+        required: true
+        type: string
+      version:
+        description: 'Version (e.g., 2026.5.14-t0001)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Release notes (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Resolve project directory
+        id: resolve
+        shell: pwsh
+        run: |
+          $slug = '${{ inputs.project }}'
+          $dir = ''
+          switch ($slug) {
+            'ows-store' { $dir = 'OWS Store' }
+            'dinobox' { $dir = 'DinoBox' }
+            default { $dir = '' }
+          }
+          if (-not $dir) { throw "Unknown project slug: $slug" }
+          "project_dir=$dir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=v${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Install dependencies
+        working-directory: ${{ steps.resolve.outputs.project_dir }}
+        run: npm ci
+
+      - name: Build (NSIS)
+        working-directory: ${{ steps.resolve.outputs.project_dir }}
+        run: npm run dist:nsis
+
+      - name: Create/Update GitHub release + upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve.outputs.tag }}
+          name: ${{ inputs.project }} ${{ inputs.version }}
+          body: ${{ inputs.release_notes }}
+          prerelease: false
+          files: |
+            C:/builds/*/*.exe
+            C:/builds/*/*.appx
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

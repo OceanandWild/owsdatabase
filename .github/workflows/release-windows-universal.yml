@@ -68,5 +68,7 @@ jobs:
           files: |
             C:/builds/*/*.exe
             C:/builds/*/*.appx
+            C:/builds/*/latest.yml
+            C:/builds/*/*.blockmap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

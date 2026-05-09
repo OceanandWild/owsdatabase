@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "ows-server",
     "version":  "2026.5.2-t0011",
     "main":  "server.js",

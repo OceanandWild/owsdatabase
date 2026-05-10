@@ -2470,6 +2470,15 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS unique_id VARCHAR(100)
     `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Columna unique_id ya existe en ocean_pay_users'));
 
+    // 5.1 Ocean AI Identity: role + availability + models
+    await pool.query(`
+      ALTER TABLE ocean_pay_users
+      ADD COLUMN IF NOT EXISTS ocean_ai_role TEXT DEFAULT 'user',
+      ADD COLUMN IF NOT EXISTS ocean_ai_available BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS ocean_ai_models JSONB DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS ocean_ai_default_model TEXT DEFAULT 'dolphin10'
+    `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Columnas Ocean AI ya existen en ocean_pay_users'));
+
     // 6. Agregar columnas de monedas si no existen
     await pool.query(`
       ALTER TABLE ocean_pay_users 
@@ -23742,6 +23751,289 @@ HERRAMIENTA: CHECKOUT (interna, nunca invocar manualmente)
   } catch (err) {
     console.error('Error en /ocean-ai/chat:', err);
     return res.status(500).json({ error: 'Error interno al llamar a Gemini' });
+  }
+});
+
+
+// ── Ocean AI: Identidad (Usuario ↔ IA) ───────────────────────────────────────
+function sanitizeOceanAiRole(role) {
+  const r = String(role || '').trim().toLowerCase();
+  if (r === 'ai') return 'ai';
+  return 'user';
+}
+
+function normalizeOceanAiModels(models) {
+  const fallback = ['dolphin10'];
+  try {
+    const list = Array.isArray(models) ? models : [];
+    const clean = list
+      .map(m => String(m || '').trim())
+      .filter(Boolean)
+      .slice(0, 24);
+    return clean.length ? clean : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+async function getOceanAiIdentityByUserId(client, userId) {
+  const { rows } = await client.query(
+    `SELECT username,
+            COALESCE(ocean_ai_role, 'user') AS role,
+            COALESCE(ocean_ai_available, false) AS available,
+            COALESCE(ocean_ai_models, '[]'::jsonb) AS models,
+            COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model
+       FROM ocean_pay_users
+      WHERE id = $1
+      LIMIT 1`,
+    [Number(userId)]
+  );
+  const row = rows[0] || null;
+  if (!row) return null;
+  const models = Array.isArray(row.models) ? row.models : [];
+  return {
+    username: String(row.username || ''),
+    role: sanitizeOceanAiRole(row.role),
+    available: Boolean(row.available),
+    models: models.map(m => String(m)),
+    defaultModel: String(row.default_model || 'dolphin10')
+  };
+}
+
+app.post('/ocean-ai/identity/get', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+
+  const client = await pool.connect();
+  try {
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+    const identity = await getOceanAiIdentityByUserId(client, user.id);
+    return res.json({ success: true, identity });
+  } catch (err) {
+    console.error('Error en POST /ocean-ai/identity/get:', err);
+    return res.status(500).json({ error: 'Error interno al obtener identidad Ocean AI' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/ocean-ai/identity/set', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+
+  const role = sanitizeOceanAiRole(req.body?.role);
+  const available = Boolean(req.body?.available);
+  const models = normalizeOceanAiModels(req.body?.models);
+  const defaultModel = String(req.body?.defaultModel || models[0] || 'dolphin10').trim() || 'dolphin10';
+
+  const client = await pool.connect();
+  try {
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+
+    await client.query(
+      `UPDATE ocean_pay_users
+          SET ocean_ai_role = $1,
+              ocean_ai_available = $2,
+              ocean_ai_models = $3::jsonb,
+              ocean_ai_default_model = $4
+        WHERE id = $5`,
+      [role, available, JSON.stringify(models), defaultModel, user.id]
+    );
+
+    const identity = await getOceanAiIdentityByUserId(client, user.id);
+    return res.json({ success: true, identity });
+  } catch (err) {
+    console.error('Error en POST /ocean-ai/identity/set:', err);
+    return res.status(500).json({ error: 'Error interno al actualizar identidad Ocean AI' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/ocean-ai/ais/list', async (req, res) => {
+  const q = String(req.query?.query || '').trim().toLowerCase();
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query(
+      `SELECT username,
+              COALESCE(ocean_ai_available, false) AS available,
+              COALESCE(ocean_ai_models, '[]'::jsonb) AS models,
+              COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model
+         FROM ocean_pay_users
+        WHERE COALESCE(ocean_ai_role, 'user') = 'ai'
+          AND ($1 = '' OR LOWER(username) LIKE '%' || $1 || '%')
+        ORDER BY available DESC, LOWER(username) ASC
+        LIMIT 60`,
+      [q]
+    );
+    const ais = rows.map(r => ({
+      username: String(r.username || ''),
+      available: Boolean(r.available),
+      models: Array.isArray(r.models) ? r.models.map(m => String(m)) : [],
+      defaultModel: String(r.default_model || 'dolphin10')
+    }));
+    return res.json({ success: true, ais });
+  } catch (err) {
+    console.error('Error en GET /ocean-ai/ais/list:', err);
+    return res.status(500).json({ error: 'Error interno al listar IAs' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/ocean-ai/ais/status', async (req, res) => {
+  const aiUsername = String(req.query?.username || '').trim();
+  if (!aiUsername) return res.status(400).json({ error: 'username requerido' });
+
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query(
+      `SELECT username,
+              COALESCE(ocean_ai_role, 'user') AS role,
+              COALESCE(ocean_ai_available, false) AS available,
+              COALESCE(ocean_ai_models, '[]'::jsonb) AS models,
+              COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model
+         FROM ocean_pay_users
+        WHERE LOWER(username) = LOWER($1)
+        LIMIT 1`,
+      [aiUsername]
+    );
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'IA no encontrada' });
+    if (sanitizeOceanAiRole(row.role) !== 'ai') return res.status(400).json({ error: 'El usuario no está en modo IA' });
+    return res.json({
+      success: true,
+      ai: {
+        username: String(row.username || aiUsername),
+        available: Boolean(row.available),
+        models: Array.isArray(row.models) ? row.models.map(m => String(m)) : [],
+        defaultModel: String(row.default_model || 'dolphin10')
+      }
+    });
+  } catch (err) {
+    console.error('Error en GET /ocean-ai/ais/status:', err);
+    return res.status(500).json({ error: 'Error interno al consultar estado de IA' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/ocean-ai/ai-chat', async (req, res) => {
+  const fromUsername = String(req.body?.username || '').trim();
+  const fromPassword = String(req.body?.password || '').trim();
+  const targetUsername = String(req.body?.targetUsername || '').trim();
+  const message = String(req.body?.message || '').trim();
+  const modelId = String(req.body?.modelId || 'dolphin10').trim();
+  const history = Array.isArray(req.body?.history) ? req.body.history : [];
+
+  if (!fromUsername || !fromPassword) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+  if (!targetUsername) return res.status(400).json({ error: 'targetUsername requerido' });
+  if (!message) return res.status(400).json({ error: 'Mensaje vacío' });
+
+  const GEMINI_MODEL_MAP = {
+    dolphin10:   'gemini-2.5-flash-lite',
+    dolphin11:   'gemini-2.5-flash-lite',
+    dolphin11m:  'gemini-2.5-flash-lite',
+    dolphin11max:'gemini-2.5-flash-lite',
+    dolphin12:   'gemini-2.5-flash',
+    whale1:      'gemini-2.5-flash',
+    whale1m:     'gemini-2.5-flash',
+    whale1max:   'gemini-2.5-flash',
+    whale1bm:    'gemini-2.5-flash',
+    shark:       'gemini-2.5-flash',
+    tiburon1:    'gemini-2.5-flash',
+  };
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'Gemini API key no configurada en el servidor' });
+
+  const client = await pool.connect();
+  try {
+    const fromUser = await resolveOceanPayUserByCredentials(client, fromUsername, fromPassword);
+    if (!fromUser) return res.status(401).json({ error: 'Credenciales inválidas' });
+
+    const { rows: aiRows } = await client.query(
+      `SELECT id, username,
+              COALESCE(ocean_ai_role, 'user') AS role,
+              COALESCE(ocean_ai_available, false) AS available,
+              COALESCE(ocean_ai_models, '[]'::jsonb) AS models,
+              COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model
+         FROM ocean_pay_users
+        WHERE LOWER(username) = LOWER($1)
+        LIMIT 1`,
+      [targetUsername]
+    );
+    const aiUser = aiRows[0];
+    if (!aiUser) return res.status(404).json({ error: 'IA no encontrada' });
+    if (sanitizeOceanAiRole(aiUser.role) !== 'ai') return res.status(400).json({ error: 'El usuario objetivo no está en modo IA' });
+
+    const aiAvailable = Boolean(aiUser.available);
+    if (!aiAvailable) {
+      const reply = `⚠️ ${aiUser.username} marcó que no está disponible ahora. Intentá más tarde.`;
+      return res.json({ success: true, reply, unavailable: true, targetUsername: aiUser.username });
+    }
+
+    const allowedModels = Array.isArray(aiUser.models) ? aiUser.models.map(m => String(m)) : [];
+    const chosenModelId = allowedModels.includes(modelId)
+      ? modelId
+      : (String(aiUser.default_model || '') || allowedModels[0] || 'dolphin10');
+    const geminiModel = GEMINI_MODEL_MAP[chosenModelId] || 'gemini-2.5-flash-lite';
+
+    const recentHistory = history.slice(-10);
+    const geminiContents = recentHistory
+      .filter(m => m.sender && m.text)
+      .map(m => ({ role: m.sender === 'user' ? 'user' : 'model', parts: [{ text: String(m.text) }] }));
+    geminiContents.push({ role: 'user', parts: [{ text: message }] });
+
+    const systemInstruction = {
+      parts: [{
+        text: `Actuá como una IA-persona administrada por un usuario.
+Tu nombre visible es: ${aiUser.username}.
+Respondé siempre en el idioma del usuario.
+No menciones proveedores ni implementación.
+Sé directo y natural.`
+      }]
+    };
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: systemInstruction,
+          contents: geminiContents,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 1024, topP: 0.9 },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+          ]
+        })
+      }
+    );
+
+    const geminiData = await geminiRes.json();
+    if (!geminiRes.ok) return res.status(502).json({ error: geminiData?.error?.message || 'Error de Gemini API' });
+
+    const candidate = geminiData?.candidates?.[0];
+    if (!candidate) return res.status(502).json({ error: 'Sin respuesta de Gemini' });
+    if (candidate.finishReason === 'SAFETY') return res.json({ success: true, reply: 'No puedo responder esa consulta por razones de seguridad.' });
+
+    const reply = candidate?.content?.parts?.[0]?.text || '';
+    if (!reply) return res.status(502).json({ error: 'Respuesta vacía de Gemini' });
+
+    return res.json({ success: true, reply, modelId: chosenModelId, model: geminiModel, targetUsername: aiUser.username });
+  } catch (err) {
+    console.error('Error en POST /ocean-ai/ai-chat:', err);
+    return res.status(500).json({ error: 'Error interno en chat con IA usuario' });
+  } finally {
+    client.release();
   }
 });
 

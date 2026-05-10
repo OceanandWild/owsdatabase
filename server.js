@@ -305,6 +305,28 @@ function decodeOceanPayTokenOrNull(token) {
   }
 }
 
+async function ensureOceanAiDmTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ocean_ai_dm_messages (
+      id             BIGSERIAL PRIMARY KEY,
+      from_user_id   INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      to_user_id     INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      from_username  TEXT NOT NULL,
+      to_username    TEXT NOT NULL,
+      body           TEXT NOT NULL,
+      created_at     TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ocean_ai_dm_messages_to_id
+      ON ocean_ai_dm_messages(to_user_id, id ASC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ocean_ai_dm_messages_pair
+      ON ocean_ai_dm_messages(from_user_id, to_user_id, id ASC)
+  `);
+}
+
 async function getOceanPayAuthedUserFromRequest(req) {
   const token = getOceanPayTokenFromRequest(req);
   const decoded = decodeOceanPayTokenOrNull(token);
@@ -713,6 +735,87 @@ app.post('/tigertasks/link/oceanpay', async (req, res) => {
     await client.query('ROLLBACK');
     console.error('TigerTasks link OceanPay error:', e);
     res.status(500).json({ error: 'No se pudo vincular Ocean Pay' });
+  } finally {
+    client.release();
+  }
+});
+
+
+// ── Ocean AI: DMs (usuario ↔ usuario) ───────────────────────────────────────
+app.post('/ocean-ai/dm/send', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const toUsername = String(req.body?.toUsername || '').trim();
+  const message = String(req.body?.message || '').trim();
+
+  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+  if (!toUsername) return res.status(400).json({ error: 'toUsername requerido' });
+  if (!message) return res.status(400).json({ error: 'Mensaje vacío' });
+
+  const client = await pool.connect();
+  try {
+    await ensureOceanAiDmTables();
+    const fromUser = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!fromUser) return res.status(401).json({ error: 'Credenciales inválidas' });
+
+    const { rows: toRows } = await client.query(
+      'SELECT id, username FROM ocean_pay_users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+      [toUsername]
+    );
+    const toUser = toRows[0];
+    if (!toUser) return res.status(404).json({ error: 'Usuario destino no encontrado' });
+    if (Number(toUser.id) === Number(fromUser.id)) return res.status(400).json({ error: 'No podés enviarte mensajes a vos mismo' });
+
+    const { rows } = await client.query(
+      `INSERT INTO ocean_ai_dm_messages (from_user_id, to_user_id, from_username, to_username, body, created_at)
+       VALUES ($1,$2,$3,$4,$5,NOW())
+       RETURNING id, created_at`,
+      [fromUser.id, toUser.id, String(fromUser.username || username), String(toUser.username || toUsername), message]
+    );
+    return res.json({ success: true, id: rows[0]?.id || null, createdAt: rows[0]?.created_at || null });
+  } catch (err) {
+    console.error('Error en POST /ocean-ai/dm/send:', err);
+    return res.status(500).json({ error: 'Error interno al enviar DM' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/ocean-ai/dm/poll', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const sinceId = Number(req.body?.sinceId || 0);
+
+  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+
+  const client = await pool.connect();
+  try {
+    await ensureOceanAiDmTables();
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+
+    const safeSince = Number.isFinite(sinceId) && sinceId > 0 ? sinceId : 0;
+    const { rows } = await client.query(
+      `SELECT id, from_username, body, created_at
+         FROM ocean_ai_dm_messages
+        WHERE to_user_id = $1
+          AND id > $2
+        ORDER BY id ASC
+        LIMIT 50`,
+      [user.id, safeSince]
+    );
+
+    const messages = rows.map(r => ({
+      id: Number(r.id),
+      fromUsername: String(r.from_username || ''),
+      message: String(r.body || ''),
+      createdAt: r.created_at
+    }));
+
+    return res.json({ success: true, messages });
+  } catch (err) {
+    console.error('Error en POST /ocean-ai/dm/poll:', err);
+    return res.status(500).json({ error: 'Error interno al consultar DMs' });
   } finally {
     client.release();
   }

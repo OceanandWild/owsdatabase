@@ -2592,7 +2592,7 @@
 
           if (String(activeChatId) === String(chatId)) {
             // Re-render active chat quickly
-            openChat(chatId);
+            setActiveChat(chatId);
           } else {
             renderHistory();
           }
@@ -2710,7 +2710,7 @@
       closeAiDirectoryModal();
       buildModelUI();
       const dmId = getOrCreateDmChatId(aiTarget.username);
-      if (dmId) openChat(dmId);
+      if (dmId) setActiveChat(dmId);
       addMessage(`Conectado a: ${aiTarget.username}.`, 'bot');
     }
 

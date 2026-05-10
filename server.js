@@ -2476,7 +2476,9 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS ocean_ai_role TEXT DEFAULT 'user',
       ADD COLUMN IF NOT EXISTS ocean_ai_available BOOLEAN DEFAULT false,
       ADD COLUMN IF NOT EXISTS ocean_ai_models JSONB DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS ocean_ai_default_model TEXT DEFAULT 'dolphin10'
+      ADD COLUMN IF NOT EXISTS ocean_ai_default_model TEXT DEFAULT 'dolphin10',
+      ADD COLUMN IF NOT EXISTS ocean_ai_model_meta JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS ocean_ai_status_message TEXT DEFAULT ''
     `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Columnas Ocean AI ya existen en ocean_pay_users'));
 
     // 6. Agregar columnas de monedas si no existen
@@ -23782,7 +23784,9 @@ async function getOceanAiIdentityByUserId(client, userId) {
             COALESCE(ocean_ai_role, 'user') AS role,
             COALESCE(ocean_ai_available, false) AS available,
             COALESCE(ocean_ai_models, '[]'::jsonb) AS models,
-            COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model
+            COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model,
+            COALESCE(ocean_ai_model_meta, '{}'::jsonb) AS model_meta,
+            COALESCE(ocean_ai_status_message, '') AS status_message
        FROM ocean_pay_users
       WHERE id = $1
       LIMIT 1`,
@@ -23791,12 +23795,15 @@ async function getOceanAiIdentityByUserId(client, userId) {
   const row = rows[0] || null;
   if (!row) return null;
   const models = Array.isArray(row.models) ? row.models : [];
+  const modelMeta = (row.model_meta && typeof row.model_meta === 'object') ? row.model_meta : {};
   return {
     username: String(row.username || ''),
     role: sanitizeOceanAiRole(row.role),
     available: Boolean(row.available),
     models: models.map(m => String(m)),
-    defaultModel: String(row.default_model || 'dolphin10')
+    defaultModel: String(row.default_model || 'dolphin10'),
+    modelMeta,
+    statusMessage: String(row.status_message || '')
   };
 }
 
@@ -23828,6 +23835,15 @@ app.post('/ocean-ai/identity/set', async (req, res) => {
   const available = Boolean(req.body?.available);
   const models = normalizeOceanAiModels(req.body?.models);
   const defaultModel = String(req.body?.defaultModel || models[0] || 'dolphin10').trim() || 'dolphin10';
+  const modelMeta = (req.body?.modelMeta && typeof req.body.modelMeta === 'object') ? req.body.modelMeta : {};
+  const statusMessage = String(req.body?.statusMessage || '').trim();
+
+  if (role === 'ai' && available) {
+    const hasPremium = models.includes('tiburon1');
+    if (!hasPremium) {
+      return res.status(400).json({ error: 'Para estar disponible como IA necesitas al menos 1 modelo premium habilitado (tiburon1).' });
+    }
+  }
 
   const client = await pool.connect();
   try {
@@ -23839,9 +23855,11 @@ app.post('/ocean-ai/identity/set', async (req, res) => {
           SET ocean_ai_role = $1,
               ocean_ai_available = $2,
               ocean_ai_models = $3::jsonb,
-              ocean_ai_default_model = $4
-        WHERE id = $5`,
-      [role, available, JSON.stringify(models), defaultModel, user.id]
+              ocean_ai_default_model = $4,
+              ocean_ai_model_meta = $5::jsonb,
+              ocean_ai_status_message = $6
+        WHERE id = $7`,
+      [role, available, JSON.stringify(models), defaultModel, JSON.stringify(modelMeta), statusMessage, user.id]
     );
 
     const identity = await getOceanAiIdentityByUserId(client, user.id);
@@ -23862,7 +23880,9 @@ app.get('/ocean-ai/ais/list', async (req, res) => {
       `SELECT username,
               COALESCE(ocean_ai_available, false) AS available,
               COALESCE(ocean_ai_models, '[]'::jsonb) AS models,
-              COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model
+              COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model,
+              COALESCE(ocean_ai_model_meta, '{}'::jsonb) AS model_meta,
+              COALESCE(ocean_ai_status_message, '') AS status_message
          FROM ocean_pay_users
         WHERE COALESCE(ocean_ai_role, 'user') = 'ai'
           AND ($1 = '' OR LOWER(username) LIKE '%' || $1 || '%')
@@ -23874,7 +23894,9 @@ app.get('/ocean-ai/ais/list', async (req, res) => {
       username: String(r.username || ''),
       available: Boolean(r.available),
       models: Array.isArray(r.models) ? r.models.map(m => String(m)) : [],
-      defaultModel: String(r.default_model || 'dolphin10')
+      defaultModel: String(r.default_model || 'dolphin10'),
+      modelMeta: (r.model_meta && typeof r.model_meta === 'object') ? r.model_meta : {},
+      statusMessage: String(r.status_message || '')
     }));
     return res.json({ success: true, ais });
   } catch (err) {
@@ -23896,7 +23918,9 @@ app.get('/ocean-ai/ais/status', async (req, res) => {
               COALESCE(ocean_ai_role, 'user') AS role,
               COALESCE(ocean_ai_available, false) AS available,
               COALESCE(ocean_ai_models, '[]'::jsonb) AS models,
-              COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model
+              COALESCE(ocean_ai_default_model, 'dolphin10') AS default_model,
+              COALESCE(ocean_ai_model_meta, '{}'::jsonb) AS model_meta,
+              COALESCE(ocean_ai_status_message, '') AS status_message
          FROM ocean_pay_users
         WHERE LOWER(username) = LOWER($1)
         LIMIT 1`,
@@ -23911,7 +23935,9 @@ app.get('/ocean-ai/ais/status', async (req, res) => {
         username: String(row.username || aiUsername),
         available: Boolean(row.available),
         models: Array.isArray(row.models) ? row.models.map(m => String(m)) : [],
-        defaultModel: String(row.default_model || 'dolphin10')
+        defaultModel: String(row.default_model || 'dolphin10'),
+        modelMeta: (row.model_meta && typeof row.model_meta === 'object') ? row.model_meta : {},
+        statusMessage: String(row.status_message || '')
       }
     });
   } catch (err) {

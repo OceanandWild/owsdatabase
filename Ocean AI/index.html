@@ -2198,6 +2198,7 @@
     const CURRENCY_NAME = 'Coral Bits';
     const API = 'https://owsdatabase.onrender.com';
     const OCEAN_PAY_AUTH_KEY = 'oceanAiOceanPayAuth';
+    const OCEAN_AI_DM_LAST_ID_KEY = 'oceanAiDmLastInboxIdV1';
     let oceanPayAuth = null;
     let activePlanId = 'free';
     let activePlanName = 'Free';
@@ -2585,9 +2586,15 @@
           const chat = chats.find(c => String(c.id) === chatId);
           if (!chat) continue;
           chat.messages = Array.isArray(chat.messages) ? chat.messages : [];
+
+          // Dedup by dmId (prevents duplication after reload)
+          if (mid && chat.messages.some(x => Number(x?.dmId || 0) === mid)) {
+            continue;
+          }
+
           // Remove pending waiting bubble when reply arrives
           removePendingWaitingMessage(chat);
-          chat.messages.push({ sender: 'bot', text: String(m.message || ''), at: m.createdAt || new Date().toISOString() });
+          chat.messages.push({ sender: 'bot', text: String(m.message || ''), at: m.createdAt || new Date().toISOString(), dmId: mid });
           saveChats();
 
           if (String(activeChatId) === String(chatId)) {
@@ -2597,12 +2604,31 @@
             renderHistory();
           }
         }
+        saveOceanAiDmLastInboxId(oceanAiDmLastInboxId);
       } catch (_) {}
     }
 
     function startOceanAiDmPolling() {
       if (_oceanAiDmPollTimer) return;
+      if (!oceanAiDmLastInboxId) oceanAiDmLastInboxId = loadOceanAiDmLastInboxId();
       _oceanAiDmPollTimer = setInterval(oceanAiDmPollInbox, 2500);
+    }
+
+    function loadOceanAiDmLastInboxId() {
+      try {
+        const v = Number(localStorage.getItem(OCEAN_AI_DM_LAST_ID_KEY) || 0);
+        return Number.isFinite(v) && v > 0 ? v : 0;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function saveOceanAiDmLastInboxId(id) {
+      try {
+        const v = Number(id || 0);
+        if (!Number.isFinite(v) || v < 0) return;
+        localStorage.setItem(OCEAN_AI_DM_LAST_ID_KEY, String(v));
+      } catch (_) {}
     }
 
     // ── AI Directory ─────────────────────────────────────────────────────────

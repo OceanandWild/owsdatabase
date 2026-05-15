@@ -7,7 +7,7 @@
     <title>OWS Store - Central Studio Hub</title>
     <meta name="app-version" content="2026.5.14-t0001">
     <meta name="app-name" content="OWS Store">
-    <script>window.APP_VERSION = '2026.5.14-t0002'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+    <script>window.APP_VERSION = '2026.5.14-t0003'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -4881,10 +4881,17 @@
             width: 44px;
             height: 44px;
             border-radius: var(--r-sm);
-            object-fit: cover;
             flex-shrink: 0;
             background: var(--surface-2);
             border: 1px solid var(--border);
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .icon-bg--contain {
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
         }
 
         .library-card-title {
@@ -6471,7 +6478,7 @@
             display: flex; align-items: center; gap: 0.6rem;
             font-family: var(--font-display); font-size: 1rem; font-weight: 900;
             color: var(--ink-0); text-transform: uppercase; letter-spacing: 0.5px;
-            margin-bottom: 0.85rem; margin-top: 1.5rem;
+            margin-bottom: 0.85rem; margin-top: 2rem;
         }
         .ev-detail-section-head:first-child { margin-top: 0; }
 
@@ -6480,6 +6487,7 @@
             background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
             border-radius: 10px; padding: 1.1rem 1.25rem;
             font-size: 0.85rem; color: var(--ink-0); line-height: 1.75;
+            margin-bottom: 1.5rem;
         }
 
         /* Objectives grid */
@@ -14657,7 +14665,14 @@
 
             // Hero
             const hero = document.getElementById('ev-detail-hero');
-            if (hero && coverUrl) hero.style.backgroundImage = `url('${coverUrl.replace(/'/g, '%27')}')`;
+            if (hero && coverUrl) {
+                hero.style.backgroundImage = `url('${coverUrl.replace(/'/g, '%27')}')`;
+                hero.style.cursor = 'zoom-in';
+                hero.onclick = () => openEventImageModal(coverUrl, item.title || '');
+            } else if (hero) {
+                hero.onclick = null;
+                hero.style.cursor = '';
+            }
 
             // Tag + title + subtitle
             const tagEl = document.getElementById('ev-detail-tag');

@@ -7,7 +7,7 @@
     <title>OWS Store - Central Studio Hub</title>
     <meta name="app-version" content="2026.5.14-t0001">
     <meta name="app-name" content="OWS Store">
-    <script>window.APP_VERSION = '2026.5.14-t0001'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+    <script>window.APP_VERSION = '2026.5.14-t0002'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -14031,7 +14031,9 @@
                 visualHtml = `
                     <div class="news-hub-event-visual">
                         <img class="event-cover ${imageFit}" src="${escHtml(coverUrl)}" alt="${escHtml(item.title)}" loading="lazy"${imagePositionStyle}
-                             onerror="this.parentElement.classList.add('fallback-gradient');this.remove();">
+                             onclick="event.stopPropagation();openEventImageModal('${escHtml(coverUrl)}','${escHtml(item.title).replace(/'/g, "\\'")}')"
+                             onerror="this.parentElement.classList.add('fallback-gradient');this.remove();"
+                             style="cursor:zoom-in;">
                     </div>`;
             } else {
                 visualHtml = `
@@ -14129,6 +14131,29 @@
             });
             return [...normal, ...[...byKey.values()]];
         }
+
+        function openEventImageModal(url, title) {
+            const modal = document.getElementById('event-image-modal');
+            const img = document.getElementById('event-image-modal-img');
+            const titleEl = document.getElementById('event-image-modal-title');
+            if (!modal || !img) return;
+            img.src = url;
+            img.alt = title || '';
+            if (titleEl) titleEl.textContent = title || '';
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeEventImageModal() {
+            const modal = document.getElementById('event-image-modal');
+            if (!modal) return;
+            modal.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeEventImageModal();
+        });
 
         function getStoreNewsEntries() {
             const legacySyncKeys = new Set([
@@ -14337,7 +14362,7 @@
             const coverWrap = document.getElementById('event-detail-cover-wrap');
             if (coverWrap) {
                 if (coverUrl) {
-                    coverWrap.innerHTML = `<img class="event-detail-cover" src="${escHtml(coverUrl)}" alt="${escHtml(item.title)}" onerror="this.parentElement.innerHTML='<div class=event-detail-cover-placeholder><i class=fas fa-calendar-star style=font-size:2.5rem;color:rgba(38,212,232,0.3)></i></div>'">`;
+                    coverWrap.innerHTML = `<img class="event-detail-cover" src="${escHtml(coverUrl)}" alt="${escHtml(item.title)}" onclick="openEventImageModal('${escHtml(coverUrl)}','${escHtml(item.title).replace(/'/g, "\\'")}')" style="cursor:zoom-in;" onerror="this.parentElement.innerHTML='<div class=event-detail-cover-placeholder><i class=fas fa-calendar-star style=font-size:2.5rem;color:rgba(38,212,232,0.3)></i></div>'">`;
                 } else {
                     coverWrap.innerHTML = `<div class="event-detail-cover-placeholder"><i class="fas fa-calendar-star" style="font-size:2.5rem;color:rgba(38,212,232,0.3);"></i></div>`;
                 }
@@ -27783,8 +27808,70 @@
         justify-content: flex-end;
         gap: 0.5rem;
         background: rgba(8,16,30,0.8);
-    }
-</style>
+        }
+        #event-image-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+        }
+        #event-image-modal.open {
+            display: flex;
+        }
+        #event-image-modal .eim-inner {
+            position: relative;
+            max-width: 92vw;
+            max-height: 90vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #event-image-modal .eim-inner img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            cursor: default;
+        }
+        #event-image-modal .eim-close {
+            position: absolute;
+            top: -44px;
+            right: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(20, 30, 50, 0.85);
+            color: #fff;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        #event-image-modal .eim-close:hover {
+            background: rgba(40, 60, 90, 0.95);
+        }
+        #event-image-modal .eim-title {
+            position: absolute;
+            bottom: -36px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.7);
+            font-family: var(--font-display, sans-serif);
+            letter-spacing: 0.3px;
+        }
+    </style>
 <div id="import-modal" onclick="if(event.target===this)closeImportModal()">
     <div class="import-shell">
         <div class="import-head">
@@ -27797,6 +27884,14 @@
         <div class="import-footer" id="import-modal-footer">
             <!-- Rendered by JS -->
         </div>
+    </div>
+</div>
+
+<div id="event-image-modal" onclick="if(event.target===this)closeEventImageModal()">
+    <div class="eim-inner">
+        <button class="eim-close" onclick="closeEventImageModal()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+        <img id="event-image-modal-img" src="" alt="" />
+        <div class="eim-title" id="event-image-modal-title"></div>
     </div>
 </div>
 

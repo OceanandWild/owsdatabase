@@ -9,6 +9,7 @@
     "start": "electron .",
     "version:stamp": "node scripts/stamp-version.js",
     "dist": "npm run version:stamp && electron-builder --win nsis --publish never",
+    "dist:nsis": "npm run version:stamp && electron-builder --win nsis --publish never",
     "dist:portable": "npm run version:stamp && electron-builder --win portable --publish never"
   },
   "dependencies": {

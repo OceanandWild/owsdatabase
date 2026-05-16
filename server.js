@@ -16301,6 +16301,22 @@ async function getUnifiedCardCurrencyBalance(client, cardId, currency, forUpdate
   const curr = String(currency || '').trim().toLowerCase();
   const userId = await getUserIdByCardId(client, cardId);
   if (!userId) return 0;
+  
+  // Intentar leer desde la nueva tabla unificada primero
+  try {
+    const { rows } = await client.query(
+      'SELECT amount FROM ocean_pay_wallet WHERE user_id = $1 AND currency = $2 LIMIT 1',
+      [userId, curr]
+    );
+    if (rows.length > 0) {
+      const amount = Number(rows[0].amount);
+      return Number.isFinite(amount) ? amount : 0;
+    }
+  } catch (e) {
+    // Si la tabla no existe aun, fallback al sistema anterior
+  }
+  
+  // Fallback: sistema anterior
   const balances = await getUserWalletBalances(client, userId, forUpdate);
   const amount = Number(balances[curr] || 0);
   return Number.isFinite(amount) ? amount : 0;

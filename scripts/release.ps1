@@ -428,11 +428,13 @@ function Trigger-Workflow {
         [string]$Slug,
         [string]$Workflow,
         [string]$Ver,
-        [hashtable]$Inputs = $null
+        [hashtable]$Inputs = $null,
+        [string]$TargetRepo = "owsdatabase"
     )
 
     try {
-        $args = @("workflow", "run", $Workflow, "--repo", "$ORG/owsdatabase")
+        $repoArg = "$ORG/$TargetRepo"
+        $args = @("workflow", "run", $Workflow, "--repo", $repoArg)
         if ($Inputs -and $Inputs.Count -gt 0) {
             foreach ($key in $Inputs.Keys) {
                 $args += "-f"
@@ -461,11 +463,11 @@ function Trigger-Workflow {
 
         # Confirmar que el run aparecio en GitHub
         Start-Sleep -Seconds 8
-        $check = & $GH run list --repo "$ORG/owsdatabase" --workflow $Workflow --limit 1 2>&1
+        $check = & $GH run list --repo $repoArg --workflow $Workflow --limit 1 2>&1
         if ($Ver -and ($check -match $Ver)) {
             Write-OK "Run confirmado en GitHub Actions"
         } else {
-            Write-Info "Run iniciado (no se pudo confirmar por nombre). Revisa: https://github.com/$ORG/owsdatabase/actions"
+            Write-Info "Run iniciado (no se pudo confirmar por nombre). Revisa: https://github.com/$repoArg/actions"
         }
         return $true
     } catch {
@@ -928,7 +930,16 @@ Pop-Location
 # ── Trigger Windows build ───────────────────────────────────────
 if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -eq "both")) {
     Write-Step "Disparando build Windows..."
-    $triggered = Trigger-Workflow -Slug $project -Workflow "release-windows-universal.yml" -Ver $version
+
+    # Determinar repo y workflow segun el proyecto
+    $buildRepo = if ($repo -eq "owsdatabase") { "$ORG/owsdatabase" } else { "$ORG/$repo" }
+    $workflowName = if ($repo -eq "owsdatabase") { "release-windows-universal.yml" } else { "release-windows.yml" }
+
+    # Determinar repo y workflow segun el proyecto
+    $buildRepo = if ($repo -eq "owsdatabase") { "owsdatabase" } else { $repo }
+    $workflowName = if ($repo -eq "owsdatabase") { "release-windows-universal.yml" } else { "release-windows.yml" }
+
+    $triggered = Trigger-Workflow -Slug $project -Workflow $workflowName -Ver $version -TargetRepo $buildRepo
 
     if ($triggered) {
 
@@ -936,7 +947,7 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
         Start-Sleep -Seconds 10
         $runId = $null
         for ($i = 0; $i -lt 5; $i++) {
-            $runJson = & $GH run list --repo "$ORG/owsdatabase" --workflow "release-windows-universal.yml" --limit 1 --json databaseId,status 2>&1
+            $runJson = & $GH run list --repo $buildRepo --workflow $workflowName --limit 1 --json databaseId,status 2>&1
             if ($runJson -match "databaseId") {
                 try {
                     $runId = ($runJson | ConvertFrom-Json)[0].databaseId
@@ -948,7 +959,7 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
 
         if (-not $runId) {
             Write-Err "No se pudo obtener el run ID."
-            Write-Host "  Revisa: https://github.com/$ORG/owsdatabase/actions" -ForegroundColor Cyan
+            Write-Host "  Revisa: https://github.com/$buildRepo/actions" -ForegroundColor Cyan
         } else {
             Write-Info ("Run ID: " + $runId + " - monitoreando...")
             Write-Host ""
@@ -961,7 +972,7 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
                 $attempt++
                 Start-Sleep -Seconds 20
 
-                $sv = & $GH run view $runId --repo "$ORG/owsdatabase" --json status,conclusion,jobs 2>&1
+                $sv = & $GH run view $runId --repo $buildRepo --json status,conclusion,jobs 2>&1
                 if ($sv -notmatch '"status"') { Write-Info ("  [" + ($attempt * 20) + "s] Esperando..."); continue }
 
                 try {
@@ -988,7 +999,7 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
                             Write-Host "  ==========================================" -ForegroundColor Green
                         } else {
                             Write-Err ("Build fallo (conclusion: " + $conclusion + ")")
-                            Write-Host ("  Detalles: https://github.com/$ORG/owsdatabase/actions/runs/" + $runId) -ForegroundColor Yellow
+                            Write-Host ("  Detalles: https://github.com/$buildRepo/actions/runs/" + $runId) -ForegroundColor Yellow
                         }
                         Write-Host ""
                     } else {
@@ -1001,7 +1012,7 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
 
             if (-not $done) {
                 Write-Info "Timeout. El build puede seguir corriendo."
-                Write-Host ("  Seguimiento: https://github.com/$ORG/owsdatabase/actions/runs/" + $runId) -ForegroundColor Cyan
+                Write-Host ("  Seguimiento: https://github.com/$buildRepo/actions/runs/" + $runId) -ForegroundColor Cyan
             }
         }
     }

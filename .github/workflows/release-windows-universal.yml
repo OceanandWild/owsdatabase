@@ -44,6 +44,7 @@ jobs:
           switch ($slug) {
             'ows-store' { $dir = 'OWS Store' }
             'dinobox' { $dir = 'DinoBox' }
+            'oceanpay' { $dir = 'Ocean Pay' }
             default { $dir = '' }
           }
           if (-not $dir) { throw "Unknown project slug: $slug" }

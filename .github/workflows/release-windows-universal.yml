@@ -41,15 +41,17 @@ jobs:
         run: |
           $slug = '${{ inputs.project }}'
           $dir = ''
+          $targetRepo = 'owsdatabase'
           switch ($slug) {
-            'ows-store' { $dir = 'OWS Store' }
-            'dinobox' { $dir = 'DinoBox' }
-            'oceanpay' { $dir = 'Ocean Pay' }
-            default { $dir = '' }
+            'ows-store' { $dir = 'OWS Store'; $targetRepo = 'owsdatabase' }
+            'dinobox' { $dir = 'DinoBox'; $targetRepo = 'owsdatabase' }
+            'oceanpay' { $dir = 'Ocean Pay'; $targetRepo = 'oceanpay' }
+            default { $dir = ''; $targetRepo = '' }
           }
           if (-not $dir) { throw "Unknown project slug: $slug" }
           "project_dir=$dir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "tag=v${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "target_repo=$targetRepo" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Install dependencies
         working-directory: ${{ steps.resolve.outputs.project_dir }}
@@ -62,10 +64,12 @@ jobs:
       - name: Create/Update GitHub release + upload assets
         uses: softprops/action-gh-release@v2
         with:
+          repository: OceanandWild/${{ steps.resolve.outputs.target_repo }}
           tag_name: ${{ steps.resolve.outputs.tag }}
           name: ${{ inputs.project }} ${{ inputs.version }}
           body: ${{ inputs.release_notes }}
           prerelease: false
+          make_latest: ${{ steps.resolve.outputs.target_repo == 'owsdatabase' && 'true' || 'false' }}
           files: |
             C:/builds/*/*.exe
             C:/builds/*/*.appx

@@ -2805,7 +2805,209 @@ async function runDatabaseMigrations() {
         amount DECIMAL(20, 2) DEFAULT 0,
         UNIQUE(card_id, currency_type)
       )
-    `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Tabla ocean_pay_card_balances ya existe'));
+    `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Tabla ocean_pay_card_balances ya existe'));
+
+    // 10.0. Crear tabla unificada ocean_pay_wallet para TODAS las divisas de TODOS los proyectos
+    // Esta es la FUENTE UNICA de verdad para saldos - facilita la gestion directa
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_wallet (
+        id            BIGSERIAL PRIMARY KEY,
+        user_id       BIGINT NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        currency      VARCHAR(50) NOT NULL,
+        amount        NUMERIC(20, 2) NOT NULL DEFAULT 0,
+        source        VARCHAR(50) DEFAULT 'migration',
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(user_id, currency)
+      )
+    `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Tabla ocean_pay_wallet ya existe'));
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ocean_pay_wallet_user ON ocean_pay_wallet(user_id)
+    `).catch(() => {});
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ocean_pay_wallet_currency ON ocean_pay_wallet(currency)
+    `).catch(() => {});
+
+    // 10.0.1 Migrar desde ocean_pay_cards.balances (JSONB) -> wallet unificado
+    try {
+      await pool.query(`
+        INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+        SELECT
+          c.user_id,
+          LOWER(kv.key) AS currency,
+          GREATEST((kv.value)::numeric, 0) AS amount,
+          'cards_balances' AS source,
+          NOW() AS updated_at
+        FROM ocean_pay_cards c
+        CROSS JOIN LATERAL jsonb_each_text(COALESCE(c.balances, '{}'::jsonb)) kv
+        WHERE c.is_primary = true
+          AND kv.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
+        ON CONFLICT (user_id, currency) DO UPDATE
+          SET amount = EXCLUDED.amount,
+              source = 'cards_balances',
+              updated_at = NOW()
+      `);
+      console.log('Ã¢Å"â€¦ Migracion cards.balances -> ocean_pay_wallet completada');
+    } catch (walletMigErr) {
+      console.log('Ã¢Å¡Â Ã¯Â¸Â Aviso: Error en migracion wallet:', walletMigErr.message);
+    }
+
+    // 10.0.2 Migrar desde ocean_pay_card_balances (legacy) -> wallet unificado
+    try {
+      await pool.query(`
+        INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+        SELECT
+          c.user_id,
+          LOWER(cb.currency_type) AS currency,
+          GREATEST(cb.amount, 0) AS amount,
+          'card_balances_legacy' AS source,
+          NOW() AS updated_at
+        FROM ocean_pay_card_balances cb
+        JOIN ocean_pay_cards c ON c.id = cb.card_id
+        WHERE c.is_primary = true
+        ON CONFLICT (user_id, currency) DO UPDATE
+          SET amount = GREATEST(ocean_pay_wallet.amount, EXCLUDED.amount),
+              updated_at = NOW()
+      `);
+      console.log('Ã¢Å"â€¦ Migracion card_balances -> ocean_pay_wallet completada');
+    } catch (cbMigErr) {
+      console.log('Ã¢Å¡Â Ã¯Â¸Â Aviso: Error en migracion card_balances:', cbMigErr.message);
+    }
+
+    // 10.0.3 Migrar columnas legacy de usuario (aquabux, appbux, ecoxionums) -> wallet
+    try {
+      await pool.query(`
+        INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+        SELECT u.id, 'aquabux', GREATEST(u.aquabux, 0), 'user_legacy', NOW()
+        FROM ocean_pay_users u WHERE u.aquabux > 0
+        ON CONFLICT (user_id, currency) DO UPDATE
+          SET amount = GREATEST(ocean_pay_wallet.amount, EXCLUDED.amount), updated_at = NOW()
+      `);
+      await pool.query(`
+        INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+        SELECT u.id, 'appbux', GREATEST(u.appbux, 0), 'user_legacy', NOW()
+        FROM ocean_pay_users u WHERE u.appbux > 0
+        ON CONFLICT (user_id, currency) DO UPDATE
+          SET amount = GREATEST(ocean_pay_wallet.amount, EXCLUDED.amount), updated_at = NOW()
+      `);
+      await pool.query(`
+        INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+        SELECT u.id, 'ecoxionums', GREATEST(u.ecoxionums, 0), 'user_legacy', NOW()
+        FROM ocean_pay_users u WHERE u.ecoxionums > 0
+        ON CONFLICT (user_id, currency) DO UPDATE
+          SET amount = GREATEST(ocean_pay_wallet.amount, EXCLUDED.amount), updated_at = NOW()
+      `);
+      console.log('Ã¢Å"â€¦ Migracion columnas legacy usuario -> ocean_pay_wallet completada');
+    } catch (userMigErr) {
+      console.log('Ã¢Å¡Â Ã¯Â¸Â Aviso: Error en migracion user legacy:', userMigErr.message);
+    }
+
+    // 10.0.4 Asegurar todas las divisas conocidas para todos los usuarios (aunque sean 0)
+    try {
+      await pool.query(`
+        INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+        SELECT
+          u.id AS user_id,
+          curr.currency AS currency,
+          0 AS amount,
+          'default' AS source,
+          NOW() AS updated_at
+        FROM ocean_pay_users u
+        CROSS JOIN (
+          SELECT unnest(ARRAY[
+            'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
+            'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
+            'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
+            'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks', 'biometokens'
+          ]) AS currency
+        ) curr
+        ON CONFLICT (user_id, currency) DO NOTHING
+      `);
+      console.log('Ã¢Å"â€¦ Divisas default inicializadas para todos los usuarios');
+    } catch (defaultMigErr) {
+      console.log('Ã¢Å¡Â Ã¯Â¸Â Aviso: Error en inicializacion default:', defaultMigErr.message);
+    }
+
+    // 10.0.5 Crear funcion helper para actualizar saldos facilmente
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION set_wallet_balance(
+        p_user_id BIGINT,
+        p_currency VARCHAR(50),
+        p_amount NUMERIC(20, 2)
+      ) RETURNS VOID AS $$
+      BEGIN
+        INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+        VALUES (p_user_id, LOWER(p_currency), p_amount, 'manual_update', NOW())
+        ON CONFLICT (user_id, currency) DO UPDATE
+          SET amount = EXCLUDED.amount,
+              source = 'manual_update',
+              updated_at = NOW();
+      END;
+      $$ LANGUAGE plpgsql;
+    `).catch(() => {});
+
+    // 10.0.6 Crear funcion helper para ajustar saldos (sumar/restar)
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION adjust_wallet_balance(
+        p_user_id BIGINT,
+        p_currency VARCHAR(50),
+        p_delta NUMERIC(20, 2)
+      ) RETURNS NUMERIC(20, 2) AS $$
+      DECLARE
+        v_new_amount NUMERIC(20, 2);
+      BEGIN
+        UPDATE ocean_pay_wallet
+        SET amount = GREATEST(amount + p_delta, 0),
+            source = 'adjustment',
+            updated_at = NOW()
+        WHERE user_id = p_user_id AND currency = LOWER(p_currency)
+        RETURNING amount INTO v_new_amount;
+
+        IF v_new_amount IS NULL THEN
+          INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+          VALUES (p_user_id, LOWER(p_currency), GREATEST(p_delta, 0), 'adjustment', NOW())
+          RETURNING amount INTO v_new_amount;
+        END IF;
+
+        RETURN v_new_amount;
+      END;
+      $$ LANGUAGE plpgsql;
+    `).catch(() => {});
+
+    // 10.0.7 Trigger: sync wallet -> cards.balances para compatibilidad con frontend existente
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION sync_wallet_to_cards_balances()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        IF pg_trigger_depth() > 1 THEN
+          RETURN NEW;
+        END IF;
+
+        UPDATE ocean_pay_cards c
+        SET balances = jsonb_set(
+          COALESCE(c.balances, '{}'::jsonb),
+          ARRAY[LOWER(NEW.currency)]::text[],
+          to_jsonb(NEW.amount::numeric),
+          true
+        )
+        WHERE c.user_id = NEW.user_id AND c.is_primary = true;
+
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `).catch(() => {});
+
+    await pool.query(`
+      DROP TRIGGER IF EXISTS trg_sync_wallet_to_cards ON ocean_pay_wallet;
+      CREATE TRIGGER trg_sync_wallet_to_cards
+      AFTER INSERT OR UPDATE OF amount
+      ON ocean_pay_wallet
+      FOR EACH ROW
+      EXECUTE FUNCTION sync_wallet_to_cards_balances();
+    `).catch(() => {});
+
+    console.log('Ã¢Å"â€¦ Sistema de wallet unificado inicializado correctamente');
 
     // 10.1 Unificacion de saldos en sistema por tarjeta
     try {
@@ -28612,8 +28814,25 @@ app.post('/ocean-pay/notifications/read/:id', async (req, res) => {
 const OP_ALL_CURRENCIES = UNIFIED_WALLET_CURRENCIES;
 
 // Leer saldo unificado de un usuario para una moneda
+// FUENTE PRIMARIA: ocean_pay_wallet (tabla unificada)
 async function getUnifiedBalance(client, userId, currency) {
   const curr = String(currency || '').trim().toLowerCase();
+  
+  // Intentar leer desde la nueva tabla unificada primero
+  try {
+    const { rows } = await client.query(
+      'SELECT amount FROM ocean_pay_wallet WHERE user_id = $1 AND currency = $2 LIMIT 1',
+      [userId, curr]
+    );
+    if (rows.length > 0) {
+      const amount = Number(rows[0].amount);
+      return Number.isFinite(amount) ? amount : 0;
+    }
+  } catch (e) {
+    // Si la tabla no existe aun, fallback al sistema anterior
+  }
+  
+  // Fallback: sistema anterior (ocean_pay_user_balances JSONB)
   const balances = await getUserWalletBalances(client, userId, false);
   let amount = Number(balances[curr] || 0);
   // Compatibilidad: migracion Aurex -> Tides
@@ -28624,9 +28843,27 @@ async function getUnifiedBalance(client, userId, currency) {
 }
 
 // Escribir saldo unificado (upsert)
+// FUENTE PRIMARIA: ocean_pay_wallet (tabla unificada)
 async function setUnifiedBalance(client, userId, currency, amount) {
   const curr = String(currency || '').trim().toLowerCase();
   const safeAmount = Math.max(0, Number(amount) || 0);
+  
+  // Escribir en la nueva tabla unificada
+  try {
+    await client.query(
+      `INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+       VALUES ($1, $2, $3, 'api_update', NOW())
+       ON CONFLICT (user_id, currency) DO UPDATE
+         SET amount = EXCLUDED.amount,
+             source = 'api_update',
+             updated_at = NOW()`,
+      [userId, curr, safeAmount]
+    );
+  } catch (e) {
+    // Si la tabla no existe aun, continuar con el sistema anterior
+  }
+  
+  // Compatibilidad: mantener el sistema anterior actualizado
   await ensureUserWalletRow(client, userId);
   await client.query(
     `UPDATE ${USER_WALLET_TABLE}
@@ -28661,7 +28898,7 @@ async function setUnifiedBalance(client, userId, currency, amount) {
     ).catch(() => {});
   }
 
-  // Reflejar tambiÃ©n tarjeta principal para endpoints legacy.
+  // Reflejar tambien tarjeta principal para endpoints legacy.
   const card = await getPrimaryCardForUser(client, userId, true);
   if (card?.id) {
     await setUnifiedCardCurrencyBalance(client, {
@@ -28707,6 +28944,25 @@ async function ensureWalletRowForUser(client, userId) {
 }
 
 async function getAllUnifiedBalances(client, userId) {
+  // Intentar leer desde la nueva tabla unificada primero
+  try {
+    const { rows } = await client.query(
+      'SELECT currency, amount FROM ocean_pay_wallet WHERE user_id = $1',
+      [userId]
+    );
+    if (rows.length > 0) {
+      const result = {};
+      for (const c of OP_ALL_CURRENCIES) result[c] = 0;
+      for (const row of rows) {
+        result[row.currency] = Number(row.amount);
+      }
+      return result;
+    }
+  } catch (e) {
+    // Si la tabla no existe aun, fallback al sistema anterior
+  }
+  
+  // Fallback: sistema anterior
   await ensureWalletRowForUser(client, userId);
   return getUnifiedBalancesMap(client, userId, false);
 }
@@ -28893,10 +29149,21 @@ app.get('/ocean-pay/admin/balances/:userId', async (req, res) => {
     const cardMap = {};
     for (const r of cardRows) cardMap[r.currency_type] = Number(r.total);
 
+    // Tambien leer desde la nueva tabla unificada para comparacion
+    let walletRows = [];
+    try {
+      const wr = await client.query(
+        'SELECT currency, amount, source, updated_at FROM ocean_pay_wallet WHERE user_id = $1 ORDER BY currency',
+        [userId]
+      );
+      walletRows = wr.rows;
+    } catch (e) {}
+
     res.json({
       success: true,
       userId,
       unified: balances,
+      wallet_table: walletRows,
       sources: {
         ocean_pay_users: userRows[0] || {},
         ocean_pay_card_balances: cardMap,
@@ -28944,6 +29211,91 @@ app.patch('/ocean-pay/admin/balances/:userId', async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+// â"€â"€ Admin: consultar TODOS los saldos de TODOS los usuarios (vista rapida) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+app.get('/ocean-pay/admin/wallet/all', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query(`
+      SELECT w.user_id, u.username, w.currency, w.amount, w.source, w.updated_at
+      FROM ocean_pay_wallet w
+      JOIN ocean_pay_users u ON u.id = w.user_id
+      WHERE w.amount > 0
+      ORDER BY u.username, w.currency
+    `);
+    
+    const byUser = {};
+    for (const row of rows) {
+      if (!byUser[row.user_id]) {
+        byUser[row.user_id] = {
+          userId: row.user_id,
+          username: row.username,
+          balances: {}
+        };
+      }
+      byUser[row.user_id].balances[row.currency] = Number(row.amount);
+    }
+    
+    res.json({
+      success: true,
+      totalUsers: Object.keys(byUser).length,
+      totalRows: rows.length,
+      users: Object.values(byUser)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// â"€â"€ Admin: actualizar directamente la tabla unificada ocean_pay_wallet â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+app.put('/ocean-pay/admin/wallet/:userId/:currency', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const userId = Number(req.params.userId);
+  const currency = String(req.params.currency || '').trim().toLowerCase();
+  if (!userId) return res.status(400).json({ error: 'userId invalido' });
+  if (!currency) return res.status(400).json({ error: 'currency requerida' });
+
+  const { amount } = req.body;
+  if (amount === undefined || amount === null) {
+    return res.status(400).json({ error: 'amount requerido' });
+  }
+
+  const safeAmount = Math.max(0, Number(amount) || 0);
+
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+      VALUES ($1, $2, $3, 'admin_direct', NOW())
+      ON CONFLICT (user_id, currency) DO UPDATE
+        SET amount = EXCLUDED.amount,
+            source = 'admin_direct',
+            updated_at = NOW()
+    `, [userId, currency, safeAmount]);
+
+    await setUnifiedBalance(client, userId, currency, safeAmount);
+
+    res.json({ success: true, userId, currency, amount: safeAmount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// â"€â"€ Admin: obtener todas las divisas disponibles â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+app.get('/ocean-pay/admin/currencies', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  res.json({
+    success: true,
+    currencies: OP_ALL_CURRENCIES,
+    count: OP_ALL_CURRENCIES.length
+  });
 });
 
 

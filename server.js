@@ -8810,10 +8810,10 @@ app.post('/ows-store/changelogs/sync', async (req, res) => {
 });
 
 // ==========================================
-// BIOPRESENTATIONS API (Cloud Save)
+// BIOPRESENTATIONS API (Cloud Save + Sharing)
 // ==========================================
 
-// Guardar/Actualizar presentación
+// Guardar/Actualizar presentación (propietario o colaborador puede guardar)
 app.post('/biopresentations/save', async (req, res) => {
   const user = await getOceanPayAuthedUserFromRequest(req);
   if (!user) return res.status(401).json({ success: false, message: "No autorizado" });
@@ -8823,12 +8823,19 @@ app.post('/biopresentations/save', async (req, res) => {
 
   try {
     if (doc_id) {
-      // Actualizar existente
-      const { rowCount } = await pool.query(
-        "UPDATE ows_biopresentations_docs SET title = $1, document_data = $2, updated_at = NOW() WHERE id = $3 AND user_id = $4",
-        [title || 'Presentacion sin titulo', document_data, doc_id, user.id]
+      // Verificar si es propietario o colaborador
+      const permCheck = await pool.query(
+        `SELECT d.id FROM ows_biopresentations_docs d
+         LEFT JOIN ows_biopresentations_collaborators c ON c.doc_id = d.id AND c.user_id = $2
+         WHERE d.id = $1 AND (d.user_id = $2 OR c.user_id IS NOT NULL)`,
+        [doc_id, user.id]
       );
-      if(rowCount === 0) return res.status(404).json({ success: false, message: "Documento no encontrado o sin permisos" });
+      if (permCheck.rowCount === 0) return res.status(403).json({ success: false, message: "Sin permisos sobre este documento" });
+      
+      await pool.query(
+        "UPDATE ows_biopresentations_docs SET title = $1, document_data = $2, updated_at = NOW() WHERE id = $3",
+        [title || 'Presentacion sin titulo', document_data, doc_id]
+      );
       res.json({ success: true, doc_id });
     } else {
       // Crear nueva
@@ -8844,7 +8851,7 @@ app.post('/biopresentations/save', async (req, res) => {
   }
 });
 
-// Cargar una presentación
+// Cargar una presentación (propietario o colaborador)
 app.get('/biopresentations/load/:id', async (req, res) => {
   const user = await getOceanPayAuthedUserFromRequest(req);
   if (!user) return res.status(401).json({ success: false, message: "No autorizado" });
@@ -8853,28 +8860,52 @@ app.get('/biopresentations/load/:id', async (req, res) => {
   if (!docId) return res.status(400).json({ success: false, message: "ID inválido" });
 
   try {
+    // Verificar acceso (propietario o colaborador)
     const { rows } = await pool.query(
-      "SELECT id, title, document_data, updated_at FROM ows_biopresentations_docs WHERE id = $1 AND user_id = $2 LIMIT 1",
+      `SELECT d.id, d.title, d.document_data, d.updated_at,
+              u.username AS author_username,
+              d.user_id = $2 AS is_owner
+       FROM ows_biopresentations_docs d
+       JOIN ocean_pay_users u ON u.id = d.user_id
+       LEFT JOIN ows_biopresentations_collaborators c ON c.doc_id = d.id AND c.user_id = $2
+       WHERE d.id = $1 AND (d.user_id = $2 OR c.user_id IS NOT NULL)
+       LIMIT 1`,
       [docId, user.id]
     );
     if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Documento no encontrado" });
+      return res.status(404).json({ success: false, message: "Documento no encontrado o sin permisos" });
     }
-    res.json({ success: true, doc: rows[0] });
+
+    // Obtener lista de colaboradores
+    const { rows: collabs } = await pool.query(
+      `SELECT u.username, u.id FROM ows_biopresentations_collaborators c
+       JOIN ocean_pay_users u ON u.id = c.user_id
+       WHERE c.doc_id = $1 ORDER BY c.added_at ASC`,
+      [docId]
+    );
+
+    res.json({ success: true, doc: rows[0], collaborators: collabs });
   } catch (err) {
     console.error("❌ Error en GET /biopresentations/load/:id:", err);
     res.status(500).json({ success: false, message: "Error del servidor" });
   }
 });
 
-// Listar las presentaciones de un usuario
+// Listar presentaciones del usuario (propias + compartidas con él)
 app.get('/biopresentations/my-docs', async (req, res) => {
   const user = await getOceanPayAuthedUserFromRequest(req);
   if (!user) return res.status(401).json({ success: false, message: "No autorizado" });
 
   try {
     const { rows } = await pool.query(
-      "SELECT id, title, updated_at FROM ows_biopresentations_docs WHERE user_id = $1 ORDER BY updated_at DESC",
+      `SELECT d.id, d.title, d.updated_at,
+              u.username AS author_username,
+              (d.user_id = $1) AS is_owner
+       FROM ows_biopresentations_docs d
+       JOIN ocean_pay_users u ON u.id = d.user_id
+       LEFT JOIN ows_biopresentations_collaborators c ON c.doc_id = d.id AND c.user_id = $1
+       WHERE d.user_id = $1 OR c.user_id IS NOT NULL
+       ORDER BY d.updated_at DESC`,
       [user.id]
     );
     res.json({ success: true, docs: rows });
@@ -8883,6 +8914,45 @@ app.get('/biopresentations/my-docs', async (req, res) => {
     res.status(500).json({ success: false, message: "Error del servidor" });
   }
 });
+
+// Compartir una presentación con otro usuario de Ocean Pay
+app.post('/biopresentations/share', async (req, res) => {
+  const user = await getOceanPayAuthedUserFromRequest(req);
+  if (!user) return res.status(401).json({ success: false, message: "No autorizado" });
+
+  const { doc_id, username } = req.body;
+  if (!doc_id || !username) return res.status(400).json({ success: false, message: "Faltan parámetros" });
+
+  try {
+    // Solo el propietario puede compartir
+    const { rowCount: ownerCheck } = await pool.query(
+      "SELECT id FROM ows_biopresentations_docs WHERE id = $1 AND user_id = $2",
+      [doc_id, user.id]
+    );
+    if (ownerCheck === 0) return res.status(403).json({ success: false, message: "Solo el propietario puede compartir esta presentación" });
+
+    // Buscar el usuario por username
+    const { rows: targetUser } = await pool.query(
+      "SELECT id, username FROM ocean_pay_users WHERE username = $1 LIMIT 1",
+      [username.trim()]
+    );
+    if (targetUser.length === 0) return res.status(404).json({ success: false, message: `Usuario '${username}' no encontrado en Ocean Pay` });
+    if (targetUser[0].id === user.id) return res.status(400).json({ success: false, message: "No puedes compartir contigo mismo" });
+
+    // Agregar colaborador (si ya existe, ignorar duplicado)
+    await pool.query(
+      "INSERT INTO ows_biopresentations_collaborators (doc_id, user_id) VALUES ($1, $2) ON CONFLICT ON CONSTRAINT unique_collaborator DO NOTHING",
+      [doc_id, targetUser[0].id]
+    );
+
+    res.json({ success: true, message: `Presentación compartida con ${targetUser[0].username}`, collaborator: targetUser[0] });
+  } catch (err) {
+    console.error("❌ Error en POST /biopresentations/share:", err);
+    res.status(500).json({ success: false, message: "Error del servidor" });
+  }
+});
+
+
 
 function parseStudioAuthToken(req) {
   const authHeader = String(req.headers.authorization || '');
@@ -15284,6 +15354,15 @@ async function ensureTables() {
       document_data JSONB NOT NULL,
       updated_at TIMESTAMP DEFAULT NOW(),
       created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    -- BIOPRESENTATIONS: Colaboradores por documento
+    CREATE TABLE IF NOT EXISTS ows_biopresentations_collaborators (
+      id SERIAL PRIMARY KEY,
+      doc_id INTEGER REFERENCES ows_biopresentations_docs(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      added_at TIMESTAMP DEFAULT NOW(),
+      CONSTRAINT unique_collaborator UNIQUE (doc_id, user_id)
     );
 
     -- BLOQUE DE ENTIDADES NAT-MARKET (Referencian users_nat)

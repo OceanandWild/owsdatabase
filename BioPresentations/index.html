@@ -964,6 +964,178 @@
             font-weight: 600;
             color: var(--text-color);
         }
+
+        /* === MIS PRESENTACIONES MODAL === */
+        .my-docs-list { display: flex; flex-direction: column; gap: 10px; }
+        .my-doc-item {
+            display: flex; align-items: center; gap: 14px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 14px 16px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.25,0.8,0.25,1);
+            position: relative; overflow: hidden;
+        }
+        .my-doc-item::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: var(--accent-color);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+        .my-doc-item:hover::before { opacity: 0.07; }
+        .my-doc-item:hover { border-color: var(--accent-hover); transform: translateX(4px); }
+        .my-doc-icon {
+            width: 40px; height: 40px; border-radius: 8px;
+            background: rgba(255,255,255,0.08);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .my-doc-icon svg { width: 20px; height: 20px; fill: var(--accent-color); }
+        .my-doc-info { flex: 1; min-width: 0; }
+        .my-doc-title { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .my-doc-meta { font-size: 0.78rem; opacity: 0.55; margin-top: 3px; }
+        .my-doc-badge {
+            font-size: 0.72rem; font-weight: 700; padding: 3px 8px;
+            background: rgba(255,255,255,0.1); border-radius: 99px; letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+        .my-doc-badge.shared { color: #56d5ff; border: 1px solid rgba(86,213,255,0.3); }
+        .my-doc-badge.owner { color: var(--accent-hover); border: 1px solid var(--border-color); }
+        .my-docs-empty {
+            text-align: center; padding: 40px 20px; opacity: 0.5;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+        }
+        .my-docs-empty svg { width: 48px; height: 48px; fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.4; }
+
+        /* === MÁS INFO / COMPARTIR MODAL === */
+        .info-section { margin-bottom: 20px; }
+        .info-section-label {
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;
+            opacity: 0.5; font-weight: 600; margin-bottom: 8px;
+        }
+        .info-author-row {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 10px; padding: 12px 14px;
+        }
+        .info-author-avatar {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: var(--accent-color);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.9rem; color: #fff; flex-shrink: 0;
+        }
+        .info-collab-list { display: flex; flex-direction: column; gap: 8px; }
+        .info-collab-item {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 10px 12px;
+        }
+        .info-collab-avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: rgba(86,213,255,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.8rem; color: #56d5ff; flex-shrink: 0;
+        }
+        .share-input-row { display: flex; gap: 8px; align-items: stretch; }
+        .share-input-row input {
+            flex: 1; background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;
+            outline: none; transition: border-color 0.2s;
+        }
+        .share-input-row input:focus { border-color: var(--accent-hover); }
+        .share-input-row input::placeholder { opacity: 0.4; }
+        .btn-share-add {
+            background: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            color: #fff; padding: 10px 18px;
+            border-radius: 8px; font-weight: 600; cursor: pointer;
+            white-space: nowrap; font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        .btn-share-add:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: none; box-shadow: none; }
+        .info-no-doc {
+            text-align: center; padding: 30px; opacity: 0.5;
+            font-size: 0.9rem;
+        }
+
+        /* === TEXT EFFECTS PANEL === */
+        .text-effects-panel { display: flex; flex-direction: column; gap: 16px; }
+        .text-effects-section-title {
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px;
+            opacity: 0.55; font-weight: 700; margin-bottom: 4px;
+        }
+        /* Paleta Circular */
+        .text-color-palette {
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        }
+        .text-color-dot {
+            width: 22px; height: 22px; border-radius: 50%;
+            cursor: pointer; border: 2px solid transparent;
+            transition: all 0.2s cubic-bezier(0.25,0.8,0.25,1);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .text-color-dot:hover { transform: scale(1.25); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+        .text-color-dot.active { border-color: #fff; transform: scale(1.2); box-shadow: 0 0 0 3px rgba(255,255,255,0.3); }
+        .text-color-picker-wrap {
+            position: relative; width: 22px; height: 22px; border-radius: 50%;
+            overflow: hidden; cursor: pointer;
+            background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+            border: 2px solid rgba(255,255,255,0.4);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s ease;
+        }
+        .text-color-picker-wrap:hover { transform: scale(1.25); }
+        .text-color-picker-wrap input[type="color"] {
+            position: absolute; top: -5px; left: -5px;
+            width: 40px; height: 40px;
+            opacity: 0; cursor: pointer; padding: 0; border: none;
+        }
+        /* Efectos Comunes */
+        .fx-btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .fx-btn {
+            font-size: 0.8rem; padding: 6px 12px;
+            border-radius: 8px; cursor: pointer;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-color); font-weight: 600;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .fx-btn:hover { background: rgba(255,255,255,0.14); border-color: var(--accent-hover); transform: translateY(-1px); }
+        .fx-btn.active { background: var(--accent-color); border-color: var(--accent-color); }
+        /* Neón Arcoíris */
+        .rainbow-dir-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+        }
+        .rainbow-dir-btn {
+            font-size: 0.78rem; padding: 8px 4px;
+            border-radius: 8px; cursor: pointer;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-color); font-weight: 600;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            transition: all 0.2s ease; text-align: center;
+        }
+        .rainbow-dir-btn:hover { background: rgba(255,255,255,0.12); transform: translateY(-1px); }
+        .rainbow-dir-btn.active {
+            background: linear-gradient(135deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f);
+            border-color: transparent; color: #fff;
+            box-shadow: 0 0 12px rgba(255,100,200,0.5);
+        }
+        .rainbow-dir-btn svg { width: 16px; height: 16px; fill: currentColor; }
+        .fx-remove-btn {
+            width: 100%; font-size: 0.8rem; padding: 7px;
+            border-radius: 8px; cursor: pointer;
+            background: rgba(231,76,60,0.12); border: 1px solid rgba(231,76,60,0.3);
+            color: #e74c3c; font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .fx-remove-btn:hover { background: rgba(231,76,60,0.25); transform: none; box-shadow: none; }
     </style>
 </head>
 <body>
@@ -983,6 +1155,14 @@
 
         <button class="primary" onclick="exportVideoMP4()">⬇ Exportar a MP4</button>
         <button class="primary" onclick="presentSlides()">▶ Presentar</button>
+        <button onclick="openMyDocsModal()" style="display:flex;align-items:center;gap:6px;" title="Mis Presentaciones">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/></svg>
+            Mis Presentaciones
+        </button>
+        <button onclick="openInfoModal()" style="display:flex;align-items:center;gap:6px;" title="Más Info / Compartir">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            ⋯
+        </button>
         <button class="primary btn-animated" id="btn-save-cloud" onclick="saveToCloud()">
             <div class="btn-fill"></div>
             <div class="btn-content">
@@ -1066,6 +1246,80 @@
                     <label>Duración (segundos)</label>
                     <input type="text" id="anim-duration" value="1.0" onchange="updateObjectAnimation('duration', this.value)">
                 </div>
+
+                <!-- ====== PANEL EFECTOS DE TEXTO (solo visible en Textbox) ====== -->
+                <div id="text-effects-section" style="display:none;">
+                    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+                    <h3>✦ Efectos de Texto</h3>
+                    <div class="text-effects-panel">
+
+                        <!-- Paleta de Colores -->
+                        <div>
+                            <div class="text-effects-section-title">Color del Texto</div>
+                            <div class="text-color-palette" id="text-color-palette">
+                                <div class="text-color-dot" style="background:#ffffff" onclick="applyTextColor('#ffffff',this)" title="Blanco"></div>
+                                <div class="text-color-dot" style="background:#1a1a2e" onclick="applyTextColor('#1a1a2e',this)" title="Negro Profundo"></div>
+                                <div class="text-color-dot" style="background:#e74c3c" onclick="applyTextColor('#e74c3c',this)" title="Rojo"></div>
+                                <div class="text-color-dot" style="background:#f39c12" onclick="applyTextColor('#f39c12',this)" title="Naranja"></div>
+                                <div class="text-color-dot" style="background:#f1c40f" onclick="applyTextColor('#f1c40f',this)" title="Amarillo"></div>
+                                <div class="text-color-dot" style="background:#2ecc71" onclick="applyTextColor('#2ecc71',this)" title="Verde"></div>
+                                <div class="text-color-dot" style="background:#3498db" onclick="applyTextColor('#3498db',this)" title="Azul"></div>
+                                <div class="text-color-dot" style="background:#9b59b6" onclick="applyTextColor('#9b59b6',this)" title="Violeta"></div>
+                                <div class="text-color-dot" style="background:#1abc9c" onclick="applyTextColor('#1abc9c',this)" title="Turquesa"></div>
+                                <div class="text-color-dot" style="background:#e91e63" onclick="applyTextColor('#e91e63',this)" title="Rosa"></div>
+                                <div class="text-color-dot" style="background:#00bcd4" onclick="applyTextColor('#00bcd4',this)" title="Cian"></div>
+                                <div class="text-color-picker-wrap" title="Color personalizado">
+                                    <input type="color" id="text-custom-color" onchange="applyTextColor(this.value,null)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Efectos Comunes -->
+                        <div>
+                            <div class="text-effects-section-title">Efectos Comunes</div>
+                            <div class="fx-btn-row">
+                                <button class="fx-btn" id="fx-shadow" onclick="toggleTextShadow()">◼ Sombra</button>
+                                <button class="fx-btn" id="fx-glow" onclick="toggleTextGlow()">✦ Brillo</button>
+                                <button class="fx-btn" id="fx-stroke" onclick="toggleTextStroke()">○ Contorno</button>
+                                <button class="fx-btn" id="fx-italic" onclick="toggleTextStyle('italic')">I Cursiva</button>
+                                <button class="fx-btn" id="fx-bold" onclick="toggleTextStyle('bold')">B Negrita</button>
+                            </div>
+                        </div>
+
+                        <!-- Neón Arcoíris Animado -->
+                        <div>
+                            <div class="text-effects-section-title">✦ Neón Arcoíris Animado</div>
+                            <div class="rainbow-dir-grid" id="rainbow-dir-grid">
+                                <button class="rainbow-dir-btn" data-dir="right" onclick="setRainbowDir('right',this)" title="Derecha">
+                                    <svg viewBox="0 0 24 24"><path d="M8 5l8 7-8 7V5z"/></svg>
+                                    →
+                                </button>
+                                <button class="rainbow-dir-btn" data-dir="left" onclick="setRainbowDir('left',this)" title="Izquierda">
+                                    <svg viewBox="0 0 24 24"><path d="M16 5l-8 7 8 7V5z"/></svg>
+                                    ←
+                                </button>
+                                <button class="rainbow-dir-btn" data-dir="down" onclick="setRainbowDir('down',this)" title="Abajo">
+                                    <svg viewBox="0 0 24 24"><path d="M5 8l7 8 7-8H5z"/></svg>
+                                    ↓
+                                </button>
+                                <button class="rainbow-dir-btn" data-dir="up" onclick="setRainbowDir('up',this)" title="Arriba">
+                                    <svg viewBox="0 0 24 24"><path d="M5 16l7-8 7 8H5z"/></svg>
+                                    ↑
+                                </button>
+                                <button class="rainbow-dir-btn" data-dir="random" onclick="setRainbowDir('random',this)" title="Aleatorio">
+                                    <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.42 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                                    ⚡
+                                </button>
+                            </div>
+                            <button class="fx-remove-btn" style="margin-top:8px" onclick="removeRainbowFx()">✕ Quitar Neón Arcoíris</button>
+                        </div>
+
+                        <!-- Quitar todos los efectos -->
+                        <button class="fx-remove-btn" onclick="removeAllTextFx()">✕ Quitar todos los efectos</button>
+
+                    </div>
+                </div>
+                <!-- ====== FIN EFECTOS DE TEXTO ====== -->
             </div>
         </div>
     </div>
@@ -1075,6 +1329,37 @@
         <p id="export-status">Preparando...</p>
         <div class="progress-bar-wrap">
             <div class="progress-bar-fill" id="export-progress"></div>
+        </div>
+    </div>
+
+    <!-- MIS PRESENTACIONES MODAL -->
+    <div id="my-docs-modal" class="biopres-modal">
+        <div class="biopres-modal-content">
+            <div class="biopres-modal-header">
+                <h3>📂 Mis Presentaciones</h3>
+                <button class="biopres-modal-close" onclick="closeMyDocsModal()">&#x2715;</button>
+            </div>
+            <div class="biopres-modal-body">
+                <div id="my-docs-list" class="my-docs-list">
+                    <div class="my-docs-empty">
+                        <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+                        <span>Cargando...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MÁS INFO / COMPARTIR MODAL -->
+    <div id="info-modal" class="biopres-modal">
+        <div class="biopres-modal-content" style="max-width:520px">
+            <div class="biopres-modal-header">
+                <h3>ℹ️ Información y Colaboración</h3>
+                <button class="biopres-modal-close" onclick="closeInfoModal()">&#x2715;</button>
+            </div>
+            <div class="biopres-modal-body" id="info-modal-body">
+                <div class="info-no-doc">No hay una presentación guardada activa.</div>
+            </div>
         </div>
     </div>
 
@@ -2221,6 +2506,478 @@
                 toast.classList.remove('show');
             }, 3000);
         }
+        // =============================================
+        // MIS PRESENTACIONES MODAL
+        // =============================================
+        let currentDocId = null;    // ID del doc activo en la nube
+        let currentDocMeta = null;  // Metadata del doc activo (autor, collabs)
+
+        async function openMyDocsModal() {
+            const modal = document.getElementById('my-docs-modal');
+            const listEl = document.getElementById('my-docs-list');
+            modal.classList.add('active');
+
+            const token = localStorage.getItem('ocean_pay_token');
+            if (!token) {
+                listEl.innerHTML = `<div class="my-docs-empty"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg><span>Debes iniciar sesión con Ocean Pay para ver tus presentaciones.</span></div>`;
+                return;
+            }
+
+            listEl.innerHTML = `<div class="my-docs-empty"><span>Cargando...</span></div>`;
+
+            try {
+                const res = await fetch('https://owsdatabase.onrender.com/biopresentations/my-docs', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (!data.success || data.docs.length === 0) {
+                    listEl.innerHTML = `<div class="my-docs-empty"><svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg><span>Aún no tienes presentaciones guardadas.</span></div>`;
+                    return;
+                }
+
+                listEl.innerHTML = '';
+                data.docs.forEach(doc => {
+                    const date = new Date(doc.updated_at).toLocaleDateString('es', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                    const isShared = !doc.is_owner;
+                    const item = document.createElement('div');
+                    item.className = 'my-doc-item';
+                    item.innerHTML = `
+                        <div class="my-doc-icon">
+                            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+                        </div>
+                        <div class="my-doc-info">
+                            <div class="my-doc-title">${doc.title || 'Presentación sin título'}</div>
+                            <div class="my-doc-meta">${isShared ? `Autor: @${doc.author_username}` : 'Tuya'} &middot; ${date}</div>
+                        </div>
+                        <div class="my-doc-badge ${isShared ? 'shared' : 'owner'}">${isShared ? '↗ Compartida' : '★ Tuya'}</div>
+                    `;
+                    item.onclick = () => loadDocFromCloud(doc.id);
+                    listEl.appendChild(item);
+                });
+            } catch(e) {
+                listEl.innerHTML = `<div class="my-docs-empty"><span>Error al cargar. Verifica tu conexión.</span></div>`;
+            }
+        }
+
+        function closeMyDocsModal() {
+            document.getElementById('my-docs-modal').classList.remove('active');
+        }
+
+        async function loadDocFromCloud(docId) {
+            const token = localStorage.getItem('ocean_pay_token');
+            if (!token) return;
+
+            try {
+                const res = await fetch(`https://owsdatabase.onrender.com/biopresentations/load/${docId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    canvas.loadFromJSON(data.doc.document_data, () => {
+                        canvas.renderAll();
+                        currentDocId = docId;
+                        currentDocMeta = { author: data.doc.author_username, collaborators: data.collaborators, is_owner: data.doc.is_owner };
+                        closeMyDocsModal();
+                        showToast(`✅ Presentación "${data.doc.title}" cargada`);
+                    });
+                } else {
+                    showToast('❌ ' + data.message);
+                }
+            } catch(e) {
+                showToast('❌ Error al cargar la presentación');
+            }
+        }
+
+        // =============================================
+        // MÁS INFO / COMPARTIR MODAL
+        // =============================================
+        function openInfoModal() {
+            const modal = document.getElementById('info-modal');
+            const body = document.getElementById('info-modal-body');
+            modal.classList.add('active');
+
+            if (!currentDocId || !currentDocMeta) {
+                body.innerHTML = `<div class="info-no-doc">💡 Guarda primero tu presentación en la Nube para ver su información y compartirla.</div>`;
+                return;
+            }
+
+            renderInfoModal();
+        }
+
+        function renderInfoModal() {
+            const body = document.getElementById('info-modal-body');
+            const meta = currentDocMeta;
+
+            const authorInitial = meta.author ? meta.author[0].toUpperCase() : '?';
+            const collabItems = meta.collaborators && meta.collaborators.length > 0
+                ? meta.collaborators.map(c => `
+                    <div class="info-collab-item">
+                        <div class="info-collab-avatar">${c.username[0].toUpperCase()}</div>
+                        <span style="font-weight:600;font-size:0.9rem">@${c.username}</span>
+                    </div>`).join('')
+                : `<div style="opacity:0.5;font-size:0.85rem">Ningún colaborador aún.</div>`;
+
+            const shareSection = meta.is_owner ? `
+                <div class="info-section">
+                    <div class="info-section-label">Compartir con usuario de Ocean Pay</div>
+                    <div class="share-input-row">
+                        <input type="text" id="share-username-input" placeholder="Nombre de usuario..." onkeydown="if(event.key==='Enter')shareWithUser()">
+                        <button class="btn-share-add" onclick="shareWithUser()">Añadir</button>
+                    </div>
+                </div>` : '';
+
+            body.innerHTML = `
+                <div class="info-section">
+                    <div class="info-section-label">Autor Original</div>
+                    <div class="info-author-row">
+                        <div class="info-author-avatar">${authorInitial}</div>
+                        <div>
+                            <div style="font-weight:700">@${meta.author}</div>
+                            <div style="font-size:0.78rem;opacity:0.5">${meta.is_owner ? '★ Eres el propietario' : 'Colaborador'}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-section">
+                    <div class="info-section-label">Colaboradores</div>
+                    <div class="info-collab-list" id="collab-list-items">${collabItems}</div>
+                </div>
+                ${shareSection}
+            `;
+        }
+
+        function closeInfoModal() {
+            document.getElementById('info-modal').classList.remove('active');
+        }
+
+        async function shareWithUser() {
+            const input = document.getElementById('share-username-input');
+            const username = input ? input.value.trim() : '';
+            if (!username) return;
+
+            const token = localStorage.getItem('ocean_pay_token');
+            if (!token || !currentDocId) {
+                showToast('❌ Debes guardar la presentación primero');
+                return;
+            }
+
+            try {
+                const res = await fetch('https://owsdatabase.onrender.com/biopresentations/share', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ doc_id: currentDocId, username })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (!currentDocMeta.collaborators) currentDocMeta.collaborators = [];
+                    currentDocMeta.collaborators.push(data.collaborator);
+                    renderInfoModal();
+                    showToast(`✅ Presentación compartida con @${username}`);
+                    if (input) input.value = '';
+                } else {
+                    showToast('❌ ' + data.message);
+                }
+            } catch(e) {
+                showToast('❌ Error de conexión al compartir');
+            }
+        }
+
+        // Patch saveToCloud para actualizar currentDocId
+        const _origSaveToCloud = saveToCloud;
+        saveToCloud = async function() {
+            const token = localStorage.getItem('ocean_pay_token');
+            if(!token) { openLoginModal(); return; }
+
+            const btn = document.getElementById('btn-save-cloud');
+            const btnText = btn.querySelector('.btn-text');
+            const btnIcon = btn.querySelector('.btn-icon');
+            btn.disabled = true;
+            btn.classList.remove('success', 'error');
+            btnIcon.style.display = 'block';
+            btnIcon.classList.add('biopres-spinner');
+            btnIcon.innerHTML = '<path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/>';
+            btnText.textContent = 'Guardando...';
+
+            const payload = { title: 'BioPresentations Document', document_data: canvas.toJSON(['animData', 'textEffects']) };
+            if (currentDocId) payload.doc_id = currentDocId;
+
+            try {
+                const res = await fetch('https://owsdatabase.onrender.com/biopresentations/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(data.success) {
+                    currentDocId = data.doc_id;
+                    btnIcon.classList.remove('biopres-spinner');
+                    btnIcon.innerHTML = '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>';
+                    btnText.textContent = '¡Guardado!';
+                    btn.classList.add('success');
+                    showToast('✅ Presentación guardada en la Nube');
+                } else {
+                    btnIcon.classList.remove('biopres-spinner');
+                    btnIcon.innerHTML = '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>';
+                    btnText.textContent = 'Error al guardar';
+                    btn.classList.add('error');
+                    showToast('❌ Error: ' + data.message);
+                }
+            } catch(e) {
+                btnIcon.classList.remove('biopres-spinner');
+                btnIcon.innerHTML = '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>';
+                btnText.textContent = 'Error de conexión';
+                btn.classList.add('error');
+                showToast('❌ No se pudo conectar con el servidor.');
+            }
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.classList.remove('success', 'error');
+                btnIcon.style.display = 'none';
+                btnIcon.classList.remove('biopres-spinner');
+                btnText.textContent = '☁ Guardar en la Nube';
+            }, 2500);
+        };
+
+        // =============================================
+        // EFECTOS DE TEXTO
+        // =============================================
+        // Muestra/oculta la sección de efectos de texto según el objeto seleccionado
+        const _origUpdateInspector = updateInspector;
+        updateInspector = function() {
+            _origUpdateInspector();
+            const obj = canvas.getActiveObject();
+            const sect = document.getElementById('text-effects-section');
+            if (sect) sect.style.display = (obj && obj.type === 'textbox') ? 'block' : 'none';
+            if (obj && obj.type === 'textbox') syncTextEffectsUI(obj);
+        };
+
+        function syncTextEffectsUI(obj) {
+            const fx = obj.textEffects || {};
+            document.getElementById('fx-shadow').classList.toggle('active', !!fx.shadow);
+            document.getElementById('fx-glow').classList.toggle('active', !!fx.glow);
+            document.getElementById('fx-stroke').classList.toggle('active', !!fx.stroke);
+            document.getElementById('fx-italic').classList.toggle('active', obj.fontStyle === 'italic');
+            document.getElementById('fx-bold').classList.toggle('active', obj.fontWeight === 'bold');
+            // Sincronizar botón de dirección arcoíris activo
+            document.querySelectorAll('.rainbow-dir-btn').forEach(b => b.classList.remove('active'));
+            if (fx.rainbow) {
+                const activeBtn = document.querySelector(`.rainbow-dir-btn[data-dir="${fx.rainbow}"]`);
+                if (activeBtn) activeBtn.classList.add('active');
+            }
+        }
+
+        function applyTextColor(color, dotEl) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            // Si hay arcoíris, quitarlo primero
+            if (obj.textEffects && obj.textEffects.rainbow) {
+                obj.textEffects.rainbow = null;
+                stopRainbowForObject(obj);
+            }
+            obj.set('fill', color);
+            canvas.renderAll();
+            // Actualizar UI
+            document.querySelectorAll('.text-color-dot').forEach(d => d.classList.remove('active'));
+            if (dotEl) dotEl.classList.add('active');
+        }
+
+        function toggleTextShadow() {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            if (obj.textEffects.shadow) {
+                obj.textEffects.shadow = false;
+                obj.set('shadow', null);
+            } else {
+                obj.textEffects.shadow = true;
+                obj.set('shadow', new fabric.Shadow({ color: 'rgba(0,0,0,0.55)', blur: 12, offsetX: 4, offsetY: 4 }));
+            }
+            canvas.renderAll();
+            syncTextEffectsUI(obj);
+        }
+
+        function toggleTextGlow() {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            const currentColor = (typeof obj.fill === 'string') ? obj.fill : '#00bcd4';
+            if (obj.textEffects.glow) {
+                obj.textEffects.glow = false;
+                obj.set('shadow', obj.textEffects.shadow ? new fabric.Shadow({ color: 'rgba(0,0,0,0.55)', blur: 12, offsetX: 4, offsetY: 4 }) : null);
+            } else {
+                obj.textEffects.glow = true;
+                obj.set('shadow', new fabric.Shadow({ color: currentColor, blur: 24, offsetX: 0, offsetY: 0 }));
+            }
+            canvas.renderAll();
+            syncTextEffectsUI(obj);
+        }
+
+        function toggleTextStroke() {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            if (obj.textEffects.stroke) {
+                obj.textEffects.stroke = false;
+                obj.set({ stroke: null, strokeWidth: 0 });
+            } else {
+                obj.textEffects.stroke = true;
+                obj.set({ stroke: '#ffffff', strokeWidth: 1.5 });
+            }
+            canvas.renderAll();
+            syncTextEffectsUI(obj);
+        }
+
+        function toggleTextStyle(style) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (style === 'italic') {
+                obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
+            } else if (style === 'bold') {
+                obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold');
+            }
+            canvas.renderAll();
+            syncTextEffectsUI(obj);
+        }
+
+        // =============================================
+        // NEÓN ARCOÍRIS ANIMADO
+        // =============================================
+        const rainbowObjects = new Map(); // obj -> { dir, offset, rafId }
+        const RAINBOW_COLORS = ['#ff0000','#ff7700','#ffff00','#00ff00','#00ffff','#0077ff','#aa00ff','#ff00aa','#ff0000'];
+
+        function buildRainbowGradient(obj, offset, dir) {
+            const w = obj.width  || 200;
+            const h = obj.height || 60;
+            // Normalizar offset (0-1 cíclico)
+            const t = ((offset % 1) + 1) % 1;
+            // Desplazar stops según t
+            const numColors = RAINBOW_COLORS.length - 1;
+            const stops = RAINBOW_COLORS.map((c, i) => {
+                let pos = (i / numColors + t) % 1;
+                return { offset: pos, color: c };
+            }).sort((a, b) => a.offset - b.offset);
+
+            let coords = { x1: 0, y1: 0, x2: w, y2: 0 }; // right
+            if (dir === 'left')   coords = { x1: w, y1: 0, x2: 0, y2: 0 };
+            else if (dir === 'down')  coords = { x1: 0, y1: 0, x2: 0, y2: h };
+            else if (dir === 'up')    coords = { x1: 0, y1: h, x2: 0, y2: 0 };
+
+            return new fabric.Gradient({
+                type: 'linear',
+                gradientUnits: 'pixels',
+                coords,
+                colorStops: stops
+            });
+        }
+
+        function startRainbowAnimation(obj, dir) {
+            // Detener cualquier animación previa de este objeto
+            stopRainbowForObject(obj);
+            let offset = 0;
+            let currentDir = dir;
+            let lastTime = null;
+
+            function tick(timestamp) {
+                if (!lastTime) lastTime = timestamp;
+                const delta = (timestamp - lastTime) / 1000;
+                lastTime = timestamp;
+
+                if (currentDir === 'random') {
+                    // Cambiar dirección ocasionalmente
+                    if (!obj._rainbowRandomTimer) obj._rainbowRandomTimer = 0;
+                    obj._rainbowRandomTimer += delta;
+                    if (obj._rainbowRandomTimer > 1.5) {
+                        const dirs = ['right','left','up','down'];
+                        obj._rainbowActualDir = dirs[Math.floor(Math.random() * dirs.length)];
+                        obj._rainbowRandomTimer = 0;
+                    }
+                }
+                const effectiveDir = (currentDir === 'random') ? (obj._rainbowActualDir || 'right') : currentDir;
+                offset += delta * 0.4; // velocidad
+
+                // Solo actualizar si el objeto sigue en el canvas
+                if (canvas.getObjects().includes(obj)) {
+                    obj.set('fill', buildRainbowGradient(obj, offset, effectiveDir));
+                    canvas.renderAll();
+                    const state = rainbowObjects.get(obj);
+                    if (state) {
+                        state.offset = offset;
+                        state.rafId = requestAnimationFrame(tick);
+                    }
+                } else {
+                    stopRainbowForObject(obj);
+                }
+            }
+
+            const rafId = requestAnimationFrame(tick);
+            rainbowObjects.set(obj, { dir, offset: 0, rafId });
+        }
+
+        function stopRainbowForObject(obj) {
+            const state = rainbowObjects.get(obj);
+            if (state) {
+                cancelAnimationFrame(state.rafId);
+                rainbowObjects.delete(obj);
+            }
+        }
+
+        function setRainbowDir(dir, btnEl) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+
+            // Toggle: si ya tiene este mismo dir, lo quitamos
+            if (obj.textEffects.rainbow === dir) {
+                removeRainbowFx();
+                return;
+            }
+
+            obj.textEffects.rainbow = dir;
+            obj._rainbowDir = dir;
+            startRainbowAnimation(obj, dir);
+
+            // UI
+            document.querySelectorAll('.rainbow-dir-btn').forEach(b => b.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+        }
+
+        function removeRainbowFx() {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            obj.textEffects.rainbow = null;
+            stopRainbowForObject(obj);
+            // Restaurar color sólido blanco por defecto
+            obj.set('fill', '#ffffff');
+            canvas.renderAll();
+            document.querySelectorAll('.rainbow-dir-btn').forEach(b => b.classList.remove('active'));
+        }
+
+        function removeAllTextFx() {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            obj.textEffects = {};
+            stopRainbowForObject(obj);
+            obj.set({
+                fill: '#ffffff',
+                shadow: null,
+                stroke: null,
+                strokeWidth: 0,
+                fontStyle: 'normal',
+                fontWeight: 'normal'
+            });
+            canvas.renderAll();
+            syncTextEffectsUI(obj);
+        }
+
+        // Limpiar efecto arcoíris cuando se deselecciona/elimina un objeto
+        canvas.on('before:selection:cleared', () => {
+            const obj = canvas.getActiveObject();
+            // No detenemos la animación al deseleccionar — continúa en background
+        });
+        canvas.on('object:removed', (e) => {
+            stopRainbowForObject(e.target);
+        });
     </script>
 </body>
 </html>

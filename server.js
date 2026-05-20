@@ -8809,6 +8809,81 @@ app.post('/ows-store/changelogs/sync', async (req, res) => {
   }
 });
 
+// ==========================================
+// BIOPRESENTATIONS API (Cloud Save)
+// ==========================================
+
+// Guardar/Actualizar presentación
+app.post('/biopresentations/save', async (req, res) => {
+  const user = await getOceanPayAuthedUserFromRequest(req);
+  if (!user) return res.status(401).json({ success: false, message: "No autorizado" });
+  
+  const { doc_id, title, document_data } = req.body;
+  if (!document_data) return res.status(400).json({ success: false, message: "Datos vacíos" });
+
+  try {
+    if (doc_id) {
+      // Actualizar existente
+      const { rowCount } = await pool.query(
+        "UPDATE ows_biopresentations_docs SET title = $1, document_data = $2, updated_at = NOW() WHERE id = $3 AND user_id = $4",
+        [title || 'Presentacion sin titulo', document_data, doc_id, user.id]
+      );
+      if(rowCount === 0) return res.status(404).json({ success: false, message: "Documento no encontrado o sin permisos" });
+      res.json({ success: true, doc_id });
+    } else {
+      // Crear nueva
+      const { rows } = await pool.query(
+        "INSERT INTO ows_biopresentations_docs (user_id, title, document_data) VALUES ($1, $2, $3) RETURNING id",
+        [user.id, title || 'Presentacion sin titulo', document_data]
+      );
+      res.json({ success: true, doc_id: rows[0].id });
+    }
+  } catch (err) {
+    console.error("❌ Error en POST /biopresentations/save:", err);
+    res.status(500).json({ success: false, message: "Error del servidor" });
+  }
+});
+
+// Cargar una presentación
+app.get('/biopresentations/load/:id', async (req, res) => {
+  const user = await getOceanPayAuthedUserFromRequest(req);
+  if (!user) return res.status(401).json({ success: false, message: "No autorizado" });
+  
+  const docId = Number(req.params.id || 0);
+  if (!docId) return res.status(400).json({ success: false, message: "ID inválido" });
+
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, title, document_data, updated_at FROM ows_biopresentations_docs WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [docId, user.id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Documento no encontrado" });
+    }
+    res.json({ success: true, doc: rows[0] });
+  } catch (err) {
+    console.error("❌ Error en GET /biopresentations/load/:id:", err);
+    res.status(500).json({ success: false, message: "Error del servidor" });
+  }
+});
+
+// Listar las presentaciones de un usuario
+app.get('/biopresentations/my-docs', async (req, res) => {
+  const user = await getOceanPayAuthedUserFromRequest(req);
+  if (!user) return res.status(401).json({ success: false, message: "No autorizado" });
+
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, title, updated_at FROM ows_biopresentations_docs WHERE user_id = $1 ORDER BY updated_at DESC",
+      [user.id]
+    );
+    res.json({ success: true, docs: rows });
+  } catch (err) {
+    console.error("❌ Error en GET /biopresentations/my-docs:", err);
+    res.status(500).json({ success: false, message: "Error del servidor" });
+  }
+});
+
 function parseStudioAuthToken(req) {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.toLowerCase().startsWith('bearer ')) return '';
@@ -15201,6 +15276,16 @@ async function ensureTables() {
         CONSTRAINT unique_user_key UNIQUE (user_id, key)
     );
 
+    -- BIOPRESENTATIONS: Almacenamiento JSON en la nube
+    CREATE TABLE IF NOT EXISTS ows_biopresentations_docs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      title VARCHAR(255) DEFAULT 'Presentacion sin titulo',
+      document_data JSONB NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
     -- BLOQUE DE ENTIDADES NAT-MARKET (Referencian users_nat)
     CREATE TABLE IF NOT EXISTS products_nat (
         id SERIAL PRIMARY KEY,
@@ -16327,6 +16412,15 @@ async function setUnifiedCardCurrencyBalance(client, { userId, cardId, currency,
   const safeBalance = Math.max(0, Number(newBalance || 0));
   const resolvedUserId = Number(userId || await getUserIdByCardId(client, cardId) || 0);
   if (!resolvedUserId) return;
+
+  // Write to unified wallet table (source of truth)
+  await client.query(
+    `INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+     VALUES ($1, $2, $3, 'unified_update', NOW())
+     ON CONFLICT (user_id, currency) DO UPDATE
+       SET amount = EXCLUDED.amount, source = 'unified_update', updated_at = NOW()`,
+    [resolvedUserId, curr, safeBalance]
+  ).catch(() => {});
 
   await ensureUserWalletRow(client, resolvedUserId);
   await client.query(

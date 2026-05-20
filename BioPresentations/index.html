@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="forest">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioPresentations</title>
+    <!-- COI Service Worker: habilita SharedArrayBuffer para FFmpeg.wasm sin configuración de servidor -->
+    <script>
+        (() => {
+            if ('serviceWorker' in navigator && !self.crossOriginIsolated) {
+                navigator.serviceWorker.register('./coi-serviceworker.js').then(reg => {
+                    // Si el SW acaba de instalarse, recargar para activar los headers COOP/COEP
+                    if (!navigator.serviceWorker.controller) {
+                        window.location.reload();
+                    }
+                }).catch(err => console.warn('COI ServiceWorker no pudo registrarse:', err));
+            }
+        })();
+    </script>
+
+    <!-- Fabric.js para el motor Canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- GSAP para el motor de Animaciones -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- FFmpeg.wasm para exportar MP4 (Local) -->
+    <script src="./ffmpeg/ffmpeg.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@500;700&display=swap');
+
+        /* === SISTEMA DE DISEÑO DE BIOMAS === */
+        :root {
+            /* Default: Forest (Bosque) */
+            --bg-color: #0b1a11;
+            --panel-bg: rgba(20, 45, 28, 0.75);
+            --accent-color: #2e8b57;
+            --accent-hover: #3cb371;
+            --text-color: #e2f4e8;
+            --border-color: rgba(46, 139, 87, 0.4);
+            --glass-blur: blur(20px);
+            --canvas-bg: #fdfdfd;
+        }
+        
+        [data-theme="desert"] {
+            --bg-color: #1f1610;
+            --panel-bg: rgba(45, 30, 20, 0.75);
+            --accent-color: #d2691e;
+            --accent-hover: #e67a2a;
+            --text-color: #fcece0;
+            --border-color: rgba(210, 105, 30, 0.4);
+        }
+        
+        [data-theme="ocean"] {
+            --bg-color: #05101f;
+            --panel-bg: rgba(10, 25, 45, 0.75);
+            --accent-color: #0077be;
+            --accent-hover: #0099eb;
+            --text-color: #dcf2ff;
+            --border-color: rgba(0, 119, 190, 0.4);
+        }
+
+        [data-theme="wetlands"] {
+            --bg-color: #12140f;
+            --panel-bg: rgba(30, 35, 20, 0.75);
+            --accent-color: #556b2f;
+            --accent-hover: #6b873a;
+            --text-color: #eaede1;
+            --border-color: rgba(85, 107, 47, 0.4);
+        }
+
+        * { box-sizing: border-box; }
+        
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* === UI PRINCIPAL === */
+        .toolbar {
+            height: 65px;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            background: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--border-color);
+            gap: 15px;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .logo {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-right: auto;
+            color: var(--text-color);
+            text-shadow: 0 0 10px var(--accent-color);
+        }
+
+        button, select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        button:hover, select:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        button.primary {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 15px rgba(46, 139, 87, 0.3);
+        }
+
+        .main-workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar-left, .sidebar-right {
+            background: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            z-index: 5;
+            flex-shrink: 0; /* Evita que el lienzo aplaste los paneles */
+        }
+
+        .sidebar-left {
+            width: 280px;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .sidebar-right {
+            width: 340px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            position: relative;
+            min-width: 0; /* Permite que el flexbox se encoja correctamente */
+            min-height: 0;
+            overflow: visible; /* Permite que el dropdown salga del área */
+        }
+
+        /* Contenedor del Canvas para mantener proporciones HD (16:9) */
+        .presentation-wrap {
+            width: 1280px;
+            height: 720px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            background: var(--canvas-bg);
+            transform-origin: center center;
+        }
+
+        /* === INSPECTOR === */
+        h3 {
+            margin: 0 0 10px 0;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .control-group label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-group input[type="color"], 
+        .control-group select, 
+        .control-group input[type="text"] {
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .slide-thumbnail {
+            width: 100%;
+            height: 120px;
+            background: #fff;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+        .slide-thumbnail.active {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        /* === PROGRESS OVERLAY === */
+        #export-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+        #export-overlay.active { display: flex; }
+        #export-overlay h2 {
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            margin: 0;
+        }
+        #export-overlay p {
+            color: rgba(255,255,255,0.7);
+            margin: 0;
+            font-size: 0.95rem;
+        }
+        .progress-bar-wrap {
+            width: 380px;
+            height: 10px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--accent-color);
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+
+        /* === FLOATING BOTTOM BAR & DROPDOWN === */
+        .canvas-bottom-bar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            z-index: 500;
+            transition: background 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                        border-color 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                        box-shadow 0.3s ease;
+        }
+        
+        .canvas-bottom-bar button {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-color);
+            padding: 8px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .canvas-bottom-bar button:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+        
+        .canvas-bottom-bar button.btn-insert-main {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            padding: 9px 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .canvas-bottom-bar button.btn-insert-main:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+        
+        .insert-dropdown {
+            position: fixed;
+            bottom: 82px;
+            left: 50%;
+            transform: translateX(-50%) translateY(12px) scale(0.9);
+            background: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            z-index: 600;
+            min-width: 130px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease,
+                        transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+        }
+        
+        .insert-dropdown.active {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+            pointer-events: all;
+        }
+        
+        .insert-dropdown button.insert-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-color);
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            text-align: left;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            transition: color 0.3s ease;
+        }
+        
+        /* Micro-animación de fondo sutil */
+        .insert-dropdown button.insert-dropdown-item::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--accent-color);
+            opacity: 0;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            border-radius: 8px;
+            z-index: -1;
+        }
+
+        .insert-dropdown button.insert-dropdown-item:hover::before {
+            opacity: 0.15;
+            transform: scaleX(1);
+        }
+
+        .insert-dropdown button.insert-dropdown-item:hover {
+            color: var(--accent-hover);
+        }
+
+        .insert-dropdown button.insert-dropdown-item svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+            flex-shrink: 0;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Micro-animación de icono */
+        .insert-dropdown button.insert-dropdown-item:hover svg {
+            transform: scale(1.15) rotate(5deg);
+        }
+        
+        /* === MODALS === */
+        .biopres-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .biopres-modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .biopres-modal-content {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 780px;
+            display: flex;
+            flex-direction: column;
+            max-height: 85vh;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+            color: var(--text-color);
+        }
+        
+        .biopres-modal.active .biopres-modal-content {
+            transform: scale(1);
+        }
+        
+        .biopres-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .biopres-modal-header h3 {
+            margin: 0;
+            border: none;
+            padding: 0;
+            font-size: 1.3rem;
+            text-shadow: 0 0 10px var(--accent-color);
+        }
+        
+        .biopres-modal-close {
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-color);
+            cursor: pointer;
+            opacity: 0.6;
+            padding: 4px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            width: 32px;
+            height: 32px;
+        }
+        
+        .biopres-modal-close:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(90deg) scale(1.1);
+            box-shadow: none;
+        }
+        
+        .biopres-modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(90vh - 60px);
+        }
+
+        /* Botón animado de login */
+        #btn-ocean-login {
+            position: relative;
+            overflow: hidden;
+            transition: color 0.3s ease;
+        }
+        #btn-ocean-login .btn-fill {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: transparent;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.4s ease-out, height 0.4s ease-out, background 0.3s ease;
+            z-index: 1;
+        }
+        #btn-ocean-login.success .btn-fill {
+            width: 400px;
+            height: 400px;
+            background: #27ae60;
+        }
+        #btn-ocean-login.error .btn-fill {
+            width: 400px;
+            height: 400px;
+            background: #e74c3c;
+        }
+        #btn-ocean-login .btn-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+        .biopres-spinner {
+            animation: biopres-spin 1s linear infinite;
+        }
+        @keyframes biopres-spin {
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* SHAPES SYSTEM */
+        .shapes-grid-layout {
+            display: flex;
+            gap: 24px;
+        }
+        
+        .shapes-list-pane {
+            flex: 1.3;
+        }
+        
+        .shapes-showcase-pane {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        
+        .shapes-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        
+        .shape-grid-item {
+            aspect-ratio: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            gap: 8px;
+            padding: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .shape-grid-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        .shape-grid-item.active {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 12px var(--accent-color);
+        }
+        
+        .shape-grid-item svg {
+            width: 36px;
+            height: 36px;
+            fill: none;
+            stroke: var(--text-color);
+            stroke-width: 1.5;
+            transition: stroke 0.2s ease;
+        }
+        
+        .shape-grid-item.active svg {
+            stroke: var(--accent-hover);
+        }
+        
+        .shape-grid-item span {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            font-weight: 500;
+        }
+        
+        .showcase-preview-box {
+            width: 100%;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .showcase-preview-box svg {
+            width: 100px;
+            height: 100px;
+            transition: all 0.2s ease;
+        }
+        
+        .showcase-controls {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .color-selector-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        
+        .color-swatches-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .color-swatches {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+        
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        }
+        
+        .color-swatch:hover {
+            transform: scale(1.15);
+        }
+        
+        .color-swatch.active {
+            border-color: #fff;
+            transform: scale(1.15);
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+        }
+        
+        .custom-color-picker-wrapper {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            transition: all 0.2s ease;
+        }
+        
+        .custom-color-picker-wrapper:hover {
+            transform: scale(1.15);
+            border-color: #fff;
+        }
+        
+        .custom-color-picker-wrapper input[type="color"] {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: none;
+            padding: 0;
+            cursor: pointer;
+        }
+        
+        /* IMAGES MODAL TABS */
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+            gap: 8px;
+        }
+        
+        .modal-tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 12px 20px;
+            color: var(--text-color);
+            opacity: 0.6;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border-radius: 0;
+        }
+        
+        .modal-tab-btn:hover {
+            opacity: 0.9;
+            background: rgba(255, 255, 255, 0.03);
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .modal-tab-btn.active {
+            opacity: 1;
+            border-bottom-color: var(--accent-color);
+            color: var(--accent-hover);
+        }
+        
+        .modal-tab-content {
+            display: none;
+        }
+        
+        .modal-tab-content.active {
+            display: block;
+        }
+        
+        /* TAB 1: UPLOAD */
+        .drag-drop-zone {
+            border: 2px dashed var(--border-color);
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            padding: 50px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            gap: 14px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        
+        .drag-drop-zone:hover, .drag-drop-zone.dragover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--accent-hover);
+        }
+        
+        .drag-drop-zone svg {
+            width: 44px;
+            height: 44px;
+            fill: none;
+            stroke: var(--accent-color);
+            stroke-width: 2;
+            transition: stroke 0.2s ease;
+        }
+        
+        .drag-drop-zone:hover svg {
+            stroke: var(--accent-hover);
+        }
+        
+        .drag-drop-zone span {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .drag-drop-zone p {
+            margin: 0;
+            font-size: 0.8rem;
+            opacity: 0.6;
+        }
+        
+        .upload-preview-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            margin-top: 10px;
+        }
+        
+        .image-upload-preview {
+            max-width: 100%;
+            max-height: 180px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+        }
+        
+        /* TAB 2: URL */
+        .url-input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .url-input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .url-input-wrapper input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        
+        .url-input-wrapper input:focus {
+            border-color: var(--accent-hover);
+            box-shadow: 0 0 8px rgba(var(--accent-color), 0.2);
+        }
+        
+        .url-preview-box {
+            width: 100%;
+            height: 180px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .url-preview-box img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        /* TAB 3: STOCK */
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        
+        .stock-item {
+            position: relative;
+            aspect-ratio: 1.5;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        .stock-item:hover {
+            transform: scale(1.03);
+            border-color: var(--accent-hover);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+        }
+        
+        .stock-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+        
+        .stock-item:hover img {
+            transform: scale(1.08);
+        }
+        
+        .stock-item-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(transparent 30%, rgba(0,0,0,0.8));
+            display: flex;
+            align-items: flex-end;
+            padding: 10px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .stock-item:hover .stock-item-overlay {
+            opacity: 1;
+        }
+        
+        .stock-item-overlay span {
+            font-size: 0.75rem;
+            color: #fff;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* TOAST HUD */
+        .biopres-toast {
+            position: fixed;
+            top: 24px;
+            right: -320px;
+            background: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .biopres-toast.show {
+            right: 24px;
+            opacity: 1;
+        }
+        
+        .biopres-toast-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-color);
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .biopres-toast-text {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+        <div class="logo">BioPresentations</div>
+        
+        <select id="biome-selector" onchange="changeBiome(this.value)">
+            <option value="forest" selected>Bioma: Bosque</option>
+            <option value="desert">Bioma: Desierto</option>
+            <option value="ocean">Bioma: Océano</option>
+            <option value="wetlands">Bioma: Humedales</option>
+        </select>
+
+        <div style="flex: 1;"></div>
+
+        <button class="primary" onclick="exportVideoMP4()">⬇ Exportar a MP4</button>
+        <button class="primary" onclick="presentSlides()">▶ Presentar</button>
+        <button class="primary" onclick="saveToCloud()">☁ Guardar Nube</button>
+    </div>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="main-workspace">
+        
+        <!-- THUMBNAILS (LEFT) -->
+        <div class="sidebar-left">
+            <h3>Diapositivas</h3>
+            <div id="slides-list">
+                <!-- Se llenan por JS -->
+            </div>
+            <button onclick="addNewSlide()">+ Nueva Diapositiva</button>
+        </div>
+
+        <!-- EDITOR (CENTER) -->
+        <div class="canvas-area" id="canvas-wrapper">
+            <div class="presentation-wrap">
+                <canvas id="main-canvas" width="1280" height="720"></canvas>
+            </div>
+            
+            <!-- Floating Dock / Bottom Bar -->
+            <div class="canvas-bottom-bar" id="canvas-bottom-bar">
+                <button class="btn-insert-main" onclick="toggleInsertDropdown(event)" id="btn-insert-main">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    <span>Insertar</span>
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style="margin-left: 2px;"><path d="M7 10l5 5 5-5z"/></svg>
+                </button>
+                
+                <!-- Drop-up Dropdown Menu -->
+                <div class="insert-dropdown" id="insert-dropdown">
+                    <button class="insert-dropdown-item" onclick="addText(); closeInsertDropdown();">
+                        <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4H5z"/></svg>
+                        <span>Texto</span>
+                    </button>
+                    <button class="insert-dropdown-item" onclick="openShapesModal(); closeInsertDropdown();">
+                        <svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99z"/></svg>
+                        <span>Forma...</span>
+                    </button>
+                    <button class="insert-dropdown-item" onclick="openImagesModal(); closeInsertDropdown();">
+                        <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                        <span>Imagen...</span>
+                    </button>
+                </div>
+                
+
+            </div>
+        </div>
+
+        <!-- INSPECTOR (RIGHT) -->
+        <div class="sidebar-right">
+            <h3>Propiedades del Objeto</h3>
+            <div id="no-selection" style="opacity: 0.6; font-size: 0.9rem;">Selecciona un objeto para editarlo.</div>
+            
+            <div id="properties-panel" style="display: none;">
+                <div class="control-group">
+                    <label>Color de Relleno</label>
+                    <input type="color" id="prop-fill" onchange="updateObjectProperty('fill', this.value)">
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+                
+                <h3>Animación (GSAP)</h3>
+                <div class="control-group">
+                    <label>Tipo de Entrada</label>
+                    <select id="anim-type" onchange="updateObjectAnimation('type', this.value)">
+                        <option value="none">Ninguna</option>
+                        <option value="fade">Aparición Suave</option>
+                        <option value="slide-up">Deslizamiento Épico Arriba</option>
+                        <option value="epic-spin-zoom">Rotación & Zoom (Compleja)</option>
+                        <option value="stagger-glitch">Glitch Dinámico (Compleja)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Duración (segundos)</label>
+                    <input type="text" id="anim-duration" value="1.0" onchange="updateObjectAnimation('duration', this.value)">
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- EXPORT PROGRESS OVERLAY -->
+    <div id="export-overlay">
+        <h2 id="export-title">Exportando...</h2>
+        <p id="export-status">Preparando...</p>
+        <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="export-progress"></div>
+        </div>
+    </div>
+
+    <!-- SHAPES MODAL -->
+    <div id="shapes-modal" class="biopres-modal">
+        <div class="biopres-modal-content">
+            <div class="biopres-modal-header">
+                <h3>Insertar Forma</h3>
+                <button class="biopres-modal-close" onclick="closeShapesModal()">&times;</button>
+            </div>
+            <div class="biopres-modal-body">
+                <div class="shapes-grid-layout">
+                    <!-- Left: Shapes grid selection -->
+                    <div class="shapes-list-pane">
+                        <div class="shapes-grid">
+                            <div class="shape-grid-item active" data-shape="rect" onclick="selectShowcaseShape('rect', this)">
+                                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                <span>Rectángulo</span>
+                            </div>
+                            <div class="shape-grid-item" data-shape="circle" onclick="selectShowcaseShape('circle', this)">
+                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
+                                <span>Círculo</span>
+                            </div>
+                            <div class="shape-grid-item" data-shape="triangle" onclick="selectShowcaseShape('triangle', this)">
+                                <svg viewBox="0 0 24 24"><polygon points="12 3, 21 21, 3 21"/></svg>
+                                <span>Triángulo</span>
+                            </div>
+                            <div class="shape-grid-item" data-shape="ellipse" onclick="selectShowcaseShape('ellipse', this)">
+                                <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="6"/></svg>
+                                <span>Elipse</span>
+                            </div>
+                            <div class="shape-grid-item" data-shape="star" onclick="selectShowcaseShape('star', this)">
+                                <svg viewBox="0 0 24 24"><polygon points="12 2, 15 9, 22 9, 17 14, 19 21, 12 17, 5 21, 7 14, 2 9, 9 9"/></svg>
+                                <span>Estrella</span>
+                            </div>
+                            <div class="shape-grid-item" data-shape="arrow" onclick="selectShowcaseShape('arrow', this)">
+                                <svg viewBox="0 0 24 24"><path d="M2 12h20M15 5l7 7-7 7"/></svg>
+                                <span>Flecha</span>
+                            </div>
+                            <div class="shape-grid-item" data-shape="pentagon" onclick="selectShowcaseShape('pentagon', this)">
+                                <svg viewBox="0 0 24 24"><polygon points="12 2, 22 9, 18 20, 6 20, 2 9"/></svg>
+                                <span>Pentágono</span>
+                            </div>
+                            <div class="shape-grid-item" data-shape="rhombus" onclick="selectShowcaseShape('rhombus', this)">
+                                <svg viewBox="0 0 24 24"><polygon points="12 2, 22 12, 12 22, 2 12"/></svg>
+                                <span>Rombo</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Showcase preview & config -->
+                    <div class="shapes-showcase-pane">
+                        <div class="color-selector-label">Previsualización</div>
+                        <div class="showcase-preview-box">
+                            <svg id="showcase-svg-preview" viewBox="0 0 100 100">
+                                <rect id="showcase-svg-element" x="10" y="10" width="80" height="80" rx="6" fill="#2e8b57" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+                            </svg>
+                        </div>
+                        
+                        <div class="showcase-controls">
+                            <div class="color-selector-label">Color de Relleno</div>
+                            <div class="color-swatches-row">
+                                <div class="color-swatches">
+                                    <div id="swatch-accent" class="color-swatch active" style="background-color: #2e8b57;" onclick="selectShowcaseColor(getComputedAccentColor(), this)"></div>
+                                    <div class="color-swatch" style="background-color: #2e8b57;" onclick="selectShowcaseColor('#2e8b57', this)"></div>
+                                    <div class="color-swatch" style="background-color: #d2691e;" onclick="selectShowcaseColor('#d2691e', this)"></div>
+                                    <div class="color-swatch" style="background-color: #0077be;" onclick="selectShowcaseColor('#0077be', this)"></div>
+                                    <div class="color-swatch" style="background-color: #556b2f;" onclick="selectShowcaseColor('#556b2f', this)"></div>
+                                    <div class="color-swatch" style="background-color: #e74c3c;" onclick="selectShowcaseColor('#e74c3c', this)"></div>
+                                    <div class="color-swatch" style="background-color: #9b59b6;" onclick="selectShowcaseColor('#9b59b6', this)"></div>
+                                    <div class="color-swatch" style="background-color: #f1c40f;" onclick="selectShowcaseColor('#f1c40f', this)"></div>
+                                </div>
+                                <div class="custom-color-picker-wrapper" title="Color personalizado">
+                                    <input type="color" id="shape-showcase-custom-color" value="#2e8b57" oninput="selectShowcaseCustomColor(this.value)">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="primary" style="width: 100%; justify-content: center;" onclick="insertSelectedShape()">
+                            Insertar Forma
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMAGES MODAL -->
+    <div id="images-modal" class="biopres-modal">
+        <div class="biopres-modal-content">
+            <div class="biopres-modal-header">
+                <h3>Insertar Imagen</h3>
+                <button class="biopres-modal-close" onclick="closeImagesModal()">&times;</button>
+            </div>
+            <div class="biopres-modal-body">
+                <!-- Tabs -->
+                <div class="modal-tabs">
+                    <button class="modal-tab-btn active" onclick="switchImageTab('upload', this)">Subir Archivo</button>
+                    <button class="modal-tab-btn" onclick="switchImageTab('url', this)">Pegar URL</button>
+                    <button class="modal-tab-btn" onclick="switchImageTab('stock', this)">Stock de Imágenes</button>
+                </div>
+                
+                <!-- Tab 1: Upload -->
+                <div id="img-tab-upload" class="modal-tab-content active">
+                    <div class="drag-drop-zone" id="img-dragzone" onclick="triggerFileInput()">
+                        <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                        <span>Arrastra y suelta tu imagen aquí</span>
+                        <p>o haz clic para explorar tus archivos locales</p>
+                    </div>
+                    <input type="file" id="img-filepicker" accept="image/*" style="display: none;" onchange="handleFileUpload(this.files[0])">
+                    
+                    <div class="upload-preview-container" id="upload-preview-container" style="display: none;">
+                        <img class="image-upload-preview" id="upload-image-preview" src="">
+                        <button class="primary" onclick="insertUploadedImage()">Insertar Imagen Seleccionada</button>
+                    </div>
+                </div>
+                
+                <!-- Tab 2: URL -->
+                <div id="img-tab-url" class="modal-tab-content">
+                    <div class="url-input-container">
+                        <div class="url-input-wrapper">
+                            <input type="text" id="img-url-input" placeholder="Pega la URL de la imagen (ej: https://unsplash.com/...)">
+                            <button onclick="previewImageUrl()">Previsualizar</button>
+                        </div>
+                        <div class="url-preview-box">
+                            <div id="url-preview-empty" style="opacity: 0.6; font-size: 0.9rem;">Inserta una URL y haz clic en Previsualizar.</div>
+                            <img id="url-image-preview" style="display: none;" onerror="handleUrlPreviewError(event)">
+                        </div>
+                        <button class="primary" id="btn-insert-url-img" style="display: none; align-self: flex-end;" onclick="insertUrlImage()">
+                            Insertar Imagen URL
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tab 3: Stock -->
+                <div id="img-tab-stock" class="modal-tab-content">
+                    <div class="stock-grid" id="stock-images-grid">
+                        <!-- Filled dynamically by active biome theme -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN MODAL -->
+    <div id="login-modal" class="biopres-modal">
+        <div class="biopres-modal-content" style="max-width: 380px;">
+            <div class="biopres-modal-header">
+                <h3>Iniciar Sesión</h3>
+                <button class="biopres-modal-close" onclick="closeLoginModal()">&times;</button>
+            </div>
+            <div class="biopres-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                <p style="font-size: 0.9rem; opacity: 0.8; margin: 0;">Inicia sesión con Ocean Pay para guardar tus presentaciones en la nube.</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 0.85rem; font-weight: 500;">Usuario</label>
+                    <input type="text" id="op-username" placeholder="Tu nombre de usuario" style="width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 6px; font-family: inherit;">
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 0.85rem; font-weight: 500;">Contraseña</label>
+                    <input type="password" id="op-password" placeholder="Tu contraseña" style="width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 6px; font-family: inherit;">
+                </div>
+                
+                <button class="primary" id="btn-ocean-login" style="width: 100%; margin-top: 8px;" onclick="performOceanPayLogin()">
+                    <div class="btn-fill"></div>
+                    <div class="btn-content">
+                        <svg class="btn-icon" style="display: none;" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"></svg>
+                        <span class="btn-text">Conectar con Ocean Pay</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === PARCHE PARA CHROME MÓDERNO (FABRIC.JS BUGFIX) ===
+        // Chrome eliminó 'alphabetical' y Fabric 5.3.x se rompe intentando usarlo.
+        const originalSetTextBaseline = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'textBaseline').set;
+        Object.defineProperty(CanvasRenderingContext2D.prototype, 'textBaseline', {
+            set: function(value) {
+                if (value === 'alphabetical') value = 'alphabetic';
+                originalSetTextBaseline.call(this, value);
+            },
+            get: function() {
+                return 'alphabetic';
+            }
+        });
+
+        // === CORE FABRIC.JS ENGINE ===
+        const canvas = new fabric.Canvas('main-canvas', {
+            preserveObjectStacking: true, // Mantener Z-index al seleccionar
+            backgroundColor: '#ffffff'
+        });
+
+        // === SISTEMA DE DIAPOSITIVAS ===
+        let slides = [];
+        let currentSlideIndex = 0;
+
+        function saveCurrentSlide() {
+            if (slides[currentSlideIndex] !== undefined) {
+                slides[currentSlideIndex] = canvas.toJSON(['animData']);
+            }
+        }
+
+        function renderThumbnails() {
+            const list = document.getElementById('slides-list');
+            list.innerHTML = '';
+            slides.forEach((slideData, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = `slide-thumbnail ${index === currentSlideIndex ? 'active' : ''}`;
+                thumb.onclick = () => switchSlide(index);
+                // Mini preview numérico por ahora
+                thumb.innerHTML = `<div style="padding:10px; color:#333; font-weight:bold;">Diapositiva ${index + 1}</div>`;
+                list.appendChild(thumb);
+            });
+        }
+
+        function addNewSlide() {
+            saveCurrentSlide(); // Guardar progreso de la actual
+            canvas.clear(); // Limpiar lienzo
+            canvas.backgroundColor = '#ffffff'; // Restaurar fondo por si acaso
+            
+            const newSlide = canvas.toJSON(['animData']);
+            slides.push(newSlide);
+            currentSlideIndex = slides.length - 1;
+            
+            renderThumbnails();
+        }
+
+        function switchSlide(index) {
+            saveCurrentSlide(); // Guardar progreso antes de cambiar
+            currentSlideIndex = index;
+            
+            // Cargar la nueva
+            canvas.loadFromJSON(slides[index], function() {
+                canvas.renderAll();
+                renderThumbnails();
+            });
+        }
+
+        // Inicializar la primera diapositiva obligatoria
+        slides.push(canvas.toJSON(['animData']));
+        renderThumbnails();
+
+        // === FFMPEG SINGLETON (cargado una sola vez) ===
+        let ffmpegInstance = null;
+        let ffmpegLoaded = false;
+
+        async function getFFmpeg() {
+            if (ffmpegLoaded) return ffmpegInstance;
+            const { FFmpeg } = FFmpegWASM;
+            ffmpegInstance = new FFmpeg();
+            setExportStatus('Cargando motor FFmpeg...', 15);
+
+            // Usar archivos locales con URL absoluta para evitar problemas de resolución de rutas relativas dentro del Worker
+            const localBase = new URL('./ffmpeg', window.location.href).href;
+            await ffmpegInstance.load({
+                coreURL:   `${localBase}/ffmpeg-core.js`,
+                wasmURL:   `${localBase}/ffmpeg-core.wasm`,
+                workerURL: `${localBase}/814.ffmpeg.js`
+            });
+            ffmpegLoaded = true;
+            return ffmpegInstance;
+        }
+
+        // Configuración Global de controles de Fabric para 8 puntos (esquinas y bordes)
+        fabric.Object.prototype.set({
+            transparentCorners: false,
+            cornerColor: 'var(--accent-color)',
+            cornerStrokeColor: '#ffffff',
+            borderColor: 'var(--accent-color)',
+            cornerSize: 12,
+            padding: 5,
+            cornerStyle: 'circle',
+            setControlVisible: true
+        });
+
+        // Asegurar que el TextBox adapte su contenido al redimensionar desde los lados
+        canvas.on('object:scaling', function(e) {
+            const obj = e.target;
+            if (obj.type === 'textbox') {
+                // Convertir la escala horizontal en anchura real para que el texto baje de línea
+                obj.width = obj.width * obj.scaleX;
+                obj.scaleX = 1;
+            }
+        });
+
+        // Adaptabilidad del lienzo al tamaño de la pantalla
+        // Reserva espacio para el floating dock (aprox 80px)
+        function resizeLayout() {
+            const wrap = document.querySelector('.presentation-wrap');
+            const area = document.getElementById('canvas-wrapper');
+            const DOCK_CLEARANCE = 90; // px reservados para el bottom bar flotante
+            const scale = Math.min(
+                (area.clientWidth - 40) / 1280,
+                (area.clientHeight - DOCK_CLEARANCE) / 720
+            );
+            wrap.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', resizeLayout);
+        resizeLayout();
+
+        // === GESTIÓN DE BIOMAS ===
+        function changeBiome(biome) {
+            document.documentElement.setAttribute('data-theme', biome);
+            populateStockImages(biome);
+            // Sync el swatch de accent y el preview del showcase si el modal está abierto
+            requestAnimationFrame(() => {
+                const sw = document.getElementById('swatch-accent');
+                if (sw) sw.style.backgroundColor = getComputedAccentColor();
+                if (document.getElementById('shapes-modal').classList.contains('active')) {
+                    updateShowcaseSVG();
+                }
+            });
+        }
+
+        // === AÑADIR ELEMENTOS ===
+        // Usamos fabric.Textbox para que se adapte al estirarse en anchura
+        function addText() {
+            const text = new fabric.Textbox('Doble clic para editar', {
+                left: 100,
+                top: 100,
+                width: 400,
+                fontSize: 60,
+                fontFamily: 'Inter',
+                fill: '#333333',
+                // Propiedades custom para animaciones
+                animData: { type: 'none', duration: 1.0 }
+            });
+            canvas.add(text);
+            canvas.setActiveObject(text);
+            updateInspector();
+        }
+
+        function addRect() {
+            const rect = new fabric.Rect({
+                left: 200, top: 200, width: 200, height: 200,
+                fill: '#2e8b57',
+                animData: { type: 'none', duration: 1.0 }
+            });
+            canvas.add(rect);
+            canvas.setActiveObject(rect);
+            updateInspector();
+        }
+
+        function addCircle() {
+            const circle = new fabric.Circle({
+                left: 300, top: 200, radius: 100,
+                fill: '#d2691e',
+                animData: { type: 'none', duration: 1.0 }
+            });
+            canvas.add(circle);
+            canvas.setActiveObject(circle);
+            updateInspector();
+        }
+
+        function addImage() {
+            // Ejemplo de imagen
+            const url = prompt("Introduce la URL de la imagen:");
+            if(url) {
+                fabric.Image.fromURL(url, (img) => {
+                    img.set({
+                        left: 100, top: 100,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    img.scaleToWidth(400);
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                    updateInspector();
+                }, { crossOrigin: 'anonymous' });
+            }
+        }
+
+        // === INSPECTOR LOGIC ===
+        canvas.on('selection:created', updateInspector);
+        canvas.on('selection:updated', updateInspector);
+        canvas.on('selection:cleared', () => {
+            document.getElementById('no-selection').style.display = 'block';
+            document.getElementById('properties-panel').style.display = 'none';
+        });
+
+        function updateInspector() {
+            const obj = canvas.getActiveObject();
+            if (!obj) return;
+            document.getElementById('no-selection').style.display = 'none';
+            document.getElementById('properties-panel').style.display = 'block';
+            
+            if (obj.fill) document.getElementById('prop-fill').value = obj.fill;
+            
+            if (obj.animData) {
+                document.getElementById('anim-type').value = obj.animData.type || 'none';
+                document.getElementById('anim-duration').value = obj.animData.duration || 1.0;
+            }
+        }
+
+        function updateObjectProperty(prop, value) {
+            const obj = canvas.getActiveObject();
+            if (obj) {
+                obj.set(prop, value);
+                canvas.renderAll();
+            }
+        }
+
+        function updateObjectAnimation(prop, value) {
+            const obj = canvas.getActiveObject();
+            if (obj) {
+                if(!obj.animData) obj.animData = {};
+                obj.animData[prop] = value;
+            }
+        }
+
+        // === EXPORTAR A VIDEO & PRESENTACIÓN ===
+        
+        async function saveToCloud() {
+            const token = localStorage.getItem('ocean_pay_token');
+            if(!token) {
+                openLoginModal();
+                return;
+            }
+            
+            const payload = {
+                title: "BioPresentations Document",
+                document_data: canvas.toJSON(['animData']) // Include custom animation property
+            };
+
+            try {
+                const res = await fetch('http://localhost:3000/biopresentations/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if(data.success) {
+                    alert("¡Presentación guardada exitosamente en la Nube!");
+                } else {
+                    alert("Error: " + data.message);
+                }
+            } catch(e) {
+                console.error(e);
+                alert("No se pudo conectar con el servidor.");
+            }
+        }
+
+        async function presentSlides(isExporting = false) {
+            // Deseleccionar todo
+            canvas.discardActiveObject();
+            canvas.renderAll();
+
+            // Guardar estado original
+            const originalStates = [];
+            const objects = canvas.getObjects();
+            
+            // Preparar objetos para animación
+            objects.forEach((obj, i) => {
+                originalStates.push({
+                    opacity: obj.opacity, top: obj.top, left: obj.left, 
+                    scaleX: obj.scaleX, scaleY: obj.scaleY, angle: obj.angle,
+                    skewX: obj.skewX
+                });
+                
+                const anim = obj.animData || { type: 'none', duration: 1.0 };
+                
+                if (anim.type !== 'none') {
+                    if (anim.type === 'fade') {
+                        obj.set({ opacity: 0 });
+                    } else if (anim.type === 'slide-up') {
+                        obj.set({ opacity: 0, top: obj.top + 100 });
+                    } else if (anim.type === 'epic-spin-zoom') {
+                        obj.set({ opacity: 0, scaleX: 0, scaleY: 0, angle: -180 });
+                    } else if (anim.type === 'stagger-glitch') {
+                        obj.set({ opacity: 0, skewX: 50, left: obj.left - 100 });
+                    }
+                }
+            });
+            canvas.renderAll();
+
+            // Timeline de GSAP
+            const tl = gsap.timeline({
+                onUpdate: () => canvas.renderAll(),
+                onComplete: () => {
+                    if(!isExporting) alert("¡Presentación finalizada!");
+                }
+            });
+
+            // Animar cada objeto
+            objects.forEach((obj, i) => {
+                const anim = obj.animData || { type: 'none', duration: 1.0 };
+                const dur = parseFloat(anim.duration) || 1.0;
+                const orig = originalStates[i];
+
+                if (anim.type === 'fade') {
+                    tl.to(obj, { opacity: orig.opacity, duration: dur, ease: "power2.inOut" }, "-=0.5");
+                } else if (anim.type === 'slide-up') {
+                    tl.to(obj, { opacity: orig.opacity, top: orig.top, duration: dur, ease: "back.out(1.7)" }, "-=0.5");
+                } else if (anim.type === 'epic-spin-zoom') {
+                    tl.to(obj, { opacity: orig.opacity, scaleX: orig.scaleX, scaleY: orig.scaleY, angle: orig.angle, duration: dur, ease: "elastic.out(1, 0.5)" }, "-=0.5");
+                } else if (anim.type === 'stagger-glitch') {
+                    tl.to(obj, { opacity: orig.opacity, skewX: 0, left: orig.left, duration: dur, ease: "rough({ template: none.out, strength: 2, points: 20, taper: none, randomize: true, clamp: false })" }, "-=0.5");
+                }
+            });
+
+            return tl;
+        }
+
+        // === HELPERS DE OVERLAY ===
+        function showExportOverlay(title) {
+            document.getElementById('export-overlay').classList.add('active');
+            document.getElementById('export-title').textContent = title;
+            setExportStatus('Iniciando...', 0);
+        }
+        function hideExportOverlay() {
+            document.getElementById('export-overlay').classList.remove('active');
+        }
+        function setExportStatus(msg, pct) {
+            document.getElementById('export-status').textContent = msg;
+            document.getElementById('export-progress').style.width = pct + '%';
+        }
+
+        async function exportVideoMP4() {
+            if(!confirm("¿Comenzar la exportación de video? Las animaciones se reproducirán y se grabará el canvas en HD.")) return;
+
+            showExportOverlay('🎬 Grabando animaciones...');
+            setExportStatus('Reproduciendo diapositiva...', 5);
+
+            // 1. Grabar el canvas mientras se reproducen las animaciones
+            const rawCanvas = document.getElementById('main-canvas');
+            const stream = rawCanvas.captureStream(60);
+            const mimeType = MediaRecorder.isTypeSupported('video/webm; codecs=vp9')
+                ? 'video/webm; codecs=vp9' : 'video/webm';
+            const mediaRecorder = new MediaRecorder(stream, { mimeType });
+            const chunks = [];
+
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+            // 2. Lanzar animaciones, luego detener grabación
+            mediaRecorder.start();
+            const tl = await presentSlides(true);
+            const recordDuration = (tl.duration() + 1.5) * 1000;
+
+            await new Promise(resolve => setTimeout(resolve, recordDuration));
+            mediaRecorder.stop();
+
+            // 3. Esperar a que el MediaRecorder termine de volcar los datos
+            await new Promise(resolve => { mediaRecorder.onstop = resolve; });
+
+            setExportStatus('Grabación completada. Procesando con FFmpeg...', 40);
+
+            const webmBlob = new Blob(chunks, { type: 'video/webm' });
+
+            try {
+                const ffmpeg = await getFFmpeg();
+
+                setExportStatus('Escribiendo datos de entrada...', 55);
+                const buffer = await webmBlob.arrayBuffer();
+                await ffmpeg.writeFile('input.webm', new Uint8Array(buffer));
+
+                setExportStatus('Convirtiendo a MP4 (libx264)...', 70);
+                await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', 'output.mp4']);
+
+                setExportStatus('Leyendo resultado...', 90);
+                const mp4Data = await ffmpeg.readFile('output.mp4');
+                const mp4Blob = new Blob([mp4Data.buffer], { type: 'video/mp4' });
+
+                setExportStatus('¡Listo! Descargando...', 100);
+                const url = URL.createObjectURL(mp4Blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'BioPresentation_Export.mp4'; a.click();
+                URL.revokeObjectURL(url);
+
+                // Limpiar archivos temporales de FFmpeg
+                await ffmpeg.deleteFile('input.webm');
+                await ffmpeg.deleteFile('output.mp4');
+
+            } catch (err) {
+                console.error('FFmpeg error:', err);
+                setExportStatus('Error con FFmpeg. Descargando WebM...', 100);
+                const url = URL.createObjectURL(webmBlob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'BioPresentation_Export.webm'; a.click();
+                URL.revokeObjectURL(url);
+            } finally {
+                setTimeout(hideExportOverlay, 1200);
+            }
+        }
+
+        // === FLOATING BOTTOM BAR & DROP-UP DROPDOWN CONTROL ===
+        function toggleInsertDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('insert-dropdown');
+            dropdown.classList.toggle('active');
+        }
+        
+        function closeInsertDropdown() {
+            const dropdown = document.getElementById('insert-dropdown');
+            if (dropdown) dropdown.classList.remove('active');
+        }
+        
+        // Close drop-up when clicking anywhere else
+        window.addEventListener('click', function() {
+            closeInsertDropdown();
+        });
+        
+        // === MODALS TOGGLES ===
+        function openShapesModal() {
+            document.getElementById('shapes-modal').classList.add('active');
+            // Sincronizar el swatch de accent con el tema activo
+            requestAnimationFrame(() => {
+                const sw = document.getElementById('swatch-accent');
+                const accentHex = getComputedAccentColor();
+                if (sw) sw.style.backgroundColor = accentHex;
+                resetShapesShowcase();
+            });
+        }
+        
+        function closeShapesModal() {
+            document.getElementById('shapes-modal').classList.remove('active');
+        }
+        
+        function openImagesModal() {
+            document.getElementById('images-modal').classList.add('active');
+            // Populate stock images with the active biome theme from select element
+            const activeBiome = document.getElementById('biome-selector').value;
+            populateStockImages(activeBiome);
+        }
+        
+        function closeImagesModal() {
+            document.getElementById('images-modal').classList.remove('active');
+        }
+
+        // === LOGIN MODAL ===
+        function openLoginModal() {
+            document.getElementById('login-modal').classList.add('active');
+        }
+        
+        function closeLoginModal() {
+            document.getElementById('login-modal').classList.remove('active');
+        }
+        
+        async function performOceanPayLogin() {
+            const u = document.getElementById('op-username').value.trim();
+            const p = document.getElementById('op-password').value;
+            const btn = document.getElementById('btn-ocean-login');
+            const btnText = btn.querySelector('.btn-text');
+            const btnIcon = btn.querySelector('.btn-icon');
+            
+            if(!u || !p) {
+                showToast('Completa ambos campos');
+                return;
+            }
+            
+            // Estado de carga
+            btn.disabled = true;
+            btn.classList.remove('success', 'error');
+            btnIcon.style.display = 'block';
+            btnIcon.classList.add('biopres-spinner');
+            btnIcon.innerHTML = '<path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/>';
+            btnText.textContent = 'Conectando...';
+            
+            try {
+                const res = await fetch('https://owsdatabase.onrender.com/ocean-pay/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                
+                if(res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('ocean_pay_token', data.token);
+                    
+                    // Estado de éxito
+                    btnIcon.classList.remove('biopres-spinner');
+                    btnIcon.innerHTML = '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>';
+                    btnText.textContent = '¡Conectado!';
+                    btn.classList.add('success');
+                    
+                    setTimeout(() => {
+                        closeLoginModal();
+                        saveToCloud(); // Continuar con el guardado automáticamente
+                        resetLoginBtn(btn, btnText, btnIcon);
+                    }, 1200);
+                } else {
+                    // Estado de error
+                    btnIcon.classList.remove('biopres-spinner');
+                    btnIcon.innerHTML = '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>';
+                    btnText.textContent = 'Credenciales incorrectas';
+                    btn.classList.add('error');
+                    
+                    setTimeout(() => resetLoginBtn(btn, btnText, btnIcon), 2000);
+                }
+            } catch(e) {
+                console.error(e);
+                // Estado de error red
+                btnIcon.classList.remove('biopres-spinner');
+                btnIcon.innerHTML = '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>';
+                btnText.textContent = 'Error de conexión';
+                btn.classList.add('error');
+                
+                setTimeout(() => resetLoginBtn(btn, btnText, btnIcon), 2000);
+            }
+        }
+        
+        function resetLoginBtn(btn, btnText, btnIcon) {
+            btn.disabled = false;
+            btn.classList.remove('success', 'error');
+            btnIcon.style.display = 'none';
+            btnIcon.classList.remove('biopres-spinner');
+            btnText.textContent = 'Conectar con Ocean Pay';
+        }
+
+        // === SHAPES MODAL PREVIEW & SHOWCASE ===
+        let selectedShowcaseShape = 'rect';
+        let selectedShowcaseColor = null; // Null = usar accent-color computado
+        
+        // Obtener el color accent real del tema activo (resuelve CSS variables para SVG inline)
+        function getComputedAccentColor() {
+            return getComputedStyle(document.documentElement)
+                .getPropertyValue('--accent-color').trim() || '#2e8b57';
+        }
+        
+        const showcaseShapePaths = {
+            rect: '<rect id="showcase-svg-element" x="10" y="10" width="80" height="80" rx="6" fill="{COLOR}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>',
+            circle: '<circle id="showcase-svg-element" cx="50" cy="50" r="40" fill="{COLOR}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>',
+            triangle: '<polygon id="showcase-svg-element" points="50 10, 90 90, 10 90" fill="{COLOR}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>',
+            ellipse: '<ellipse id="showcase-svg-element" cx="50" cy="50" rx="42" ry="26" fill="{COLOR}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>',
+            star: '<polygon id="showcase-svg-element" points="50 10, 62 38, 92 38, 68 56, 77 86, 50 68, 23 86, 32 56, 8 38, 38 38" fill="{COLOR}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>',
+            arrow: '<polygon id="showcase-svg-element" points="10 40, 60 40, 60 20, 90 50, 60 80, 60 60, 10 60" fill="{COLOR}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>',
+            pentagon: '<polygon id="showcase-svg-element" points="50 10, 90 38, 75 85, 25 85, 10 38" fill="{COLOR}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>',
+            rhombus: '<polygon id="showcase-svg-element" points="50 10, 90 50, 50 90, 10 50" fill="{COLOR}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>'
+        };
+        
+        function resetShapesShowcase() {
+            selectedShowcaseShape = 'rect';
+            selectedShowcaseColor = null; // reset a accent-color computado
+            
+            // Set first item active in grid
+            document.querySelectorAll('.shape-grid-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.shape === 'rect') item.classList.add('active');
+            });
+            
+            // Set first color swatch active (la primera)
+            const swatches = document.querySelectorAll('.color-swatch');
+            swatches.forEach(s => s.classList.remove('active'));
+            if (swatches.length > 0) swatches[0].classList.add('active');
+            
+            // Sync custom color picker con el accent del tema activo
+            const accentHex = getComputedAccentColor();
+            document.getElementById('shape-showcase-custom-color').value = accentHex.startsWith('#') ? accentHex : '#2e8b57';
+            
+            updateShowcaseSVG();
+        }
+        
+        function selectShowcaseShape(shape, element) {
+            selectedShowcaseShape = shape;
+            document.querySelectorAll('.shape-grid-item').forEach(item => item.classList.remove('active'));
+            element.classList.add('active');
+            updateShowcaseSVG();
+        }
+        
+        function selectShowcaseColor(color, element) {
+            selectedShowcaseColor = color;
+            document.querySelectorAll('.color-swatch').forEach(swatch => swatch.classList.remove('active'));
+            if (element) element.classList.add('active');
+            updateShowcaseSVG();
+        }
+        
+        function selectShowcaseCustomColor(color) {
+            document.querySelectorAll('.color-swatch').forEach(swatch => swatch.classList.remove('active'));
+            selectedShowcaseColor = color;
+            updateShowcaseSVG();
+        }
+        
+        function updateShowcaseSVG() {
+            const previewBox = document.getElementById('showcase-svg-preview');
+            if (!previewBox) return;
+            // Resolver color: si es null usar accent computado, si es CSS var también resolverlo
+            let fillColor = selectedShowcaseColor;
+            if (!fillColor || fillColor.includes('var(')) {
+                fillColor = getComputedAccentColor();
+            }
+            let template = showcaseShapePaths[selectedShowcaseShape];
+            previewBox.innerHTML = template.replace('{COLOR}', fillColor);
+        }
+        
+        function insertSelectedShape() {
+            // Resolver color final igual que en el preview
+            let color = selectedShowcaseColor;
+            if (!color || color.includes('var(')) {
+                color = getComputedAccentColor();
+            }
+            const left = 200;
+            const top = 200;
+            let shapeObj = null;
+            
+            switch (selectedShowcaseShape) {
+                case 'rect':
+                    shapeObj = new fabric.Rect({
+                        left: left, top: top, width: 200, height: 150,
+                        fill: color,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    break;
+                case 'circle':
+                    shapeObj = new fabric.Circle({
+                        left: left, top: top, radius: 80,
+                        fill: color,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    break;
+                case 'triangle':
+                    shapeObj = new fabric.Triangle({
+                        left: left, top: top, width: 180, height: 160,
+                        fill: color,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    break;
+                case 'ellipse':
+                    shapeObj = new fabric.Ellipse({
+                        left: left, top: top, rx: 100, ry: 60,
+                        fill: color,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    break;
+                case 'star':
+                    shapeObj = new fabric.Path("M 50 10 L 62 38 L 92 38 L 68 56 L 77 86 L 50 68 L 23 86 L 32 56 L 8 38 L 38 38 Z", {
+                        left: left, top: top, width: 160, height: 160,
+                        fill: color,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    break;
+                case 'arrow':
+                    shapeObj = new fabric.Path("M 10 40 L 60 40 L 60 20 L 90 50 L 60 80 L 60 60 L 10 60 Z", {
+                        left: left, top: top, width: 180, height: 120,
+                        fill: color,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    break;
+                case 'pentagon':
+                    shapeObj = new fabric.Path("M 50 10 L 90 38 L 75 85 L 25 85 L 10 38 Z", {
+                        left: left, top: top, width: 160, height: 160,
+                        fill: color,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    break;
+                case 'rhombus':
+                    shapeObj = new fabric.Path("M 50 10 L 90 50 L 50 90 L 10 50 Z", {
+                        left: left, top: top, width: 150, height: 150,
+                        fill: color,
+                        animData: { type: 'none', duration: 1.0 }
+                    });
+                    break;
+            }
+            
+            if (shapeObj) {
+                canvas.add(shapeObj);
+                canvas.setActiveObject(shapeObj);
+                updateInspector();
+                canvas.renderAll();
+                closeShapesModal();
+                showToast("Forma insertada correctamente");
+            }
+        }
+
+        // === IMAGES MODAL TABS & MULTI-SOURCE INTEGRATION ===
+        function switchImageTab(tabName, btn) {
+            // Update active states on tab buttons
+            document.querySelectorAll('.modal-tab-btn').forEach(button => button.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update active states on tab contents
+            document.querySelectorAll('.modal-tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`img-tab-${tabName}`).classList.add('active');
+        }
+        
+        // TAB 1: Filepicker upload & Drag-and-Drop
+        function triggerFileInput() {
+            document.getElementById('img-filepicker').click();
+        }
+        
+        let uploadedImageBase64 = null;
+        
+        function handleFileUpload(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                alert("Por favor selecciona un archivo de imagen válido.");
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedImageBase64 = e.target.result;
+                
+                // Show preview area and hide dragzone
+                document.getElementById('upload-image-preview').src = uploadedImageBase64;
+                document.getElementById('upload-preview-container').style.display = 'flex';
+                document.getElementById('img-dragzone').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function insertUploadedImage() {
+            if (uploadedImageBase64) {
+                insertImageFromURL(uploadedImageBase64);
+                closeImagesModal();
+                
+                // Reset uploader interface states
+                document.getElementById('upload-image-preview').src = '';
+                document.getElementById('upload-preview-container').style.display = 'none';
+                document.getElementById('img-dragzone').style.display = 'flex';
+                uploadedImageBase64 = null;
+            }
+        }
+        
+        // Drag over / drop event listeners setup
+        const dragzone = document.getElementById('img-dragzone');
+        if (dragzone) {
+            dragzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dragzone.classList.add('dragover');
+            });
+            
+            dragzone.addEventListener('dragleave', () => {
+                dragzone.classList.remove('dragover');
+            });
+            
+            dragzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragzone.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFileUpload(e.dataTransfer.files[0]);
+                }
+            });
+        }
+        
+        // TAB 2: Image URL input & live preview
+        function previewImageUrl() {
+            const url = document.getElementById('img-url-input').value.trim();
+            if (!url) {
+                alert("Por favor introduce una URL de imagen válida.");
+                return;
+            }
+            
+            const previewImg = document.getElementById('url-image-preview');
+            const previewEmpty = document.getElementById('url-preview-empty');
+            const insertBtn = document.getElementById('btn-insert-url-img');
+            
+            previewImg.src = url;
+            previewImg.style.display = 'block';
+            previewEmpty.style.display = 'none';
+            insertBtn.style.display = 'inline-flex';
+        }
+        
+        function handleUrlPreviewError(event) {
+            const img = document.getElementById('url-image-preview');
+            // Evitar alerta si el error salta por limpiar el src
+            if (!img.getAttribute('src')) return;
+            
+            alert("No se pudo cargar la imagen desde esa URL. Verifica que sea correcta y admita CORS.");
+            img.style.display = 'none';
+            img.removeAttribute('src');
+            document.getElementById('url-preview-empty').style.display = 'block';
+            document.getElementById('btn-insert-url-img').style.display = 'none';
+        }
+        
+        function insertUrlImage() {
+            const url = document.getElementById('img-url-input').value.trim();
+            if (url) {
+                insertImageFromURL(url);
+                closeImagesModal();
+                
+                // Clear state values
+                document.getElementById('img-url-input').value = '';
+                document.getElementById('url-image-preview').style.display = 'none';
+                document.getElementById('url-image-preview').removeAttribute('src');
+                document.getElementById('url-preview-empty').style.display = 'block';
+                document.getElementById('btn-insert-url-img').style.display = 'none';
+            }
+        }
+        
+        // Dynamic image generation and insertion on Fabric Canvas
+        function insertImageFromURL(url) {
+            fabric.Image.fromURL(url, (img) => {
+                img.set({
+                    left: 200, top: 150,
+                    animData: { type: 'none', duration: 1.0 }
+                });
+                img.scaleToWidth(400);
+                canvas.add(img);
+                canvas.setActiveObject(img);
+                canvas.renderAll();
+                updateInspector();
+                showToast("Imagen agregada con éxito");
+            }, { crossOrigin: 'anonymous' });
+        }
+        
+        // TAB 3: Biome-specific Curated Unsplash Stock
+        const biomeStockImages = {
+            forest: [
+                { name: "Árboles Dorados", url: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=500&q=80" },
+                { name: "Sendero Neblinoso", url: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=500&q=80" },
+                { name: "Flores Silvestres", url: "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?w=500&q=80" },
+                { name: "Bosque Verde Musgo", url: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=500&q=80" },
+                { name: "Copas de Otoño", url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=500&q=80" },
+                { name: "Río del Bosque", url: "https://images.unsplash.com/photo-1425913397330-cf8af2ff40a1?w=500&q=80" }
+            ],
+            desert: [
+                { name: "Dunas de Arena", url: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=500&q=80" },
+                { name: "Atardecer Dorado", url: "https://images.unsplash.com/photo-1473580044384-7ba9967e16a0?w=500&q=80" },
+                { name: "Cañón Desértico", url: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=500&q=80" },
+                { name: "Paisaje de Cactus", url: "https://images.unsplash.com/photo-1554160113-1317ca97b20a?w=500&q=80" },
+                { name: "Oasis Oculto", url: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&q=80" },
+                { name: "Carretera al Desierto", url: "https://images.unsplash.com/photo-1508624264782-8c907b8502b6?w=500&q=80" }
+            ],
+            ocean: [
+                { name: "Arrecife de Coral", url: "https://images.unsplash.com/photo-1546026423-cc4642628d2b?w=500&q=80" },
+                { name: "Rayos de Sol en el Agua", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&q=80" },
+                { name: "Tortuga Marina", url: "https://images.unsplash.com/photo-1559583985-c80d8ad9b29f?w=500&q=80" },
+                { name: "Playa Tropical", url: "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=500&q=80" },
+                { name: "Gran Ola Azul", url: "https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=500&q=80" },
+                { name: "Banco de Peces", url: "https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=500&q=80" }
+            ],
+            wetlands: [
+                { name: "Everglades", url: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=500&q=80" },
+                { name: "Lirios de Agua", url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=500&q=80" },
+                { name: "Garza Real", url: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=500&q=80" },
+                { name: "Pantanoso Neblinoso", url: "https://images.unsplash.com/photo-1475113548554-5a36f1f523d6?w=500&q=80" },
+                { name: "Atardecer en Juncos", url: "https://images.unsplash.com/photo-1500627869374-13cd993b1115?w=500&q=80" },
+                { name: "Estuario Natural", url: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=500&q=80" }
+            ]
+        };
+        
+        function populateStockImages(biome) {
+            const grid = document.getElementById('stock-images-grid');
+            if (!grid) return;
+            
+            grid.innerHTML = '';
+            const list = biomeStockImages[biome] || biomeStockImages.forest;
+            
+            list.forEach(img => {
+                const item = document.createElement('div');
+                item.className = 'stock-item';
+                item.onclick = () => {
+                    insertImageFromURL(img.url);
+                    closeImagesModal();
+                };
+                
+                item.innerHTML = `
+                    <img src="${img.url}" alt="${img.name}" loading="lazy">
+                    <div class="stock-item-overlay">
+                        <span>${img.name}</span>
+                    </div>
+                `;
+                
+                grid.appendChild(item);
+            });
+        }
+
+        // === GLOBAL CLIPBOARD PASTE INTERCEPTOR & TOAST HUD ===
+        window.addEventListener('paste', function(e) {
+            // Prevent paste triggering inside forms or settings inputs
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement.isContentEditable) {
+                return;
+            }
+            
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            let imageFound = false;
+            
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') === 0) {
+                    const blob = items[i].getAsFile();
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(event) {
+                        insertImageFromURL(event.target.result);
+                        showToast("Imagen pegada desde el portapapeles");
+                    };
+                    
+                    reader.readAsDataURL(blob);
+                    imageFound = true;
+                    e.preventDefault();
+                    break;
+                }
+            }
+        });
+        
+        function showToast(message) {
+            let toast = document.getElementById('biopres-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'biopres-toast';
+                toast.className = 'biopres-toast';
+                document.body.appendChild(toast);
+            }
+            
+            toast.innerHTML = `
+                <div class="biopres-toast-icon">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="biopres-toast-text">${message}</div>
+            `;
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

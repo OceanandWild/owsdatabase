@@ -3369,23 +3369,11 @@
                 charHeight = bound.height || obj.fontSize;
             }
 
-            let localX = left;
-            let localY = top + charHeight / 2;
-
-            // Ajustar la posición local según el origen de Fabric.js
-            if (obj.originX === 'center') {
-                localX -= obj.width / 2;
-            } else if (obj.originX === 'right') {
-                localX -= obj.width;
-            }
-
-            if (obj.originY === 'center') {
-                localY -= obj.height / 2;
-            } else if (obj.originY === 'bottom') {
-                localY -= obj.height;
-            }
-
-            const localPoint = new fabric.Point(localX, localY);
+            // En Fabric.js, las coordenadas locales de calcTransformMatrix() siempre tienen su origen (0,0) en el centro geométrico del objeto.
+            const localPoint = new fabric.Point(
+                left - obj.width / 2,
+                top - obj.height / 2 + charHeight / 2
+            );
 
             // Convertir a coordenadas globales usando la matriz de transformación del objeto
             const matrix = obj.calcTransformMatrix();
@@ -3430,8 +3418,12 @@
             const showCursor = showIbeam ? false : (fx.typewriterCursor !== false);
             const ibeamColorMode = fx.typewriterIbeamColorMode || 'solid';
 
-            // Guardar texto completo
-            const fullText = obj._twFullText || obj.text;
+            // Guardar texto completo y sanitizar de cualquier cursor residual anterior
+            let cleanText = obj._twFullText || obj.text;
+            if (cleanText.endsWith('│')) cleanText = cleanText.slice(0, -1);
+            if (cleanText.endsWith('|')) cleanText = cleanText.slice(0, -1);
+            
+            const fullText = cleanText;
             obj._twFullText = fullText;
 
             let charIndex = 0;
@@ -3525,9 +3517,12 @@
                     canvas.remove(state.ibeamObj);
                     state.ibeamObj = null;
                 }
-                // Restaurar texto completo
+                // Restaurar texto completo sin cursores residuales
                 if (obj._twFullText) {
-                    obj.set('text', obj._twFullText);
+                    let cleanText = obj._twFullText;
+                    if (cleanText.endsWith('│')) cleanText = cleanText.slice(0, -1);
+                    if (cleanText.endsWith('|')) cleanText = cleanText.slice(0, -1);
+                    obj.set('text', cleanText);
                     canvas.renderAll();
                 }
                 typewriterObjects.delete(obj);

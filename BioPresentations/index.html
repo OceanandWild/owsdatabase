@@ -1425,8 +1425,8 @@
                                             <option value="rainbow">Arcoíris Animado</option>
                                         </select>
                                         <div id="tw-ibeam-solid-picker" style="width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255,255,255,0.4); position: relative; cursor: pointer; flex-shrink: 0;">
-                                            <input type="color" id="tw-ibeam-color-input" value="#ffffff" onchange="setTypewriterIbeamColor(this.value)" style="position: absolute; top: -5px; left: -5px; width: 42px; height: 42px; opacity: 0; cursor: pointer; padding: 0; border: none;">
-                                            <div id="tw-ibeam-color-preview" style="width: 100%; height: 100%; background: #ffffff;"></div>
+                                            <input type="color" id="tw-ibeam-color-input" value="#ff0000" onchange="setTypewriterIbeamColor(this.value)" style="position: absolute; top: -5px; left: -5px; width: 42px; height: 42px; opacity: 0; cursor: pointer; padding: 0; border: none;">
+                                            <div id="tw-ibeam-color-preview" style="width: 100%; height: 100%; background: #ff0000;"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -2915,7 +2915,7 @@
                 const solidPicker = document.getElementById('tw-ibeam-solid-picker');
                 solidPicker.style.display = ibeamMode === 'solid' ? 'block' : 'none';
                 if (ibeamMode === 'solid') {
-                    const c = fx.typewriterIbeamColor || '#ffffff';
+                    const c = fx.typewriterIbeamColor || obj.fill || '#ff0000';
                     document.getElementById('tw-ibeam-color-input').value = c;
                     document.getElementById('tw-ibeam-color-preview').style.background = c;
                 }
@@ -3313,7 +3313,9 @@
         function createIbeamCursor(obj) {
             const fx = obj.textEffects || {};
             const colorMode = fx.typewriterIbeamColorMode || 'solid';
-            const color = colorMode === 'rainbow' ? '#ff0000' : (fx.typewriterIbeamColor || '#ffffff');
+            // Default to the text's own fill color if no color is specified, preventing invisible white cursor on white background
+            const defaultColor = fx.typewriterIbeamColor || obj.fill || '#ff0000';
+            const color = colorMode === 'rainbow' ? '#ff0000' : defaultColor;
             const ibeam = new fabric.Path(IBEAM_SVG_PATH, {
                 stroke: color,
                 strokeWidth: 2,
@@ -3367,11 +3369,23 @@
                 charHeight = bound.height || obj.fontSize;
             }
 
-            // En Fabric.js local (0,0) es el centro del objeto
-            const localPoint = new fabric.Point(
-                left - obj.width / 2,
-                top - obj.height / 2 + charHeight / 2
-            );
+            let localX = left;
+            let localY = top + charHeight / 2;
+
+            // Ajustar la posición local según el origen de Fabric.js
+            if (obj.originX === 'center') {
+                localX -= obj.width / 2;
+            } else if (obj.originX === 'right') {
+                localX -= obj.width;
+            }
+
+            if (obj.originY === 'center') {
+                localY -= obj.height / 2;
+            } else if (obj.originY === 'bottom') {
+                localY -= obj.height;
+            }
+
+            const localPoint = new fabric.Point(localX, localY);
 
             // Convertir a coordenadas globales usando la matriz de transformación del objeto
             const matrix = obj.calcTransformMatrix();
@@ -3396,6 +3410,7 @@
         }
 
         function startTypewriterAnimation(obj) {
+            if (obj.isEditing) return;
             stopTypewriterForObject(obj);
             cleanOrphanedIbeams();
 
@@ -3577,6 +3592,20 @@
                 startTypewriterAnimation(obj);
             }
         }
+
+        // Manejo de eventos de edición de texto para evitar conflictos con el typewriter
+        canvas.on('text:editing:entered', (e) => {
+            stopTypewriterForObject(e.target);
+        });
+
+        canvas.on('text:editing:exited', (e) => {
+            const obj = e.target;
+            if (obj.textEffects && obj.textEffects.typewriter) {
+                // Actualizar la referencia del texto original con la edición del usuario
+                obj._twFullText = obj.text;
+                startTypewriterAnimation(obj);
+            }
+        });
 
         // Limpiar efectos cuando se deselecciona/elimina un objeto
         canvas.on('before:selection:cleared', () => {

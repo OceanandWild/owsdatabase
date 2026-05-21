@@ -3350,30 +3350,37 @@
             const lineBounds = obj.__charBounds[lineIndex];
             if (!lineBounds) return;
 
-            let left = 0;
-            let top = 0;
-            let charHeight = obj.fontSize;
-
+            // --- Posición horizontal ---
+            // __charBounds[line][char].left es confiable en Fabric.js 5.x
+            let charLeft = 0;
             if (lineBounds.length === 0) {
-                left = 0;
-                top = lineIndex * obj.fontSize * obj.lineHeight;
+                charLeft = 0;
             } else if (charIndexInLine >= lineBounds.length) {
                 const lastBound = lineBounds[lineBounds.length - 1];
-                left = lastBound.left + lastBound.width;
-                top = lastBound.top;
-                charHeight = lastBound.height || obj.fontSize;
+                charLeft = lastBound.left + lastBound.width;
             } else {
-                const bound = lineBounds[charIndexInLine];
-                left = bound.left;
-                top = bound.top;
-                charHeight = bound.height || obj.fontSize;
+                charLeft = lineBounds[charIndexInLine].left;
             }
 
-            // En Fabric.js, las coordenadas locales de calcTransformMatrix() siempre tienen su origen (0,0) en el centro geométrico del objeto.
-            const localPoint = new fabric.Point(
-                left - obj.width / 2,
-                top - obj.height / 2 + charHeight / 2
-            );
+            // Agregar offset de alineación de texto (center, right, justify)
+            const lineLeftOffset = (typeof obj._getLineLeftOffset === 'function')
+                ? obj._getLineLeftOffset(lineIndex) : 0;
+
+            // --- Posición vertical ---
+            // __charBounds NO tiene .top ni .height en Fabric.js 5.x
+            // Calculamos la posición vertical sumando alturas de líneas anteriores
+            let lineTop = 0;
+            for (let i = 0; i < lineIndex; i++) {
+                lineTop += obj.getHeightOfLine(i);
+            }
+            const lineHeight = obj.getHeightOfLine(lineIndex);
+
+            // Coordenadas locales relativas al centro del objeto
+            // (calcTransformMatrix siempre usa el centro geométrico como origen 0,0)
+            const localX = charLeft + lineLeftOffset - obj.width / 2;
+            const localY = lineTop + lineHeight / 2 - obj.height / 2;
+
+            const localPoint = new fabric.Point(localX, localY);
 
             // Convertir a coordenadas globales usando la matriz de transformación del objeto
             const matrix = obj.calcTransformMatrix();

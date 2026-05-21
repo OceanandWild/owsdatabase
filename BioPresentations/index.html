@@ -3410,7 +3410,13 @@
         }
 
         function startTypewriterAnimation(obj) {
-            if (obj.isEditing) return;
+            // Si el objeto está en modo edición, forzar la salida del modo edición
+            // para que se pueda ver la animación y el cursor correcto de inmediato.
+            if (obj.isEditing) {
+                obj._twSkipEditingExited = true;
+                obj.exitEditing();
+                obj._twSkipEditingExited = false;
+            }
             stopTypewriterForObject(obj);
             cleanOrphanedIbeams();
 
@@ -3545,6 +3551,14 @@
             if (!obj || obj.type !== 'textbox') return;
             if (!obj.textEffects) obj.textEffects = {};
             obj.textEffects.typewriterCursor = checked;
+            
+            // Si activamos el cursor clásico, desactivamos el visual I-beam
+            if (checked) {
+                obj.textEffects.typewriterIbeam = false;
+                document.getElementById('tw-ibeam-toggle').checked = false;
+                document.getElementById('tw-ibeam-color-options').style.display = 'none';
+            }
+            
             if (obj.textEffects.typewriter) {
                 startTypewriterAnimation(obj);
             }
@@ -3565,6 +3579,13 @@
             if (!obj || obj.type !== 'textbox') return;
             if (!obj.textEffects) obj.textEffects = {};
             obj.textEffects.typewriterIbeam = checked;
+            
+            // Si activamos el visual I-beam, desactivamos el cursor clásico
+            if (checked) {
+                obj.textEffects.typewriterCursor = false;
+                document.getElementById('tw-cursor-toggle').checked = false;
+            }
+            
             document.getElementById('tw-ibeam-color-options').style.display = checked ? 'block' : 'none';
             if (obj.textEffects.typewriter) {
                 startTypewriterAnimation(obj);
@@ -3600,6 +3621,7 @@
 
         canvas.on('text:editing:exited', (e) => {
             const obj = e.target;
+            if (obj._twSkipEditingExited) return;
             if (obj.textEffects && obj.textEffects.typewriter) {
                 // Actualizar la referencia del texto original con la edición del usuario
                 obj._twFullText = obj.text;

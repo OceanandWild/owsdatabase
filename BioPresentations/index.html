@@ -3290,14 +3290,30 @@
         // =============================================
         // MÁQUINA DE ESCRIBIR (TYPEWRITER)
         // =============================================
-        const typewriterObjects = new Map(); // obj -> { intervalId, cursorIntervalId, fullText, ibeamObj, ibeamRafId }
+        const typewriterObjects = new Map(); // obj -> { intervalId, cursorIntervalId, fullText, ibeamObj }
 
         // SVG I-beam cursor path (text selection cursor)
         const IBEAM_SVG_PATH = 'M 4 0 L 10 0 M 7 0 L 7 20 M 4 20 L 10 20';
 
+        // Limpiar cualquier I-beam huérfano del canvas
+        function cleanOrphanedIbeams() {
+            const objs = canvas.getObjects();
+            for (let i = objs.length - 1; i >= 0; i--) {
+                if (objs[i]._isTwIbeam) {
+                    // Verificar si este ibeam pertenece a algún typewriter activo
+                    let owned = false;
+                    typewriterObjects.forEach((state) => {
+                        if (state.ibeamObj === objs[i]) owned = true;
+                    });
+                    if (!owned) canvas.remove(objs[i]);
+                }
+            }
+        }
+
         function createIbeamCursor(obj) {
             const fx = obj.textEffects || {};
-            const color = fx.typewriterIbeamColor || '#ffffff';
+            const colorMode = fx.typewriterIbeamColorMode || 'solid';
+            const color = colorMode === 'rainbow' ? '#ff0000' : (fx.typewriterIbeamColor || '#ffffff');
             const ibeam = new fabric.Path(IBEAM_SVG_PATH, {
                 stroke: color,
                 strokeWidth: 2,
@@ -3333,7 +3349,7 @@
 
             const textLeft = obj.left;
             const textTop = obj.top;
-            const cursorScale = fontSize / 20; // scale I-beam relative to font size
+            const cursorScale = fontSize / 20;
 
             ibeamObj.set({
                 left: textLeft + metrics.width + 15 * cursorScale,
@@ -3343,23 +3359,16 @@
             });
         }
 
-        function animateIbeamRainbow(ibeamObj) {
-            const IBEAM_RAINBOW = ['#ff0000','#ff7700','#ffff00','#00ff00','#00ffff','#0077ff','#aa00ff','#ff00aa'];
-            let colorIdx = 0;
-            let hueOffset = 0;
-
-            function tick() {
-                hueOffset += 2;
-                const hue = hueOffset % 360;
-                ibeamObj.set('stroke', `hsl(${hue}, 100%, 60%)`);
-                canvas.renderAll();
-                ibeamObj._ibeamRainbowRaf = requestAnimationFrame(tick);
-            }
-            ibeamObj._ibeamRainbowRaf = requestAnimationFrame(tick);
+        function updateIbeamRainbowColor(ibeamObj, tickCount) {
+            if (!ibeamObj) return;
+            const hue = (tickCount * 8) % 360;
+            ibeamObj.set('stroke', `hsl(${hue}, 100%, 60%)`);
         }
 
         function startTypewriterAnimation(obj) {
             stopTypewriterForObject(obj);
+            cleanOrphanedIbeams();
+
             const fx = obj.textEffects || {};
             const speed = fx.typewriterSpeed || 80;
             const showCursor = fx.typewriterCursor !== false;
@@ -3374,15 +3383,13 @@
             let charIndex = 0;
             let cursorVisible = true;
             let finished = false;
+            let tickCount = 0;
 
-            // Crear I-beam cursor si está activado
+            // Crear I-beam cursor SOLO si está activado
             let ibeamObj = null;
             if (showIbeam) {
                 ibeamObj = createIbeamCursor(obj);
                 positionIbeamCursor(obj, ibeamObj, 0);
-                if (ibeamColorMode === 'rainbow') {
-                    animateIbeamRainbow(ibeamObj);
-                }
             }
 
             // Limpiar texto visible
@@ -3390,17 +3397,25 @@
             canvas.renderAll();
 
             const typingInterval = setInterval(() => {
+                tickCount++;
+
                 if (charIndex <= fullText.length) {
                     const visibleText = fullText.substring(0, charIndex);
                     const cursor = (showCursor && !finished) ? '│' : '';
                     obj.set('text', visibleText + cursor);
-                    if (ibeamObj) positionIbeamCursor(obj, ibeamObj, charIndex);
+
+                    if (ibeamObj) {
+                        positionIbeamCursor(obj, ibeamObj, charIndex);
+                        if (ibeamColorMode === 'rainbow') {
+                            updateIbeamRainbowColor(ibeamObj, tickCount);
+                        }
+                    }
+
                     canvas.renderAll();
                     charIndex++;
                 } else {
                     finished = true;
                     if (loop) {
-                        // Ocultar I-beam durante pausa
                         if (ibeamObj) ibeamObj.set('opacity', 0);
                         setTimeout(() => {
                             charIndex = 0;
@@ -3414,7 +3429,6 @@
                         } else {
                             obj.set('text', fullText);
                         }
-                        // Ocultar I-beam al terminar
                         if (ibeamObj) ibeamObj.set('opacity', 0);
                         canvas.renderAll();
                     }
@@ -3444,8 +3458,8 @@
                 if (state.cursorIntervalId) clearInterval(state.cursorIntervalId);
                 // Limpiar I-beam cursor
                 if (state.ibeamObj) {
-                    if (state.ibeamObj._ibeamRainbowRaf) cancelAnimationFrame(state.ibeamObj._ibeamRainbowRaf);
                     canvas.remove(state.ibeamObj);
+                    state.ibeamObj = null;
                 }
                 // Restaurar texto completo
                 if (obj._twFullText) {

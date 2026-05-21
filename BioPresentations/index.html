@@ -1338,6 +1338,7 @@
                             <select id="text-anim-effect-select" class="fx-select" onchange="onTextAnimEffectChange(this.value)">
                                 <option value="none">Ninguno</option>
                                 <option value="rainbow">Neón Arcoíris</option>
+                                <option value="typewriter">Máquina de Escribir</option>
                             </select>
                         </div>
 
@@ -1381,6 +1382,29 @@
                                         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel Typewriter -->
+                        <div id="fx-panel-typewriter" style="display: none; background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; margin-top: 8px; flex-direction: column; gap: 10px;">
+                            <div>
+                                <div class="text-effects-section-title" style="margin-bottom: 6px;">Velocidad (ms por letra)</div>
+                                <input type="range" id="tw-speed-range" min="30" max="300" value="80" style="width: 100%; accent-color: var(--accent-color);" oninput="setTypewriterSpeed(this.value)">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; opacity: 0.6; margin-top: 2px;">
+                                    <span>Rápido</span>
+                                    <span id="tw-speed-label">80ms</span>
+                                    <span>Lento</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label style="font-size: 0.82rem; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" id="tw-cursor-toggle" onchange="setTypewriterCursor(this.checked)" checked style="accent-color: var(--accent-color);">
+                                    Cursor parpadeante │
+                                </label>
+                                <label style="font-size: 0.82rem; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" id="tw-loop-toggle" onchange="setTypewriterLoop(this.checked)" style="accent-color: var(--accent-color);">
+                                    Repetir
+                                </label>
                             </div>
                         </div>
 
@@ -2844,8 +2868,20 @@
             // Sincronizar el dropdown de efectos animados
             const animSelect = document.getElementById('text-anim-effect-select');
             const rainbowPanel = document.getElementById('fx-panel-rainbow');
+            const twPanel = document.getElementById('fx-panel-typewriter');
             
-            if (fx.rainbow) {
+            // Ocultar todos los paneles primero
+            rainbowPanel.style.display = 'none';
+            twPanel.style.display = 'none';
+
+            if (fx.typewriter) {
+                animSelect.value = 'typewriter';
+                twPanel.style.display = 'flex';
+                document.getElementById('tw-speed-range').value = fx.typewriterSpeed || 80;
+                document.getElementById('tw-speed-label').textContent = (fx.typewriterSpeed || 80) + 'ms';
+                document.getElementById('tw-cursor-toggle').checked = fx.typewriterCursor !== false;
+                document.getElementById('tw-loop-toggle').checked = !!fx.typewriterLoop;
+            } else if (fx.rainbow) {
                 animSelect.value = 'rainbow';
                 rainbowPanel.style.display = 'flex';
 
@@ -2868,7 +2904,6 @@
                 }
             } else {
                 animSelect.value = 'none';
-                rainbowPanel.style.display = 'none';
             }
 
             // Sincronizar botón de dirección arcoíris activo
@@ -3163,13 +3198,22 @@
             if (!obj || obj.type !== 'textbox') return;
             if (!obj.textEffects) obj.textEffects = {};
 
+            // Limpiar efecto anterior
+            stopRainbowForObject(obj);
+            obj.textEffects.rainbow = null;
+            stopTypewriterForObject(obj);
+            obj.textEffects.typewriter = false;
+
             if (val === 'rainbow') {
                 const currentDir = obj.textEffects.rainbow || 'right';
                 obj.textEffects.rainbow = currentDir;
                 obj._rainbowDir = currentDir;
                 startRainbowAnimation(obj, currentDir);
-            } else {
-                removeRainbowFx();
+            } else if (val === 'typewriter') {
+                obj.textEffects.typewriter = true;
+                if (!obj.textEffects.typewriterSpeed) obj.textEffects.typewriterSpeed = 80;
+                if (obj.textEffects.typewriterCursor === undefined) obj.textEffects.typewriterCursor = true;
+                startTypewriterAnimation(obj);
             }
             syncTextEffectsUI(obj);
         }
@@ -3190,8 +3234,9 @@
         function removeAllTextFx() {
             const obj = canvas.getActiveObject();
             if (!obj || obj.type !== 'textbox') return;
-            obj.textEffects = {};
             stopRainbowForObject(obj);
+            stopTypewriterForObject(obj);
+            obj.textEffects = {};
             obj.set({
                 fill: '#ffffff',
                 shadow: null,
@@ -3204,13 +3249,128 @@
             syncTextEffectsUI(obj);
         }
 
-        // Limpiar efecto arcoíris cuando se deselecciona/elimina un objeto
+        // =============================================
+        // MÁQUINA DE ESCRIBIR (TYPEWRITER)
+        // =============================================
+        const typewriterObjects = new Map(); // obj -> { intervalId, cursorIntervalId, fullText }
+
+        function startTypewriterAnimation(obj) {
+            stopTypewriterForObject(obj);
+            const fx = obj.textEffects || {};
+            const speed = fx.typewriterSpeed || 80;
+            const showCursor = fx.typewriterCursor !== false;
+            const loop = !!fx.typewriterLoop;
+
+            // Guardar texto completo
+            const fullText = obj._twFullText || obj.text;
+            obj._twFullText = fullText;
+
+            let charIndex = 0;
+            let cursorVisible = true;
+            let finished = false;
+
+            // Limpiar texto visible
+            obj.set('text', showCursor ? '│' : '');
+            canvas.renderAll();
+
+            const typingInterval = setInterval(() => {
+                if (charIndex <= fullText.length) {
+                    const visibleText = fullText.substring(0, charIndex);
+                    const cursor = (showCursor && !finished) ? '│' : '';
+                    obj.set('text', visibleText + cursor);
+                    canvas.renderAll();
+                    charIndex++;
+                } else {
+                    finished = true;
+                    if (loop) {
+                        // Esperar un momento antes de reiniciar
+                        setTimeout(() => {
+                            charIndex = 0;
+                            finished = false;
+                        }, 1500);
+                    } else {
+                        clearInterval(typingInterval);
+                        // Dejar cursor parpadeando al final
+                        if (showCursor) {
+                            obj.set('text', fullText + '│');
+                            canvas.renderAll();
+                        } else {
+                            obj.set('text', fullText);
+                            canvas.renderAll();
+                        }
+                    }
+                }
+            }, speed);
+
+            // Cursor parpadeante
+            let cursorInterval = null;
+            if (showCursor) {
+                cursorInterval = setInterval(() => {
+                    if (finished && !loop) {
+                        cursorVisible = !cursorVisible;
+                        const currentText = obj._twFullText || '';
+                        obj.set('text', currentText + (cursorVisible ? '│' : ''));
+                        canvas.renderAll();
+                    }
+                }, 530);
+            }
+
+            typewriterObjects.set(obj, { intervalId: typingInterval, cursorIntervalId: cursorInterval, fullText });
+        }
+
+        function stopTypewriterForObject(obj) {
+            const state = typewriterObjects.get(obj);
+            if (state) {
+                clearInterval(state.intervalId);
+                if (state.cursorIntervalId) clearInterval(state.cursorIntervalId);
+                // Restaurar texto completo
+                if (obj._twFullText) {
+                    obj.set('text', obj._twFullText);
+                    canvas.renderAll();
+                }
+                typewriterObjects.delete(obj);
+            }
+        }
+
+        function setTypewriterSpeed(val) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            obj.textEffects.typewriterSpeed = parseInt(val);
+            document.getElementById('tw-speed-label').textContent = val + 'ms';
+            if (obj.textEffects.typewriter) {
+                startTypewriterAnimation(obj);
+            }
+        }
+
+        function setTypewriterCursor(checked) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            obj.textEffects.typewriterCursor = checked;
+            if (obj.textEffects.typewriter) {
+                startTypewriterAnimation(obj);
+            }
+        }
+
+        function setTypewriterLoop(checked) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            obj.textEffects.typewriterLoop = checked;
+            if (obj.textEffects.typewriter) {
+                startTypewriterAnimation(obj);
+            }
+        }
+
+        // Limpiar efectos cuando se deselecciona/elimina un objeto
         canvas.on('before:selection:cleared', () => {
             const obj = canvas.getActiveObject();
             // No detenemos la animación al deseleccionar — continúa en background
         });
         canvas.on('object:removed', (e) => {
             stopRainbowForObject(e.target);
+            stopTypewriterForObject(e.target);
         });
     </script>
 </body>

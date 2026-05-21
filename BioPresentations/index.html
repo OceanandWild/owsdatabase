@@ -2832,10 +2832,10 @@
             const italicBtn = document.getElementById('fx-italic');
             if (obj.fontFamily === 'Dancing Script') {
                 italicBtn.classList.add('active');
-                italicBtn.textContent = '✍ Cursiva Escolar';
+                italicBtn.textContent = '✍ Manuscrita';
             } else if (obj.fontStyle === 'italic') {
                 italicBtn.classList.add('active');
-                italicBtn.textContent = 'I Cursiva Clásica';
+                italicBtn.textContent = 'I Itálica';
             } else {
                 italicBtn.classList.remove('active');
                 italicBtn.textContent = 'I Cursiva';
@@ -2951,9 +2951,9 @@
                 const originalFont = obj._originalFontFamily || 'Inter';
 
                 // Ciclo:
-                // 1. Cursiva Escolar (Dancing Script) -> Normal (Restaurar)
-                // 2. Normal -> Cursiva Clásica (Italic)
-                // 3. Cursiva Clásica -> Cursiva Escolar (Dancing Script)
+                // 1. Manuscrita (Dancing Script) -> Normal (Restaurar)
+                // 2. Normal -> Itálica (Italic)
+                // 3. Itálica -> Manuscrita (Dancing Script)
                 if (obj.fontFamily === 'Dancing Script') {
                     obj.set({
                         fontFamily: originalFont,

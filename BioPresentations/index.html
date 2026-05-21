@@ -1343,24 +1343,45 @@
                         </div>
 
                         <!-- Panel de propiedades específico -->
-                        <div id="fx-panel-rainbow" style="display: none; background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; margin-top: 8px;">
-                            <div class="text-effects-section-title" style="margin-bottom: 8px;">Dirección del Neón</div>
-                            <div class="rainbow-dir-row">
-                                <button class="rainbow-dir-btn" data-dir="right" onclick="setRainbowDir('right',this)" title="Derecha">
-                                    <svg viewBox="0 0 24 24"><path d="M8 5l8 7-8 7V5z"/></svg>
-                                </button>
-                                <button class="rainbow-dir-btn" data-dir="left" onclick="setRainbowDir('left',this)" title="Izquierda">
-                                    <svg viewBox="0 0 24 24"><path d="M16 5l-8 7 8 7V5z"/></svg>
-                                </button>
-                                <button class="rainbow-dir-btn" data-dir="down" onclick="setRainbowDir('down',this)" title="Abajo">
-                                    <svg viewBox="0 0 24 24"><path d="M5 8l7 8 7-8H5z"/></svg>
-                                </button>
-                                <button class="rainbow-dir-btn" data-dir="up" onclick="setRainbowDir('up',this)" title="Arriba">
-                                    <svg viewBox="0 0 24 24"><path d="M5 16l7-8 7 8H5z"/></svg>
-                                </button>
-                                <button class="rainbow-dir-btn" data-dir="random" onclick="setRainbowDir('random',this)" title="Aleatorio">
-                                    <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.42 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
-                                </button>
+                        <div id="fx-panel-rainbow" style="display: none; background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; margin-top: 8px; flex-direction: column; gap: 10px;">
+                            <div>
+                                <div class="text-effects-section-title" style="margin-bottom: 6px;">Estilo de Colores</div>
+                                <select id="rainbow-mode-select" class="fx-select" onchange="setRainbowMode(this.value)">
+                                    <option value="rainbow">Arcoíris Completo</option>
+                                    <option value="monochromatic">Tono Personalizado</option>
+                                </select>
+                            </div>
+
+                            <div id="rainbow-base-color-container" style="display: none;">
+                                <div class="text-effects-section-title" style="margin-bottom: 6px;">Color del Neón</div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255,255,255,0.4); position: relative; cursor: pointer;">
+                                        <input type="color" id="rainbow-base-color-input" onchange="setRainbowBaseColor(this.value)" style="position: absolute; top: -5px; left: -5px; width: 42px; height: 42px; opacity: 0; cursor: pointer; padding: 0; border: none;">
+                                        <div id="rainbow-base-color-preview" style="width: 100%; height: 100%; background: #00bcd4;"></div>
+                                    </div>
+                                    <span style="font-size: 0.8rem; opacity: 0.8;">Elige el tono base</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-effects-section-title" style="margin-bottom: 8px;">Dirección del Neón</div>
+                                <div class="rainbow-dir-row">
+                                    <button class="rainbow-dir-btn" data-dir="right" onclick="setRainbowDir('right',this)" title="Derecha">
+                                        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                                    </button>
+                                    <button class="rainbow-dir-btn" data-dir="left" onclick="setRainbowDir('left',this)" title="Izquierda">
+                                        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                                    </button>
+                                    <button class="rainbow-dir-btn" data-dir="down" onclick="setRainbowDir('down',this)" title="Abajo">
+                                        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+                                    </button>
+                                    <button class="rainbow-dir-btn" data-dir="up" onclick="setRainbowDir('up',this)" title="Arriba">
+                                        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                                    </button>
+                                    <button class="rainbow-dir-btn" data-dir="random" onclick="setRainbowDir('random',this)" title="Aleatorio">
+                                        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -2815,7 +2836,25 @@
             
             if (fx.rainbow) {
                 animSelect.value = 'rainbow';
-                rainbowPanel.style.display = 'block';
+                rainbowPanel.style.display = 'flex';
+
+                // Sincronizar modo de arcoíris y controles de color personalizado
+                const modeSelect = document.getElementById('rainbow-mode-select');
+                const baseColorContainer = document.getElementById('rainbow-base-color-container');
+                const baseColorInput = document.getElementById('rainbow-base-color-input');
+                const baseColorPreview = document.getElementById('rainbow-base-color-preview');
+                
+                const mode = fx.rainbowMode || 'rainbow';
+                modeSelect.value = mode;
+                
+                if (mode === 'monochromatic') {
+                    baseColorContainer.style.display = 'block';
+                    const baseColor = fx.rainbowBaseColor || '#00bcd4';
+                    baseColorInput.value = baseColor;
+                    baseColorPreview.style.background = baseColor;
+                } else {
+                    baseColorContainer.style.display = 'none';
+                }
             } else {
                 animSelect.value = 'none';
                 rainbowPanel.style.display = 'none';
@@ -2908,14 +2947,57 @@
         const rainbowObjects = new Map(); // obj -> { dir, offset, rafId }
         const RAINBOW_COLORS = ['#ff0000','#ff7700','#ffff00','#00ff00','#00ffff','#0077ff','#aa00ff','#ff00aa','#ff0000'];
 
+        function generateMonochromaticTones(hexColor) {
+            let r = parseInt(hexColor.slice(1, 3), 16) / 255;
+            let g = parseInt(hexColor.slice(3, 5), 16) / 255;
+            let b = parseInt(hexColor.slice(5, 7), 16) / 255;
+
+            let max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0;
+            } else {
+                let d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+
+            h = Math.round(h * 360);
+            s = Math.round(s * 100);
+            l = Math.round(l * 100);
+
+            const tones = [];
+            const lightOffsets = [-25, -12, 0, 12, 25, 12, -12];
+            for (let i = 0; i < 7; i++) {
+                let newL = Math.max(15, Math.min(85, l + lightOffsets[i]));
+                let newH = (h + (i - 3) * 4 + 360) % 360;
+                tones.push(`hsl(${newH}, ${s}%, ${newL}%)`);
+            }
+            tones.push(tones[0]);
+            return tones;
+        }
+
         function buildRainbowGradient(obj, offset, dir) {
             const w = obj.width  || 200;
             const h = obj.height || 60;
             // Normalizar offset (0-1 cíclico)
             const t = ((offset % 1) + 1) % 1;
+
+            const fx = obj.textEffects || {};
+            let colors = RAINBOW_COLORS;
+            if (fx.rainbowMode === 'monochromatic' && fx.rainbowBaseColor) {
+                colors = generateMonochromaticTones(fx.rainbowBaseColor);
+            }
+
             // Desplazar stops según t
-            const numColors = RAINBOW_COLORS.length - 1;
-            const stops = RAINBOW_COLORS.map((c, i) => {
+            const numColors = colors.length - 1;
+            const stops = colors.map((c, i) => {
                 let pos = (i / numColors + t) % 1;
                 return { offset: pos, color: c };
             }).sort((a, b) => a.offset - b.offset);
@@ -3002,6 +3084,35 @@
             // UI
             document.querySelectorAll('.rainbow-dir-btn').forEach(b => b.classList.remove('active'));
             if (btnEl) btnEl.classList.add('active');
+        }
+
+        function setRainbowMode(mode) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+
+            obj.textEffects.rainbowMode = mode;
+            if (mode === 'monochromatic' && !obj.textEffects.rainbowBaseColor) {
+                obj.textEffects.rainbowBaseColor = '#00bcd4';
+            }
+
+            if (obj.textEffects.rainbow) {
+                startRainbowAnimation(obj, obj.textEffects.rainbow);
+            }
+            syncTextEffectsUI(obj);
+        }
+
+        function setRainbowBaseColor(color) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+
+            obj.textEffects.rainbowBaseColor = color;
+            document.getElementById('rainbow-base-color-preview').style.background = color;
+
+            if (obj.textEffects.rainbow) {
+                startRainbowAnimation(obj, obj.textEffects.rainbow);
+            }
         }
 
         function onTextAnimEffectChange(val) {

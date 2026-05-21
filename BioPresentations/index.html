@@ -26,7 +26,7 @@
     <script src="./ffmpeg/ffmpeg.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Inter:wght@400;600;800&family=Outfit:wght@500;700&display=swap');
 
         /* === SISTEMA DE DISEÑO DE BIOMAS === */
         :root {
@@ -2826,8 +2826,20 @@
             document.getElementById('fx-shadow').classList.toggle('active', !!fx.shadow);
             document.getElementById('fx-glow').classList.toggle('active', !!fx.glow);
             document.getElementById('fx-stroke').classList.toggle('active', !!fx.stroke);
-            document.getElementById('fx-italic').classList.toggle('active', obj.fontStyle === 'italic');
             document.getElementById('fx-bold').classList.toggle('active', obj.fontWeight === 'bold');
+
+            // Sincronizar Cursiva y actualizar texto/icono del botón
+            const italicBtn = document.getElementById('fx-italic');
+            if (obj.fontFamily === 'Dancing Script') {
+                italicBtn.classList.add('active');
+                italicBtn.textContent = '✍ Cursiva Escolar';
+            } else if (obj.fontStyle === 'italic') {
+                italicBtn.classList.add('active');
+                italicBtn.textContent = 'I Cursiva Clásica';
+            } else {
+                italicBtn.classList.remove('active');
+                italicBtn.textContent = 'I Cursiva';
+            }
 
             // Sincronizar el dropdown de efectos animados
             const animSelect = document.getElementById('text-anim-effect-select');
@@ -2932,7 +2944,32 @@
             const obj = canvas.getActiveObject();
             if (!obj || obj.type !== 'textbox') return;
             if (style === 'italic') {
-                obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
+                // Guardar la tipografía original si no la hemos guardado antes y no es Dancing Script
+                if (!obj._originalFontFamily && obj.fontFamily !== 'Dancing Script') {
+                    obj._originalFontFamily = obj.fontFamily;
+                }
+                const originalFont = obj._originalFontFamily || 'Inter';
+
+                // Ciclo:
+                // 1. Cursiva Escolar (Dancing Script) -> Normal (Restaurar)
+                // 2. Normal -> Cursiva Clásica (Italic)
+                // 3. Cursiva Clásica -> Cursiva Escolar (Dancing Script)
+                if (obj.fontFamily === 'Dancing Script') {
+                    obj.set({
+                        fontFamily: originalFont,
+                        fontStyle: 'normal'
+                    });
+                } else if (obj.fontStyle === 'italic') {
+                    obj.set({
+                        fontFamily: 'Dancing Script',
+                        fontStyle: 'normal'
+                    });
+                } else {
+                    obj.set({
+                        fontFamily: originalFont,
+                        fontStyle: 'italic'
+                    });
+                }
             } else if (style === 'bold') {
                 obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold');
             }

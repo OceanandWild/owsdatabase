@@ -3418,7 +3418,7 @@
             let finished = false;
             let tickCount = 0;
 
-            // Crear I-beam cursor SOLO si está activado
+            // Crear I-beam cursor SOLO si está activado y el efecto typewriter está activo
             let ibeamObj = null;
             if (showIbeam) {
                 ibeamObj = createIbeamCursor(obj);
@@ -3437,6 +3437,9 @@
                     const cursor = (showCursor && !finished) ? '│' : '';
                     obj.set('text', visibleText + cursor);
 
+                    // Forzar que fabric mida el texto inmediatamente antes de posicionar el cursor
+                    canvas.renderAll();
+
                     if (ibeamObj) {
                         positionIbeamCursor(obj, ibeamObj, charIndex);
                         if (ibeamColorMode === 'rainbow') {
@@ -3448,15 +3451,21 @@
                     charIndex++;
                 } else {
                     finished = true;
+                    clearInterval(typingInterval);
+
                     if (loop) {
                         if (ibeamObj) ibeamObj.set('opacity', 0);
-                        setTimeout(() => {
-                            charIndex = 0;
-                            finished = false;
-                            if (ibeamObj) ibeamObj.set('opacity', 0.9);
+                        canvas.renderAll();
+
+                        const loopTimeout = setTimeout(() => {
+                            startTypewriterAnimation(obj);
                         }, 1500);
+
+                        const state = typewriterObjects.get(obj);
+                        if (state) {
+                            state.loopTimeoutId = loopTimeout;
+                        }
                     } else {
-                        clearInterval(typingInterval);
                         if (showCursor) {
                             obj.set('text', fullText + '│');
                         } else {
@@ -3489,6 +3498,7 @@
             if (state) {
                 clearInterval(state.intervalId);
                 if (state.cursorIntervalId) clearInterval(state.cursorIntervalId);
+                if (state.loopTimeoutId) clearTimeout(state.loopTimeoutId);
                 // Limpiar I-beam cursor
                 if (state.ibeamObj) {
                     canvas.remove(state.ibeamObj);
@@ -3501,6 +3511,7 @@
                 }
                 typewriterObjects.delete(obj);
             }
+            cleanOrphanedIbeams();
         }
 
         function setTypewriterSpeed(val) {

@@ -1108,26 +1108,73 @@
         }
         .fx-btn:hover { background: rgba(255,255,255,0.14); border-color: var(--accent-hover); transform: translateY(-1px); }
         .fx-btn.active { background: var(--accent-color); border-color: var(--accent-color); }
-        /* Neón Arcoíris */
-        .rainbow-dir-grid {
-            display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+        .fx-select {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-color);
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .fx-select:focus, .fx-select:hover {
+            border-color: var(--accent-hover);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .fx-select option {
+            background: #111;
+            color: #fff;
+        }
+
+        /* Rainbow Dir Row / Buttons */
+        .rainbow-dir-row {
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+            align-items: center;
         }
         .rainbow-dir-btn {
-            font-size: 0.78rem; padding: 8px 4px;
-            border-radius: 8px; cursor: pointer;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border-color);
-            color: var(--text-color); font-weight: 600;
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            transition: all 0.2s ease; text-align: center;
+            flex: 1;
+            aspect-ratio: 1;
+            max-width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
         }
-        .rainbow-dir-btn:hover { background: rgba(255,255,255,0.12); transform: translateY(-1px); }
+        .rainbow-dir-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            transform: translateY(-2px);
+        }
         .rainbow-dir-btn.active {
-            background: linear-gradient(135deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f);
-            border-color: transparent; color: #fff;
-            box-shadow: 0 0 12px rgba(255,100,200,0.5);
+            background: linear-gradient(135deg, rgba(255,0,0,0.15), rgba(0,0,255,0.15));
+            border-color: var(--accent-color);
+            color: var(--accent-hover);
+            box-shadow: 0 0 15px rgba(86, 213, 255, 0.25);
+            transform: scale(1.05);
         }
-        .rainbow-dir-btn svg { width: 16px; height: 16px; fill: currentColor; }
+        .rainbow-dir-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            transition: transform 0.2s ease;
+        }
+        .rainbow-dir-btn:hover svg {
+            transform: scale(1.1);
+        }
         .fx-remove-btn {
             width: 100%; font-size: 0.8rem; padding: 7px;
             border-radius: 8px; cursor: pointer;
@@ -1286,32 +1333,35 @@
                             </div>
                         </div>
 
-                        <!-- Neón Arcoíris Animado -->
+                        <!-- Efecto Animado Dropdown -->
                         <div>
-                            <div class="text-effects-section-title">✦ Neón Arcoíris Animado</div>
-                            <div class="rainbow-dir-grid" id="rainbow-dir-grid">
+                            <div class="text-effects-section-title">Efecto Animado</div>
+                            <select id="text-anim-effect-select" class="fx-select" onchange="onTextAnimEffectChange(this.value)">
+                                <option value="none">Ninguno</option>
+                                <option value="rainbow">Neón Arcoíris</option>
+                            </select>
+                        </div>
+
+                        <!-- Panel de propiedades específico -->
+                        <div id="fx-panel-rainbow" style="display: none; background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; margin-top: 8px;">
+                            <div class="text-effects-section-title" style="margin-bottom: 8px;">Dirección del Neón</div>
+                            <div class="rainbow-dir-row">
                                 <button class="rainbow-dir-btn" data-dir="right" onclick="setRainbowDir('right',this)" title="Derecha">
                                     <svg viewBox="0 0 24 24"><path d="M8 5l8 7-8 7V5z"/></svg>
-                                    →
                                 </button>
                                 <button class="rainbow-dir-btn" data-dir="left" onclick="setRainbowDir('left',this)" title="Izquierda">
                                     <svg viewBox="0 0 24 24"><path d="M16 5l-8 7 8 7V5z"/></svg>
-                                    ←
                                 </button>
                                 <button class="rainbow-dir-btn" data-dir="down" onclick="setRainbowDir('down',this)" title="Abajo">
                                     <svg viewBox="0 0 24 24"><path d="M5 8l7 8 7-8H5z"/></svg>
-                                    ↓
                                 </button>
                                 <button class="rainbow-dir-btn" data-dir="up" onclick="setRainbowDir('up',this)" title="Arriba">
                                     <svg viewBox="0 0 24 24"><path d="M5 16l7-8 7 8H5z"/></svg>
-                                    ↑
                                 </button>
                                 <button class="rainbow-dir-btn" data-dir="random" onclick="setRainbowDir('random',this)" title="Aleatorio">
                                     <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.42 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
-                                    ⚡
                                 </button>
                             </div>
-                            <button class="fx-remove-btn" style="margin-top:8px" onclick="removeRainbowFx()">✕ Quitar Neón Arcoíris</button>
                         </div>
 
                         <!-- Quitar todos los efectos -->
@@ -2758,6 +2808,19 @@
             document.getElementById('fx-stroke').classList.toggle('active', !!fx.stroke);
             document.getElementById('fx-italic').classList.toggle('active', obj.fontStyle === 'italic');
             document.getElementById('fx-bold').classList.toggle('active', obj.fontWeight === 'bold');
+
+            // Sincronizar el dropdown de efectos animados
+            const animSelect = document.getElementById('text-anim-effect-select');
+            const rainbowPanel = document.getElementById('fx-panel-rainbow');
+            
+            if (fx.rainbow) {
+                animSelect.value = 'rainbow';
+                rainbowPanel.style.display = 'block';
+            } else {
+                animSelect.value = 'none';
+                rainbowPanel.style.display = 'none';
+            }
+
             // Sincronizar botón de dirección arcoíris activo
             document.querySelectorAll('.rainbow-dir-btn').forEach(b => b.classList.remove('active'));
             if (fx.rainbow) {
@@ -2941,6 +3004,22 @@
             if (btnEl) btnEl.classList.add('active');
         }
 
+        function onTextAnimEffectChange(val) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+
+            if (val === 'rainbow') {
+                const currentDir = obj.textEffects.rainbow || 'right';
+                obj.textEffects.rainbow = currentDir;
+                obj._rainbowDir = currentDir;
+                startRainbowAnimation(obj, currentDir);
+            } else {
+                removeRainbowFx();
+            }
+            syncTextEffectsUI(obj);
+        }
+
         function removeRainbowFx() {
             const obj = canvas.getActiveObject();
             if (!obj || obj.type !== 'textbox') return;
@@ -2951,6 +3030,7 @@
             obj.set('fill', '#ffffff');
             canvas.renderAll();
             document.querySelectorAll('.rainbow-dir-btn').forEach(b => b.classList.remove('active'));
+            syncTextEffectsUI(obj);
         }
 
         function removeAllTextFx() {

@@ -1167,9 +1167,8 @@
             transform: scale(1.05);
         }
         .rainbow-dir-btn svg {
-            width: 18px;
-            height: 18px;
-            fill: currentColor;
+            width: 20px;
+            height: 20px;
             transition: transform 0.2s ease;
         }
         .rainbow-dir-btn:hover svg {
@@ -3006,6 +3005,24 @@
             if (dir === 'left')   coords = { x1: w, y1: 0, x2: 0, y2: 0 };
             else if (dir === 'down')  coords = { x1: 0, y1: 0, x2: 0, y2: h };
             else if (dir === 'up')    coords = { x1: 0, y1: h, x2: 0, y2: 0 };
+            else if (dir === 'random') {
+                // Rotación continua suave de 360 grados usando el offset
+                const angle = offset * 2.2; // velocidad de rotación angular
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+                
+                // Centrado en la caja de texto
+                const cx = w / 2;
+                const cy = h / 2;
+                const r = Math.max(w, h) / 2;
+                
+                coords = {
+                    x1: cx - r * cos,
+                    y1: cy - r * sin,
+                    x2: cx + r * cos,
+                    y2: cy + r * sin
+                };
+            }
 
             return new fabric.Gradient({
                 type: 'linear',
@@ -3027,22 +3044,11 @@
                 const delta = (timestamp - lastTime) / 1000;
                 lastTime = timestamp;
 
-                if (currentDir === 'random') {
-                    // Cambiar dirección ocasionalmente
-                    if (!obj._rainbowRandomTimer) obj._rainbowRandomTimer = 0;
-                    obj._rainbowRandomTimer += delta;
-                    if (obj._rainbowRandomTimer > 1.5) {
-                        const dirs = ['right','left','up','down'];
-                        obj._rainbowActualDir = dirs[Math.floor(Math.random() * dirs.length)];
-                        obj._rainbowRandomTimer = 0;
-                    }
-                }
-                const effectiveDir = (currentDir === 'random') ? (obj._rainbowActualDir || 'right') : currentDir;
                 offset += delta * 0.4; // velocidad
 
                 // Solo actualizar si el objeto sigue en el canvas
                 if (canvas.getObjects().includes(obj)) {
-                    obj.set('fill', buildRainbowGradient(obj, offset, effectiveDir));
+                    obj.set('fill', buildRainbowGradient(obj, offset, currentDir));
                     canvas.renderAll();
                     const state = rainbowObjects.get(obj);
                     if (state) {

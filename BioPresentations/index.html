@@ -3334,28 +3334,58 @@
 
         function positionIbeamCursor(obj, ibeamObj, charIndex) {
             if (!ibeamObj) return;
-            const fullText = obj._twFullText || '';
-            const visibleText = fullText.substring(0, charIndex);
 
-            // Medir el ancho del texto visible usando un canvas temporal
-            const tempCanvas = document.createElement('canvas');
-            const ctx = tempCanvas.getContext('2d');
+            // Asegurarnos de que el texto esté medido e inicializado
+            if (!obj.__charBounds || obj.__charBounds.length === 0) {
+                obj.initDimensions();
+            }
+
+            // Obtener la ubicación de la línea y carácter
+            const loc = obj.get2DCursorLocation(charIndex);
+            const lineIndex = loc.lineIndex;
+            const charIndexInLine = loc.charIndex;
+
+            const lineBounds = obj.__charBounds[lineIndex];
+            if (!lineBounds) return;
+
+            let left = 0;
+            let top = 0;
+            let charHeight = obj.fontSize;
+
+            if (lineBounds.length === 0) {
+                left = 0;
+                top = lineIndex * obj.fontSize * obj.lineHeight;
+            } else if (charIndexInLine >= lineBounds.length) {
+                const lastBound = lineBounds[lineBounds.length - 1];
+                left = lastBound.left + lastBound.width;
+                top = lastBound.top;
+                charHeight = lastBound.height || obj.fontSize;
+            } else {
+                const bound = lineBounds[charIndexInLine];
+                left = bound.left;
+                top = bound.top;
+                charHeight = bound.height || obj.fontSize;
+            }
+
+            // En Fabric.js local (0,0) es el centro del objeto
+            const localPoint = new fabric.Point(
+                left - obj.width / 2,
+                top - obj.height / 2 + charHeight / 2
+            );
+
+            // Convertir a coordenadas globales usando la matriz de transformación del objeto
+            const matrix = obj.calcTransformMatrix();
+            const globalPoint = fabric.util.transformPoint(localPoint, matrix);
+
             const fontSize = obj.fontSize * (obj.scaleX || 1);
-            const fontFamily = obj.fontFamily || 'Inter';
-            const fontStyle = obj.fontStyle || 'normal';
-            const fontWeight = obj.fontWeight || 'normal';
-            ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
-            const metrics = ctx.measureText(visibleText);
-
-            const textLeft = obj.left;
-            const textTop = obj.top;
             const cursorScale = fontSize / 20;
 
             ibeamObj.set({
-                left: textLeft + metrics.width + 15 * cursorScale,
-                top: textTop + fontSize * 0.5,
+                left: globalPoint.x,
+                top: globalPoint.y,
                 scaleX: cursorScale,
-                scaleY: cursorScale
+                scaleY: cursorScale,
+                angle: obj.angle
             });
         }
 
@@ -3371,9 +3401,12 @@
 
             const fx = obj.textEffects || {};
             const speed = fx.typewriterSpeed || 80;
-            const showCursor = fx.typewriterCursor !== false;
             const loop = !!fx.typewriterLoop;
             const showIbeam = !!fx.typewriterIbeam;
+            
+            // Si el cursor I-beam está activado, ocultamos el cursor de texto clásico (|)
+            // para evitar conflicto y duplicaciones.
+            const showCursor = showIbeam ? false : (fx.typewriterCursor !== false);
             const ibeamColorMode = fx.typewriterIbeamColorMode || 'solid';
 
             // Guardar texto completo

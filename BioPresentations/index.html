@@ -1406,6 +1406,31 @@
                                     Repetir
                                 </label>
                             </div>
+
+                            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 4px 0;">
+
+                            <div>
+                                <div class="text-effects-section-title" style="margin-bottom: 6px;">Cursor de Escritura 👆</div>
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                    <label style="font-size: 0.82rem; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                        <input type="checkbox" id="tw-ibeam-toggle" onchange="setTypewriterIbeam(this.checked)" style="accent-color: var(--accent-color);">
+                                        Mostrar cursor de texto
+                                    </label>
+                                </div>
+                                <div id="tw-ibeam-color-options" style="display: none;">
+                                    <div class="text-effects-section-title" style="margin-bottom: 6px; font-size: 0.78rem;">Color del Cursor</div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <select id="tw-ibeam-color-mode" class="fx-select" style="flex: 1;" onchange="setTypewriterIbeamColorMode(this.value)">
+                                            <option value="solid">Color Sólido</option>
+                                            <option value="rainbow">Arcoíris Animado</option>
+                                        </select>
+                                        <div id="tw-ibeam-solid-picker" style="width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255,255,255,0.4); position: relative; cursor: pointer; flex-shrink: 0;">
+                                            <input type="color" id="tw-ibeam-color-input" value="#ffffff" onchange="setTypewriterIbeamColor(this.value)" style="position: absolute; top: -5px; left: -5px; width: 42px; height: 42px; opacity: 0; cursor: pointer; padding: 0; border: none;">
+                                            <div id="tw-ibeam-color-preview" style="width: 100%; height: 100%; background: #ffffff;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Quitar todos los efectos -->
@@ -2881,6 +2906,19 @@
                 document.getElementById('tw-speed-label').textContent = (fx.typewriterSpeed || 80) + 'ms';
                 document.getElementById('tw-cursor-toggle').checked = fx.typewriterCursor !== false;
                 document.getElementById('tw-loop-toggle').checked = !!fx.typewriterLoop;
+                // Sincronizar I-beam cursor
+                const ibeamOn = !!fx.typewriterIbeam;
+                document.getElementById('tw-ibeam-toggle').checked = ibeamOn;
+                document.getElementById('tw-ibeam-color-options').style.display = ibeamOn ? 'block' : 'none';
+                const ibeamMode = fx.typewriterIbeamColorMode || 'solid';
+                document.getElementById('tw-ibeam-color-mode').value = ibeamMode;
+                const solidPicker = document.getElementById('tw-ibeam-solid-picker');
+                solidPicker.style.display = ibeamMode === 'solid' ? 'block' : 'none';
+                if (ibeamMode === 'solid') {
+                    const c = fx.typewriterIbeamColor || '#ffffff';
+                    document.getElementById('tw-ibeam-color-input').value = c;
+                    document.getElementById('tw-ibeam-color-preview').style.background = c;
+                }
             } else if (fx.rainbow) {
                 animSelect.value = 'rainbow';
                 rainbowPanel.style.display = 'flex';
@@ -3252,7 +3290,73 @@
         // =============================================
         // MÁQUINA DE ESCRIBIR (TYPEWRITER)
         // =============================================
-        const typewriterObjects = new Map(); // obj -> { intervalId, cursorIntervalId, fullText }
+        const typewriterObjects = new Map(); // obj -> { intervalId, cursorIntervalId, fullText, ibeamObj, ibeamRafId }
+
+        // SVG I-beam cursor path (text selection cursor)
+        const IBEAM_SVG_PATH = 'M 4 0 L 10 0 M 7 0 L 7 20 M 4 20 L 10 20';
+
+        function createIbeamCursor(obj) {
+            const fx = obj.textEffects || {};
+            const color = fx.typewriterIbeamColor || '#ffffff';
+            const ibeam = new fabric.Path(IBEAM_SVG_PATH, {
+                stroke: color,
+                strokeWidth: 2,
+                strokeLineCap: 'round',
+                fill: 'transparent',
+                selectable: false,
+                evented: false,
+                originX: 'center',
+                originY: 'center',
+                scaleX: 1.6,
+                scaleY: 1.6,
+                opacity: 0.9,
+                _isTwIbeam: true
+            });
+            canvas.add(ibeam);
+            return ibeam;
+        }
+
+        function positionIbeamCursor(obj, ibeamObj, charIndex) {
+            if (!ibeamObj) return;
+            const fullText = obj._twFullText || '';
+            const visibleText = fullText.substring(0, charIndex);
+
+            // Medir el ancho del texto visible usando un canvas temporal
+            const tempCanvas = document.createElement('canvas');
+            const ctx = tempCanvas.getContext('2d');
+            const fontSize = obj.fontSize * (obj.scaleX || 1);
+            const fontFamily = obj.fontFamily || 'Inter';
+            const fontStyle = obj.fontStyle || 'normal';
+            const fontWeight = obj.fontWeight || 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+            const metrics = ctx.measureText(visibleText);
+
+            const textLeft = obj.left;
+            const textTop = obj.top;
+            const cursorScale = fontSize / 20; // scale I-beam relative to font size
+
+            ibeamObj.set({
+                left: textLeft + metrics.width + 15 * cursorScale,
+                top: textTop + fontSize * 0.5,
+                scaleX: cursorScale,
+                scaleY: cursorScale
+            });
+        }
+
+        function animateIbeamRainbow(ibeamObj) {
+            const IBEAM_RAINBOW = ['#ff0000','#ff7700','#ffff00','#00ff00','#00ffff','#0077ff','#aa00ff','#ff00aa'];
+            let colorIdx = 0;
+            let hueOffset = 0;
+
+            function tick() {
+                hueOffset += 2;
+                const hue = hueOffset % 360;
+                ibeamObj.set('stroke', `hsl(${hue}, 100%, 60%)`);
+                canvas.renderAll();
+                ibeamObj._ibeamRainbowRaf = requestAnimationFrame(tick);
+            }
+            ibeamObj._ibeamRainbowRaf = requestAnimationFrame(tick);
+        }
 
         function startTypewriterAnimation(obj) {
             stopTypewriterForObject(obj);
@@ -3260,6 +3364,8 @@
             const speed = fx.typewriterSpeed || 80;
             const showCursor = fx.typewriterCursor !== false;
             const loop = !!fx.typewriterLoop;
+            const showIbeam = !!fx.typewriterIbeam;
+            const ibeamColorMode = fx.typewriterIbeamColorMode || 'solid';
 
             // Guardar texto completo
             const fullText = obj._twFullText || obj.text;
@@ -3268,6 +3374,16 @@
             let charIndex = 0;
             let cursorVisible = true;
             let finished = false;
+
+            // Crear I-beam cursor si está activado
+            let ibeamObj = null;
+            if (showIbeam) {
+                ibeamObj = createIbeamCursor(obj);
+                positionIbeamCursor(obj, ibeamObj, 0);
+                if (ibeamColorMode === 'rainbow') {
+                    animateIbeamRainbow(ibeamObj);
+                }
+            }
 
             // Limpiar texto visible
             obj.set('text', showCursor ? '│' : '');
@@ -3278,26 +3394,29 @@
                     const visibleText = fullText.substring(0, charIndex);
                     const cursor = (showCursor && !finished) ? '│' : '';
                     obj.set('text', visibleText + cursor);
+                    if (ibeamObj) positionIbeamCursor(obj, ibeamObj, charIndex);
                     canvas.renderAll();
                     charIndex++;
                 } else {
                     finished = true;
                     if (loop) {
-                        // Esperar un momento antes de reiniciar
+                        // Ocultar I-beam durante pausa
+                        if (ibeamObj) ibeamObj.set('opacity', 0);
                         setTimeout(() => {
                             charIndex = 0;
                             finished = false;
+                            if (ibeamObj) ibeamObj.set('opacity', 0.9);
                         }, 1500);
                     } else {
                         clearInterval(typingInterval);
-                        // Dejar cursor parpadeando al final
                         if (showCursor) {
                             obj.set('text', fullText + '│');
-                            canvas.renderAll();
                         } else {
                             obj.set('text', fullText);
-                            canvas.renderAll();
                         }
+                        // Ocultar I-beam al terminar
+                        if (ibeamObj) ibeamObj.set('opacity', 0);
+                        canvas.renderAll();
                     }
                 }
             }, speed);
@@ -3315,7 +3434,7 @@
                 }, 530);
             }
 
-            typewriterObjects.set(obj, { intervalId: typingInterval, cursorIntervalId: cursorInterval, fullText });
+            typewriterObjects.set(obj, { intervalId: typingInterval, cursorIntervalId: cursorInterval, fullText, ibeamObj });
         }
 
         function stopTypewriterForObject(obj) {
@@ -3323,6 +3442,11 @@
             if (state) {
                 clearInterval(state.intervalId);
                 if (state.cursorIntervalId) clearInterval(state.cursorIntervalId);
+                // Limpiar I-beam cursor
+                if (state.ibeamObj) {
+                    if (state.ibeamObj._ibeamRainbowRaf) cancelAnimationFrame(state.ibeamObj._ibeamRainbowRaf);
+                    canvas.remove(state.ibeamObj);
+                }
                 // Restaurar texto completo
                 if (obj._twFullText) {
                     obj.set('text', obj._twFullText);
@@ -3358,6 +3482,39 @@
             if (!obj || obj.type !== 'textbox') return;
             if (!obj.textEffects) obj.textEffects = {};
             obj.textEffects.typewriterLoop = checked;
+            if (obj.textEffects.typewriter) {
+                startTypewriterAnimation(obj);
+            }
+        }
+
+        function setTypewriterIbeam(checked) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            obj.textEffects.typewriterIbeam = checked;
+            document.getElementById('tw-ibeam-color-options').style.display = checked ? 'block' : 'none';
+            if (obj.textEffects.typewriter) {
+                startTypewriterAnimation(obj);
+            }
+        }
+
+        function setTypewriterIbeamColorMode(mode) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            obj.textEffects.typewriterIbeamColorMode = mode;
+            document.getElementById('tw-ibeam-solid-picker').style.display = mode === 'solid' ? 'block' : 'none';
+            if (obj.textEffects.typewriter) {
+                startTypewriterAnimation(obj);
+            }
+        }
+
+        function setTypewriterIbeamColor(color) {
+            const obj = canvas.getActiveObject();
+            if (!obj || obj.type !== 'textbox') return;
+            if (!obj.textEffects) obj.textEffects = {};
+            obj.textEffects.typewriterIbeamColor = color;
+            document.getElementById('tw-ibeam-color-preview').style.background = color;
             if (obj.textEffects.typewriter) {
                 startTypewriterAnimation(obj);
             }

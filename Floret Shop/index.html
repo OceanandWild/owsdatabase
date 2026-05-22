@@ -921,6 +921,68 @@
             transform: scale(1.05)
         }
 
+        .admin-dock {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+        .admin-dock .admin-fab {
+            position: relative;
+            bottom: 0; left: 0;
+        }
+
+        .admin-dash-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .admin-stat-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+        .admin-stat-card h4 { font-size: 0.8rem; color: #a89ec8; margin-bottom: 5px; }
+        .admin-stat-card .val { font-size: 1.5rem; font-weight: bold; color: #fff; }
+
+        .admin-orders-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .admin-order-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .admin-order-hd {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+        }
+        .admin-order-status-select {
+            background: #1e1b2e;
+            color: #fff;
+            border: 1px solid rgba(139, 92, 246, 0.5);
+            padding: 5px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .admin-order-bd { font-size: 0.9rem; color: #d1c5ea; }
+
+
         .fly-cart {
             position: fixed;
             left: 30px;
@@ -3145,7 +3207,12 @@
         <button class="btn btn-p" style="width:100%" onclick="checkout()"><i class="fas fa-credit-card"></i> Ir a Pagar</button>
       </div>
     </div>
-    ${isAdmin ? `<button class="admin-fab" onclick="openAddProduct()"><i class="fas fa-plus"></i> Agregar</button>` : ''}
+    ${isAdmin ? `
+      <div class="admin-dock">
+        <button class="admin-fab" onclick="openAdminDashboard()"><i class="fas fa-chart-line"></i> Dashboard</button>
+        <button class="admin-fab" onclick="openAddProduct()"><i class="fas fa-plus"></i> Agregar</button>
+      </div>
+    ` : ''}
   `;
             applyCatalogFilters({ rerender: true });
             renderCart();
@@ -5798,6 +5865,99 @@
         }
 
         // ========== ADMIN ==========
+        async function openAdminDashboard() {
+            if (!isAdmin) return showToast("No eres administrador", true);
+            openModal(`
+                <div class="modal-hd">
+                    <h3><i class="fas fa-chart-line"></i> Admin Dashboard</h3>
+                    <button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-bd">
+                    <div class="empty"><i class="fas fa-spinner fa-spin"></i><p>Cargando datos...</p></div>
+                </div>
+            `, 'profile-modal-full');
+
+            try {
+                const res = await fetch(`${API}/floret/seller/dashboard?email=${encodeURIComponent(user.email)}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error cargando dashboard');
+
+                const ordersRes = await fetch(`${API}/floret/seller/orders?email=${encodeURIComponent(user.email)}`);
+                const ordersData = await ordersRes.json();
+                const orders = ordersData.orders || [];
+
+                const s = data.stats || {};
+                let html = `
+                    <div class="modal-bd" style="padding: 20px;">
+                        <h3 style="margin-bottom:15px; color:#fff;">Resumen</h3>
+                        <div class="admin-dash-stats">
+                            <div class="admin-stat-card"><h4>Ingresos</h4><div class="val">$${Number(s.grossTotal || 0).toLocaleString('es-UY')}</div></div>
+                            <div class="admin-stat-card"><h4>Pendientes</h4><div class="val">${s.pendingOrders || 0}</div></div>
+                            <div class="admin-stat-card"><h4>Preparando</h4><div class="val">${s.preparingOrders || 0}</div></div>
+                            <div class="admin-stat-card"><h4>Enviados</h4><div class="val">${s.shippedOrders || 0}</div></div>
+                            <div class="admin-stat-card"><h4>Entregados</h4><div class="val">${s.deliveredOrders || 0}</div></div>
+                        </div>
+
+                        <h3 style="margin:20px 0 15px; color:#fff;">Pedidos Recientes</h3>
+                        <div class="admin-orders-list">
+                            ${orders.length === 0 ? '<p style="color:#a89ec8">No hay pedidos.</p>' : ''}
+                            ${orders.map(o => `
+                                <div class="admin-order-card">
+                                    <div class="admin-order-hd">
+                                        <div>
+                                            <strong>Pedido #${o.id}</strong><br>
+                                            <small style="color:#a89ec8">${new Date(o.created_at).toLocaleString()}</small>
+                                        </div>
+                                        <select class="admin-order-status-select" onchange="changeOrderStatus(${o.id}, this.value)">
+                                            <option value="new" ${o.status === 'new' ? 'selected' : ''}>Nuevo</option>
+                                            <option value="paid" ${o.status === 'paid' ? 'selected' : ''}>Pagado</option>
+                                            <option value="preparing" ${o.status === 'preparing' ? 'selected' : ''}>Preparando</option>
+                                            <option value="shipped" ${o.status === 'shipped' ? 'selected' : ''}>Enviado</option>
+                                            <option value="delivered" ${o.status === 'delivered' ? 'selected' : ''}>Entregado</option>
+                                            <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+                                        </select>
+                                    </div>
+                                    <div class="admin-order-bd">
+                                        <p><strong>Cliente:</strong> ${escapeHtml(o.buyer_name)} (${escapeHtml(o.buyer_email)})</p>
+                                        <p><strong>Envío:</strong> ${escapeHtml(o.shipping_address)} - ${escapeHtml(o.shipping_city)}</p>
+                                        <p><strong>Total:</strong> $${Number(o.total || 0).toLocaleString('es-UY')}</p>
+                                        <ul style="margin-top:10px; padding-left:20px; color:#a89ec8; font-size:0.85rem">
+                                            ${(o.items || []).map(i => `<li>${i.quantity}x ${escapeHtml(i.product_name)} (${i.size || 'N/A'})</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                document.querySelector('.modal').innerHTML = `
+                    <div class="modal-hd">
+                        <h3><i class="fas fa-chart-line"></i> Admin Dashboard</h3>
+                        <button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button>
+                    </div>
+                    ${html}
+                `;
+            } catch (e) {
+                document.querySelector('.modal-bd').innerHTML = `<div class="empty" style="color:#ff6b6b"><i class="fas fa-exclamation-triangle"></i><p>${escapeHtml(e.message)}</p></div>`;
+            }
+        }
+
+        async function changeOrderStatus(orderId, newStatus) {
+            if (!isAdmin) return;
+            try {
+                const res = await fetch(`${API}/floret/seller/orders/${orderId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: user.email, status: newStatus })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al actualizar');
+                showToast(`Pedido #${orderId} actualizado a ${newStatus}`);
+            } catch (e) {
+                showToast(e.message, true);
+            }
+        }
+
         function openAddProduct() {
             if (!isAdmin) return showToast("No eres administrador", true);
             openModal(`
@@ -6314,22 +6474,89 @@
                 );
             }
         }
-        async function openGrantQuota() {
-            const targetId = prompt("ID de usuario (Malevo):", "1");
-            const amount = prompt("Cantidad de cuota a restaurar:", "1");
-            if (!targetId || !amount) return;
+        function openGrantQuota() {
+            if (!user || user.power_level < 2) return showToast("No eres super-admin", true);
+            openModal(`
+                <div class="modal-hd">
+                    <h3><i class="fas fa-gift"></i> Otorgar Bono a Malevo</h3>
+                    <button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-bd">
+                    <div class="frm-grp">
+                        <label class="frm-lbl">Usuario Destino (ID, Username o Email)</label>
+                        <input class="frm-inp" id="gq-target" value="malevo" placeholder="Ej. malevo">
+                    </div>
+                    <div class="frm-grp">
+                        <label class="frm-lbl">Tipo de Bono</label>
+                        <select class="frm-sel" id="gq-type" onchange="toggleGrantQuotaFields()">
+                            <option value="extra">Cuota Extra (Inmediata)</option>
+                            <option value="multiplier">Multiplicador (Por Tiempo)</option>
+                        </select>
+                    </div>
+                    <div class="frm-grp" id="gq-extra-box">
+                        <label class="frm-lbl">Cantidad Extra</label>
+                        <input class="frm-inp" type="number" id="gq-amount" value="1" min="1">
+                    </div>
+                    <div class="frm-grp" id="gq-mult-box" style="display:none;">
+                        <label class="frm-lbl">Multiplicador (Ej. 2 = Doble Cuota)</label>
+                        <input class="frm-inp" type="number" id="gq-multiplier" value="2" min="1">
+                    </div>
+                    <div class="frm-grp" id="gq-dur-box" style="display:none;">
+                        <label class="frm-lbl">Duración (en horas)</label>
+                        <input class="frm-inp" type="number" id="gq-hours" value="24" min="1">
+                    </div>
+                    <button class="btn btn-p" style="width:100%" id="gq-btn" onclick="submitGrantQuota()"><i class="fas fa-paper-plane"></i> Otorgar y Notificar</button>
+                </div>
+            `);
+        }
+
+        function toggleGrantQuotaFields() {
+            const type = document.getElementById('gq-type').value;
+            document.getElementById('gq-extra-box').style.display = type === 'extra' ? 'block' : 'none';
+            document.getElementById('gq-mult-box').style.display = type === 'multiplier' ? 'block' : 'none';
+            document.getElementById('gq-dur-box').style.display = type === 'multiplier' ? 'block' : 'none';
+        }
+
+        async function submitGrantQuota() {
+            const targetIdentifier = document.getElementById('gq-target').value;
+            const type = document.getElementById('gq-type').value;
+            const amount = document.getElementById('gq-amount').value;
+            const multiplier = document.getElementById('gq-multiplier').value;
+            const durationHours = document.getElementById('gq-hours').value;
+            const btn = document.getElementById('gq-btn');
+
+            if (!targetIdentifier) return showToast("Debes ingresar un destino", true);
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Otorgando...';
 
             try {
                 const res = await fetch(`${API}/floret/grant-quota`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ adminId: user.id, targetUserId: parseInt(targetId), amount: parseInt(amount) })
+                    body: JSON.stringify({ 
+                        adminId: user.id, 
+                        targetIdentifier,
+                        type,
+                        amount: parseInt(amount),
+                        multiplier: parseInt(multiplier),
+                        durationHours: parseInt(durationHours)
+                    })
                 });
                 const data = await res.json();
-                if (res.ok) showToast("¡Cuota otorgada con éxito!");
-                else showToast(data.error || "Error", true);
+                if (res.ok) {
+                    showToast(data.message || "¡Bono otorgado con éxito!");
+                    closeModal();
+                } else {
+                    showToast(data.error || "Error", true);
+                }
             } catch (e) {
                 showToast("Error de conexión", true);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Otorgar y Notificar';
+                }
             }
         }
         function logout() {

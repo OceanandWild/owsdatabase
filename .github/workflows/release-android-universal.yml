@@ -109,8 +109,8 @@ jobs:
             SIGNED_APK="app/build/outputs/apk/release/${{ inputs.project }}-${{ inputs.version_name }}-release.apk"
             $ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)/apksigner sign \
               --ks keystore.jks \
-              --ks-pass "pass:$KEY_STORE_PASSWORD" \
-              --key-pass "pass:$KEY_PASSWORD" \
+              --ks-pass "env:KEY_STORE_PASSWORD" \
+              --key-pass "env:KEY_PASSWORD" \
               --ks-key-alias "$KEY_ALIAS" \
               --out "$SIGNED_APK" \
               "$APK_PATH"

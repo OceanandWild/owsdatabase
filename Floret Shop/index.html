@@ -5878,11 +5878,11 @@
             `, 'profile-modal-full');
 
             try {
-                const res = await fetch(`${API}/floret/seller/dashboard?email=${encodeURIComponent(user.email)}`);
+                const res = await fetch(`${API}/floret/seller/dashboard?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email)}`);
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Error cargando dashboard');
 
-                const ordersRes = await fetch(`${API}/floret/seller/orders?email=${encodeURIComponent(user.email)}`);
+                const ordersRes = await fetch(`${API}/floret/seller/orders?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email)}`);
                 const ordersData = await ordersRes.json();
                 const orders = ordersData.orders || [];
 

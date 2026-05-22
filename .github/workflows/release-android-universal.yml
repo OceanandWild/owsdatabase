@@ -107,15 +107,21 @@ jobs:
             echo "$SIGNING_KEY_BASE64" | base64 -d > keystore.jks
             APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
             SIGNED_APK="app/build/outputs/apk/release/${{ inputs.project }}-${{ inputs.version_name }}-release.apk"
-            $ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)/apksigner sign \
+            if $ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)/apksigner sign \
               --ks keystore.jks \
               --ks-pass "env:KEY_STORE_PASSWORD" \
               --key-pass "env:KEY_PASSWORD" \
               --ks-key-alias "$KEY_ALIAS" \
               --out "$SIGNED_APK" \
-              "$APK_PATH"
-            rm -f keystore.jks
-            echo "APK signed: $SIGNED_APK"
+              "$APK_PATH"; then
+              rm -f keystore.jks
+              echo "APK signed: $SIGNED_APK"
+            else
+              echo "::warning::APK signing failed — keystore credentials may be wrong. Falling back to unsigned APK."
+              rm -f keystore.jks
+              SIGNED_APK="$APK_PATH"
+              echo "Using unsigned APK: $SIGNED_APK"
+            fi
           else
             echo "No keystore secret found — using unsigned APK"
             find app/build/outputs/apk/release -name "*.apk" | head -1

@@ -64,17 +64,34 @@ jobs:
         run: npm run dist:nsis
 
       - name: Create/Update GitHub release + upload assets
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: OceanandWild/${{ steps.resolve.outputs.target_repo }}
-          tag_name: ${{ steps.resolve.outputs.tag }}
-          name: ${{ inputs.project }} ${{ inputs.version }}
-          body: ${{ inputs.release_notes }}
-          prerelease: false
-          files: |
-            C:/builds/*/*.exe
-            C:/builds/*/*.appx
-            C:/builds/*/latest.yml
-            C:/builds/*/*.blockmap
+        shell: pwsh
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          $repo = "OceanandWild/${{ steps.resolve.outputs.target_repo }}"
+          $tag  = "${{ steps.resolve.outputs.tag }}"
+          $name = "${{ inputs.project }} ${{ inputs.version }}"
+          $notes = "${{ inputs.release_notes }}"
+
+          # Create or update release (--clobber updates if already exists)
+          $existing = gh release view $tag --repo $repo 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Creating release $tag in $repo"
+            gh release create $tag --repo $repo --title $name --notes $notes
+          } else {
+            Write-Host "Release $tag already exists in $repo, uploading assets..."
+          }
+
+          # Collect and upload assets
+          $files = @()
+          foreach ($pat in @("C:/builds/*/*.exe","C:/builds/*/*.appx","C:/builds/*/latest.yml","C:/builds/*/*.blockmap")) {
+            $found = Get-Item $pat -ErrorAction SilentlyContinue
+            if ($found) { $files += $found.FullName }
+          }
+
+          if ($files.Count -eq 0) {
+            Write-Warning "No build assets found to upload."
+          } else {
+            gh release upload $tag --repo $repo --clobber @files
+          }
+          Write-Host "Done: https://github.com/$repo/releases/tag/$tag"

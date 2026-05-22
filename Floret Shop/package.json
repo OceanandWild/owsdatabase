@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win nsis --publish never",
+    "dist:nsis": "electron-builder --win nsis --publish never",
     "dist:portable": "electron-builder --win portable --publish never"
   },
   "keywords": [],

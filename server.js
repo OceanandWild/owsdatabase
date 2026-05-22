@@ -4303,6 +4303,17 @@ async function getFloretQuota(userId) {
     quota = res.rows[0];
   }
 
+
+  // Clear expired multiplier
+  if (quota.bonus_expires_at) {
+    const expires = new Date(quota.bonus_expires_at);
+    if (expires <= new Date()) {
+      await pool.query('UPDATE floret_admin_quotas SET bonus_multiplier = 1, bonus_expires_at = NULL WHERE user_id = $1', [userId]);
+      quota.bonus_multiplier = 1;
+      quota.bonus_expires_at = null;
+    }
+  }
+
   // Check reset logic (24h cooldown)
   if (quota.last_upload_time) {
     const last = new Date(quota.last_upload_time);
@@ -4320,9 +4331,12 @@ async function getFloretQuota(userId) {
 }
 
 function buildFloretQuotaSummary(quotaRow) {
-  const maxDaily = Number(quotaRow?.max_daily || 4);
+  const baseMax = Number(quotaRow?.max_daily || 4);
+  const mult = Number(quotaRow?.bonus_multiplier || 1);
+  const maxDaily = baseMax * mult;
   const uploadsToday = Number(quotaRow?.uploads_today || 0);
-  const remaining = Math.max(0, maxDaily - uploadsToday);
+  const bonusQuota = Number(quotaRow?.bonus_quota || 0);
+  const remaining = Math.max(0, maxDaily - uploadsToday) + bonusQuota;
   const lastUpload = quotaRow?.last_upload_time ? new Date(quotaRow.last_upload_time) : null;
   const now = Date.now();
   let nextResetMs = 0;
@@ -4338,6 +4352,9 @@ function buildFloretQuotaSummary(quotaRow) {
     uploads_today: uploadsToday,
     max_daily: maxDaily,
     remaining,
+    bonus_quota: bonusQuota,
+    bonus_multiplier: mult,
+    bonus_expires_at: quotaRow?.bonus_expires_at || null,
     last_upload_time: quotaRow?.last_upload_time || null,
     next_reset_ms: nextResetMs,
     next_reset_at: nextResetAt
@@ -4926,17 +4943,68 @@ app.get('/floret/session-insights', async (req, res) => {
   }
 });
 
-// Otorgar cuota (Solo Super-Admin PowerLevel 2)
+// Otorgar cuota o multiplicador (Solo Super-Admin PowerLevel 2, ej. OceanandWild)
 app.post('/floret/grant-quota', async (req, res) => {
-  const { adminId, targetUserId, amount } = req.body;
+  const { adminId, targetUserId, targetIdentifier, type, amount, multiplier, durationHours } = req.body;
   try {
-    const admin = await pool.query('SELECT power_level FROM floret_users WHERE id = $1', [adminId]);
+    const admin = await pool.query('SELECT username, power_level FROM floret_users WHERE id = $1', [adminId]);
     if (!admin.rows[0] || admin.rows[0].power_level < 2) {
       return res.status(403).json({ error: 'No tienes permiso para otorgar cuota' });
     }
-    await pool.query('UPDATE floret_admin_quotas SET uploads_today = uploads_today - $1 WHERE user_id = $2', [amount || 1, targetUserId]);
-    res.json({ success: true });
+
+    let resolvedTargetId = targetUserId;
+    let targetEmail = null;
+
+    if (targetIdentifier && !resolvedTargetId) {
+      const search = String(targetIdentifier).toLowerCase().trim();
+      const userRes = await pool.query('SELECT id, email FROM floret_users WHERE LOWER(username) = $1 OR LOWER(email) = $1', [search]);
+      if (!userRes.rows[0]) return res.status(404).json({ error: 'Usuario destino no encontrado' });
+      resolvedTargetId = userRes.rows[0].id;
+      targetEmail = userRes.rows[0].email;
+    } else if (resolvedTargetId) {
+      const targetUser = await pool.query('SELECT email FROM floret_users WHERE id = $1', [resolvedTargetId]);
+      targetEmail = targetUser.rows[0]?.email;
+    } else {
+      return res.status(400).json({ error: 'Falta identificador de destino' });
+    }
+
+    // Ensure target has a quota row
+    await getFloretQuota(resolvedTargetId);
+
+    let notificationMessage = '';
+    if (type === 'multiplier') {
+      const hours = Number(durationHours) || 24;
+      const mult = Number(multiplier) || 2;
+      await pool.query(
+        `UPDATE floret_admin_quotas 
+         SET bonus_multiplier = $1, bonus_expires_at = NOW() + interval '${hours} hours' 
+         WHERE user_id = $2`, 
+        [mult, resolvedTargetId]
+      );
+      notificationMessage = `OceanandWild te ha otorgado un multiplicador de cuota X${mult} válido por ${hours} horas!`;
+    } else {
+      const extra = Number(amount) || 1;
+      await pool.query(
+        `UPDATE floret_admin_quotas 
+         SET bonus_quota = COALESCE(bonus_quota, 0) + $1 
+         WHERE user_id = $2`, 
+        [extra, resolvedTargetId]
+      );
+      notificationMessage = `OceanandWild te ha regalado un bono de +${extra} publicaciones extra!`;
+    }
+
+    if (targetEmail) {
+      await createFloretNotification({
+        type: 'bonus_quota',
+        title: '¡Bono de Cuota Recibido!',
+        message: notificationMessage,
+        reviewScope: 'system'
+      });
+    }
+
+    res.json({ success: true, message: notificationMessage });
   } catch (e) {
+    console.error('Error otorgando cuota Floret:', e);
     res.status(500).json({ error: 'Error otorgando cuota' });
   }
 });
@@ -5625,7 +5693,8 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
       await pool.query(`
         UPDATE floret_admin_quotas 
         SET uploads_today = uploads_today + 1,
-      last_upload_time = COALESCE(last_upload_time, NOW()) 
+            last_upload_time = COALESCE(last_upload_time, NOW()),
+            bonus_quota = GREATEST(0, COALESCE(bonus_quota, 0) - CASE WHEN uploads_today >= (max_daily * COALESCE(bonus_multiplier, 1)) THEN 1 ELSE 0 END)
         WHERE user_id = $1
       `, [user.id]);
     }

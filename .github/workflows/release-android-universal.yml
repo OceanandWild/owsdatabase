@@ -4,22 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       project:
-        description: 'Project slug (e.g., oceanpay)'
+        description: 'Project slug (e.g., floretshop)'
         required: true
         type: string
       version_name:
-        description: 'Version name (e.g., 2026.5.15-t1530)'
+        description: 'Version name (e.g., 2026.5.22-t0029)'
         required: true
         type: string
       release_notes:
         description: 'Release notes (optional)'
         required: false
         type: string
-      promote_to_release:
-        description: 'Promote to GitHub Release'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -40,6 +35,15 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Resolve project config
         id: resolve
         shell: pwsh
@@ -49,106 +53,84 @@ jobs:
           $targetRepo = 'owsdatabase'
           $packageId = ''
           switch ($slug) {
-            'ows-store'            { $dir = 'OWS Store';              $targetRepo = 'owsdatabase';         $packageId = 'com.oceanandwild.owsstore' }
-            'oceanpay'             { $dir = 'Ocean Pay';              $targetRepo = 'oceanpay';            $packageId = 'com.oceanwildstudios.oceanpay' }
-            'floretshop'           { $dir = 'Floret Shop';            $targetRepo = 'floretshop';          $packageId = 'com.oceanandwild.floretshop' }
-            'wildtransfer'         { $dir = 'WildTransfer';           $targetRepo = 'wildtransfer';        $packageId = 'com.oceanandwild.wildtransfer' }
-            'a-wild-question-game' { $dir = 'A Wild Question Game';   $targetRepo = 'a-wild-question-game'; $packageId = 'com.oceanandwild.awildquestiongame' }
+            'ows-store'            { $dir = 'OWS Store';            $targetRepo = 'owsdatabase';          $packageId = 'com.oceanandwild.owsstore' }
+            'oceanpay'             { $dir = 'Ocean Pay';            $targetRepo = 'oceanpay';             $packageId = 'com.oceanwildstudios.oceanpay' }
+            'floretshop'           { $dir = 'Floret Shop';          $targetRepo = 'floretshop';           $packageId = 'com.ows.floretshop' }
+            'wildtransfer'         { $dir = 'WildTransfer';         $targetRepo = 'wildtransfer';         $packageId = 'com.oceanandwild.wildtransfer' }
+            'a-wild-question-game' { $dir = 'A Wild Question Game'; $targetRepo = 'a-wild-question-game'; $packageId = 'com.oceanandwild.awildquestiongame' }
             default { $dir = ''; $targetRepo = '' }
           }
           if (-not $dir) { throw "Unknown project slug: $slug" }
           "project_dir=$dir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "target_repo=$targetRepo" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "package_id=$packageId" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=v${{ inputs.version_name }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Install dependencies
+      - name: Install JS dependencies
         working-directory: ${{ steps.resolve.outputs.project_dir }}
         run: npm ci
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Build Android (APK)
+      - name: Sync Capacitor web assets
         working-directory: ${{ steps.resolve.outputs.project_dir }}
-        env:
-          ANDROID_PACKAGE_ID: ${{ steps.resolve.outputs.package_id }}
-          ANDROID_VERSION_NAME: ${{ inputs.version_name }}
         run: |
-          # Create Android build directory structure
-          mkdir -p android/app/src/main
-          
-          # Create basic AndroidManifest.xml
-          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="${ANDROID_PACKAGE_ID}">
-              <application
-                  android:label="${{ inputs.project }}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-              <uses-permission android:name="android.permission.INTERNET" />
-          </manifest>
-          EOF
-          
-          # Create MainActivity.java
-          mkdir -p android/app/src/main/java/com/oceanwildstudios/oceanpay
-          cat > android/app/src/main/java/com/oceanwildstudios/oceanpay/MainActivity.java << 'EOF'
-          package com.oceanwildstudios.oceanpay;
-          import android.app.Activity;
-          import android.os.Bundle;
-          import android.webkit.WebView;
-          import android.webkit.WebViewClient;
-          public class MainActivity extends Activity {
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  WebView webView = new WebView(this);
-                  webView.getSettings().setJavaScriptEnabled(true);
-                  webView.setWebViewClient(new WebViewClient());
-                  webView.loadUrl("file:///android_asset/index.html");
-                  setContentView(webView);
-              }
-          }
-          EOF
-          
-          # Copy web assets
-          mkdir -p android/app/src/main/assets
-          cp index.html android/app/src/main/assets/
-          
-          echo "Android build structure created"
+          # Copy index.html to www/ (Capacitor webDir)
+          mkdir -p www
+          cp index.html www/
+          # Also copy any assets directory if present
+          if [ -d assets ]; then cp -r assets www/; fi
+          # Run capacitor sync if available
+          npx cap sync android || true
+
+      - name: Set version in build.gradle
+        working-directory: ${{ steps.resolve.outputs.project_dir }}/android
+        run: |
+          VERSION_CODE=$(date +%s | tail -c 9)
+          sed -i "s/versionCode [0-9]*/versionCode $VERSION_CODE/" app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ inputs.version_name }}\"/" app/build.gradle
+          echo "Version set: code=$VERSION_CODE, name=${{ inputs.version_name }}"
+
+      - name: Build Release APK
+        working-directory: ${{ steps.resolve.outputs.project_dir }}/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Sign APK
-        if: ${{ inputs.promote_to_release == true }}
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: ${{ steps.resolve.outputs.project_dir }}/android
         run: |
-          echo "APK signing would happen here with real keystore"
-          echo "For now, creating unsigned APK artifact"
-          mkdir -p build/android
-          echo "placeholder" > build/android/app-release-unsigned.apk
+          if [ -n "$SIGNING_KEY_BASE64" ]; then
+            echo "$SIGNING_KEY_BASE64" | base64 -d > keystore.jks
+            APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+            SIGNED_APK="app/build/outputs/apk/release/${{ inputs.project }}-${{ inputs.version_name }}-release.apk"
+            $ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)/apksigner sign \
+              --ks keystore.jks \
+              --ks-pass "pass:$KEY_STORE_PASSWORD" \
+              --key-pass "pass:$KEY_PASSWORD" \
+              --ks-key-alias "$KEY_ALIAS" \
+              --out "$SIGNED_APK" \
+              "$APK_PATH"
+            rm -f keystore.jks
+            echo "APK signed: $SIGNED_APK"
+          else
+            echo "No keystore secret found — using unsigned APK"
+            find app/build/outputs/apk/release -name "*.apk" | head -1
+          fi
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.project }}-apk-release
-          path: |
-            build/android/*.apk
-            android-release-metadata.json
+      - name: Collect APK path
+        id: apk
+        working-directory: ${{ steps.resolve.outputs.project_dir }}/android
+        run: |
+          APK=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          echo "Found APK: $APK ($(stat -c%s $APK) bytes)"
 
       - name: Create release metadata
-        if: ${{ inputs.promote_to_release == true }}
+        working-directory: ${{ steps.resolve.outputs.project_dir }}
         run: |
           cat > android-release-metadata.json << EOF
           {
@@ -159,18 +141,30 @@ jobs:
           }
           EOF
 
-      - name: Create GitHub Release
-        if: ${{ inputs.promote_to_release == true }}
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: OceanandWild/${{ steps.resolve.outputs.target_repo }}
-          tag_name: v${{ inputs.version_name }}-android
-          name: ${{ inputs.project }} ${{ inputs.version_name }} (Android)
-          body: ${{ inputs.release_notes }}
-          prerelease: false
-          make_latest: false
-          files: |
-            build/android/*.apk
-            android-release-metadata.json
+      - name: Create or update GitHub Release and upload APK
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="OceanandWild/${{ steps.resolve.outputs.target_repo }}"
+          TAG="${{ steps.resolve.outputs.tag }}"
+          APK_PATH="${{ steps.resolve.outputs.project_dir }}/android/${{ steps.apk.outputs.path }}"
+          META_PATH="${{ steps.resolve.outputs.project_dir }}/android-release-metadata.json"
+
+          # Create release if it doesn't exist yet
+          if ! gh release view "$TAG" --repo "$REPO" &>/dev/null; then
+            echo "Creating release $TAG in $REPO"
+            gh release create "$TAG" \
+              --repo "$REPO" \
+              --title "${{ inputs.project }} ${{ inputs.version_name }}" \
+              --notes "${{ inputs.release_notes }}" \
+              --latest=false
+          else
+            echo "Release $TAG already exists in $REPO — uploading assets"
+          fi
+
+          # Upload APK and metadata
+          gh release upload "$TAG" --repo "$REPO" --clobber \
+            "$APK_PATH" \
+            "$META_PATH"
+
+          echo "Done: https://github.com/$REPO/releases/tag/$TAG"

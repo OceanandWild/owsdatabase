@@ -115,7 +115,7 @@ jobs:
               --ks-key-alias "$KEY_ALIAS" \
               --out "$SIGNED_APK" \
               aligned.apk; then
-              rm -f keystore.jks aligned.apk
+              rm -f keystore.jks aligned.apk "$APK_PATH"
               echo "APK signed: $SIGNED_APK"
             else
               echo "::warning::APK signing failed — keystore credentials may be wrong. Falling back to unsigned APK."

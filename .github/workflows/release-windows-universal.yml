@@ -61,7 +61,9 @@ jobs:
 
       - name: Build (NSIS)
         working-directory: ${{ steps.resolve.outputs.project_dir }}
-        run: npm run dist:nsis
+        run: |
+          npm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
+          npm run dist:nsis
 
       - name: Create/Update GitHub release + upload assets
         shell: pwsh

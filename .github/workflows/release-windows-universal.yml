@@ -41,16 +41,18 @@ jobs:
         run: |
           $slug = '${{ inputs.project }}'
           $dir = ''
+          $targetRepo = 'owsdatabase'
           switch ($slug) {
-            'ows-store'            { $dir = 'OWS Store' }
-            'dinobox'              { $dir = 'DinoBox' }
-            'floretshop'           { $dir = 'Floret Shop' }
-            'wildtransfer'         { $dir = 'WildTransfer' }
-            'a-wild-question-game' { $dir = 'A Wild Question Game' }
-            default { $dir = '' }
+            'ows-store'            { $dir = 'OWS Store';            $targetRepo = 'owsdatabase' }
+            'dinobox'              { $dir = 'DinoBox';              $targetRepo = 'owsdatabase' }
+            'floretshop'           { $dir = 'Floret Shop';          $targetRepo = 'floretshop' }
+            'wildtransfer'         { $dir = 'WildTransfer';         $targetRepo = 'wildtransfer' }
+            'a-wild-question-game' { $dir = 'A Wild Question Game'; $targetRepo = 'a-wild-question-game' }
+            default { $dir = ''; $targetRepo = '' }
           }
           if (-not $dir) { throw "Unknown project slug: $slug" }
           "project_dir=$dir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "target_repo=$targetRepo" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "tag=v${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Install dependencies
@@ -64,6 +66,7 @@ jobs:
       - name: Create/Update GitHub release + upload assets
         uses: softprops/action-gh-release@v2
         with:
+          repository: OceanandWild/${{ steps.resolve.outputs.target_repo }}
           tag_name: ${{ steps.resolve.outputs.tag }}
           name: ${{ inputs.project }} ${{ inputs.version }}
           body: ${{ inputs.release_notes }}
@@ -74,4 +77,4 @@ jobs:
             C:/builds/*/latest.yml
             C:/builds/*/*.blockmap
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}

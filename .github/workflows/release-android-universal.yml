@@ -173,4 +173,4 @@ jobs:
             build/android/*.apk
             android-release-metadata.json
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}

@@ -77,4 +77,4 @@ jobs:
             C:/builds/*/latest.yml
             C:/builds/*/*.blockmap
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}

@@ -42,8 +42,11 @@ jobs:
           $slug = '${{ inputs.project }}'
           $dir = ''
           switch ($slug) {
-            'ows-store' { $dir = 'OWS Store' }
-            'dinobox' { $dir = 'DinoBox' }
+            'ows-store'            { $dir = 'OWS Store' }
+            'dinobox'              { $dir = 'DinoBox' }
+            'floretshop'           { $dir = 'Floret Shop' }
+            'wildtransfer'         { $dir = 'WildTransfer' }
+            'a-wild-question-game' { $dir = 'A Wild Question Game' }
             default { $dir = '' }
           }
           if (-not $dir) { throw "Unknown project slug: $slug" }

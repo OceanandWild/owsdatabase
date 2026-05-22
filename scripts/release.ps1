@@ -931,13 +931,9 @@ Pop-Location
 if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -eq "both")) {
     Write-Step "Disparando build Windows..."
 
-    # Determinar repo y workflow segun el proyecto
-    $buildRepo = if ($repo -eq "owsdatabase") { "$ORG/owsdatabase" } else { "$ORG/$repo" }
-    $workflowName = if ($repo -eq "owsdatabase") { "release-windows-universal.yml" } else { "release-windows.yml" }
-
-    # Determinar repo y workflow segun el proyecto
-    $buildRepo = if ($repo -eq "owsdatabase") { "owsdatabase" } else { $repo }
-    $workflowName = if ($repo -eq "owsdatabase") { "release-windows-universal.yml" } else { "release-windows.yml" }
+    # Siempre usar workflow universal en owsdatabase para builds Windows
+    $buildRepo    = "owsdatabase"
+    $workflowName = "release-windows-universal.yml"
 
     $triggered = Trigger-Workflow -Slug $project -Workflow $workflowName -Ver $version -TargetRepo $buildRepo
 

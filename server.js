@@ -27052,6 +27052,11 @@ await pool.query(`
   )
 `).catch(() => console.log('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Tabla floret_admin_quotas ya existe'));
 
+// Add bonus columns to floret_admin_quotas if missing (idempotent migrations)
+await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_multiplier INTEGER DEFAULT 1`).catch(() => {});
+await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_expires_at TIMESTAMP`).catch(() => {});
+await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_quota INTEGER DEFAULT 0`).catch(() => {});
+
 // Ensure Malevo and OceanandWild are set up correctly if they exist
 try {
   await pool.query(`

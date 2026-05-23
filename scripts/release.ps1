@@ -1028,7 +1028,6 @@ if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -
             project = $project
             version_name = $version
             release_notes = "Android build for $project $version"
-            promote_to_release = "true"
         }
     }
     if (-not $androidTriggered) {

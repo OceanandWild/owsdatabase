@@ -97,7 +97,7 @@ jobs:
 
       - name: Sign APK
         env:
-          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}

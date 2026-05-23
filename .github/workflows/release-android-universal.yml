@@ -89,50 +89,63 @@ jobs:
           sed -i "s/versionName \"[^\"]*\"/versionName \"${{ inputs.version_name }}\"/" app/build.gradle
           echo "Version set: code=$VERSION_CODE, name=${{ inputs.version_name }}"
 
-      - name: Build Release APK
+      - name: Prepare keystore
+        id: keystore
+        env:
+          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+        run: |
+          if [ -n "$SIGNING_KEY_BASE64" ]; then
+            KEYSTORE_PATH="$RUNNER_TEMP/release.keystore.jks"
+            echo "$SIGNING_KEY_BASE64" | base64 -d > "$KEYSTORE_PATH"
+            echo "keystore_path=$KEYSTORE_PATH" >> "$GITHUB_OUTPUT"
+            echo "has_keystore=true" >> "$GITHUB_OUTPUT"
+            echo "Keystore decoded OK ($(stat -c%s $KEYSTORE_PATH) bytes)"
+          else
+            echo "::error::ANDROID_SIGNING_KEY_BASE64 secret is empty or not set. APK cannot be signed."
+            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Build and Sign Release APK
+        env:
+          KEYSTORE_PATH: ${{ steps.keystore.outputs.keystore_path }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         working-directory: ${{ steps.resolve.outputs.project_dir }}/android
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
-
-      - name: Sign APK
-        env:
-          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        working-directory: ${{ steps.resolve.outputs.project_dir }}/android
-        run: |
-          if [ -n "$SIGNING_KEY_BASE64" ]; then
-            echo "$SIGNING_KEY_BASE64" | base64 -d > keystore.jks
-            APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "Gradle build complete"
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "APK output: $APK_PATH"
+          # Verify signature
+          BUILD_TOOLS=$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)
+          if $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner verify --verbose "$APK_PATH" 2>&1 | grep -q "Verified using"; then
+            echo "APK signature verified OK"
+          else
+            echo "::warning::APK signature check: running apksigner manually as fallback"
             SIGNED_APK="app/build/outputs/apk/release/${{ inputs.project }}-${{ inputs.version_name }}-release.apk"
-            $ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)/zipalign -v -p 4 "$APK_PATH" aligned.apk
-            if $ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)/apksigner sign \
-              --ks keystore.jks \
+            $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/zipalign -v -p 4 "$APK_PATH" aligned.apk
+            $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner sign \
+              --ks "$KEYSTORE_PATH" \
               --ks-pass "env:KEY_STORE_PASSWORD" \
               --key-pass "env:KEY_PASSWORD" \
               --ks-key-alias "$KEY_ALIAS" \
               --out "$SIGNED_APK" \
-              aligned.apk; then
-              rm -f keystore.jks aligned.apk "$APK_PATH"
-              echo "APK signed: $SIGNED_APK"
-            else
-              echo "::warning::APK signing failed — keystore credentials may be wrong. Falling back to unsigned APK."
-              rm -f keystore.jks
-              SIGNED_APK="$APK_PATH"
-              echo "Using unsigned APK: $SIGNED_APK"
-            fi
-          else
-            echo "No keystore secret found — using unsigned APK"
-            find app/build/outputs/apk/release -name "*.apk" | head -1
+              aligned.apk
+            rm -f aligned.apk "$APK_PATH"
+            echo "APK signed via fallback apksigner: $SIGNED_APK"
           fi
 
       - name: Collect APK path
         id: apk
         working-directory: ${{ steps.resolve.outputs.project_dir }}/android
         run: |
-          APK=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          APK=$(find app/build/outputs/apk/release -name "*release*.apk" | head -1)
+          if [ -z "$APK" ]; then
+            APK=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          fi
           echo "path=$APK" >> "$GITHUB_OUTPUT"
           echo "Found APK: $APK ($(stat -c%s $APK) bytes)"
 

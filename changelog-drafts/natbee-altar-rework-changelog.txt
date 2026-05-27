@@ -177,3 +177,13 @@ Changes:
   - Toasts slide in with a springy scale animation and slide out upward on dismiss; up to 4 can stack simultaneously before the oldest is auto-dismissed.
   - Warning toasts display for 4.5 seconds; info and success toasts for 3.2 seconds.
   - Works identically across both Canvas and PIXI rendering modes since it runs entirely in the HTML layer.
+
+- Dynamic Weather System
+  - Implemented an immersive real-time weather engine that cycles periodically (every 45 seconds) between three distinct climates in Zone 1: Sunny (Soleado), Rainy (Lluvia), and Sunset (Atardecer).
+  - Integrates weather-specific sky gradients (clear blue skies, overcast grey rainy atmosphere, and warm sunset gradients with radial sun glows).
+  - Integrates a premium HUD Weather Pill matching each state with custom HSL-themed text, borders, glassmorphism containers, and emojis (☀️, 🌧️, 🌅).
+  - Automatically triggers HTML toast notifications whenever the climate shifts to keep the player informed.
+  - Controls biome particle spawning dynamically, pausing floating pollen particles during rainy conditions.
+  - Saves and restores weather states and timer progress seamlessly between gameplay sessions.
+  - Includes a developer shortcut (Ctrl + W) for manual climate rotation.
+

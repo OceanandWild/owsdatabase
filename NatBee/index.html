@@ -3016,14 +3016,15 @@
           
           if (d.y >= d.groundY || d.x < -20 || d.x > world.splitX + 20) {
             if (d.y >= d.groundY && d.x >= 0 && d.x <= world.splitX) {
+              const dur = rand(0.08, 0.12);
               rainSplashes.push({
                 x: d.x,
                 y: d.groundY,
                 radius: 0.5,
                 maxRadius: d.layer === 0 ? rand(2, 4) : (d.layer === 1 ? rand(4, 6) : rand(6, 8)),
                 opacity: d.opacity * 1.2,
-                life: rand(0.08, 0.12),
-                maxLife: rand(0.08, 0.12),
+                life: dur,
+                maxLife: dur,
                 layer: d.layer
               });
             }
@@ -3043,8 +3044,8 @@
         if (s.life <= 0) {
           rainSplashes.splice(i, 1);
         } else {
-          const t = 1 - (s.life / s.maxLife);
-          s.radius = s.maxRadius * t;
+          const t = Math.max(0, Math.min(1, 1 - (s.life / s.maxLife)));
+          s.radius = Math.max(0.1, s.maxRadius * t);
           s.opacity = (1 - t) * (s.opacity || 0.4);
         }
       }

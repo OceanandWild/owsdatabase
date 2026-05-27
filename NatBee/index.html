@@ -443,13 +443,13 @@
           </div>
         </div>
 
-        <!-- View 3: Checkmark and Listo! -->
+        <!-- View 3: Checkmark and Listo! (check injected dynamically by JS) -->
         <div id="view-success" class="success-view">
-          <div class="checkmark-circle">
+          <div class="checkmark-circle" id="checkmark-circle">
             <div class="background"></div>
-            <div class="check"></div>
+            <!-- .check is injected fresh by showSuccessView() each time -->
           </div>
-          <div class="success-text">¡Listo!</div>
+          <div class="success-text" id="success-text">¡Listo!</div>
         </div>
       </div>
     </div>
@@ -5870,43 +5870,12 @@
       const card = document.getElementById('credentials-card');
       const ripples = document.getElementById('splash-ripples');
 
-      // Helper: perform logout / show splash again
+      // Logout: clear auth flag then reload so all animations/state start completely fresh
       function doLogout() {
         state.isOceanPayAuthed = false;
         state.username = '';
         saveGame();
-        logoutBtn.style.display = 'none';
-        // Clear inputs
-        const u = document.getElementById('input-username');
-        const p = document.getElementById('input-password');
-        const cu = document.getElementById('input-custom-username');
-        const le = document.getElementById('login-error');
-        if (u) u.value = '';
-        if (p) p.value = '';
-        if (cu) cu.value = '';
-        if (le) { le.style.display = 'none'; le.innerText = ''; }
-        // Reset views
-        document.getElementById('view-inputs').style.display = '';
-        document.getElementById('view-username-choice').style.display = 'none';
-        document.getElementById('view-success').style.display = 'none';
-        document.getElementById('custom-user-form').style.display = 'none';
-        const btnS = document.getElementById('btn-submit-login');
-        if (btnS) { btnS.innerText = 'CONECTAR CUENTA'; btnS.disabled = false; }
-        // Reset card and ripples
-        card.classList.remove('visible');
-        if (ripples) ripples.style.display = '';
-        // Show splash
-        splash.classList.remove('fade-out');
-        // Force icon animation restart
-        icon.className = 'splash-icon-wrapper';
-        void icon.offsetWidth;
-        icon.className = 'splash-icon-wrapper centered';
-        setTimeout(() => {
-          icon.classList.remove('centered');
-          icon.classList.add('moved');
-          if (ripples) ripples.style.display = 'none';
-          setTimeout(() => { card.classList.add('visible'); }, 300);
-        }, 1200);
+        location.reload();
       }
 
       const logoutBtn = document.getElementById('btn-logout-overlay');
@@ -6028,34 +5997,41 @@
       function showSuccessView() {
         document.getElementById('view-username-choice').style.display = 'none';
         const successView = document.getElementById('view-success');
-        successView.style.display = 'flex';
 
-        // Restart checkmark animation by replacing the .check element (fixes desync)
-        const checkCircle = successView.querySelector('.checkmark-circle');
-        const oldCheck = checkCircle.querySelector('.check');
-        if (oldCheck) {
-          const newCheck = oldCheck.cloneNode(true);
-          oldCheck.parentNode.replaceChild(newCheck, oldCheck);
-        }
-        // Also restart the success-text pop animation
-        const successText = successView.querySelector('.success-text');
-        if (successText) {
-          successText.style.animation = 'none';
-          void successText.offsetWidth; // reflow
-          successText.style.animation = '';
-        }
+        // --- Inject a brand-new .check element so the CSS keyframe always starts at 0 ---
+        const circle = document.getElementById('checkmark-circle');
+        const oldCheck = circle.querySelector('.check');
+        if (oldCheck) oldCheck.remove();
+        const freshCheck = document.createElement('div');
+        freshCheck.className = 'check';
+
+        // --- Recreate success-text so its popIn animation also starts fresh ---
+        const oldText = document.getElementById('success-text');
+        const freshText = document.createElement('div');
+        freshText.className = 'success-text';
+        freshText.id = 'success-text';
+        freshText.textContent = '¡Listo!';
+        if (oldText) oldText.replaceWith(freshText);
+
+        // Show the view THEN append the check so the browser schedules a new animation
+        successView.style.display = 'flex';
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            circle.appendChild(freshCheck);
+          });
+        });
 
         // Play victory sound!
         AudioFx.blip(660, 0.15, 0.04, 'sine');
         setTimeout(() => AudioFx.blip(880, 0.25, 0.04, 'sine'), 150);
 
-        // Hide overlay after checkmark + text finish animating, then show logout button
+        // Fade out splash, then reveal logout button
         setTimeout(() => {
           splash.classList.add('fade-out');
           setTimeout(() => {
             document.getElementById('btn-logout-overlay').style.display = 'flex';
           }, 900);
-        }, 2200);
+        }, 2400);
       }
     }
   </script>

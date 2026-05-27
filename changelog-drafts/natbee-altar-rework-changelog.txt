@@ -1,0 +1,179 @@
+NatBee - Changelog 2026.5.27
+
+Version: 2026.5.27-t0107
+Platform: Windows / Electron
+Date: 2026-05-27
+
+Changes:
+
+- Altar del Nectar fully reworked with native 2D Canvas rendering
+  - Replaces the previous shapeless text container
+  - The altar is now drawn frame-by-frame as part of the game loop
+  - Three stacked stone steps with gradient shading and golden bevels
+  - Central pedestal with phase-offset glowing runes (ᛝ ᛭)
+  - Chalice with oval base ring, tapered stem and organically shaped cup
+  - Animated liquid nectar inside the cup with dual-phase wave surface and highlight sheen
+  - Crown of five individual flames with independent flicker; taller central flame
+  - Radial amber aura above the chalice pulsing softly in real time
+  - Elliptical ground glow beneath the structure for added depth
+  - Golden pulse ring visible only when the bee carries pollen inside the hive
+  - "Altar del Nectar" label with drop shadow and animated golden shimmer
+  - All gameplay logic (bee targets, raider damage, particles) remains unchanged
+
+- All three biome flower types fully reworked with premium 2D rendering
+
+  Orchid (Orchid Terraces biome):
+  - Two distinct petal layers (5 outer + 5 inner), each with individual radial gradients
+  - Deep violet outer petals grading from lavender to indigo-blue
+  - Lighter inner petals with subtle vein lines radiating from center
+  - Authentic labellum (lip petal) with teardrop gradient and three pigment spots
+  - Ivory stamen column with a soft glowing tip
+  - Animated sway tied to per-flower x-position for natural movement variety
+  - Curved stem that bends with the sway direction
+
+  Daisy (Daisy Clearing biome):
+  - 16 alternating ivory petals (bright/warm) instead of 14, with per-petal linear gradients
+  - Each petal has a faint outline and a centered midrib vein line
+  - Fully textured disc center with 4-stop radial gradient (gold to burnt amber)
+  - Three concentric rings of seed dots (5/10/14) for botanical accuracy
+  - Soft elliptical highlight on the disc for depth
+  - Curved stem responsive to per-flower sway
+  - Canvas state fully isolated with save/restore
+
+  Camellia (Camellia Edge biome):
+  - Three-layer petal depth: 5 outer petals, 5 mid petals, 3 tight inner curl petals
+  - Outer petals grade from blush pink to deep rose-crimson with petal outlines
+  - Mid petals rotated offset for natural spiral overlap
+  - Inner curls simulate a rose-bud center with tight radial gradients
+  - 18-filament stamen burst with alternating lengths and golden anther tips
+  - Dark crimson center disc with radial gradient
+  - Animated sway with curved stem matching per-flower frequency
+
+- Sovereign Bee (Player Queen) model and animations completely reworked and re-engineered
+  - Integrated dynamic offscreen canvas texture generation, bridging WebGL (PIXI.js) and 2D Canvas modes so they share the exact same high-fidelity model and real-time animations
+  - Upgraded model visuals with gold-to-amber gradients, fine fuzzy side details, and dark segment bands
+  - Added a royal thoracic fluff collar (white fuzzy ruff) between the head and body for anatomical depth
+  - Redesigned compound eyes with glowing cyan-blue radial gradients and distinct light highlights
+  - Four independent wings: double-layered iridescent upper wings (main + offset back wing) with detailed venation paths, and two smaller lower wings
+  - Added dynamic movement animations:
+    - Automatic horizontal flipping (scaleX) to face the current movement direction, maintaining last facing state when idle
+    - Dynamic pitch tilting (vertical angle) responsive to vertical velocity
+    - Asymmetric wing flap speeds that accelerate dynamically based on travel velocity
+    - Gentle vertical float bobbing and rolling when hovering
+    - Multi-stage speed streak motion trail and glowing particle dust aura triggered at high speeds
+    - Animated antennas with glowing tips and tip aura reacting to movement intensity
+    - Golden five-point queen's crown decorated with glowing ruby and diamond gems and a subtle drop shadow for depth
+
+- Unit and Hive Bee texture generation upgraded (PIXI.js / Canvas)
+  - Re-engineered createBeeTexture to render all other bees (hive, offensive, worker, pollinator) with a 3D spherical shading effect using layered highlight and shadow ellipses
+  - Added double-layered translucent wings with custom scale and opacity for each role
+  - Replaced flat rectangular stripes with curved, rounded segments matching the body shape
+  - Added custom compound eyes with specular highlights and curved stinger tips for all unit types
+
+- Hive entrance (Nexo Hexagonal doorway) fully reworked with premium 2D rendering
+  - Replaced the previous flat dual-rect gate with a multi-layered arched stone frame
+  - Stone frame uses a 5-stop worn-stone linear gradient from sandstone to near-black
+  - Chiseled edge highlight and inner bevel shadow give the arch real depth and mass
+  - Soft blur drop shadow cast by the arch onto the surrounding wall surface
+  - Six decorative wax honeycomb cells inlaid at the corners of the frame
+  - Arch opening has multi-layer tunnel depth: near-black void background, perspective side-wall gradients simulating depth on left and right edges, and a subtle curved floor line
+  - Warm amber glow with a breathing pulse animation radiates outward from the entrance
+  - Inner bloom of soft golden light fills the arch center and pulses softly in real time
+  - Trapezoidal golden keystone detail at the top of the arch
+
+- Enemy system overhauled
+  - All three existing enemy types (crawler, stinger, brute) fully redrawn with layered 2D Canvas models
+    - Crawler: stocky spider-wasp silhouette with 6 animated quad-bezier legs, segmented abdomen with dark cross-bands, separate thorax, head with dual mandibles, and orange compound eyes
+    - Stinger: sleek flying wasp with 4 iridescent wings (main + hind pair), three tapered body segments with gradient shading, metallic stinger tip, antennae with bezier curves
+    - Brute: massive armored beetle-wasp with shell/elytra rib armor seams, heavy quad legs, two horns, and glowing red compound eyes; surrounded by a danger aura
+  - New enemy type added: Hornet
+    - Fastest enemy in the roster; erratic weave-path movement while raiding
+    - Distinct yellow-black banded abdomen across 5 gradient sections
+    - Four translucent amber wings with fast independent flap animation
+    - Bright yellow-green compound eyes and kinked antennae
+    - Higher base speed (62+ px/s), moderate HP, 11-point raid damage
+  - All enemy HP values doubled from previous baseline
+  - HP bar upgraded: color-coded (green/amber/red), rounded pill shape, kind label above each enemy
+  - Enemy spawn now gated on worker bee field presence; count scales with exposed workers (max 6)
+  - Spawn interval extended to 14-22 s between waves
+  - Respawn queue system: each defeated or raiding enemy is queued with a type-specific cooldown (Crawler 22 s, Stinger 18 s, Brute 30 s, Hornet 20 s); respawns also gated on workers being exposed
+
+- Dynamic hive cell grid
+  - Hive cells grow and reorganize automatically based on worker bee count
+  - Each worker bee has one dedicated hive slot; additional ambient cells form a buffer row for visual balance
+  - Grid expands up to 7 columns then adds rows with honeycomb stagger offset
+  - Active slots render at full saturation; ambient buffer slots render semi-transparent
+  - Active slots pulse with a soft golden highlight when their assigned worker is physically present
+  - Grid is rebuilt automatically whenever the worker count changes
+
+- Worker bee delivery routing
+  - Workers navigate directly to their assigned hive slot when returning with cargo
+  - Each worker retains a persistent slot index throughout the session
+  - Workers idle near their assigned slot when no drop is available
+  - Honey burst particles emit at the correct slot position on delivery
+
+- User Interface & HUD Rework
+  - Eliminated the redundant "Panel de Colmena" modal to streamline screen estate and create a more professional, premium feel
+  - Implemented a unified persistent HUD bar at the top-left using sleek, color-coded stats pills for real-time visibility:
+    - 🐝 Carga Pill (yellow/amber): displays current pollen capacity
+    - 🍯 Néctar Pill (orange): tracks total honey reserves
+    - 👑 Polen R Pill (purple): displays royal pollen reserves
+    - 🚨 Amenaza / 🛡️ Seguro Pill: dynamically shifts color from safety green to warning red during active enemy raids
+  - Moved the main panel action buttons to a clean, right-aligned floating position ("Colonia" and "Inventario")
+  - Merged the "Mejoras de Colmena" (Upgrades) directly into the right-hand Colony panel as a secondary tab:
+    - Tab "ABEJAS": controls role configuration and species selection
+    - Tab "MEJORAS": manages purchase and upgrades for Alforja Real, Impulso Alado, and Refinado Ámbar
+  - Re-bound the `KeyH` keydown shortcut to toggle the newly merged Colony & Upgrades panel instead of the deleted Panel modal
+  - Fixed a gameplay deadlock where enemies wouldn't spawn because spawning was gated on workers being in the field, but workers never left the hive unless an enemy drop was present:
+    - Workers now autonomously fly to the flower fields to harvest pollen directly from flowers when no threat drops are active
+    - Flying to the fields exposes the workers, which triggers the dynamic enemy waves (Crawler, Stinger, Brute, Hornet) exactly as designed
+
+- Zona 2 (Matorral Oscuro) & Spider System
+  - Added "Zona 2: Matorral Oscuro", representing a dark, moist undergrowth where spiders naturally thrive in real life
+  - Zona 2 features a single unified flower field instead of 3 split biomes, populated with custom "Shadow Flowers" (Flor de Sombra)
+  - Designed the visual theme for Zona 2 with dark purple/indigo/green damp swamp forest gradients and thick purple mist/fog drifting across the field
+  - Added an Area switcher button to the top-center HUD to allow players to travel between Zona 1 and Zona 2 dynamically
+  - Added the Spider (Araña) as a specialized Area 2 enemy with custom hand-drawn canvas rendering (8 creeping legs, glowing abdomen cross, chelicerae fangs, 8 tiny glowing red eyes)
+  - Implemented advanced targeting AI for Spiders and Zone 2 enemies:
+    - Actively targets and attacks your bees, prioritizing offensive bees first, then worker bees if no offensive bees are present, before falling back to stealing honey at the altar
+    - Defeated bees are permanently removed from the colony, reducing counts and triggering dynamic UI warnings
+  - Implemented a tactical Respawn Queue panel on the left-hand side of the screen displaying real-time countdown timers for upcoming enemy respawns
+
+- LocalStorage Save Game & Persistence System
+  - Integrated an automatic autosave system (triggers every 10 seconds and after major actions like buying or hatching eggs).
+  - Persistently saves and recovers player stats (resources, acquired upgrades, daily shop stats), active inventory, and hive state (counts of active bees, equipped species per role, and unlocked variants history) using the save key 'natbee_save_v1'.
+
+- Egg Merchant & Flower Shop in Daisy Clearing (Zone 1)
+  - Designed and rendered a physical trading booth (wooden stall with golden canopy roof, styled signboard, and a glowing, floating egg with radial breathing animation) in the Daisy Clearing biome of Area 1.
+  - Implemented a proximity prompt letting the player toggle the Egg Shop interface by pressing the 'E' key near the merchant.
+  - Designed a sleek, minimalist modal overlay showing buy choices for three main eggs (Sting Guard, Amber Forge, Floral Aura).
+  - Implemented a daily price escalation scaling base cost (+40 Honey per subsequent buy) that resets automatically using the local date system.
+  - Added a Rarity Booster selector (None, Rare, Epic, Legendary, Mythic) that increases cost but attaches permanent hatching probability boosts.
+
+- Gacha Incubator & New Species Discovery
+  - Reworked the inventory egg hatching logic to detect and consume pre-selected rarity boosters.
+  - Integrated a dynamic probability weight matrix that progressively shifts hatching rates toward Rare, Epic, Legendary, and Mythic species depending on selected boosters.
+  - Added permanent registry unlocks when a new species is hatched, accompanied by discovery warnings ("✨ NEW SPECIES DISCOVERED! ✨") and celebration sound effects.
+  - Re-engineered population logic to support individual bee counts per species: each hatched egg populates one physical bee of the obtained species to the hive grid (`colony.ownedBees`), enabling different species to fly and harvest simultaneously.
+  - Updated Canvas and WebGL (PIXI) Colony panels to show the exact quantity owned per species ("Owned: X") instead of a generic select toggle.
+  - Linked battle deaths to decrement ownership counts when bees are defeated by spiders in Zone 2.
+  - Enhanced sprite tinting: individual bee units render in real-time WebGL and Canvas 2D reflecting the exact color of their particular species.
+
+- Ocean Pay Authentication & Login Splash Screen
+  - Removed temporary debugging nectar giver (KeyN).
+  - Designed and implemented a high-end entry Splash Screen displaying the NatBee icon with a springy pop-in scale animation and green expanding ripple rings.
+  - Smoothly translates the brand icon to the top-left upon load, transitioning to a glassmorphism Ocean Pay credentials card overlay.
+  - Validates credentials using secure POST requests to the central authentication service.
+  - Built an integrated player profile setup: upon successful login, users choose between matching their Ocean Pay username or typing a different one for their NatBee local save.
+  - On setup completion, displays a smooth, animated vector checkmark and a "Listo!" success sign before fading the overlay out softly to start the match.
+  - Fixed an animation desync on the checkmark: the draw element is now replaced in the DOM each time the success view is triggered, guaranteeing the CSS keyframe starts fresh rather than resuming mid-cycle. The "Listo!" text pop animation is also reset in sync.
+  - Added a minimal, unobtrusive session logout entry-point drawn in the bottom-right corner of the game canvas at very low opacity. Clicking it clears the local auth flag, resets all credential and username inputs, and re-runs the full splash-screen flow — icon pop-in, ripple rings, and credential card — without any impact on ongoing gameplay.
+  - Restores sessions seamlessly: the auth flag and customized username are stored locally, letting verified accounts skip the login splash completely in subsequent sessions.
+
+- Toast Notification System
+  - Replaced the old canvas-drawn text notice (bottom-left, overlapping biome labels) with a fully redesigned HTML-based toast notification system.
+  - Toasts appear centered at the top of the screen, just below the HUD bar, stacking cleanly without covering gameplay or biome labels.
+  - Each toast has a colored vertical accent bar (green for success, amber for warnings, blue for info), a kind-specific icon, glassmorphism background with blur, and a subtle matching glow on the border.
+  - Toasts slide in with a springy scale animation and slide out upward on dismiss; up to 4 can stack simultaneously before the oldest is auto-dismissed.
+  - Warning toasts display for 4.5 seconds; info and success toasts for 3.2 seconds.
+  - Works identically across both Canvas and PIXI rendering modes since it runs entirely in the HTML layer.

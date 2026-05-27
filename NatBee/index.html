@@ -344,12 +344,52 @@
       40% { width: 0; height: 20px; opacity: 1; }
       100% { width: 40px; height: 20px; opacity: 1; }
     }
+
+    /* Logout Button Overlay */
+    #btn-logout-overlay {
+      position: fixed;
+      bottom: 10px;
+      right: 12px;
+      z-index: 500;
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      background: rgba(4, 8, 18, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: rgba(180, 210, 240, 0.55);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: color 0.25s, background 0.25s, border-color 0.25s, opacity 0.25s;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      user-select: none;
+    }
+    #btn-logout-overlay:hover {
+      color: rgba(180, 210, 255, 0.95);
+      background: rgba(8, 18, 38, 0.82);
+      border-color: rgba(80, 168, 255, 0.35);
+    }
+    #btn-logout-overlay .logout-icon {
+      font-size: 11px;
+      opacity: 0.75;
+    }
   </style>
 <base target="_blank">
 </head>
 <body>
   <canvas id="game"></canvas>
   <div id="bee-layer"></div>
+
+  <!-- Logout overlay button (shown after Ocean Pay auth) -->
+  <button id="btn-logout-overlay" title="Cerrar sesión de Ocean Pay">
+    <span class="logout-icon">↩</span>
+    <span>Cerrar sesión</span>
+  </button>
 
   <!-- Splash Screen with Ocean Pay credentials -->
   <div id="splash-screen">
@@ -5645,62 +5685,7 @@
         ctx.fillText(uiNotice.text, 28, world.h - 24);
       }
 
-      // Subtle logout button — bottom-right corner, very unobtrusive
-      const logoutW = 88;
-      const logoutH = 18;
-      const logoutX = world.w - logoutW - 8;
-      const logoutY = world.h - logoutH - 6;
-      ctx.save();
-      ctx.globalAlpha = 0.28;
-      drawRoundedRect(logoutX, logoutY, logoutW, logoutH, 6, 'rgba(0,0,0,0.0)', 'rgba(255,255,255,0.18)');
-      ctx.fillStyle = '#c0d8f0';
-      ctx.font = '9px Segoe UI';
-      ctx.fillText('↩ Cerrar sesión', logoutX + 8, logoutY + 12);
-      ctx.restore();
-      uiButtons.push({
-        x: logoutX, y: logoutY, w: logoutW, h: logoutH, disabled: false,
-        action: () => {
-          state.isOceanPayAuthed = false;
-          state.username = '';
-          saveGame();
-          // Reset the splash screen to its initial state and show it again
-          const splash = document.getElementById('splash-screen');
-          const icon = document.getElementById('splash-icon');
-          const card = document.getElementById('credentials-card');
-          const ripples = document.getElementById('splash-ripples');
-          // Clear inputs
-          const u = document.getElementById('input-username');
-          const p = document.getElementById('input-password');
-          const cu = document.getElementById('input-custom-username');
-          const le = document.getElementById('login-error');
-          if (u) u.value = '';
-          if (p) p.value = '';
-          if (cu) cu.value = '';
-          if (le) { le.style.display = 'none'; le.innerText = ''; }
-          // Reset views
-          document.getElementById('view-inputs').style.display = '';
-          document.getElementById('view-username-choice').style.display = 'none';
-          document.getElementById('view-success').style.display = 'none';
-          document.getElementById('custom-user-form').style.display = 'none';
-          const btnS = document.getElementById('btn-submit-login');
-          if (btnS) { btnS.innerText = 'CONECTAR CUENTA'; btnS.disabled = false; }
-          // Reset icon and card state
-          card.classList.remove('visible');
-          if (ripples) ripples.style.display = '';
-          // Show splash
-          splash.classList.remove('fade-out');
-          // Force animation restart: strip class, reflow, re-add
-          icon.className = 'splash-icon-wrapper';
-          void icon.offsetWidth;
-          icon.className = 'splash-icon-wrapper centered';
-          setTimeout(() => {
-            icon.classList.remove('centered');
-            icon.classList.add('moved');
-            if (ripples) ripples.style.display = 'none';
-            setTimeout(() => { card.classList.add('visible'); }, 300);
-          }, 1200);
-        }
-      });
+      // (logout button is an HTML overlay — see #btn-logout-overlay)
     }
 
     function drawFloatingPollen() {
@@ -5885,9 +5870,52 @@
       const card = document.getElementById('credentials-card');
       const ripples = document.getElementById('splash-ripples');
 
+      // Helper: perform logout / show splash again
+      function doLogout() {
+        state.isOceanPayAuthed = false;
+        state.username = '';
+        saveGame();
+        logoutBtn.style.display = 'none';
+        // Clear inputs
+        const u = document.getElementById('input-username');
+        const p = document.getElementById('input-password');
+        const cu = document.getElementById('input-custom-username');
+        const le = document.getElementById('login-error');
+        if (u) u.value = '';
+        if (p) p.value = '';
+        if (cu) cu.value = '';
+        if (le) { le.style.display = 'none'; le.innerText = ''; }
+        // Reset views
+        document.getElementById('view-inputs').style.display = '';
+        document.getElementById('view-username-choice').style.display = 'none';
+        document.getElementById('view-success').style.display = 'none';
+        document.getElementById('custom-user-form').style.display = 'none';
+        const btnS = document.getElementById('btn-submit-login');
+        if (btnS) { btnS.innerText = 'CONECTAR CUENTA'; btnS.disabled = false; }
+        // Reset card and ripples
+        card.classList.remove('visible');
+        if (ripples) ripples.style.display = '';
+        // Show splash
+        splash.classList.remove('fade-out');
+        // Force icon animation restart
+        icon.className = 'splash-icon-wrapper';
+        void icon.offsetWidth;
+        icon.className = 'splash-icon-wrapper centered';
+        setTimeout(() => {
+          icon.classList.remove('centered');
+          icon.classList.add('moved');
+          if (ripples) ripples.style.display = 'none';
+          setTimeout(() => { card.classList.add('visible'); }, 300);
+        }, 1200);
+      }
+
+      const logoutBtn = document.getElementById('btn-logout-overlay');
+      logoutBtn.addEventListener('click', doLogout);
+
       if (state.isOceanPayAuthed) {
-        // Skip splash screen completely if already authenticated
+        // Skip splash screen — already authenticated, just show logout button
         splash.classList.add('fade-out');
+        logoutBtn.style.display = 'flex';
         return;
       }
 
@@ -6021,9 +6049,12 @@
         AudioFx.blip(660, 0.15, 0.04, 'sine');
         setTimeout(() => AudioFx.blip(880, 0.25, 0.04, 'sine'), 150);
 
-        // Hide overlay after checkmark + text finish animating
+        // Hide overlay after checkmark + text finish animating, then show logout button
         setTimeout(() => {
           splash.classList.add('fade-out');
+          setTimeout(() => {
+            document.getElementById('btn-logout-overlay').style.display = 'flex';
+          }, 900);
         }, 2200);
       }
     }

@@ -5827,6 +5827,227 @@ app.post('/floret/products/:id/mark-sold-out', async (req, res) => {
   }
 });
 
+// Servir archivos estÃƒÆ’Ã‚Â¡ticos de Ocean Pay
+app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
+
+// ===== OWS ADMIN PANEL SYSTEM (STRICT VERIFICATION & LOCKOUT) =====
+const adminLockouts = new Map();
+const adminFailedAttempts = new Map();
+const adminSessions = new Map();
+
+const ADMIN_LOCKOUT_TIME = 15 * 60 * 1000;
+const MAX_ADMIN_FAILURES = 3;
+
+const getClientIp = (req) => req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+
+function checkAdminLockout(req, res, next) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  if (adminLockouts.has(ip)) {
+    const unbanTime = adminLockouts.get(ip);
+    if (now < unbanTime) {
+      const remainingMin = Math.ceil((unbanTime - now) / 60000);
+      return res.status(403).json({
+        error: `Acceso bloqueado por seguridad. Demasiados intentos fallidos. Inténtalo de nuevo en ${remainingMin} minutos.`,
+        locked: true,
+        remaining: unbanTime - now
+      });
+    } else {
+      adminLockouts.delete(ip);
+      adminFailedAttempts.delete(ip);
+    }
+  }
+  next();
+}
+
+function recordAdminFailure(req) {
+  const ip = getClientIp(req);
+  const count = (adminFailedAttempts.get(ip) || 0) + 1;
+  adminFailedAttempts.set(ip, count);
+  if (count >= MAX_ADMIN_FAILURES) {
+    adminLockouts.set(ip, Date.now() + ADMIN_LOCKOUT_TIME);
+    console.log(`[OWS ADMIN SYSTEM] IP ${ip} has been BANNED for 15 minutes due to consecutive failures.`);
+    return true;
+  }
+  return false;
+}
+
+// Servir OWS Admin Panel de forma estática
+app.use('/ows-admin-panel', express.static(join(__dirname, 'OWS Admin Panel')));
+
+// Endpoints del Panel de Administración OWS
+app.post('/ows-admin-panel/login', checkAdminLockout, async (req, res) => {
+  const { username, password } = req.body;
+  const ip = getClientIp(req);
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña son requeridos.' });
+  }
+
+  try {
+    const userLower = username.trim().toLowerCase();
+
+    if (userLower === 'oceanandwild') {
+      if (password === '59901647') {
+        const sessionId = crypto.randomUUID();
+        const verifyCode = String(crypto.randomInt(100000, 1000000));
+        
+        adminSessions.set(sessionId, {
+          ip,
+          username: 'oceanandwild',
+          step1Passed: false,
+          step2Passed: false,
+          verifyCode,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 10 * 60 * 1000
+        });
+
+        adminFailedAttempts.delete(ip);
+
+        return res.json({
+          success: true,
+          message: 'Credenciales válidas. Iniciando verificación administrativa estricta.',
+          sessionId,
+          expiresIn: 600
+        });
+      } else {
+        const isBanned = recordAdminFailure(req);
+        return res.status(401).json({
+          error: isBanned ? 'Demasiados intentos fallidos. Has sido bloqueado por 15 minutos.' : 'Contraseña de administrador incorrecta.',
+          attemptsLeft: MAX_ADMIN_FAILURES - (adminFailedAttempts.get(ip) || 0)
+        });
+      }
+    }
+
+    // Comprobar si es un usuario común de Ocean Pay
+    const { rows } = await pool.query('SELECT * FROM ocean_pay_users WHERE LOWER(username) = LOWER($1)', [username.trim()]);
+    if (rows.length > 0) {
+      const isBanned = recordAdminFailure(req);
+      return res.status(403).json({
+        error: isBanned ? 'Demasiados intentos fallidos. Has sido bloqueado por 15 minutos.' : 'ACCESO DENEGADO. Esta es una cuenta normal de Ocean Pay. El Panel de Administración de OWS está estrictamente reservado para la cuenta Admin de OceanandWild.',
+        isOceanPayUser: true,
+        attemptsLeft: MAX_ADMIN_FAILURES - (adminFailedAttempts.get(ip) || 0)
+      });
+    }
+
+    const isBanned = recordAdminFailure(req);
+    return res.status(401).json({
+      error: isBanned ? 'Demasiados intentos fallidos. Has sido bloqueado por 15 minutos.' : 'Credenciales inválidas. Cuenta no registrada.',
+      attemptsLeft: MAX_ADMIN_FAILURES - (adminFailedAttempts.get(ip) || 0)
+    });
+  } catch (err) {
+    console.error('Error in Admin Panel Login:', err);
+    res.status(500).json({ error: 'Error interno en el servidor.' });
+  }
+});
+
+app.post('/ows-admin-panel/verify-step1', checkAdminLockout, (req, res) => {
+  const { sessionId, adminSecret } = req.body;
+  const ip = getClientIp(req);
+
+  if (!sessionId || !adminSecret) {
+    return res.status(400).json({ error: 'Sesión y secreto de administrador requeridos.' });
+  }
+
+  const session = adminSessions.get(sessionId);
+  if (!session || session.ip !== ip || Date.now() > session.expiresAt) {
+    return res.status(401).json({ error: 'Sesión inválida o expirada. Reinicie el inicio de sesión.' });
+  }
+
+  try {
+    const secretsPath = join(__dirname, 'secrets', 'workspace-secrets');
+    let expectedSecret = '';
+    if (fs.existsSync(secretsPath)) {
+      const rawSecrets = fs.readFileSync(secretsPath, 'utf8');
+      const lines = rawSecrets.split('\n');
+      for (const line of lines) {
+        if (line.includes('STUDIO_SECRET:')) {
+          expectedSecret = line.split('STUDIO_SECRET:')[1].trim();
+          break;
+        }
+      }
+    }
+    
+    if (!expectedSecret) {
+      expectedSecret = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || 'MUFASA1939-0';
+    }
+
+    if (adminSecret.trim() === expectedSecret.trim()) {
+      session.step1Passed = true;
+      adminFailedAttempts.delete(ip);
+
+      return res.json({
+        success: true,
+        message: 'Paso 1 completado. Secreto administrativo verificado.',
+        challengeMessage: `Suma los dígitos del código temporal ${session.verifyCode}, multiplica el resultado por 3 e ingresa el código numérico final.`
+      });
+    } else {
+      const isBanned = recordAdminFailure(req);
+      return res.status(401).json({
+        error: isBanned ? 'Demasiados intentos fallidos. Has sido bloqueado por 15 minutos.' : 'Token secreto de OWS incorrecto.',
+        attemptsLeft: MAX_ADMIN_FAILURES - (adminFailedAttempts.get(ip) || 0)
+      });
+    }
+  } catch (err) {
+    console.error('Error in Admin Verify Step 1:', err);
+    res.status(500).json({ error: 'Error verificando secreto.' });
+  }
+});
+
+app.post('/ows-admin-panel/verify-step2', checkAdminLockout, (req, res) => {
+  const { sessionId, answer } = req.body;
+  const ip = getClientIp(req);
+
+  if (!sessionId || !answer) {
+    return res.status(400).json({ error: 'Sesión y respuesta de desafío requeridas.' });
+  }
+
+  const session = adminSessions.get(sessionId);
+  if (!session || session.ip !== ip || Date.now() > session.expiresAt) {
+    return res.status(401).json({ error: 'Sesión de verificación inválida o expirada.' });
+  }
+
+  if (!session.step1Passed) {
+    return res.status(403).json({ error: 'Debe completar el Paso 1 primero.' });
+  }
+
+  try {
+    const digits = session.verifyCode.split('').map(Number);
+    const sum = digits.reduce((a, b) => a + b, 0);
+    const expectedAnswer = String(sum * 3);
+
+    if (answer.trim() === expectedAnswer) {
+      session.step2Passed = true;
+      adminFailedAttempts.delete(ip);
+      
+      const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+      const adminToken = jwt.sign({
+        id: 0,
+        username: 'oceanandwild',
+        role: 'superadmin',
+        scope: 'ows-admin-panel'
+      }, secret, { expiresIn: '2h' });
+
+      adminSessions.delete(sessionId);
+
+      return res.json({
+        success: true,
+        message: '¡ACCESO AUTORIZADO AL PANEL DE ADMINISTRACIÓN!',
+        token: adminToken
+      });
+    } else {
+      const isBanned = recordAdminFailure(req);
+      return res.status(401).json({
+        error: isBanned ? 'Demasiados intentos fallidos. Has sido bloqueado por 15 minutos.' : 'Respuesta al desafío de seguridad incorrecta.',
+        attemptsLeft: MAX_ADMIN_FAILURES - (adminFailedAttempts.get(ip) || 0)
+      });
+    }
+  } catch (err) {
+    console.error('Error in Admin Verify Step 2:', err);
+    res.status(500).json({ error: 'Error procesando respuesta.' });
+  }
+});
+
 // Eliminar producto
 app.delete('/floret/products/:id', async (req, res) => {
   const id = Number(req.params.id || 0);

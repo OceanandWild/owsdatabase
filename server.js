@@ -5899,7 +5899,7 @@ app.post('/ows-admin-panel/login', checkAdminLockout, async (req, res) => {
           step2Passed: false,
           verifyCode,
           createdAt: Date.now(),
-          expiresAt: Date.now() + 10 * 60 * 1000
+          expiresAt: Date.now() + 30 * 60 * 1000
         });
 
         adminFailedAttempts.delete(ip);
@@ -5908,7 +5908,7 @@ app.post('/ows-admin-panel/login', checkAdminLockout, async (req, res) => {
           success: true,
           message: 'Credenciales válidas. Iniciando verificación administrativa estricta.',
           sessionId,
-          expiresIn: 600
+          expiresIn: 1800
         });
       } else {
         const isBanned = recordAdminFailure(req);
@@ -5950,7 +5950,7 @@ app.post('/ows-admin-panel/verify-step1', checkAdminLockout, (req, res) => {
   }
 
   const session = adminSessions.get(sessionId);
-  if (!session || session.ip !== ip || Date.now() > session.expiresAt) {
+  if (!session || Date.now() > session.expiresAt) {
     return res.status(401).json({ error: 'Sesión inválida o expirada. Reinicie el inicio de sesión.' });
   }
 
@@ -6003,7 +6003,7 @@ app.post('/ows-admin-panel/verify-step2', checkAdminLockout, (req, res) => {
   }
 
   const session = adminSessions.get(sessionId);
-  if (!session || session.ip !== ip || Date.now() > session.expiresAt) {
+  if (!session || Date.now() > session.expiresAt) {
     return res.status(401).json({ error: 'Sesión de verificación inválida o expirada.' });
   }
 

@@ -29607,6 +29607,38 @@ app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
 });
 
 // â”€â”€ Admin: consultar saldos unificados de un usuario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Admin: buscar usuario por ID o por Username ────────────────────
+app.get('/ocean-pay/admin/users/lookup', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const searchTerm = String(req.query.query || '').trim();
+  if (!searchTerm) return res.status(400).json({ error: 'Parámetro query requerido' });
+
+  const client = await pool.connect();
+  try {
+    let queryText = '';
+    let queryParams = [];
+
+    if (/^\d+$/.test(searchTerm)) {
+      queryText = 'SELECT id, username FROM ocean_pay_users WHERE id = $1';
+      queryParams = [Number(searchTerm)];
+    } else {
+      queryText = 'SELECT id, username FROM ocean_pay_users WHERE LOWER(username) = LOWER($1)';
+      queryParams = [searchTerm];
+    }
+
+    const { rows } = await client.query(queryText, queryParams);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json({ success: true, user: rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('/ocean-pay/admin/balances/:userId', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const userId = Number(req.params.userId);

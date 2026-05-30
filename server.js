@@ -5834,6 +5834,7 @@ app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
 const adminLockouts = new Map();
 const adminFailedAttempts = new Map();
 const adminSessions = new Map();
+const adminExtendCodes = new Map(); // IP -> { code, expiresAt }
 
 const ADMIN_LOCKOUT_TIME = 15 * 60 * 1000;
 const MAX_ADMIN_FAILURES = 3;
@@ -6045,6 +6046,121 @@ app.post('/ows-admin-panel/verify-step2', checkAdminLockout, (req, res) => {
   } catch (err) {
     console.error('Error in Admin Verify Step 2:', err);
     res.status(500).json({ error: 'Error procesando respuesta.' });
+  }
+});
+
+// ===== OWS ADMIN PANEL: REQUEST EXTENSION CODE =====
+app.post('/ows-admin-panel/request-extend-code', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Token requerido.' });
+
+  const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  let payload;
+  try {
+    payload = jwt.verify(token, jwtSecret, { ignoreExpiration: false });
+  } catch (err) {
+    return res.status(401).json({ error: 'Token de sesión inválido o expirado.' });
+  }
+
+  if (payload.scope !== 'ows-admin-panel' || payload.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Sin permisos.' });
+  }
+
+  const ip = getClientIp(req);
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  adminExtendCodes.set(ip, {
+    code,
+    expiresAt: Date.now() + 3 * 60 * 1000 // valid 3 minutes
+  });
+
+  return res.json({
+    success: true,
+    code,
+    message: 'Código de extensión generado. Válido por 3 minutos.',
+    cost: 50,
+    currency: 'wildcredits'
+  });
+});
+
+// ===== OWS ADMIN PANEL: EXTEND SESSION =====
+// Cost: 50 wildcredits auto-deducted from OceanandWild account.
+app.post('/ows-admin-panel/extend-session', async (req, res) => {
+  const { token, confirmCode } = req.body;
+  if (!token || !confirmCode) {
+    return res.status(400).json({ error: 'Token y código de confirmación requeridos.' });
+  }
+
+  const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  let payload;
+  try {
+    payload = jwt.verify(token, jwtSecret, { ignoreExpiration: false });
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido o ya expirado. Inicia sesión nuevamente.' });
+  }
+
+  if (payload.scope !== 'ows-admin-panel' || payload.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Token sin permisos de administración.' });
+  }
+
+  const ip = getClientIp(req);
+  const stored = adminExtendCodes.get(ip);
+  if (!stored || String(confirmCode).trim() !== String(stored.code)) {
+    return res.status(401).json({ error: 'Código de extensión incorrecto.' });
+  }
+  if (Date.now() > stored.expiresAt) {
+    adminExtendCodes.delete(ip);
+    return res.status(401).json({ error: 'Código de extensión expirado. Solicita uno nuevo.' });
+  }
+  adminExtendCodes.delete(ip);
+
+  const EXTENSION_COST = 50;
+  const EXTENSION_CURRENCY = 'wildcredits';
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: owRows } = await client.query(
+      'SELECT id FROM ocean_pay_users WHERE LOWER(username) = $1 LIMIT 1',
+      ['oceanandwild']
+    );
+    if (!owRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(500).json({ error: 'Cuenta OceanandWild no encontrada en Ocean Pay.' });
+    }
+    const owUserId = owRows[0].id;
+    const currentBalance = await getUnifiedBalance(client, owUserId, EXTENSION_CURRENCY);
+    if (currentBalance < EXTENSION_COST) {
+      await client.query('ROLLBACK');
+      return res.status(402).json({
+        error: `Saldo insuficiente en OceanandWild. Se requieren ${EXTENSION_COST} ${EXTENSION_CURRENCY}. Balance actual: ${currentBalance}.`
+      });
+    }
+    const newBalance = currentBalance - EXTENSION_COST;
+    await setUnifiedBalance(client, owUserId, EXTENSION_CURRENCY, newBalance);
+    await client.query('COMMIT');
+
+    const newToken = jwt.sign({
+      id: 0,
+      username: 'oceanandwild',
+      role: 'superadmin',
+      scope: 'ows-admin-panel',
+      extended: true
+    }, jwtSecret, { expiresIn: '2h' });
+
+    console.log(`[OWS ADMIN] Sesión extendida. Deducidos ${EXTENSION_COST} ${EXTENSION_CURRENCY} de OceanandWild (prev:${currentBalance} → now:${newBalance}).`);
+
+    return res.json({
+      success: true,
+      message: `Sesión extendida 2 horas. Se dedujeron ${EXTENSION_COST} ${EXTENSION_CURRENCY} de tu cuenta OceanandWild (anterior: ${currentBalance}, nuevo: ${newBalance}).`,
+      token: newToken,
+      previousBalance: currentBalance,
+      newBalance
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[OWS ADMIN] Error extendiendo sesión:', err);
+    res.status(500).json({ error: 'Error interno al extender la sesión.' });
+  } finally {
+    client.release();
   }
 });
 

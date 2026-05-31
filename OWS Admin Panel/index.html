@@ -1030,6 +1030,26 @@
       box-shadow: 0 2px 10px rgba(38,224,255,0.15);
     }
 
+    .eco-btn-delete {
+      padding: 9px 12px;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #f87171;
+      border-radius: 9px;
+      font-family: var(--font-space);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: all 0.25s;
+    }
+
+    .eco-btn-delete:hover {
+      background: rgba(239, 68, 68, 0.18);
+      box-shadow: 0 2px 10px rgba(239, 68, 68, 0.15);
+    }
+
     .eco-card-health {
       display: flex;
       align-items: center;
@@ -1285,6 +1305,231 @@
       <div id="extend-result-msg" style="display:none; margin-top:16px;"></div>
 
       <button onclick="closeExtendModal()" style="width:100%; margin-top:14px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#94a3b8; padding:10px; border-radius:10px; cursor:pointer; font-family:var(--font-space); font-size:0.85rem;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ====== ADD/EDIT NEWS MODAL ====== -->
+  <div id="news-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:400; align-items:center; justify-content:center; backdrop-filter:blur(14px);">
+    <div class="glass-card" style="max-width:580px; width:95%; border-color:#a855f7; max-height:92vh; overflow-y:auto;">
+      <div class="biome-deco-line" style="margin-bottom:18px; background:linear-gradient(90deg,#e879f9,#a855f7);"></div>
+      <h3 id="news-modal-title" style="font-family:var(--font-space); color:#e879f9; font-size:1.2rem; margin-bottom:6px; text-transform:uppercase;">📰 Nueva Noticia</h3>
+      <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:16px;">Noticias publicadas en OWS Store (<code style="color:#a855f7;">/ows-store/news</code>)</p>
+      <form id="news-form">
+        <input type="hidden" id="news-id">
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#a855f7;">Título <span style="color:#ef4444;">*</span></label>
+          <input class="form-input" style="padding-left:14px;" type="text" id="news-title" placeholder="Título de la noticia" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#a855f7;">Descripción</label>
+          <textarea class="form-input" id="news-description" style="padding-left:14px; min-height:70px; resize:vertical; font-family:inherit;" placeholder="Texto introductorio visible en la card..."></textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#a855f7;">🖼️ URL de Imagen / Banner <span style="font-size:0.72rem; color:#64748b; font-weight:400;">(URL directa: https://... recomendado)</span></label>
+          <input class="form-input" style="padding-left:14px;" type="text" id="news-image-url" placeholder="https://raw.githubusercontent.com/... o cualquier CDN">
+          <div id="news-image-preview" style="margin-top:8px; display:none;">
+            <img id="news-img-preview-tag" src="" alt="preview" style="max-height:100px; border-radius:8px; border:1px solid rgba(168,85,247,0.3); object-fit:cover;" onerror="document.getElementById('news-image-preview').style.display='none'">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:12px;">
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#a855f7;">Slug de Proyecto</label>
+            <input class="form-input" style="padding-left:14px;" type="text" id="news-project-slug" placeholder="ej: ows-store">
+          </div>
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#a855f7;">Nombre Proyecto</label>
+            <input class="form-input" style="padding-left:14px;" type="text" id="news-project-name" placeholder="ej: OWS Store">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#a855f7;">Cambios / Puntos de la noticia <span style="font-size:0.72rem; color:#64748b; font-weight:400;">(uno por línea)</span></label>
+          <textarea class="form-input" id="news-content-lines" style="padding-left:14px; min-height:80px; resize:vertical; font-family:monospace; font-size:0.8rem;" placeholder="✨ Nueva característica X&#10;🐛 Corrección del bug Y&#10;🚀 Mejora de rendimiento Z"></textarea>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:8px; align-items:flex-end;">
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#a855f7; display:flex; justify-content:space-between; align-items:center;">
+              <span>Prioridad</span>
+              <span id="news-priority-val" style="font-family:monospace; font-size:0.85rem; font-weight:700; color:#e879f9;">0</span>
+            </label>
+            <input type="range" id="news-priority" value="0" min="-10" max="100" step="1"
+              oninput="updateNewsPriorityHint(this.value)"
+              style="width:100%; accent-color:#a855f7; cursor:pointer; margin-top:4px;">
+          </div>
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#a855f7;">Fecha Publicación</label>
+            <input class="form-input" style="padding-left:14px;" type="datetime-local" id="news-published-at">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" style="color:#a855f7;">Activa</label>
+            <select class="form-input" id="news-is-active" style="padding-left:14px; background:#0f172a;" onchange="updateNewsPriorityHint(document.getElementById('news-priority').value)">
+              <option value="true">✅ Sí</option>
+              <option value="false">❌ No</option>
+            </select>
+          </div>
+        </div>
+        <!-- Priority Visibility Hint Panel -->
+        <div id="news-priority-hint" style="margin-bottom:14px; padding:10px 14px; border-radius:10px; font-size:0.78rem; line-height:1.5; border:1px solid; transition:all 0.3s ease;"></div>
+
+        <div style="display:flex; gap:12px; margin-top:16px;">
+          <button class="btn-submit" type="button" style="margin-top:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;" onclick="closeNewsModal()">Cancelar</button>
+          <button class="btn-submit" type="submit" id="news-submit-btn" style="margin-top:0; background:linear-gradient(135deg,#e879f9,#a855f7); color:#fff; font-weight:700;">Crear Noticia</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====== ADD/EDIT EVENT MODAL ====== -->
+  <div id="event-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:400; align-items:center; justify-content:center; backdrop-filter:blur(14px);">
+    <div class="glass-card" style="max-width:600px; width:95%; border-color:#f59e0b; max-height:92vh; overflow-y:auto;">
+      <div class="biome-deco-line" style="margin-bottom:18px; background:linear-gradient(90deg,#f59e0b,#f97316);"></div>
+      <h3 id="event-modal-title" style="font-family:var(--font-space); color:#f59e0b; font-size:1.2rem; margin-bottom:6px; text-transform:uppercase;">🎉 Nuevo Evento</h3>
+      <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:16px;">Eventos y actualizaciones del Timeline OWS (<code style="color:#f59e0b;">/ows-news/updates</code>)</p>
+      <form id="event-form">
+        <input type="hidden" id="event-id">
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#f59e0b;">Título <span style="color:#ef4444;">*</span></label>
+          <input class="form-input" style="padding-left:14px;" type="text" id="event-title" placeholder="Título del evento o actualización" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#f59e0b;">Descripción</label>
+          <textarea class="form-input" id="event-description" style="padding-left:14px; min-height:65px; resize:vertical; font-family:inherit;" placeholder="Descripción breve del evento..."></textarea>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:12px;">
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b;">Tipo</label>
+            <select class="form-input" id="event-type" style="padding-left:14px; background:#0f172a;">
+              <option value="changelog">changelog</option>
+              <option value="event">event</option>
+              <option value="news">news</option>
+              <option value="announcement">announcement</option>
+              <option value="festival">festival</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b;">Plataformas</label>
+            <input class="form-input" style="padding-left:14px;" type="text" id="event-platforms" placeholder="windows, android, all">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:12px;">
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b;">Slug(s) de Proyecto</label>
+            <input class="form-input" style="padding-left:14px;" type="text" id="event-project-slugs" placeholder="ej: ows-store, wildwave">
+          </div>
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b;">Nombre(s) Proyecto</label>
+            <input class="form-input" style="padding-left:14px;" type="text" id="event-project-names" placeholder="ej: OWS Store, WildWave">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#f59e0b;">🖼️ URL Banner / Imagen <span style="font-size:0.72rem; color:#64748b; font-weight:400;">(URL directa recomendada)</span></label>
+          <input class="form-input" style="padding-left:14px;" type="text" id="event-banner-url" placeholder="https://raw.githubusercontent.com/...">
+          <div id="event-image-preview" style="margin-top:8px; display:none;">
+            <img id="event-img-preview-tag" src="" alt="preview" style="max-height:100px; border-radius:8px; border:1px solid rgba(245,158,11,0.3); object-fit:cover;" onerror="document.getElementById('event-image-preview').style.display='none'">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#f59e0b;">Cambios / Puntos <span style="font-size:0.72rem; color:#64748b; font-weight:400;">(uno por línea)</span></label>
+          <textarea class="form-input" id="event-changes" style="padding-left:14px; min-height:75px; resize:vertical; font-family:monospace; font-size:0.8rem;" placeholder="✨ Feature nueva&#10;🐛 Bug fix&#10;🎉 Evento especial"></textarea>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:12px;">
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b;">Inicio Evento</label>
+            <input class="form-input" style="padding-left:14px;" type="datetime-local" id="event-start">
+          </div>
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b;">Fin Evento</label>
+            <input class="form-input" style="padding-left:14px;" type="datetime-local" id="event-end">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:8px; align-items:flex-end;">
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b; display:flex; justify-content:space-between; align-items:center;">
+              <span>Prioridad</span>
+              <span id="event-priority-val" style="font-family:monospace; font-size:0.85rem; font-weight:700; color:#f59e0b;">0</span>
+            </label>
+            <input type="range" id="event-priority" value="0" min="-10" max="100" step="1"
+              oninput="updateEventPriorityHint(this.value)"
+              style="width:100%; accent-color:#f59e0b; cursor:pointer; margin-top:4px;">
+          </div>
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b;">Fecha Publicación</label>
+            <input class="form-input" style="padding-left:14px;" type="datetime-local" id="event-published-at">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" style="color:#f59e0b;">Activo</label>
+            <select class="form-input" id="event-is-active" style="padding-left:14px; background:#0f172a;" onchange="updateEventPriorityHint(document.getElementById('event-priority').value)">
+              <option value="true">✅ Sí</option>
+              <option value="false">❌ No</option>
+            </select>
+          </div>
+        </div>
+        <!-- Priority Visibility Hint Panel -->
+        <div id="event-priority-hint" style="margin-bottom:14px; padding:10px 14px; border-radius:10px; font-size:0.78rem; line-height:1.5; border:1px solid; transition:all 0.3s ease;"></div>
+
+        <div style="display:flex; gap:12px; margin-top:16px;">
+          <button class="btn-submit" type="button" style="margin-top:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;" onclick="closeEventModal()">Cancelar</button>
+          <button class="btn-submit" type="submit" id="event-submit-btn" style="margin-top:0; background:linear-gradient(135deg,#f59e0b,#f97316); color:#0f172a; font-weight:700;">Crear Evento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====== RIGOROUS DELETE VERIFICATION MODAL ====== -->
+  <div id="delete-verify-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.92); z-index:500; align-items:center; justify-content:center; backdrop-filter:blur(16px);">
+    <div style="background:rgba(20,10,10,0.85); border:2px solid #ef4444; border-radius:24px; width:92%; max-width:440px; padding:32px; box-shadow:0 0 40px rgba(239,68,68,0.25); text-align:center; position:relative; overflow:hidden;">
+      
+      <!-- Top Red Warning Pulse Icon -->
+      <div style="width:68px; height:68px; border-radius:50%; background:rgba(239,68,68,0.15); display:inline-flex; align-items:center; justify-content:center; color:#ef4444; font-size:2rem; margin-bottom:18px; border:1px solid rgba(239,68,68,0.3); animation:pulse-green 1.5s infinite;">⚠️</div>
+      
+      <h3 style="font-family:var(--font-space); color:#f87171; font-size:1.3rem; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Confirmar Eliminación</h3>
+      
+      <p style="font-size:0.88rem; color:#fca5a5; background:rgba(239,68,68,0.06); padding:10px 14px; border-radius:10px; margin-bottom:20px; line-height:1.4; border:1px dashed rgba(239,68,68,0.2);">
+        <strong>¡ATENCIÓN!</strong> Esta acción eliminará permanentemente el registro en la base de datos de manera irreversible.
+      </p>
+
+      <!-- Targeted details -->
+      <div style="text-align:left; background:rgba(0,0,0,0.3); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:20px;">
+        <div style="font-size:0.75rem; color:#64748b; text-transform:uppercase;">Elemento a Eliminar:</div>
+        <div id="del-target-type" style="font-size:0.8rem; font-weight:bold; color:#ef4444; margin-top:2px;">—</div>
+        <div id="del-target-name" style="font-size:0.95rem; font-weight:bold; color:#f8fafc; margin-top:4px; font-family:var(--font-space); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</div>
+      </div>
+
+      <form id="delete-verify-form" onsubmit="executeRigorousDelete(event)">
+        <input type="hidden" id="del-target-id-or-slug">
+        <input type="hidden" id="del-target-kind">
+
+        <!-- Verification 1: Alphanumeric Code -->
+        <div class="form-group" style="text-align:left; margin-bottom:16px;">
+          <label class="form-label" style="color:#ef4444; font-size:0.75rem;">1. Escribe el Código de Seguridad: <strong id="del-required-code" style="color:#fff; background:#ef4444; padding:2px 6px; border-radius:4px; font-family:monospace; margin-left:4px;">OWS-DEL-XXXX</strong></label>
+          <input class="form-input" style="padding-left:14px; text-transform:uppercase; font-family:monospace; letter-spacing:0.1em; border-color:rgba(239,68,68,0.3);" type="text" id="del-input-code" required placeholder="Escribe el código">
+        </div>
+
+        <!-- Verification 2: Exact Name -->
+        <div class="form-group" style="text-align:left; margin-bottom:24px;">
+          <label class="form-label" style="color:#ef4444; font-size:0.75rem;">2. Escribe el Nombre/Título del Elemento para verificar:</label>
+          <input class="form-input" style="padding-left:14px; border-color:rgba(239,68,68,0.3);" type="text" id="del-input-name" required placeholder="Escribe el nombre exacto">
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex; gap:12px;">
+          <button class="btn-submit" type="button" style="margin-top:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;" onclick="closeDeleteVerifyModal()">Cancelar</button>
+          <button class="btn-submit" type="submit" id="delete-confirm-btn" style="margin-top:0; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; font-weight:700;">Eliminar Permanentemente</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1801,6 +2046,93 @@
             </table>
           </div>
         </div>
+
+        <!-- ======================================================== -->
+        <!-- NOTICIAS Y EVENTOS -->
+        <!-- ======================================================== -->
+        <div style="margin-top: 28px;">
+
+          <!-- Toolbar Noticias -->
+          <div class="eco-toolbar" style="margin-bottom:0; border-radius:18px 18px 0 0;">
+            <div class="eco-toolbar-title" style="font-size:1rem;">
+              📰 Noticias del OWS Store
+              <span id="news-count" style="font-size:0.7rem; color:#64748b; font-weight:400; margin-left:8px;"></span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:#94a3b8; font-weight:normal; margin-right:6px; cursor:pointer; user-select:none;">
+                <input type="checkbox" id="filter-news-store" checked style="accent-color:#a855f7; cursor:pointer;" onchange="renderNewsTable(cachedNews)">
+                Filtrar como OWS Store
+              </label>
+              <button class="btn-action-small" onclick="openAddNewsModal()" style="background:linear-gradient(135deg,#e879f9,#a855f7); color:#0f172a; font-weight:bold; border:none;">➕ Agregar Noticia</button>
+              <button class="btn-action-small" onclick="loadNewsSection()" id="btn-reload-news">↻ Recargar</button>
+            </div>
+          </div>
+
+          <!-- Tabla de Noticias -->
+          <div class="health-protocol-wrapper" style="border-radius:0 0 18px 18px; margin-top:0; border-top:none;">
+            <div class="health-table-wrapper">
+              <table class="health-table">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">Imagen</th>
+                    <th>Título</th>
+                    <th>Proyecto</th>
+                    <th>Estado</th>
+                    <th style="text-align:center;">Prioridad</th>
+                    <th>Visibilidad</th>
+                    <th>Publicado</th>
+                    <th style="width:130px;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="news-table-body">
+                  <tr><td colspan="8" style="text-align:center;color:#64748b;padding:30px;">Cargando noticias...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Toolbar Eventos (Timeline) -->
+          <div class="eco-toolbar" style="margin-top:22px; margin-bottom:0; border-radius:18px 18px 0 0;">
+            <div class="eco-toolbar-title" style="font-size:1rem;">
+              🎉 Eventos & Actualizaciones (Timeline)
+              <span id="events-count" style="font-size:0.7rem; color:#64748b; font-weight:400; margin-left:8px;"></span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:#94a3b8; font-weight:normal; margin-right:6px; cursor:pointer; user-select:none;">
+                <input type="checkbox" id="filter-events-store" checked style="accent-color:#f59e0b; cursor:pointer;" onchange="renderEventsTable(cachedEvents)">
+                Filtrar como OWS Store
+              </label>
+              <button class="btn-action-small" onclick="openAddEventModal()" style="background:linear-gradient(135deg,#f59e0b,#f97316); color:#0f172a; font-weight:bold; border:none;">➕ Agregar Evento</button>
+              <button class="btn-action-small" onclick="loadEventsSection()" id="btn-reload-events">↻ Recargar</button>
+            </div>
+          </div>
+
+          <!-- Tabla de Eventos -->
+          <div class="health-protocol-wrapper" style="border-radius:0 0 18px 18px; margin-top:0; border-top:none;">
+            <div class="health-table-wrapper">
+              <table class="health-table">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">Banner</th>
+                    <th>Título</th>
+                    <th>Tipo</th>
+                    <th>Proyecto</th>
+                    <th>Estado</th>
+                    <th style="text-align:center;">Prioridad</th>
+                    <th>Visibilidad</th>
+                    <th>Inicio Evento</th>
+                    <th style="width:130px;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="events-table-body">
+                  <tr><td colspan="9" style="text-align:center;color:#64748b;padding:30px;">Cargando eventos...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
       <!-- ======================================================== -->
@@ -2010,6 +2342,8 @@
 
       if (tabId === 'tab-ecosistema') {
         loadEcoProjects();
+        loadNewsSection();
+        loadEventsSection();
       }
     }
 
@@ -2740,6 +3074,7 @@
             <div class="eco-card-description">${desc}</div>
             <div class="eco-card-actions">
               <button class="eco-btn-edit" onclick="openEditProjectModal('${p.slug}')">⚙️ Editar</button>
+              <button class="eco-btn-delete" onclick="requestDeleteProject('${p.slug}', '${(p.name || p.slug).replace(/'/g, "\\'")}')">🗑️ Eliminar</button>
             </div>
           </div>
         `;
@@ -2868,6 +3203,851 @@
         alert('Error de red al guardar cambios.');
       }
     });
+
+    // ============================================================
+    // NEWS & EVENTS MANAGEMENT SYSTEM
+    // ============================================================
+
+    let cachedNews = [];
+    let cachedEvents = [];
+
+    // Helper: format datetime-local from ISO string
+    function toDatetimeLocal(isoStr) {
+      if (!isoStr) return '';
+      const d = new Date(isoStr);
+      if (isNaN(d)) return '';
+      return d.toISOString().slice(0, 16);
+    }
+
+    // Helper: preview image input
+    function attachImagePreview(inputId, previewDivId, imgTagId) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      input.addEventListener('input', () => {
+        const url = input.value.trim();
+        const div = document.getElementById(previewDivId);
+        const img = document.getElementById(imgTagId);
+        if (url) {
+          img.src = url;
+          div.style.display = 'block';
+        } else {
+          div.style.display = 'none';
+          img.src = '';
+        }
+      });
+    }
+
+    // ===== LOAD NEWS =====
+    async function loadNewsSection() {
+      const btn = document.getElementById('btn-reload-news');
+      if (btn) btn.disabled = true;
+      const tbody = document.getElementById('news-table-body');
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b;padding:24px;">⏳ Cargando...</td></tr>`;
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+      try {
+        const resp = await fetch(`${API_BASE}/ows-store/news?include_inactive=true&limit=80`, {
+          headers: { 'x-ows-admin-token': adminSecret }
+        });
+        const data = await resp.json();
+        cachedNews = Array.isArray(data) ? data : [];
+        document.getElementById('news-count').textContent = `· ${cachedNews.length} noticias`;
+        renderNewsTable(cachedNews);
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:24px;">Error al cargar noticias: ${e.message}</td></tr>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function canonicalProjectSlug(slug) {
+      if (!slug) return '';
+      return String(slug).toLowerCase().trim()
+        .replace(/[^a-z0-9-_]/g, '-')
+        .replace(/-+/g, '-');
+    }
+
+    function detectKnownEventProjectKey(entry) {
+      const names = Array.isArray(entry?.project_names) ? entry.project_names.map(n => String(n || '').toLowerCase()) : [];
+      const blob = `${entry?.title || ''} ${entry?.description || ''} ${(entry?.changes || []).join(' ')} ${names.join(' ')}`.toLowerCase();
+      if (blob.includes('wild destiny') || blob.includes('wild-destiny') || blob.includes('wilddestiny')) return 'wild-destiny';
+      if (blob.includes('ecoxion')) return 'ecoxion';
+      if (blob.includes('naturepedia')) return 'naturepedia';
+      if (blob.includes('wildshorts') || blob.includes('wild shorts') || blob.includes('wild-shorts')) return 'wildshorts';
+      return '';
+    }
+
+    function dedupeLaunchEvents(entries = []) {
+      const dedupeProjectKeys = new Set(['wild-destiny', 'ecoxion', 'naturepedia', 'wildshorts']);
+      const normal = [];
+      const byKey = new Map();
+      const rankEventPhase = (entry) => {
+        const startMs = Date.parse(entry?.eventStart || entry?.starts_at || entry?.event_start || '') || 0;
+        const endMs = Date.parse(entry?.eventEnd || entry?.ends_at || entry?.event_end || '') || 0;
+        const now = Date.now();
+        let phase = 'active';
+        if (startMs && now < startMs) phase = 'upcoming';
+        else if (endMs && now > endMs) phase = 'ended';
+        
+        if (phase === 'active') return 3;
+        if (phase === 'upcoming') return 2;
+        if (phase === 'ended') return 1;
+        return 0;
+      };
+      const pickPreferredEvent = (current, next) => {
+        if (!current) return next;
+        if (!next) return current;
+        const currentPhaseRank = rankEventPhase(current);
+        const nextPhaseRank = rankEventPhase(next);
+        if (nextPhaseRank !== currentPhaseRank) {
+          return nextPhaseRank > currentPhaseRank ? next : current;
+        }
+        const curPriority = Number(current?.priority || 0);
+        const nextPriority = Number(next?.priority || 0);
+        if (nextPriority !== curPriority) {
+          return nextPriority > curPriority ? next : current;
+        }
+        const curTs = Date.parse(current?.update_date || current?.eventStart || current?.starts_at || '') || 0;
+        const nextTs = Date.parse(next?.update_date || next?.eventStart || next?.starts_at || '') || 0;
+        if (nextTs !== curTs) {
+          return nextTs > curTs ? next : current;
+        }
+        return next;
+      };
+      (Array.isArray(entries) ? entries : []).forEach(entry => {
+        if (!entry) return;
+        const entryType = String(entry.entry_type || entry.kind || '').trim().toLowerCase();
+        const isEvent = entryType === 'event' || entryType === 'evento';
+       // ===== PRIORITY VISIBILITY SYSTEM =====
+    const NEWS_GRID_LIMIT = 12; // OWS Store Hub News muestra max 12 items (1 featured + 11 grid)
+
+    function getNewsPriorityRankedList() {
+      // Simulates OWS Store sort: priority DESC, date DESC (active only)
+      return [...cachedNews]
+        .filter(n => n.is_active !== false)
+        .sort((a, b) => {
+          const pa = Number(a.priority || 0), pb = Number(b.priority || 0);
+          if (pa !== pb) return pb - pa;
+          return new Date(b.published_at || b.update_date || 0) - new Date(a.published_at || a.update_date || 0);
+        });
+    }
+
+    function getNewsVisibilityInfo(newsItem, rankedList) {
+      if (newsItem.is_active === false) {
+        return { visible: false, reason: 'inactive', rank: null, label: 'Inactiva', color: '#64748b', icon: '🚫' };
+      }
+      const rank = rankedList.findIndex(n => n.id === newsItem.id) + 1;
+      if (rank === 0) {
+        return { visible: false, reason: 'not_in_active', rank: null, label: 'Excluida', color: '#ef4444', icon: '⚠️' };
+      }
+      if (rank <= NEWS_GRID_LIMIT) {
+        if (rank === 1) return { visible: true, reason: 'featured', rank, label: `#${rank} Destacada`, color: '#e879f9', icon: '⭐' };
+        return { visible: true, reason: 'in_grid', rank, label: `#${rank} Visible`, color: '#10b981', icon: '✅' };
+      }
+      return { visible: false, reason: 'out_of_range', rank, label: `#${rank} Oculta`, color: '#f59e0b', icon: '⚠️' };
+    }
+
+    function updateNewsPriorityHint(val) {
+      const v = parseInt(val) || 0;
+      const isActive = document.getElementById('news-is-active').value === 'true';
+      document.getElementById('news-priority-val').textContent = v;
+      const hint = document.getElementById('news-priority-hint');
+      if (!hint) return;
+
+      // Build a hypothetical ranked list replacing this item's priority
+      const currentId = parseInt(document.getElementById('news-id').value) || null;
+      const hypothetical = cachedNews.map(n => {
+        if (n.id === currentId) return { ...n, priority: v, is_active: isActive };
+        return n;
+      });
+      // If new item (no id), inject a placeholder
+      if (!currentId) hypothetical.push({ id: -1, priority: v, is_active: isActive, published_at: new Date().toISOString() });
+
+      const activeRanked = hypothetical
+        .filter(n => n.is_active !== false)
+        .sort((a, b) => {
+          const pa = Number(a.priority || 0), pb = Number(b.priority || 0);
+          if (pa !== pb) return pb - pa;
+          return new Date(b.published_at || b.update_date || 0) - new Date(a.published_at || a.update_date || 0);
+        });
+
+      const targetId = currentId || -1;
+      const rank = activeRanked.findIndex(n => n.id === targetId) + 1;
+      const total = activeRanked.length;
+
+      if (!isActive) {
+        hint.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:rgba(100,116,139,0.08);border:1px solid rgba(100,116,139,0.25);color:#94a3b8;';
+        hint.innerHTML = `🚫 <strong>Noticia inactiva:</strong> No aparecerá en OWS Store independientemente de su prioridad. Actívala para que sea visible.`;
+        return;
+      }
+
+      if (rank > 0 && rank <= NEWS_GRID_LIMIT) {
+        const isFeature = rank === 1;
+        hint.style.cssText = `margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:${isFeature ? 'rgba(232,121,249,0.08)' : 'rgba(16,185,129,0.08)'};border:1px solid ${isFeature ? 'rgba(232,121,249,0.3)' : 'rgba(16,185,129,0.3)'};color:${isFeature ? '#e879f9' : '#10b981'};`;
+        hint.innerHTML = `${isFeature ? '⭐' : '✅'} <strong>Posición #${rank} de ${total} activas</strong> — ${isFeature ? 'Aparecerá como <strong>Noticia Destacada</strong> (la más visible).' : `Dentro del top ${NEWS_GRID_LIMIT} del grid de OWS Store. <strong>Visible.</strong>`}`;
+    function updateEventPriorityHint(val) {
+      const v = parseInt(val) || 0;
+      const isActive = document.getElementById('event-is-active').value === 'true';
+      document.getElementById('event-priority-val').textContent = v;
+      const hint = document.getElementById('event-priority-hint');
+      if (!hint) return;
+
+      const title = document.getElementById('event-title').value.trim();
+      const desc = document.getElementById('event-description').value.trim();
+      const changesRaw = document.getElementById('event-changes').value;
+      const namesRaw = document.getElementById('event-project-names').value;
+      const blob = `${title} ${desc} ${changesRaw} ${namesRaw}`.toLowerCase();
+      const matchesStore = blob.includes('ows store') || blob.includes('ows-store');
+
+      if (!isActive) {
+        hint.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:rgba(100,116,139,0.08);border:1px solid rgba(100,116,139,0.25);color:#94a3b8;';
+        hint.innerHTML = `🚫 <strong>Evento inactivo:</strong> No aparecerá en OWS Store. Actívalo para que sea visible.`;
+        return;
+      }
+
+      if (!matchesStore) {
+        hint.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#f87171;';
+        hint.innerHTML = `⚠️ <strong>Falta vinculación con OWS Store:</strong> Este evento no menciona "OWS Store" en sus campos. OWS Store lo filtrará y no se mostrará en su timeline.`;
+        return;
+      }
+
+      // Rank predictive check for timeline (Top 20)
+      const currentId = parseInt(document.getElementById('event-id').value) || null;
+      const hypothetical = cachedEvents.map(ev => {
+        if (ev.id === currentId) return { ...ev, priority: v, is_active: isActive };
+        return ev;
+      });
+      if (!currentId) {
+        hypothetical.push({ id: -1, priority: v, is_active: isActive, update_date: new Date().toISOString() });
+      }
+
+      const activeTimelineList = hypothetical
+        .filter(ev => {
+          if (ev.is_active === false) return false;
+          const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
+          if (keys.some(k => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
+          const b = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();
+          return b.includes('ows store');
+        })
+        .sort((a, b) => {
+          const dateA = new Date(a.update_date || a.eventStart || a.starts_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.update_date || b.eventStart || b.starts_at || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+
+      const targetId = currentId || -1;
+      const rank = activeTimelineList.findIndex(ev => ev.id === targetId) + 1;
+      const total = activeTimelineList.length;
+
+      if (rank > 0 && rank <= 20) {
+        hint.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);color:#10b981;';
+        hint.innerHTML = `✅ <strong>Posición #${rank} de ${total} en el Timeline</strong> — Aparecerá visible en el panel del OWS Store (Top 20).`;
+      } else if (rank > 20) {
+        const missing = rank - 20;
+        hint.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;';
+        hint.innerHTML = `⚠️ <strong>Posición #${rank} de ${total}</strong> — OWS Store solo muestra los primeros 20 eventos por fecha. Este evento está ${missing} posición(es) fuera del rango visible.`;
+      } else {
+        hint.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:rgba(100,116,139,0.06);border:1px solid rgba(100,116,139,0.2);color:#94a3b8;';
+        hint.innerHTML = `➖ Prioridad establecida.`;
+      }
+    }
+
+    function renderEventsHiddenAlert(allEvents) {
+      const existingAlert = document.getElementById('events-hidden-alert');
+      if (existingAlert) existingAlert.remove();
+
+      const activeTimelineList = allEvents
+        .filter(ev => {
+          if (ev.is_active === false) return false;
+          const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
+          if (keys.some(k => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
+          const blob = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();
+          return blob.includes('ows store');
+        })
+        .sort((a, b) => {
+          const dateA = new Date(a.update_date || a.eventStart || a.starts_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.update_date || b.eventStart || b.starts_at || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+
+      const hidden = activeTimelineList.slice(20);
+      if (!hidden.length) return;
+
+      const container = document.getElementById('events-table-body')?.closest('table')?.parentElement;
+      if (!container) return;
+
+      const names = hidden.slice(0, 3).map(ev => `"${(ev.title || '').slice(0, 30)}"`).join(', ');
+      const extra = hidden.length > 3 ? ` y ${hidden.length - 3} más` : '';
+      const alert = document.createElement('div');
+      alert.id = 'events-hidden-alert';
+      alert.style.cssText = 'margin-bottom:12px;padding:12px 16px;border-radius:12px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;font-size:0.8rem;line-height:1.5;display:flex;gap:10px;align-items:flex-start;';
+      alert.innerHTML = `
+        <span style="font-size:1.2rem;flex-shrink:0;">⚠️</span>
+        <div>
+          <strong>${hidden.length} evento(s) activo(s) no se muestran en OWS Store</strong> (el timeline muestra máx. 20).<br>
+          <span style="opacity:0.85;">Ocultos por fecha: ${names}${extra}.</span>
+        </div>
+      `;
+      container.insertBefore(alert, container.firstChild);
+    }
+
+    // ===== LOAD EVENTS (Timeline) =====
+    async function loadEventsSection() {
+      const btn = document.getElementById('btn-reload-events');
+      if (btn) btn.disabled = true;
+      const tbody = document.getElementById('events-table-body');
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b;padding:24px;">⏳ Cargando...</td></tr>`;
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+      try {
+        const resp = await fetch(`${API_BASE}/ows-news/updates?include_inactive=true&limit=80`, {
+          headers: { 'x-ows-admin-token': adminSecret }
+        });
+        const data = await resp.json();
+        cachedEvents = Array.isArray(data) ? data : [];
+        renderEventsTable(cachedEvents);
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:24px;">Error al cargar eventos: ${e.message}</td></tr>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function renderEventsTable(list) {
+      let filteredList = [...list];
+      const filterCheckbox = document.getElementById('filter-events-store');
+      if (filterCheckbox && filterCheckbox.checked) {
+        filteredList = filteredList.filter(ev => {
+          if (ev.is_active === false) return false;
+          const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
+          if (keys.some(k => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
+          const blob = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();
+          return blob.includes('ows store');
+        });
+        filteredList = dedupeLaunchEvents(filteredList);
+      }
+
+      // Sort: most recent first
+      filteredList.sort((a, b) => {
+        const dateA = new Date(a.update_date || a.eventStart || a.starts_at || a.created_at || 0).getTime();
+        const dateB = new Date(b.update_date || b.eventStart || b.starts_at || b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+
+      document.getElementById('events-count').textContent = `· ${filteredList.length} de ${list.length} entradas`;
+
+      // Active list for ranking
+      const activeTimelineList = list
+        .filter(ev => {
+          if (ev.is_active === false) return false;
+          const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
+          if (keys.some(k => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
+          const blob = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();
+          return blob.includes('ows store');
+        })
+        .sort((a, b) => {
+          const dateA = new Date(a.update_date || a.eventStart || a.starts_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.update_date || b.eventStart || b.starts_at || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+
+      const tbody = document.getElementById('events-table-body');
+      if (!filteredList.length) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b;padding:30px;">No hay eventos con los filtros seleccionados.</td></tr>`;
+        renderEventsHiddenAlert(list);
+        return;
+      }
+      tbody.innerHTML = filteredList.map((ev, idx) => {
+        const isMostRecent = idx === 0 && ev.is_active !== false;
+        const rowStyle = isMostRecent ? 'background: rgba(245, 158, 11, 0.06); border-left: 3px solid #f59e0b;' : '';
+        const recentBadge = isMostRecent ? ' <span style="font-size:0.65rem; background:#f59e0b; color:#0f172a; font-weight:700; padding:1px 5px; border-radius:4px; margin-left:6px; letter-spacing:0.02em;">RECIENTE</span>' : '';
+        
+        const bm = ev.banner_meta || ev.bannerMeta || ev.visual_meta || ev.visualMeta || {};
+        let imgUrl = bm.cover_url || bm.coverUrl || bm.image_url || bm.imageUrl || bm.banner_url || bm.bannerUrl || bm.image || bm.poster_url || bm.posterUrl || bm.url || (ev.model_2d_payload?.image) || (ev.model2d?.image) || '';
+        
+        if (!imgUrl) {
+          const projectSlug = String((ev.project_slugs || [])[0] || (ev.related_project_slug) || '').toLowerCase();
+          const projectNames = (ev.project_names || []).map(p => String(p).toLowerCase());
+          const titleLower = String(ev.title || '').toLowerCase();
+          
+          if (projectSlug === 'savagespaceanimals' || projectSlug === 'savage-space-animals' || projectNames.includes('savage space animals') || titleLower.includes('savage space animals') || titleLower.includes('ssa')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/ssa.ico';
+          } else if (projectSlug === 'ecoxion' || projectNames.includes('ecoxion') || titleLower.includes('ecoxion')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/ecoxion.ico';
+          } else if (projectSlug === 'naturepedia' || projectNames.includes('naturepedia') || titleLower.includes('naturepedia')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/naturepediaannouncement.png';
+          } else if (projectSlug === 'wildweapon' || projectSlug === 'wildweapon-mayhem' || projectNames.includes('wildweapon mayhem') || titleLower.includes('wildweapon')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/wildweaponmayhem.ico';
+          } else if (projectSlug === 'wild-destiny' || projectSlug === 'wilddestiny' || projectNames.includes('wild destiny') || titleLower.includes('wild destiny')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/wilddestiny.ico';
+          } else if (projectSlug === 'ocean-cinemas' || projectNames.includes('ocean cinemas') || titleLower.includes('ocean cinemas')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/oceancinemas.jpg';
+          } else if (projectSlug === 'wildshorts' || projectNames.includes('wildshorts') || titleLower.includes('wildshorts')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/wildshorts.jpg';
+          } else if (projectSlug === 'ocean-pay' || projectNames.includes('ocean pay') || titleLower.includes('ocean pay')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/oceanpay.ico';
+          } else if (projectSlug === 'floret-shop' || projectNames.includes('floret shop') || titleLower.includes('floret shop')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png';
+          } else if (projectSlug === 'wildtransfer' || projectNames.includes('wildtransfer') || titleLower.includes('wildtransfer')) {
+            imgUrl = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/wildtransfer.ico';
+          }
+        }
+
+        const imgHtml = imgUrl
+          ? `<img src="${imgUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:1px solid rgba(245,158,11,0.3);" onerror="this.src='https://placehold.co/50x50/0f172a/7dd9ff?text=OWS'">`
+          : `<div style="width:50px;height:50px;border-radius:8px;background:rgba(245,158,11,0.08);border:1px dashed rgba(245,158,11,0.3);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🎉</div>`;
+
+        const startMs = Date.parse(ev.eventStart || ev.starts_at || ev.event_start || '') || 0;
+        const endMs = Date.parse(ev.eventEnd || ev.ends_at || ev.event_end || '') || 0;
+        const now = Date.now();
+        
+        let statusText = 'Activo';
+        let statusColor = '#10b981';
+        
+        if (ev.is_active === false) {
+          statusText = 'Inactivo';
+          statusColor = '#64748b';
+        } else if (endMs && now > endMs) {
+          statusText = 'Finalizado';
+          statusColor = '#ef4444';
+        } else if (startMs && now < startMs) {
+          const secondsToStart = Math.max(0, Math.floor((startMs - now) / 1000));
+          const day = 86400;
+          if (secondsToStart <= day) {
+            statusText = 'Muy Pronto (Hoy)';
+            statusColor = '#f59e0b';
+          } else if (secondsToStart <= 3 * day) {
+            statusText = 'Muy Pronto';
+            statusColor = '#fb923c';
+          } else if (secondsToStart <= 7 * day) {
+            statusText = 'Esta Semana';
+            statusColor = '#ffd075';
+          } else {
+            statusText = 'Próximamente';
+            statusColor = '#38bdf8';
+          }
+        } else if (!startMs && !endMs) {
+          statusText = 'Por definir';
+          statusColor = '#a855f7';
+        } else {
+          statusText = 'Activo';
+          statusColor = '#10b981';
+        }
+
+        const statusDot = `<span style="color:${statusColor}; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:5px;"><span style="width:7px; height:7px; border-radius:50%; background:${statusColor}; display:inline-block;"></span> ${statusText}</span>`;
+
+        const tipo = ev.entry_type || ev.kind || 'changelog';
+        const kindColor = tipo === 'event' || tipo === 'evento' ? '#f59e0b' : tipo === 'news' ? '#a855f7' : '#38bdf8';
+        const proyecto = (ev.project_names || []).join(', ') || 'Global';
+        const startAt = ev.eventStart || ev.starts_at ? new Date(ev.eventStart || ev.starts_at).toLocaleDateString('es-ES') : '—';
+
+        // Event Visibility badge
+        let visBadge = '';
+        if (ev.is_active === false) {
+          visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(100,116,139,0.12);color:#64748b;border:1px solid rgba(100,116,139,0.25);">🚫 Inactivo</span>`;
+        } else {
+          const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
+          const matchesStore = keys.some(k => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store')) ||
+                                `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase().includes('ows store');
+          
+          if (!matchesStore) {
+            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);" title="No menciona 'OWS Store', por lo que OWS Store lo filtrará y no lo mostrará en el timeline.">⚠️ No OWS Store</span>`;
+          } else {
+            const rank = activeTimelineList.findIndex(x => x.id === ev.id) + 1;
+            if (rank > 0 && rank <= 20) {
+              visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.25);" title="Aparece en el Timeline de OWS Store">#${rank} Visible</span>`;
+            } else {
+              visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);" title="Queda fuera del top 20 por fecha de publicación/evento">⚠️ #${rank} Oculto</span>`;
+            }
+          }
+        }
+
+        return `<tr style="${rowStyle}">
+          <td style="padding:10px 16px;">${imgHtml}</td>
+          <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.title || ''}">${ev.title || '(sin título)'}${recentBadge}</td>
+          <td><span style="font-size:0.72rem;padding:2px 8px;border-radius:20px;background:rgba(255,255,255,0.06);color:${kindColor};border:1px solid ${kindColor}40;">${tipo}</span></td>
+          <td style="font-size:0.78rem;color:#94a3b8;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${proyecto}</td>
+          <td>${statusDot}</td>
+          <td style="font-family:monospace;font-size:0.8rem;text-align:center;">${ev.priority ?? 0}</td>
+          <td>${visBadge}</td>
+          <td style="font-size:0.78rem;color:#94a3b8;">${startAt}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <button onclick="openEditEventModal(${ev.id})" style="padding:5px 10px;border-radius:7px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.1);color:#f59e0b;font-size:0.72rem;cursor:pointer;font-family:var(--font-space);font-weight:700;letter-spacing:0.04em;">✏️ Editar</button>
+              <button onclick="toggleEventActive(${ev.id}, ${!(ev.is_active !== false)})" style="padding:5px 8px;border-radius:7px;border:1px solid rgba(100,116,139,0.3);background:rgba(100,116,139,0.08);color:#94a3b8;font-size:0.72rem;cursor:pointer;">${ev.is_active !== false ? '🔕' : '🔔'}</button>
+              <button onclick="requestDeleteEvent(${ev.id}, '${(ev.title || 'sin título').replace(/'/g, "\\'")}')" style="padding:5px 8px;border-radius:7px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#f87171;font-size:0.72rem;cursor:pointer;" title="Eliminar Evento">🗑️</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ===== NEWS MODAL =====
+    function openAddNewsModal() {
+      document.getElementById('news-form').reset();
+      document.getElementById('news-id').value = '';
+      document.getElementById('news-modal-title').textContent = '📰 Nueva Noticia';
+      document.getElementById('news-submit-btn').textContent = 'Crear Noticia';
+      document.getElementById('news-image-preview').style.display = 'none';
+      document.getElementById('news-priority').value = 0;
+      updateNewsPriorityHint(0);
+      document.getElementById('news-modal').style.display = 'flex';
+    }
+
+    function openEditNewsModal(id) {
+      const n = cachedNews.find(x => x.id === id);
+      if (!n) return;
+      document.getElementById('news-id').value = n.id;
+      document.getElementById('news-title').value = n.title || '';
+      document.getElementById('news-description').value = n.description || '';
+      document.getElementById('news-project-slug').value = n.related_project_slug || (n.project_slugs?.[0]) || '';
+      document.getElementById('news-project-name').value = n.related_project_name || (n.project_names?.[0]) || '';
+      const bm = n.banner_meta || {};
+      const imgUrl = bm.url || bm.image || bm.banner_url || bm.image_url || bm.cover_url || '';
+      document.getElementById('news-image-url').value = imgUrl;
+      const prevDiv = document.getElementById('news-image-preview');
+      const prevImg = document.getElementById('news-img-preview-tag');
+      if (imgUrl) { prevImg.src = imgUrl; prevDiv.style.display = 'block'; } else prevDiv.style.display = 'none';
+      document.getElementById('news-content-lines').value = (n.content_lines || n.changes || []).join('\n');
+      const prio = n.priority ?? 0;
+      document.getElementById('news-priority').value = prio;
+      document.getElementById('news-published-at').value = toDatetimeLocal(n.published_at || n.update_date);
+      document.getElementById('news-is-active').value = n.is_active !== false ? 'true' : 'false';
+      document.getElementById('news-modal-title').textContent = '✏️ Editar Noticia';
+      document.getElementById('news-submit-btn').textContent = 'Guardar Cambios';
+      document.getElementById('news-modal').style.display = 'flex';
+    }
+
+    function closeNewsModal() {
+      document.getElementById('news-modal').style.display = 'none';
+    }
+
+    document.getElementById('news-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('news-id').value;
+      const title = document.getElementById('news-title').value.trim();
+      const description = document.getElementById('news-description').value.trim();
+      const imageUrl = document.getElementById('news-image-url').value.trim();
+      const projectSlug = document.getElementById('news-project-slug').value.trim();
+      const projectName = document.getElementById('news-project-name').value.trim() || 'Global';
+      const contentLinesRaw = document.getElementById('news-content-lines').value;
+      const contentLines = contentLinesRaw.split('\n').map(l => l.trim()).filter(Boolean);
+      const priority = parseInt(document.getElementById('news-priority').value) || 0;
+      const publishedAt = document.getElementById('news-published-at').value || null;
+      const isActive = document.getElementById('news-is-active').value === 'true';
+      const bannerMeta = imageUrl ? { url: imageUrl, image: imageUrl } : {};
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+      const btn = document.getElementById('news-submit-btn');
+      btn.disabled = true;
+      btn.textContent = id ? 'Guardando...' : 'Creando...';
+
+      try {
+        let resp, data;
+        if (id) {
+          // PATCH existing
+          resp = await fetch(`${API_BASE}/ows-store/news/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-ows-admin-token': adminSecret },
+            body: JSON.stringify({
+              title, description, content_lines: contentLines,
+              related_project_slug: projectSlug || null,
+              related_project_name: projectName,
+              banner_meta: bannerMeta,
+              is_active: isActive, priority,
+              published_at: publishedAt || undefined
+            })
+          });
+          data = await resp.json();
+        } else {
+          // POST new
+          resp = await fetch(`${API_BASE}/ows-store/news`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-ows-admin-token': adminSecret },
+            body: JSON.stringify({
+              title, description, content_lines: contentLines,
+              related_project_slug: projectSlug || null,
+              related_project_name: projectName,
+              banner_meta: bannerMeta,
+              is_active: isActive, priority,
+              published_at: publishedAt || undefined
+            })
+          });
+          data = await resp.json();
+        }
+        if (resp.ok && (data.success || data.news || data.id)) {
+          closeNewsModal();
+          await loadNewsSection();
+          const t = new Date().toLocaleTimeString();
+          const row = document.createElement('div');
+          row.className = 'console-log-row';
+          row.innerHTML = `<span class="console-timestamp">[${t}]</span> <span class="console-tag-success">[NEWS]</span> ${id ? 'Actualizada' : 'Creada'} noticia: "${title}"`;
+          document.getElementById('console-log-box').appendChild(row);
+          document.getElementById('console-log-box').scrollTop = 99999;
+        } else {
+          alert(`Error: ${data.error || 'Respuesta inesperada'}`);
+        }
+      } catch (err) {
+        alert('Error de red: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = id ? 'Guardar Cambios' : 'Crear Noticia';
+      }
+    });
+
+    // ===== RIGOROUS DELETE LOGIC =====
+    let currentDeleteRequiredCode = '';
+    let currentDeleteRequiredName = '';
+
+    function generateRandomDeleteCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // omit ambiguous ones
+      let code = 'OWS-DEL-';
+      for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    }
+
+    function openDeleteVerifyModal(kind, idOrSlug, name) {
+      currentDeleteRequiredCode = generateRandomDeleteCode();
+      currentDeleteRequiredName = String(name || '').trim();
+      
+      document.getElementById('del-target-kind').value = kind;
+      document.getElementById('del-target-id-or-slug').value = idOrSlug;
+      document.getElementById('del-target-type').textContent = kind.toUpperCase();
+      document.getElementById('del-target-name').textContent = currentDeleteRequiredName;
+      document.getElementById('del-required-code').textContent = currentDeleteRequiredCode;
+      
+      // Reset inputs
+      document.getElementById('del-input-code').value = '';
+      document.getElementById('del-input-name').value = '';
+      
+      document.getElementById('delete-verify-modal').style.display = 'flex';
+    }
+
+    function closeDeleteVerifyModal() {
+      document.getElementById('delete-verify-modal').style.display = 'none';
+    }
+
+    function requestDeleteProject(slug, name) {
+      openDeleteVerifyModal('proyecto', slug, name);
+    }
+
+    function requestDeleteNews(id, title) {
+      openDeleteVerifyModal('noticia', id, title);
+    }
+
+    function requestDeleteEvent(id, title) {
+      openDeleteVerifyModal('evento', id, title);
+    }
+
+    async function executeRigorousDelete(e) {
+      e.preventDefault();
+      
+      const inputCode = document.getElementById('del-input-code').value.trim().toUpperCase();
+      const inputName = document.getElementById('del-input-name').value.trim();
+      const kind = document.getElementById('del-target-kind').value;
+      const idOrSlug = document.getElementById('del-target-id-or-slug').value;
+      
+      if (inputCode !== currentDeleteRequiredCode) {
+        alert('Código de seguridad incorrecto.');
+        return;
+      }
+      
+      if (inputName.toLowerCase() !== currentDeleteRequiredName.toLowerCase()) {
+        alert('El nombre del elemento ingresado no coincide con el original.');
+        return;
+      }
+
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+      const btn = document.getElementById('delete-confirm-btn');
+      btn.disabled = true;
+      btn.textContent = 'Eliminando de forma permanente...';
+
+      try {
+        let url = '';
+        let method = 'DELETE';
+        if (kind === 'proyecto') {
+          url = `${API_BASE}/ows-store/projects/${idOrSlug}`;
+        } else if (kind === 'noticia') {
+          url = `${API_BASE}/ows-store/news/${idOrSlug}`;
+        } else if (kind === 'evento') {
+          url = `${API_BASE}/ows-news/updates/${idOrSlug}`;
+        }
+
+        const resp = await fetch(url, {
+          method: method,
+          headers: { 'x-ows-admin-token': adminSecret }
+        });
+        const data = await resp.json();
+
+        if (resp.ok && data.success) {
+          closeDeleteVerifyModal();
+          
+          // Log in console
+          const t = new Date().toLocaleTimeString();
+          const row = document.createElement('div');
+          row.className = 'console-log-row';
+          row.innerHTML = `<span class="console-timestamp">[${t}]</span> <span class="console-tag-fail" style="background:#ef4444; color:#fff; padding:2px 6px; border-radius:4px; font-weight:700;">[ELIMINADO]</span> Registro de ${kind} "${currentDeleteRequiredName}" borrado de la base de datos.`;
+          document.getElementById('console-log-box').appendChild(row);
+          document.getElementById('console-log-box').scrollTop = 99999;
+
+          // Reload corresponding sections
+          if (kind === 'proyecto') {
+            await loadEcoProjects();
+          } else if (kind === 'noticia') {
+            await loadNewsSection();
+          } else if (kind === 'evento') {
+            await loadEventsSection();
+          }
+        } else {
+          alert('Error al eliminar: ' + (data.error || 'desconocido'));
+        }
+      } catch (err) {
+        alert('Error de red: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Eliminar Permanentemente';
+      }
+    }
+
+    // ===== EVENT MODAL =====
+    function openAddEventModal() {
+      document.getElementById('event-form').reset();
+      document.getElementById('event-id').value = '';
+      document.getElementById('event-modal-title').textContent = '🎉 Nuevo Evento / Actualización';
+      document.getElementById('event-submit-btn').textContent = 'Crear Evento';
+      document.getElementById('event-image-preview').style.display = 'none';
+      document.getElementById('event-priority').value = 0;
+      updateEventPriorityHint(0);
+      document.getElementById('event-modal').style.display = 'flex';
+    }
+
+    function openEditEventModal(id) {
+      const ev = cachedEvents.find(x => x.id === id);
+      if (!ev) return;
+      document.getElementById('event-id').value = ev.id;
+      document.getElementById('event-title').value = ev.title || '';
+      document.getElementById('event-description').value = ev.description || '';
+      document.getElementById('event-type').value = ev.entry_type || ev.kind || 'changelog';
+      document.getElementById('event-platforms').value = (ev.platforms || []).join(', ');
+      document.getElementById('event-project-slugs').value = (ev.project_slugs || []).join(', ');
+      document.getElementById('event-project-names').value = (ev.project_names || []).join(', ');
+      const bm = ev.banner_meta || ev.visual_meta || {};
+      const imgUrl = bm.url || bm.image || bm.banner_url || '';
+      document.getElementById('event-banner-url').value = imgUrl;
+      const prevDiv = document.getElementById('event-image-preview');
+      const prevImg = document.getElementById('event-img-preview-tag');
+      if (imgUrl) { prevImg.src = imgUrl; prevDiv.style.display = 'block'; } else prevDiv.style.display = 'none';
+      document.getElementById('event-changes').value = (ev.changes || []).join('\n');
+      document.getElementById('event-start').value = toDatetimeLocal(ev.eventStart || ev.starts_at);
+      document.getElementById('event-end').value = toDatetimeLocal(ev.eventEnd || ev.ends_at);
+      const evPrio = ev.priority ?? 0;
+      document.getElementById('event-priority').value = evPrio;
+      document.getElementById('event-published-at').value = toDatetimeLocal(ev.update_date || ev.published_at);
+      document.getElementById('event-is-active').value = ev.is_active !== false ? 'true' : 'false';
+      document.getElementById('event-modal-title').textContent = '✏️ Editar Evento';
+      document.getElementById('event-submit-btn').textContent = 'Guardar Cambios';
+      document.getElementById('event-modal').style.display = 'flex';
+      setTimeout(() => updateEventPriorityHint(evPrio), 50);
+    }
+
+    function closeEventModal() {
+      document.getElementById('event-modal').style.display = 'none';
+    }
+
+    document.getElementById('event-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('event-id').value;
+      const title = document.getElementById('event-title').value.trim();
+      const description = document.getElementById('event-description').value.trim();
+      const entryType = document.getElementById('event-type').value;
+      const platformsRaw = document.getElementById('event-platforms').value;
+      const platforms = platformsRaw.split(',').map(p => p.trim().toLowerCase()).filter(Boolean);
+      const slugsRaw = document.getElementById('event-project-slugs').value;
+      const projectSlugs = slugsRaw.split(',').map(p => p.trim()).filter(Boolean);
+      const namesRaw = document.getElementById('event-project-names').value;
+      const projectNames = namesRaw.split(',').map(p => p.trim()).filter(Boolean);
+      const bannerUrl = document.getElementById('event-banner-url').value.trim();
+      const changesRaw = document.getElementById('event-changes').value;
+      const changes = changesRaw.split('\n').map(l => l.trim()).filter(Boolean);
+      const eventStart = document.getElementById('event-start').value || null;
+      const eventEnd = document.getElementById('event-end').value || null;
+      const priority = parseInt(document.getElementById('event-priority').value) || 0;
+      const publishedAt = document.getElementById('event-published-at').value || null;
+      const isActive = document.getElementById('event-is-active').value === 'true';
+      const bannerMeta = bannerUrl ? { url: bannerUrl, image: bannerUrl } : {};
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+      const btn = document.getElementById('event-submit-btn');
+      btn.disabled = true;
+      btn.textContent = id ? 'Guardando...' : 'Creando...';
+
+      try {
+        let resp, data;
+        const payload = {
+          title, description,
+          entry_type: entryType,
+          platforms: platforms.length ? platforms : ['windows'],
+          project_slugs: projectSlugs,
+          project_names: projectNames,
+          changes,
+          banner_meta: bannerMeta,
+          is_active: isActive,
+          priority,
+          update_date: publishedAt || undefined,
+          event_start: eventStart || undefined,
+          event_end: eventEnd || undefined
+        };
+
+        if (id) {
+          resp = await fetch(`${API_BASE}/ows-news/updates/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-ows-admin-token': adminSecret },
+            body: JSON.stringify(payload)
+          });
+        } else {
+          resp = await fetch(`${API_BASE}/ows-news/updates`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-ows-admin-token': adminSecret },
+            body: JSON.stringify(payload)
+          });
+        }
+        data = await resp.json();
+        if (resp.ok && (data.success || data.update || data.id)) {
+          closeEventModal();
+          await loadEventsSection();
+          const t = new Date().toLocaleTimeString();
+          const row = document.createElement('div');
+          row.className = 'console-log-row';
+          row.innerHTML = `<span class="console-timestamp">[${t}]</span> <span class="console-tag-success">[EVENT]</span> ${id ? 'Actualizado' : 'Creado'} evento: "${title}" (${entryType})`;
+          document.getElementById('console-log-box').appendChild(row);
+          document.getElementById('console-log-box').scrollTop = 99999;
+        } else {
+          alert(`Error: ${data.error || JSON.stringify(data)}`);
+        }
+      } catch (err) {
+        alert('Error de red: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = id ? 'Guardar Cambios' : 'Crear Evento';
+      }
+    });
+
+    async function toggleEventActive(id, newState) {
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+      try {
+        const resp = await fetch(`${API_BASE}/ows-news/updates/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-ows-admin-token': adminSecret },
+          body: JSON.stringify({ is_active: newState })
+        });
+        if (resp.ok) await loadEventsSection();
+        else { const d = await resp.json(); alert('Error: ' + (d.error || 'desconocido')); }
+      } catch (err) {
+        alert('Error de red: ' + err.message);
+      }
+    }
+
+    // Attach image previews
+    attachImagePreview('news-image-url', 'news-image-preview', 'news-img-preview-tag');
+    attachImagePreview('event-banner-url', 'event-image-preview', 'event-img-preview-tag');
 
     // ============================================================
     // HEALTH CHECK SYSTEM

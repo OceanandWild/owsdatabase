@@ -11508,32 +11508,49 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
     pushUpdate('title', title);
   }
 
-  if (payload.project_names !== undefined || payload.projectNames !== undefined) {
-    const projectNames = toNewsArray(payload.project_names || payload.projectNames || []);
-    const refs = normalizeTimelineProjectRefs(projectNames, []);
-    const unknownSlugs = await getUnknownTimelineProjectSlugs(refs.projectSlugs);
-    if (unknownSlugs.length) {
-      return res.status(400).json({
-        error: 'project_names genera slugs inexistentes',
-        unknown_project_slugs: unknownSlugs
-      });
-    }
-    pushUpdate('project_names', projectNames);
-    pushUpdate('project_slugs', refs.projectSlugs);
-  }
+  // Resolve project_names and project_slugs together to avoid duplicate column assignment.
+  // project_slugs takes precedence when both are provided; otherwise project_names drives slug derivation.
+  {
+    const hasNames = payload.project_names !== undefined || payload.projectNames !== undefined;
+    const hasSlugs = payload.project_slugs !== undefined || payload.projectSlugs !== undefined;
 
-  if (payload.project_slugs !== undefined || payload.projectSlugs !== undefined) {
-    const projectSlugs = toNewsArray(payload.project_slugs || payload.projectSlugs || [])
-      .map((x) => normalizeProjectSlug(x))
-      .filter(Boolean);
-    const unknownSlugs = await getUnknownTimelineProjectSlugs(projectSlugs);
-    if (unknownSlugs.length) {
-      return res.status(400).json({
-        error: 'project_slugs contiene slugs inexistentes',
-        unknown_project_slugs: unknownSlugs
-      });
+    if (hasNames || hasSlugs) {
+      let finalSlugs = [];
+      let finalNames = [];
+
+      if (hasSlugs) {
+        // Explicit slugs are authoritative
+        finalSlugs = toNewsArray(payload.project_slugs || payload.projectSlugs || [])
+          .map((x) => normalizeProjectSlug(x))
+          .filter(Boolean);
+        const unknownSlugs = await getUnknownTimelineProjectSlugs(finalSlugs);
+        if (unknownSlugs.length) {
+          return res.status(400).json({
+            error: 'project_slugs contiene slugs inexistentes',
+            unknown_project_slugs: unknownSlugs
+          });
+        }
+        // Use provided names if also present, otherwise keep slugs as names fallback
+        finalNames = hasNames
+          ? toNewsArray(payload.project_names || payload.projectNames || [])
+          : finalSlugs;
+      } else {
+        // Only project_names provided — derive slugs from them
+        finalNames = toNewsArray(payload.project_names || payload.projectNames || []);
+        const refs = normalizeTimelineProjectRefs(finalNames, []);
+        const unknownSlugs = await getUnknownTimelineProjectSlugs(refs.projectSlugs);
+        if (unknownSlugs.length) {
+          return res.status(400).json({
+            error: 'project_names genera slugs inexistentes',
+            unknown_project_slugs: unknownSlugs
+          });
+        }
+        finalSlugs = refs.projectSlugs;
+      }
+
+      pushUpdate('project_names', finalNames);
+      pushUpdate('project_slugs', finalSlugs);
     }
-    pushUpdate('project_slugs', projectSlugs);
   }
 
   if (payload.description !== undefined) {

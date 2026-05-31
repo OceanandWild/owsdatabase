@@ -3317,7 +3317,22 @@
         if (!entry) return;
         const entryType = String(entry.entry_type || entry.kind || '').trim().toLowerCase();
         const isEvent = entryType === 'event' || entryType === 'evento';
-       // ===== PRIORITY VISIBILITY SYSTEM =====
+        if (!isEvent) {
+          normal.push(entry);
+          return;
+        }
+        const known = detectKnownEventProjectKey(entry);
+        if (!dedupeProjectKeys.has(known)) {
+          normal.push(entry);
+          return;
+        }
+        const current = byKey.get(known);
+        byKey.set(known, pickPreferredEvent(current, entry));
+      });
+      return [...normal, ...[...byKey.values()]];
+    }
+
+    // ===== PRIORITY VISIBILITY SYSTEM =====
     const NEWS_GRID_LIMIT = 12; // OWS Store Hub News muestra max 12 items (1 featured + 11 grid)
 
     function getNewsPriorityRankedList() {
@@ -3384,6 +3399,22 @@
         const isFeature = rank === 1;
         hint.style.cssText = `margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:${isFeature ? 'rgba(232,121,249,0.08)' : 'rgba(16,185,129,0.08)'};border:1px solid ${isFeature ? 'rgba(232,121,249,0.3)' : 'rgba(16,185,129,0.3)'};color:${isFeature ? '#e879f9' : '#10b981'};`;
         hint.innerHTML = `${isFeature ? '⭐' : '✅'} <strong>Posición #${rank} de ${total} activas</strong> — ${isFeature ? 'Aparecerá como <strong>Noticia Destacada</strong> (la más visible).' : `Dentro del top ${NEWS_GRID_LIMIT} del grid de OWS Store. <strong>Visible.</strong>`}`;
+      } else if (rank > NEWS_GRID_LIMIT) {
+        const missing = rank - NEWS_GRID_LIMIT;
+        hint.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;';
+        hint.innerHTML = `⚠️ <strong>Posición #${rank} de ${total} activas</strong> — OWS Store solo muestra los primeros <strong>${NEWS_GRID_LIMIT}</strong>. Esta noticia está ${missing} posición(es) fuera del rango visible.<br><span style="opacity:0.8;">💡 Sube la prioridad a <strong>≥ ${getRequiredPriorityForTop(activeRanked)}</strong> para que aparezca.</span>`;
+      } else {
+        hint.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.78rem;line-height:1.5;background:rgba(100,116,139,0.06);border:1px solid rgba(100,116,139,0.2);color:#64748b;';
+        hint.innerHTML = `ℹ️ Ajusta los valores para ver la predicción de visibilidad.`;
+      }
+    }
+
+    function getRequiredPriorityForTop(rankedList) {
+      const cutoffItem = rankedList[NEWS_GRID_LIMIT - 1];
+      if (!cutoffItem) return 0;
+      return Number(cutoffItem.priority || 0);
+    }
+
     function updateEventPriorityHint(val) {
       const v = parseInt(val) || 0;
       const isActive = document.getElementById('event-is-active').value === 'true';

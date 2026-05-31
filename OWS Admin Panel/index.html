@@ -3520,6 +3520,86 @@
       `;
       container.insertBefore(alert, container.firstChild);
     }
+    function renderNewsTable(list) {
+      let filteredList = [...list];
+      const filterCheckbox = document.getElementById('filter-news-store');
+      if (filterCheckbox && filterCheckbox.checked) {
+        filteredList = filteredList.filter(n => {
+          const entryType = String(n.entry_type || n.kind || '').toLowerCase();
+          if (entryType === 'event' || entryType === 'evento' || entryType === 'banner') return false;
+          return true;
+        });
+      }
+
+      // Sort: OWS Store order (priority DESC, date DESC)
+      filteredList.sort((a, b) => {
+        const pa = Number(a.priority || 0), pb = Number(b.priority || 0);
+        if (pa !== pb) return pb - pa;
+        const dateA = new Date(a.published_at || a.update_date || a.created || 0).getTime();
+        const dateB = new Date(b.published_at || b.update_date || b.created || 0).getTime();
+        return dateB - dateA;
+      });
+
+      document.getElementById('news-count').textContent = `· ${filteredList.length} de ${list.length} noticias`;
+
+      // Compute visibility ranking for the full active set
+      const rankedActive = filteredList.filter(n => n.is_active !== false);
+
+      const tbody = document.getElementById('news-table-body');
+      if (!filteredList.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b;padding:30px;">No hay noticias con los filtros seleccionados.</td></tr>`;
+        renderNewsHiddenAlert(list);
+        return;
+      }
+      tbody.innerHTML = filteredList.map((n, idx) => {
+        const isMostRecent = idx === 0 && n.is_active !== false;
+        const rowStyle = isMostRecent ? 'background: rgba(232, 121, 249, 0.06); border-left: 3px solid #e879f9;' : '';
+        const recentBadge = isMostRecent ? ' <span style="font-size:0.65rem; background:#e879f9; color:#0f172a; font-weight:700; padding:1px 5px; border-radius:4px; margin-left:6px; letter-spacing:0.02em;">RECIENTE</span>' : '';
+        const bm = n.banner_meta || {};
+        const imgUrl = bm.cover_url || bm.image_url || bm.banner_url || bm.image || bm.poster_url || bm.url || '';
+        const imgHtml = imgUrl
+          ? `<img src="${imgUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:1px solid rgba(168,85,247,0.3);" onerror="this.style.display='none'">`
+          : `<div style="width:50px;height:50px;border-radius:8px;background:rgba(168,85,247,0.1);border:1px dashed rgba(168,85,247,0.3);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📰</div>`;
+        const statusDot = n.is_active
+          ? `<span style="color:#10b981;font-size:0.8rem;">● Activa</span>`
+          : `<span style="color:#64748b;font-size:0.8rem;">○ Inactiva</span>`;
+
+        // Visibility badge
+        let visBadge = '';
+        if (n.is_active === false) {
+          visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(100,116,139,0.12);color:#64748b;border:1px solid rgba(100,116,139,0.25);">🚫 Inactiva</span>`;
+        } else {
+          const rank = rankedActive.findIndex(x => x.id === n.id) + 1;
+          if (rank === 1) {
+            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(232,121,249,0.12);color:#e879f9;border:1px solid rgba(232,121,249,0.3);" title="Aparecería como Destacada en OWS Store">⭐ Destacada</span>`;
+          } else if (rank <= NEWS_GRID_LIMIT) {
+            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.25);" title="Aparece en el grid de OWS Store">#${rank} Visible</span>`;
+          } else {
+            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);" title="Queda fuera del top ${NEWS_GRID_LIMIT} que muestra OWS Store">⚠️ #${rank} Oculta</span>`;
+          }
+        }
+
+        const published = n.published_at || n.update_date ? new Date(n.published_at || n.update_date).toLocaleDateString('es-ES') : '—';
+        const proyecto = n.project_names?.[0] || n.related_project_name || 'Global';
+        return `<tr style="${rowStyle}">
+          <td style="padding:10px 16px;">${imgHtml}</td>
+          <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.title || '(sin título)'}${recentBadge}</td>
+          <td style="font-size:0.78rem;color:#94a3b8;">${proyecto}</td>
+          <td>${statusDot}</td>
+          <td style="font-family:monospace;font-size:0.8rem;text-align:center;">${n.priority ?? 0}</td>
+          <td>${visBadge}</td>
+          <td style="font-size:0.78rem;color:#94a3b8;">${published}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <button onclick="openEditNewsModal(${n.id})" style="padding:5px 10px;border-radius:7px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.1);color:#e879f9;font-size:0.72rem;cursor:pointer;font-family:var(--font-space);font-weight:700;letter-spacing:0.04em;">✏️ Editar</button>
+              <button onclick="requestDeleteNews(${n.id}, '${(n.title || 'sin título').replace(/'/g, "\\'")}')" style="padding:5px 8px;border-radius:7px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#f87171;font-size:0.72rem;cursor:pointer;" title="Eliminar Noticia">🗑️</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      renderNewsHiddenAlert(list);
+    }
 
     // ===== LOAD EVENTS (Timeline) =====
     async function loadEventsSection() {
@@ -3547,7 +3627,6 @@
       const filterCheckbox = document.getElementById('filter-events-store');
       if (filterCheckbox && filterCheckbox.checked) {
         filteredList = filteredList.filter(ev => {
-          if (ev.is_active === false) return false;
           const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
           if (keys.some(k => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
           const blob = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();

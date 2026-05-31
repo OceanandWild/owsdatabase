@@ -13688,7 +13688,7 @@ app.patch('/ows-store/projects/:slug/scheduled-release', async (req, res) => {
 app.patch('/ows-store/projects/:slug', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { slug } = req.params;
-  const allowed = ['description', 'name', 'status', 'platform', 'banner_url', 'icon_url', 'installer_url', 'url'];
+  const allowed = ['description', 'name', 'status', 'banner_url', 'icon_url', 'installer_url', 'url'];
   const updates = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];

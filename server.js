@@ -11290,7 +11290,7 @@ app.post('/ows-store/news', async (req, res) => {
   }
 });
 
-// PATCH /ows-store/news/:id - Actualizar noticia (is_active, etc)
+// PATCH /ows-store/news/:id - Actualizar noticia (is_active, title, description, priority, banner_meta, content_lines, etc)
 app.patch('/ows-store/news/:id', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { id } = req.params;
@@ -11312,6 +11312,27 @@ app.patch('/ows-store/news/:id', async (req, res) => {
   if (req.body.hasOwnProperty('priority')) {
     updates.push(`priority = $${paramIdx++}`);
     values.push(normalizeNewsNumber(req.body.priority, 0));
+  }
+  if (req.body.hasOwnProperty('banner_meta') || req.body.hasOwnProperty('bannerMeta')) {
+    const bm = req.body.banner_meta || req.body.bannerMeta;
+    updates.push(`banner_meta = $${paramIdx++}`);
+    values.push((bm && typeof bm === 'object') ? bm : {});
+  }
+  if (req.body.hasOwnProperty('content_lines') || req.body.hasOwnProperty('contentLines')) {
+    updates.push(`content_lines = $${paramIdx++}`);
+    values.push(toNewsArray(req.body.content_lines || req.body.contentLines || []));
+  }
+  if (req.body.hasOwnProperty('related_project_slug')) {
+    updates.push(`related_project_slug = $${paramIdx++}`);
+    values.push(String(req.body.related_project_slug || '').trim() || null);
+  }
+  if (req.body.hasOwnProperty('related_project_name')) {
+    updates.push(`related_project_name = $${paramIdx++}`);
+    values.push(String(req.body.related_project_name || '').trim() || 'Global');
+  }
+  if (req.body.hasOwnProperty('published_at')) {
+    updates.push(`published_at = $${paramIdx++}`);
+    values.push(req.body.published_at || null);
   }
   if (updates.length === 0) {
     return res.status(400).json({ error: 'No hay campos para actualizar' });
@@ -11598,6 +11619,20 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
     return res.json({ success: true, update: normalizeOwsNewsRow(rows[0]) });
   } catch (err) {
     console.error('Error en PATCH /ows-news/updates/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE /ows-news/updates/:id - Eliminar evento/update
+app.delete('/ows-news/updates/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const { id } = req.params;
+  try {
+    const { rowCount } = await pool.query('DELETE FROM ows_store_timeline WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Evento/update no encontrado' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-news/updates/:id:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

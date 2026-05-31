@@ -13700,7 +13700,7 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
     return res.status(400).json({ error: 'No hay campos validos para actualizar' });
   }
   try {
-    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
     const values = [...Object.values(updates), slug];
     const { rows } = await pool.query(
       `UPDATE ows_projects SET ${setClauses}, last_update = NOW() WHERE slug = $${values.length} RETURNING *`,

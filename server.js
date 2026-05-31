@@ -208,7 +208,7 @@ const corsOptions = {
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-ows-admin-token'],
   exposedHeaders: ['X-WT-Reward-Currency', 'X-WT-Reward-Amount', 'X-WT-New-Balance']
 };
 app.use(cors(corsOptions));

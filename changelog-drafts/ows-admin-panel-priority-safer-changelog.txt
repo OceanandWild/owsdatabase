@@ -1,0 +1,25 @@
+OWS Admin Panel - Changelog 2026.5.31
+
+=== ESPAÑOL ===
+Versión: 2026.5.31-t0130
+Plataforma: Web / Admin Panel
+Fecha: 2026-05-31
+
+Cambios:
+- Implementado sistema predictivo de prioridad y visibilidad ("Safer") para Noticias y Eventos.
+- Añadidos indicadores de ranking en tiempo real en los formularios de creación y edición.
+- Añadidas columnas de Visibilidad en las tablas de visualización para identificar ítems fuera de rango.
+- Añadido sistema de alertas automáticas para detectar de forma preventiva cuándo noticias o eventos activos quedan excluidos del top de OWS Store.
+- Corregida redundancia y código residual en el JavaScript del panel.
+
+=== ENGLISH ===
+Version: 2026.5.31-t0130
+Platform: Web / Admin Panel
+Date: 2026-05-31
+
+Changes:
+- Implemented predictive priority and visibility diagnostics system ("Safer") for both News and Events.
+- Added real-time ranking indicator cards inside creation and editing forms.
+- Added dedicated Visibility badge columns in News and Events dashboard tables to instantly identify out-of-range items.
+- Added automatic warning banners to proactively detect active news or events pushed out of the OWS Store top view.
+- Cleaned up redundant and corrupted script blocks in the panel's controller.

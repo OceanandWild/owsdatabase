@@ -3520,6 +3520,48 @@
       `;
       container.insertBefore(alert, container.firstChild);
     }
+
+    function renderNewsHiddenAlert(allNews) {
+      const existingAlert = document.getElementById('news-hidden-alert');
+      if (existingAlert) existingAlert.remove();
+
+      // Only consider non-event, non-banner active news in OWS Store order
+      const rankedActive = allNews
+        .filter(n => {
+          if (n.is_active === false) return false;
+          const et = String(n.entry_type || n.kind || '').toLowerCase();
+          if (et === 'event' || et === 'evento' || et === 'banner') return false;
+          return true;
+        })
+        .sort((a, b) => {
+          const pa = Number(a.priority || 0), pb = Number(b.priority || 0);
+          if (pa !== pb) return pb - pa;
+          const dateA = new Date(a.published_at || a.update_date || a.created || 0).getTime();
+          const dateB = new Date(b.published_at || b.update_date || b.created || 0).getTime();
+          return dateB - dateA;
+        });
+
+      const hidden = rankedActive.slice(NEWS_GRID_LIMIT);
+      if (!hidden.length) return;
+
+      const container = document.getElementById('news-table-body')?.closest('table')?.parentElement;
+      if (!container) return;
+
+      const names = hidden.slice(0, 3).map(n => `"${(n.title || '').slice(0, 30)}"`).join(', ');
+      const extra = hidden.length > 3 ? ` y ${hidden.length - 3} más` : '';
+      const alertEl = document.createElement('div');
+      alertEl.id = 'news-hidden-alert';
+      alertEl.style.cssText = 'margin-bottom:12px;padding:12px 16px;border-radius:12px;background:rgba(168,85,247,0.07);border:1px solid rgba(168,85,247,0.35);color:#c084fc;font-size:0.8rem;line-height:1.5;display:flex;gap:10px;align-items:flex-start;';
+      alertEl.innerHTML = `
+        <span style="font-size:1.2rem;flex-shrink:0;">⚠️</span>
+        <div>
+          <strong>${hidden.length} noticia(s) activa(s) no se muestran en OWS Store</strong> (el hub muestra máx. ${NEWS_GRID_LIMIT}).<br>
+          <span style="opacity:0.85;">Ocultas por prioridad/fecha: ${names}${extra}. Sube su prioridad para hacerlas visibles.</span>
+        </div>
+      `;
+      container.insertBefore(alertEl, container.firstChild);
+    }
+
     function renderNewsTable(list) {
       let filteredList = [...list];
       const filterCheckbox = document.getElementById('filter-news-store');

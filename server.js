@@ -13716,6 +13716,35 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
 });
 
 
+// Crear un nuevo proyecto en OWS Store
+app.post('/ows-store/projects', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const { slug, name, description, status, banner_url, icon_url, installer_url, url } = req.body || {};
+  if (!slug || !name) {
+    return res.status(400).json({ error: 'El slug y el nombre son campos obligatorios.' });
+  }
+  const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-_]/g, '');
+  const finalStatus = normalizeOwsProjectStatus(status || 'active');
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ows_projects (slug, name, description, status, banner_url, icon_url, installer_url, url, version, created_at, last_update)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '1.0.0', NOW(), NOW())
+       RETURNING *`,
+      [cleanSlug, name, description || '', finalStatus, banner_url || '', icon_url || '', installer_url || '', url || '']
+    );
+    await syncOwsProjectRestrictionsTable().catch(() => {});
+    res.status(201).json({ success: true, project: rows[0] });
+  } catch (err) {
+    console.error('Error en POST /ows-store/projects:', err);
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ya existe un proyecto con ese slug.' });
+    }
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+
 // Eliminar proyecto de OWS Store
 app.delete('/ows-store/projects/:slug', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;

@@ -1,0 +1,3339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OWS Admin Panel — Ocean and Wild Studios</title>
+  <!-- Modern Premium Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* Palette: Jungle, Ocean & Desert fused */
+      --jungle-emerald: #10b981;
+      --jungle-dark: #064e3b;
+      --jungle-light: #34d399;
+      --ocean-cyan: #26e0ff;
+      --ocean-sapphire: #0f172a;
+      --ocean-teal: #0d9488;
+      --desert-sand: #ffd075;
+      --desert-amber: #f97316;
+      --desert-gold: #f5c542;
+      
+      --bg-gradient: radial-gradient(circle at 50% 50%, #06231c, #020c1b, #010408);
+      --glass-bg: rgba(10, 25, 22, 0.45);
+      --glass-border: rgba(38, 224, 255, 0.15);
+      --font-outfit: 'Outfit', sans-serif;
+      --font-space: 'Space Grotesk', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: #f8fafc;
+      font-family: var(--font-outfit);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Floating Ambient Biome Glow Orbs */
+    .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(140px);
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.35;
+      animation: drift 15s ease-in-out infinite alternate;
+    }
+    .orb-jungle {
+      width: 400px;
+      height: 400px;
+      background: var(--jungle-emerald);
+      top: -100px;
+      left: -100px;
+    }
+    .orb-ocean {
+      width: 500px;
+      height: 500px;
+      background: var(--ocean-cyan);
+      bottom: -150px;
+      right: -150px;
+      animation-delay: -5s;
+    }
+    .orb-desert {
+      width: 350px;
+      height: 350px;
+      background: var(--desert-amber);
+      top: 30%;
+      left: 60%;
+      animation-delay: -8s;
+    }
+
+    @keyframes drift {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(60px, 40px) scale(1.15); }
+    }
+
+    /* ======================================================== */
+    /* LOGIN CARD CONTAINER */
+    /* ======================================================== */
+    .app-container {
+      width: 90%;
+      max-width: 480px;
+      z-index: 10;
+      position: relative;
+    }
+
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(120%);
+      -webkit-backdrop-filter: blur(24px) saturate(120%);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 40px 35px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7),
+                  0 0 40px rgba(38, 224, 255, 0.05);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -50%;
+      width: 200%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(38, 224, 255, 0.04),
+        transparent
+      );
+      transform: rotate(30deg);
+      pointer-events: none;
+      animation: shine 8s linear infinite;
+    }
+
+    @keyframes shine {
+      0% { transform: translate(-30%, -30%) rotate(30deg); }
+      100% { transform: translate(30%, 30%) rotate(30deg); }
+    }
+
+    .header-logo {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(38, 224, 255, 0.1);
+      border: 1px solid rgba(38, 224, 255, 0.3);
+      padding: 8px 16px;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      color: var(--ocean-cyan);
+      text-transform: uppercase;
+      font-family: var(--font-space);
+      box-shadow: 0 0 15px rgba(38, 224, 255, 0.1);
+      margin-bottom: 15px;
+    }
+
+    .brand-title {
+      font-family: var(--font-space);
+      font-size: 2.2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff 30%, var(--desert-sand) 70%, var(--jungle-emerald));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      margin-top: 6px;
+      font-weight: 300;
+    }
+
+    .screen-stage {
+      display: none;
+      animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .screen-stage.active {
+      display: block;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Form inputs */
+    .form-group {
+      margin-bottom: 22px;
+      position: relative;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--desert-gold);
+      margin-bottom: 8px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-family: var(--font-space);
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 16px;
+      color: #64748b;
+      font-size: 1.1rem;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 14px 16px 14px 44px;
+      border-radius: 12px;
+      color: #ffffff;
+      font-family: var(--font-outfit);
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--ocean-cyan);
+      box-shadow: 0 0 15px rgba(38, 224, 255, 0.15);
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .form-input:focus + .input-icon {
+      color: var(--ocean-cyan);
+    }
+
+    .biome-deco-line {
+      height: 4px;
+      width: 100%;
+      background: linear-gradient(90deg, var(--jungle-emerald), var(--ocean-cyan), var(--desert-amber));
+      border-radius: 10px;
+      margin-bottom: 25px;
+    }
+
+    .btn-submit {
+      width: 100%;
+      background: linear-gradient(135deg, var(--ocean-teal) 0%, var(--jungle-dark) 50%, var(--desert-amber) 100%);
+      background-size: 200% auto;
+      border: none;
+      padding: 16px;
+      border-radius: 12px;
+      color: #ffffff;
+      font-family: var(--font-space);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 10px 20px -10px rgba(13, 148, 136, 0.5);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-top: 10px;
+    }
+
+    .btn-submit:hover {
+      background-position: right center;
+      transform: translateY(-2px);
+      box-shadow: 0 12px 25px -8px rgba(249, 115, 22, 0.6);
+    }
+
+    .security-alert {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 25px;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      display: none;
+      align-items: flex-start;
+      gap: 12px;
+      animation: shake 0.4s ease-in-out;
+    }
+
+    .security-alert.show { display: flex; }
+    .security-alert.oceanpay-warning {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fde047;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+
+    .steps-indicator {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      position: relative;
+    }
+    
+    .steps-indicator::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      z-index: 1;
+      transform: translateY(-50%);
+    }
+
+    .step-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--ocean-sapphire);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      z-index: 2;
+      color: #64748b;
+      transition: all 0.4s;
+    }
+
+    .step-dot.active {
+      border-color: var(--ocean-cyan);
+      background: var(--ocean-sapphire);
+      color: var(--ocean-cyan);
+      box-shadow: 0 0 15px rgba(38, 224, 255, 0.4);
+    }
+
+    .step-dot.completed {
+      border-color: var(--jungle-emerald);
+      background: var(--jungle-emerald);
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+    }
+
+    .lockout-state {
+      text-align: center;
+      padding: 30px 10px;
+    }
+
+    .lockout-icon {
+      font-size: 4rem;
+      color: #ef4444;
+      margin-bottom: 20px;
+      animation: pulse-red 2s infinite;
+    }
+
+    .lockout-timer {
+      font-family: var(--font-space);
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #fca5a5;
+      margin: 20px 0;
+      letter-spacing: 0.1em;
+    }
+
+    .puzzle-code-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+      font-family: var(--font-space);
+      font-size: 1.4rem;
+      letter-spacing: 0.25em;
+      color: var(--desert-gold);
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+
+    .puzzle-rule-alert {
+      font-size: 0.85rem;
+      background: rgba(249, 115, 22, 0.1);
+      border-left: 3px solid var(--desert-amber);
+      padding: 12px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 20px;
+      color: #fcd34d;
+      line-height: 1.4;
+    }
+
+    .verification-timer-bar {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: -10px;
+      margin-bottom: 20px;
+    }
+
+    .verification-timer-progress {
+      height: 100%;
+      background: var(--desert-amber);
+      width: 100%;
+      transition: width 1s linear;
+    }
+
+    /* ======================================================== */
+    /* FULLSCREEN DASHBOARD SYSTEM */
+    /* ======================================================== */
+    .fullscreen-dashboard {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: none; /* Flex when active */
+      z-index: 100;
+      background: radial-gradient(circle at 50% 50%, #031511, #01060e, #000204);
+      flex-direction: row;
+      overflow: hidden;
+    }
+
+    /* Sidebar Navigation */
+    .dashboard-sidebar {
+      width: 280px;
+      background: rgba(10, 22, 19, 0.7);
+      border-right: 1px solid rgba(38, 224, 255, 0.1);
+      backdrop-filter: blur(30px);
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .sidebar-header {
+      margin-bottom: 40px;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 5px;
+    }
+
+    .sidebar-logo-icon {
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, var(--ocean-cyan), var(--jungle-emerald));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar-logo-text {
+      font-family: var(--font-space);
+      font-weight: 800;
+      font-size: 1.2rem;
+      letter-spacing: 0.05em;
+      color: #ffffff;
+    }
+
+    .sidebar-logo-tag {
+      font-size: 0.65rem;
+      background: rgba(245, 197, 66, 0.15);
+      border: 1px solid rgba(245, 197, 66, 0.3);
+      color: var(--desert-gold);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: auto;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .sidebar-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .menu-item:hover {
+      background: rgba(38, 224, 255, 0.05);
+      color: #ffffff;
+      transform: translateX(4px);
+    }
+
+    .menu-item.active {
+      background: linear-gradient(135deg, rgba(38, 224, 255, 0.15) 0%, rgba(16, 185, 129, 0.08) 100%);
+      border-left: 4px solid var(--ocean-cyan);
+      color: var(--ocean-cyan);
+      box-shadow: 0 4px 20px rgba(38, 224, 255, 0.05);
+    }
+
+    .menu-item-icon {
+      font-size: 1.2rem;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: radial-gradient(circle, var(--jungle-emerald), var(--ocean-teal));
+      border: 2px solid var(--ocean-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .user-info h5 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .user-info p {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    /* Main Content Area */
+    .dashboard-content {
+      flex: 1;
+      height: 100%;
+      overflow-y: auto;
+      padding: 40px;
+      position: relative;
+    }
+
+    /* Top navbar inside dashboard */
+    .dashboard-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 20px;
+    }
+
+    .topbar-title h2 {
+      font-family: var(--font-space);
+      font-weight: 800;
+      font-size: 1.8rem;
+      letter-spacing: -0.01em;
+    }
+
+    .topbar-title p {
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: var(--jungle-light);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--jungle-emerald);
+      box-shadow: 0 0 10px var(--jungle-emerald);
+      animation: pulse-green 1.5s infinite;
+    }
+
+    @keyframes pulse-green {
+      0%, 100% { transform: scale(1); opacity: 0.4; }
+      50% { transform: scale(1.3); opacity: 1; }
+    }
+
+    .btn-logout {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-family: var(--font-space);
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.3s;
+    }
+
+    .btn-logout:hover {
+      background: #ef4444;
+      color: #ffffff;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+    }
+
+    /* Tab content controls */
+    .tab-content {
+      display: none;
+      animation: slideIn 0.3s ease-out forwards;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Premium Statistics Dashboard Cards */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .stat-premium-card {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stat-premium-card:hover {
+      transform: translateY(-4px);
+      background: rgba(15, 23, 42, 0.6);
+      border-color: rgba(38, 224, 255, 0.2);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .stat-card-badge {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, transparent 50%, rgba(38, 224, 255, 0.05) 50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      color: rgba(255, 255, 255, 0.15);
+    }
+
+    .stat-premium-card h4 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+
+    .stat-premium-card p {
+      font-family: var(--font-space);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .stat-premium-card .stat-desc {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 6px;
+    }
+
+    /* Grid Layouts for Sections */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 30px;
+      align-items: start;
+    }
+
+    /* Modern Table Container */
+    .glass-table-wrapper {
+      background: rgba(10, 20, 25, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 30px;
+    }
+
+    .dashboard-panel-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dashboard-panel-header h3 {
+      font-family: var(--font-space);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--desert-gold);
+    }
+
+    .glass-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .glass-table th {
+      background: rgba(15, 23, 42, 0.4);
+      padding: 14px 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+    }
+
+    .glass-table td {
+      padding: 14px 20px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      color: #e2e8f0;
+    }
+
+    .glass-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Simulated Live Console logs terminal */
+    .live-console-terminal {
+      background: #020617;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 16px;
+      padding: 20px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8rem;
+      color: #10b981;
+      height: 380px;
+      overflow-y: auto;
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+    }
+
+    .console-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+      font-family: var(--font-space);
+      font-weight: 700;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .console-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .console-log-row {
+      margin-bottom: 8px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .console-timestamp {
+      color: #64748b;
+      margin-right: 10px;
+    }
+
+    .console-tag-info { color: var(--ocean-cyan); }
+    .console-tag-warn { color: var(--desert-gold); }
+    .console-tag-success { color: var(--jungle-emerald); }
+
+    /* Interactive Form panels for Dashboard tabs */
+    .action-panel-box {
+      background: rgba(15, 23, 42, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 30px;
+    }
+
+    .action-panel-box h3 {
+      font-family: var(--font-space);
+      font-size: 1.1rem;
+      margin-bottom: 15px;
+      color: var(--ocean-cyan);
+    }
+
+    /* Badges */
+    .platform-badge {
+      background: rgba(38, 224, 255, 0.1);
+      border: 1px solid rgba(38, 224, 255, 0.2);
+      color: var(--ocean-cyan);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .btn-action-small {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-action-small:hover {
+      border-color: var(--ocean-cyan);
+      background: rgba(38, 224, 255, 0.1);
+    }
+
+    /* ===== ECOSISTEMA REWORK STYLES ===== */
+    .eco-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .eco-toolbar-title {
+      font-family: var(--font-space);
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .eco-toolbar-title span {
+      font-size: 0.8rem;
+      color: #64748b;
+      font-weight: 400;
+      margin-left: 10px;
+      font-family: var(--font-outfit);
+    }
+
+    .eco-projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .eco-project-card {
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .eco-project-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(38,224,255,0.0), rgba(38,224,255,0.0));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      transition: all 0.3s;
+      pointer-events: none;
+    }
+
+    .eco-project-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(38,224,255,0.2);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 20px rgba(38,224,255,0.05);
+    }
+
+    .eco-card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .eco-card-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      object-fit: cover;
+      background: rgba(38,224,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+    }
+
+    .eco-card-icon img {
+      width: 100%;
+      height: 100%;
+      border-radius: 13px;
+      object-fit: cover;
+    }
+
+    .eco-card-icon-status {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid rgba(15,23,42,0.8);
+    }
+
+    .eco-card-info h4 {
+      font-family: var(--font-space);
+      font-size: 1rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 3px;
+    }
+
+    .eco-card-info .eco-slug {
+      font-size: 0.72rem;
+      color: #64748b;
+      font-family: monospace;
+    }
+
+    .eco-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .eco-status-pill {
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .eco-version-tag {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      font-family: monospace;
+    }
+
+    .eco-card-description {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .eco-card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .eco-btn-edit {
+      flex: 1;
+      padding: 9px;
+      background: rgba(38,224,255,0.08);
+      border: 1px solid rgba(38,224,255,0.2);
+      color: var(--ocean-cyan);
+      border-radius: 9px;
+      font-family: var(--font-space);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: all 0.25s;
+    }
+
+    .eco-btn-edit:hover {
+      background: rgba(38,224,255,0.18);
+      box-shadow: 0 2px 10px rgba(38,224,255,0.15);
+    }
+
+    .eco-card-health {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.2);
+      font-size: 0.75rem;
+    }
+
+    /* Health Protocol section */
+    .health-protocol-wrapper {
+      background: rgba(10, 20, 25, 0.4);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
+    .health-protocol-header {
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .health-protocol-header h3 {
+      font-family: var(--font-space);
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--desert-gold);
+    }
+
+    .health-meta-info {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    .health-table-wrapper {
+      overflow-x: auto;
+    }
+
+    .health-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .health-table th {
+      background: rgba(15,23,42,0.5);
+      padding: 12px 16px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      text-align: left;
+    }
+
+    .health-table td {
+      padding: 14px 16px;
+      font-size: 0.85rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      color: #e2e8f0;
+      vertical-align: middle;
+    }
+
+    .health-table tr:last-child td { border-bottom: none; }
+    .health-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .health-icon-preview {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.1);
+      vertical-align: middle;
+    }
+
+    .health-check-cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+    }
+
+    .health-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .health-dot.ok { background: var(--jungle-emerald); box-shadow: 0 0 6px rgba(16,185,129,0.5); }
+    .health-dot.fail { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+    .health-dot.pending { background: #64748b; }
+    .health-dot.checking { background: var(--desert-amber); animation: pulse-green 0.8s infinite; }
+
+    .btn-manual-refresh {
+      padding: 8px 16px;
+      background: rgba(249,115,22,0.12);
+      border: 1px solid rgba(249,115,22,0.3);
+      color: var(--desert-amber);
+      border-radius: 9px;
+      font-family: var(--font-space);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: all 0.25s;
+    }
+
+    .btn-manual-refresh:hover {
+      background: rgba(249,115,22,0.25);
+      box-shadow: 0 2px 12px rgba(249,115,22,0.2);
+    }
+
+    .btn-manual-refresh:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* ===== SESSION EXTENSION WIDGET ===== */
+    .session-timer-widget {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(38, 224, 255, 0.15);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 16px;
+    }
+
+    .session-timer-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 6px;
+      font-family: var(--font-space);
+    }
+
+    .session-timer-countdown {
+      font-family: var(--font-space);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--ocean-cyan);
+      letter-spacing: 0.1em;
+    }
+
+    .session-timer-countdown.warning {
+      color: var(--desert-amber);
+      animation: pulse-amber 1s infinite;
+    }
+
+    .session-timer-countdown.expired {
+      color: #ef4444;
+    }
+
+    @keyframes pulse-amber {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .btn-extend-session {
+      width: 100%;
+      margin-top: 10px;
+      background: linear-gradient(135deg, rgba(245, 197, 66, 0.2), rgba(249, 115, 22, 0.15));
+      border: 1px solid rgba(245, 197, 66, 0.35);
+      color: var(--desert-gold);
+      padding: 10px;
+      border-radius: 10px;
+      font-family: var(--font-space);
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: all 0.3s;
+    }
+
+    .btn-extend-session:hover {
+      background: linear-gradient(135deg, rgba(245, 197, 66, 0.35), rgba(249, 115, 22, 0.3));
+      box-shadow: 0 4px 15px rgba(245, 197, 66, 0.2);
+      transform: translateY(-1px);
+    }
+
+    /* Extend session modal code display */
+    .extend-code-display {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(245, 197, 66, 0.3);
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+      font-family: var(--font-space);
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.3em;
+      color: var(--desert-gold);
+      margin-bottom: 16px;
+      text-shadow: 0 0 20px rgba(245, 197, 66, 0.3);
+    }
+
+    .extend-cost-notice {
+      background: rgba(249, 115, 22, 0.1);
+      border-left: 3px solid var(--desert-amber);
+      padding: 12px 14px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.82rem;
+      color: #fcd34d;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- EXTEND SESSION MODAL -->
+  <div id="extend-session-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.88); z-index:300; align-items:center; justify-content:center; backdrop-filter:blur(12px);">
+    <div class="glass-card" style="max-width:460px; width:90%; border-color:rgba(245,197,66,0.35);">
+      <div class="biome-deco-line" style="margin-bottom:20px;"></div>
+      <h3 style="font-family:var(--font-space); color:var(--desert-gold); font-size:1.25rem; margin-bottom:6px; text-transform:uppercase;">⏱️ Extender Sesión</h3>
+      <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:18px; line-height:1.4;">
+        Se deducirán <strong style="color:var(--desert-gold)">50 Wild Credits</strong> de la cuenta <code style="color:var(--ocean-cyan)">OceanandWild</code> automáticamente. Tu sesión se extenderá <strong>2 horas</strong> adicionales y persistirá aunque recargues la página.
+      </p>
+
+      <!-- Step A: Request code -->
+      <div id="extend-step-a">
+        <div class="extend-cost-notice">
+          ⚠️ <strong>Costo:</strong> 50 wildcredits (OceanandWild) · <strong>Extensión:</strong> +2 horas · <strong>Código válido:</strong> 3 minutos
+        </div>
+        <button class="btn-submit" id="btn-request-extend-code" style="margin-top:0;">Generar Código de Verificación</button>
+      </div>
+
+      <!-- Step B: Confirm with code -->
+      <div id="extend-step-b" style="display:none;">
+        <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:10px;">Tu código de verificación (válido 3 min):</p>
+        <div class="extend-code-display" id="extend-code-value">------</div>
+        <div class="extend-cost-notice">
+          Ingresa este código abajo para confirmar la extensión. Una vez usado, se descuentan <strong>50 wildcredits</strong> de OceanandWild.
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" style="color:var(--desert-gold);">Código de Confirmación</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔑</span>
+            <input class="form-input" type="text" id="extend-code-input" placeholder="Ingresa el código de 6 dígitos" maxlength="6">
+          </div>
+        </div>
+        <button class="btn-submit" id="btn-confirm-extend" style="margin-top:0; background:linear-gradient(135deg, var(--desert-amber), var(--desert-gold));">Confirmar y Extender Sesión</button>
+      </div>
+
+      <!-- Result message -->
+      <div id="extend-result-msg" style="display:none; margin-top:16px;"></div>
+
+      <button onclick="closeExtendModal()" style="width:100%; margin-top:14px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#94a3b8; padding:10px; border-radius:10px; cursor:pointer; font-family:var(--font-space); font-size:0.85rem;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ADD PROJECT MODAL -->
+  <div id="add-project-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.88); z-index:300; align-items:center; justify-content:center; backdrop-filter:blur(12px);">
+    <div class="glass-card" style="max-width:540px; width:95%; border-color:var(--ocean-teal); max-height: 90vh; overflow-y: auto;">
+      <div class="biome-deco-line" style="margin-bottom:20px; background: linear-gradient(90deg, var(--ocean-cyan), var(--ocean-teal));"></div>
+      <h3 style="font-family:var(--font-space); color:var(--ocean-teal); font-size:1.25rem; margin-bottom:6px; text-transform:uppercase;">➕ Registrar Nuevo Proyecto</h3>
+      <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:18px;">Agrega un nuevo juego o aplicación al Ecosistema de OWS Store.</p>
+      
+      <form id="add-project-form">
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-teal);">Slug del Proyecto (Único, ej: mi-juego)</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="add-project-slug" placeholder="mi-juego-slug" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-teal);">Nombre del Proyecto</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="add-project-name" placeholder="Mi Increíble Juego" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-teal);">URL del Icono <span style="font-size:0.75rem; color:#64748b; font-weight:400;">(URL absoluta recomendada, ej: https://...)</span></label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="add-project-icon" placeholder="https://raw.githubusercontent.com/... o dejar vacío">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-teal);">URL del Banner</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="add-project-banner" placeholder="https://... o dejar vacío">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-teal);">URL Principal / Web</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="add-project-url" placeholder="https://...">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-teal);">URL Instalador (Windows)</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="add-project-installer" placeholder="https://...">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-teal);">Descripción</label>
+          <textarea class="form-input" id="add-project-desc" placeholder="Descripción detallada del nuevo proyecto..." style="padding-left:16px; min-height:80px; resize:vertical; font-family:inherit;"></textarea>
+        </div>
+
+        <div style="display:flex; gap:14px; margin-bottom:14px;">
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:var(--ocean-teal);">Estado Inicial</label>
+            <select class="form-input" id="add-project-status" style="padding-left:16px; background:#0f172a;">
+              <option value="launched">Launched</option>
+              <option value="coming_soon">Coming Soon</option>
+              <option value="rework">Rework</option>
+              <option value="unavailable">Unavailable</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:var(--ocean-teal);">Plataforma</label>
+            <input class="form-input" style="padding-left:16px;" type="text" id="add-project-platform" placeholder="Ej: Windows, Android">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:15px; margin-top:20px;">
+          <button class="btn-submit" type="button" style="margin-top:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#ffffff;" onclick="closeAddProjectModal()">Cancelar</button>
+          <button class="btn-submit" type="submit" style="margin-top:0; background:linear-gradient(135deg, var(--ocean-cyan), var(--ocean-teal)); color:#0f172a; font-weight:700;">Crear Proyecto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EDIT PROJECT MODAL -->
+  <div id="edit-project-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.88); z-index:300; align-items:center; justify-content:center; backdrop-filter:blur(12px);">
+    <div class="glass-card" style="max-width:540px; width:95%; border-color:var(--ocean-cyan); max-height: 90vh; overflow-y: auto;">
+      <div class="biome-deco-line" style="margin-bottom:20px;"></div>
+      <h3 style="font-family:var(--font-space); color:var(--ocean-cyan); font-size:1.25rem; margin-bottom:6px; text-transform:uppercase;">📝 Modificar Proyecto</h3>
+      <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:18px;">Edita la metadata del proyecto en OWS Store.</p>
+      
+      <form id="edit-project-form">
+        <input type="hidden" id="edit-project-slug">
+        
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-cyan);">Nombre del Proyecto</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="edit-project-name" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-cyan);">URL del Icono <span style="font-size:0.75rem; color:#64748b; font-weight:400;">(URL absoluta recomendada, ej: https://...)</span></label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="edit-project-icon" placeholder="https://... o dejar vacío">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-cyan);">URL del Banner</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="edit-project-banner" placeholder="https://... o dejar vacío">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-cyan);">URL Principal / Web</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="edit-project-url" placeholder="https://...">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-cyan);">URL Instalador (Windows)</label>
+          <input class="form-input" style="padding-left:16px;" type="text" id="edit-project-installer" placeholder="https://...">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="color:var(--ocean-cyan);">Descripción</label>
+          <textarea class="form-input" id="edit-project-desc" style="padding-left:16px; min-height:80px; resize:vertical; font-family:inherit;"></textarea>
+        </div>
+
+        <div style="display:flex; gap:14px; margin-bottom:14px;">
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:var(--ocean-cyan);">Estado</label>
+            <select class="form-input" id="edit-project-status" style="padding-left:16px; background:#0f172a;">
+              <option value="launched">Launched</option>
+              <option value="coming_soon">Coming Soon</option>
+              <option value="rework">Rework</option>
+              <option value="unavailable">Unavailable</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; margin-bottom:0;">
+            <label class="form-label" style="color:var(--ocean-cyan);">Plataforma</label>
+            <input class="form-input" style="padding-left:16px;" type="text" id="edit-project-platform" placeholder="Ej: Windows, Android">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:15px; margin-top:20px;">
+          <button class="btn-submit" type="button" style="margin-top:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#ffffff;" onclick="closeEditProjectModal()">Cancelar</button>
+          <button class="btn-submit" type="submit" style="margin-top:0; background:linear-gradient(135deg, var(--ocean-cyan), var(--ocean-teal)); color:#0f172a; font-weight:700;">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MANUAL HEALTH CHECK TRAMITE MODAL -->
+  <div id="health-tramite-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:300; align-items:center; justify-content:center; backdrop-filter:blur(12px);">
+    <div class="glass-card" style="max-width:440px; width:90%; border-color:var(--desert-amber);">
+      <h3 style="font-family:var(--font-space); color:var(--desert-amber); font-size:1.2rem; margin-bottom:12px; text-transform:uppercase;">⚠️ Trámite de Desaturación</h3>
+      <p style="font-size:0.85rem; line-height:1.5; color:#cbd5e1; margin-bottom:18px;">
+        Para evitar saturar los servidores y las APIs externas, la verificación manual requiere un trámite administrativo temporal.
+      </p>
+      
+      <div style="background: rgba(249, 115, 22, 0.08); border-left: 3px solid var(--desert-amber); padding: 12px; border-radius: 0 8px 8px 0; margin-bottom: 16px; font-size: 0.8rem; color:#fcd34d;">
+        <strong>Instrucciones:</strong> Escribe la palabra de confirmación: <code style="color:#ffffff; font-weight:bold;">DESATURAR</code> y resuelve el siguiente reto matemático.
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px;">
+        <label class="form-label" style="color:var(--desert-gold)">Palabra de Confirmación</label>
+        <input class="form-input" style="padding-left:16px;" type="text" id="health-tramite-phrase" placeholder="DESATURAR" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom:18px;">
+        <label class="form-label" style="color:var(--desert-gold)" id="health-tramite-math-label">¿Cuánto es X + Y?</label>
+        <input class="form-input" style="padding-left:16px;" type="number" id="health-tramite-math-answer" placeholder="Resultado" required>
+      </div>
+
+      <div style="display:flex; gap:15px;">
+        <button class="btn-submit" style="margin-top:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#ffffff;" onclick="closeHealthTramiteModal()">Cancelar</button>
+        <button class="btn-submit" style="margin-top:0; background:linear-gradient(135deg, var(--desert-amber), var(--desert-gold));" onclick="validateHealthTramite()">Desbloquear y Ejecutar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRMATION MODAL -->
+  <div id="confirm-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:200; align-items:center; justify-content:center; backdrop-filter:blur(10px);">
+    <div class="glass-card" style="max-width:440px; border-color:var(--desert-amber);">
+      <h3 style="font-family:var(--font-space); color:var(--desert-gold); font-size:1.3rem; margin-bottom:15px; text-transform:uppercase;">⚠️ Confirmación de Seguridad</h3>
+      <p id="confirm-modal-text" style="font-size:0.9rem; line-height:1.5; color:#cbd5e1; margin-bottom:20px;"></p>
+      <div class="form-group" id="confirm-modal-input-group">
+        <label class="form-label" style="color:var(--ocean-cyan)">Escribe "CONFIRMAR" para proceder:</label>
+        <input class="form-input" style="padding-left:16px;" type="text" id="confirm-input-text" placeholder="CONFIRMAR">
+      </div>
+      <div style="display:flex; gap:15px; margin-top:20px;">
+        <button class="btn-submit" style="margin-top:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#ffffff;" onclick="closeConfirmModal()">Cancelar</button>
+        <button class="btn-submit" style="margin-top:0; background:linear-gradient(135deg, var(--desert-amber), var(--desert-gold));" id="btn-confirm-execute">Ejecutar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ambient background elements -->
+  <div class="glow-orb orb-jungle"></div>
+  <div class="glow-orb orb-ocean"></div>
+  <div class="glow-orb orb-desert"></div>
+
+  <!-- ======================================================== -->
+  <!-- 1. LOGIN SYSTEM INTERFACE (CARD VIEW) -->
+  <!-- ======================================================== -->
+  <div class="app-container" id="login-container">
+    <div class="glass-card" id="main-card">
+      <div class="biome-deco-line"></div>
+      
+      <div class="header-logo">
+        <div class="logo-badge">🚀 OWS Internal</div>
+        <h1 class="brand-title">Admin Portal</h1>
+        <p class="brand-subtitle">Panel de Control de Ocean and Wild Studios</p>
+      </div>
+
+      <!-- General alert box -->
+      <div class="security-alert" id="security-alert">
+        <span style="font-size: 1.3rem;">⚠️</span>
+        <div id="alert-text">Acceso denegado. Intentos fallidos registrados.</div>
+      </div>
+
+      <!-- Navigation indicators -->
+      <div class="steps-indicator" id="steps-indicator">
+        <div class="step-dot active" id="dot-1">1</div>
+        <div class="step-dot" id="dot-2">2</div>
+        <div class="step-dot" id="dot-3">3</div>
+      </div>
+
+      <!-- STEP 1: CREDENTIALS STAGE -->
+      <div class="screen-stage active" id="stage-1">
+        <form id="login-form">
+          <div class="form-group">
+            <label class="form-label" for="username">Usuario Administrador</label>
+            <div class="input-wrapper">
+              <span class="input-icon">👤</span>
+              <input class="form-input" type="text" id="username" placeholder="Ingresa usuario" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">Contraseña</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🔑</span>
+              <input class="form-input" type="password" id="password" placeholder="Ingresa clave" required>
+            </div>
+          </div>
+          <button class="btn-submit" type="submit" id="btn-login">Verificar Identidad</button>
+        </form>
+      </div>
+
+      <!-- STEP 2: OWS ADMIN SECRET STAGE -->
+      <div class="screen-stage" id="stage-2">
+        <div class="verification-timer-bar">
+          <div class="verification-timer-progress" id="timer-progress-1"></div>
+        </div>
+        <form id="secret-form">
+          <div class="form-group">
+            <label class="form-label" for="admin-secret">Token OWS Admin Secret</label>
+            <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 12px; line-height: 1.3;">
+              Ingresa el token administrativo secreto `STUDIO_SECRET` almacenado en el archivo del espacio de trabajo.
+            </p>
+            <div class="input-wrapper">
+              <span class="input-icon">🔒</span>
+              <input class="form-input" type="password" id="admin-secret" placeholder="STUDIO_SECRET" required>
+            </div>
+          </div>
+          <button class="btn-submit" type="submit">Validar Token</button>
+        </form>
+      </div>
+
+      <!-- STEP 3: STRICT LOGICAL PUZZLE CHALLENGE -->
+      <div class="screen-stage" id="stage-3">
+        <div class="verification-timer-bar">
+          <div class="verification-timer-progress" id="timer-progress-2"></div>
+        </div>
+        <form id="puzzle-form">
+          <div class="form-group">
+            <label class="form-label">Desafío Criptográfico</label>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 15px; line-height: 1.3;">
+              Por favor resuelva el siguiente reto temporal del servidor para demostrar control de sesión:
+            </p>
+            <div class="puzzle-code-box" id="puzzle-code-display">XXXXXX</div>
+            <div class="puzzle-rule-alert">
+              <strong>Regla Administrativa:</strong><br>
+              <span id="challenge-instructions">Suma los dígitos del código temporal, multiplica el resultado por 3 e ingresa el código final.</span>
+            </div>
+            <div class="input-wrapper">
+              <span class="input-icon">🧩</span>
+              <input class="form-input" type="text" id="puzzle-answer" placeholder="Respuesta del desafío" required>
+            </div>
+          </div>
+          <button class="btn-submit" type="submit">Finalizar Verificación</button>
+        </form>
+      </div>
+
+      <!-- LOCKOUT SCREEN SCREEN -->
+      <div class="screen-stage" id="stage-lockout">
+        <div class="lockout-state">
+          <div class="lockout-icon">🔒</div>
+          <h2 style="font-family: var(--font-space); font-weight: 800; font-size: 1.8rem; color: #fca5a5;">Sesión Bloqueada</h2>
+          <p style="font-size: 0.9rem; color: #cbd5e1; margin-top: 10px; line-height: 1.4;">
+            Has alcanzado el límite máximo de fallas consecutivas en las etapas de seguridad. Acceso denegado temporalmente.
+          </p>
+          <div class="lockout-timer" id="lockout-timer-display">15:00</div>
+          <p style="font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">
+            Sistema de Seguridad Estricto OWS
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 2. FULLSCREEN ADMINISTRATIVE PANEL (AFTER SUCCESS) -->
+  <!-- ======================================================== -->
+  <div class="fullscreen-dashboard" id="ows-dashboard">
+    <!-- Sidebar Navigation -->
+    <div class="dashboard-sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-logo">
+          <span class="sidebar-logo-icon">🌿</span>
+          <span class="sidebar-logo-text">OWS Admin</span>
+          <span class="sidebar-logo-tag">Super</span>
+        </div>
+        
+        <div class="biome-deco-line" style="margin-top: 15px; margin-bottom: 25px;"></div>
+        
+        <ul class="sidebar-menu">
+          <li class="menu-item active" onclick="showTab('tab-resumen', this)">
+            <span class="menu-item-icon">📊</span>
+            <span>Resumen General</span>
+          </li>
+          <li class="menu-item" onclick="showTab('tab-ecosistema', this)">
+            <span class="menu-item-icon">🎲</span>
+            <span>Ecosistema & Apps</span>
+          </li>
+          <li class="menu-item" onclick="showTab('tab-oceanpay', this)">
+            <span class="menu-item-icon">💳</span>
+            <span>Ocean Pay Central</span>
+          </li>
+          <li class="menu-item" onclick="showTab('tab-seguridad', this)">
+            <span class="menu-item-icon">🛡️</span>
+            <span>Seguridad & Logs</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-footer" style="flex-direction: column; align-items: stretch; gap: 0;">
+        <div class="session-timer-widget">
+          <div class="session-timer-label">⏱ Tiempo de sesión restante</div>
+          <div class="session-timer-countdown" id="session-countdown">--:--</div>
+          <button class="btn-extend-session" onclick="openExtendModal()">🔄 Extender Sesión</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:14px;">
+          <div class="user-avatar">👑</div>
+          <div class="user-info">
+            <h5>OceanandWild</h5>
+            <p>Super Administrador</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Panel Area -->
+    <div class="dashboard-content">
+      <!-- Top header bar -->
+      <div class="dashboard-topbar">
+        <div class="topbar-title">
+          <h2 id="topbar-section-title">Resumen General</h2>
+          <p>Panel de administración y control seguro de base de datos e infraestructura OWS.</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="status-badge">
+            <span class="status-indicator"></span>
+            <span>Servidor Conectado</span>
+          </div>
+          <button class="btn-logout" onclick="window.location.reload()">Cerrar Sesión</button>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 1: RESUMEN GENERAL -->
+      <!-- ======================================================== -->
+      <div class="tab-content active" id="tab-resumen">
+        <!-- Quick stats cards row -->
+        <div class="stats-row">
+          <div class="stat-premium-card">
+            <div class="stat-card-badge">💾</div>
+            <h4>Base de Datos</h4>
+            <p style="color: var(--ocean-cyan);">OWS Render DB</p>
+            <div class="stat-desc">Conexión activa via ssl pool</div>
+          </div>
+          <div class="stat-premium-card">
+            <div class="stat-card-badge">🪙</div>
+            <h4>Divisas Integradas</h4>
+            <p style="color: var(--desert-gold);">19 Monedas</p>
+            <div class="stat-desc">Unified user_currency schemas</div>
+          </div>
+          <div class="stat-premium-card">
+            <div class="stat-card-badge">🎮</div>
+            <h4>Proyectos OWS</h4>
+            <p>12 Lanzados</p>
+            <div class="stat-desc">Timeline timeline central sync</div>
+          </div>
+          <div class="stat-premium-card">
+            <div class="stat-card-badge">🕵️</div>
+            <h4>Auditoría IP</h4>
+            <p style="color: var(--jungle-light);">Protegido</p>
+            <div class="stat-desc">IP failure blacklists activa</div>
+          </div>
+        </div>
+
+        <!-- Layout splits: Server Tables & Live Terminal Console -->
+        <div class="dashboard-grid">
+          <div class="glass-table-wrapper">
+            <div class="dashboard-panel-header">
+              <h3>Últimos Cambios de Versión</h3>
+              <span class="platform-badge" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); color: var(--jungle-light);">Timeline OK</span>
+            </div>
+            <table class="glass-table">
+              <thead>
+                <tr>
+                  <th>Proyecto</th>
+                  <th>Plataforma</th>
+                  <th>Versión</th>
+                  <th>Fecha de Sincronización</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>ows-store</td>
+                  <td><span class="platform-badge">Windows</span></td>
+                  <td>2026.5.2-t0411</td>
+                  <td>2026-05-28 20:30 UTC</td>
+                </tr>
+                <tr>
+                  <td>floretshop</td>
+                  <td><span class="platform-badge" style="color:var(--desert-gold); border-color:rgba(245,197,66,0.3)">Windows + Android</span></td>
+                  <td>2026.4.28-t2358</td>
+                  <td>2026-05-28 18:45 UTC</td>
+                </tr>
+                <tr>
+                  <td>wildtransfer</td>
+                  <td><span class="platform-badge">Windows + Android</span></td>
+                  <td>2026.4.15-t1230</td>
+                  <td>2026-05-27 12:20 UTC</td>
+                </tr>
+                <tr>
+                  <td>dinobox</td>
+                  <td><span class="platform-badge">Windows</span></td>
+                  <td>2026.3.8-t2145</td>
+                  <td>2026-05-26 15:10 UTC</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Futuristic Live Logs Console Terminal -->
+          <div>
+            <div class="live-console-terminal" id="console-log-box">
+              <div class="console-header">
+                <span class="console-dot" style="background:#ef4444"></span>
+                <span class="console-dot" style="background:#f59e0b"></span>
+                <span class="console-dot" style="background:#10b981"></span>
+                <span style="margin-left: 8px;">OWS Live Server Console Monitor</span>
+              </div>
+              <div class="console-log-row"><span class="console-timestamp">[21:05:01]</span> <span class="console-tag-success">[SUCCESS]</span> Pool db connection established successfully.</div>
+              <div class="console-log-row"><span class="console-timestamp">[21:05:02]</span> <span class="console-tag-info">[INFO]</span> Serving static resources for OWS Admin Panel.</div>
+              <div class="console-log-row"><span class="console-timestamp">[21:05:03]</span> <span class="console-tag-success">[AUTH]</span> Admin session verified for IP ::ffff:127.0.0.1. Token generated.</div>
+              <div class="console-log-row"><span class="console-timestamp">[21:05:04]</span> <span class="console-tag-info">[INFO]</span> Query user_currency tables: read unified balances.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 2: ECOSISTEMA & APPS -->
+      <!-- ======================================================== -->
+      <div class="tab-content" id="tab-ecosistema">
+        <!-- Toolbar -->
+        <div class="eco-toolbar">
+          <div class="eco-toolbar-title">
+            Ecosistema OWS
+            <span id="eco-project-count">Cargando proyectos...</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn-action-small" onclick="openAddProjectModal()" style="background: linear-gradient(135deg, var(--ocean-cyan), var(--ocean-teal)); color: #0f172a; font-weight: bold; border: none;">➕ Agregar Proyecto</button>
+            <button class="btn-action-small" onclick="loadEcoProjects()" id="btn-reload-eco">↻ Recargar</button>
+          </div>
+        </div>
+
+        <!-- Project Cards Grid -->
+        <div class="eco-projects-grid" id="eco-projects-grid">
+          <div style="grid-column:1/-1; text-align:center; padding:60px; color:#64748b;">
+            <div style="font-size:2.5rem; margin-bottom:12px;">🔄</div>
+            <div>Cargando proyectos desde OWS Store...</div>
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- VERSION HEALTH PROTOCOL -->
+        <!-- ======================================================== -->
+        <div class="health-protocol-wrapper">
+          <div class="health-protocol-header">
+            <div>
+              <h3>🛡️ Protocolo de Salud de Versiones</h3>
+              <div class="health-meta-info" id="health-last-run">Verificación automática cada 24h · Última: —</div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span id="health-next-run" style="font-size:0.75rem; color:#64748b;"></span>
+              <button class="btn-manual-refresh" id="btn-health-manual" onclick="requestManualHealthCheck()">⚡ Verificación Manual</button>
+            </div>
+          </div>
+          <div class="health-table-wrapper">
+            <table class="health-table">
+              <thead>
+                <tr>
+                  <th>Icono</th>
+                  <th>Proyecto</th>
+                  <th>Versión DB</th>
+                  <th>Icono URL</th>
+                  <th>Acceso Icono</th>
+                  <th>URL Principal</th>
+                  <th>Android Release</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="health-table-body">
+                <tr>
+                  <td colspan="8" style="text-align:center; color:#64748b; padding:30px;">Esperando carga de proyectos...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 3: OCEAN PAY CENTRAL -->
+      <!-- ======================================================== -->
+      <div class="tab-content" id="tab-oceanpay">
+        <div class="dashboard-grid">
+          <!-- Adjust balance panel -->
+          <div class="action-panel-box">
+            <h3>Ajuste de Balances de Usuario</h3>
+            <p style="font-size: 0.85rem; color:#94a3b8; margin-bottom: 20px;">
+              Modifica saldos de forma manual directamente sobre la tabla unificada de divisas `user_currency`.
+            </p>
+            
+            <form id="balance-adjust-form">
+              <div class="form-group">
+                <label class="form-label" style="color:var(--ocean-cyan)">ID o Username del Usuario</label>
+                <input class="form-input" style="padding-left:16px;" type="text" id="adjust-userid" placeholder="Ej: 142 o oceanandwild" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="color:var(--ocean-cyan)">Moneda (Currency)</label>
+                <select class="form-input" id="adjust-currency" style="padding-left:16px; background:#0f172a; border-color:rgba(255,255,255,0.1)">
+                  <option value="wildcredits">Wild Credits (wildcredits)</option>
+                  <option value="ecoxionums">Ecoxionums (ecoxionums)</option>
+                  <option value="aquabux">AquaBux (aquabux)</option>
+                  <option value="wildgems">Wild Gems (wildgems)</option>
+                  <option value="ecobooks">Eco Books (ecobooks)</option>
+                  <option value="amber">Amber (amber)</option>
+                  <option value="nxb">NX B (nxb)</option>
+                  <option value="voltbit">Voltbit (voltbit)</option>
+                  <option value="ecotokens">Ecotokens (ecotokens)</option>
+                  <option value="ecobits">Ecobits (ecobits)</option>
+                  <option value="mayhemcoins">Mayhem Coins (mayhemcoins)</option>
+                  <option value="cosmicdust">Cosmic Dust (cosmicdust)</option>
+                  <option value="ecopower">Eco Power (ecopower)</option>
+                  <option value="coralbits">Coral Bits (coralbits)</option>
+                  <option value="tigrys">Tigrys (tigrys)</option>
+                  <option value="wildwavetokens">Wildwave Tokens (wildwavetokens)</option>
+                  <option value="relayshards">Relay Shards (relayshards)</option>
+                  <option value="ecocorebits">Eco Core Bits (ecocorebits)</option>
+                  <option value="tides">Tides (tides)</option>
+                  <option value="aurex">Aurex (aurex)</option>
+                  <option value="sparks">Sparks (sparks)</option>
+                  <option value="biometokens">Biome Tokens (biometokens)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="color:var(--ocean-cyan)">Monto / Cantidad</label>
+                <input class="form-input" style="padding-left:16px;" type="number" id="adjust-amount" placeholder="Ej: 500" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="color:var(--ocean-cyan)">Modo de Operación</label>
+                <select class="form-input" id="adjust-mode" style="padding-left:16px; background:#0f172a;">
+                  <option value="add">Añadir Saldo (add)</option>
+                  <option value="set">Fijar Saldo (set)</option>
+                  <option value="subtract">Restar Saldo (subtract)</option>
+                </select>
+              </div>
+              <button class="btn-submit" type="submit">Aplicar Ajuste Manual</button>
+            </form>
+          </div>
+
+          <!-- Currency details reference -->
+          <div class="action-panel-box">
+            <h3>Divisas Oficiales Unificadas</h3>
+            <p style="font-size: 0.85rem; color:#94a3b8; margin-bottom: 15px;">
+              Los saldos de todas las divisas de Ocean Pay se almacenan en la tabla unificada para optimizar sincronizaciones:
+            </p>
+            <div style="font-family:var(--font-space); font-size:0.8rem; line-height: 1.8; color:#cbd5e1; height: 350px; overflow-y:auto; padding-right:10px;">
+              <div>🟢 <strong>aquabux</strong> — AquaBux Principal</div>
+              <div>🟢 <strong>ecoxionums</strong> — Ecoxionums (Cross model icon)</div>
+              <div>🟢 <strong>wildcredits</strong> — Wild Credits</div>
+              <div>🟢 <strong>wildgems</strong> — Wild Gems</div>
+              <div>🟢 <strong>ecobooks</strong> — Eco Books</div>
+              <div>🟢 <strong>amber</strong> — Amber Coins</div>
+              <div>🟢 <strong>nxb</strong> — Next Gen Bits</div>
+              <div>🟢 <strong>voltbit</strong> — VoltBits</div>
+              <div>🟢 <strong>mayhemcoins</strong> — Mayhem Coins</div>
+              <div>🟢 <strong>cosmicdust</strong> — Cosmic Dust</div>
+              <div>🟢 <strong>coralbits</strong> — Coral Bits</div>
+              <div>🟢 <strong>tigrys</strong> — Tigrys shards</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 4: SEGURIDAD & LOGS -->
+      <!-- ======================================================== -->
+      <div class="tab-content" id="tab-seguridad">
+        <div class="action-panel-box">
+          <h3>Auditoría de Intentos Fallidos</h3>
+          <p style="font-size:0.85rem; color:#94a3b8; margin-bottom: 20px;">
+            El sistema de protección de fuerza bruta registra y bloquea IPs en tiempo real tras alcanzar 3 fallas.
+          </p>
+          <div class="glass-table-wrapper">
+            <table class="glass-table">
+              <thead>
+                <tr>
+                  <th>IP de Origen</th>
+                  <th>Intentos Fallidos</th>
+                  <th>Estado Actual</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="security-lockout-tbody">
+                <tr>
+                  <td><code>::ffff:192.168.1.45</code></td>
+                  <td>1/3</td>
+                  <td><span style="color:var(--desert-gold)">Alerta Activa</span></td>
+                  <td><button class="btn-action-small" onclick="alert('Historial de IP limpiado.');">Limpiar</button></td>
+                </tr>
+                <tr>
+                  <td><code>::ffff:85.23.119.12</code></td>
+                  <td>3/3 (Límite)</td>
+                  <td><span style="color:#ef4444; font-weight:700;">Bloqueado (15 min)</span></td>
+                  <td><button class="btn-action-small" style="color:#ef4444; border-color:rgba(239,68,68,0.2)" onclick="alert('IP desbloqueada.');">Desbloquear</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Ecosystem Error & Health Logs -->
+        <div class="action-panel-box" style="margin-top: 30px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div>
+              <h3>Registro de Alertas y Errores de Salud</h3>
+              <p style="font-size:0.85rem; color:#94a3b8; margin-top:4px;">
+                Historial de fallos detectados al verificar proyectos, carga de iconos, URLs principales y desfasajes de versiones Android.
+              </p>
+            </div>
+            <button class="btn-action-small" onclick="clearHealthLogs()">Limpiar Logs</button>
+          </div>
+          <div class="glass-table-wrapper" style="max-height: 400px; overflow-y: auto;">
+            <table class="glass-table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Proyecto</th>
+                  <th>Tipo de Alerta</th>
+                  <th>Detalle / Error</th>
+                  <th style="text-align:right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="health-logs-tbody">
+                <tr>
+                  <td colspan="5" style="text-align:center; color:#64748b; padding:30px;">Sin alertas o errores registrados en esta sesión.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Dynamically target real Render API if running locally (e.g., Live Server port 5501)
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'https://owsdatabase.onrender.com'
+      : '';
+
+    // State machine management
+    let currentSessionId = '';
+    let attemptCountdown = null;
+    let lockoutInterval = null;
+    let stepTimerInterval = null;
+    let stepTimeRemaining = 0;
+    let sessionCountdownInterval = null;
+    
+    const alertBox = document.getElementById('security-alert');
+    const alertText = document.getElementById('alert-text');
+    
+    // Stage HTML elements
+    const stage1 = document.getElementById('stage-1');
+    const stage2 = document.getElementById('stage-2');
+    const stage3 = document.getElementById('stage-3');
+    const stageLockout = document.getElementById('stage-lockout');
+    
+    const loginContainer = document.getElementById('login-container');
+    const owsDashboard = document.getElementById('ows-dashboard');
+    const stepsIndicator = document.getElementById('steps-indicator');
+
+    const dot1 = document.getElementById('dot-1');
+    const dot2 = document.getElementById('dot-2');
+    const dot3 = document.getElementById('dot-3');
+
+    // Tab view controller
+    function showTab(tabId, clickedEl) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      
+      document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+      if (clickedEl) clickedEl.classList.add('active');
+
+      // Update Section Header Title dynamically
+      const tabNames = {
+        'tab-resumen': 'Resumen General',
+        'tab-ecosistema': 'Ecosistema & Catálogo de Apps',
+        'tab-oceanpay': 'Ocean Pay Central Balance Manager',
+        'tab-seguridad': 'Seguridad Administrativa & Auditoría de Red'
+      };
+      document.getElementById('topbar-section-title').textContent = tabNames[tabId] || 'Panel de Control';
+
+      if (tabId === 'tab-ecosistema') {
+        loadEcoProjects();
+      }
+    }
+
+    // Console logs live simulator
+    const consoleBox = document.getElementById('console-log-box');
+    const logMessages = [
+      "SELECT balances FROM ocean_pay_cards WHERE user_id = $1 LIMIT 1",
+      "UPDATE user_currency SET amount = amount + $1 WHERE user_id = $2",
+      "GET /ows-store/projects/ows-store/version - 200 OK (54ms)",
+      "POST /ows-store/android/releases - registration processed.",
+      "Auditing token rotation status in render environment...",
+      "PATCH /ocean-pay/admin/balances/152 - set wildcredits successful.",
+      "Synchronizing changelog feed database timeline for Floret Shop...",
+      "GET /ocean-pay/admin/balances/99 - SSL verification successful.",
+      "Autosync triggered: read github releases tags from repo"
+    ];
+
+    setInterval(() => {
+      if (owsDashboard.style.display === 'flex') {
+        const time = new Date().toLocaleTimeString();
+        const randMsg = logMessages[Math.floor(Math.random() * logMessages.length)];
+        const row = document.createElement('div');
+        row.className = 'console-log-row';
+        row.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-info">[QUERY]</span> ${randMsg}`;
+        consoleBox.appendChild(row);
+        consoleBox.scrollTop = consoleBox.scrollHeight;
+        
+        // Cap terminal log count
+        if (consoleBox.children.length > 25) {
+          consoleBox.removeChild(consoleBox.children[1]); // Keep title
+        }
+      }
+    }, 4000);
+
+    // Utility show error alert
+    function showError(message, type = 'error') {
+      alertBox.className = 'security-alert show';
+      if (type === 'oceanpay') {
+        alertBox.classList.add('oceanpay-warning');
+      }
+      alertText.textContent = message;
+    }
+
+    function hideError() {
+      alertBox.classList.remove('show');
+    }
+
+    // Lockout timer trigger
+    function startLockout(ms) {
+      clearInterval(stepTimerInterval);
+      clearInterval(lockoutInterval);
+      
+      stage1.classList.remove('active');
+      stage2.classList.remove('active');
+      stage3.classList.remove('active');
+      stageLockout.classList.add('active');
+      stepsIndicator.style.display = 'none';
+      hideError();
+
+      let targetTime = Date.now() + ms;
+
+      function updateLockoutUI() {
+        let diff = targetTime - Date.now();
+        if (diff <= 0) {
+          clearInterval(lockoutInterval);
+          window.location.reload();
+          return;
+        }
+        let minutes = Math.floor(diff / 60000);
+        let seconds = Math.floor((diff % 60000) / 1000);
+        document.getElementById('lockout-timer-display').textContent = 
+          `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      }
+
+      updateLockoutUI();
+      lockoutInterval = setInterval(updateLockoutUI, 1000);
+    }
+
+    // Custom Timer progress bars for verification steps
+    function startStepTimer(durationSec, progressBarId, onExpire) {
+      clearInterval(stepTimerInterval);
+      let progress = document.getElementById(progressBarId);
+      let start = Date.now();
+      let limit = durationSec * 1000;
+
+      stepTimerInterval = setInterval(() => {
+        let elapsed = Date.now() - start;
+        let pct = Math.max(0, 100 - (elapsed / limit) * 100);
+        progress.style.width = pct + '%';
+
+        if (elapsed >= limit) {
+          clearInterval(stepTimerInterval);
+          onExpire();
+        }
+      }, 100);
+    }
+
+    // Step 1 Submit: Login credentials
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const response = await fetch(`${API_BASE}/ows-admin-panel/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          currentSessionId = data.sessionId;
+          
+          // Switch to Stage 2
+          stage1.classList.remove('active');
+          stage2.classList.add('active');
+          dot1.className = 'step-dot completed';
+          dot2.className = 'step-dot active';
+
+          // Start stage countdown
+          startStepTimer(data.expiresIn || 600, 'timer-progress-1', () => {
+            showError('Tiempo de inicio de sesión expirado. Por favor recarga.');
+            setTimeout(() => window.location.reload(), 3000);
+          });
+
+        } else {
+          if (response.status === 403) {
+            showError(data.error, 'oceanpay');
+          } else {
+            showError(data.error || 'Credenciales de acceso incorrectas.');
+          }
+
+          if (data.locked) {
+            startLockout(data.remaining || 900000);
+          }
+        }
+      } catch (err) {
+        showError('No se pudo conectar al servidor de OWS. Asegúrese de que el servidor está en línea.');
+      }
+    });
+
+    // Step 2 Submit: Admin secret
+    document.getElementById('secret-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const adminSecret = document.getElementById('admin-secret').value;
+
+      try {
+        const response = await fetch(`${API_BASE}/ows-admin-panel/verify-step1`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: currentSessionId, adminSecret })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          localStorage.setItem('ows_admin_secret', adminSecret);
+          const codeMatch = data.challengeMessage.match(/\b\d{6}\b/);
+          const tempCode = codeMatch ? codeMatch[0] : '000000';
+          
+          document.getElementById('puzzle-code-display').textContent = tempCode;
+          document.getElementById('challenge-instructions').textContent = data.challengeMessage;
+
+          // Switch to Stage 3
+          stage2.classList.remove('active');
+          stage3.classList.add('active');
+          dot2.className = 'step-dot completed';
+          dot3.className = 'step-dot active';
+
+          // Start new step countdown
+          startStepTimer(120, 'timer-progress-2', () => {
+            showError('Desafío temporal expirado. Reiniciando inicio de sesión.');
+            setTimeout(() => window.location.reload(), 3000);
+          });
+        } else {
+          showError(data.error || 'Secreto de administración erróneo.');
+          if (data.locked) {
+            startLockout(data.remaining || 900000);
+          }
+        }
+      } catch (err) {
+        showError('Error en verificación de secreto.');
+      }
+    });
+
+    // Step 3 Submit: Logic puzzle
+    document.getElementById('puzzle-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const answer = document.getElementById('puzzle-answer').value;
+
+      try {
+        const response = await fetch(`${API_BASE}/ows-admin-panel/verify-step2`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: currentSessionId, answer })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          clearInterval(stepTimerInterval);
+          
+          // TRANSITION TO FULL SCREEN PORTAL
+          loginContainer.style.display = 'none';
+          owsDashboard.style.display = 'flex';
+          
+          // Store token in localStorage (persists across reloads)
+          localStorage.setItem('ows_admin_token', data.token);
+          startSessionCountdown(data.token);
+
+        } else {
+          showError(data.error || 'Respuesta del desafío no válida.');
+          if (data.locked) {
+            startLockout(data.remaining || 900000);
+          }
+        }
+      } catch (err) {
+        showError('Fallo en la comunicación del desafío.');
+      }
+    });
+
+    // Balance Adjust Submission & Confirmation Modal logic
+    let pendingAdjustment = null;
+    let resolvedUser = null;
+
+    document.getElementById('balance-adjust-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const query = document.getElementById('adjust-userid').value.trim();
+      const currency = document.getElementById('adjust-currency').value;
+      const amount = document.getElementById('adjust-amount').value;
+      const mode = document.getElementById('adjust-mode').value;
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+
+      const modeNames = {
+        'add': 'AÑADIR',
+        'set': 'FIJAR / ESTABLECER',
+        'subtract': 'RESTAR / SUSTRAER'
+      };
+
+      try {
+        // Log query lookup
+        const time = new Date().toLocaleTimeString();
+        const logRow = document.createElement('div');
+        logRow.className = 'console-log-row';
+        logRow.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-info">[LOOKUP]</span> Verifying identity for target: "${query}"...`;
+        consoleBox.appendChild(logRow);
+        consoleBox.scrollTop = consoleBox.scrollHeight;
+
+        // Perform dynamic verification lookup on server.js
+        const lookupRes = await fetch(`${API_BASE}/ocean-pay/admin/users/lookup?query=${encodeURIComponent(query)}`, {
+          method: 'GET',
+          headers: {
+            'x-ows-admin-token': adminSecret
+          }
+        });
+
+        const lookupData = await lookupRes.json();
+
+        if (!lookupRes.ok || !lookupData.success) {
+          alert(`Error de verificación: ${lookupData.error || 'Usuario no encontrado en Ocean Pay.'}`);
+          return;
+        }
+
+        resolvedUser = lookupData.user; // { id, username }
+        pendingAdjustment = { userId: resolvedUser.id, currency, amount, mode };
+
+        // Update modal text with detailed verification confirmation
+        document.getElementById('confirm-modal-text').innerHTML = `
+          <div style="background: rgba(38, 224, 255, 0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(38, 224, 255, 0.2); margin-bottom: 15px;">
+            <strong>Cuenta Detectada:</strong><br>
+            • Nombre: <span style="color:var(--ocean-cyan); font-weight:700;">${resolvedUser.username}</span><br>
+            • ID de Usuario: <span style="color:var(--ocean-cyan); font-weight:700;">${resolvedUser.id}</span>
+          </div>
+          ¿Confirmas que este usuario es el correcto para la modificación?<br><br>
+          <strong>Moneda:</strong> ${currency.toUpperCase()}<br>
+          <strong>Cantidad:</strong> ${amount}<br>
+          <strong>Operación:</strong> ${modeNames[mode]}
+        `;
+
+        // Clear confirmation text and show modal
+        document.getElementById('confirm-input-text').value = '';
+        document.getElementById('confirm-modal').style.display = 'flex';
+
+      } catch (err) {
+        alert('Error conectando al servidor para verificar el usuario.');
+      }
+    });
+
+    function closeConfirmModal() {
+      document.getElementById('confirm-modal').style.display = 'none';
+      pendingAdjustment = null;
+      resolvedUser = null;
+    }
+
+    document.getElementById('btn-confirm-execute').addEventListener('click', async () => {
+      const confirmInput = document.getElementById('confirm-input-text').value;
+      
+      if (confirmInput.trim().toUpperCase() !== 'CONFIRMAR') {
+        alert('Debe escribir exactamente "CONFIRMAR" para ejecutar la operación.');
+        return;
+      }
+
+      if (!pendingAdjustment || !resolvedUser) return;
+
+      const { userId, currency, amount, mode } = pendingAdjustment;
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+
+      closeConfirmModal();
+
+      try {
+        const response = await fetch(`${API_BASE}/ocean-pay/admin/balances/${userId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-ows-admin-token': adminSecret
+          },
+          body: JSON.stringify({ currency, amount, mode })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          const time = new Date().toLocaleTimeString();
+          const logRow = document.createElement('div');
+          logRow.className = 'console-log-row';
+          logRow.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-success">[SUCCESS]</span> Manual adjustment applied. User "${resolvedUser.username}" (ID: ${userId}) ${currency}: prev=${data.previous}, current=${data.current}`;
+          consoleBox.appendChild(logRow);
+          consoleBox.scrollTop = consoleBox.scrollHeight;
+
+          alert(`¡Ajuste aplicado exitosamente!\nUsuario: ${resolvedUser.username}\nBalance previo: ${data.previous}\nNuevo Balance: ${data.current}`);
+        } else {
+          const time = new Date().toLocaleTimeString();
+          const logRow = document.createElement('div');
+          logRow.className = 'console-log-row';
+          logRow.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-warn">[ERROR]</span> Adjustment failed: ${data.error || 'No autorizado'}`;
+          consoleBox.appendChild(logRow);
+          consoleBox.scrollTop = consoleBox.scrollHeight;
+
+          alert(`Error al ajustar balance: ${data.error || 'No autorizado'}`);
+        }
+      } catch (err) {
+        alert('Error de red al intentar conectar con el servidor OWS.');
+      }
+    });
+
+    // ============================================================
+    // SESSION PERSISTENCE & COUNTDOWN
+    // ============================================================
+
+    function parseJwtExpiry(token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.exp ? payload.exp * 1000 : null;
+      } catch { return null; }
+    }
+
+    function startSessionCountdown(token) {
+      clearInterval(sessionCountdownInterval);
+      const expiry = parseJwtExpiry(token);
+      if (!expiry) return;
+
+      const el = document.getElementById('session-countdown');
+
+      function updateCountdown() {
+        const diff = expiry - Date.now();
+        if (diff <= 0) {
+          clearInterval(sessionCountdownInterval);
+          el.textContent = 'EXPIRADA';
+          el.className = 'session-timer-countdown expired';
+          return;
+        }
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        el.textContent = h > 0
+          ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+          : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+        // Warning when < 10 minutes
+        if (diff < 10 * 60 * 1000) {
+          el.className = 'session-timer-countdown warning';
+        } else {
+          el.className = 'session-timer-countdown';
+        }
+      }
+
+      updateCountdown();
+      sessionCountdownInterval = setInterval(updateCountdown, 1000);
+    }
+
+    // Auto-restore session on page load
+    (function restoreSession() {
+      const savedToken = localStorage.getItem('ows_admin_token');
+      if (!savedToken) return;
+
+      const expiry = parseJwtExpiry(savedToken);
+      if (!expiry || Date.now() >= expiry) {
+        // Token expired — clear it
+        localStorage.removeItem('ows_admin_token');
+        return;
+      }
+
+      // Valid token found — bypass login and go straight to dashboard
+      const savedSecret = localStorage.getItem('ows_admin_secret') || '';
+      loginContainer.style.display = 'none';
+      owsDashboard.style.display = 'flex';
+      startSessionCountdown(savedToken);
+
+      // Add console entry
+      const time = new Date().toLocaleTimeString();
+      const row = document.createElement('div');
+      row.className = 'console-log-row';
+      row.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-success">[AUTH]</span> Sesión restaurada desde almacenamiento local. Expira a las ${new Date(expiry).toLocaleTimeString()}.`;
+      document.getElementById('console-log-box').appendChild(row);
+    })();
+
+    // ============================================================
+    // EXTEND SESSION MODAL LOGIC
+    // ============================================================
+
+    function openExtendModal() {
+      const modal = document.getElementById('extend-session-modal');
+      modal.style.display = 'flex';
+      // Reset to step A
+      document.getElementById('extend-step-a').style.display = 'block';
+      document.getElementById('extend-step-b').style.display = 'none';
+      document.getElementById('extend-result-msg').style.display = 'none';
+      document.getElementById('extend-code-value').textContent = '------';
+      document.getElementById('extend-code-input').value = '';
+    }
+
+    function closeExtendModal() {
+      document.getElementById('extend-session-modal').style.display = 'none';
+    }
+
+    // Step A: Request code from server
+    document.getElementById('btn-request-extend-code').addEventListener('click', async () => {
+      const token = localStorage.getItem('ows_admin_token');
+      if (!token) {
+        alert('No hay sesión activa. Por favor inicia sesión primero.');
+        closeExtendModal();
+        return;
+      }
+
+      const btn = document.getElementById('btn-request-extend-code');
+      btn.textContent = 'Generando…';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/ows-admin-panel/request-extend-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          document.getElementById('extend-code-value').textContent = data.code;
+          document.getElementById('extend-step-a').style.display = 'none';
+          document.getElementById('extend-step-b').style.display = 'block';
+        } else {
+          showExtendResult(data.error || 'Error generando código.', 'error');
+        }
+      } catch (err) {
+        showExtendResult('Error de red al contactar el servidor.', 'error');
+      } finally {
+        btn.textContent = 'Generar Código de Verificación';
+        btn.disabled = false;
+      }
+    });
+
+    // Step B: Confirm code + execute extension
+    document.getElementById('btn-confirm-extend').addEventListener('click', async () => {
+      const token = localStorage.getItem('ows_admin_token');
+      const confirmCode = document.getElementById('extend-code-input').value.trim();
+
+      if (!confirmCode || confirmCode.length !== 6) {
+        showExtendResult('Ingresa el código de 6 dígitos.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btn-confirm-extend');
+      btn.textContent = 'Verificando…';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/ows-admin-panel/extend-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, confirmCode })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          // Save new token and restart countdown
+          localStorage.setItem('ows_admin_token', data.token);
+          startSessionCountdown(data.token);
+
+          // Console log
+          const time = new Date().toLocaleTimeString();
+          const logRow = document.createElement('div');
+          logRow.className = 'console-log-row';
+          logRow.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-success">[SESSION]</span> Sesión extendida +2h. Wildcredits deducidos de OceanandWild (anterior: ${data.previousBalance} → nuevo: ${data.newBalance}).`;
+          document.getElementById('console-log-box').appendChild(logRow);
+          document.getElementById('console-log-box').scrollTop = 999999;
+
+          showExtendResult(`✅ ${data.message}`, 'success');
+          document.getElementById('extend-step-b').style.display = 'none';
+          setTimeout(closeExtendModal, 3500);
+        } else {
+          showExtendResult(data.error || 'Código incorrecto o expirado.', 'error');
+        }
+      } catch (err) {
+        showExtendResult('Error de red al contactar el servidor.', 'error');
+      } finally {
+        btn.textContent = 'Confirmar y Extender Sesión';
+        btn.disabled = false;
+      }
+    });
+
+    function showExtendResult(msg, type) {
+      const el = document.getElementById('extend-result-msg');
+      el.style.display = 'block';
+      el.style.padding = '14px';
+      el.style.borderRadius = '10px';
+      el.style.fontSize = '0.88rem';
+      el.style.lineHeight = '1.5';
+      if (type === 'success') {
+        el.style.background = 'rgba(16, 185, 129, 0.15)';
+        el.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        el.style.color = '#6ee7b7';
+      } else {
+        el.style.background = 'rgba(239, 68, 68, 0.12)';
+        el.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        el.style.color = '#fca5a5';
+      }
+      el.textContent = msg;
+    }
+
+    // ============================================================
+    // ECOSISTEMA & APPS TAB LOGIC
+    // ============================================================
+    // Force cache eviction on update
+    const HEALTH_CODE_VERSION = "v11";
+    if (localStorage.getItem('health_code_version') !== HEALTH_CODE_VERSION) {
+      localStorage.removeItem('health_last_run_time');
+      localStorage.removeItem('health_last_run_results');
+      localStorage.removeItem('ows_health_logs');
+      localStorage.setItem('health_code_version', HEALTH_CODE_VERSION);
+    }
+
+    let cachedProjects = [];
+    let mathTramiteAnswer = 0;
+
+    // All project assets live in the owsdatabase monorepo, under a folder
+    // named after the project's display name (e.g. "WildWeapon Mayhem").
+    // The icon_url stored in the DB is a relative path within that folder.
+    const OWS_REPO_BASE = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main';
+
+    function getStoreLocalIcon(slug, fallbackUrl) {
+      const lower = String(slug || '').toLowerCase();
+      // Mappings exactly as defined in OWS Store
+      if (lower.includes('wildweapon') || lower.includes('wildweapon-mayhem')) {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/wildweaponmayhem.ico`;
+      }
+      if (lower === 'savagespaceanimals' || lower === 'savage-space-animals') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/ssa.ico`;
+      }
+      if (lower === 'oceanpay' || lower === 'ocean-pay') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/oceanpay.ico`;
+      }
+      if (lower === 'floretshop' || lower === 'floret-shop') {
+        return `${OWS_REPO_BASE}/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938`;
+      }
+      if (lower === 'wildtransfer') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/wildtransfer.ico`;
+      }
+      if (lower === 'awqg' || lower === 'a-wild-question-game') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/awqg.ico`;
+      }
+      if (lower === 'wilddestiny' || lower === 'wild-destiny') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/wilddestiny.ico`;
+      }
+      if (lower === 'ecoxion') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/ecoxion.ico`;
+      }
+      if (lower === 'velocity-surge' || lower === 'velocitysurge') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/velocitysurge.ico`;
+      }
+      if (lower === 'wildwave') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/wildwave.ico`;
+      }
+      if (lower === 'dinobox') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/dinobox.ico`;
+      }
+      if (lower === 'ows-store') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/icon.ico`;
+      }
+      if (lower === 'ocean-cinemas' || lower === 'oceancinemas') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/oceancinemas.jpg`;
+      }
+      if (lower === 'wildshorts') {
+        return `${OWS_REPO_BASE}/OWS%20Store/build/wildshorts.jpg`;
+      }
+      return fallbackUrl;
+    }
+
+    function resolveProjectUrl(p, urlStr) {
+      if (!urlStr) return getStoreLocalIcon(p.slug, '');
+      if (urlStr.startsWith('http://') || urlStr.startsWith('https://') || urlStr.startsWith('data:')) {
+        return urlStr;
+      }
+      const cleanPath = urlStr.split('?')[0].replace(/^\.\//,'');
+      const folder = encodeURIComponent(p.name || p.slug || '');
+      const defaultResolved = `${OWS_REPO_BASE}/${folder}/${cleanPath}`;
+      return getStoreLocalIcon(p.slug, defaultResolved);
+    }
+
+    function resolveIconWithFallbacks(p) {
+      const urlStr = p.icon_url;
+      if (!urlStr) return getStoreLocalIcon(p.slug, '');
+      if (urlStr.startsWith('http://') || urlStr.startsWith('https://') || urlStr.startsWith('data:')) {
+        return urlStr;
+      }
+      const cleanPath = urlStr.split('?')[0].replace(/^\.\//,'');
+      const folder = encodeURIComponent(p.name || p.slug || '');
+      const defaultResolved = `${OWS_REPO_BASE}/${folder}/${cleanPath}`;
+      return getStoreLocalIcon(p.slug, defaultResolved);
+    }
+
+    async function loadEcoProjects() {
+      const grid = document.getElementById('eco-projects-grid');
+      const countEl = document.getElementById('eco-project-count');
+      const btnReload = document.getElementById('btn-reload-eco');
+      
+      if (btnReload) btnReload.disabled = true;
+      grid.innerHTML = `
+        <div style="grid-column:1/-1; text-align:center; padding:60px; color:#64748b;">
+          <div style="font-size:2.5rem; margin-bottom:12px; animation: pulse-amber 1s infinite;">🔄</div>
+          <div>Cargando proyectos desde OWS Store...</div>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`${API_BASE}/ows-store/projects?include_unavailable=true`);
+        const data = await res.json();
+        
+        if (Array.isArray(data)) {
+          cachedProjects = data;
+        } else if (data && Array.isArray(data.projects)) {
+          cachedProjects = data.projects;
+        } else {
+          cachedProjects = [];
+        }
+
+        countEl.textContent = `(${cachedProjects.length} proyectos registrados)`;
+        renderEcoProjects(cachedProjects);
+        
+        // Auto check health if it's past 24h
+        checkHealthAuto();
+      } catch (err) {
+        grid.innerHTML = `
+          <div style="grid-column:1/-1; text-align:center; padding:40px; color:#ef4444;">
+            <div style="font-size:2.5rem; margin-bottom:12px;">⚠️</div>
+            <div>Error al cargar proyectos de OWS Store.</div>
+            <div style="font-size:0.8rem; margin-top:8px; color:#64748b;">${err.message}</div>
+          </div>
+        `;
+        addHealthLog('OWS Store API', 'ERROR_CONEXION_API', `Fallo al solicitar catálogo de proyectos: ${err.message}`);
+      } finally {
+        if (btnReload) btnReload.disabled = false;
+      }
+    }
+
+    function renderEcoProjects(projects) {
+      const grid = document.getElementById('eco-projects-grid');
+      if (projects.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">
+            Sin proyectos en el catálogo.
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = projects.map(p => {
+        const platform = p.platform || 'Multiplataforma';
+        const version = p.version || '0.0.0';
+        const desc = p.description || 'Sin descripción disponible.';
+
+        const resolvedIcon = resolveIconWithFallbacks(p);
+        const iconHtml = resolvedIcon 
+          ? `<img src="${resolvedIcon}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+             <div style="display:none; width:100%; height:100%; align-items:center; justify-content:center; background:rgba(239,68,68,0.1); color:#ef4444; font-size:0.8rem; font-weight:bold; flex-direction:column; gap:2px;"><span>⚠️</span><span style='font-size:0.65rem;'>No carga</span></div>`
+          : `🎮`;
+
+
+        // Status styling
+        let statusStyle = 'background: rgba(16, 185, 129, 0.15); color: var(--jungle-light); border: 1px solid rgba(16, 185, 129, 0.2);';
+        if (p.status === 'rework') {
+          statusStyle = 'background: rgba(245, 197, 66, 0.15); color: var(--desert-gold); border: 1px solid rgba(245, 197, 66, 0.2);';
+        } else if (p.status === 'unavailable') {
+          statusStyle = 'background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);';
+        } else if (p.status === 'coming_soon') {
+          statusStyle = 'background: rgba(38, 224, 255, 0.15); color: var(--ocean-cyan); border: 1px solid rgba(38, 224, 255, 0.2);';
+        }
+
+        return `
+          <div class="eco-project-card">
+            <div class="eco-card-header">
+              <div class="eco-card-icon">${iconHtml}</div>
+              <div class="eco-card-info">
+                <h4>${p.name || p.slug}</h4>
+                <div class="eco-slug">${p.slug}</div>
+              </div>
+            </div>
+            <div class="eco-card-meta">
+              <span class="eco-status-pill" style="${statusStyle}">${p.status || 'launched'}</span>
+              <span class="eco-version-tag">v${version}</span>
+              <span class="platform-badge" style="font-size:0.68rem; padding: 2px 6px;">${platform}</span>
+            </div>
+            <div class="eco-card-description">${desc}</div>
+            <div class="eco-card-actions">
+              <button class="eco-btn-edit" onclick="openEditProjectModal('${p.slug}')">⚙️ Editar</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      renderHealthTablePlaceholder(projects);
+    }
+
+    function openAddProjectModal() {
+      document.getElementById('add-project-form').reset();
+      document.getElementById('add-project-modal').style.display = 'flex';
+    }
+
+    function closeAddProjectModal() {
+      document.getElementById('add-project-modal').style.display = 'none';
+    }
+
+    document.getElementById('add-project-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const slug = document.getElementById('add-project-slug').value.trim().toLowerCase();
+      const name = document.getElementById('add-project-name').value.trim();
+      const icon_url = document.getElementById('add-project-icon').value.trim();
+      const banner_url = document.getElementById('add-project-banner').value.trim();
+      const url = document.getElementById('add-project-url').value.trim();
+      const installer_url = document.getElementById('add-project-installer').value.trim();
+      const description = document.getElementById('add-project-desc').value.trim();
+      const status = document.getElementById('add-project-status').value;
+      const platform = document.getElementById('add-project-platform').value.trim();
+
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+
+      try {
+        const response = await fetch(`${API_BASE}/ows-store/projects`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-ows-admin-token': adminSecret
+          },
+          body: JSON.stringify({ slug, name, icon_url, banner_url, url, installer_url, description, status, platform })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          const time = new Date().toLocaleTimeString();
+          const logRow = document.createElement('div');
+          logRow.className = 'console-log-row';
+          logRow.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-success">[PROJECT]</span> Creado nuevo proyecto "${slug}": "${name}" (${status}).`;
+          document.getElementById('console-log-box').appendChild(logRow);
+          document.getElementById('console-log-box').scrollTop = 99999;
+
+          alert('¡Proyecto creado exitosamente!');
+          closeAddProjectModal();
+          loadEcoProjects();
+        } else {
+          alert(`Error al crear proyecto: ${data.error || 'No autorizado'}`);
+        }
+      } catch (err) {
+        alert('Error de red al crear proyecto.');
+      }
+    });
+
+    function openEditProjectModal(slug) {
+      const p = cachedProjects.find(item => item.slug === slug);
+      if (!p) return;
+
+      document.getElementById('edit-project-slug').value = p.slug;
+      document.getElementById('edit-project-name').value = p.name || '';
+      document.getElementById('edit-project-icon').value = p.icon_url || '';
+      document.getElementById('edit-project-banner').value = p.banner_url || '';
+      document.getElementById('edit-project-url').value = p.url || '';
+      document.getElementById('edit-project-installer').value = p.installer_url || '';
+      document.getElementById('edit-project-desc').value = p.description || '';
+      document.getElementById('edit-project-status').value = p.status || 'launched';
+      document.getElementById('edit-project-platform').value = p.platform || '';
+
+      document.getElementById('edit-project-modal').style.display = 'flex';
+    }
+
+    function closeEditProjectModal() {
+      document.getElementById('edit-project-modal').style.display = 'none';
+    }
+
+    document.getElementById('edit-project-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const slug = document.getElementById('edit-project-slug').value;
+      const name = document.getElementById('edit-project-name').value.trim();
+      const icon_url = document.getElementById('edit-project-icon').value.trim();
+      const banner_url = document.getElementById('edit-project-banner').value.trim();
+      const url = document.getElementById('edit-project-url').value.trim();
+      const installer_url = document.getElementById('edit-project-installer').value.trim();
+      const description = document.getElementById('edit-project-desc').value.trim();
+      const status = document.getElementById('edit-project-status').value;
+      const platform = document.getElementById('edit-project-platform').value.trim();
+
+      const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+
+      try {
+        const response = await fetch(`${API_BASE}/ows-store/projects/${slug}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-ows-admin-token': adminSecret
+          },
+          body: JSON.stringify({ name, icon_url, banner_url, url, installer_url, description, status, platform })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          const time = new Date().toLocaleTimeString();
+          const logRow = document.createElement('div');
+          logRow.className = 'console-log-row';
+          logRow.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-success">[PROJECT]</span> Actualizada metadata para "${slug}": "${name}" (${status}).`;
+          document.getElementById('console-log-box').appendChild(logRow);
+          document.getElementById('console-log-box').scrollTop = 99999;
+
+          alert('¡Proyecto modificado correctamente!');
+          closeEditProjectModal();
+          loadEcoProjects();
+        } else {
+          alert(`Error al guardar cambios: ${data.error || 'No autorizado'}`);
+        }
+      } catch (err) {
+        alert('Error de red al guardar cambios.');
+      }
+    });
+
+    // ============================================================
+    // HEALTH CHECK SYSTEM
+    // ============================================================
+
+    function renderHealthTablePlaceholder(projects) {
+      const tbody = document.getElementById('health-table-body');
+      if (projects.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#64748b;">No hay proyectos.</td></tr>`;
+        return;
+      }
+
+      const savedHealth = localStorage.getItem('health_last_run_results');
+      const healthData = savedHealth ? JSON.parse(savedHealth) : {};
+
+      tbody.innerHTML = projects.map(p => {
+        const item = healthData[p.slug] || {
+          iconStatus: 'pending',
+          iconText: 'Pendiente',
+          urlStatus: 'pending',
+          urlText: 'Pendiente',
+          androidStatus: 'pending',
+          androidText: 'Pendiente'
+        };
+
+        const iconUrlEscaped = p.icon_url ? p.icon_url.substring(0, 30) + '...' : 'Sin Icono';
+        const urlEscaped = p.url ? p.url.substring(0, 30) + '...' : 'Sin URL';
+        
+        const resolvedIcon = resolveIconWithFallbacks(p);
+        const iconUrl = p.icon_url || '';
+        const cleanIconPath = iconUrl.replace(/^\.\//,'');
+        const nameFallback = (!iconUrl.startsWith('http') && !iconUrl.startsWith('data:') && p.name)
+          ? `https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/${encodeURIComponent(p.name)}/${cleanIconPath}`
+          : '';
+        return `
+          <tr id="health-row-${p.slug}">
+            <td><img class="health-icon-preview" src="${resolvedIcon || ''}" onerror="if(this.dataset.triedFallback!='1' && '${nameFallback}'){this.dataset.triedFallback='1';this.src='${nameFallback}';}else{this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22><rect width=%2232%22 height=%2232%22 fill=%22%23334155%22/><text x=%2250%%22 y=%2255%%22 font-size=%2214%22 fill=%22%23cbd5e1%22 font-family=%22sans-serif%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22>?</text></svg>';}" data-tried-fallback="0" /></td>
+            <td style="font-weight:700;">${p.name || p.slug}</td>
+            <td style="font-family:monospace; font-size:0.8rem;">${p.version || '—'}</td>
+            <td style="font-size:0.75rem; color:#64748b;" title="${p.icon_url || ''}">${iconUrlEscaped}</td>
+            <td>
+              <div class="health-check-cell">
+                <span class="health-dot ${item.iconStatus}" id="health-icon-dot-${p.slug}"></span>
+                <span id="health-icon-txt-${p.slug}">${item.iconText}</span>
+              </div>
+            </td>
+            <td>
+              <div class="health-check-cell">
+                <span class="health-dot ${item.urlStatus}" id="health-url-dot-${p.slug}"></span>
+                <span id="health-url-txt-${p.slug}">${item.urlText}</span>
+              </div>
+            </td>
+            <td>
+              <div class="health-check-cell">
+                <span class="health-dot ${item.androidStatus}" id="health-android-dot-${p.slug}"></span>
+                <span id="health-android-txt-${p.slug}">${item.androidText}</span>
+              </div>
+            </td>
+            <td>
+              <span id="health-status-summary-${p.slug}" style="font-weight:600; font-size:0.8rem;">—</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Populate logs from loaded cache to guarantee they are displayed on page load
+      projects.forEach(p => {
+        const item = healthData[p.slug];
+        if (!item) return;
+
+        if (item.iconStatus === 'fail' && p.icon_url) {
+          addHealthLog(p.name || p.slug, 'FALLO_ICONO', `El icono en '${p.icon_url}' no pudo cargarse.`);
+        }
+        if (item.urlStatus === 'fail' && p.url) {
+          addHealthLog(p.name || p.slug, 'FALLO_URL', `El sitio principal en '${p.url}' no respondió.`);
+        }
+        if (item.androidStatus === 'fail') {
+          addHealthLog(p.name || p.slug, 'VERSION_DESFASADA', item.androidText || 'Diferencia de versiones en Android.');
+        }
+      });
+
+      const lastRun = localStorage.getItem('health_last_run_time');
+      if (lastRun) {
+        document.getElementById('health-last-run').textContent = `Verificación automática cada 24h · Última: ${new Date(Number(lastRun)).toLocaleString()}`;
+      }
+    }
+
+    async function checkHealthAuto() {
+      const lastRun = localStorage.getItem('health_last_run_time');
+      const now = Date.now();
+      const cooldown = 24 * 60 * 60 * 1000;
+      
+      if (!lastRun || (now - Number(lastRun) >= cooldown)) {
+        runHealthCheck();
+      }
+    }
+
+    async function requestManualHealthCheck() {
+      const lastRun = localStorage.getItem('health_last_run_time');
+      const now = Date.now();
+      const cooldown = 24 * 60 * 60 * 1000;
+
+      if (lastRun && (now - Number(lastRun) < cooldown)) {
+        openHealthTramiteModal();
+      } else {
+        runHealthCheck();
+      }
+    }
+
+    function openHealthTramiteModal() {
+      const numA = Math.floor(Math.random() * 20) + 10;
+      const numB = Math.floor(Math.random() * 20) + 5;
+      mathTramiteAnswer = numA + numB;
+
+      document.getElementById('health-tramite-math-label').textContent = `¿Cuánto es ${numA} + ${numB}?`;
+      document.getElementById('health-tramite-phrase').value = '';
+      document.getElementById('health-tramite-math-answer').value = '';
+      document.getElementById('health-tramite-modal').style.display = 'flex';
+    }
+
+    function closeHealthTramiteModal() {
+      document.getElementById('health-tramite-modal').style.display = 'none';
+    }
+
+    function validateHealthTramite() {
+      const phrase = document.getElementById('health-tramite-phrase').value.trim();
+      const ans = parseInt(document.getElementById('health-tramite-math-answer').value, 10);
+
+      if (phrase.toUpperCase() !== 'DESATURAR') {
+        alert('Confirmación incorrecta. Debe escribir exactamente: DESATURAR');
+        return;
+      }
+
+      if (ans !== mathTramiteAnswer) {
+        alert('El resultado matemático es incorrecto.');
+        return;
+      }
+
+      closeHealthTramiteModal();
+      runHealthCheck();
+    }
+
+    async function runHealthCheck() {
+      const btn = document.getElementById('btn-health-manual');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⚡ Ejecutando...';
+      }
+
+      const results = {};
+
+      for (const p of cachedProjects) {
+        results[p.slug] = {
+          iconStatus: 'checking',
+          iconText: 'Verificando...',
+          urlStatus: 'checking',
+          urlText: 'Verificando...',
+          androidStatus: 'checking',
+          androidText: 'Verificando...'
+        };
+        updateRowStatus(p.slug, results[p.slug]);
+      }
+
+      for (const p of cachedProjects) {
+        const slug = p.slug;
+
+        // 1. Icon URL Access check
+        let iconOk = false;
+        let iconText = 'Error';
+        if (p.icon_url) {
+          // Try slug-based URL first, then name-based URL as fallback
+          const resolvedIcon = resolveIconWithFallbacks(p);
+          const cleanIconPath = p.icon_url.split('?')[0].replace(/^\.\//,'');
+          const isRelative = !p.icon_url.startsWith('http') && !p.icon_url.startsWith('data:');
+          const nameFallbackUrl = (isRelative && p.name)
+            ? `https://raw.githubusercontent.com/OceanandWild/${encodeURIComponent(p.name)}/main/${cleanIconPath}`
+            : '';
+
+          const tryUrl = async (url) => {
+            if (!url) return false;
+            try {
+              const r = await fetch(url, { method: 'HEAD' });
+              if (r.ok) return true;
+            } catch(e) {}
+            return new Promise(resolve => {
+              const img = new Image();
+              img.onload = () => resolve(true);
+              img.onerror = () => resolve(false);
+              img.src = url;
+            });
+          };
+
+          try {
+            iconOk = await tryUrl(resolvedIcon);
+            if (iconOk) {
+              iconText = 'Accesible';
+            } else if (nameFallbackUrl && nameFallbackUrl !== resolvedIcon) {
+              iconOk = await tryUrl(nameFallbackUrl);
+              if (iconOk) {
+                iconText = 'Accesible (via name)';
+              }
+            }
+            if (!iconOk) iconText = 'Error de Carga';
+          } catch (e) {
+            iconOk = false;
+            iconText = 'Fallo de Red';
+          }
+        } else {
+          iconText = 'No Configurado';
+        }
+
+        results[slug].iconStatus = iconOk ? 'ok' : (p.icon_url ? 'fail' : 'pending');
+        results[slug].iconText = iconText;
+        if (!iconOk && p.icon_url) {
+          addHealthLog(p.name || slug, 'FALLO_ICONO', `El icono en '${p.icon_url}' no pudo cargarse.`);
+        }
+        updateRowStatus(slug, results[slug]);
+
+        // 2. Main URL Access check
+        let urlOk = false;
+        let urlText = 'Error';
+        if (p.url) {
+          try {
+            const res = await fetch(p.url, { method: 'GET', mode: 'no-cors' });
+            urlOk = true;
+            urlText = 'Online';
+          } catch (e) {
+            urlOk = false;
+            urlText = 'Offline / Inaccesible';
+          }
+        } else {
+          urlText = 'No Configurado';
+        }
+        results[slug].urlStatus = urlOk ? 'ok' : (p.url ? 'fail' : 'pending');
+        results[slug].urlText = urlText;
+        if (!urlOk && p.url) {
+          addHealthLog(p.name || slug, 'FALLO_URL', `El sitio principal en '${p.url}' no respondió.`);
+        }
+        updateRowStatus(slug, results[slug]);
+
+        // 3. Android version check
+        let androidStatus = 'pending';
+        let androidText = 'No Android';
+        
+        if (p.platform && p.platform.toLowerCase().includes('android')) {
+          const isAlsoWindows = p.platform.toLowerCase().includes('windows') || p.platform.toLowerCase().includes('pc');
+          try {
+            const dbRes = await fetch(`${API_BASE}/ows-store/android/releases/${slug}/latest`);
+            if (dbRes.ok) {
+              const dbData = await dbRes.json();
+              if (dbData && dbData.release) {
+                const latestDbAndroidVer = dbData.release.version_name;
+                
+                // Query repository raw metadata on Github
+                let repoVer = null;
+                try {
+                  const githubRes = await fetch(`https://raw.githubusercontent.com/OceanandWild/${slug}/main/android-release-metadata.json`);
+                  if (githubRes.ok) {
+                    const ghData = await githubRes.json();
+                    repoVer = ghData.version_name;
+                  }
+                } catch (e) {
+                  // Suppress GitHub lookup error
+                }
+
+                if (repoVer) {
+                  if (latestDbAndroidVer === repoVer) {
+                    androidStatus = 'ok';
+                    androidText = `Sincronizado (${latestDbAndroidVer})`;
+                  } else {
+                    androidStatus = 'fail';
+                    androidText = `Desfasado (DB: ${latestDbAndroidVer} vs Github: ${repoVer})`;
+                    addHealthLog(p.name || slug, 'VERSION_DESFASADA', `La APK en DB (${latestDbAndroidVer}) difiere del repo en Github (${repoVer})`);
+                  }
+                } else {
+                  // No GitHub metadata: Android release exists in DB, treat as OK unless version clearly mismatch
+                  androidStatus = 'ok';
+                  androidText = `Registrado (${latestDbAndroidVer}) — sin metadata en repo`;
+                }
+              } else {
+                // Release endpoint ok but no release data
+                if (isAlsoWindows) {
+                  androidStatus = 'pending';
+                  androidText = 'Sin release Android (tiene Windows)';
+                } else {
+                  androidStatus = 'fail';
+                  androidText = 'Sin releases Android';
+                  addHealthLog(p.name || slug, 'SIN_RELEASES_ANDROID', 'Plataforma Android declarada pero sin releases publicadas.');
+                }
+              }
+            } else if (dbRes.status === 404) {
+              // No Android releases found — if also Windows, don't flag as error
+              if (isAlsoWindows) {
+                androidStatus = 'pending';
+                androidText = 'Sin release Android (versión Windows disponible)';
+              } else {
+                androidStatus = 'fail';
+                androidText = 'No se encontró release Android';
+                addHealthLog(p.name || slug, 'SIN_RELEASES_ANDROID', `No hay releases Android registradas para este proyecto.`);
+              }
+            } else {
+              androidStatus = 'fail';
+              androidText = 'Error API Android';
+              addHealthLog(p.name || slug, 'ERROR_API_ANDROID', `Endpoint Android reportó status: ${dbRes.status}`);
+            }
+          } catch (e) {
+            androidStatus = 'fail';
+            androidText = 'Error API';
+            addHealthLog(p.name || slug, 'ERROR_API_ANDROID', `Error al consultar releases Android: ${e.message}`);
+          }
+        }
+        results[slug].androidStatus = androidStatus;
+        results[slug].androidText = androidText;
+        updateRowStatus(slug, results[slug]);
+      }
+
+      const now = Date.now();
+      localStorage.setItem('health_last_run_time', String(now));
+      localStorage.setItem('health_last_run_results', JSON.stringify(results));
+
+      document.getElementById('health-last-run').textContent = `Verificación automática cada 24h · Última: ${new Date(now).toLocaleString()}`;
+
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '⚡ Verificación Manual';
+      }
+
+      const time = new Date().toLocaleTimeString();
+      const logRow = document.createElement('div');
+      logRow.className = 'console-log-row';
+      logRow.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-success">[HEALTH]</span> Protocolo de salud completado para ${cachedProjects.length} proyectos.`;
+      document.getElementById('console-log-box').appendChild(logRow);
+    }
+
+    function updateRowStatus(slug, item) {
+      const iconDot = document.getElementById(`health-icon-dot-${slug}`);
+      const iconTxt = document.getElementById(`health-icon-txt-${slug}`);
+      const urlDot = document.getElementById(`health-url-dot-${slug}`);
+      const urlTxt = document.getElementById(`health-url-txt-${slug}`);
+      const androidDot = document.getElementById(`health-android-dot-${slug}`);
+      const androidTxt = document.getElementById(`health-android-txt-${slug}`);
+      const summary = document.getElementById(`health-status-summary-${slug}`);
+
+      if (iconDot) { iconDot.className = `health-dot ${item.iconStatus}`; }
+      if (iconTxt) { iconTxt.textContent = item.iconText; }
+      
+      if (urlDot) { urlDot.className = `health-dot ${item.urlStatus}`; }
+      if (urlTxt) { urlTxt.textContent = item.urlText; }
+      
+      if (androidDot) { androidDot.className = `health-dot ${item.androidStatus}`; }
+      if (androidTxt) { androidTxt.textContent = item.androidText; }
+
+      if (summary) {
+        if (item.iconStatus === 'checking' || item.urlStatus === 'checking' || item.androidStatus === 'checking') {
+          summary.textContent = 'Verificando...';
+          summary.style.color = 'var(--desert-amber)';
+        } else if (item.iconStatus === 'fail' || item.urlStatus === 'fail' || item.androidStatus === 'fail') {
+          summary.textContent = '⚠️ Alertas';
+          summary.style.color = '#ef4444';
+        } else {
+          summary.textContent = '✔️ Saludable';
+          summary.style.color = 'var(--jungle-light)';
+        }
+      }
+    }
+
+    // ============================================================
+    // HEALTH ERROR LOGGING SYSTEM
+    // ============================================================
+    function addHealthLog(project, type, message) {
+      let logs = [];
+      try {
+        logs = JSON.parse(localStorage.getItem('ows_health_logs') || '[]');
+      } catch (e) {
+        logs = [];
+      }
+      
+      const isDuplicate = logs.some(log => log.project === project && log.type === type && log.message === message);
+      if (isDuplicate) return;
+
+      if (logs.length >= 100) {
+        logs.pop();
+      }
+      
+      const newEntry = {
+        time: new Date().toLocaleTimeString(),
+        date: new Date().toLocaleDateString(),
+        project,
+        type,
+        message
+      };
+      
+      logs.unshift(newEntry);
+      localStorage.setItem('ows_health_logs', JSON.stringify(logs));
+      renderHealthLogs();
+    }
+
+    function renderHealthLogs() {
+      const tbody = document.getElementById('health-logs-tbody');
+      if (!tbody) return;
+      
+      let logs = [];
+      try {
+        logs = JSON.parse(localStorage.getItem('ows_health_logs') || '[]');
+      } catch (e) {
+        logs = [];
+      }
+      
+      if (logs.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align:center; color:#64748b; padding:30px;">Sin alertas o errores registrados.</td>
+          </tr>
+        `;
+        return;
+      }
+      
+      tbody.innerHTML = logs.map((log, idx) => {
+        const fullMessage = `[${log.date} ${log.time}] [${log.project}] [${log.type}] ${log.message}`;
+        const escapedMessage = fullMessage.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return `
+          <tr>
+            <td style="font-family:monospace; font-size:0.8rem; color:#94a3b8; white-space:nowrap;">${log.date} ${log.time}</td>
+            <td style="font-weight:700; color:#cbd5e1;">${log.project}</td>
+            <td><span class="platform-badge" style="color:#fca5a5; border-color:rgba(239,68,68,0.35); background:rgba(239,68,68,0.06); font-size:0.68rem; padding: 2px 6px;">${log.type}</span></td>
+            <td style="font-size:0.82rem; color:#94a3b8; max-width:420px; overflow-wrap:break-word;">${log.message}</td>
+            <td style="text-align:right;">
+              <button class="btn-action-small" style="padding:4px 8px; font-size:0.7rem; border-radius:6px; background:rgba(255,255,255,0.04);" onclick="copySingleLog('${escapedMessage}', this)">
+                📋 Copiar
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    window.copySingleLog = function(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.textContent;
+        btn.textContent = '✔️ Copiado';
+        btn.style.color = 'var(--jungle-light)';
+        btn.style.borderColor = 'rgba(16,185,129,0.3)';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.color = '';
+          btn.style.borderColor = '';
+        }, 2000);
+      }).catch(err => {
+        alert('No se pudo copiar el log automáticamente.');
+      });
+    };
+
+    function clearHealthLogs() {
+      localStorage.setItem('ows_health_logs', '[]');
+      renderHealthLogs();
+      
+      const time = new Date().toLocaleTimeString();
+      const logRow = document.createElement('div');
+      logRow.className = 'console-log-row';
+      logRow.innerHTML = `<span class="console-timestamp">[${time}]</span> <span class="console-tag-info">[SYSTEM]</span> Registro de alertas de salud vaciado por el administrador.`;
+      document.getElementById('console-log-box').appendChild(logRow);
+    }
+
+    // Initialize logs view on startup
+    renderHealthLogs();
+
+  </script>
+</body>
+</html>

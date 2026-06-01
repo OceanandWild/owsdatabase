@@ -6072,6 +6072,9 @@ app.post('/ows-admin-panel/request-extend-code', async (req, res) => {
 });
 
 // ===== OWS ADMIN PANEL: EXTEND SESSION =====
+// Block GET requests on POST-only admin routes to avoid misleading 401 from static middleware
+app.get('/ows-admin-panel/extend-session', (req, res) => res.status(405).json({ error: 'Método no permitido. Usa POST.' }));
+app.get('/ows-admin-panel/request-extend-code', (req, res) => res.status(405).json({ error: 'Método no permitido. Usa POST.' }));
 // Cost: 50 wildcredits auto-deducted from OceanandWild account.
 app.post('/ows-admin-panel/extend-session', async (req, res) => {
   const { token, confirmCode } = req.body;

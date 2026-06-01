@@ -643,98 +643,325 @@
       display: block;
     }
 
-    /* ── Notification Badge ─────────────────────────── */
+    /* ═══════════════════════════════════════════════════
+       NOTIFICATION SYSTEM — PREMIUM REDESIGN
+    ════════════════════════════════════════════════════ */
+
+    /* Badge */
     .notif-badge {
-      background: #ef4444;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
       color: #fff;
-      font-size: 0.65rem;
-      font-weight: 700;
-      min-width: 18px;
-      height: 18px;
-      border-radius: 9px;
-      padding: 0 5px;
+      font-size: 0.6rem;
+      font-weight: 800;
+      min-width: 17px;
+      height: 17px;
+      border-radius: 8.5px;
+      padding: 0 4px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       margin-left: auto;
-      animation: notif-pulse 1.8s ease-in-out infinite;
+      letter-spacing: 0.01em;
+      box-shadow: 0 0 0 0 rgba(239,68,68,0.5);
+      animation: notif-pulse 2s ease-in-out infinite;
     }
     @keyframes notif-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
-      50% { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.45); }
+      60% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
     }
 
-    /* ── Notification Card ──────────────────────────── */
-    .notif-card {
-      background: rgba(15,23,42,0.55);
+    /* Panel header stat chips */
+    .notif-stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .notif-stat-chip {
+      background: rgba(15,23,42,0.6);
       border: 1px solid rgba(255,255,255,0.06);
-      border-left: 3px solid var(--notif-accent, #26e0ff);
-      border-radius: 12px;
-      padding: 12px 16px;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: border-color 0.2s, background 0.2s;
+      cursor: default;
+    }
+    .notif-stat-chip:hover { background: rgba(15,23,42,0.85); border-color: rgba(255,255,255,0.11); }
+    .notif-stat-icon {
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .notif-stat-val { font-size: 1.3rem; font-weight: 800; color: #f1f5f9; line-height: 1; }
+    .notif-stat-lbl { font-size: 0.67rem; color: #64748b; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    /* Filter bar */
+    .notif-filter-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .notif-filter-chip {
+      padding: 5px 13px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+      letter-spacing: 0.02em;
+    }
+    .notif-filter-chip:hover { border-color: rgba(255,255,255,0.15); color: #94a3b8; }
+    .notif-filter-chip.active {
+      background: rgba(38,224,255,0.1);
+      border-color: rgba(38,224,255,0.35);
+      color: #26e0ff;
+    }
+
+    /* Notification timeline card */
+    .notif-card {
       display: flex;
       align-items: flex-start;
-      gap: 14px;
-      transition: background 0.18s;
+      gap: 0;
       position: relative;
     }
-    .notif-card:hover { background: rgba(15,23,42,0.75); }
-    .notif-icon-wrap {
-      width: 38px; height: 38px;
-      border-radius: 10px;
+    /* Timeline line */
+    .notif-card:not(:last-child) .notif-line::after {
+      content: '';
+      position: absolute;
+      top: 42px;
+      left: 16px;
+      width: 1px;
+      height: calc(100% + 10px);
+      background: rgba(255,255,255,0.05);
+    }
+    .notif-line {
+      position: relative;
+      flex-shrink: 0;
+      width: 33px;
+      display: flex;
+      justify-content: center;
+      padding-top: 3px;
+    }
+    .notif-dot {
+      width: 33px; height: 33px;
+      border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem;
+      font-size: 0.95rem;
+      border: 2px solid var(--notif-accent, #26e0ff);
+      background: rgba(10,20,35,0.9);
+      box-shadow: 0 0 10px var(--notif-accent, #26e0ff)26;
       flex-shrink: 0;
-      background: rgba(255,255,255,0.04);
+      transition: box-shadow 0.2s;
     }
-    .notif-body { flex: 1; min-width: 0; }
-    .notif-title { font-size: 0.82rem; font-weight: 600; color: #f1f5f9; margin-bottom: 3px; }
-    .notif-title em { font-style: normal; color: #94a3b8; font-weight: 400; }
-    .notif-meta { font-size: 0.72rem; color: #64748b; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .notif-meta .notif-time { color: #475569; }
-    .notif-meta .notif-admin { color: #38bdf8; font-weight: 600; }
-    .notif-delete-btn {
-      background: none; border: none; color: #475569; cursor: pointer;
-      font-size: 0.85rem; padding: 4px 6px; border-radius: 6px;
-      transition: color 0.15s, background 0.15s;
+    .notif-card:hover .notif-dot { box-shadow: 0 0 16px var(--notif-accent, #26e0ff)55; }
+    .notif-inner {
+      flex: 1;
+      margin-left: 14px;
+      background: rgba(15,23,42,0.5);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 14px;
+      padding: 13px 16px;
+      transition: background 0.18s, border-color 0.18s;
+      margin-bottom: 10px;
+    }
+    .notif-card:hover .notif-inner {
+      background: rgba(15,23,55,0.75);
+      border-color: rgba(var(--notif-accent-rgb, 38,224,255), 0.12);
+    }
+    .notif-inner-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .notif-entity-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.63rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--notif-accent, #26e0ff);
+      background: rgba(38,224,255,0.07);
+      border: 1px solid rgba(38,224,255,0.18);
+      border-radius: 5px;
+      padding: 2px 7px;
+      margin-bottom: 5px;
+    }
+    .notif-card-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      line-height: 1.4;
+    }
+    .notif-card-title strong { color: #38bdf8; }
+    .notif-card-name {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 380px;
+    }
+    .notif-card-name em { font-style: normal; color: #cbd5e1; }
+    .notif-time-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
       flex-shrink: 0;
+      gap: 4px;
     }
-    .notif-delete-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
-    .notif-delete-btn.disabled { opacity: 0.25; cursor: not-allowed; }
+    .notif-time-text {
+      font-size: 0.68rem;
+      color: #475569;
+      white-space: nowrap;
+    }
+    .notif-new-pill {
+      background: rgba(38,224,255,0.12);
+      color: #26e0ff;
+      border: 1px solid rgba(38,224,255,0.3);
+      border-radius: 4px;
+      font-size: 0.58rem;
+      font-weight: 800;
+      padding: 1px 6px;
+      letter-spacing: 0.06em;
+    }
+    .notif-del-btn {
+      background: none; border: none;
+      color: #334155; cursor: pointer;
+      font-size: 0.78rem;
+      padding: 3px 5px;
+      border-radius: 6px;
+      transition: all 0.15s;
+      line-height: 1;
+      margin-top: 2px;
+    }
+    .notif-del-btn:hover:not(:disabled) { color: #f87171; background: rgba(239,68,68,0.1); }
+    .notif-del-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+
+    /* Skeleton loading */
+    .notif-skeleton {
+      background: rgba(15,23,42,0.5);
+      border: 1px solid rgba(255,255,255,0.04);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex; gap: 12px; align-items: center;
+      margin-bottom: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    .notif-skeleton::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
+      animation: skel-shine 1.6s ease-in-out infinite;
+    }
+    @keyframes skel-shine {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .skel-circle { width: 33px; height: 33px; border-radius: 50%; background: rgba(255,255,255,0.05); flex-shrink: 0; }
+    .skel-lines { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+    .skel-line { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.05); }
+
+    /* Empty state */
+    .notif-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 12px;
+    }
+    .notif-empty-icon {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: rgba(38,224,255,0.06);
+      border: 1px solid rgba(38,224,255,0.12);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+    }
+    .notif-empty-title { font-size: 0.92rem; font-weight: 700; color: #475569; }
+    .notif-empty-sub   { font-size: 0.76rem; color: #334155; }
+
+    /* Action buttons row */
+    .notif-action-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: #94a3b8;
+      font-size: 0.74rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .notif-action-btn:hover { background: rgba(255,255,255,0.07); color: #f1f5f9; border-color: rgba(255,255,255,0.15); }
+    .notif-action-btn.danger { border-color: rgba(239,68,68,0.25); color: #f87171; background: rgba(239,68,68,0.05); }
+    .notif-action-btn.danger:hover { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.45); }
+    .notif-action-btn.primary { border-color: rgba(38,224,255,0.25); color: #26e0ff; background: rgba(38,224,255,0.05); }
+    .notif-action-btn.primary:hover { background: rgba(38,224,255,0.12); border-color: rgba(38,224,255,0.45); }
 
     /* ── Toaster ────────────────────────────────────── */
     .ows-toast {
       pointer-events: all;
-      min-width: 280px; max-width: 360px;
-      background: rgba(10,25,38,0.92);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 14px;
-      padding: 14px 16px 10px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+      min-width: 290px; max-width: 370px;
+      background: rgba(8,18,32,0.95);
+      backdrop-filter: blur(20px) saturate(150%);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 14px 16px 11px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04);
       display: flex; gap: 12px; align-items: flex-start;
-      animation: toast-in 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      animation: toast-in 0.32s cubic-bezier(0.34,1.56,0.64,1) forwards;
       position: relative; overflow: hidden;
     }
-    .ows-toast.toast-out { animation: toast-out 0.25s ease-in forwards; }
+    .ows-toast.toast-out { animation: toast-out 0.22s ease-in forwards; }
     @keyframes toast-in {
-      from { transform: translateX(110%); opacity: 0; }
-      to   { transform: translateX(0);    opacity: 1; }
+      from { transform: translateX(115%) scale(0.95); opacity: 0; }
+      to   { transform: translateX(0)    scale(1);    opacity: 1; }
     }
     @keyframes toast-out {
-      from { transform: translateX(0);    opacity: 1; }
-      to   { transform: translateX(110%); opacity: 0; }
+      from { transform: translateX(0) scale(1);    opacity: 1; }
+      to   { transform: translateX(115%) scale(0.95); opacity: 0; }
     }
-    .ows-toast-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+    .ows-toast-icon {
+      width: 32px; height: 32px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.05);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
     .ows-toast-body { flex: 1; }
     .ows-toast-title { font-size: 0.8rem; font-weight: 700; color: #f1f5f9; }
-    .ows-toast-msg   { font-size: 0.74rem; color: #94a3b8; margin-top: 2px; line-height: 1.4; }
+    .ows-toast-msg   { font-size: 0.73rem; color: #64748b; margin-top: 2px; line-height: 1.45; }
+    .ows-toast-close {
+      background: none; border: none; color: #475569;
+      cursor: pointer; font-size: 0.9rem; padding: 0;
+      line-height: 1; flex-shrink: 0; margin-top: 1px;
+      transition: color 0.15s;
+    }
+    .ows-toast-close:hover { color: #f1f5f9; }
     .ows-toast-bar {
-      position: absolute; bottom: 0; left: 0; height: 3px;
+      position: absolute; bottom: 0; left: 0; height: 2px;
       background: var(--toast-color, #26e0ff);
-      border-radius: 0 0 0 14px;
+      border-radius: 0 0 0 16px;
       animation: toast-bar var(--toast-dur, 4s) linear forwards;
     }
     @keyframes toast-bar { from { width: 100%; } to { width: 0%; } }
+
 
     /* Premium Statistics Dashboard Cards */
     .stats-row {
@@ -2132,13 +2359,14 @@
                   <th>Icono URL</th>
                   <th>Acceso Icono</th>
                   <th>URL Principal</th>
-                  <th>Android Release</th>
+                  <th>🪟 Windows</th>
+                  <th>🤖 Android</th>
                   <th>Estado</th>
                 </tr>
               </thead>
               <tbody id="health-table-body">
                 <tr>
-                  <td colspan="8" style="text-align:center; color:#64748b; padding:30px;">Esperando carga de proyectos...</td>
+                  <td colspan="9" style="text-align:center; color:#64748b; padding:30px;">Esperando carga de proyectos...</td>
                 </tr>
               </tbody>
             </table>
@@ -2157,9 +2385,9 @@
               <span id="news-count" style="font-size:0.7rem; color:#64748b; font-weight:400; margin-left:8px;"></span>
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
-              <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:#94a3b8; font-weight:normal; margin-right:6px; cursor:pointer; user-select:none;">
-                <input type="checkbox" id="filter-news-store" checked style="accent-color:#a855f7; cursor:pointer;" onchange="renderNewsTable(cachedNews)">
-                Filtrar como OWS Store
+              <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:#94a3b8; font-weight:normal; margin-right:6px; cursor:pointer; user-select:none;" title="Las noticias inactivas no aparecen en OWS Store">
+                <input type="checkbox" id="filter-news-show-inactive" style="accent-color:#f59e0b; cursor:pointer;" onchange="loadNewsSection()">
+                Mostrar inactivas
               </label>
               <button class="btn-action-small" onclick="openAddNewsModal()" style="background:linear-gradient(135deg,#e879f9,#a855f7); color:#0f172a; font-weight:bold; border:none;">➕ Agregar Noticia</button>
               <button class="btn-action-small" onclick="loadNewsSection()" id="btn-reload-news">↻ Recargar</button>
@@ -2383,30 +2611,65 @@
               </tbody>
             </table>
           </div>
-        </div>
-
       </div>
 
-    </div>
-
       <!-- ===================================================== -->
-      <!-- TAB: NOTIFICACIONES DE ACTIVIDAD ADMIN                -->
-      <!-- ===================================================== -->
+      <!-- TAB: NOTIFICACIONES DE ACTIVIDAD ADMIN -->
       <div class="tab-content" id="tab-notifs">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+
+        <!-- Header row -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
           <div>
-            <h3 style="font-size:1.1rem; font-weight:700; color:#f8fafc; margin:0;">🔔 Registro de Actividad</h3>
-            <p style="font-size:0.78rem; color:#64748b; margin:4px 0 0;">Acciones realizadas por administradores — guardadas en servidor.</p>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+              <div style="width:36px;height:36px;border-radius:10px;background:rgba(38,224,255,0.09);border:1px solid rgba(38,224,255,0.2);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🔔</div>
+              <div>
+                <h3 style="font-size:1rem;font-weight:800;color:#f1f5f9;margin:0;letter-spacing:-0.01em;">Registro de Actividad</h3>
+                <p style="font-size:0.71rem;color:#475569;margin:0;">Acciones de administradores · persistidas en servidor</p>
+              </div>
+            </div>
           </div>
-          <div style="display:flex;gap:10px;align-items:center;">
-            <span id="notif-count-label" style="font-size:0.78rem;color:#64748b;"></span>
-            <button id="btn-clear-all-notifs" onclick="clearAllNotifications()" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);color:#f87171;font-size:0.75rem;cursor:pointer;transition:all 0.2s;" title="Solo disponible para OceanandWild">🗑️ Limpiar todo</button>
-            <button onclick="loadNotifications()" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(38,224,255,0.2);background:rgba(38,224,255,0.06);color:#26e0ff;font-size:0.75rem;cursor:pointer;">↻ Actualizar</button>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button class="notif-action-btn primary" onclick="loadNotifications()">↻ Actualizar</button>
+            <button class="notif-action-btn danger" id="btn-clear-all-notifs" onclick="clearAllNotifications()" title="Solo OceanandWild">🗑 Limpiar todo</button>
           </div>
         </div>
-        <div id="notif-list-container" style="display:flex;flex-direction:column;gap:8px;min-height:120px;">
-          <div style="text-align:center;padding:40px;color:#475569;font-size:0.85rem;">Cargando notificaciones...</div>
+
+        <!-- Stats row -->
+        <div class="notif-stat-row" id="notif-stats-row">
+          <div class="notif-stat-chip">
+            <div class="notif-stat-icon" style="background:rgba(38,224,255,0.08);">📋</div>
+            <div><div class="notif-stat-val" id="nstat-total">—</div><div class="notif-stat-lbl">Total</div></div>
+          </div>
+          <div class="notif-stat-chip">
+            <div class="notif-stat-icon" style="background:rgba(52,211,153,0.08);">✏️</div>
+            <div><div class="notif-stat-val" id="nstat-edits">—</div><div class="notif-stat-lbl">Ediciones</div></div>
+          </div>
+          <div class="notif-stat-chip">
+            <div class="notif-stat-icon" style="background:rgba(248,113,113,0.08);">🗑️</div>
+            <div><div class="notif-stat-val" id="nstat-deletes">—</div><div class="notif-stat-lbl">Eliminaciones</div></div>
+          </div>
+          <div class="notif-stat-chip">
+            <div class="notif-stat-icon" style="background:rgba(251,191,36,0.08);">🔔</div>
+            <div><div class="notif-stat-val" id="nstat-unseen" style="color:#fbbf24;">—</div><div class="notif-stat-lbl">Sin ver</div></div>
+          </div>
         </div>
+
+        <!-- Filter chips -->
+        <div class="notif-filter-bar" id="notif-filter-bar">
+          <button class="notif-filter-chip active" onclick="filterNotifs('all', this)">Todos</button>
+          <button class="notif-filter-chip" onclick="filterNotifs('edit', this)">✏️ Ediciones</button>
+          <button class="notif-filter-chip" onclick="filterNotifs('delete', this)">🗑️ Eliminaciones</button>
+          <button class="notif-filter-chip" onclick="filterNotifs('create', this)">➕ Creaciones</button>
+          <button class="notif-filter-chip" onclick="filterNotifs('event', this)">📅 Eventos</button>
+          <button class="notif-filter-chip" onclick="filterNotifs('news', this)">📰 Noticias</button>
+          <button class="notif-filter-chip" onclick="filterNotifs('project', this)">📦 Proyectos</button>
+        </div>
+
+        <!-- List -->
+        <div id="notif-list-container">
+          <!-- populated by renderNotifications() -->
+        </div>
+        <span id="notif-count-label" style="display:none"></span>
       </div>
 
     </div>
@@ -3364,6 +3627,12 @@
       });
     }
 
+    function isNewsActive(n) {
+      if (n.is_active === undefined || n.is_active === null) return true;
+      const v = String(n.is_active).trim().toLowerCase();
+      return v === 'true' || v === '1' || n.is_active === true;
+    }
+
     // ===== LOAD NEWS =====
     async function loadNewsSection() {
       const btn = document.getElementById('btn-reload-news');
@@ -3371,13 +3640,18 @@
       const tbody = document.getElementById('news-table-body');
       tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b;padding:24px;">⏳ Cargando...</td></tr>`;
       const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+      const showInactive = document.getElementById('filter-news-show-inactive')?.checked || false;
+      const inactiveParam = showInactive ? '&include_inactive=true' : '';
       try {
-        const resp = await fetch(`${API_BASE}/ows-store/news?include_inactive=true&limit=80`, {
+        const resp = await fetch(`${API_BASE}/ows-store/news?limit=80${inactiveParam}`, {
           headers: { 'x-ows-admin-token': adminSecret }
         });
         const data = await resp.json();
         cachedNews = Array.isArray(data) ? data : [];
-        document.getElementById('news-count').textContent = `· ${cachedNews.length} noticias`;
+        const activeCount = cachedNews.filter(n => isNewsActive(n)).length;
+        document.getElementById('news-count').textContent = showInactive
+          ? `· ${cachedNews.length} noticias (${activeCount} activas, ${cachedNews.length - activeCount} inactivas)`
+          : `· ${cachedNews.length} noticias activas`;
         renderNewsTable(cachedNews);
       } catch (e) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:24px;">Error al cargar noticias: ${e.message}</td></tr>`;
@@ -3658,7 +3932,7 @@
       // Only consider non-event, non-banner active news in OWS Store order
       const rankedActive = allNews
         .filter(n => {
-          if (n.is_active === false) return false;
+          if (!isNewsActive(n)) return false;
           const et = String(n.entry_type || n.kind || '').toLowerCase();
           if (et === 'event' || et === 'evento' || et === 'banner') return false;
           return true;
@@ -3685,7 +3959,7 @@
       alertEl.innerHTML = `
         <span style="font-size:1.2rem;flex-shrink:0;">⚠️</span>
         <div>
-          <strong>${hidden.length} noticia(s) activa(s) no se muestran en OWS Store</strong> (el hub muestra máx. ${NEWS_GRID_LIMIT}).<br>
+          <strong>${hidden.length} noticia(s) activa(s) no se muestran en OWS Store</strong> (el hub muestra máx. 12).<br>
           <span style="opacity:0.85;">Ocultas por prioridad/fecha: ${names}${extra}. Sube su prioridad para hacerlas visibles.</span>
         </div>
       `;
@@ -3694,14 +3968,21 @@
 
     function renderNewsTable(list) {
       let filteredList = [...list];
-      const filterCheckbox = document.getElementById('filter-news-store');
-      if (filterCheckbox && filterCheckbox.checked) {
-        filteredList = filteredList.filter(n => {
-          const entryType = String(n.entry_type || n.kind || '').toLowerCase();
-          if (entryType === 'event' || entryType === 'evento' || entryType === 'banner') return false;
-          return true;
-        });
-      }
+      const showInactive = document.getElementById('filter-news-show-inactive')?.checked || false;
+
+      // Always filter out events/banners (those belong to the Events section)
+      filteredList = filteredList.filter(n => {
+        const entryType = String(n.entry_type || n.kind || '').toLowerCase();
+        if (entryType === 'event' || entryType === 'evento' || entryType === 'banner') return false;
+        // If not showing inactive, hide them (same as OWS Store)
+        if (!showInactive && !isNewsActive(n)) return false;
+
+        // Exclude test items like OWS Store does
+        const title = String(n.title || '').toLowerCase();
+        if (!showInactive && (title.includes('test') || title === 'test' || title === 'testing')) return false;
+
+        return true;
+      });
 
       // Sort: OWS Store order (priority DESC, date DESC)
       filteredList.sort((a, b) => {
@@ -3712,10 +3993,44 @@
         return dateB - dateA;
       });
 
-      document.getElementById('news-count').textContent = `· ${filteredList.length} de ${list.length} noticias`;
+      // Helper to parse date to ms for featured logic
+      const getNewsDateMs = (item) => {
+        const raw = item && (item.update_date || item.published_at || item.created_at);
+        const t = raw ? Date.parse(raw) : 0;
+        return Number.isFinite(t) ? t : 0;
+      };
 
-      // Compute visibility ranking for the full active set
-      const rankedActive = filteredList.filter(n => n.is_active !== false);
+      // Finding the featured item (most recent by date, independent of priority)
+      let featuredItem = null;
+      if (filteredList.length > 0) {
+        featuredItem = filteredList.reduce((best, item) => {
+          if (!best) return item;
+          return getNewsDateMs(item) > getNewsDateMs(best) ? item : best;
+        }, null);
+      }
+
+      // Grid items (excluding featured)
+      const gridNews = filteredList.filter(item => !featuredItem || item.id !== featuredItem.id);
+      const displayedNews = gridNews.slice(0, 11);
+
+      // The final active & visible set on OWS Store homepage (1 featured + 11 grid = 12 total)
+      const storeVisibleNews = [];
+      if (featuredItem) storeVisibleNews.push(featuredItem);
+      storeVisibleNews.push(...displayedNews);
+
+      // If NOT showing inactive/hidden news, we only keep the storeVisibleNews!
+      if (!showInactive) {
+        filteredList = storeVisibleNews;
+      }
+
+      // Update count label - only update if we're in store-view mode (not overriding loadNewsSection's label)
+      if (showInactive) {
+        const activeInList = list.filter(n => isNewsActive(n)).length;
+        document.getElementById('news-count').textContent = `· ${list.length} noticias (${activeInList} activas, ${list.length - activeInList} inactivas)`;
+      } else {
+        const totalActive = list.filter(n => isNewsActive(n)).length;
+        document.getElementById('news-count').textContent = `· ${filteredList.length} de ${totalActive} activas visibles en OWS Store`;
+      }
 
       const tbody = document.getElementById('news-table-body');
       if (!filteredList.length) {
@@ -3724,30 +4039,31 @@
         return;
       }
       tbody.innerHTML = filteredList.map((n, idx) => {
-        const isMostRecent = idx === 0 && n.is_active !== false;
-        const rowStyle = isMostRecent ? 'background: rgba(232, 121, 249, 0.06); border-left: 3px solid #e879f9;' : '';
-        const recentBadge = isMostRecent ? ' <span style="font-size:0.65rem; background:#e879f9; color:#0f172a; font-weight:700; padding:1px 5px; border-radius:4px; margin-left:6px; letter-spacing:0.02em;">RECIENTE</span>' : '';
+        const isFeatured = featuredItem && n.id === featuredItem.id;
+        const rowStyle = isFeatured ? 'background: rgba(232, 121, 249, 0.06); border-left: 3px solid #e879f9;' : '';
+        const recentBadge = isFeatured ? ' <span style="font-size:0.65rem; background:#e879f9; color:#0f172a; font-weight:700; padding:1px 5px; border-radius:4px; margin-left:6px; letter-spacing:0.02em;">DESTACADA</span>' : '';
         const bm = n.banner_meta || {};
         const imgUrl = bm.cover_url || bm.image_url || bm.banner_url || bm.image || bm.poster_url || bm.url || '';
         const imgHtml = imgUrl
           ? `<img src="${imgUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:1px solid rgba(168,85,247,0.3);" onerror="this.style.display='none'">`
           : `<div style="width:50px;height:50px;border-radius:8px;background:rgba(168,85,247,0.1);border:1px dashed rgba(168,85,247,0.3);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📰</div>`;
-        const statusDot = n.is_active
+        const statusDot = isNewsActive(n)
           ? `<span style="color:#10b981;font-size:0.8rem;">● Activa</span>`
           : `<span style="color:#64748b;font-size:0.8rem;">○ Inactiva</span>`;
 
         // Visibility badge
         let visBadge = '';
-        if (n.is_active === false) {
+        if (!isNewsActive(n)) {
           visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(100,116,139,0.12);color:#64748b;border:1px solid rgba(100,116,139,0.25);">🚫 Inactiva</span>`;
         } else {
-          const rank = rankedActive.findIndex(x => x.id === n.id) + 1;
-          if (rank === 1) {
-            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(232,121,249,0.12);color:#e879f9;border:1px solid rgba(232,121,249,0.3);" title="Aparecería como Destacada en OWS Store">⭐ Destacada</span>`;
-          } else if (rank <= NEWS_GRID_LIMIT) {
-            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.25);" title="Aparece en el grid de OWS Store">#${rank} Visible</span>`;
+          const isStoreVisible = storeVisibleNews.some(x => x.id === n.id);
+          if (isFeatured) {
+            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(232,121,249,0.12);color:#e879f9;border:1px solid rgba(232,121,249,0.3);" title="Aparece como Destacada en la portada de OWS Store">⭐ Destacada</span>`;
+          } else if (isStoreVisible) {
+            const gridRank = displayedNews.findIndex(x => x.id === n.id) + 2; // rank starting from 2
+            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.25);" title="Aparece en el grid de la portada de OWS Store">#${gridRank} Visible</span>`;
           } else {
-            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);" title="Queda fuera del top ${NEWS_GRID_LIMIT} que muestra OWS Store">⚠️ #${rank} Oculta</span>`;
+            visBadge = `<span style="font-size:0.68rem;padding:2px 6px;border-radius:20px;background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);" title="Queda fuera de la portada por límite de espacio de OWS Store">⚠️ Oculta</span>`;
           }
         }
 
@@ -3772,7 +4088,6 @@
 
       renderNewsHiddenAlert(list);
     }
-
     // ===== LOAD EVENTS (Timeline) =====
     async function loadEventsSection() {
       const btn = document.getElementById('btn-reload-events');
@@ -4345,7 +4660,7 @@
     function renderHealthTablePlaceholder(projects) {
       const tbody = document.getElementById('health-table-body');
       if (projects.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#64748b;">No hay proyectos.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#64748b;">No hay proyectos.</td></tr>`;
         return;
       }
 
@@ -4353,13 +4668,12 @@
       const healthData = savedHealth ? JSON.parse(savedHealth) : {};
 
       tbody.innerHTML = projects.map(p => {
-        const item = healthData[p.slug] || {
-          iconStatus: 'pending',
-          iconText: 'Pendiente',
-          urlStatus: 'pending',
-          urlText: 'Pendiente',
-          androidStatus: 'pending',
-          androidText: 'Pendiente'
+        const item = {
+          iconStatus: 'pending',   iconText: 'Pendiente',
+          urlStatus: 'pending',    urlText: 'Pendiente',
+          windowsStatus: 'pending', windowsText: 'Pendiente',
+          androidStatus: 'pending', androidText: 'Pendiente',
+          ...(healthData[p.slug] || {})
         };
 
         const iconUrlEscaped = p.icon_url ? p.icon_url.substring(0, 30) + '...' : 'Sin Icono';
@@ -4391,6 +4705,12 @@
             </td>
             <td>
               <div class="health-check-cell">
+                <span class="health-dot ${item.windowsStatus}" id="health-windows-dot-${p.slug}"></span>
+                <span id="health-windows-txt-${p.slug}">${item.windowsText}</span>
+              </div>
+            </td>
+            <td>
+              <div class="health-check-cell">
                 <span class="health-dot ${item.androidStatus}" id="health-android-dot-${p.slug}"></span>
                 <span id="health-android-txt-${p.slug}">${item.androidText}</span>
               </div>
@@ -4412,6 +4732,9 @@
         }
         if (item.urlStatus === 'fail' && p.url) {
           addHealthLog(p.name || p.slug, 'FALLO_URL', `El sitio principal en '${p.url}' no respondió.`);
+        }
+        if (item.windowsStatus === 'fail') {
+          addHealthLog(p.name || p.slug, 'FALLO_WINDOWS', item.windowsText || 'Instalador Windows no accesible.');
         }
         if (item.androidStatus === 'fail') {
           addHealthLog(p.name || p.slug, 'VERSION_DESFASADA', item.androidText || 'Diferencia de versiones en Android.');
@@ -4577,30 +4900,129 @@
         }
         updateRowStatus(slug, results[slug]);
 
-        // 3. Android version check
+        // 3. Windows release check (default platform for all OWS projects)
+        let windowsStatus = 'pending';
+        let windowsText = 'Pendiente';
+        {
+          const installerUrl = String(p.installer_url || '').trim();
+
+          // Always resolve a GitHub repo to use the API (CORS-safe)
+          // Direct github.com URLs cannot be fetched cross-origin
+          const repoInfo = (() => {
+            const meta = (p.metadata && typeof p.metadata === 'object') ? p.metadata : {};
+            const rawRepo = String(p.repo || meta.repo || '').trim();
+            const fromRepo = rawRepo.match(/^([\w.-]+)\/([\w.-]+)$/i);
+            if (fromRepo) return { owner: fromRepo[1], repo: fromRepo[2] };
+            // Try to extract from any GitHub URL (installer, download, releases page)
+            const candidates = [installerUrl, String(p.url || '')];
+            for (const c of candidates) {
+              const m = c.match(/github\.com\/([\w.-]+)\/([\w.-]+)/i);
+              if (m) return { owner: m[1], repo: m[2] };
+            }
+            return null;
+          })();
+
+          if (repoInfo) {
+            // Use GitHub API — supports CORS, avoids direct download URL restrictions
+            try {
+              const ghApi = await fetch(
+                `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/releases/latest`,
+                { headers: { Accept: 'application/vnd.github.v3+json' } }
+              );
+              if (ghApi.ok) {
+                const release = await ghApi.json();
+                const winAsset = (release.assets || []).find(a =>
+                  /\.(exe|msi|zip|7z)$/i.test(a.name)
+                );
+                if (winAsset) {
+                  windowsStatus = 'ok';
+                  windowsText = `${release.tag_name} — ${winAsset.name}`;
+                } else if ((release.assets || []).length > 0) {
+                  windowsStatus = 'pending';
+                  windowsText = `${release.tag_name} sin asset .exe/.msi`;
+                } else {
+                  windowsStatus = 'pending';
+                  windowsText = `${release.tag_name} sin assets`;
+                }
+              } else if (ghApi.status === 404) {
+                windowsStatus = 'pending';
+                windowsText = 'Sin releases en GitHub aún';
+              } else {
+                windowsStatus = 'pending';
+                windowsText = `GitHub API (${ghApi.status})`;
+              }
+            } catch (e) {
+              windowsStatus = 'pending';
+              windowsText = 'No se pudo consultar GitHub';
+            }
+          } else if (installerUrl && !installerUrl.includes('github.com')) {
+            // Non-GitHub installer URL — safe to HEAD directly
+            try {
+              const r = await fetch(installerUrl, { method: 'HEAD' });
+              windowsStatus = r.ok ? 'ok' : 'fail';
+              windowsText = r.ok ? 'Instalador accesible' : `Inaccesible (${r.status})`;
+              if (!r.ok) addHealthLog(p.name || slug, 'FALLO_WINDOWS', `installer_url retornó ${r.status}`);
+            } catch (e) {
+              windowsStatus = 'fail';
+              windowsText = 'Error al acceder al instalador';
+              addHealthLog(p.name || slug, 'FALLO_WINDOWS', `Error de red: ${e.message}`);
+            }
+          } else {
+            windowsStatus = 'pending';
+            windowsText = 'Sin repo ni installer configurado';
+          }
+        }
+        results[slug].windowsStatus = windowsStatus;
+        results[slug].windowsText = windowsText;
+        if (windowsStatus === 'fail') {
+          addHealthLog(p.name || slug, 'FALLO_WINDOWS', windowsText);
+        }
+        updateRowStatus(slug, results[slug]);
+
+        // 4. Android version check
         let androidStatus = 'pending';
         let androidText = 'No Android';
-        
-        if (p.platform && p.platform.toLowerCase().includes('android')) {
-          const isAlsoWindows = p.platform.toLowerCase().includes('windows') || p.platform.toLowerCase().includes('pc');
+
+        const platformString = String(p.platform || '').toLowerCase();
+        const platformArray = Array.isArray(p.platforms)
+          ? p.platforms.map(x => String(x || '').toLowerCase())
+          : [];
+
+        let isAndroid = platformString.includes('android') || platformArray.includes('android');
+        const lowerSlug = String(slug).toLowerCase();
+        if (['oceanpay', 'ocean-pay', 'a-wild-question-game', 'awqg', 'floretshop', 'floret-shop'].includes(lowerSlug)) {
+          isAndroid = true;
+        }
+
+        if (isAndroid) {
+          const isAlsoWindows =
+            platformString.includes('windows') || platformString.includes('pc') ||
+            platformArray.includes('windows') || platformArray.includes('pc') ||
+            ['oceanpay', 'ocean-pay', 'a-wild-question-game', 'awqg'].includes(lowerSlug);
+
+          const apiSlug =
+            lowerSlug === 'ocean-pay' ? 'oceanpay' :
+            lowerSlug === 'floret-shop' ? 'floretshop' :
+            slug;
+
           try {
-            const dbRes = await fetch(`${API_BASE}/ows-store/android/releases/${slug}/latest`);
+            const dbRes = await fetch(`${API_BASE}/ows-store/android/releases/${apiSlug}/latest`);
+
             if (dbRes.ok) {
               const dbData = await dbRes.json();
               if (dbData && dbData.release) {
                 const latestDbAndroidVer = dbData.release.version_name;
-                
-                // Query repository raw metadata on Github
+
                 let repoVer = null;
                 try {
-                  const githubRes = await fetch(`https://raw.githubusercontent.com/OceanandWild/${slug}/main/android-release-metadata.json`);
+                  const githubRes = await fetch(
+                    `https://raw.githubusercontent.com/OceanandWild/${apiSlug}/main/android-release-metadata.json`
+                  );
                   if (githubRes.ok) {
                     const ghData = await githubRes.json();
-                    repoVer = ghData.version_name;
+                    repoVer = ghData.version_name || null;
                   }
-                } catch (e) {
-                  // Suppress GitHub lookup error
-                }
+                } catch (_) { }
 
                 if (repoVer) {
                   if (latestDbAndroidVer === repoVer) {
@@ -4608,38 +5030,30 @@
                     androidText = `Sincronizado (${latestDbAndroidVer})`;
                   } else {
                     androidStatus = 'fail';
-                    androidText = `Desfasado (DB: ${latestDbAndroidVer} vs Github: ${repoVer})`;
-                    addHealthLog(p.name || slug, 'VERSION_DESFASADA', `La APK en DB (${latestDbAndroidVer}) difiere del repo en Github (${repoVer})`);
+                    androidText = `Desfasado — DB: ${latestDbAndroidVer} · GH: ${repoVer}`;
+                    addHealthLog(p.name || slug, 'VERSION_DESFASADA',
+                      `La APK en DB (${latestDbAndroidVer}) difiere del repo en Github (${repoVer})`);
                   }
                 } else {
-                  // No GitHub metadata: Android release exists in DB, treat as OK unless version clearly mismatch
                   androidStatus = 'ok';
-                  androidText = `Registrado (${latestDbAndroidVer}) — sin metadata en repo`;
+                  androidText = `Registrado (${latestDbAndroidVer})`;
                 }
               } else {
-                // Release endpoint ok but no release data
-                if (isAlsoWindows) {
-                  androidStatus = 'pending';
-                  androidText = 'Sin release Android (tiene Windows)';
-                } else {
-                  androidStatus = 'fail';
-                  androidText = 'Sin releases Android';
-                  addHealthLog(p.name || slug, 'SIN_RELEASES_ANDROID', 'Plataforma Android declarada pero sin releases publicadas.');
-                }
+                // Body OK pero sin release data
+                androidStatus = 'pending';
+                androidText = isAlsoWindows
+                  ? 'Sin release Android (Windows disponible)'
+                  : 'Sin releases Android registradas';
               }
             } else if (dbRes.status === 404) {
-              // No Android releases found — if also Windows, don't flag as error
-              if (isAlsoWindows) {
-                androidStatus = 'pending';
-                androidText = 'Sin release Android (versión Windows disponible)';
-              } else {
-                androidStatus = 'fail';
-                androidText = 'No se encontró release Android';
-                addHealthLog(p.name || slug, 'SIN_RELEASES_ANDROID', `No hay releases Android registradas para este proyecto.`);
-              }
+              // Sin releases en DB → pending (no es un error real)
+              androidStatus = 'pending';
+              androidText = isAlsoWindows
+                ? 'Android declarado — sin release en DB aún'
+                : 'Sin releases Android en DB';
             } else {
               androidStatus = 'fail';
-              androidText = 'Error API Android';
+              androidText = `Error API (${dbRes.status})`;
               addHealthLog(p.name || slug, 'ERROR_API_ANDROID', `Endpoint Android reportó status: ${dbRes.status}`);
             }
           } catch (e) {
@@ -4676,24 +5090,33 @@
       const iconTxt = document.getElementById(`health-icon-txt-${slug}`);
       const urlDot = document.getElementById(`health-url-dot-${slug}`);
       const urlTxt = document.getElementById(`health-url-txt-${slug}`);
+      const winDot = document.getElementById(`health-windows-dot-${slug}`);
+      const winTxt = document.getElementById(`health-windows-txt-${slug}`);
       const androidDot = document.getElementById(`health-android-dot-${slug}`);
       const androidTxt = document.getElementById(`health-android-txt-${slug}`);
       const summary = document.getElementById(`health-status-summary-${slug}`);
 
       if (iconDot) { iconDot.className = `health-dot ${item.iconStatus}`; }
       if (iconTxt) { iconTxt.textContent = item.iconText; }
-      
+
       if (urlDot) { urlDot.className = `health-dot ${item.urlStatus}`; }
       if (urlTxt) { urlTxt.textContent = item.urlText; }
-      
+
+      if (winDot) { winDot.className = `health-dot ${item.windowsStatus || 'pending'}`; }
+      if (winTxt) { winTxt.textContent = item.windowsText || 'Pendiente'; }
+
       if (androidDot) { androidDot.className = `health-dot ${item.androidStatus}`; }
       if (androidTxt) { androidTxt.textContent = item.androidText; }
 
       if (summary) {
-        if (item.iconStatus === 'checking' || item.urlStatus === 'checking' || item.androidStatus === 'checking') {
+        const isChecking = item.iconStatus === 'checking' || item.urlStatus === 'checking' ||
+                           item.windowsStatus === 'checking' || item.androidStatus === 'checking';
+        const hasFail = item.iconStatus === 'fail' || item.urlStatus === 'fail' ||
+                        item.windowsStatus === 'fail' || item.androidStatus === 'fail';
+        if (isChecking) {
           summary.textContent = 'Verificando...';
           summary.style.color = 'var(--desert-amber)';
-        } else if (item.iconStatus === 'fail' || item.urlStatus === 'fail' || item.androidStatus === 'fail') {
+        } else if (hasFail) {
           summary.textContent = '⚠️ Alertas';
           summary.style.color = '#ef4444';
         } else {
@@ -4913,88 +5336,190 @@
       const maxId = Math.max(...[...items].map(el => Number(el.dataset.id) || 0));
       if (maxId > 0) localStorage.setItem(NOTIF_SEEN_KEY, String(maxId));
       updateNotifBadge(0);
+      // also reset nstat-unseen
+      const el = document.getElementById('nstat-unseen');
+      if (el) el.textContent = '0';
     }
 
-    /** Renderiza las notificaciones en el panel */
-    function renderNotifications(log) {
-      const container = document.getElementById('notif-list-container');
-      const label     = document.getElementById('notif-count-label');
-      if (!container) return;
+    // Cached log for filtering
+    let _cachedNotifLog = [];
 
+    /** Show skeleton loading cards */
+    function showNotifSkeletons(count = 5) {
+      const c = document.getElementById('notif-list-container');
+      if (!c) return;
+      c.innerHTML = Array.from({ length: count }, () => `
+        <div class="notif-card" style="margin-bottom:10px;">
+          <div class="notif-line"><div class="notif-skeleton" style="width:33px;height:33px;border-radius:50%;padding:0;flex-shrink:0;background:rgba(255,255,255,0.05);"></div></div>
+          <div class="notif-inner" style="flex:1;margin-left:14px;">
+            <div class="notif-skeleton" style="height:12px;width:60%;border-radius:5px;margin-bottom:8px;"></div>
+            <div class="notif-skeleton" style="height:10px;width:40%;border-radius:5px;"></div>
+          </div>
+        </div>`).join('');
+    }
+
+    /** Update stats chips */
+    function updateNotifStats(log) {
+      const lastSeenId = Number(localStorage.getItem(NOTIF_SEEN_KEY) || 0);
+      const total   = log.length;
+      const edits   = log.filter(n => n.action === 'edit').length;
+      const deletes = log.filter(n => n.action === 'delete').length;
+      const unseen  = log.filter(n => Number(n.id) > lastSeenId).length;
+      const s = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      s('nstat-total',   total);
+      s('nstat-edits',   edits);
+      s('nstat-deletes', deletes);
+      s('nstat-unseen',  unseen);
+      updateNotifBadge(unseen);
+    }
+
+    /** Filter by action or entity type */
+    function filterNotifs(filter, btn) {
+      // Update active chip
+      document.querySelectorAll('.notif-filter-chip').forEach(c => c.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      // Filter log
+      let filtered = _cachedNotifLog;
+      if (filter !== 'all') {
+        const actionFilters  = ['edit','delete','create','toggle'];
+        const entityFilters  = ['event','news','project','changelog','banner'];
+        if (actionFilters.includes(filter)) {
+          filtered = _cachedNotifLog.filter(n => n.action === filter);
+        } else if (entityFilters.includes(filter)) {
+          filtered = _cachedNotifLog.filter(n => n.entity_type === filter);
+        }
+      }
+      renderNotifCards(filtered);
+    }
+
+    /** Render the timeline cards (used by renderNotifications and filterNotifs) */
+    function renderNotifCards(log) {
+      const container = document.getElementById('notif-list-container');
+      if (!container) return;
       const lastSeenId = Number(localStorage.getItem(NOTIF_SEEN_KEY) || 0);
       const isOcean    = getCurrentAdminName().toLowerCase() === 'oceanandwild';
 
       if (!log.length) {
-        container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:#475569;font-size:0.85rem;">
-          <div style="font-size:2rem;margin-bottom:10px;">🔔</div>
-          Sin actividad registrada todavía.
-        </div>`;
-        if (label) label.textContent = '';
-        updateNotifBadge(0);
+        container.innerHTML = `
+          <div class="notif-empty">
+            <div class="notif-empty-icon">🔔</div>
+            <div class="notif-empty-title">Sin actividad registrada</div>
+            <div class="notif-empty-sub">Las acciones de administración aparecerán aquí automáticamente.</div>
+          </div>`;
         return;
       }
 
-      if (label) label.textContent = `${log.length} registro${log.length !== 1 ? 's' : ''}`;
+      const entityLabels = { event:'Evento', news:'Noticia', project:'Proyecto', changelog:'Changelog', banner:'Banner' };
+      const actionVerbs  = { create:'creó', edit:'editó', delete:'eliminó', toggle:'cambió estado de' };
 
-      const unseen = log.filter(n => Number(n.id) > lastSeenId).length;
-      updateNotifBadge(unseen);
-
-      container.innerHTML = log.map(n => {
-        const accent    = notifAccentColor(n.action);
-        const icon      = notifActionIcon(n.action);
-        const entIcon   = notifEntityIcon(n.entity_type);
-        const timeAgo   = smartTimeAgo(n.created_at);
-        const label     = notifActionLabel(n.action, n.entity_type);
-        const entityName = n.entity_name ? `"${n.entity_name}"` : `#${n.entity_id || '?'}`;
-        const isNew     = Number(n.id) > lastSeenId;
+      container.innerHTML = log.map((n, i) => {
+        const accent   = notifAccentColor(n.action);
+        const icon     = notifActionIcon(n.action);
+        const timeAgo  = smartTimeAgo(n.created_at);
+        const isNew    = Number(n.id) > lastSeenId;
+        const entLabel = entityLabels[n.entity_type] || n.entity_type;
+        const verb     = actionVerbs[n.action] || n.action;
+        const nameStr  = n.entity_name || `#${n.entity_id || '?'}`;
+        const isLast   = i === log.length - 1;
         return `
-        <div class="notif-card" data-id="${n.id}" style="--notif-accent:${accent};${isNew ? 'border-left-color:' + accent + ';background:rgba(15,23,55,0.7);' : ''}">
-          <div class="notif-icon-wrap" style="background:${accent}18;">${icon} ${entIcon}</div>
-          <div class="notif-body">
-            <div class="notif-title">
-              <span class="notif-admin">${n.admin_name || 'Admin'}</span>
-              <em> ${label} </em>
-              ${entityName}
-            </div>
-            <div class="notif-meta">
-              <span class="notif-time" title="${new Date(n.created_at).toLocaleString('es-UY')}">${timeAgo}</span>
-              ${isNew ? '<span style="background:#26e0ff22;color:#26e0ff;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">NUEVO</span>' : ''}
+        <div class="notif-card${isLast ? ' notif-card-last' : ''}" data-id="${n.id}" data-action="${n.action}" data-entity="${n.entity_type}" style="--notif-accent:${accent};">
+          <div class="notif-line">
+            <div class="notif-dot">${icon}</div>
+          </div>
+          <div class="notif-inner">
+            <div class="notif-inner-top">
+              <div style="flex:1;min-width:0;">
+                <div style="margin-bottom:5px;">
+                  <span class="notif-entity-tag" style="color:${accent};background:${accent}12;border-color:${accent}30;">${entLabel}</span>
+                </div>
+                <div class="notif-card-title">
+                  <strong>${n.admin_name || 'Admin'}</strong> ${verb}
+                </div>
+                <div class="notif-card-name" title="${nameStr}">
+                  <em>"${nameStr}"</em>
+                </div>
+              </div>
+              <div class="notif-time-badge">
+                ${isNew ? '<div class="notif-new-pill">NUEVO</div>' : ''}
+                <div class="notif-time-text notif-ts" data-ts="${n.created_at}" title="${new Date(n.created_at).toLocaleString('es-UY')}">${timeAgo}</div>
+                <button class="notif-del-btn" ${isOcean ? `onclick="deleteNotification(${n.id}, this)"` : 'disabled'}
+                  title="${isOcean ? 'Eliminar' : 'Solo OceanandWild'}">🗑</button>
+              </div>
             </div>
           </div>
-          <button class="notif-delete-btn${isOcean ? '' : ' disabled'}"
-            onclick="${isOcean ? `deleteNotification(${n.id}, this)` : ''}"
-            title="${isOcean ? 'Eliminar notificación' : 'Solo OceanandWild puede eliminar'}">🗑️</button>
         </div>`;
       }).join('');
 
-      // Actualizar timestamps dinámicamente cada minuto sin recargar
+      // Live timestamp refresh
       container._notifInterval && clearInterval(container._notifInterval);
       container._notifInterval = setInterval(() => {
-        container.querySelectorAll('.notif-card[data-id]').forEach(card => {
-          const id   = Number(card.dataset.id);
-          const entry = log.find(n => Number(n.id) === id);
-          if (!entry) return;
-          const timeEl = card.querySelector('.notif-time');
-          if (timeEl) timeEl.textContent = smartTimeAgo(entry.created_at);
+        container.querySelectorAll('.notif-ts[data-ts]').forEach(el => {
+          el.textContent = smartTimeAgo(el.dataset.ts);
         });
       }, 60000);
     }
 
-    /** Carga notificaciones desde el servidor */
+    /** Full render: stats + cards */
+    function renderNotifications(log) {
+      _cachedNotifLog = log;
+      updateNotifStats(log);
+      // Keep current filter active
+      const activeChip = document.querySelector('.notif-filter-chip.active');
+      const activeFilter = activeChip ? activeChip.textContent.trim() : 'all';
+      // Map chip label back to filter key
+      const labelToFilter = { 'Todos':'all','✏️ Ediciones':'edit','🗑️ Eliminaciones':'delete','➕ Creaciones':'create','📅 Eventos':'event','📰 Noticias':'news','📦 Proyectos':'project' };
+      const filterKey = labelToFilter[activeFilter] || 'all';
+      let filtered = log;
+      if (filterKey !== 'all') {
+        const actionFilters = ['edit','delete','create','toggle'];
+        filtered = actionFilters.includes(filterKey)
+          ? log.filter(n => n.action === filterKey)
+          : log.filter(n => n.entity_type === filterKey);
+      }
+      renderNotifCards(filtered);
+    }
+
+    /** Load from server with skeleton */
     async function loadNotifications() {
-      const container = document.getElementById('notif-list-container');
-      if (container) container.innerHTML = `<div style="text-align:center;padding:40px;color:#475569;font-size:0.85rem;">Cargando...</div>`;
+      showNotifSkeletons();
       try {
         const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+        if (!adminSecret) {
+          const c = document.getElementById('notif-list-container');
+          if (c) c.innerHTML = `
+            <div class="notif-empty">
+              <div class="notif-empty-icon">🔐</div>
+              <div class="notif-empty-title">Sesión no autenticada</div>
+              <div class="notif-empty-sub">El secreto de admin no está disponible. Cierra sesión y vuelve a iniciar.</div>
+            </div>`;
+          updateNotifBadge(0);
+          return;
+        }
         const resp = await fetch(`${API_BASE}/admin/activity-log?limit=100`, {
           headers: { 'x-ows-admin-token': adminSecret }
         });
+        if (resp.status === 401) {
+          const c = document.getElementById('notif-list-container');
+          if (c) c.innerHTML = `
+            <div class="notif-empty">
+              <div class="notif-empty-icon">🔐</div>
+              <div class="notif-empty-title">Sin autorización (401)</div>
+              <div class="notif-empty-sub">El secreto de administración guardado no es válido o expiró. Cierra sesión e inicia de nuevo para reautenticarte.</div>
+            </div>`;
+          updateNotifBadge(0);
+          return;
+        }
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         renderNotifications(data.log || []);
       } catch (err) {
-        const container = document.getElementById('notif-list-container');
-        if (container) container.innerHTML = `<div style="text-align:center;padding:40px;color:#f87171;font-size:0.82rem;">Error al cargar notificaciones: ${err.message}</div>`;
+        const c = document.getElementById('notif-list-container');
+        if (c) c.innerHTML = `
+          <div class="notif-empty">
+            <div class="notif-empty-icon">⚠️</div>
+            <div class="notif-empty-title">Error al cargar</div>
+            <div class="notif-empty-sub">${err.message}</div>
+          </div>`;
       }
     }
 
@@ -5088,10 +5613,12 @@
     async function pollNotificationsBackground() {
       try {
         const adminSecret = localStorage.getItem('ows_admin_secret') || '';
-        if (!adminSecret) return;
+        if (!adminSecret) { updateNotifBadge(0); return; }
         const resp = await fetch(`${API_BASE}/admin/activity-log?limit=100`, {
           headers: { 'x-ows-admin-token': adminSecret }
         });
+        // Si el secreto es inválido (401), silenciosamente limpiar el badge
+        if (resp.status === 401) { updateNotifBadge(0); return; }
         if (!resp.ok) return;
         const data = await resp.json();
         const log  = data.log || [];

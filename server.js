@@ -6055,9 +6055,9 @@ app.post('/ows-admin-panel/request-extend-code', async (req, res) => {
     return res.status(403).json({ error: 'Sin permisos.' });
   }
 
-  const ip = getClientIp(req);
+  const usernameKey = String(payload.username || 'oceanandwild').toLowerCase();
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  adminExtendCodes.set(ip, {
+  adminExtendCodes.set(usernameKey, {
     code,
     expiresAt: Date.now() + 3 * 60 * 1000 // valid 3 minutes
   });
@@ -6094,16 +6094,16 @@ app.post('/ows-admin-panel/extend-session', async (req, res) => {
     return res.status(403).json({ error: 'Token sin permisos de administración.' });
   }
 
-  const ip = getClientIp(req);
-  const stored = adminExtendCodes.get(ip);
+  const usernameKey = String(payload.username || 'oceanandwild').toLowerCase();
+  const stored = adminExtendCodes.get(usernameKey);
   if (!stored || String(confirmCode).trim() !== String(stored.code)) {
     return res.status(401).json({ error: 'Código de extensión incorrecto.' });
   }
   if (Date.now() > stored.expiresAt) {
-    adminExtendCodes.delete(ip);
+    adminExtendCodes.delete(usernameKey);
     return res.status(401).json({ error: 'Código de extensión expirado. Solicita uno nuevo.' });
   }
-  adminExtendCodes.delete(ip);
+  adminExtendCodes.delete(usernameKey);
 
   const EXTENSION_COST = 50;
   const EXTENSION_CURRENCY = 'wildcredits';

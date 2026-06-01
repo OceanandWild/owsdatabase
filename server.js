@@ -2171,36 +2171,7 @@ async function ensureOwsStoreNewsSeedData() {
 }
 
 async function ensureOwsStoreDedicatedNewsSeedData() {
-  const entries = [
-    {
-      seed_key: 'service-apology-2026-04-14',
-      title: 'Service Update: Delays on WildWeapon Mayhem and Naturepedia',
-      description: 'We apologize for the delays in the WildWeapon Mayhem update rollout and the installable release launch of Naturepedia. Both items are now being finalized with additional stability checks.',
-      content_lines: [
-        'Both projects remain in active delivery planning with updated validation gates.',
-        'OWS Store will keep posting follow-up status as each milestone is completed.'
-      ],
-      related_project_slug: null,
-      related_project_name: 'Global',
-      banner_meta: {},
-      priority: 120,
-      is_active: true
-    },
-    {
-      seed_key: 'preventive-rollout-2026-04-24',
-      title: 'Preventive Systems Rollout Across OWS Projects',
-      description: 'Ocean and Wild Studios is deploying preventive systems across projects to reduce downtime during reworks and temporary service interruptions.',
-      content_lines: [
-        'Rollout will be phased project by project to protect user access and update safety.',
-        'Each project will receive safeguards for rework and temporary unavailability scenarios.'
-      ],
-      related_project_slug: null,
-      related_project_name: 'OWS Store',
-      banner_meta: {},
-      priority: 110,
-      is_active: true
-    }
-  ];
+  const entries = [];
 
   for (const item of entries) {
     await pool.query(
@@ -3426,6 +3397,24 @@ async function runDatabaseMigrations() {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ows_store_timeline_sync_key
       ON ows_store_timeline ((visual_meta->>'sync_key'))
+    `).catch(() => {});
+
+    // Admin Activity Log — persiste acciones de admins (edición, borrado, creación)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_admin_activity_log (
+        id           SERIAL PRIMARY KEY,
+        action       VARCHAR(20)  NOT NULL,
+        entity_type  VARCHAR(30)  NOT NULL,
+        entity_id    TEXT,
+        entity_name  TEXT,
+        admin_name   VARCHAR(80)  NOT NULL DEFAULT 'OceanandWild',
+        meta         JSONB        DEFAULT '{}'::jsonb,
+        created_at   TIMESTAMP    DEFAULT NOW()
+      );
+    `).catch(err => console.log('[OWS] Error creando ows_admin_activity_log:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_admin_activity_log_created
+      ON ows_admin_activity_log(created_at DESC)
     `).catch(() => {});
 
     await pool.query(`
@@ -11344,6 +11333,8 @@ app.patch('/ows-store/news/:id', async (req, res) => {
       values
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Noticia no encontrada' });
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    logAdminActivity({ action: 'edit', entityType: 'news', entityId: String(id), entityName: rows[0].title || '', adminName, meta: {} });
     return res.json({ success: true, news: rows[0] });
   } catch (err) {
     console.error('Error en PATCH /ows-store/news/:id:', err);
@@ -11356,8 +11347,12 @@ app.delete('/ows-store/news/:id', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { id } = req.params;
   try {
+    const { rows: preRows } = await pool.query('SELECT title FROM ows_store_news WHERE id = $1', [Number(id)]);
+    const preTitle = preRows[0]?.title || '';
     const { rowCount } = await pool.query('DELETE FROM ows_store_news WHERE id = $1', [Number(id)]);
     if (rowCount === 0) return res.status(404).json({ error: 'Noticia no encontrada' });
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    logAdminActivity({ action: 'delete', entityType: 'news', entityId: String(id), entityName: preTitle, adminName, meta: {} });
     return res.json({ success: true, deleted: true });
   } catch (err) {
     console.error('Error en DELETE /ows-store/news/:id:', err);
@@ -11487,6 +11482,96 @@ app.post('/ows-news/updates', async (req, res) => {
     return res.status(500).json({ error: 'Error interno' });
   }
 });
+
+// ─── ADMIN ACTIVITY LOG ───────────────────────────────────────────────────────
+
+/**
+ * Helper interno: inserta un registro de actividad de admin en la BD.
+ * Se llama desde los endpoints de mutación (PATCH/DELETE/POST).
+ */
+async function logAdminActivity({ action, entityType, entityId, entityName, adminName, meta = {} }) {
+  try {
+    await pool.query(
+      `INSERT INTO ows_admin_activity_log (action, entity_type, entity_id, entity_name, admin_name, meta)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        String(action || 'edit').slice(0, 20),
+        String(entityType || 'unknown').slice(0, 30),
+        String(entityId || ''),
+        String(entityName || '').slice(0, 255),
+        String(adminName || 'OceanandWild').slice(0, 80),
+        JSON.stringify(meta)
+      ]
+    );
+  } catch (e) {
+    console.warn('[OWS] logAdminActivity error (non-fatal):', e.message);
+  }
+}
+
+// GET /admin/activity-log — últimas 100 acciones (requiere token)
+app.get('/admin/activity-log', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    const limit = Math.max(1, Math.min(500, Number(req.query.limit) || 100));
+    const { rows } = await pool.query(
+      `SELECT id, action, entity_type, entity_id, entity_name, admin_name, meta, created_at
+       FROM ows_admin_activity_log
+       ORDER BY created_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    return res.json({ success: true, log: rows });
+  } catch (err) {
+    console.error('Error en GET /admin/activity-log:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /admin/activity-log — registra acción manualmente desde el cliente
+app.post('/admin/activity-log', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const { action, entity_type, entity_id, entity_name, admin_name, meta } = req.body || {};
+  if (!action || !entity_type) return res.status(400).json({ error: 'action y entity_type son requeridos' });
+  await logAdminActivity({ action, entityType: entity_type, entityId: entity_id, entityName: entity_name, adminName: admin_name, meta });
+  return res.json({ success: true });
+});
+
+// DELETE /admin/activity-log — borra TODAS las notificaciones (solo OceanandWild)
+app.delete('/admin/activity-log', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const adminName = String(req.headers['x-ows-admin-name'] || req.body?.admin_name || '').trim();
+  if (adminName.toLowerCase() !== 'oceanandwild') {
+    return res.status(403).json({ error: 'Solo OceanandWild puede eliminar el registro de actividad.' });
+  }
+  try {
+    const { rowCount } = await pool.query('DELETE FROM ows_admin_activity_log');
+    return res.json({ success: true, deleted: rowCount });
+  } catch (err) {
+    console.error('Error en DELETE /admin/activity-log:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE /admin/activity-log/:id — borra una notificación (solo OceanandWild)
+app.delete('/admin/activity-log/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const adminName = String(req.headers['x-ows-admin-name'] || req.body?.admin_name || '').trim();
+  if (adminName.toLowerCase() !== 'oceanandwild') {
+    return res.status(403).json({ error: 'Solo OceanandWild puede eliminar notificaciones.' });
+  }
+  try {
+    const { rowCount } = await pool.query('DELETE FROM ows_admin_activity_log WHERE id = $1', [Number(req.params.id)]);
+    if (!rowCount) return res.status(404).json({ error: 'Notificación no encontrada' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /admin/activity-log/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 
 // Update parcial de OWS News por id (admin)
 app.patch('/ows-news/updates/:id', async (req, res) => {
@@ -11633,7 +11718,12 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
       [...values, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Update no encontrado' });
-    return res.json({ success: true, update: normalizeOwsNewsRow(rows[0]) });
+    const normalized = normalizeOwsNewsRow(rows[0]);
+    // Auto-log
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    const entityType = normalized.isEvent ? 'event' : (normalized.isBanner ? 'banner' : 'changelog');
+    logAdminActivity({ action: 'edit', entityType, entityId: String(id), entityName: normalized.title || '', adminName, meta: { kind: normalized.entry_type } });
+    return res.json({ success: true, update: normalized });
   } catch (err) {
     console.error('Error en PATCH /ows-news/updates/:id:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -11645,8 +11735,15 @@ app.delete('/ows-news/updates/:id', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { id } = req.params;
   try {
+    // Fetch title before deletion for the activity log
+    const { rows: preRows } = await pool.query('SELECT title, kind FROM ows_store_timeline WHERE id = $1', [id]);
+    const preTitle = preRows[0]?.title || '';
+    const preKind  = preRows[0]?.kind  || 'event';
     const { rowCount } = await pool.query('DELETE FROM ows_store_timeline WHERE id = $1', [id]);
     if (!rowCount) return res.status(404).json({ error: 'Evento/update no encontrado' });
+    // Auto-log
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    logAdminActivity({ action: 'delete', entityType: preKind === 'event' ? 'event' : 'changelog', entityId: String(id), entityName: preTitle, adminName, meta: { kind: preKind } });
     return res.json({ success: true });
   } catch (err) {
     console.error('Error en DELETE /ows-news/updates/:id:', err);
@@ -13760,6 +13857,8 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     await syncOwsProjectRestrictionsTable().catch(() => {});
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    logAdminActivity({ action: 'edit', entityType: 'project', entityId: slug, entityName: rows[0].name || slug, adminName, meta: { fields: Object.keys(updates) } });
     res.json({ success: true, project: rows[0] });
   } catch (err) {
     console.error('Error en PATCH /ows-store/projects/:slug:', err);
@@ -13802,12 +13901,16 @@ app.delete('/ows-store/projects/:slug', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { slug } = req.params;
   try {
+    const { rows: preRows } = await pool.query('SELECT name FROM ows_projects WHERE slug = $1', [slug]);
+    const preName = preRows[0]?.name || slug;
     const { rows } = await pool.query(
       'DELETE FROM ows_projects WHERE slug = $1 RETURNING slug',
       [slug]
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
     await syncOwsProjectRestrictionsTable().catch(() => {});
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    logAdminActivity({ action: 'delete', entityType: 'project', entityId: slug, entityName: preName, adminName, meta: {} });
     res.json({ success: true, deleted: rows[0].slug });
   } catch (err) {
     console.error('Error en DELETE /ows-store/projects/:slug:', err);

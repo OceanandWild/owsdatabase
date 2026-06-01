@@ -643,6 +643,99 @@
       display: block;
     }
 
+    /* ── Notification Badge ─────────────────────────── */
+    .notif-badge {
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      padding: 0 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: auto;
+      animation: notif-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes notif-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+      50% { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+    }
+
+    /* ── Notification Card ──────────────────────────── */
+    .notif-card {
+      background: rgba(15,23,42,0.55);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-left: 3px solid var(--notif-accent, #26e0ff);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transition: background 0.18s;
+      position: relative;
+    }
+    .notif-card:hover { background: rgba(15,23,42,0.75); }
+    .notif-icon-wrap {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.04);
+    }
+    .notif-body { flex: 1; min-width: 0; }
+    .notif-title { font-size: 0.82rem; font-weight: 600; color: #f1f5f9; margin-bottom: 3px; }
+    .notif-title em { font-style: normal; color: #94a3b8; font-weight: 400; }
+    .notif-meta { font-size: 0.72rem; color: #64748b; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .notif-meta .notif-time { color: #475569; }
+    .notif-meta .notif-admin { color: #38bdf8; font-weight: 600; }
+    .notif-delete-btn {
+      background: none; border: none; color: #475569; cursor: pointer;
+      font-size: 0.85rem; padding: 4px 6px; border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+    .notif-delete-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+    .notif-delete-btn.disabled { opacity: 0.25; cursor: not-allowed; }
+
+    /* ── Toaster ────────────────────────────────────── */
+    .ows-toast {
+      pointer-events: all;
+      min-width: 280px; max-width: 360px;
+      background: rgba(10,25,38,0.92);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      padding: 14px 16px 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+      display: flex; gap: 12px; align-items: flex-start;
+      animation: toast-in 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      position: relative; overflow: hidden;
+    }
+    .ows-toast.toast-out { animation: toast-out 0.25s ease-in forwards; }
+    @keyframes toast-in {
+      from { transform: translateX(110%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+    @keyframes toast-out {
+      from { transform: translateX(0);    opacity: 1; }
+      to   { transform: translateX(110%); opacity: 0; }
+    }
+    .ows-toast-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+    .ows-toast-body { flex: 1; }
+    .ows-toast-title { font-size: 0.8rem; font-weight: 700; color: #f1f5f9; }
+    .ows-toast-msg   { font-size: 0.74rem; color: #94a3b8; margin-top: 2px; line-height: 1.4; }
+    .ows-toast-bar {
+      position: absolute; bottom: 0; left: 0; height: 3px;
+      background: var(--toast-color, #26e0ff);
+      border-radius: 0 0 0 14px;
+      animation: toast-bar var(--toast-dur, 4s) linear forwards;
+    }
+    @keyframes toast-bar { from { width: 100%; } to { width: 0%; } }
+
     /* Premium Statistics Dashboard Cards */
     .stats-row {
       display: grid;
@@ -1855,6 +1948,11 @@
             <span class="menu-item-icon">🛡️</span>
             <span>Seguridad & Logs</span>
           </li>
+          <li class="menu-item notif-menu-item" onclick="showTab('tab-notifs', this); markNotifsSeen()">
+            <span class="menu-item-icon">🔔</span>
+            <span>Notificaciones</span>
+            <span id="notif-badge" class="notif-badge" style="display:none">0</span>
+          </li>
         </ul>
       </div>
 
@@ -2290,7 +2388,32 @@
       </div>
 
     </div>
+
+      <!-- ===================================================== -->
+      <!-- TAB: NOTIFICACIONES DE ACTIVIDAD ADMIN                -->
+      <!-- ===================================================== -->
+      <div class="tab-content" id="tab-notifs">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h3 style="font-size:1.1rem; font-weight:700; color:#f8fafc; margin:0;">🔔 Registro de Actividad</h3>
+            <p style="font-size:0.78rem; color:#64748b; margin:4px 0 0;">Acciones realizadas por administradores — guardadas en servidor.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span id="notif-count-label" style="font-size:0.78rem;color:#64748b;"></span>
+            <button id="btn-clear-all-notifs" onclick="clearAllNotifications()" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);color:#f87171;font-size:0.75rem;cursor:pointer;transition:all 0.2s;" title="Solo disponible para OceanandWild">🗑️ Limpiar todo</button>
+            <button onclick="loadNotifications()" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(38,224,255,0.2);background:rgba(38,224,255,0.06);color:#26e0ff;font-size:0.75rem;cursor:pointer;">↻ Actualizar</button>
+          </div>
+        </div>
+        <div id="notif-list-container" style="display:flex;flex-direction:column;gap:8px;min-height:120px;">
+          <div style="text-align:center;padding:40px;color:#475569;font-size:0.85rem;">Cargando notificaciones...</div>
+        </div>
+      </div>
+
+    </div>
   </div>
+
+  <!-- TOASTER CONTAINER -->
+  <div id="ows-toaster" style="position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;flex-direction:column-reverse;gap:10px;pointer-events:none;"></div>
 
   <script>
     // Dynamically target real Render API if running locally (e.g., Live Server port 5501)
@@ -2336,7 +2459,8 @@
         'tab-resumen': 'Resumen General',
         'tab-ecosistema': 'Ecosistema & Catálogo de Apps',
         'tab-oceanpay': 'Ocean Pay Central Balance Manager',
-        'tab-seguridad': 'Seguridad Administrativa & Auditoría de Red'
+        'tab-seguridad': 'Seguridad Administrativa & Auditoría de Red',
+        'tab-notifs': '🔔 Registro de Actividad'
       };
       document.getElementById('topbar-section-title').textContent = tabNames[tabId] || 'Panel de Control';
 
@@ -2344,6 +2468,9 @@
         loadEcoProjects();
         loadNewsSection();
         loadEventsSection();
+      }
+      if (tabId === 'tab-notifs') {
+        loadNotifications();
       }
     }
 
@@ -3489,6 +3616,9 @@
       const activeTimelineList = allEvents
         .filter(ev => {
           if (ev.is_active === false) return false;
+          // Only real events count for visibility warnings
+          const et = String(ev.entry_type || ev.kind || ev.entryType || '').toLowerCase();
+          if (et !== 'event' && et !== 'evento') return false;
           const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
           if (keys.some(k => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
           const blob = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();
@@ -3665,7 +3795,12 @@
     }
 
     function renderEventsTable(list) {
-      let filteredList = [...list];
+      // Only show real events — filter out changelogs, news, banners
+      const eventsOnly = list.filter(ev => {
+        const et = String(ev.entry_type || ev.kind || ev.entryType || '').toLowerCase();
+        return et === 'event' || et === 'evento';
+      });
+      let filteredList = [...eventsOnly];
       const filterCheckbox = document.getElementById('filter-events-store');
       if (filterCheckbox && filterCheckbox.checked) {
         filteredList = filteredList.filter(ev => {
@@ -3684,12 +3819,14 @@
         return dateB - dateA;
       });
 
-      document.getElementById('events-count').textContent = `· ${filteredList.length} de ${list.length} entradas`;
+      document.getElementById('events-count').textContent = `· ${filteredList.length} de ${eventsOnly.length} eventos`;
 
-      // Active list for ranking
+      // Active list for ranking (events only)
       const activeTimelineList = list
         .filter(ev => {
           if (ev.is_active === false) return false;
+          const et = String(ev.entry_type || ev.kind || ev.entryType || '').toLowerCase();
+          if (et !== 'event' && et !== 'evento') return false;
           const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
           if (keys.some(k => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
           const blob = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();
@@ -4665,6 +4802,325 @@
 
     // Initialize logs view on startup
     renderHealthLogs();
+
+    // ─────────────────────────────────────────────────────────────────
+    // SISTEMA DE NOTIFICACIONES DE ACTIVIDAD
+    // ─────────────────────────────────────────────────────────────────
+
+    const NOTIF_SEEN_KEY = 'ows_notif_last_seen_id';
+
+    /** Extrae el nombre de admin del JWT guardado en localStorage */
+    function getCurrentAdminName() {
+      try {
+        const jwt = localStorage.getItem('ows_admin_token') || '';
+        if (!jwt) return 'OceanandWild';
+        const payload = JSON.parse(atob(jwt.split('.')[1]));
+        return payload.username || payload.uid || payload.name || 'OceanandWild';
+      } catch { return 'OceanandWild'; }
+    }
+
+    /** Inyecta x-ows-admin-name en toda llamada fetch que ya lleve el admin token */
+    (function patchFetchForAdminName() {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = function(url, options = {}) {
+        const headers = options.headers || {};
+        const hasToken = Object.keys(headers).some(k => k.toLowerCase() === 'x-ows-admin-token');
+        if (hasToken && !headers['x-ows-admin-name']) {
+          options.headers = { ...headers, 'x-ows-admin-name': getCurrentAdminName() };
+        }
+        return originalFetch(url, options);
+      };
+    })();
+
+    /** Devuelve tiempo relativo inteligente en español */
+    function smartTimeAgo(dateStr) {
+      const now = new Date();
+      const date = new Date(dateStr);
+      if (isNaN(date)) return dateStr;
+
+      const diffMs  = now - date;
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffH   = Math.floor(diffMin / 60);
+      const diffD   = Math.floor(diffH   / 24);
+
+      if (diffSec < 60)  return 'hace un momento';
+      if (diffMin < 60)  return `hace ${diffMin} minuto${diffMin !== 1 ? 's' : ''}`;
+      if (diffH   <  6)  return `hace ${diffH} hora${diffH !== 1 ? 's' : ''}`;
+
+      // Mismo día calendario
+      const isSameDay = date.toDateString() === now.toDateString();
+      if (isSameDay) {
+        return `hoy a las ${date.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+
+      // Ayer
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      if (date.toDateString() === yesterday.toDateString()) {
+        return `ayer a las ${date.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+
+      // Misma semana (< 7 días)
+      if (diffD < 7) {
+        const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        return `el ${dias[date.getDay()]} a las ${date.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+
+      // Fecha completa
+      return date.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' })
+           + ' a las ' + date.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    /** Icono de acción */
+    function notifActionIcon(action) {
+      return { create: '➕', edit: '✏️', delete: '🗑️', toggle: '👁️' }[action] || '🔔';
+    }
+
+    /** Color de acento por acción */
+    function notifAccentColor(action) {
+      return { create: '#34d399', edit: '#26e0ff', delete: '#f87171', toggle: '#fbbf24' }[action] || '#26e0ff';
+    }
+
+    /** Icono de entidad */
+    function notifEntityIcon(entityType) {
+      return { event: '📅', news: '📰', project: '📦', changelog: '📋', banner: '🖼️' }[entityType] || '📄';
+    }
+
+    /** Texto de acción legible */
+    function notifActionLabel(action, entityType) {
+      const entityLabels = { event: 'evento', news: 'noticia', project: 'proyecto', changelog: 'changelog', banner: 'banner' };
+      const actionLabels = { create: 'creó', edit: 'editó', delete: 'eliminó', toggle: 'cambió estado de' };
+      return `${actionLabels[action] || action} ${entityLabels[entityType] || entityType}`;
+    }
+
+    /** Actualiza la badge del sidebar */
+    function updateNotifBadge(count) {
+      const badge = document.getElementById('notif-badge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'inline-flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    /** Marca las notificaciones como vistas (guarda el ID más alto) */
+    function markNotifsSeen() {
+      const items = document.querySelectorAll('.notif-card[data-id]');
+      if (!items.length) return;
+      const maxId = Math.max(...[...items].map(el => Number(el.dataset.id) || 0));
+      if (maxId > 0) localStorage.setItem(NOTIF_SEEN_KEY, String(maxId));
+      updateNotifBadge(0);
+    }
+
+    /** Renderiza las notificaciones en el panel */
+    function renderNotifications(log) {
+      const container = document.getElementById('notif-list-container');
+      const label     = document.getElementById('notif-count-label');
+      if (!container) return;
+
+      const lastSeenId = Number(localStorage.getItem(NOTIF_SEEN_KEY) || 0);
+      const isOcean    = getCurrentAdminName().toLowerCase() === 'oceanandwild';
+
+      if (!log.length) {
+        container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:#475569;font-size:0.85rem;">
+          <div style="font-size:2rem;margin-bottom:10px;">🔔</div>
+          Sin actividad registrada todavía.
+        </div>`;
+        if (label) label.textContent = '';
+        updateNotifBadge(0);
+        return;
+      }
+
+      if (label) label.textContent = `${log.length} registro${log.length !== 1 ? 's' : ''}`;
+
+      const unseen = log.filter(n => Number(n.id) > lastSeenId).length;
+      updateNotifBadge(unseen);
+
+      container.innerHTML = log.map(n => {
+        const accent    = notifAccentColor(n.action);
+        const icon      = notifActionIcon(n.action);
+        const entIcon   = notifEntityIcon(n.entity_type);
+        const timeAgo   = smartTimeAgo(n.created_at);
+        const label     = notifActionLabel(n.action, n.entity_type);
+        const entityName = n.entity_name ? `"${n.entity_name}"` : `#${n.entity_id || '?'}`;
+        const isNew     = Number(n.id) > lastSeenId;
+        return `
+        <div class="notif-card" data-id="${n.id}" style="--notif-accent:${accent};${isNew ? 'border-left-color:' + accent + ';background:rgba(15,23,55,0.7);' : ''}">
+          <div class="notif-icon-wrap" style="background:${accent}18;">${icon} ${entIcon}</div>
+          <div class="notif-body">
+            <div class="notif-title">
+              <span class="notif-admin">${n.admin_name || 'Admin'}</span>
+              <em> ${label} </em>
+              ${entityName}
+            </div>
+            <div class="notif-meta">
+              <span class="notif-time" title="${new Date(n.created_at).toLocaleString('es-UY')}">${timeAgo}</span>
+              ${isNew ? '<span style="background:#26e0ff22;color:#26e0ff;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">NUEVO</span>' : ''}
+            </div>
+          </div>
+          <button class="notif-delete-btn${isOcean ? '' : ' disabled'}"
+            onclick="${isOcean ? `deleteNotification(${n.id}, this)` : ''}"
+            title="${isOcean ? 'Eliminar notificación' : 'Solo OceanandWild puede eliminar'}">🗑️</button>
+        </div>`;
+      }).join('');
+
+      // Actualizar timestamps dinámicamente cada minuto sin recargar
+      container._notifInterval && clearInterval(container._notifInterval);
+      container._notifInterval = setInterval(() => {
+        container.querySelectorAll('.notif-card[data-id]').forEach(card => {
+          const id   = Number(card.dataset.id);
+          const entry = log.find(n => Number(n.id) === id);
+          if (!entry) return;
+          const timeEl = card.querySelector('.notif-time');
+          if (timeEl) timeEl.textContent = smartTimeAgo(entry.created_at);
+        });
+      }, 60000);
+    }
+
+    /** Carga notificaciones desde el servidor */
+    async function loadNotifications() {
+      const container = document.getElementById('notif-list-container');
+      if (container) container.innerHTML = `<div style="text-align:center;padding:40px;color:#475569;font-size:0.85rem;">Cargando...</div>`;
+      try {
+        const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+        const resp = await fetch(`${API_BASE}/admin/activity-log?limit=100`, {
+          headers: { 'x-ows-admin-token': adminSecret }
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        renderNotifications(data.log || []);
+      } catch (err) {
+        const container = document.getElementById('notif-list-container');
+        if (container) container.innerHTML = `<div style="text-align:center;padding:40px;color:#f87171;font-size:0.82rem;">Error al cargar notificaciones: ${err.message}</div>`;
+      }
+    }
+
+    /** Elimina una notificación individual (solo OceanandWild) */
+    async function deleteNotification(id, btn) {
+      if (!id) return;
+      btn && (btn.disabled = true);
+      try {
+        const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+        const resp = await fetch(`${API_BASE}/admin/activity-log/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-ows-admin-token': adminSecret,
+            'x-ows-admin-name': 'OceanandWild'
+          }
+        });
+        const data = await resp.json();
+        if (data.success) {
+          const card = document.querySelector(`.notif-card[data-id="${id}"]`);
+          if (card) { card.style.opacity = '0'; card.style.transform = 'translateX(30px)'; card.style.transition = 'all 0.25s'; setTimeout(() => card.remove(), 260); }
+          showToast('🗑️', 'Eliminada', 'Notificación eliminada correctamente.', '#f87171', 3000);
+        } else {
+          showToast('⚠️', 'Sin permiso', data.error || 'No autorizado.', '#fbbf24', 3500);
+        }
+      } catch (e) {
+        showToast('❌', 'Error', e.message, '#f87171', 3500);
+        btn && (btn.disabled = false);
+      }
+    }
+
+    /** Limpia TODAS las notificaciones (solo OceanandWild) */
+    async function clearAllNotifications() {
+      const isOcean = getCurrentAdminName().toLowerCase() === 'oceanandwild';
+      if (!isOcean) {
+        showToast('🔒', 'Acceso denegado', 'Solo OceanandWild puede limpiar el registro.', '#fbbf24', 4000);
+        return;
+      }
+      if (!confirm('¿Eliminar TODAS las notificaciones del servidor? Esta acción es irreversible.')) return;
+      try {
+        const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+        const resp = await fetch(`${API_BASE}/admin/activity-log`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-ows-admin-token': adminSecret,
+            'x-ows-admin-name': 'OceanandWild'
+          }
+        });
+        const data = await resp.json();
+        if (data.success) {
+          renderNotifications([]);
+          localStorage.removeItem(NOTIF_SEEN_KEY);
+          showToast('✅', 'Registro limpiado', `${data.deleted || 0} notificaciones eliminadas.`, '#34d399', 3500);
+        } else {
+          showToast('🔒', 'Error', data.error || 'No autorizado.', '#fbbf24', 4000);
+        }
+      } catch (e) {
+        showToast('❌', 'Error de red', e.message, '#f87171', 4000);
+      }
+    }
+
+    /** Sistema de Toasters */
+    function showToast(icon, title, message, color = '#26e0ff', duration = 4000) {
+      const container = document.getElementById('ows-toaster');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'ows-toast';
+      toast.style.setProperty('--toast-color', color);
+      toast.style.setProperty('--toast-dur', `${duration / 1000}s`);
+      toast.innerHTML = `
+        <div class="ows-toast-icon">${icon}</div>
+        <div class="ows-toast-body">
+          <div class="ows-toast-title">${title}</div>
+          <div class="ows-toast-msg">${message}</div>
+        </div>
+        <div class="ows-toast-bar"></div>`;
+      container.appendChild(toast);
+
+      // Auto-dismiss
+      const timer = setTimeout(() => dismissToast(toast), duration);
+      toast.addEventListener('click', () => { clearTimeout(timer); dismissToast(toast); });
+    }
+
+    function dismissToast(toast) {
+      toast.classList.add('toast-out');
+      setTimeout(() => toast.remove(), 260);
+    }
+
+    /** Polling en background: carga sin mostrarse, solo actualiza badge */
+    async function pollNotificationsBackground() {
+      try {
+        const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+        if (!adminSecret) return;
+        const resp = await fetch(`${API_BASE}/admin/activity-log?limit=100`, {
+          headers: { 'x-ows-admin-token': adminSecret }
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const log  = data.log || [];
+        const lastSeenId = Number(localStorage.getItem(NOTIF_SEEN_KEY) || 0);
+        const unseen = log.filter(n => Number(n.id) > lastSeenId);
+        updateNotifBadge(unseen.length);
+
+        // Si el panel de notificaciones está visible, renderizar
+        const tab = document.getElementById('tab-notifs');
+        if (tab && tab.classList.contains('active')) {
+          renderNotifications(log);
+        } else if (unseen.length > 0) {
+          // Mostrar toaster para notificaciones nuevas llegadas mientras se está en otro tab
+          const newest = unseen[0];
+          showToast(
+            notifActionIcon(newest.action),
+            `${newest.admin_name || 'Admin'} — actividad nueva`,
+            `${notifActionLabel(newest.action, newest.entity_type)} ${newest.entity_name ? '"' + newest.entity_name + '"' : ''}`,
+            notifAccentColor(newest.action),
+            5000
+          );
+        }
+      } catch { /* silencioso */ }
+    }
+
+    // Polling cada 60 segundos
+    setInterval(pollNotificationsBackground, 60000);
+    // Primera carga del badge al iniciar
+    setTimeout(pollNotificationsBackground, 3000);
 
   </script>
 </body>

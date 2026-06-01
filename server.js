@@ -872,16 +872,35 @@ function normalizeNewsNumber(value, fallback = 0) {
 function requireOwsStoreAdmin(req, res) {
   const provided = String(
     req.headers['x-ows-admin-token']
+    || req.headers['authorization']?.replace(/^Bearer\s+/i, '')
     || req.headers['x-admin-secret']
     || req.query?.admin_token
     || req.body?.admin_token
     || ''
   ).trim();
-  if (!provided || provided !== OWS_ADMIN_SECRET) {
-    res.status(401).json({ error: 'No autorizado' });
+  if (!provided) {
+    res.status(401).json({ error: 'No autorizado. Token/Secret ausente.' });
     return false;
   }
-  return true;
+  
+  // 1. Check if it matches the static secret
+  if (provided === OWS_ADMIN_SECRET) {
+    return true;
+  }
+
+  // 2. Check if it is a valid JWT Token signed with the studio secret
+  const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  try {
+    const payload = jwt.verify(provided, jwtSecret);
+    if (payload.scope === 'ows-admin-panel' && payload.role === 'superadmin') {
+      return true;
+    }
+  } catch (_) {
+    // Ignore and return 401 below
+  }
+
+  res.status(401).json({ error: 'No autorizado. Token o Secret inválido.' });
+  return false;
 }
 
 function toNewsArray(value) {

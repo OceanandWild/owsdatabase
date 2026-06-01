@@ -2611,6 +2611,7 @@
               </tbody>
             </table>
           </div>
+        </div>
       </div>
 
       <!-- ===================================================== -->
@@ -5483,20 +5484,21 @@
     async function loadNotifications() {
       showNotifSkeletons();
       try {
-        const adminSecret = localStorage.getItem('ows_admin_secret') || '';
-        if (!adminSecret) {
+        // Prefer JWT token (always present after login/restore), fall back to static secret
+        const authToken = localStorage.getItem('ows_admin_token') || localStorage.getItem('ows_admin_secret') || '';
+        if (!authToken) {
           const c = document.getElementById('notif-list-container');
           if (c) c.innerHTML = `
             <div class="notif-empty">
               <div class="notif-empty-icon">🔐</div>
               <div class="notif-empty-title">Sesión no autenticada</div>
-              <div class="notif-empty-sub">El secreto de admin no está disponible. Cierra sesión y vuelve a iniciar.</div>
+              <div class="notif-empty-sub">No hay sesión activa. Cierra sesión y vuelve a iniciar.</div>
             </div>`;
           updateNotifBadge(0);
           return;
         }
         const resp = await fetch(`${API_BASE}/admin/activity-log?limit=100`, {
-          headers: { 'x-ows-admin-token': adminSecret }
+          headers: { 'x-ows-admin-token': authToken }
         });
         if (resp.status === 401) {
           const c = document.getElementById('notif-list-container');
@@ -5504,7 +5506,7 @@
             <div class="notif-empty">
               <div class="notif-empty-icon">🔐</div>
               <div class="notif-empty-title">Sin autorización (401)</div>
-              <div class="notif-empty-sub">El secreto de administración guardado no es válido o expiró. Cierra sesión e inicia de nuevo para reautenticarte.</div>
+              <div class="notif-empty-sub">Token de sesión inválido o expirado. Cierra sesión e inicia de nuevo para reautenticarte.</div>
             </div>`;
           updateNotifBadge(0);
           return;
@@ -5528,12 +5530,12 @@
       if (!id) return;
       btn && (btn.disabled = true);
       try {
-        const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+        const authToken = localStorage.getItem('ows_admin_token') || localStorage.getItem('ows_admin_secret') || '';
         const resp = await fetch(`${API_BASE}/admin/activity-log/${id}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-            'x-ows-admin-token': adminSecret,
+            'x-ows-admin-token': authToken,
             'x-ows-admin-name': 'OceanandWild'
           }
         });
@@ -5560,12 +5562,12 @@
       }
       if (!confirm('¿Eliminar TODAS las notificaciones del servidor? Esta acción es irreversible.')) return;
       try {
-        const adminSecret = localStorage.getItem('ows_admin_secret') || '';
+        const authToken = localStorage.getItem('ows_admin_token') || localStorage.getItem('ows_admin_secret') || '';
         const resp = await fetch(`${API_BASE}/admin/activity-log`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-            'x-ows-admin-token': adminSecret,
+            'x-ows-admin-token': authToken,
             'x-ows-admin-name': 'OceanandWild'
           }
         });
@@ -5612,10 +5614,10 @@
     /** Polling en background: carga sin mostrarse, solo actualiza badge */
     async function pollNotificationsBackground() {
       try {
-        const adminSecret = localStorage.getItem('ows_admin_secret') || '';
-        if (!adminSecret) { updateNotifBadge(0); return; }
+        const authToken = localStorage.getItem('ows_admin_token') || localStorage.getItem('ows_admin_secret') || '';
+        if (!authToken) { updateNotifBadge(0); return; }
         const resp = await fetch(`${API_BASE}/admin/activity-log?limit=100`, {
-          headers: { 'x-ows-admin-token': adminSecret }
+          headers: { 'x-ows-admin-token': authToken }
         });
         // Si el secreto es inválido (401), silenciosamente limpiar el badge
         if (resp.status === 401) { updateNotifBadge(0); return; }

@@ -2685,91 +2685,44 @@
         <div style="background:linear-gradient(135deg, rgba(38, 224, 255, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%); border:1px solid rgba(255,255,255,0.05); border-radius:18px; padding:24px; margin-bottom:24px; position:relative; overflow:hidden;">
           <div style="position:absolute; right:-20px; bottom:-20px; font-size:7rem; opacity:0.04; pointer-events:none;">📅</div>
           <h3 style="font-size:1.2rem; font-weight:800; color:#f1f5f9; margin:0 0 6px 0; display:flex; align-items:center; gap:8px;">
-            <span>📅 Planificación y Organización Central</span>
-            <span style="font-size:0.65rem; background:rgba(38,224,255,0.15); border:1px solid rgba(38,224,255,0.3); color:var(--ocean-cyan); padding:2px 8px; border-radius:100px; font-family:var(--font-space); text-transform:uppercase;">En Desarrollo</span>
+            <span>📅 Planificación de Proyectos</span>
+            <span style="font-size:0.65rem; background:rgba(251,191,36,0.15); border:1px solid rgba(251,191,36,0.3); color:#fbbf24; padding:2px 8px; border-radius:100px; font-family:var(--font-space); text-transform:uppercase;">En Desarrollo</span>
           </h3>
           <p style="font-size:0.8rem; color:#94a3b8; margin:0; max-width:650px; line-height:1.5;">
-            Diseña la hoja de ruta de lanzamientos, organiza eventos del ecosistema de Ocean and Wild Studios y coordina las prioridades de desarrollo en esta sección integral de control estratégico.
+            Visualiza y coordina el estado de planificación estratégica de todos los proyectos registrados en el catálogo oficial de Ocean and Wild Studios.
           </p>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:24px;">
-          
-          <!-- Roadmap / Hitos (Interactive visual) -->
-          <div class="action-panel-box" style="flex:1;">
-            <div style="display:flex; justify-content:between; align-items:center; margin-bottom:20px;">
-              <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin:0;">🚀 Línea de Lanzamiento y Objetivos</h4>
-              <span style="font-size:0.7rem; color:#64748b;">Q2 - Q3 2026</span>
+        <!-- Single main container for the table -->
+        <div class="action-panel-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div>
+              <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin:0;">📋 Estado General de Planificación</h4>
+              <p style="font-size:0.75rem; color:#64748b; margin:4px 0 0 0;">Proyectos activos sincronizados en tiempo real</p>
             </div>
-            
-            <div style="display:flex; flex-direction:column; gap:16px; position:relative; padding-left:14px; border-left:1px dashed rgba(255,255,255,0.1);">
-              <!-- Milestone 1 -->
-              <div style="position:relative;">
-                <div style="position:absolute; left:-19px; top:4px; width:9px; height:9px; border-radius:50%; background:var(--jungle-light); box-shadow:0 0 8px var(--jungle-light);"></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                  <span style="font-size:0.75rem; font-weight:700; color:#e2e8f0;">Lanzamiento NatBee en Windows</span>
-                  <span style="font-size:0.65rem; color:var(--jungle-light); font-weight:700;">COMPLETADO</span>
-                </div>
-                <p style="font-size:0.7rem; color:#64748b; margin:0;">Integración completa del sistema de compras y panel de eventos.</p>
-              </div>
-
-              <!-- Milestone 2 -->
-              <div style="position:relative;">
-                <div style="position:absolute; left:-19px; top:4px; width:9px; height:9px; border-radius:50%; background:var(--ocean-cyan); box-shadow:0 0 8px var(--ocean-cyan);"></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                  <span style="font-size:0.75rem; font-weight:700; color:#e2e8f0;">WildWeapon Mayhem Festival Update</span>
-                  <span style="font-size:0.65rem; color:var(--ocean-cyan); font-weight:700; font-family:var(--font-space);">EN CURSO</span>
-                </div>
-                <p style="font-size:0.7rem; color:#64748b; margin:0;">Preparación de spritesheets unificados, reworks de balance y trailer promocional.</p>
-              </div>
-
-              <!-- Milestone 3 -->
-              <div style="position:relative; opacity:0.6;">
-                <div style="position:absolute; left:-19px; top:4px; width:9px; height:9px; border-radius:50%; background:#475569;"></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                  <span style="font-size:0.75rem; font-weight:700; color:#cbd5e1;">Ecoxion: Versión Final Windows</span>
-                  <span style="font-size:0.65rem; color:#64748b;">PLANIFICADO</span>
-                </div>
-                <p style="font-size:0.7rem; color:#64748b; margin:0;">Lanzamiento oficial integrado en la timeline central del OWS Store.</p>
-              </div>
-            </div>
+            <button class="btn-action-small" onclick="loadPlanificacionProjects()" style="height:32px; padding:0 12px; font-size:0.75rem;">🔄 Recargar</button>
           </div>
 
-          <!-- Notes Board Simulator (Interactive) -->
-          <div class="action-panel-box" style="flex:1;">
-            <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin-bottom:15px; display:flex; align-items:center; gap:8px;">
-              <span>📌 Notas y Recordatorios Administrativos</span>
-            </h4>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:15px;">
-              <div style="background:rgba(251,191,36,0.04); border:1px solid rgba(251,191,36,0.15); border-radius:12px; padding:12px; position:relative;">
-                <span style="position:absolute; right:8px; top:8px; font-size:0.8rem;">⚠️</span>
-                <h5 style="margin:0 0 6px 0; font-size:0.75rem; color:#fbbf24; font-weight:700;">Spritesheets</h5>
-                <p style="margin:0; font-size:0.68rem; color:#cbd5e1; line-height:1.4;">Alinear Canvas con ImageMagick antes del recorte de grilla para evitar deformación.</p>
-              </div>
-              <div style="background:rgba(38,224,255,0.04); border:1px solid rgba(38,224,255,0.15); border-radius:12px; padding:12px; position:relative;">
-                <span style="position:absolute; right:8px; top:8px; font-size:0.8rem;">⚙️</span>
-                <h5 style="margin:0 0 6px 0; font-size:0.75rem; color:var(--ocean-cyan); font-weight:700;">Android Keystore</h5>
-                <p style="margin:0; font-size:0.68rem; color:#cbd5e1; line-height:1.4;">NUNCA alterar ni rotar el Keystore Universal en los Secrets de GitHub.</p>
-              </div>
-            </div>
-            
-            <div style="display:flex; gap:8px;">
-              <input class="form-input" style="padding-left:14px; font-size:0.75rem;" placeholder="Escribe un recordatorio rápido..." id="plan-quick-note">
-              <button class="btn-action-small" onclick="const input = document.getElementById('plan-quick-note'); if(input.value.trim()){ showToast('📌', 'Nota agregada', input.value, '#fbbf24', 3000); input.value=''; }" style="height:38px;">Añadir</button>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Development Progress Section -->
-        <div class="action-panel-box" style="margin-top:24px;">
-          <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin-bottom:15px;">📊 Progreso General del Ciclo de Desarrollo</h4>
-          <div style="background:rgba(255,255,255,0.03); height:8px; border-radius:100px; overflow:hidden; margin-bottom:10px;">
-            <div style="width:72%; height:100%; background:linear-gradient(90deg, var(--ocean-cyan), var(--jungle-light)); border-radius:100px;"></div>
-          </div>
-          <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:#94a3b8;">
-            <span>Fase 3: Estabilización & Auditoría</span>
-            <span style="color:var(--ocean-cyan); font-weight:700;">72% Completado</span>
+          <div class="glass-table-wrapper" style="max-height:550px; overflow-y:auto;">
+            <table class="glass-table">
+              <thead>
+                <tr>
+                  <th style="width:70px;">Icono</th>
+                  <th>Proyecto</th>
+                  <th>Plataforma</th>
+                  <th>Versión</th>
+                  <th style="text-align:right;">Estado de Planificación</th>
+                </tr>
+              </thead>
+              <tbody id="planificacion-projects-tbody">
+                <tr>
+                  <td colspan="5" style="text-align:center; color:#64748b; padding:60px;">
+                    <div style="font-size:1.8rem; margin-bottom:8px; animation:spin 1.5s linear infinite;">🔄</div>
+                    Sincronizando con catálogo de OWS Store...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -2840,6 +2793,9 @@
       if (tabId === 'tab-notifs') {
         loadNotifications();
         markNotifsSeen();
+      }
+      if (tabId === 'tab-planificacion') {
+        loadPlanificacionProjects();
       }
     }
 
@@ -5755,6 +5711,78 @@
     setInterval(pollNotificationsBackground, 60000);
     // Primera carga del badge al iniciar
     setTimeout(pollNotificationsBackground, 3000);
+
+    /** Carga y renderiza los proyectos en la tabla de Planificación */
+    async function loadPlanificacionProjects() {
+      const tbody = document.getElementById('planificacion-projects-tbody');
+      if (!tbody) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/ows-store/projects?include_unavailable=true`);
+        const data = await res.json();
+        let list = [];
+        if (Array.isArray(data)) {
+          list = data;
+        } else if (data && Array.isArray(data.projects)) {
+          list = data.projects;
+        }
+
+        if (list.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5" style="text-align:center; color:#64748b; padding:40px;">Sin proyectos disponibles en OWS Store.</td>
+            </tr>`;
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          const resolvedIcon = resolveIconWithFallbacks(p);
+          const iconHtml = resolvedIcon
+            ? `<div class="project-icon-wrapper" style="width:36px; height:36px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.08); background:rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center;">
+                 <img src="${resolvedIcon}" style="width:100%; height:100%; object-fit:cover;" onerror="this.parentElement.innerHTML='🎮';" />
+               </div>`
+            : `<div style="font-size:1.3rem;">🎮</div>`;
+
+          const name = p.name || p.slug || 'Proyecto Sin Nombre';
+          const platform = p.platform || 'Multiplataforma';
+          const version = p.version || '0.0.0';
+
+          return `
+            <tr>
+              <td>
+                <div style="display:flex; align-items:center; justify-content:center;">
+                  ${iconHtml}
+                </div>
+              </td>
+              <td>
+                <div style="font-weight:700; color:#e2e8f0;">${name}</div>
+                <div style="font-size:0.68rem; color:#475569;">${p.slug}</div>
+              </td>
+              <td>
+                <span style="font-size:0.75rem; color:#cbd5e1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 8px; border-radius:100px;">
+                  ${platform}
+                </span>
+              </td>
+              <td>
+                <code style="font-size:0.75rem; color:var(--ocean-cyan); font-family:var(--font-space);">${version}</code>
+              </td>
+              <td style="text-align:right;">
+                <span style="display:inline-flex; align-items:center; gap:5px; background:rgba(248,113,113,0.1); color:#f87171; border:1px solid rgba(248,113,113,0.2); font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:100px; letter-spacing:0.02em;">
+                  <span style="width:6px; height:6px; border-radius:50%; background:#f87171; display:inline-block; box-shadow:0 0 6px #f87171;"></span>
+                  INACTIVO
+                </span>
+              </td>
+            </tr>`;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align:center; color:#ef4444; padding:40px;">
+              ⚠️ Error al obtener catálogo: ${err.message}
+            </td>
+          </tr>`;
+      }
+    }
 
   </script>
 </body>

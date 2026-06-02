@@ -6021,24 +6021,64 @@
                 </div>
               </td>
 
-              <!-- Column C: Chance percentage & period -->
-              <td style="padding: 10px 8px; vertical-align: middle;">
-                <div style="display:flex; gap:4px; align-items:center; width:100%;">
-                  <div style="position:relative; width:45px;">
-                    <input type="number" class="form-input" style="padding: 5px 2px; text-align:center; font-size:0.75rem; background:#070f1e; border-color:rgba(255,255,255,0.08); color:#cbd5e1; height:32px; width:100%;"
-                      id="plan-chd-${p.slug}" value="${chanceDays}" placeholder="14" min="1"
-                      onchange="savePlanificacionField('${p.slug}', 'chancedays', this.value)">
-                    <span style="position:absolute; right:2px; bottom:2px; font-size:0.6rem; color:#475569; pointer-events:none;">d</span>
+              <!-- Column C: Chance percentage & period — with live feedback -->
+              <td style="padding: 8px 8px; vertical-align: middle;">
+                <div style="display:flex; flex-direction:column; gap:5px; width:100%;">
+
+                  <!-- Live readable sentence -->
+                  <div id="plan-chance-label-${p.slug}" style="font-size:0.7rem; color:#94a3b8; line-height:1.3; min-height:1.2em;">
+                    ${chancePercent
+                      ? `En <strong style="color:#e2e8f0;">${chanceDays}d</strong> hay un <strong style="color:#34d399;">${parseFloat(chancePercent).toFixed(1)}%</strong> de chance`
+                      : `<span style="color:#334155; font-style:italic;">Sin probabilidad definida</span>`
+                    }
                   </div>
-                  <span style="font-size:0.7rem; color:#64748b;">➡</span>
-                  <div style="position:relative; flex:1; min-width:0;">
-                    <input type="number" class="form-input" style="padding: 5px 12px 5px 6px; font-size:0.75rem; background:#0c1d1a; border-color:rgba(16,185,129,0.2); color:#34d399; height:32px; width:100%; text-align:right;"
-                      id="plan-chp-${p.slug}" value="${chancePercent}" placeholder="Chance %" min="0" max="100" step="0.1"
-                      onchange="savePlanificacionField('${p.slug}', 'chancepercent', this.value)">
-                    <span style="position:absolute; right:4px; top:50%; transform:translateY(-50%); font-size:0.65rem; color:var(--jungle-light); pointer-events:none;">%</span>
+
+                  <!-- Progress bar -->
+                  <div style="height:5px; border-radius:4px; background:rgba(255,255,255,0.06); overflow:hidden; width:100%;">
+                    <div id="plan-chance-bar-${p.slug}"
+                      style="height:100%; border-radius:4px; width:${chancePercent ? Math.min(parseFloat(chancePercent),100) : 0}%; transition:width 0.35s ease, background 0.35s ease;
+                      background:${
+                        !chancePercent ? 'transparent' :
+                        parseFloat(chancePercent) >= 60 ? 'linear-gradient(90deg,#059669,#34d399)' :
+                        parseFloat(chancePercent) >= 25 ? 'linear-gradient(90deg,#b45309,#fbbf24)' :
+                        'linear-gradient(90deg,#991b1b,#f87171)'
+                      };"></div>
                   </div>
+
+                  <!-- Compact labeled inputs row -->
+                  <div style="display:flex; gap:4px; align-items:center; width:100%;">
+                    <!-- Days -->
+                    <div style="display:flex; flex-direction:column; gap:1px; align-items:center; flex-shrink:0;">
+                      <span style="font-size:0.55rem; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">Plazo</span>
+                      <div style="position:relative; width:46px;">
+                        <input type="number" class="form-input"
+                          style="padding: 3px 14px 3px 4px; text-align:center; font-size:0.72rem; background:#070f1e; border-color:rgba(255,255,255,0.08); color:#cbd5e1; height:26px; width:100%;"
+                          id="plan-chd-${p.slug}" value="${chanceDays}" placeholder="14" min="1"
+                          oninput="refreshChanceFeedback('${p.slug}')"
+                          onchange="savePlanificacionField('${p.slug}', 'chancedays', this.value)">
+                        <span style="position:absolute; right:3px; top:50%; transform:translateY(-50%); font-size:0.58rem; color:#475569; pointer-events:none;">d</span>
+                      </div>
+                    </div>
+
+                    <span style="font-size:0.65rem; color:#334155; flex-shrink:0; margin-top:10px;">→</span>
+
+                    <!-- Percent -->
+                    <div style="display:flex; flex-direction:column; gap:1px; align-items:center; flex:1; min-width:0;">
+                      <span style="font-size:0.55rem; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">Chance</span>
+                      <div style="position:relative; width:100%;">
+                        <input type="number" class="form-input"
+                          style="padding: 3px 14px 3px 5px; font-size:0.72rem; background:#0c1d1a; border-color:rgba(16,185,129,0.2); color:#34d399; height:26px; width:100%; text-align:right;"
+                          id="plan-chp-${p.slug}" value="${chancePercent}" placeholder="0" min="0" max="100" step="0.1"
+                          oninput="refreshChanceFeedback('${p.slug}')"
+                          onchange="savePlanificacionField('${p.slug}', 'chancepercent', this.value)">
+                        <span style="position:absolute; right:4px; top:50%; transform:translateY(-50%); font-size:0.6rem; color:var(--jungle-light); pointer-events:none;">%</span>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </td>
+
 
               <!-- Column D: Assign Event -->
               <td style="padding: 10px 8px; vertical-align: middle;">
@@ -6060,6 +6100,38 @@
             </td>
           </tr>`;
       }
+    }
+
+    /** Updates the chance feedback sentence and progress bar in real-time for a project row */
+    function refreshChanceFeedback(slug) {
+      const daysInput   = document.getElementById(`plan-chd-${slug}`);
+      const pctInput    = document.getElementById(`plan-chp-${slug}`);
+      const label       = document.getElementById(`plan-chance-label-${slug}`);
+      const bar         = document.getElementById(`plan-chance-bar-${slug}`);
+      if (!daysInput || !pctInput || !label || !bar) return;
+
+      const days = parseInt(daysInput.value) || 14;
+      const pct  = parseFloat(pctInput.value);
+
+      if (!pctInput.value || isNaN(pct)) {
+        label.innerHTML = `<span style="color:#334155; font-style:italic;">Sin probabilidad definida</span>`;
+        bar.style.width = '0%';
+        bar.style.background = 'transparent';
+        return;
+      }
+
+      const clamped = Math.min(Math.max(pct, 0), 100);
+      // Determine color tier
+      const bg = clamped >= 60
+        ? 'linear-gradient(90deg,#059669,#34d399)'
+        : clamped >= 25
+          ? 'linear-gradient(90deg,#b45309,#fbbf24)'
+          : 'linear-gradient(90deg,#991b1b,#f87171)';
+      const pctColor = clamped >= 60 ? '#34d399' : clamped >= 25 ? '#fbbf24' : '#f87171';
+
+      label.innerHTML = `En <strong style="color:#e2e8f0;">${days}d</strong> hay un <strong style="color:${pctColor};">${pct.toFixed(1)}%</strong> de chance`;
+      bar.style.width = `${clamped}%`;
+      bar.style.background = bg;
     }
 
     /** Guarda las modificaciones en localStorage de Planificación y envía notificación personalizada al activity-log */

@@ -1717,7 +1717,8 @@
 
         <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label" style="color:#a855f7;">🖼️ URL de Imagen / Banner <span style="font-size:0.72rem; color:#64748b; font-weight:400;">(URL directa: https://... recomendado)</span></label>
-          <input class="form-input" style="padding-left:14px;" type="text" id="news-image-url" placeholder="https://raw.githubusercontent.com/... o cualquier CDN">
+          <input class="form-input" style="padding-left:14px;" type="text" id="news-image-url" placeholder="https://raw.githubusercontent.com/... o cualquier CDN" oninput="validateImgBbUrl(this, 'news-imgbb-alert')">
+          <div id="news-imgbb-alert" style="display:none; margin-top:5px; padding:8px 12px; border-radius:8px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fbbf24; font-size:0.75rem; line-height:1.4;"></div>
           <div id="news-image-preview" style="margin-top:8px; display:none;">
             <img id="news-img-preview-tag" src="" alt="preview" style="max-height:100px; border-radius:8px; border:1px solid rgba(168,85,247,0.3); object-fit:cover;" onerror="document.getElementById('news-image-preview').style.display='none'">
           </div>
@@ -1808,20 +1809,38 @@
           </div>
         </div>
 
-        <div style="display:flex; gap:12px; margin-bottom:12px;">
-          <div class="form-group" style="flex:1; margin-bottom:0;">
-            <label class="form-label" style="color:#f59e0b;">Slug(s) de Proyecto</label>
-            <input class="form-input" style="padding-left:14px;" type="text" id="event-project-slugs" placeholder="ej: ows-store, wildwave">
+        <!-- Premium dynamic project selector -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="color:#f59e0b; display:flex; justify-content:space-between; align-items:center;">
+            <span>Proyectos Vinculados <span style="color:#ef4444;">*</span></span>
+            <label style="display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:#34d399; font-weight:normal; cursor:pointer;">
+              <input type="checkbox" id="event-toggle-ows-store" checked onchange="toggleOwsStoreProjectSelection()" style="accent-color:#34d399;">
+              🌟 Mostrar en OWS Store
+            </label>
+          </label>
+          <div id="event-project-selector-tags" style="display:flex; flex-wrap:wrap; gap:8px; padding:10px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); margin-bottom:8px; max-height:120px; overflow-y:auto;">
+            <!-- Rendered dynamically -->
           </div>
-          <div class="form-group" style="flex:1; margin-bottom:0;">
-            <label class="form-label" style="color:#f59e0b;">Nombre(s) Proyecto</label>
-            <input class="form-input" style="padding-left:14px;" type="text" id="event-project-names" placeholder="ej: OWS Store, WildWave">
-          </div>
+          
+          <details style="margin-top:6px; cursor:pointer;">
+            <summary style="font-size:0.72rem; color:#64748b;">Ver mapeo manual de slugs/nombres (Avanzado)</summary>
+            <div style="display:flex; gap:12px; margin-top:8px;">
+              <div class="form-group" style="flex:1; margin-bottom:0;">
+                <label class="form-label" style="color:#f59e0b; font-size:0.7rem;">Slug(s) de Proyecto</label>
+                <input class="form-input" style="padding-left:14px; font-size:0.75rem; height:30px;" type="text" id="event-project-slugs" placeholder="ej: ows-store, wildwave" oninput="syncSelectorFromInputs()">
+              </div>
+              <div class="form-group" style="flex:1; margin-bottom:0;">
+                <label class="form-label" style="color:#f59e0b; font-size:0.7rem;">Nombre(s) Proyecto</label>
+                <input class="form-input" style="padding-left:14px; font-size:0.75rem; height:30px;" type="text" id="event-project-names" placeholder="ej: OWS Store, WildWave" oninput="syncSelectorFromInputs()">
+              </div>
+            </div>
+          </details>
         </div>
 
         <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label" style="color:#f59e0b;">🖼️ URL Banner / Imagen <span style="font-size:0.72rem; color:#64748b; font-weight:400;">(URL directa recomendada)</span></label>
-          <input class="form-input" style="padding-left:14px;" type="text" id="event-banner-url" placeholder="https://raw.githubusercontent.com/...">
+          <input class="form-input" style="padding-left:14px;" type="text" id="event-banner-url" placeholder="https://raw.githubusercontent.com/..." oninput="validateImgBbUrl(this, 'event-imgbb-alert')">
+          <div id="event-imgbb-alert" style="display:none; margin-top:5px; padding:8px 12px; border-radius:8px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fbbf24; font-size:0.75rem; line-height:1.4;"></div>
           <div id="event-image-preview" style="margin-top:8px; display:none;">
             <img id="event-img-preview-tag" src="" alt="preview" style="max-height:100px; border-radius:8px; border:1px solid rgba(245,158,11,0.3); object-fit:cover;" onerror="document.getElementById('event-image-preview').style.display='none'">
           </div>
@@ -4495,7 +4514,13 @@
       const priority = parseInt(document.getElementById('news-priority').value) || 0;
       const publishedAt = document.getElementById('news-published-at').value || null;
       const isActive = document.getElementById('news-is-active').value === 'true';
-      const bannerMeta = imageUrl ? { url: imageUrl, image: imageUrl } : {};
+      const bannerMeta = imageUrl ? { 
+        url: imageUrl, 
+        image: imageUrl, 
+        cover_url: imageUrl, 
+        image_url: imageUrl, 
+        banner_url: imageUrl 
+      } : {};
       const adminSecret = localStorage.getItem('ows_admin_secret') || '';
       const btn = document.getElementById('news-submit-btn');
       btn.disabled = true;
@@ -4735,7 +4760,13 @@
       const priority = parseInt(document.getElementById('event-priority').value) || 0;
       const publishedAt = document.getElementById('event-published-at').value || null;
       const isActive = document.getElementById('event-is-active').value === 'true';
-      const bannerMeta = bannerUrl ? { url: bannerUrl, image: bannerUrl } : {};
+      const bannerMeta = bannerUrl ? { 
+        url: bannerUrl, 
+        image: bannerUrl, 
+        cover_url: bannerUrl, 
+        image_url: bannerUrl, 
+        banner_url: bannerUrl 
+      } : {};
       const adminSecret = localStorage.getItem('ows_admin_secret') || '';
       const btn = document.getElementById('event-submit-btn');
       btn.disabled = true;
@@ -4807,9 +4838,203 @@
       }
     }
 
+
+    // ===== PREMIUM EVENT UX IMPROVEMENTS (IMAGE VALIDATION & PROJECT SELECTOR) =====
+
+    /** Validates ImgBB urls and offers a direct link parser warning */
+    function validateImgBbUrl(inputEl, alertDivId) {
+      const val = inputEl.value.trim();
+      const div = document.getElementById(alertDivId);
+      if (!div) return;
+
+      if (val.includes('ibb.co/') && !val.includes('i.ibb.co')) {
+        // Viewer link detected
+        const match = val.match(/ibb\.co\/([A-Za-z0-9]+)/);
+        const slug = match ? match[1] : '';
+        div.style.display = 'block';
+        div.innerHTML = `⚠️ <strong>Enlace de visualización detectado:</strong> Has ingresado el link de la página de ImgBB, el cual no cargará como imagen.
+        <br>
+        <span style="color:#34d399; font-weight:700; cursor:pointer;" onclick="parseImgBbDirectLink('${val}', '${alertDivId}', '${inputEl.id}')">✨ Haz clic aquí para intentar auto-corregir al enlace directo</span>
+        <br>
+        <span style="font-size:0.68rem; opacity:0.8;">O haz clic derecho en la imagen en ImgBB, selecciona "Copiar dirección de imagen" y pega ese enlace aquí.</span>`;
+      } else {
+        div.style.display = 'none';
+        div.innerHTML = '';
+      }
+    }
+
+    /** Tries to programmatically request or guess the direct link */
+    function parseImgBbDirectLink(viewerUrl, alertDivId, inputId) {
+      const match = viewerUrl.match(/ibb\.co\/([A-Za-z0-9]+)/);
+      if (match) {
+        const slug = match[1];
+        // Guessing base pattern for typical ImgBB uploads (often filename based, but we can recommend the direct i.ibb.co domain)
+        const parsed = `https://i.ibb.co/${slug}/image.png`;
+        document.getElementById(inputId).value = parsed;
+        const inputEl = document.getElementById(inputId);
+        // trigger preview update
+        const previewDiv = inputId === 'event-banner-url' ? 'event-image-preview' : 'news-image-preview';
+        const imgTag = inputId === 'event-banner-url' ? 'event-img-preview-tag' : 'news-img-preview-tag';
+        const div = document.getElementById(previewDiv);
+        const img = document.getElementById(imgTag);
+        if (div && img) {
+          img.src = parsed;
+          div.style.display = 'block';
+        }
+        
+        // Update alert
+        const alertDiv = document.getElementById(alertDivId);
+        alertDiv.innerHTML = `✔️ Intentando cargar: ${parsed}. Si no se muestra la previsualización abajo, por favor copia la dirección de imagen manualmente.`;
+        alertDiv.style.background = 'rgba(16, 185, 129, 0.12)';
+        alertDiv.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        alertDiv.style.color = '#34d399';
+      }
+    }
+
+    // Dynamic project selection logic
+    let selectedProjectsMap = new Set(); // holds slugs of selected projects
+
+    function renderProjectSelectorTags() {
+      const container = document.getElementById('event-project-selector-tags');
+      if (!container) return;
+
+      // Always include OWS Store by default as a virtual or listed project
+      const allList = [...cachedProjects];
+      if (!allList.some(p => p.slug === 'ows-store')) {
+        allList.unshift({ slug: 'ows-store', name: 'OWS Store' });
+      }
+
+      container.innerHTML = allList.map(p => {
+        const isSelected = selectedProjectsMap.has(p.slug);
+        const style = isSelected
+          ? 'background:rgba(245,158,11,0.22); color:#ffd075; border:1px solid rgba(245,158,11,0.5); font-weight:700;'
+          : 'background:rgba(255,255,255,0.03); color:#94a3b8; border:1px solid rgba(255,255,255,0.08);';
+        
+        return `<span class="project-selector-tag" style="padding:4px 10px; border-radius:20px; font-size:0.75rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s; user-select:none; ${style}" onclick="toggleProjectTag('${p.slug}', '${(p.name || p.slug).replace(/'/g, "\\'")}')">
+          ${isSelected ? '⭐' : '🎮'} ${p.name || p.slug}
+        </span>`;
+      }).join('');
+
+      // Update checkboxes & preview
+      const owsCheckbox = document.getElementById('event-toggle-ows-store');
+      if (owsCheckbox) {
+        owsCheckbox.checked = selectedProjectsMap.has('ows-store');
+      }
+
+      updateEventVisibilityStatus();
+    }
+
+    function toggleProjectTag(slug, name) {
+      if (selectedProjectsMap.has(slug)) {
+        selectedProjectsMap.delete(slug);
+      } else {
+        selectedProjectsMap.add(slug);
+      }
+      syncInputsFromSelector();
+      renderProjectSelectorTags();
+    }
+
+    function toggleOwsStoreProjectSelection() {
+      const cb = document.getElementById('event-toggle-ows-store');
+      if (cb && cb.checked) {
+        selectedProjectsMap.add('ows-store');
+      } else {
+        selectedProjectsMap.delete('ows-store');
+      }
+      syncInputsFromSelector();
+      renderProjectSelectorTags();
+    }
+
+    function syncInputsFromSelector() {
+      const slugsInput = document.getElementById('event-project-slugs');
+      const namesInput = document.getElementById('event-project-names');
+      if (!slugsInput || !namesInput) return;
+
+      const slugs = [...selectedProjectsMap];
+      const names = slugs.map(slug => {
+        if (slug === 'ows-store') return 'OWS Store';
+        const found = cachedProjects.find(p => p.slug === slug);
+        return found ? (found.name || slug) : slug;
+      });
+
+      slugsInput.value = slugs.join(', ');
+      namesInput.value = names.join(', ');
+    }
+
+    function syncSelectorFromInputs() {
+      const slugsInput = document.getElementById('event-project-slugs');
+      if (!slugsInput) return;
+
+      const slugs = slugsInput.value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      selectedProjectsMap = new Set(slugs);
+      renderProjectSelectorTags();
+    }
+
+    /** Dynamic prediction preview box to make visibility crystal clear */
+    function updateEventVisibilityStatus() {
+      const hint = document.getElementById('event-priority-hint');
+      if (!hint) return;
+
+      const title = document.getElementById('event-title').value.trim();
+      const isActive = document.getElementById('event-is-active').value === 'true';
+      const isOwsStoreLinked = selectedProjectsMap.has('ows-store') || 
+                               selectedProjectsMap.has('ows_store') ||
+                               title.toLowerCase().includes('ows store') || 
+                               title.toLowerCase().includes('ows-store');
+
+      if (!isActive) {
+        hint.style.cssText = 'margin-top:10px; margin-bottom:14px; padding:12px; border-radius:10px; font-size:0.78rem; line-height:1.5; background:rgba(100,116,139,0.08); border:1px solid rgba(100,116,139,0.25); color:#94a3b8;';
+        hint.innerHTML = `🚫 <strong>Evento Inactivo:</strong> El evento está guardado pero no se mostrará públicamente en OWS Store hasta que lo cambies a 'Activo'.`;
+        return;
+      }
+
+      if (!isOwsStoreLinked) {
+        hint.style.cssText = 'margin-top:10px; margin-bottom:14px; padding:12px; border-radius:10px; font-size:0.78rem; line-height:1.5; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); color:#f87171;';
+        hint.innerHTML = `⚠️ <strong>Sin visibilidad en OWS Store:</strong> No has vinculado este evento al proyecto 'OWS Store'. Solo se podrá consultar filtrando por los otros proyectos, pero **no aparecerá** en el Timeline Global principal.`;
+        return;
+      }
+
+      const start = document.getElementById('event-start').value;
+      const end = document.getElementById('event-end').value;
+
+      if (!start && !end) {
+        hint.style.cssText = 'margin-top:10px; margin-bottom:14px; padding:12px; border-radius:10px; font-size:0.78rem; line-height:1.5; background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.3); color:#c084fc;';
+        hint.innerHTML = `🔮 <strong>Programado como Próximo (Por definir):</strong> Al no especificar fecha de inicio, OWS Store lo clasificará como "Próximamente" en el timeline global. ¡Totalmente visible!`;
+      } else {
+        hint.style.cssText = 'margin-top:10px; margin-bottom:14px; padding:12px; border-radius:10px; font-size:0.78rem; line-height:1.5; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); color:#10b981;';
+        hint.innerHTML = `🟢 <strong>Visible y Agendado:</strong> El evento cumple todas las condiciones y aparecerá sincronizado automáticamente en la línea de tiempo global de OWS Store.`;
+      }
+    }
+
+    // Bind real-time prediction updates to event form inputs
+    ['event-title', 'event-start', 'event-end', 'event-is-active'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateEventVisibilityStatus);
+      if (el) el.addEventListener('change', updateEventVisibilityStatus);
+    });
+
+    // Populate Selector tags when opening the Event modal
+    const originalOpenAddEventModal = openAddEventModal;
+    openAddEventModal = function() {
+      originalOpenAddEventModal();
+      selectedProjectsMap = new Set(['ows-store']); // Default to OWS Store on new events
+      syncInputsFromSelector();
+      renderProjectSelectorTags();
+    };
+
+    const originalOpenEditEventModal = openEditEventModal;
+    openEditEventModal = function(id) {
+      originalOpenEditEventModal(id);
+      // Wait for values to be set in edit inputs, then populate map
+      setTimeout(() => {
+        syncSelectorFromInputs();
+      }, 60);
+    };
+
     // Attach image previews
     attachImagePreview('news-image-url', 'news-image-preview', 'news-img-preview-tag');
     attachImagePreview('event-banner-url', 'event-image-preview', 'event-img-preview-tag');
+
 
     // ============================================================
     // HEALTH CHECK SYSTEM

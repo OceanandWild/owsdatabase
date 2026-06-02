@@ -1,0 +1,25 @@
+OWS Admin Panel - Changelog 2026.6.2
+
+=== ESPAÑOL ===
+Versión: 2026.6.2-t0400
+Plataforma: Web / Admin Panel
+Fecha: 2026-06-02
+
+Cambios:
+- Rediseñado completamente el selector de proyectos en el creador de eventos, reemplazando la entrada manual de slugs y nombres por una cuadrícula interactiva de tags dinámicos cargados desde el catálogo de OWS Store.
+- Incorporado interruptor destacado "Mostrar en OWS Store" (activado por defecto) que automatiza y garantiza que el evento se vincule correctamente para aparecer en la línea de tiempo principal.
+- Implementado sistema de detección y alertas en tiempo real para URLs de ImgBB, indicando de forma explícita si se ingresó un enlace de página en lugar del enlace directo y ofreciendo una función de auto-corrección automática.
+- Expandido el mapeo del objeto bannerMeta en la creación de eventos y noticias para incluir todas las variantes posibles de propiedades de imagen (url, image, cover_url, image_url, banner_url), garantizando compatibilidad absoluta con cualquier versión cliente de OWS Store.
+- Añadido soporte de fallback para bannerMeta.url en el motor de renderizado y resolución de portadas del OWS Store cliente.
+
+=== ENGLISH ===
+Version: 2026.6.2-t0400
+Platform: Web / Admin Panel
+Date: 2026-06-02
+
+Changes:
+- Redesigned the project selector in the event creator modal, replacing manual text input for slugs and names with a premium grid of interactive project tags loaded dynamically from the OWS Store catalog.
+- Added a prominent "Show in OWS Store" toggle (active by default) that guarantees proper event linkage to automatically display the event in the main global store timeline.
+- Integrated real-time URL validation for ImgBB links, showing a warning when a viewer page link is typed instead of a direct file link, and offering an automatic one-click corrector.
+- Expanded the bannerMeta payload configuration for both news and events to map multiple URL key variations (url, image, cover_url, image_url, banner_url), achieving zero-friction compatibility across all OWS Store clients.
+- Implemented a fallback for bannerMeta.url in OWS Store's cover image resolution engine.

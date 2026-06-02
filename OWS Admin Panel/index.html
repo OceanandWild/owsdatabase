@@ -2736,6 +2736,7 @@
           <button class="notif-filter-chip" onclick="filterNotifs('event', this)">📅 Eventos</button>
           <button class="notif-filter-chip" onclick="filterNotifs('news', this)">📰 Noticias</button>
           <button class="notif-filter-chip" onclick="filterNotifs('project', this)">📦 Proyectos</button>
+          <button class="notif-filter-chip" onclick="filterNotifs('planificacion', this)">🗓️ Planificación</button>
         </div>
 
         <!-- Highlighted / Featured Notifications (Fechas Confirmadas) -->
@@ -5464,12 +5465,12 @@
 
     /** Icono de entidad */
     function notifEntityIcon(entityType) {
-      return { event: '📅', news: '📰', project: '📦', changelog: '📋', banner: '🖼️' }[entityType] || '📄';
+      return { event: '📅', news: '📰', project: '📦', changelog: '📋', planificacion: '🗓️', banner: '🖼️' }[entityType] || '📄';
     }
 
     /** Texto de acción legible */
     function notifActionLabel(action, entityType) {
-      const entityLabels = { event: 'evento', news: 'noticia', project: 'proyecto', changelog: 'changelog', banner: 'banner' };
+      const entityLabels = { event: 'evento', news: 'noticia', project: 'proyecto', changelog: 'changelog', planificacion: 'planificación', banner: 'banner' };
       const actionLabels = { create: 'creó', edit: 'editó', delete: 'eliminó', toggle: 'cambió estado de' };
       return `${actionLabels[action] || action} ${entityLabels[entityType] || entityType}`;
     }
@@ -5679,12 +5680,12 @@
         return;
       }
 
-      const entityLabels = { event:'Evento', news:'Noticia', project:'Proyecto', changelog:'Changelog', banner:'Banner' };
+      const entityLabels = { event:'Evento', news:'Noticia', project:'Proyecto', changelog:'Changelog', planificacion:'Planificación', banner:'Banner' };
       const actionVerbs  = { create:'creó', edit:'editó', delete:'eliminó', toggle:'cambió estado de' };
 
-      // ── SECCIÓN DESTACADAS: entity_type === 'changelog' y fieldType === 'confirmed' en meta ──
+      // ── SECCIÓN DESTACADAS: planificacion + fieldType 'confirmed' ──
       const featuredLog = log.filter(n => {
-        if (n.entity_type !== 'changelog') return false;
+        if (n.entity_type !== 'planificacion' && n.entity_type !== 'changelog') return false;
         // Acepta tanto vía meta.fieldType como vía entity_name
         const meta = n.meta || {};
         return meta.fieldType === 'confirmed' || String(n.entity_name || '').includes('Fecha Confirmada');
@@ -5765,7 +5766,7 @@
       const activeChip = document.querySelector('.notif-filter-chip.active');
       const activeFilter = activeChip ? activeChip.textContent.trim() : 'all';
       // Map chip label back to filter key
-      const labelToFilter = { 'Todos':'all','✏️ Ediciones':'edit','🗑️ Eliminaciones':'delete','➕ Creaciones':'create','📅 Eventos':'event','📰 Noticias':'news','📦 Proyectos':'project' };
+      const labelToFilter = { 'Todos':'all','✏️ Ediciones':'edit','🗑️ Eliminaciones':'delete','➕ Creaciones':'create','📅 Eventos':'event','📰 Noticias':'news','📦 Proyectos':'project','🗓️ Planificación':'planificacion' };
       const filterKey = labelToFilter[activeFilter] || 'all';
       let filtered = log;
       if (filterKey !== 'all') {
@@ -6178,7 +6179,7 @@
                 <div style="display:flex; gap:6px; align-items:center; width:100%;">
                   <input type="date" class="form-input" style="padding: 5px 8px; font-size:0.75rem; background:#0b1329; border-color:rgba(38,224,255,0.15); color:#f8fafc; height:32px; flex:1; min-width:0;"
                     id="plan-exp-${p.slug}" value="${expectedDate}"
-                    onchange="savePlanificacionField('${p.slug}', 'expected', this.value)">
+                    onblur="savePlanificacionField('${p.slug}', 'expected', this.value)">
                 </div>
               </td>
 
@@ -6187,7 +6188,7 @@
                 <div style="display:flex; gap:6px; align-items:center; width:100%;">
                   <input type="date" class="form-input" style="padding: 5px 8px; font-size:0.75rem; background:#1e140f; border-color:rgba(249,115,22,0.25); color:#fed7aa; height:32px; flex:1; min-width:0;"
                     id="plan-unl-${p.slug}" value="${unlikelyDate}"
-                    onchange="savePlanificacionField('${p.slug}', 'unlikely', this.value)">
+                    onblur="savePlanificacionField('${p.slug}', 'unlikely', this.value)">
                 </div>
               </td>
 
@@ -6417,7 +6418,7 @@
           },
           body: JSON.stringify({
             action: action,
-            entity_type: 'changelog',
+            entity_type: 'planificacion',
             entity_id: projectSlug,
             entity_name: `[${projectName}] ${fieldText}`,
             admin_name: adminName,

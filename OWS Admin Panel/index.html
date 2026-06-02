@@ -2762,28 +2762,37 @@
           <div class="table-neon-glow-bg" id="planificacion-neon-hover-glow"></div>
           
           <div class="action-panel-box" style="position:relative; z-index:1; width:100%; overflow:visible;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
               <div>
                 <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin:0;">📋 Planificación y Fechas de Lanzamiento</h4>
                 <p style="font-size:0.75rem; color:#64748b; margin:4px 0 0 0;">Configura cronogramas estratégicos y asocia eventos en tiempo real</p>
               </div>
-              <button class="btn-action-small" onclick="loadPlanificacionProjects()" style="height:32px; padding:0 12px; font-size:0.75rem; position:relative; z-index:10;">🔄 Sincronizar Catálogo</button>
+              
+              <!-- Mode Toggles and sync -->
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:3px; border-radius:10px; display:inline-flex;">
+                  <button class="notif-filter-chip active" id="btn-plan-mode-edit" onclick="setPlanificacionMode('edit')" style="padding:4px 12px; font-size:0.75rem; border-radius:7px; height:28px;">✏️ Edición</button>
+                  <button class="notif-filter-chip" id="btn-plan-mode-preview" onclick="setPlanificacionMode('preview')" style="padding:4px 12px; font-size:0.75rem; border-radius:7px; height:28px;">👁️ Previsualización</button>
+                </div>
+                <button class="btn-action-small" onclick="loadPlanificacionProjects()" style="height:32px; padding:0 12px; font-size:0.75rem; position:relative; z-index:10;">🔄 Sincronizar</button>
+              </div>
             </div>
 
             <div class="glass-table-wrapper" style="max-height:650px; overflow-y:auto; overflow-x:auto; position:relative; z-index:2; border-radius:12px;">
-              <table class="glass-table" style="min-width: 900px; width: 100%; table-layout: fixed;">
+              <table class="glass-table" style="min-width: 1050px; width: 100%; table-layout: fixed;">
                 <thead>
                   <tr>
                     <th style="width:60px; padding: 12px 8px;">Icono</th>
-                    <th style="width:160px; padding: 12px 8px;">Proyecto</th>
-                    <th style="width:230px; padding: 12px 8px;">📆 Fecha Esperada Actualización</th>
-                    <th style="width:230px; padding: 12px 8px;">🔮 Fecha Menos Probable</th>
-                    <th style="width:220px; padding: 12px 8px;">📅 Evento Asignado / Feedback</th>
+                    <th style="width:150px; padding: 12px 8px;">Proyecto</th>
+                    <th style="width:200px; padding: 12px 8px;">📆 Fecha Esperada</th>
+                    <th style="width:200px; padding: 12px 8px;">🔮 Fecha Menos Probable</th>
+                    <th style="width:230px; padding: 12px 8px;">📈 Probabilidad de Actualización</th>
+                    <th style="width:210px; padding: 12px 8px;">📅 Evento Asignado / Feedback</th>
                   </tr>
                 </thead>
                 <tbody id="planificacion-projects-tbody">
                   <tr>
-                    <td colspan="5" style="text-align:center; color:#64748b; padding:60px;">
+                    <td colspan="6" style="text-align:center; color:#64748b; padding:60px;">
                       <div style="font-size:1.8rem; margin-bottom:8px; animation:spin 1.5s linear infinite;">🔄</div>
                       Sincronizando con catálogo de OWS Store...
                     </td>
@@ -5780,6 +5789,17 @@
     // Primera carga del badge al iniciar
     setTimeout(pollNotificationsBackground, 3000);
 
+    // Active view mode: 'edit' or 'preview'
+    let planificacionViewMode = 'edit';
+
+    /** Cambia el modo de visualización de Planificación y refresca la tabla */
+    function setPlanificacionMode(mode) {
+      planificacionViewMode = mode;
+      document.getElementById('btn-plan-mode-edit').classList.toggle('active', mode === 'edit');
+      document.getElementById('btn-plan-mode-preview').classList.toggle('active', mode === 'preview');
+      loadPlanificacionProjects();
+    }
+
     /** Carga y renderiza los proyectos en la tabla de Planificación */
     async function loadPlanificacionProjects() {
       const tbody = document.getElementById('planificacion-projects-tbody');
@@ -5824,7 +5844,7 @@
         if (list.length === 0) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="5" style="text-align:center; color:#64748b; padding:40px;">Sin proyectos disponibles en OWS Store.</td>
+              <td colspan="6" style="text-align:center; color:#64748b; padding:40px;">Sin proyectos disponibles en OWS Store.</td>
             </tr>`;
           return;
         }
@@ -5854,8 +5874,55 @@
           const expectedDate = localStorage.getItem(`ows_plan_exp_${p.slug}`) || '';
           const unlikelyDate = localStorage.getItem(`ows_plan_unl_${p.slug}`) || '';
           const assignedEvent = localStorage.getItem(`ows_plan_evt_${p.slug}`) || '';
+          const chanceDays = localStorage.getItem(`ows_plan_chd_${p.slug}`) || '14';
+          const chancePercent = localStorage.getItem(`ows_plan_chp_${p.slug}`) || '';
 
-          // Build event options dropdown
+          // Format expectedDate for spanish readable presentation
+          const formatDateStr = (dateStr) => {
+            if (!dateStr) return '—';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+          };
+
+          const eventText = events.find(ev => String(ev.id) === String(assignedEvent))?.title || '—';
+
+          // Conditional columns generation based on active view mode
+          if (planificacionViewMode === 'preview') {
+            const pctVal = chancePercent ? `${parseFloat(chancePercent).toFixed(1)}%` : '—';
+            const expectedBadge = expectedDate 
+              ? `<span style="font-size:0.75rem; padding:4px 10px; border-radius:20px; background:rgba(38,224,255,0.12); color:#26e0ff; border:1px solid rgba(38,224,255,0.25); font-weight:700;">📅 ${formatDateStr(expectedDate)}</span>`
+              : `<span style="color:#475569; font-size:0.75rem;">—</span>`;
+
+            const unlikelyBadge = unlikelyDate 
+              ? `<span style="font-size:0.75rem; padding:4px 10px; border-radius:20px; background:rgba(249,115,22,0.12); color:#fed7aa; border:1px solid rgba(249,115,22,0.25); font-weight:700;">🔮 ${formatDateStr(unlikelyDate)}</span>`
+              : `<span style="color:#475569; font-size:0.75rem;">—</span>`;
+
+            const chanceBadge = chancePercent
+              ? `<span style="font-size:0.75rem; padding:4px 10px; border-radius:20px; background:rgba(16,185,129,0.12); color:#34d399; border:1px solid rgba(16,185,129,0.25); font-weight:700;">📈 ${pctVal} en ${chanceDays}d</span>`
+              : `<span style="color:#475569; font-size:0.75rem;">—</span>`;
+
+            const eventBadge = assignedEvent !== ''
+              ? `<span style="font-size:0.72rem; padding:4px 10px; border-radius:20px; background:rgba(255,255,255,0.05); color:#e2e8f0; border:1px solid rgba(255,255,255,0.1); font-weight:600; max-width:190px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle;">🔗 ${eventText}</span>`
+              : `<span style="color:#475569; font-size:0.75rem;">—</span>`;
+
+            return `
+              <tr data-slug="${p.slug}" data-name="${name}">
+                <td style="padding: 12px 8px; vertical-align: middle; text-align:center;">
+                  ${iconHtml}
+                </td>
+                <td style="padding: 12px 8px; vertical-align: middle;">
+                  <div style="font-weight:700; color:#e2e8f0; font-size:0.85rem; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
+                  <div style="font-size:0.65rem; color:#475569;">${p.slug}</div>
+                </td>
+                <td style="padding: 12px 8px; vertical-align: middle;">${expectedBadge}</td>
+                <td style="padding: 12px 8px; vertical-align: middle;">${unlikelyBadge}</td>
+                <td style="padding: 12px 8px; vertical-align: middle;">${chanceBadge}</td>
+                <td style="padding: 12px 8px; vertical-align: middle;">${eventBadge}</td>
+              </tr>`;
+          }
+
+          // Build event options dropdown for EDIT Mode
           const eventOptions = `<option value="">-- Sin Evento Asignado --</option>` +
             events.map(ev => {
               const sel = String(ev.id) === String(assignedEvent) ? 'selected' : '';
@@ -5881,16 +5948,39 @@
                 </div>
               </td>
 
-              <!-- Column B: Highly Unlikely Date (Design customized - Orange Accent) -->
+              <!-- Column B: Highly Unlikely Date -->
               <td style="padding: 10px 8px; vertical-align: middle;">
                 <div style="display:flex; gap:6px; align-items:center; width:100%;">
-                  <input type="date" class="form-input" style="padding: 5px 8px; font-size:0.75rem; background:#1e140f; border-color:rgba(249,115,22,0.25); color:#fed7aa; height:32px; flex:1; min-width:0; box-shadow:0 0 10px rgba(249,115,22,0.03);"
+                  <input type="date" class="form-input" style="padding: 5px 8px; font-size:0.75rem; background:#1e140f; border-color:rgba(249,115,22,0.25); color:#fed7aa; height:32px; flex:1; min-width:0;"
                     id="plan-unl-${p.slug}" value="${unlikelyDate}"
                     onchange="savePlanificacionField('${p.slug}', 'unlikely', this.value)">
                 </div>
               </td>
 
-              <!-- Column C: Assign Event -->
+              <!-- Column C: Chance percentage & period -->
+              <td style="padding: 10px 8px; vertical-align: middle;">
+                <div style="display:flex; gap:4px; align-items:center; width:100%;">
+                  <!-- Chance days input -->
+                  <div style="position:relative; width:45px;">
+                    <input type="number" class="form-input" style="padding: 5px 2px; text-align:center; font-size:0.75rem; background:#070f1e; border-color:rgba(255,255,255,0.08); color:#cbd5e1; height:32px; width:100%;"
+                      id="plan-chd-${p.slug}" value="${chanceDays}" placeholder="14" min="1"
+                      onchange="savePlanificacionField('${p.slug}', 'chancedays', this.value)">
+                    <span style="position:absolute; right:2px; bottom:2px; font-size:0.6rem; color:#475569; pointer-events:none;">d</span>
+                  </div>
+                  
+                  <span style="font-size:0.7rem; color:#64748b;">➡</span>
+
+                  <!-- Chance percent input (supports decimals) -->
+                  <div style="position:relative; flex:1; min-width:0;">
+                    <input type="number" class="form-input" style="padding: 5px 12px 5px 6px; font-size:0.75rem; background:#0c1d1a; border-color:rgba(16,185,129,0.2); color:#34d399; height:32px; width:100%; text-align:right;"
+                      id="plan-chp-${p.slug}" value="${chancePercent}" placeholder="Chance %" min="0" max="100" step="0.1"
+                      onchange="savePlanificacionField('${p.slug}', 'chancepercent', this.value)">
+                    <span style="position:absolute; right:4px; top:50%; transform:translateY(-50%); font-size:0.65rem; color:var(--jungle-light); pointer-events:none;">%</span>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Column D: Assign Event -->
               <td style="padding: 10px 8px; vertical-align: middle;">
                 <div style="display:flex; gap:6px; align-items:center; width:100%;">
                   <select class="form-input" style="padding: 5px 8px; font-size:0.75rem; background:#0f172a; border-color:rgba(255,255,255,0.1); color:#cbd5e1; height:32px; flex:1; min-width:0;"
@@ -5905,7 +5995,7 @@
       } catch (err) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="5" style="text-align:center; color:#ef4444; padding:40px;">
+            <td colspan="6" style="text-align:center; color:#ef4444; padding:40px;">
               ⚠️ Error al obtener catálogo: ${err.message}
             </td>
           </tr>`;
@@ -5917,11 +6007,21 @@
       const row = document.querySelector(`tr[data-slug="${projectSlug}"]`);
       const projectName = row ? row.getAttribute('data-name') : projectSlug;
       
-      const keyPrefix = fieldType === 'expected' ? 'ows_plan_exp_' : (fieldType === 'unlikely' ? 'ows_plan_unl_' : 'ows_plan_evt_');
+      const prefixes = {
+        'expected': 'ows_plan_exp_',
+        'unlikely': 'ows_plan_unl_',
+        'event': 'ows_plan_evt_',
+        'chancedays': 'ows_plan_chd_',
+        'chancepercent': 'ows_plan_chp_'
+      };
+      
+      const keyPrefix = prefixes[fieldType];
+      if (!keyPrefix) return;
+
       const oldValue = localStorage.getItem(`${keyPrefix}${projectSlug}`) || '';
       
       // Update local state
-      if (!newValue) {
+      if (newValue === '') {
         localStorage.removeItem(`${keyPrefix}${projectSlug}`);
       } else {
         localStorage.setItem(`${keyPrefix}${projectSlug}`, newValue);
@@ -5935,20 +6035,17 @@
       let actionLabel = 'modificó';
       let accentColor = '#26e0ff'; // cian default
 
-      if (!oldValue && newValue) {
-        // Primera carga
+      if (!oldValue && newValue !== '') {
         action = 'create';
         actionLabel = 'agregó';
         accentColor = '#34d399'; // verde esmeralda
         localStorage.setItem(countKey, '1');
-      } else if (oldValue && !newValue) {
-        // Borrada
+      } else if (oldValue !== '' && newValue === '') {
         action = 'delete';
         actionLabel = 'eliminó';
         accentColor = '#f87171'; // rojo suave
         localStorage.removeItem(countKey);
-      } else if (oldValue && newValue && oldValue !== newValue) {
-        // Edición subsiguiente
+      } else if (oldValue !== '' && newValue !== '' && oldValue !== newValue) {
         editCount++;
         localStorage.setItem(countKey, String(editCount));
         if (editCount >= 2) {
@@ -5967,15 +6064,26 @@
       const fieldNames = {
         'expected': 'Fecha Esperada de Actualización',
         'unlikely': 'Fecha Menos Probable de Actualización',
-        'event': 'Evento Asignado / Feedback'
+        'event': 'Evento Asignado / Feedback',
+        'chancedays': 'Plazo de Probabilidad',
+        'chancepercent': 'Chance de Probabilidad (%)'
       };
 
       const fieldText = fieldNames[fieldType] || fieldType;
-      const detailStr = newValue
-        ? `la fecha/evento para "${fieldText}" en el proyecto "${projectName}" (nuevo valor: "${newValue}")`
-        : `el valor de "${fieldText}" para el proyecto "${projectName}"`;
+      
+      let detailStr = '';
+      if (newValue !== '') {
+        if (fieldType === 'chancepercent') {
+          detailStr = `la probabilidad de actualización para el proyecto "${projectName}" a un "${parseFloat(newValue).toFixed(1)}%"`;
+        } else if (fieldType === 'chancedays') {
+          detailStr = `el plazo estimado para la probabilidad del proyecto "${projectName}" a "${newValue} días"`;
+        } else {
+          detailStr = `la fecha/evento para "${fieldText}" en el proyecto "${projectName}" (nuevo valor: "${newValue}")`;
+        }
+      } else {
+        detailStr = `el valor de "${fieldText}" para el proyecto "${projectName}"`;
+      }
 
-      const notificationTitle = `${actionLabel.toUpperCase()} una planificación`;
       const adminName = getCurrentAdminName();
 
       // Submit manual notification to backend endpoint /admin/activity-log

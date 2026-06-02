@@ -2757,28 +2757,28 @@
         </div>
 
         <!-- Single main container for the table wrapped in Neon Rainbow border -->
-        <div class="neon-rainbow-wrapper" id="planificacion-neon-container">
+        <div class="neon-rainbow-wrapper" id="planificacion-neon-container" style="max-width: 100%; overflow: visible;">
           <!-- Standalone hover neon pulse background glow -->
           <div class="table-neon-glow-bg" id="planificacion-neon-hover-glow"></div>
           
-          <div class="action-panel-box" style="position:relative; z-index:1;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+          <div class="action-panel-box" style="position:relative; z-index:1; width:100%; overflow:visible;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
               <div>
-                <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin:0;">📋 Estado General de Planificación</h4>
-                <p style="font-size:0.75rem; color:#64748b; margin:4px 0 0 0;">Proyectos activos sincronizados en tiempo real</p>
+                <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin:0;">📋 Planificación y Fechas de Lanzamiento</h4>
+                <p style="font-size:0.75rem; color:#64748b; margin:4px 0 0 0;">Configura cronogramas estratégicos y asocia eventos en tiempo real</p>
               </div>
-              <button class="btn-action-small" onclick="loadPlanificacionProjects()" style="height:32px; padding:0 12px; font-size:0.75rem; position:relative; z-index:10;">🔄 Recargar</button>
+              <button class="btn-action-small" onclick="loadPlanificacionProjects()" style="height:32px; padding:0 12px; font-size:0.75rem; position:relative; z-index:10;">🔄 Sincronizar Catálogo</button>
             </div>
 
-            <div class="glass-table-wrapper" style="max-height:550px; overflow-y:auto; position:relative; z-index:2;">
-              <table class="glass-table">
+            <div class="glass-table-wrapper" style="max-height:650px; overflow-y:auto; overflow-x:auto; position:relative; z-index:2; border-radius:12px;">
+              <table class="glass-table" style="min-width: 900px; width: 100%; table-layout: fixed;">
                 <thead>
                   <tr>
-                    <th style="width:70px;">Icono</th>
-                    <th>Proyecto</th>
-                    <th>Plataforma</th>
-                    <th>Versión</th>
-                    <th style="text-align:right;">Estado de Planificación</th>
+                    <th style="width:60px; padding: 12px 8px;">Icono</th>
+                    <th style="width:160px; padding: 12px 8px;">Proyecto</th>
+                    <th style="width:230px; padding: 12px 8px;">📆 Fecha Esperada Actualización</th>
+                    <th style="width:230px; padding: 12px 8px;">🔮 Fecha Menos Probable</th>
+                    <th style="width:220px; padding: 12px 8px;">📅 Evento Asignado / Feedback</th>
                   </tr>
                 </thead>
                 <tbody id="planificacion-projects-tbody">
@@ -5788,10 +5788,7 @@
       // Initialize GSAP Rotating Border Animation
       const container = document.getElementById('planificacion-neon-container');
       if (container && typeof gsap !== 'undefined') {
-        // Kill existing to prevent timeline duplication
         gsap.killTweensOf(container);
-        
-        // Endless loop turning the background-position smoothly to rotate the rainbow neons
         gsap.to(container, {
           backgroundPosition: "400% 400%",
           duration: 10,
@@ -5799,7 +5796,6 @@
           repeat: -1
         });
         
-        // Standalone background ambient neon glow pulse that shines every now and then
         const glowBg = document.getElementById('planificacion-neon-hover-glow');
         if (glowBg) {
           gsap.killTweensOf(glowBg);
@@ -5815,6 +5811,7 @@
       }
 
       try {
+        // Fetch projects
         const res = await fetch(`${API_BASE}/ows-store/projects?include_unavailable=true`);
         const data = await res.json();
         let list = [];
@@ -5832,6 +5829,17 @@
           return;
         }
 
+        // Fetch events to populate assigning selector
+        let events = [];
+        try {
+          const respEvents = await fetch(`${API_BASE}/ows-news/updates?include_inactive=true&limit=150`);
+          const dataEvents = await respEvents.json();
+          events = Array.isArray(dataEvents) ? dataEvents.filter(x => {
+            const et = String(x.entry_type || x.kind || '').toLowerCase();
+            return et === 'event' || et === 'evento';
+          }) : [];
+        } catch (_) {}
+
         tbody.innerHTML = list.map(p => {
           const resolvedIcon = resolveIconWithFallbacks(p);
           const iconHtml = resolvedIcon
@@ -5841,33 +5849,56 @@
             : `<div style="font-size:1.3rem;">🎮</div>`;
 
           const name = p.name || p.slug || 'Proyecto Sin Nombre';
-          const platform = p.platform || 'Multiplataforma';
-          const version = p.version || '0.0.0';
+          
+          // Get saved state from localstorage (scoped key config per project slug)
+          const expectedDate = localStorage.getItem(`ows_plan_exp_${p.slug}`) || '';
+          const unlikelyDate = localStorage.getItem(`ows_plan_unl_${p.slug}`) || '';
+          const assignedEvent = localStorage.getItem(`ows_plan_evt_${p.slug}`) || '';
+
+          // Build event options dropdown
+          const eventOptions = `<option value="">-- Sin Evento Asignado --</option>` +
+            events.map(ev => {
+              const sel = String(ev.id) === String(assignedEvent) ? 'selected' : '';
+              return `<option value="${ev.id}" ${sel}>${ev.title || 'Evento #' + ev.id}</option>`;
+            }).join('');
 
           return `
-            <tr>
-              <td>
-                <div style="display:flex; align-items:center; justify-content:center;">
-                  ${iconHtml}
+            <tr data-slug="${p.slug}" data-name="${name}">
+              <td style="padding: 10px 8px; vertical-align: middle; text-align:center;">
+                ${iconHtml}
+              </td>
+              <td style="padding: 10px 8px; vertical-align: middle;">
+                <div style="font-weight:700; color:#e2e8f0; font-size:0.85rem; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
+                <div style="font-size:0.65rem; color:#475569;">${p.slug}</div>
+              </td>
+              
+              <!-- Column A: Expected Date -->
+              <td style="padding: 10px 8px; vertical-align: middle;">
+                <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                  <input type="date" class="form-input" style="padding: 5px 8px; font-size:0.75rem; background:#0b1329; border-color:rgba(38,224,255,0.15); color:#f8fafc; height:32px; flex:1; min-width:0;"
+                    id="plan-exp-${p.slug}" value="${expectedDate}"
+                    onchange="savePlanificacionField('${p.slug}', 'expected', this.value)">
                 </div>
               </td>
-              <td>
-                <div style="font-weight:700; color:#e2e8f0;">${name}</div>
-                <div style="font-size:0.68rem; color:#475569;">${p.slug}</div>
+
+              <!-- Column B: Highly Unlikely Date (Design customized - Orange Accent) -->
+              <td style="padding: 10px 8px; vertical-align: middle;">
+                <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                  <input type="date" class="form-input" style="padding: 5px 8px; font-size:0.75rem; background:#1e140f; border-color:rgba(249,115,22,0.25); color:#fed7aa; height:32px; flex:1; min-width:0; box-shadow:0 0 10px rgba(249,115,22,0.03);"
+                    id="plan-unl-${p.slug}" value="${unlikelyDate}"
+                    onchange="savePlanificacionField('${p.slug}', 'unlikely', this.value)">
+                </div>
               </td>
-              <td>
-                <span style="font-size:0.75rem; color:#cbd5e1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); padding:2px 8px; border-radius:100px;">
-                  ${platform}
-                </span>
-              </td>
-              <td>
-                <code style="font-size:0.75rem; color:var(--ocean-cyan); font-family:var(--font-space);">${version}</code>
-              </td>
-              <td style="text-align:right;">
-                <span style="display:inline-flex; align-items:center; gap:5px; background:rgba(248,113,113,0.1); color:#f87171; border:1px solid rgba(248,113,113,0.2); font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:100px; letter-spacing:0.02em;">
-                  <span style="width:6px; height:6px; border-radius:50%; background:#f87171; display:inline-block; box-shadow:0 0 6px #f87171;"></span>
-                  INACTIVO
-                </span>
+
+              <!-- Column C: Assign Event -->
+              <td style="padding: 10px 8px; vertical-align: middle;">
+                <div style="display:flex; gap:6px; align-items:center; width:100%;">
+                  <select class="form-input" style="padding: 5px 8px; font-size:0.75rem; background:#0f172a; border-color:rgba(255,255,255,0.1); color:#cbd5e1; height:32px; flex:1; min-width:0;"
+                    id="plan-evt-${p.slug}"
+                    onchange="savePlanificacionField('${p.slug}', 'event', this.value)">
+                    ${eventOptions}
+                  </select>
+                </div>
               </td>
             </tr>`;
         }).join('');
@@ -5878,6 +5909,108 @@
               ⚠️ Error al obtener catálogo: ${err.message}
             </td>
           </tr>`;
+      }
+    }
+
+    /** Guarda las modificaciones en localStorage de Planificación y envía notificación personalizada al activity-log */
+    async function savePlanificacionField(projectSlug, fieldType, newValue) {
+      const row = document.querySelector(`tr[data-slug="${projectSlug}"]`);
+      const projectName = row ? row.getAttribute('data-name') : projectSlug;
+      
+      const keyPrefix = fieldType === 'expected' ? 'ows_plan_exp_' : (fieldType === 'unlikely' ? 'ows_plan_unl_' : 'ows_plan_evt_');
+      const oldValue = localStorage.getItem(`${keyPrefix}${projectSlug}`) || '';
+      
+      // Update local state
+      if (!newValue) {
+        localStorage.removeItem(`${keyPrefix}${projectSlug}`);
+      } else {
+        localStorage.setItem(`${keyPrefix}${projectSlug}`, newValue);
+      }
+
+      // Check modification count to trigger CUSTOM notifications (AGREGÓ, EDITÓ, ELIMINÓ)
+      const countKey = `ows_plan_edit_count_${projectSlug}_${fieldType}`;
+      let editCount = Number(localStorage.getItem(countKey) || 0);
+
+      let action = 'edit';
+      let actionLabel = 'modificó';
+      let accentColor = '#26e0ff'; // cian default
+
+      if (!oldValue && newValue) {
+        // Primera carga
+        action = 'create';
+        actionLabel = 'agregó';
+        accentColor = '#34d399'; // verde esmeralda
+        localStorage.setItem(countKey, '1');
+      } else if (oldValue && !newValue) {
+        // Borrada
+        action = 'delete';
+        actionLabel = 'eliminó';
+        accentColor = '#f87171'; // rojo suave
+        localStorage.removeItem(countKey);
+      } else if (oldValue && newValue && oldValue !== newValue) {
+        // Edición subsiguiente
+        editCount++;
+        localStorage.setItem(countKey, String(editCount));
+        if (editCount >= 2) {
+          action = 'edit';
+          actionLabel = 'editó';
+          accentColor = '#fbbf24'; // amarillo alerta
+        } else {
+          action = 'edit';
+          actionLabel = 'modificó';
+          accentColor = '#26e0ff';
+        }
+      } else {
+        return; // Sin cambios reales
+      }
+
+      const fieldNames = {
+        'expected': 'Fecha Esperada de Actualización',
+        'unlikely': 'Fecha Menos Probable de Actualización',
+        'event': 'Evento Asignado / Feedback'
+      };
+
+      const fieldText = fieldNames[fieldType] || fieldType;
+      const detailStr = newValue
+        ? `la fecha/evento para "${fieldText}" en el proyecto "${projectName}" (nuevo valor: "${newValue}")`
+        : `el valor de "${fieldText}" para el proyecto "${projectName}"`;
+
+      const notificationTitle = `${actionLabel.toUpperCase()} una planificación`;
+      const adminName = getCurrentAdminName();
+
+      // Submit manual notification to backend endpoint /admin/activity-log
+      try {
+        const authToken = localStorage.getItem('ows_admin_token') || localStorage.getItem('ows_admin_secret') || '';
+        await fetch(`${API_BASE}/admin/activity-log`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-ows-admin-token': authToken
+          },
+          body: JSON.stringify({
+            action: action,
+            entity_type: 'changelog',
+            entity_id: projectSlug,
+            entity_name: `[${projectName}] ${fieldText}`,
+            admin_name: adminName,
+            meta: { detail: detailStr, oldValue, newValue }
+          })
+        });
+
+        // Trigger gorgeous toaster feedback local
+        showToast(
+          action === 'create' ? '➕' : (action === 'delete' ? '🗑️' : '✏️'),
+          `${adminName} ${actionLabel}`,
+          `${fieldText} de ${projectName} actualizada exitosamente.`,
+          accentColor,
+          4500
+        );
+
+        // Silent refresh of other items if background notifications count changes
+        pollNotificationsBackground();
+
+      } catch (err) {
+        console.error('Error al registrar actividad de planificación:', err);
       }
     }
 

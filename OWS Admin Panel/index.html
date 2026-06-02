@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
   
+  <!-- GSAP Animation Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  
   <style>
     :root {
       /* Palette: Jungle, Ocean & Desert fused */
@@ -27,6 +30,66 @@
       --glass-border: rgba(38, 224, 255, 0.15);
       --font-outfit: 'Outfit', sans-serif;
       --font-space: 'Space Grotesk', sans-serif;
+      
+      /* Neon custom tokens */
+      --neon-rainbow: linear-gradient(90deg, #ff007f, #7f00ff, #00f0ff, #00ff7f, #ffea00, #ff007f);
+    }
+    
+    /* Neon Rainbow Rotating Border Card Wrapper */
+    .neon-rainbow-wrapper {
+      position: relative;
+      padding: 3px;
+      border-radius: 20px;
+      background: var(--neon-rainbow);
+      background-size: 400% 400%;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      transition: box-shadow 0.5s ease;
+    }
+    
+    .neon-rainbow-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--neon-rainbow);
+      background-size: 400% 400%;
+      filter: blur(15px);
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 0;
+      transition: opacity 0.5s ease;
+    }
+    
+    .neon-rainbow-wrapper:hover::before {
+      opacity: 0.85;
+    }
+    
+    .neon-rainbow-wrapper .action-panel-box {
+      margin: 0 !important;
+      position: relative;
+      z-index: 1;
+      background: #070f1e !important;
+      border-radius: 17px;
+      border: none !important;
+    }
+    
+    /* Neon Hover Backdrop Pulse glow for the table container */
+    .table-neon-glow-bg {
+      position: absolute;
+      inset: 10px;
+      border-radius: 16px;
+      background: radial-gradient(circle, rgba(38, 224, 255, 0.18) 0%, rgba(251, 191, 36, 0.08) 50%, transparent 70%);
+      filter: blur(40px);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 0;
+      transform: scale(0.85);
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    .neon-rainbow-wrapper:hover .table-neon-glow-bg {
+      opacity: 1;
+      transform: scale(1.05);
     }
 
     * {
@@ -2693,36 +2756,41 @@
           </p>
         </div>
 
-        <!-- Single main container for the table -->
-        <div class="action-panel-box">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-            <div>
-              <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin:0;">📋 Estado General de Planificación</h4>
-              <p style="font-size:0.75rem; color:#64748b; margin:4px 0 0 0;">Proyectos activos sincronizados en tiempo real</p>
+        <!-- Single main container for the table wrapped in Neon Rainbow border -->
+        <div class="neon-rainbow-wrapper" id="planificacion-neon-container">
+          <!-- Standalone hover neon pulse background glow -->
+          <div class="table-neon-glow-bg" id="planificacion-neon-hover-glow"></div>
+          
+          <div class="action-panel-box" style="position:relative; z-index:1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+              <div>
+                <h4 style="font-size:0.95rem; font-weight:700; color:#f1f5f9; margin:0;">📋 Estado General de Planificación</h4>
+                <p style="font-size:0.75rem; color:#64748b; margin:4px 0 0 0;">Proyectos activos sincronizados en tiempo real</p>
+              </div>
+              <button class="btn-action-small" onclick="loadPlanificacionProjects()" style="height:32px; padding:0 12px; font-size:0.75rem; position:relative; z-index:10;">🔄 Recargar</button>
             </div>
-            <button class="btn-action-small" onclick="loadPlanificacionProjects()" style="height:32px; padding:0 12px; font-size:0.75rem;">🔄 Recargar</button>
-          </div>
 
-          <div class="glass-table-wrapper" style="max-height:550px; overflow-y:auto;">
-            <table class="glass-table">
-              <thead>
-                <tr>
-                  <th style="width:70px;">Icono</th>
-                  <th>Proyecto</th>
-                  <th>Plataforma</th>
-                  <th>Versión</th>
-                  <th style="text-align:right;">Estado de Planificación</th>
-                </tr>
-              </thead>
-              <tbody id="planificacion-projects-tbody">
-                <tr>
-                  <td colspan="5" style="text-align:center; color:#64748b; padding:60px;">
-                    <div style="font-size:1.8rem; margin-bottom:8px; animation:spin 1.5s linear infinite;">🔄</div>
-                    Sincronizando con catálogo de OWS Store...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="glass-table-wrapper" style="max-height:550px; overflow-y:auto; position:relative; z-index:2;">
+              <table class="glass-table">
+                <thead>
+                  <tr>
+                    <th style="width:70px;">Icono</th>
+                    <th>Proyecto</th>
+                    <th>Plataforma</th>
+                    <th>Versión</th>
+                    <th style="text-align:right;">Estado de Planificación</th>
+                  </tr>
+                </thead>
+                <tbody id="planificacion-projects-tbody">
+                  <tr>
+                    <td colspan="5" style="text-align:center; color:#64748b; padding:60px;">
+                      <div style="font-size:1.8rem; margin-bottom:8px; animation:spin 1.5s linear infinite;">🔄</div>
+                      Sincronizando con catálogo de OWS Store...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -5716,6 +5784,35 @@
     async function loadPlanificacionProjects() {
       const tbody = document.getElementById('planificacion-projects-tbody');
       if (!tbody) return;
+
+      // Initialize GSAP Rotating Border Animation
+      const container = document.getElementById('planificacion-neon-container');
+      if (container && typeof gsap !== 'undefined') {
+        // Kill existing to prevent timeline duplication
+        gsap.killTweensOf(container);
+        
+        // Endless loop turning the background-position smoothly to rotate the rainbow neons
+        gsap.to(container, {
+          backgroundPosition: "400% 400%",
+          duration: 10,
+          ease: "none",
+          repeat: -1
+        });
+        
+        // Standalone background ambient neon glow pulse that shines every now and then
+        const glowBg = document.getElementById('planificacion-neon-hover-glow');
+        if (glowBg) {
+          gsap.killTweensOf(glowBg);
+          gsap.to(glowBg, {
+            opacity: 0.4,
+            scale: 0.98,
+            duration: 3,
+            yoyo: true,
+            repeat: -1,
+            ease: "sine.inOut"
+          });
+        }
+      }
 
       try {
         const res = await fetch(`${API_BASE}/ows-store/projects?include_unavailable=true`);

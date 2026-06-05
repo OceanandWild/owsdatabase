@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://api.mymemory.translated.net; frame-src https:;">
     <title>OWS Store - Central Studio Hub</title>
-    <meta name="app-version" content="2026.6.5-t0136">
+    <meta name="app-version" content="2026.6.5-t0217">
     <meta name="app-name" content="OWS Store">
-    <script>window.APP_VERSION = '2026.6.5-t0136'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+    <script>window.APP_VERSION = '2026.6.5-t0217'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -7624,7 +7624,6 @@
     // Clear cached shutdown date so next load checks fresh
     localStorage.removeItem('ows_shutdown_return_date');
   }
-
   function checkAndHideIfReturned(raw) {
     if (isReturnDatePassed(raw)) {
       hideEraOverlay();
@@ -7676,18 +7675,17 @@
     }
 
     // Stop all ongoing fetches by replacing the global fetch with a no-op
+    // NOTE: Only override fetch — do NOT touch XMLHttpRequest.
+    // Capacitor on Android uses XHR internally for bridge communication;
+    // silencing it causes the WebView to crash.
     window._owsFetchOriginal = window.fetch;
-    window.fetch = function() {
+    window.fetch = function(url) {
+      // Allow Capacitor internal requests (capacitor://, ionic://, file://)
+      var urlStr = String(url || '');
+      if (urlStr.match(/^(capacitor|ionic|file):\/\//i)) {
+        return window._owsFetchOriginal.apply(this, arguments);
+      }
       return Promise.reject(new Error('OWS Store is in shutdown mode. Requests suspended.'));
-    };
-
-    // Also stop XMLHttpRequest
-    var OrigXHR = window.XMLHttpRequest;
-    window.XMLHttpRequest = function() {
-      var xhr = new OrigXHR();
-      xhr.open = function() { /* silenced */ };
-      xhr.send = function() { if (xhr.onload) { setTimeout(function(){ xhr.onload && xhr.onload(); }, 0); } };
-      return xhr;
     };
 
     // Fetch return date from server, fallback to localStorage

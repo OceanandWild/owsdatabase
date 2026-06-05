@@ -1,5 +1,13 @@
 {
   "appId": "com.oceanandwild.owsstore",
   "appName": "OWS Store",
-  "webDir": "www"
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
 }

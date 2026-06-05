@@ -9188,7 +9188,7 @@ app.get('/ows-store/changelogs', async (req, res) => {
       SELECT *
       FROM ows_store_timeline
       WHERE kind = 'changelog'
-      ORDER BY COALESCE(priority, 0) DESC, published_at DESC, created_at DESC
+      ORDER BY published_at DESC, created_at DESC
       LIMIT $1
     `, [limit * 2]);
 
@@ -11234,14 +11234,14 @@ app.get('/ows-store/news', async (req, res) => {
     const where = [];
     if (!includeInactive) where.push('is_active = TRUE');
     // Usar DISTINCT ON para eliminar duplicados por seed_key (o id si seed_key es null)
-    // y ordenar por prioridad DESC, fecha DESC para traer la entrada más reciente de cada grupo
+    // y ordenar por fecha DESC para traer la entrada más reciente de cada grupo
     const sql = `
       SELECT DISTINCT ON (COALESCE(seed_key, id::text))
         id, seed_key, title, description, content_lines, related_project_slug, related_project_name,
         banner_meta, is_active, priority, published_at, created_at, updated_at
       FROM ows_store_news
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-      ORDER BY COALESCE(seed_key, id::text), priority DESC, COALESCE(published_at, created_at, updated_at) DESC
+      ORDER BY COALESCE(seed_key, id::text), COALESCE(published_at, created_at, updated_at) DESC
       LIMIT $1
     `;
     const { rows } = await pool.query(sql, values);
@@ -11390,7 +11390,7 @@ app.get('/ows-news/updates', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT *
        FROM ows_store_timeline
-       ORDER BY COALESCE(priority, 0) DESC, published_at DESC, created_at DESC
+       ORDER BY published_at DESC, created_at DESC
        LIMIT $1`,
       [limit * 2]
     );
@@ -30396,3 +30396,23 @@ app.get('/ows-store/windows/releases/wildweapon-mayhem/latest', async (req, res)
   }
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OWS STORE — SHUTDOWN / ERA TRANSITION CONFIG
+// GET  /ows-store/shutdown-config  → returns { return_date }  (public)
+// POST /ows-store/shutdown-config  → sets   { return_date }  (admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+let owsShutdownReturnDate = process.env.OWS_SHUTDOWN_RETURN_DATE || '';
+
+app.get('/ows-store/shutdown-config', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.json({ return_date: owsShutdownReturnDate });
+});
+
+app.post('/ows-store/shutdown-config', (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const newDate = String(req.body?.return_date ?? '').trim();
+  owsShutdownReturnDate = newDate;
+  console.log(`[OWS SHUTDOWN] return_date actualizada a: "${owsShutdownReturnDate}"`);
+  res.json({ success: true, return_date: owsShutdownReturnDate });
+});

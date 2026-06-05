@@ -57,7 +57,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ steps.resolve.outputs.project_dir }}
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Build (NSIS)
         working-directory: ${{ steps.resolve.outputs.project_dir }}

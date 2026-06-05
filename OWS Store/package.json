@@ -1,6 +1,6 @@
 {
     "name":  "ows-store",
-    "version":  "2026.5.14-t0003",
+    "version":  "2026.6.5-t0051",
     "description":  "OWS Store - Central Studio Hub",
     "main":  "main.js",
     "author":  "Ocean and Wild Studios",
@@ -41,12 +41,12 @@
                                       "output":  "C:/builds/ows-store",
                                       "buildResources":  "build"
                                   },
-                   "files":  [
-                                 "main.js",
-                                 "preload.js",
-                                 "index.html",
-                                 "assets/**/*",
-                                 "build/icon.ico",
+                  "files":  [
+                                "main.js",
+                                "preload.js",
+                                "index.html",
+                                "assets/**/*",
+                                "build/icon.ico",
                                 "build/wildweaponmayhem.ico",
                                 "build/ssa.ico",
                                 "build/oceanpay.ico",

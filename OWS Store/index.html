@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://api.mymemory.translated.net; frame-src https:;">
     <title>OWS Store - Central Studio Hub</title>
-    <meta name="app-version" content="2026.5.14-t0001">
+    <meta name="app-version" content="2026.6.5-t0051">
     <meta name="app-name" content="OWS Store">
-    <script>window.APP_VERSION = '2026.5.14-t0003'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+    <script>window.APP_VERSION = '2026.6.5-t0051'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -7493,6 +7493,204 @@
 </head>
 <body>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     OWS STORE — ERA TRANSITION SHUTDOWN OVERLAY
+     Appears after 2026-06-05T12:50:00Z (09:50 GMT-3 Uruguay)
+     Cannot be dismissed. Stops all server requests.
+════════════════════════════════════════════════════════════════ -->
+<div id="ows-era-overlay" style="display:none; position:fixed; inset:0; z-index:999999;
+     background: radial-gradient(ellipse at 50% 30%, #0d0a1f 0%, #060410 55%, #020108 100%);
+     flex-direction:column; align-items:center; justify-content:center;
+     overflow:hidden; font-family:'DM Sans',sans-serif;">
+
+  <!-- Ambient star particles (CSS only) -->
+  <div id="ows-era-stars" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;">
+    <style>
+      @keyframes ows-star-drift { 0%{transform:translateY(0) scale(1);opacity:0.7} 100%{transform:translateY(-120vh) scale(0.4);opacity:0} }
+      .ows-star { position:absolute; border-radius:50%; background:#fff; animation:ows-star-drift linear infinite; }
+    </style>
+  </div>
+
+  <!-- Glow orbs -->
+  <div style="position:absolute;width:600px;height:600px;border-radius:50%;
+       background:radial-gradient(circle,rgba(80,40,160,0.35) 0%,transparent 70%);
+       top:-150px;left:-150px;pointer-events:none;filter:blur(60px);"></div>
+  <div style="position:absolute;width:500px;height:500px;border-radius:50%;
+       background:radial-gradient(circle,rgba(20,80,200,0.25) 0%,transparent 70%);
+       bottom:-100px;right:-100px;pointer-events:none;filter:blur(80px);"></div>
+
+  <!-- Card -->
+  <div style="position:relative;z-index:2;max-width:640px;width:90%;
+       background:rgba(12,8,28,0.82);backdrop-filter:blur(30px) saturate(140%);
+       border:1px solid rgba(150,100,255,0.25);border-radius:24px;
+       padding:52px 48px 44px;text-align:center;
+       box-shadow:0 0 60px rgba(100,60,220,0.2), 0 30px 80px rgba(0,0,0,0.7);">
+
+    <!-- Icon -->
+    <div style="width:72px;height:72px;margin:0 auto 24px;border-radius:50%;
+         background:linear-gradient(135deg,rgba(120,70,255,0.25),rgba(40,100,255,0.15));
+         border:1.5px solid rgba(150,100,255,0.35);
+         display:flex;align-items:center;justify-content:center;font-size:2.2rem;
+         box-shadow:0 0 30px rgba(120,70,255,0.3);">🌊</div>
+
+    <!-- Badge -->
+    <div style="display:inline-flex;align-items:center;gap:6px;
+         background:rgba(120,70,255,0.12);border:1px solid rgba(150,100,255,0.3);
+         color:#c4a0ff;padding:4px 14px;border-radius:100px;
+         font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+         margin-bottom:22px;">
+      ✦ Una nueva era comienza
+    </div>
+
+    <!-- Headline -->
+    <h1 style="font-size:2rem;font-weight:800;color:#f0ebff;letter-spacing:-0.02em;
+         line-height:1.2;margin:0 0 16px;">
+      OWS Store está en transición
+    </h1>
+
+    <!-- Body text -->
+    <p style="font-size:0.98rem;color:#a89fc0;line-height:1.7;margin:0 0 10px;">
+      Hemos pausado el servicio temporalmente para preparar algo mucho más grande.<br>
+      <strong style="color:#d4c8f0;">Demasiadas cosas cambiarán. Todo será nuevo.</strong>
+    </p>
+    <p style="font-size:0.88rem;color:#7a6e99;line-height:1.6;margin:0 0 32px;">
+      En esta nueva era vamos a priorizar cómo manejamos todo — la experiencia,
+      la infraestructura y el ecosistema completo de Ocean and Wild Studios.
+      Queremos asegurarnos de que todo esté bien y preparado antes de volver.
+    </p>
+
+    <!-- Divider -->
+    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(150,100,255,0.3),transparent);margin:0 0 28px;"></div>
+
+    <!-- Return date block -->
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(150,100,255,0.18);
+         border-radius:14px;padding:18px 24px;margin-bottom:18px;">
+      <div style="font-size:0.7rem;color:#7a6e99;text-transform:uppercase;
+           letter-spacing:0.1em;margin-bottom:6px;">Fecha estimada de regreso</div>
+      <div id="ows-era-return-date" style="font-size:1.25rem;font-weight:700;
+           color:#c4a0ff;letter-spacing:0.01em;">Cargando...</div>
+      <div style="font-size:0.75rem;color:#5a5175;margin-top:6px;">
+        Puede tardar hasta 1 mes · sujeto a cambios
+      </div>
+    </div>
+
+    <!-- Footer note -->
+    <p style="font-size:0.75rem;color:#4a4365;margin:0;">
+      Ocean and Wild Studios · 2026 · <span style="color:#7a6e99;">ows.studio</span>
+    </p>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── Shutdown trigger: 2026-06-05 09:50 GMT-3 = 12:50 UTC
+  var SHUTDOWN_UTC = new Date('2026-06-05T12:50:00Z').getTime();
+  var API_BASE_SHUTDOWN = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'https://owsdatabase.onrender.com'
+    : '';
+
+  function isShutdownActive() {
+    return Date.now() >= SHUTDOWN_UTC;
+  }
+
+  function showEraOverlay() {
+    var overlay = document.getElementById('ows-era-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+
+    // Generate ambient stars
+    var starContainer = document.getElementById('ows-era-stars');
+    for (var i = 0; i < 60; i++) {
+      var s = document.createElement('div');
+      s.className = 'ows-star';
+      var size = Math.random() * 2.5 + 0.5;
+      s.style.cssText = [
+        'width:' + size + 'px',
+        'height:' + size + 'px',
+        'left:' + (Math.random() * 100) + '%',
+        'top:' + (Math.random() * 100) + '%',
+        'animation-duration:' + (Math.random() * 20 + 10) + 's',
+        'animation-delay:' + (Math.random() * 15) + 's',
+        'opacity:' + (Math.random() * 0.6 + 0.1)
+      ].join(';');
+      starContainer.appendChild(s);
+    }
+
+    // Stop all ongoing fetches by replacing the global fetch with a no-op
+    window._owsFetchOriginal = window.fetch;
+    window.fetch = function() {
+      return Promise.reject(new Error('OWS Store is in shutdown mode. Requests suspended.'));
+    };
+
+    // Also stop XMLHttpRequest
+    var OrigXHR = window.XMLHttpRequest;
+    window.XMLHttpRequest = function() {
+      var xhr = new OrigXHR();
+      var origOpen = xhr.open.bind(xhr);
+      xhr.open = function() { /* silenced */ };
+      xhr.send = function() { if (xhr.onload) { setTimeout(function(){ xhr.onload && xhr.onload(); }, 0); } };
+      return xhr;
+    };
+
+    // Fetch return date from server, fallback to localStorage
+    var cachedDate = localStorage.getItem('ows_shutdown_return_date');
+    var dateEl = document.getElementById('ows-era-return-date');
+
+    function displayDate(raw) {
+      if (!raw || raw === 'TBD' || raw === '') {
+        dateEl.textContent = 'Por determinar';
+        return;
+      }
+      // Try to parse as ISO date for nice formatting
+      var d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        dateEl.textContent = d.toLocaleDateString('es-UY', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+      } else {
+        dateEl.textContent = raw;
+      }
+    }
+
+    if (cachedDate) displayDate(cachedDate);
+
+    // Try to fetch from server (before fetch was overridden)
+    if (window._owsFetchOriginal) {
+      window._owsFetchOriginal(API_BASE_SHUTDOWN + '/ows-store/shutdown-config', { cache: 'no-store' })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          if (data && data.return_date) {
+            localStorage.setItem('ows_shutdown_return_date', data.return_date);
+            displayDate(data.return_date);
+          } else if (!cachedDate) {
+            displayDate('');
+          }
+        })
+        .catch(function() {
+          if (!cachedDate) displayDate('');
+        });
+    }
+  }
+
+  // Check immediately
+  if (isShutdownActive()) {
+    // Run after DOM is painted
+    document.addEventListener('DOMContentLoaded', showEraOverlay);
+    // Also try immediately if DOMContentLoaded already fired
+    if (document.readyState !== 'loading') showEraOverlay();
+  } else {
+    // Schedule for when shutdown time arrives
+    var msLeft = SHUTDOWN_UTC - Date.now();
+    if (msLeft < 2147483647) { // setTimeout max
+      setTimeout(function() {
+        document.addEventListener('DOMContentLoaded', showEraOverlay);
+        if (document.readyState !== 'loading') showEraOverlay();
+      }, msLeft);
+    }
+  }
+})();
+</script>
+
 <div id="prelogin-gate" class="prelogin-gate active" aria-live="polite" aria-hidden="false">
     <div class="prelogin-gate-shell">
         <section class="prelogin-panel prelogin-form-panel">
@@ -8021,6 +8219,41 @@
 
         <!-- -- HOME -- -->
         <section id="home-view" class="section">
+
+<!-- Announcement Banner: Temporary Shutdown -->
+            <div id="ows-shutdown-banner" style="
+                background: linear-gradient(135deg, #1a0a00 0%, #3d1a00 50%, #1a0a00 100%);
+                border: 2px solid #ff8c00;
+                border-radius: 12px;
+                margin: 0 0 1.25rem 0;
+                padding: 1rem 1.25rem;
+                display: flex;
+                align-items: flex-start;
+                gap: 0.85rem;
+                box-shadow: 0 0 18px rgba(255,140,0,0.35), inset 0 0 30px rgba(255,100,0,0.08);
+                position: relative;
+            ">
+                <span style="font-size: 1.6rem; line-height: 1; flex-shrink: 0; margin-top: 0.1rem;">⚠️</span>
+                <div style="flex: 1;">
+                    <p style="
+                        margin: 0 0 0.3rem 0;
+                        color: #ffb347;
+                        font-weight: 700;
+                        font-size: 0.85rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.08em;
+                    ">Aviso importante — Cierre temporal</p>
+                    <p style="
+                        margin: 0;
+                        color: #ffe0b2;
+                        font-size: 0.9rem;
+                        line-height: 1.55;
+                    ">
+                        A partir del <strong style="color:#ff8c00;">5 de Junio a las 9:50 GMT-3 (Uruguay)</strong>, OWS Store dejará de estar disponible <strong style="color:#ff8c00;">temporalmente</strong> para dar lugar a una nueva era. En el tiempo que queda, se recomienda instalar todos los proyectos que sea posible. Más información luego de esa fecha.
+                    </p>
+                </div>
+                <!-- No dismiss button — banner is permanent -->
+            </div>
 
 <!-- Featured Carousel (Hero Banner) -->
             <div class="featured-carousel">
@@ -13765,9 +13998,6 @@
             const rows = (Array.isArray(list) ? list : [])
                 .filter((entry) => entry && entry.isBanner && entry.isActive !== false)
                 .sort((a, b) => {
-                    const pa = Number(a.priority || 0);
-                    const pb = Number(b.priority || 0);
-                    if (pa !== pb) return pb - pa;
                     return (Date.parse(b.updateDate || '') || 0) - (Date.parse(a.updateDate || '') || 0);
                 });
             return rows.map((entry) => {
@@ -13819,9 +14049,6 @@
                 .map(normalizeNewsUpdateRecord)
                 .filter(Boolean)
                 .sort((a, b) => {
-                    const pa = Number(a?.priority || 0);
-                    const pb = Number(b?.priority || 0);
-                    if (pa !== pb) return pb - pa;
                     return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
                 });
             dedicatedStoreNewsCache = sanitizeNewsListForUi(list);
@@ -14279,9 +14506,6 @@
             const changelogs = list
                 .filter((n) => !n.isEvent && !n.isBanner && String(n?.entryType || n?.kind || '').toLowerCase() !== 'news' && !isStoreGlobalNewsEntry(n))
                 .sort((a, b) => {
-                    const pa = Number(a?.priority || 0);
-                    const pb = Number(b?.priority || 0);
-                    if (pa !== pb) return pb - pa;
                     return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
                 })
                 .slice(0, 6);
@@ -27499,13 +27723,10 @@
                         return true;
                     })
                     .sort((a, b) => {
-                        // Prioridad primero, luego fecha (más reciente arriba)
-                        const priorityA = a.priority || 0;
-                        const priorityB = b.priority || 0;
-                        if (priorityA !== priorityB) return priorityB - priorityA;
+                        // Solo por fecha (más reciente arriba) — la visibilidad se controla con is_active
                         const dateA = new Date(a.update_date || a.published_at || a.created_at || 0);
                         const dateB = new Date(b.update_date || b.published_at || b.created_at || 0);
-                        return dateB - dateA; // Más reciente primero
+                        return dateB - dateA;
                     });
                 renderHubNews();
             } catch (error) {

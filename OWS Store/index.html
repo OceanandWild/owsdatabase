@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://api.mymemory.translated.net; frame-src https:;">
     <title>OWS Store - Central Studio Hub</title>
-    <meta name="app-version" content="2026.6.5-t0051">
+    <meta name="app-version" content="2026.6.5-t0125">
     <meta name="app-name" content="OWS Store">
-    <script>window.APP_VERSION = '2026.6.5-t0051'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+    <script>window.APP_VERSION = '2026.6.5-t0125'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -7589,8 +7589,67 @@
     ? 'https://owsdatabase.onrender.com'
     : '';
 
+  // Poll interval for checking if return date has passed (every 5 min)
+  var RETURN_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+  var _returnCheckTimer = null;
+
   function isShutdownActive() {
     return Date.now() >= SHUTDOWN_UTC;
+  }
+
+  // Returns true if a valid return_date exists and has already passed
+  function isReturnDatePassed(raw) {
+    if (!raw || raw === 'TBD' || raw === '') return false;
+    var d = new Date(raw);
+    if (isNaN(d.getTime())) return false;
+    return Date.now() >= d.getTime();
+  }
+
+  function hideEraOverlay() {
+    var overlay = document.getElementById('ows-era-overlay');
+    if (overlay) overlay.style.display = 'none';
+
+    // Restore fetch if it was overridden
+    if (window._owsFetchOriginal) {
+      window.fetch = window._owsFetchOriginal;
+      delete window._owsFetchOriginal;
+    }
+
+    // Clear the poll timer
+    if (_returnCheckTimer) {
+      clearInterval(_returnCheckTimer);
+      _returnCheckTimer = null;
+    }
+
+    // Clear cached shutdown date so next load checks fresh
+    localStorage.removeItem('ows_shutdown_return_date');
+  }
+
+  function checkAndHideIfReturned(raw) {
+    if (isReturnDatePassed(raw)) {
+      hideEraOverlay();
+      return true;
+    }
+    return false;
+  }
+
+  function pollReturnDate() {
+    // Check against cached value first (fast path)
+    var cached = localStorage.getItem('ows_shutdown_return_date');
+    if (checkAndHideIfReturned(cached)) return;
+
+    // Also re-fetch from server in case admin updated the date
+    if (window._owsFetchOriginal) {
+      window._owsFetchOriginal(API_BASE_SHUTDOWN + '/ows-store/shutdown-config', { cache: 'no-store' })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          if (data && data.return_date) {
+            localStorage.setItem('ows_shutdown_return_date', data.return_date);
+            checkAndHideIfReturned(data.return_date);
+          }
+        })
+        .catch(function() {});
+    }
   }
 
   function showEraOverlay() {
@@ -7626,7 +7685,6 @@
     var OrigXHR = window.XMLHttpRequest;
     window.XMLHttpRequest = function() {
       var xhr = new OrigXHR();
-      var origOpen = xhr.open.bind(xhr);
       xhr.open = function() { /* silenced */ };
       xhr.send = function() { if (xhr.onload) { setTimeout(function(){ xhr.onload && xhr.onload(); }, 0); } };
       return xhr;
@@ -7641,7 +7699,6 @@
         dateEl.textContent = 'Por determinar';
         return;
       }
-      // Try to parse as ISO date for nice formatting
       var d = new Date(raw);
       if (!isNaN(d.getTime())) {
         dateEl.textContent = d.toLocaleDateString('es-UY', {
@@ -7652,16 +7709,35 @@
       }
     }
 
-    if (cachedDate) displayDate(cachedDate);
+    if (cachedDate) {
+      // If cached return date already passed — hide immediately, no overlay needed
+      if (checkAndHideIfReturned(cachedDate)) return;
+      displayDate(cachedDate);
+    }
 
-    // Try to fetch from server (before fetch was overridden)
+    // Fetch from server using the saved original fetch
     if (window._owsFetchOriginal) {
       window._owsFetchOriginal(API_BASE_SHUTDOWN + '/ows-store/shutdown-config', { cache: 'no-store' })
         .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(data) {
           if (data && data.return_date) {
             localStorage.setItem('ows_shutdown_return_date', data.return_date);
+            // Admin forced overlay off → hide immediately
+            if (data.active === false) { hideEraOverlay(); return; }
+            // If return date already passed → hide overlay right away
+            if (checkAndHideIfReturned(data.return_date)) return;
             displayDate(data.return_date);
+            // Schedule auto-hide when the return date arrives
+            var d = new Date(data.return_date);
+            if (!isNaN(d.getTime())) {
+              var msUntilReturn = d.getTime() - Date.now();
+              if (msUntilReturn > 0 && msUntilReturn < 2147483647) {
+                setTimeout(hideEraOverlay, msUntilReturn);
+              }
+            }
+          } else if (data && data.active === false) {
+            // No return_date but admin explicitly deactivated
+            hideEraOverlay();
           } else if (!cachedDate) {
             displayDate('');
           }
@@ -7670,18 +7746,21 @@
           if (!cachedDate) displayDate('');
         });
     }
+
+    // Start periodic poll so the overlay self-dismisses when return date passes
+    // (covers cases where the tab stays open across the return date)
+    if (_returnCheckTimer) clearInterval(_returnCheckTimer);
+    _returnCheckTimer = setInterval(pollReturnDate, RETURN_CHECK_INTERVAL_MS);
   }
 
   // Check immediately
   if (isShutdownActive()) {
-    // Run after DOM is painted
     document.addEventListener('DOMContentLoaded', showEraOverlay);
-    // Also try immediately if DOMContentLoaded already fired
     if (document.readyState !== 'loading') showEraOverlay();
   } else {
     // Schedule for when shutdown time arrives
     var msLeft = SHUTDOWN_UTC - Date.now();
-    if (msLeft < 2147483647) { // setTimeout max
+    if (msLeft < 2147483647) {
       setTimeout(function() {
         document.addEventListener('DOMContentLoaded', showEraOverlay);
         if (document.readyState !== 'loading') showEraOverlay();

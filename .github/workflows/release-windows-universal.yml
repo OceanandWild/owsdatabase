@@ -96,4 +96,7 @@ jobs:
           } else {
             gh release upload $tag --repo $repo --clobber @files
           }
+
+          # Always mark as latest after Windows assets are uploaded
+          gh release edit $tag --repo $repo --latest
           Write-Host "Done: https://github.com/$repo/releases/tag/$tag"

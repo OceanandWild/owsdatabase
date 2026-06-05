@@ -70,6 +70,14 @@ jobs:
         working-directory: ${{ steps.resolve.outputs.project_dir }}
         run: npm ci
 
+      - name: Install Capacitor Android platform
+        working-directory: ${{ steps.resolve.outputs.project_dir }}
+        run: |
+          # Ensure @capacitor/core and @capacitor/android are installed
+          # (they may not be in package.json if only @capacitor/cli is listed)
+          npm install --save-exact @capacitor/core @capacitor/android 2>/dev/null || true
+          echo "Capacitor packages ready"
+
       - name: Sync Capacitor web assets
         working-directory: ${{ steps.resolve.outputs.project_dir }}
         run: |
@@ -85,6 +93,51 @@ jobs:
           fi
           # Sync web assets into the native project
           npx cap sync android
+
+      - name: Apply custom app icon
+        working-directory: ${{ steps.resolve.outputs.project_dir }}
+        run: |
+          # Use resources/icon.png as the launcher icon for all densities
+          ICON_SRC="resources/icon.png"
+          if [ ! -f "$ICON_SRC" ]; then
+            echo "No resources/icon.png found — using default Capacitor icon"
+            exit 0
+          fi
+          echo "Applying custom icon from $ICON_SRC"
+
+          # Install sharp-cli for resizing if available, otherwise use ImageMagick
+          if command -v convert &>/dev/null; then
+            RESIZE="convert"
+          else
+            echo "ImageMagick not found, trying to install..."
+            sudo apt-get install -y imagemagick -q 2>/dev/null || true
+            RESIZE="convert"
+          fi
+
+          RES_DIR="android/app/src/main/res"
+          declare -A DENSITIES=(
+            ["mipmap-mdpi"]=48
+            ["mipmap-hdpi"]=72
+            ["mipmap-xhdpi"]=96
+            ["mipmap-xxhdpi"]=144
+            ["mipmap-xxxhdpi"]=192
+          )
+          for density in "${!DENSITIES[@]}"; do
+            size="${DENSITIES[$density]}"
+            mkdir -p "$RES_DIR/$density"
+            $RESIZE "$ICON_SRC" -resize "${size}x${size}" "$RES_DIR/$density/ic_launcher.png" 2>/dev/null || true
+            $RESIZE "$ICON_SRC" -resize "${size}x${size}" "$RES_DIR/$density/ic_launcher_round.png" 2>/dev/null || true
+            echo "  $density: ${size}px"
+          done
+
+          # Also replace the foreground layer used by adaptive icons
+          for density in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            if [ -f "$RES_DIR/$density/ic_launcher_foreground.png" ]; then
+              size="${DENSITIES[$density]}"
+              $RESIZE "$ICON_SRC" -resize "${size}x${size}" "$RES_DIR/$density/ic_launcher_foreground.png" 2>/dev/null || true
+            fi
+          done
+          echo "Custom icon applied"
 
       - name: Set version in build.gradle
         working-directory: ${{ steps.resolve.outputs.project_dir }}/android

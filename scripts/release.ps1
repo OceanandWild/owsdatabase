@@ -1159,12 +1159,9 @@ if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -
                 Write-Err "Build Android no finalizo OK (status=$($androidWait.status), conclusion=$($androidWait.conclusion))."
             } else {
                 Write-OK "Build Android completado."
-                if ($project -eq "ows-store") {
-                    $promoted = Promote-AndroidArtifactToRelease -Slug $project -RepoName $repo -Ver $version -SourceRunId $androidRunId
-                    if ($promoted) {
-                        Register-AndroidReleaseFromGitHub -Slug $project -RepoName $repo -Ver $version | Out-Null
-                    }
-                }
+                # release-android-universal.yml uploads the APK directly to GitHub Releases
+                # No promote step needed — just register in DB
+                Register-AndroidReleaseFromGitHub -Slug $project -RepoName $repo -Ver $version | Out-Null
                 Register-Version -Slug $project -Ver $version -Plat "android" | Out-Null
             }
         } else {

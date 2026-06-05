@@ -68,76 +68,25 @@ jobs:
 
       - name: Install JS dependencies
         working-directory: ${{ steps.resolve.outputs.project_dir }}
-        run: npm ci
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
-      - name: Install Capacitor Android platform
+      - name: Sync web assets into committed android/
         working-directory: ${{ steps.resolve.outputs.project_dir }}
         run: |
-          # Ensure @capacitor/core and @capacitor/android are installed
-          # (they may not be in package.json if only @capacitor/cli is listed)
-          npm install --save-exact @capacitor/core @capacitor/android 2>/dev/null || true
-          echo "Capacitor packages ready"
-
-      - name: Sync Capacitor web assets
-        working-directory: ${{ steps.resolve.outputs.project_dir }}
-        run: |
-          # Copy index.html to www/ (Capacitor webDir)
+          # Build www/ from index.html
           mkdir -p www
           cp index.html www/
-          # Also copy any assets directory if present
           if [ -d assets ]; then cp -r assets www/; fi
-          # Add android platform if the folder doesn't exist yet
-          if [ ! -d android ]; then
-            echo "android/ not found — running cap add android to initialize"
-            npx cap add android
-          fi
-          # Sync web assets into the native project
-          npx cap sync android
 
-      - name: Apply custom app icon
-        working-directory: ${{ steps.resolve.outputs.project_dir }}
-        run: |
-          # Use resources/icon.png as the launcher icon for all densities
-          ICON_SRC="resources/icon.png"
-          if [ ! -f "$ICON_SRC" ]; then
-            echo "No resources/icon.png found — using default Capacitor icon"
-            exit 0
-          fi
-          echo "Applying custom icon from $ICON_SRC"
-
-          # Install sharp-cli for resizing if available, otherwise use ImageMagick
-          if command -v convert &>/dev/null; then
-            RESIZE="convert"
+          # android/ is committed to the repo with icons already applied.
+          # Just sync the updated web assets into it — no cap add needed.
+          if [ -d android ]; then
+            npx cap sync android
+            echo "Capacitor sync complete"
           else
-            echo "ImageMagick not found, trying to install..."
-            sudo apt-get install -y imagemagick -q 2>/dev/null || true
-            RESIZE="convert"
+            echo "::error::android/ folder not found in repo for ${{ inputs.project }}. Commit it first."
+            exit 1
           fi
-
-          RES_DIR="android/app/src/main/res"
-          declare -A DENSITIES=(
-            ["mipmap-mdpi"]=48
-            ["mipmap-hdpi"]=72
-            ["mipmap-xhdpi"]=96
-            ["mipmap-xxhdpi"]=144
-            ["mipmap-xxxhdpi"]=192
-          )
-          for density in "${!DENSITIES[@]}"; do
-            size="${DENSITIES[$density]}"
-            mkdir -p "$RES_DIR/$density"
-            $RESIZE "$ICON_SRC" -resize "${size}x${size}" "$RES_DIR/$density/ic_launcher.png" 2>/dev/null || true
-            $RESIZE "$ICON_SRC" -resize "${size}x${size}" "$RES_DIR/$density/ic_launcher_round.png" 2>/dev/null || true
-            echo "  $density: ${size}px"
-          done
-
-          # Also replace the foreground layer used by adaptive icons
-          for density in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-            if [ -f "$RES_DIR/$density/ic_launcher_foreground.png" ]; then
-              size="${DENSITIES[$density]}"
-              $RESIZE "$ICON_SRC" -resize "${size}x${size}" "$RES_DIR/$density/ic_launcher_foreground.png" 2>/dev/null || true
-            fi
-          done
-          echo "Custom icon applied"
 
       - name: Set version in build.gradle
         working-directory: ${{ steps.resolve.outputs.project_dir }}/android
@@ -159,8 +108,7 @@ jobs:
             echo "has_keystore=true" >> "$GITHUB_OUTPUT"
             echo "Keystore decoded OK ($(stat -c%s $KEYSTORE_PATH) bytes)"
           else
-            echo "::error::ANDROID_SIGNING_KEY_BASE64 secret is empty or not set. APK cannot be signed."
-            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+            echo "::error::ANDROID_SIGNING_KEY_BASE64 secret is empty or not set."
             exit 1
           fi
 
@@ -174,15 +122,13 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
-          echo "Gradle build complete"
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
           echo "APK output: $APK_PATH"
-          # Verify signature
           BUILD_TOOLS=$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)
           if $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner verify --verbose "$APK_PATH" 2>&1 | grep -q "Verified using"; then
             echo "APK signature verified OK"
           else
-            echo "::warning::APK signature check: running apksigner manually as fallback"
+            echo "::warning::Running manual apksigner fallback"
             SIGNED_APK="app/build/outputs/apk/release/${{ inputs.project }}-${{ inputs.version_name }}-release.apk"
             $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/zipalign -v -p 4 "$APK_PATH" aligned.apk
             $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner sign \
@@ -193,7 +139,7 @@ jobs:
               --out "$SIGNED_APK" \
               aligned.apk
             rm -f aligned.apk "$APK_PATH"
-            echo "APK signed via fallback apksigner: $SIGNED_APK"
+            echo "APK signed via fallback: $SIGNED_APK"
           fi
 
       - name: Collect APK path
@@ -210,14 +156,16 @@ jobs:
       - name: Create release metadata
         working-directory: ${{ steps.resolve.outputs.project_dir }}
         run: |
-          cat > android-release-metadata.json << EOF
+          cat > android-release-metadata.json << 'METAEOF'
           {
             "package_id": "${{ steps.resolve.outputs.package_id }}",
             "version_name": "${{ inputs.version_name }}",
-            "version_code": $(date +%s),
+            "version_code": VCODE_PLACEHOLDER,
             "project": "${{ inputs.project }}"
           }
-          EOF
+          METAEOF
+          VCODE=$(date +%s)
+          sed -i "s/VCODE_PLACEHOLDER/$VCODE/" android-release-metadata.json
 
       - name: Create or update GitHub Release and upload APK
         env:
@@ -228,19 +176,16 @@ jobs:
           APK_PATH="${{ steps.resolve.outputs.project_dir }}/android/${{ steps.apk.outputs.path }}"
           META_PATH="${{ steps.resolve.outputs.project_dir }}/android-release-metadata.json"
 
-          # Create release if it doesn't exist yet
           if ! gh release view "$TAG" --repo "$REPO" &>/dev/null; then
-            echo "Creating release $TAG in $REPO"
             gh release create "$TAG" \
               --repo "$REPO" \
               --title "${{ inputs.project }} ${{ inputs.version_name }}" \
               --notes "${{ inputs.release_notes }}" \
               --latest=false
           else
-            echo "Release $TAG already exists in $REPO — uploading assets"
+            echo "Release $TAG already exists — uploading assets"
           fi
 
-          # Upload APK and metadata
           gh release upload "$TAG" --repo "$REPO" --clobber \
             "$APK_PATH" \
             "$META_PATH"

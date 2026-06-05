@@ -78,8 +78,13 @@ jobs:
           cp index.html www/
           # Also copy any assets directory if present
           if [ -d assets ]; then cp -r assets www/; fi
-          # Run capacitor sync if available
-          npx cap sync android || true
+          # Add android platform if the folder doesn't exist yet
+          if [ ! -d android ]; then
+            echo "android/ not found — running cap add android to initialize"
+            npx cap add android
+          fi
+          # Sync web assets into the native project
+          npx cap sync android
 
       - name: Set version in build.gradle
         working-directory: ${{ steps.resolve.outputs.project_dir }}/android

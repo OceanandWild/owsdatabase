@@ -889,8 +889,91 @@ if ($project -eq "ows-store" -and (Test-Path $backendPackagePath)) {
     Set-PackageJsonVersion -PackageJsonPath $backendPackagePath -VersionValue $version | Out-Null
 }
 
+# ── package.json version gate ────────────────────────────────────────────────
+# If a package.json exists for this project, its version MUST already match
+# the release version. The script will not update it automatically — the dev
+# must align it manually before triggering the release. This prevents stale
+# version metadata from shipping in a build.
+Write-Step "Verificando version en package.json del proyecto"
+$pkgToCheck = $null
+if (Test-Path $projectPackagePath) {
+    $pkgToCheck = $projectPackagePath
+} elseif ($project -eq "ows-store" -and (Test-Path $backendPackagePath)) {
+    $pkgToCheck = $backendPackagePath
+}
+if ($pkgToCheck) {
+    try {
+        $pkgContent = Get-Content -Raw $pkgToCheck | ConvertFrom-Json
+        $pkgVer     = [string]$pkgContent.version
+        if ($pkgVer -ne $version) {
+            Write-Err "VERSION MISMATCH - el release no puede continuar."
+            Write-Err "  package.json actual : $pkgVer"
+            Write-Err "  Version solicitada  : $version"
+            Write-Err "  Actualiza el package.json con la version '$version' y vuelve a ejecutar."
+            Exit-Script 1
+        }
+        Write-OK "package.json version OK: $pkgVer"
+    } catch {
+        Write-Err "No se pudo leer '$pkgToCheck': $_"
+        Exit-Script 1
+    }
+} else {
+    Write-Info "No hay package.json para '$project' - se omite verificacion de version."
+}
+
 # ── Git: commit + push ────────────────────────────────────────────────────────
-Write-Step "Git: commit y push"
+# Resolve-ProjectIndexPath
+# Returns the git-relative path of the project's index.html inside owsdatabase.
+# Uses $cfg.dir (from $PROJECTS map) — never hardcoded.
+function Resolve-ProjectIndexPath {
+    param([string]$ProjectSlug, [hashtable]$CfgEntry)
+    $dir = [string]$CfgEntry.dir
+    if (-not $dir) {
+        Write-Err "[$ProjectSlug] El mapa de proyectos no tiene 'dir' definido."
+        return $null
+    }
+    $absDir   = Join-Path $ROOT $dir
+    $absIndex = Join-Path $absDir "index.html"
+    if (-not (Test-Path $absIndex)) {
+        Write-Err "[$ProjectSlug] index.html no encontrado en: $absIndex"
+        return $null
+    }
+    # Return the git-relative path (always forward-slash for git)
+    $rel = $dir + "/index.html"
+    return $rel
+}
+
+# Verify-ProjectIndexStagingClean
+# Dry-run check: resolves the index path and confirms it exists, without touching git.
+# Run this at any time to validate the script will stage the right file.
+function Verify-ProjectIndexStagingClean {
+    param([string]$ProjectSlug)
+    if (-not $PROJECTS.ContainsKey($ProjectSlug)) {
+        Write-Err "[VERIFY] Proyecto '$ProjectSlug' no existe en el mapa."
+        return $false
+    }
+    $c = $PROJECTS[$ProjectSlug]
+    $dir = [string]$c.dir
+    $absIndex = Join-Path $ROOT $dir "index.html"
+    $relPath  = $dir + "/index.html"
+
+    Write-Host "`n[VERIFY] Proyecto  : $ProjectSlug" -ForegroundColor Cyan
+    Write-Host "[VERIFY] Dir mapa  : $dir" -ForegroundColor Cyan
+    Write-Host "[VERIFY] Ruta abs  : $absIndex" -ForegroundColor Cyan
+    Write-Host "[VERIFY] Ruta git  : $relPath" -ForegroundColor Cyan
+
+    if (Test-Path $absIndex) {
+        $size = (Get-Item $absIndex).Length
+        Write-OK "[VERIFY] index.html existe ($size bytes) - staging apuntaria correctamente a '$relPath'"
+        return $true
+    } else {
+        Write-Err "[VERIFY] index.html NO existe en esa ruta. Revisa el campo 'dir' del mapa de proyectos."
+        return $false
+    }
+}
+
+Write-Step "Git: commit y push (solo index.html del proyecto)"
+$goto_skip_push = $false   # may be set to $true inside the try block below
 Push-Location $ROOT
 try {
     if ($repo -ne "owsdatabase") {
@@ -899,33 +982,74 @@ try {
         $published = Publish-ProjectToExternalRepo -RepoName $repo -LocalProjectDir $dirPath
         if (-not $published) { throw "No se pudo sincronizar repo externo $repo antes del release." }
     } else {
-        if ($project -eq "ows-store") {
-            git add "OWS Store/index.html" 2>&1
-            git add "OWS Store/main.js" 2>&1
-            git add "OWS Store/package.json" 2>&1
-            git add "package.json" 2>&1
-        } elseif ($project -eq "dinobox") {
-            git add "DinoBox/" 2>&1
-        } else {
-            $dirPath = $cfg.dir
-            if (Test-Path $dirPath) { git add "$dirPath/" 2>&1 }
+        # ── Resolve the exact index.html for this project ──────────────────────
+        $indexRelPath = Resolve-ProjectIndexPath -ProjectSlug $project -CfgEntry $cfg
+        if (-not $indexRelPath) {
+            throw "No se pudo resolver la ruta del index.html para '$project'. Abortando git push."
         }
-    }
+        Write-Info "Archivo a stagear: $indexRelPath"
 
-    git add "scripts/release.ps1" 2>&1
-    $status = git status --porcelain 2>&1
-    if ($status) {
-        git commit -m "release: $project $version" 2>&1
-        git push origin main *> $null
-        if ($LASTEXITCODE -ne 0) { throw "git push fallo para release $project $version" }
-        Write-OK "Push completado"
-    } else {
-        Write-Info "Sin cambios que commitear"
+        # ── Reset any accidental staged files before we start ──────────────────
+        git restore --staged . 2>&1 | Out-Null
+
+        # ── Stage ONLY the project's index.html ────────────────────────────────
+        git add -- $indexRelPath 2>&1 | Out-Null
+
+        # ── Also include package.json(s) if they exist and changed ─────────────
+        $projPkgRel = $cfg.dir + "/package.json"
+        if (Test-Path (Join-Path $ROOT $projPkgRel)) {
+            git add -- $projPkgRel 2>&1 | Out-Null
+        }
+        if ($project -eq "ows-store") {
+            # backend package.json lives at repo root
+            if (Test-Path (Join-Path $ROOT "package.json")) {
+                git add -- "package.json" 2>&1 | Out-Null
+            }
+        }
+
+        # ── Verify: only the expected files are staged (guard against dupes) ───
+        $stagedLines = git diff --name-only --cached 2>&1 | Where-Object { $_ -match '\S' }
+        $unexpected  = $stagedLines | Where-Object { $_ -ne $indexRelPath -and $_ -notmatch 'package\.json$' }
+        if ($unexpected) {
+            Write-Err "Se detectaron archivos inesperados en el staging area:"
+            $unexpected | ForEach-Object { Write-Err "  $_" }
+            Write-Err "Abortando push para evitar commits sucios."
+            git restore --staged . 2>&1 | Out-Null
+            throw "Staging no estaba limpio para el proyecto '$project'."
+        }
+        if (-not $stagedLines) {
+            Write-Info "Sin cambios en $indexRelPath - no hay nada que commitear."
+            Pop-Location
+            # Skip to build trigger - file was already up to date
+            $goto_skip_push = $true
+        }
+        Write-Info "Staged:"
+        $stagedLines | ForEach-Object { Write-Info "  $_" }
     }
-} catch {
-    Write-Err "Error en git: $_"
 }
-Pop-Location
+catch {
+    Write-Err "Error en git: $_"
+    try { Pop-Location } catch {}
+    Exit-Script 1
+}
+
+if (-not $goto_skip_push -and $repo -eq "owsdatabase") {
+    try {
+        $status = git status --porcelain 2>&1
+        if ($status) {
+            git commit -m "release: $project $version" 2>&1
+            git push origin main *> $null
+            if ($LASTEXITCODE -ne 0) { throw "git push fallo para release $project $version" }
+            Write-OK "Push completado - solo index.html de '$project' incluido"
+        } else {
+            Write-Info "Sin cambios que commitear"
+        }
+    } catch {
+        Write-Err "Error en git commit/push: $_"
+    }
+}
+
+try { Pop-Location } catch {}
 
 # ── Trigger Windows build ───────────────────────────────────────
 if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -eq "both")) {
@@ -1019,16 +1143,10 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
 if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -eq "both")) {
     Write-Step "Disparando build Android..."
     $androidWorkflow = "release-android-universal.yml"
-    $androidTriggered = $false
-    if ($project -eq "ows-store") {
-        $androidWorkflow = "ows-store-android.yml"
-        $androidTriggered = Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver $version -Inputs @{ build_profile = "full" }
-    } else {
-        $androidTriggered = Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver "" -Inputs @{
-            project = $project
-            version_name = $version
-            release_notes = "Android build for $project $version"
-        }
+    $androidTriggered = Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver "" -Inputs @{
+        project = $project
+        version_name = $version
+        release_notes = "Android build for $project $version"
     }
     if (-not $androidTriggered) {
         Write-Err "No se pudo disparar workflow Android."

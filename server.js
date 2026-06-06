@@ -11417,13 +11417,20 @@ app.get('/ows-store/events', async (req, res) => {
     // del OWS Admin Panel (admin/index.html:4570-4575). Mantener alineado
     // con ese criterio para que un evento marcado como "No OWS Store" no
     // termine apareciendo en la seccion "Eventos" de OWS Store.
+    //
+    // ESTRICTO: NO se considera el campo `changes` para el match, porque
+    // cambios como "Evento visible en OWS Store con identidad del proyecto"
+    // son meta-comentarios del flujo de publicacion y no relevancia real
+    // del evento con OWS Store. Solo se acepta la mencion en `title`,
+    // `description` o `project_names` (que es donde el autor declara el
+    // vinculo real con el producto).
     const filtered = list.filter((ev) => {
       const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
       const inProjects = keys.some((k) => {
         const lk = String(k || '').toLowerCase();
         return lk.includes('ows-store') || lk.includes('ows store');
       });
-      const text = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();
+      const text = `${ev.title || ''} ${ev.description || ''}`.toLowerCase();
       const inText = text.includes('ows store');
       return inProjects || inText;
     });

@@ -11333,6 +11333,12 @@ app.get('/ows-store/news', async (req, res) => {
 // OWS Store events feed (filtrado de ows_store_timeline por kind='event')
 // Usado por el cliente OWS Store para renderizar la seccion "Eventos"
 // en Explorar con imagenes (visual_meta.cover_url) servidas desde el servidor.
+// Aplica el mismo filtro `matchesStore` que usa OWS Admin Panel para el
+// badge "No OWS Store" (admin/index.html): se devuelve solo el evento si
+// su lista de project_names contiene "OWS Store" / "ows-store" o si el
+// texto (title + description + changes) lo menciona. Esto mantiene la
+// consistencia: si el admin marca un evento como "No OWS Store",
+// tampoco aparecera aqui.
 app.get('/ows-store/events', async (req, res) => {
   const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
   const limit = Math.max(1, Math.min(60, normalizeNewsNumber(req.query.limit, 24)));
@@ -11407,7 +11413,22 @@ app.get('/ows-store/events', async (req, res) => {
       };
     });
 
-    return res.json(list);
+    // Filtro matchesStore: replica la logica del badge "No OWS Store"
+    // del OWS Admin Panel (admin/index.html:4570-4575). Mantener alineado
+    // con ese criterio para que un evento marcado como "No OWS Store" no
+    // termine apareciendo en la seccion "Eventos" de OWS Store.
+    const filtered = list.filter((ev) => {
+      const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
+      const inProjects = keys.some((k) => {
+        const lk = String(k || '').toLowerCase();
+        return lk.includes('ows-store') || lk.includes('ows store');
+      });
+      const text = `${ev.title || ''} ${ev.description || ''} ${(ev.changes || []).join(' ')}`.toLowerCase();
+      const inText = text.includes('ows store');
+      return inProjects || inText;
+    });
+
+    return res.json(filtered);
   } catch (err) {
     console.error('Error en GET /ows-store/events:', err);
     return res.status(500).json({ error: 'Error interno' });

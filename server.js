@@ -2400,7 +2400,7 @@ async function migrateLegacyOwsNewsUpdatesToTimeline() {
       ORDER BY update_date DESC, created_at DESC, id DESC
       LIMIT 2000
     `);
-    if (!rows.length) return { migrated: 0 };
+    if (!rows.length) return { migrated: 0, garbageCollected: 0 };
 
     let migrated = 0;
     for (const row of rows) {
@@ -2429,7 +2429,32 @@ async function migrateLegacyOwsNewsUpdatesToTimeline() {
       });
       migrated += 1;
     }
-    return { migrated };
+
+    // Garbage collection: eliminar filas de timeline cuyo `sync_key` legacy
+    // (`legacy:ows_news_updates:N`) ya no tiene una fila fuente viva en
+    // `ows_news_updates`. Esto evita que se acumulen filas huerfanas cuando
+    // la fila legacy se borra o cuando su `banner_meta.sync_key` cambia
+    // (p.ej. una fila que pasa a ser un github-sync y la migracion deja de
+    // actualizarla, dejando el registro viejo en el timeline).
+    let garbageCollected = 0;
+    try {
+      const { rowCount } = await pool.query(`
+        DELETE FROM ows_store_timeline t
+        WHERE t.visual_meta->>'sync_key' ~ '^legacy:ows_news_updates:[0-9]+$'
+          AND NOT EXISTS (
+            SELECT 1 FROM ows_news_updates src
+            WHERE src.id = (t.visual_meta->>'legacy_news_id')::int
+          )
+      `);
+      garbageCollected = rowCount || 0;
+      if (garbageCollected > 0) {
+        console.log(`[OWS] Migracion GC: ${garbageCollected} filas legacy huerfanas eliminadas del timeline.`);
+      }
+    } catch (gcErr) {
+      console.log('[OWS] Aviso: garbage collection de legacy fallo:', gcErr?.message || gcErr);
+    }
+
+    return { migrated, garbageCollected };
   } catch (err) {
     console.log('[OWS] Error migrando ows_news_updates -> ows_store_timeline:', err?.message || err);
     return { migrated: 0, error: err?.message || 'migration error' };

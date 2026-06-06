@@ -1723,6 +1723,201 @@ async function ensureOwsStoreProjectsSeedData() {
   return { seeded: seeds.length };
 }
 
+/* ───────────────────────────────────────────────────────────────
+   CENTRO DE CONTROL OWS (admin catalog + owsrecover backup status)
+
+   ows_admin_projects   : catalogo admin-controlado de proyectos.
+                          El Owner (OceanandWild) lo gestiona. Proyectos
+                          con is_in_ows_store=false SOLO son visibles
+                          para los admins; nunca aparecen en OWS Store.
+   ows_project_backups  : estado de respaldo por proyecto. El server
+                          consulta la API publica de GitHub del repo
+                          owsrecover para verificar si la carpeta del
+                          proyecto existe y la fecha del ultimo commit
+                          que la afecta.
+
+   El Owner es la unica figura con permiso de escritura sobre el
+   catalogo. Cualquier admin (incluyendo el Owner) puede disparar
+   una verificacion de respaldos, pero los admins no-Owner reciben
+   una advertencia de "riesgo mortal" en el cliente (no perder el
+   puesto por no respaldar).
+─────────────────────────────────────────────────────────────── */
+const OWS_OWNER_NAME = 'oceanandwild';
+const OWS_RECOVER_REPO = 'OceanandWild/owsrecover';
+const OWS_RECOVER_PROBE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function isOwsStoreOwner(req) {
+  const adminName = String(req.headers['x-ows-admin-name'] || '').trim().toLowerCase();
+  return adminName === OWS_OWNER_NAME;
+}
+
+if (!globalThis.__owsRecoverProbeCache) {
+  globalThis.__owsRecoverProbeCache = new Map();
+}
+const owsRecoverProbeCache = globalThis.__owsRecoverProbeCache;
+
+async function fetchOwsRecoverProjectBackup(slug) {
+  const cleanSlug = String(slug || '').trim().toLowerCase();
+  if (!cleanSlug) {
+    return { exists: false, error: 'slug vacio' };
+  }
+  const cacheKey = cleanSlug;
+  const now = Date.now();
+  const cached = owsRecoverProbeCache.get(cacheKey);
+  if (cached && (now - Number(cached.ts || 0)) < OWS_RECOVER_PROBE_CACHE_TTL_MS) {
+    return cached.result;
+  }
+  const url = `https://api.github.com/repos/${OWS_RECOVER_REPO}/commits?path=${encodeURIComponent(cleanSlug)}&per_page=1`;
+  const headers = {
+    'User-Agent': 'OWS-Store-Server',
+    'Accept': 'application/vnd.github+json'
+  };
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      const result = {
+        exists: false,
+        error: `GitHub API ${res.status}`,
+        rateLimited: res.status === 403 || res.status === 429,
+        raw: text.slice(0, 200)
+      };
+      owsRecoverProbeCache.set(cacheKey, { ts: now, result });
+      return result;
+    }
+    const commits = await res.json();
+    if (Array.isArray(commits) && commits.length > 0) {
+      const first = commits[0] || {};
+      const commit = first.commit || {};
+      const dateRaw = commit.committer?.date || commit.author?.date || first.commit?.committer?.date || null;
+      const date = dateRaw ? new Date(dateRaw) : null;
+      const result = {
+        exists: true,
+        date: (date && !isNaN(date.getTime())) ? date.toISOString() : null,
+        sha: first.sha || null,
+        message: String(commit.message || '').split('\n')[0].slice(0, 160)
+      };
+      owsRecoverProbeCache.set(cacheKey, { ts: now, result });
+      return result;
+    }
+    const result = { exists: false, error: 'no commits affecting path' };
+    owsRecoverProbeCache.set(cacheKey, { ts: now, result });
+    return result;
+  } catch (err) {
+    return { exists: false, error: err?.message || 'fetch failed' };
+  }
+}
+
+async function verifyOwsProjectBackups({ adminName = 'OceanandWild', onlySlug = null } = {}) {
+  const params = [];
+  const where = [];
+  if (onlySlug) {
+    params.push(String(onlySlug).trim().toLowerCase());
+    where.push(`slug = $${params.length}`);
+  }
+  const { rows: projects } = await pool.query(
+    `SELECT slug FROM ows_admin_projects ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY slug`,
+    params
+  );
+  const results = [];
+  for (const project of projects) {
+    const slug = project.slug;
+    const probe = await fetchOwsRecoverProjectBackup(slug);
+    const checkedAt = new Date();
+    const status = probe.exists
+      ? 'ok'
+      : (probe.rateLimited ? 'rate_limited' : (probe.error ? 'error' : 'missing'));
+    const isBackedUp = Boolean(probe.exists);
+    const backupDate = probe.exists && probe.date ? probe.date : null;
+    const message = probe.exists
+      ? (probe.message || 'ok')
+      : (probe.error || 'Proyecto no encontrado en owsrecover');
+    await pool.query(
+      `INSERT INTO ows_project_backups
+         (project_slug, is_backed_up, backup_date, last_checked_at,
+          last_check_status, last_check_message, verified_by, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       ON CONFLICT (project_slug) DO UPDATE SET
+         is_backed_up = EXCLUDED.is_backed_up,
+         backup_date = EXCLUDED.backup_date,
+         last_checked_at = EXCLUDED.last_checked_at,
+         last_check_status = EXCLUDED.last_check_status,
+         last_check_message = EXCLUDED.last_check_message,
+         verified_by = EXCLUDED.verified_by,
+         updated_at = NOW()`,
+      [slug, isBackedUp, backupDate, checkedAt.toISOString(), status, message, adminName]
+    );
+    results.push({
+      project_slug: slug,
+      is_backed_up: isBackedUp,
+      backup_date: backupDate,
+      last_checked_at: checkedAt.toISOString(),
+      last_check_status: status,
+      last_check_message: message
+    });
+  }
+  return results;
+}
+
+async function ensureOwsAdminProjectsSeedData() {
+  // Solo sembramos si la tabla esta vacia. Asi la primera vez copiamos
+  // los proyectos que ya estan en OWS Store; luego el Owner puede agregar
+  // mas (con is_in_ows_store=false si quiere que sean admin-only) o
+  // marcar como obsoletos.
+  const { rows: countRows } = await pool.query('SELECT COUNT(*)::int AS n FROM ows_admin_projects');
+  const n = Number(countRows[0]?.n || 0);
+  if (n > 0) return { seeded: 0, skipped: true };
+
+  // Tomamos la lista "canonica" de proyectos desde ows_projects (que es
+  // la fuente de verdad de OWS Store). Si esa tabla esta vacia (caso
+  // borde), sembramos desde OWS_PROJECT_RELEASE_SOURCES para no romper
+  // el arranque.
+  let seeds = [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT slug, name, icon_url, metadata
+         FROM ows_projects
+         ORDER BY name ASC`
+    );
+    seeds = rows.map((r) => ({
+      slug: String(r.slug || '').trim().toLowerCase(),
+      name: String(r.name || r.slug || '').trim(),
+      icon_url: r.icon_url || null,
+      is_in_ows_store: true
+    })).filter((s) => s.slug);
+  } catch (_) {
+    seeds = [];
+  }
+
+  if (!seeds.length) {
+    seeds = OWS_PROJECT_RELEASE_SOURCES.map((p) => ({
+      slug: String(p.slug || '').trim().toLowerCase(),
+      name: p.name,
+      icon_url: null,
+      is_in_ows_store: true
+    })).filter((s) => s.slug);
+  }
+
+  let inserted = 0;
+  for (const item of seeds) {
+    try {
+      await pool.query(
+        `INSERT INTO ows_admin_projects
+           (slug, name, icon_url, is_in_ows_store, added_by)
+         VALUES ($1, $2, $3, TRUE, 'OceanandWild')
+         ON CONFLICT (slug) DO NOTHING`,
+        [item.slug, item.name, item.icon_url || null]
+      );
+      inserted += 1;
+    } catch (err) {
+      console.log(`[OWS] No se pudo sembrar admin-project ${item.slug}:`, err.message);
+    }
+  }
+  return { seeded: inserted, skipped: false };
+}
+
 async function ensureOwsStoreProjectOffersSeedData() {
   const seeds = [
     {
@@ -3727,12 +3922,63 @@ async function runDatabaseMigrations() {
       ON ows_project_offer_purchases(user_id, project_slug, claimed_by_project, status)
     `).catch(() => {});
 
+    // 17b. Catalogo admin-controlado de proyectos (Centro de Control OWS)
+    // El Owner (OceanandWild) controla este registro. Los proyectos con
+    // is_in_ows_store=false SOLO son visibles para los admins; el resto de
+    // usuarios nunca los ven. Esto desacopla el control interno de la lista
+    // publica de OWS Store.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_admin_projects(
+        id SERIAL PRIMARY KEY,
+        slug VARCHAR(80) UNIQUE NOT NULL,
+        name VARCHAR(140) NOT NULL,
+        icon_url TEXT,
+        is_in_ows_store BOOLEAN NOT NULL DEFAULT TRUE,
+        notes TEXT,
+        added_by VARCHAR(80) NOT NULL DEFAULT 'OceanandWild',
+        added_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(err => console.log('⚠️ Error creando ows_admin_projects:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_admin_projects_store_flag
+      ON ows_admin_projects(is_in_ows_store)
+    `).catch(() => {});
+
+    // 17c. Estado de respaldo por proyecto (verificacion contra owsrecover)
+    // El server consulta la API de GitHub del repo owsrecover para confirmar
+    // que la carpeta del proyecto existe y obtiene la fecha del ultimo commit
+    // que la afecta (esa es la fecha de respaldo que se muestra).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_project_backups(
+        project_slug VARCHAR(80) PRIMARY KEY
+          REFERENCES ows_admin_projects(slug) ON DELETE CASCADE,
+        is_backed_up BOOLEAN NOT NULL DEFAULT FALSE,
+        backup_date TIMESTAMP,
+        last_checked_at TIMESTAMP,
+        last_check_status VARCHAR(20) DEFAULT 'pending',
+        last_check_message TEXT,
+        verified_by VARCHAR(80),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(err => console.log('⚠️ Error creando ows_project_backups:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_project_backups_status
+      ON ows_project_backups(is_backed_up, backup_date)
+    `).catch(() => {});
+
     if (typeof ensureOwsStoreProjectsSeedData === 'function') {
       await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
     } else {
       console.warn('[OWS] ensureOwsStoreProjectsSeedData no definida, se omite seed de ows_projects.');
     }
     await syncOwsProjectRestrictionsTable().catch(err => console.log('[OWS] Error syncing ows_project_restrictions:', err.message));
+
+    if (typeof ensureOwsAdminProjectsSeedData === 'function') {
+      await ensureOwsAdminProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_admin_projects:', err.message));
+    } else {
+      console.warn('[OWS] ensureOwsAdminProjectsSeedData no definida, se omite seed de ows_admin_projects.');
+    }
 
     if (typeof ensureProjectChangelogSync === 'function') {
       await ensureProjectChangelogSync({ force: true }).catch(err => console.log('[OWS] Error syncing project changelogs:', err.message));
@@ -14316,6 +14562,216 @@ app.delete('/ows-store/projects/:slug', async (req, res) => {
   } catch (err) {
     console.error('Error en DELETE /ows-store/projects/:slug:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ───────────────────────────────────────────────────────────────
+   CENTRO DE CONTROL OWS — endpoints
+
+   GET    /ows-store/admin-projects            listar (admin)
+   POST   /ows-store/admin-projects            crear (Owner only)
+   PATCH  /ows-store/admin-projects/:slug      editar (Owner only)
+   DELETE /ows-store/admin-projects/:slug      eliminar (Owner only)
+
+   GET    /ows-store/project-backups           listar estado (admin)
+   POST   /ows-store/project-backups/verify    verificar todos (admin)
+   POST   /ows-store/project-backups/verify/:slug  verificar uno (admin)
+─────────────────────────────────────────────────────────────── */
+
+app.get('/ows-store/admin-projects', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        ap.id, ap.slug, ap.name, ap.icon_url, ap.is_in_ows_store, ap.notes,
+        ap.added_by, ap.added_at, ap.updated_at,
+        b.is_backed_up, b.backup_date, b.last_checked_at,
+        b.last_check_status, b.last_check_message, b.verified_by
+      FROM ows_admin_projects ap
+      LEFT JOIN ows_project_backups b ON b.project_slug = ap.slug
+      ORDER BY ap.is_in_ows_store DESC, ap.name ASC
+    `);
+    return res.json({ projects: rows, is_owner: isOwsStoreOwner(req) });
+  } catch (err) {
+    console.error('Error en GET /ows-store/admin-projects:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ows-store/admin-projects', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  if (!isOwsStoreOwner(req)) {
+    return res.status(403).json({
+      error: 'Solo el Propietario (OceanandWild) puede agregar proyectos al catalogo admin.'
+    });
+  }
+  const body = req.body || {};
+  const slug = String(body.slug || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+  const name = String(body.name || '').trim();
+  const icon_url = body.icon_url ? String(body.icon_url).trim() : null;
+  const is_in_ows_store = body.is_in_ows_store === undefined ? true : Boolean(body.is_in_ows_store);
+  const notes = body.notes ? String(body.notes).trim() : null;
+  if (!slug || !name) {
+    return res.status(400).json({ error: 'slug y name son obligatorios' });
+  }
+  const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ows_admin_projects
+         (slug, name, icon_url, is_in_ows_store, notes, added_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [slug, name, icon_url, is_in_ows_store, notes, adminName]
+    );
+    await pool.query(
+      `INSERT INTO ows_project_backups (project_slug, last_check_status)
+       VALUES ($1, 'pending') ON CONFLICT (project_slug) DO NOTHING`,
+      [slug]
+    );
+    logAdminActivity({
+      action: 'create', entityType: 'admin_project', entityId: slug,
+      entityName: name, adminName,
+      meta: { is_in_ows_store, icon_url: Boolean(icon_url) }
+    });
+    return res.status(201).json({ success: true, project: rows[0] });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ya existe un proyecto admin con ese slug.' });
+    }
+    console.error('Error en POST /ows-store/admin-projects:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  if (!isOwsStoreOwner(req)) {
+    return res.status(403).json({
+      error: 'Solo el Propietario (OceanandWild) puede editar el catalogo admin.'
+    });
+  }
+  const { slug } = req.params;
+  const body = req.body || {};
+  const allowed = ['name', 'icon_url', 'is_in_ows_store', 'notes'];
+  const updates = {};
+  for (const key of allowed) {
+    if (body[key] !== undefined) updates[key] = body[key];
+  }
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No hay campos validos para actualizar' });
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'name')) {
+    const name = String(updates.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name no puede estar vacio' });
+    updates.name = name;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'icon_url')) {
+    updates.icon_url = updates.icon_url ? String(updates.icon_url).trim() : null;
+  }
+  try {
+    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const values = [...Object.values(updates), slug];
+    const { rows } = await pool.query(
+      `UPDATE ows_admin_projects SET ${setClauses}, updated_at = NOW()
+        WHERE slug = $${values.length} RETURNING *`,
+      values
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Proyecto admin no encontrado' });
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    logAdminActivity({
+      action: 'edit', entityType: 'admin_project', entityId: slug,
+      entityName: rows[0].name, adminName,
+      meta: { fields: Object.keys(updates) }
+    });
+    return res.json({ success: true, project: rows[0] });
+  } catch (err) {
+    console.error('Error en PATCH /ows-store/admin-projects/:slug:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.delete('/ows-store/admin-projects/:slug', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  if (!isOwsStoreOwner(req)) {
+    return res.status(403).json({
+      error: 'Solo el Propietario (OceanandWild) puede eliminar proyectos del catalogo admin.'
+    });
+  }
+  const { slug } = req.params;
+  try {
+    const { rows: preRows } = await pool.query('SELECT name FROM ows_admin_projects WHERE slug = $1', [slug]);
+    const preName = preRows[0]?.name || slug;
+    const { rows } = await pool.query(
+      'DELETE FROM ows_admin_projects WHERE slug = $1 RETURNING slug',
+      [slug]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Proyecto admin no encontrado' });
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    logAdminActivity({
+      action: 'delete', entityType: 'admin_project', entityId: slug,
+      entityName: preName, adminName, meta: {}
+    });
+    return res.json({ success: true, deleted: rows[0].slug });
+  } catch (err) {
+    console.error('Error en DELETE /ows-store/admin-projects/:slug:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/ows-store/project-backups', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        ap.slug, ap.name, ap.icon_url, ap.is_in_ows_store,
+        b.is_backed_up, b.backup_date, b.last_checked_at,
+        b.last_check_status, b.last_check_message, b.verified_by, b.updated_at
+      FROM ows_admin_projects ap
+      LEFT JOIN ows_project_backups b ON b.project_slug = ap.slug
+      ORDER BY ap.is_in_ows_store DESC, ap.name ASC
+    `);
+    return res.json({
+      backups: rows,
+      is_owner: isOwsStoreOwner(req),
+      repo: OWS_RECOVER_REPO,
+      cache_ttl_ms: OWS_RECOVER_PROBE_CACHE_TTL_MS
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-store/project-backups:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ows-store/project-backups/verify', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    const results = await verifyOwsProjectBackups({ adminName });
+    return res.json({
+      success: true,
+      verified: results.length,
+      results,
+      is_owner: isOwsStoreOwner(req)
+    });
+  } catch (err) {
+    console.error('Error en POST /ows-store/project-backups/verify:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ows-store/project-backups/verify/:slug', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const { slug } = req.params;
+  try {
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    const results = await verifyOwsProjectBackups({ adminName, onlySlug: slug });
+    if (!results.length) {
+      return res.status(404).json({ error: 'Proyecto admin no encontrado' });
+    }
+    return res.json({ success: true, result: results[0] });
+  } catch (err) {
+    console.error('Error en POST /ows-store/project-backups/verify/:slug:', err);
+    return res.status(500).json({ error: 'Error interno' });
   }
 });
 

@@ -11348,7 +11348,6 @@ app.get('/ows-store/events', async (req, res) => {
               platforms,
               kind,
               visual_meta,
-              banner_meta,
               model_2d_payload,
               is_active,
               priority,
@@ -11370,7 +11369,6 @@ app.get('/ows-store/events', async (req, res) => {
     const now = Date.now();
     const list = rows.map((row) => {
       const visual = (row.visual_meta && typeof row.visual_meta === 'object') ? row.visual_meta : {};
-      const banner = (row.banner_meta && typeof row.banner_meta === 'object') ? row.banner_meta : {};
       const m2d = (row.model_2d_payload && typeof row.model_2d_payload === 'object') ? row.model_2d_payload : {};
       const startsAt = row.starts_at ? new Date(row.starts_at).toISOString() : null;
       const endsAt = row.ends_at ? new Date(row.ends_at).toISOString() : null;
@@ -11394,10 +11392,10 @@ app.get('/ows-store/events', async (req, res) => {
         project_names: projectNames,
         project_slugs: projectSlugs,
         platforms: Array.isArray(row.platforms) ? row.platforms.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [],
-        // Imagen / cover (prioridad: visual_meta.cover_url, banner_meta.cover_url, banner_meta.image, visual_meta.image)
-        cover_url: String(visual.cover_url || banner.cover_url || visual.image || banner.image || '').trim(),
-        thumbnail_url: String(visual.thumbnail_url || banner.thumbnail_url || '').trim(),
-        category: String(visual.category || banner.category || '').trim().toLowerCase() || 'event',
+        // Imagen / cover (visual_meta.cover_url / visual_meta.image)
+        cover_url: String(visual.cover_url || visual.image || '').trim(),
+        thumbnail_url: String(visual.thumbnail_url || '').trim(),
+        category: String(visual.category || '').trim().toLowerCase() || 'event',
         accent: String(visual.accent || m2d.accent || '').trim(),
         secondary: String(visual.secondary || m2d.secondary || '').trim(),
         phase,

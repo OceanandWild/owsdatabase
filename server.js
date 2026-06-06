@@ -11963,7 +11963,39 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
     if (explicitClear) {
       pushUpdate('visual_meta', {});
     } else if (hasUsefulKeys) {
-      pushUpdate('visual_meta', rawBanner);
+      // MEZCLA INTELIGENTE: si el banner_meta entrante solo trae alias de
+      // URL (lo que envia el form de edicion cuando el admin pone una URL
+      // nueva pero no toca nada mas), MERGE con el visual_meta actual
+      // en vez de sobrescribir. Asi sync_key, visual, category,
+      // image_type y otros campos clave se preservan al guardar.
+      const URL_KEYS = ['url', 'image', 'cover_url', 'image_url', 'banner_url', 'thumbnail_url'];
+      const incomingKeys = Object.keys(rawBanner);
+      const onlyUrlAliases = incomingKeys.every((k) => URL_KEYS.includes(k));
+      let finalMeta = rawBanner;
+      if (onlyUrlAliases) {
+        try {
+          const { rows: curRows } = await pool.query(
+            `SELECT visual_meta FROM ows_store_timeline WHERE id = $1 LIMIT 1`,
+            [id]
+          );
+          const existing = (curRows[0] && curRows[0].visual_meta && typeof curRows[0].visual_meta === 'object')
+            ? curRows[0].visual_meta
+            : {};
+          finalMeta = { ...existing, ...rawBanner };
+          // Si la URL entrante es distinta a la actual, actualizar todos
+          // los alias para que el render funcione en cualquier cliente.
+          const newCover = rawBanner.cover_url || rawBanner.image || rawBanner.url || '';
+          if (newCover) {
+            finalMeta.url = newCover;
+            finalMeta.image = newCover;
+            finalMeta.cover_url = newCover;
+            finalMeta.image_url = newCover;
+            finalMeta.banner_url = newCover;
+            finalMeta.thumbnail_url = finalMeta.thumbnail_url || newCover;
+          }
+        } catch (_) { /* noop, usar solo incoming */ }
+      }
+      pushUpdate('visual_meta', finalMeta);
     }
     // Si llega un objeto vacio sin flag clear, no tocamos visual_meta y
     // tampoco marcamos error: el admin probablemente no queria cambiar

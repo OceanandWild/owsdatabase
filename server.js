@@ -11330,6 +11330,92 @@ app.get('/ows-store/news', async (req, res) => {
   }
 });
 
+// OWS Store events feed (filtrado de ows_store_timeline por kind='event')
+// Usado por el cliente OWS Store para renderizar la seccion "Eventos"
+// en Explorar con imagenes (visual_meta.cover_url) servidas desde el servidor.
+app.get('/ows-store/events', async (req, res) => {
+  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const limit = Math.max(1, Math.min(60, normalizeNewsNumber(req.query.limit, 24)));
+  const onlyActive = !includeInactive;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id,
+              title,
+              description,
+              content_lines,
+              project_slugs,
+              project_names,
+              platforms,
+              kind,
+              visual_meta,
+              banner_meta,
+              model_2d_payload,
+              is_active,
+              priority,
+              starts_at,
+              ends_at,
+              published_at,
+              created_at,
+              updated_at
+         FROM ows_store_timeline
+        WHERE kind = 'event'
+          ${onlyActive ? 'AND is_active = TRUE' : ''}
+        ORDER BY priority DESC,
+                 COALESCE(starts_at, published_at, created_at) DESC NULLS LAST,
+                 created_at DESC
+        LIMIT $1`,
+      [limit]
+    );
+
+    const now = Date.now();
+    const list = rows.map((row) => {
+      const visual = (row.visual_meta && typeof row.visual_meta === 'object') ? row.visual_meta : {};
+      const banner = (row.banner_meta && typeof row.banner_meta === 'object') ? row.banner_meta : {};
+      const m2d = (row.model_2d_payload && typeof row.model_2d_payload === 'object') ? row.model_2d_payload : {};
+      const startsAt = row.starts_at ? new Date(row.starts_at).toISOString() : null;
+      const endsAt = row.ends_at ? new Date(row.ends_at).toISOString() : null;
+      const publishedAt = row.published_at ? new Date(row.published_at).toISOString() : null;
+      const startTs = startsAt ? Date.parse(startsAt) : 0;
+      const endTs = endsAt ? Date.parse(endsAt) : 0;
+      let phase = 'upcoming';
+      if (endTs && now > endTs) phase = 'ended';
+      else if (startTs && now < startTs) phase = 'upcoming';
+      else if (startTs && now >= startTs && (!endTs || now <= endTs)) phase = 'active';
+      else if (!startTs && !endTs) phase = 'active';
+
+      const projectNames = Array.isArray(row.project_names) ? row.project_names.map((x) => String(x || '').trim()).filter(Boolean) : [];
+      const projectSlugs = Array.isArray(row.project_slugs) ? row.project_slugs.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [];
+
+      return {
+        id: Number(row.id || 0),
+        title: String(row.title || 'Evento').trim(),
+        description: String(row.description || '').trim(),
+        changes: Array.isArray(row.content_lines) ? row.content_lines.map((x) => String(x || '').trim()).filter(Boolean) : [],
+        project_names: projectNames,
+        project_slugs: projectSlugs,
+        platforms: Array.isArray(row.platforms) ? row.platforms.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [],
+        // Imagen / cover (prioridad: visual_meta.cover_url, banner_meta.cover_url, banner_meta.image, visual_meta.image)
+        cover_url: String(visual.cover_url || banner.cover_url || visual.image || banner.image || '').trim(),
+        thumbnail_url: String(visual.thumbnail_url || banner.thumbnail_url || '').trim(),
+        category: String(visual.category || banner.category || '').trim().toLowerCase() || 'event',
+        accent: String(visual.accent || m2d.accent || '').trim(),
+        secondary: String(visual.secondary || m2d.secondary || '').trim(),
+        phase,
+        is_active: row.is_active !== false,
+        priority: Number(row.priority || 0),
+        starts_at: startsAt,
+        ends_at: endsAt,
+        published_at: publishedAt
+      };
+    });
+
+    return res.json(list);
+  } catch (err) {
+    console.error('Error en GET /ows-store/events:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 app.post('/ows-store/news', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const title = String(req.body?.title || '').trim();

@@ -1047,7 +1047,9 @@ function normalizeOwsNewsRow(row) {
     eventWindow: { startAt: eventStart, endAt: eventEnd },
     eventPhase,
     isEvent: entryType === 'event',
-    isBanner: entryType === 'banner'
+    isBanner: entryType === 'banner',
+    include_in_ows_store: safe.include_in_ows_store === true,
+    includeInOwsStore: safe.include_in_ows_store === true
   };
 }
 
@@ -1165,6 +1167,8 @@ async function upsertOwsNewsEntryBySyncKey({
   eventStart = null,
   eventEnd = null
 }) {
+  // NOTA: NO se actualiza `include_in_ows_store` aqui. Ese flag es solo
+  // modificable via PATCH (admin) y se preserva entre migraciones/seed.
   const entryKind = normalizeTimelineEntryType(entryType, 'changelog');
   const refs = normalizeTimelineProjectRefs(projectNames, projectSlugs);
   const cleanChanges = normalizeTimelineLines(changes);
@@ -3484,7 +3488,15 @@ async function runDatabaseMigrations() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );
-    `).catch(err => console.log('âš ï¸ Error creando ows_store_timeline:', err.message));
+    `).catch(err => console.log('âš ï¸ Error creando ows_store_timeline:', err.message));
+    await pool.query(`
+      ALTER TABLE ows_store_timeline
+      ADD COLUMN IF NOT EXISTS include_in_ows_store BOOLEAN DEFAULT FALSE
+    `).catch(err => console.log('âš ï¸ Error ALTER add include_in_ows_store:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_store_timeline_include_store
+      ON ows_store_timeline(include_in_ows_store)
+    `).catch(() => {});
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ows_store_timeline_kind
       ON ows_store_timeline(kind)
@@ -11386,7 +11398,8 @@ app.get('/ows-store/events', async (req, res) => {
               ends_at,
               published_at,
               created_at,
-              updated_at
+              updated_at,
+              include_in_ows_store
          FROM ows_store_timeline
         WHERE kind = 'event'
           ${onlyActive ? 'AND is_active = TRUE' : ''}
@@ -11434,7 +11447,8 @@ app.get('/ows-store/events', async (req, res) => {
         priority: Number(row.priority || 0),
         starts_at: startsAt,
         ends_at: endsAt,
-        published_at: publishedAt
+        published_at: publishedAt,
+        include_in_ows_store: row.include_in_ows_store === true
       };
     });
 
@@ -11449,7 +11463,17 @@ app.get('/ows-store/events', async (req, res) => {
     // del evento con OWS Store. Solo se acepta la mencion en `title`,
     // `description` o `project_names` (que es donde el autor declara el
     // vinculo real con el producto).
+    //
+    // BYPASS PERMANENTE: Si el evento tiene `include_in_ows_store = true`
+    // en la base de datos, se acepta siempre, independientemente del
+    // contenido. Esto es para teasers / anuncios de proyectos que aun no
+    // tienen nombre de proyecto asignado pero necesitan estar visibles en
+    // OWS Store desde el momento en que se publican. Es la unica forma de
+    // hacerlos aparecer sin revelar el proyecto (no se toca title/
+    // description/project_names) y de manera persistente (no depende de
+    // que un dia alguien reescriba el titulo y el match desaparezca).
     const filtered = list.filter((ev) => {
+      if (ev.include_in_ows_store === true) return true;
       const keys = Array.isArray(ev.project_names) ? ev.project_names : [];
       const inProjects = keys.some((k) => {
         const lk = String(k || '').toLowerCase();
@@ -11626,6 +11650,7 @@ app.post('/ows-news/updates', async (req, res) => {
     ? payload.banner_meta
     : ((payload.bannerMeta && typeof payload.bannerMeta === 'object') ? payload.bannerMeta : {});
   const isActive = normalizeNewsBoolean(payload.is_active ?? payload.isActive, true);
+  const includeInOwsStore = normalizeNewsBoolean(payload.include_in_ows_store ?? payload.includeInOwsStore, false);
   const priority = normalizeNewsNumber(payload.priority, 0);
   const updateDate = payload.update_date || payload.updateDate || null;
   const eventStart = payload.event_start || payload.eventStart || null;
@@ -11672,9 +11697,9 @@ app.post('/ows-news/updates', async (req, res) => {
       const { rows } = await pool.query(
         `INSERT INTO ows_store_timeline (
            project_slugs, project_names, title, description, content_lines, details, published_at, kind, platforms,
-           model_2d_key, model_2d_payload, visual_meta, is_active, priority, starts_at, ends_at
+           model_2d_key, model_2d_payload, visual_meta, is_active, priority, starts_at, ends_at, include_in_ows_store
          )
-         VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, NOW()),$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, NOW()),$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
          RETURNING *`,
         [
           refs.projectSlugs,
@@ -11692,7 +11717,8 @@ app.post('/ows-news/updates', async (req, res) => {
           isActive,
           priority,
           eventStart,
-          eventEnd
+          eventEnd,
+          includeInOwsStore
         ]
       );
       row = rows[0] || null;
@@ -11910,6 +11936,11 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
   if (payload.priority !== undefined) {
     const priority = normalizeNewsNumber(payload.priority, 0);
     pushUpdate('priority', priority);
+  }
+
+  if (payload.include_in_ows_store !== undefined || payload.includeInOwsStore !== undefined) {
+    const includeInOwsStore = normalizeNewsBoolean(payload.include_in_ows_store ?? payload.includeInOwsStore, false);
+    pushUpdate('include_in_ows_store', includeInOwsStore);
   }
 
   if (payload.update_date !== undefined || payload.updateDate !== undefined) {

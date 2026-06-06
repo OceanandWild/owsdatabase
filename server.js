@@ -11851,12 +11851,38 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
       let finalSlugs = [];
       let finalNames = [];
 
+      // Si el evento ya existe, capturar sus slugs actuales para que la
+      // validacion de "slugs inexistentes" solo marque como invalidos los
+      // slugs NUEVOS que el admin intenta agregar, no los que ya estaban.
+      // Esto es lo que permite editar / guardar teasers y eventos legacy
+      // cuyo project_name no tiene un proyecto registrado en ows_projects
+      // (p.ej. "Proyecto por confirmar" -> "proyecto-por-confirmar"):
+      // al re-enviar el mismo payload, todos los slugs coinciden con los
+      // actuales y la validacion pasa sin cambios.
+      let currentSlugs = [];
+      try {
+        const { rows: curRows } = await pool.query(
+          `SELECT project_slugs FROM ows_store_timeline WHERE id = $1 LIMIT 1`,
+          [id]
+        );
+        if (curRows[0] && Array.isArray(curRows[0].project_slugs)) {
+          currentSlugs = curRows[0].project_slugs
+            .map((s) => normalizeProjectSlug(s))
+            .filter(Boolean);
+        }
+      } catch (_) { /* noop */ }
+      const currentSlugSet = new Set(currentSlugs.map((s) => String(s || '').toLowerCase()));
+
       if (hasSlugs) {
         // Explicit slugs are authoritative
         finalSlugs = toNewsArray(payload.project_slugs || payload.projectSlugs || [])
           .map((x) => normalizeProjectSlug(x))
           .filter(Boolean);
-        const unknownSlugs = await getUnknownTimelineProjectSlugs(finalSlugs);
+        // Solo validar los slugs que el admin intenta AGREGAR (no los que
+        // ya estaban en el evento). Asi un teaser con slug ficticio
+        // pre-existente se puede re-editar sin romper.
+        const newSlugs = finalSlugs.filter((s) => !currentSlugSet.has(String(s || '').toLowerCase()));
+        const unknownSlugs = await getUnknownTimelineProjectSlugs(newSlugs);
         if (unknownSlugs.length) {
           return res.status(400).json({
             error: 'project_slugs contiene slugs inexistentes',
@@ -11871,7 +11897,9 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
         // Only project_names provided — derive slugs from them
         finalNames = toNewsArray(payload.project_names || payload.projectNames || []);
         const refs = normalizeTimelineProjectRefs(finalNames, []);
-        const unknownSlugs = await getUnknownTimelineProjectSlugs(refs.projectSlugs);
+        // Misma logica: solo validar los slugs derivados que no estaban antes.
+        const newSlugs = refs.projectSlugs.filter((s) => !currentSlugSet.has(String(s || '').toLowerCase()));
+        const unknownSlugs = await getUnknownTimelineProjectSlugs(newSlugs);
         if (unknownSlugs.length) {
           return res.status(400).json({
             error: 'project_names genera slugs inexistentes',

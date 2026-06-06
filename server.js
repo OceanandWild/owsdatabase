@@ -1104,29 +1104,28 @@ function resolveOwsProjectIconUrl(project) {
     return OWS_PROJECT_ICON_OVERRIDES[slug];
   }
 
-  // 3) Reconstruir desde repo + path relativo (./build/x.ico → raw URL .png si conocemos slug)
+  // 3) Sólo reconstruir desde repo si el campo actual ya contenía un hint
+  //    (path relativo del estilo './build/x.ext'). Si está vacío, no
+  //    inventamos URLs para evitar 404s.
   const meta = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
   const rawRepo = String(project?.repo || meta.repo || '').trim()
     .replace(/^https?:\/\/github\.com\//i, '')
     .replace(/\.git$/i, '');
   const repoMatch = rawRepo.match(/^([\w.-]+)\/([\w.-]+)$/i);
-  if (repoMatch) {
+  if (repoMatch && cur) {
     const owner = repoMatch[1];
     const name  = repoMatch[2];
-    // Si tenemos un path relativo del estilo './build/x.ext', usar ese basename
     const rel = cur.match(/[/\\]?build[/\\]([^/\\?]+)(?:\?.*)?$/i);
     if (rel) {
       // Reemplazar .ico → .png cuando sea posible (mejor renderizado en navegador)
       const base = rel[1].replace(/\.ico$/i, '.png');
       return `https://raw.githubusercontent.com/${owner}/${name}/main/build/${base}`;
     }
-    if (slug) {
-      return `https://raw.githubusercontent.com/${owner}/${name}/main/build/${slug}.png`;
-    }
   }
 
-  // 4) Sin información suficiente: devolver lo que haya (string vacío o relativo)
-  return cur;
+  // 4) Sin información suficiente: devolver string vacío para que el cliente
+  //    use su fallback visual (iniciales del proyecto).
+  return '';
 }
 
 async function fetchGithubLatestRelease(repo) {

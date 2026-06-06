@@ -11950,10 +11950,24 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
   }
 
   if (payload.banner_meta !== undefined || payload.bannerMeta !== undefined) {
-    const bannerMeta = (payload.banner_meta && typeof payload.banner_meta === 'object')
-      ? payload.banner_meta
-      : ((payload.bannerMeta && typeof payload.bannerMeta === 'object') ? payload.bannerMeta : {});
-    pushUpdate('visual_meta', bannerMeta);
+    const rawBanner = payload.banner_meta ?? payload.bannerMeta;
+    // PROTECCION CRITICA: si el admin envia un banner_meta VACIO ({} o
+    // equivalente) — cosa que hacia el form antes cuando el campo de URL
+    // estaba vacio al editar — NO sobrescribimos visual_meta. Eso borraba
+    // la imagen del evento. Solo actualizamos si el objeto trae datos
+    // utiles (cualquier clave con valor no vacio) o si se explicito la
+    // intencion de borrar con el flag `clear: true`.
+    const hasUsefulKeys = rawBanner && typeof rawBanner === 'object' && !Array.isArray(rawBanner)
+      && Object.values(rawBanner).some((v) => v !== null && v !== undefined && v !== '');
+    const explicitClear = rawBanner && typeof rawBanner === 'object' && rawBanner.clear === true;
+    if (explicitClear) {
+      pushUpdate('visual_meta', {});
+    } else if (hasUsefulKeys) {
+      pushUpdate('visual_meta', rawBanner);
+    }
+    // Si llega un objeto vacio sin flag clear, no tocamos visual_meta y
+    // tampoco marcamos error: el admin probablemente no queria cambiar
+    // la imagen y solo abrio el form.
   }
 
   if (payload.is_active !== undefined || payload.isActive !== undefined) {

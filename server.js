@@ -1073,6 +1073,62 @@ function inferPlatformsFromReleaseAssets(assets = [], fallback = ['windows']) {
   return [...set].filter(Boolean);
 }
 
+/* ───────────────────────────────────────────────────────────────
+   ICON URL NORMALIZATION (OWS Store /ows-store/projects)
+   Garantiza que el cliente reciba URLs absolutas válidas para los
+   iconos de proyectos. Si la DB tiene icon_url vacío o un path
+   relativo (ej: './build/x.ico'), aquí lo resolvemos a una URL
+   raw.githubusercontent.com pública (preferimos .png sobre .ico).
+─────────────────────────────────────────────────────────────── */
+const OWS_PROJECT_ICON_OVERRIDES = {
+  // slug canónico -> URL absoluta verificada (HTTP 200, image/*)
+  'dinobox':            'https://raw.githubusercontent.com/OceanandWild/dinobox/main/build/dinobox.jpg',
+  'ecoxion':            'https://raw.githubusercontent.com/OceanandWild/ecoxion/main/build/ecoxion.png',
+  'floretshop':         'https://raw.githubusercontent.com/OceanandWild/floretshop/main/assets/floretshopicon.png',
+  'oceanpay':           'https://raw.githubusercontent.com/OceanandWild/oceanpay/main/build/icon.png',
+  'savagespaceanimals': 'https://raw.githubusercontent.com/OceanandWild/savagespaceanimals/main/build/icon.png',
+  'velocity-surge':     'https://raw.githubusercontent.com/OceanandWild/velocity-surge/main/build/velocitysurge.png',
+  'wildtransfer':       'https://raw.githubusercontent.com/OceanandWild/wildtransfer/main/build/icon.png',
+  'wildwave':           'https://raw.githubusercontent.com/OceanandWild/wildwave/main/build/icon.png',
+  'wildshorts':         'https://raw.githubusercontent.com/OceanandWild/wildshorts/main/build/wildshorts.png'
+};
+
+function resolveOwsProjectIconUrl(project) {
+  const cur = String(project?.icon_url || '').trim();
+  // 1) URL absoluta (http/https) o data URI: válida tal cual
+  if (/^(https?:|data:)/i.test(cur)) return cur;
+
+  // 2) Override por slug canónico
+  const slug = String(project?.slug || '').trim().toLowerCase();
+  if (slug && OWS_PROJECT_ICON_OVERRIDES[slug]) {
+    return OWS_PROJECT_ICON_OVERRIDES[slug];
+  }
+
+  // 3) Reconstruir desde repo + path relativo (./build/x.ico → raw URL .png si conocemos slug)
+  const meta = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+  const rawRepo = String(project?.repo || meta.repo || '').trim()
+    .replace(/^https?:\/\/github\.com\//i, '')
+    .replace(/\.git$/i, '');
+  const repoMatch = rawRepo.match(/^([\w.-]+)\/([\w.-]+)$/i);
+  if (repoMatch) {
+    const owner = repoMatch[1];
+    const name  = repoMatch[2];
+    // Si tenemos un path relativo del estilo './build/x.ext', usar ese basename
+    const rel = cur.match(/[/\\]?build[/\\]([^/\\?]+)(?:\?.*)?$/i);
+    if (rel) {
+      // Reemplazar .ico → .png cuando sea posible (mejor renderizado en navegador)
+      const base = rel[1].replace(/\.ico$/i, '.png');
+      return `https://raw.githubusercontent.com/${owner}/${name}/main/build/${base}`;
+    }
+    if (slug) {
+      return `https://raw.githubusercontent.com/${owner}/${name}/main/build/${slug}.png`;
+    }
+  }
+
+  // 4) Sin información suficiente: devolver lo que haya (string vacío o relativo)
+  return cur;
+}
+
 async function fetchGithubLatestRelease(repo) {
   const url = `https://api.github.com/repos/${repo}/releases/latest`;
   const headers = {
@@ -10956,6 +11012,14 @@ app.get('/ows-store/projects', async (req, res) => {
         ensureComingSoonState(project);
       }
     }));
+
+    // Normalizar icon_url para que el cliente reciba siempre una URL
+    // absoluta utilizable (resuelve overrides por slug y paths relativos)
+    list.forEach((project) => {
+      try {
+        project.icon_url = resolveOwsProjectIconUrl(project);
+      } catch (_) { /* mantener valor original si algo falla */ }
+    });
 
     return res.json(list);
   } catch (err) {
@@ -30399,20 +30463,32 @@ app.get('/ows-store/windows/releases/wildweapon-mayhem/latest', async (req, res)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OWS STORE — SHUTDOWN / ERA TRANSITION CONFIG
-// GET  /ows-store/shutdown-config  → returns { return_date }  (public)
-// POST /ows-store/shutdown-config  → sets   { return_date }  (admin only)
+// GET  /ows-store/shutdown-config  → returns { return_date, active }  (public)
+// POST /ows-store/shutdown-config  → sets   { return_date, active }   (admin only)
 // ─────────────────────────────────────────────────────────────────────────────
 let owsShutdownReturnDate = process.env.OWS_SHUTDOWN_RETURN_DATE || '';
+// active=true  → overlay shown regardless of dates (admin override)
+// active=false → overlay dismissed regardless of dates (admin override)
+// active=null  → automatic: driven by return_date vs current time
+let owsShutdownActiveOverride = null;
 
 app.get('/ows-store/shutdown-config', (_req, res) => {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.json({ return_date: owsShutdownReturnDate });
+  res.json({
+    return_date: owsShutdownReturnDate,
+    active: owsShutdownActiveOverride   // null = auto, true = force on, false = force off
+  });
 });
 
 app.post('/ows-store/shutdown-config', (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const newDate = String(req.body?.return_date ?? '').trim();
+  // active override: accept true/false/null
+  const activeRaw = req.body?.active;
+  if (activeRaw === true || activeRaw === false || activeRaw === null) {
+    owsShutdownActiveOverride = activeRaw;
+  }
   owsShutdownReturnDate = newDate;
-  console.log(`[OWS SHUTDOWN] return_date actualizada a: "${owsShutdownReturnDate}"`);
-  res.json({ success: true, return_date: owsShutdownReturnDate });
+  console.log(`[OWS SHUTDOWN] return_date="${owsShutdownReturnDate}" active=${owsShutdownActiveOverride}`);
+  res.json({ success: true, return_date: owsShutdownReturnDate, active: owsShutdownActiveOverride });
 });

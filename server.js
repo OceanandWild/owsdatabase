@@ -11941,6 +11941,32 @@ app.delete('/ows-news/updates/:id', async (req, res) => {
   }
 });
 
+// DELETE /ows-news/legacy/:id - Eliminar fila legacy de ows_news_updates.
+// Necesario porque migrateLegacyOwsNewsUpdatesToTimeline() corre en cada
+// deploy y re-inserta cualquier row legacy borrada del timeline. Si
+// queremos que un evento legacy deje de aparecer para siempre, hay que
+// borrarlo de ambas tablas.
+app.delete('/ows-news/legacy/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'id invalido' });
+  }
+  try {
+    const { rows: preRows } = await pool.query('SELECT id, title FROM ows_news_updates WHERE id = $1', [id]);
+    const preTitle = preRows[0]?.title || '';
+    if (!preRows.length) return res.status(404).json({ error: 'Legacy row no encontrada' });
+    const { rowCount } = await pool.query('DELETE FROM ows_news_updates WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Legacy row no encontrada' });
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+    logAdminActivity({ action: 'delete', entityType: 'legacy_news', entityId: String(id), entityName: preTitle, adminName, meta: { source: 'ows_news_updates' } });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-news/legacy/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Proxy GitHub para evitar limites/CORS en cliente
 app.get('/ows-store/github/repos/:owner/:repo', githubProxyHandler);
 app.get('/ows-store/github/repos/:owner/:repo/*', githubProxyHandler);

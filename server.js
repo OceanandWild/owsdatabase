@@ -11448,6 +11448,8 @@ app.get('/ows-store/events', async (req, res) => {
         starts_at: startsAt,
         ends_at: endsAt,
         published_at: publishedAt,
+        created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+        updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null,
         include_in_ows_store: row.include_in_ows_store === true
       };
     });
@@ -11656,6 +11658,24 @@ app.post('/ows-news/updates', async (req, res) => {
   const eventStart = payload.event_start || payload.eventStart || null;
   const eventEnd = payload.event_end || payload.eventEnd || null;
 
+  // created_at SOLO modificable por el Propietario (OceanandWild). Cualquier
+  // otro admin que intente enviarlo recibe 403. Asi mantenemos un control
+  // estricto de la fecha de creacion: la pone una sola vez el Owner y no
+  // puede ser alterada por administradores secundarios.
+  const adminName = String(req.headers['x-ows-admin-name'] || '').trim().toLowerCase();
+  const isOwner = adminName === 'oceanandwild';
+  let customCreatedAt = null;
+  if (payload.created_at !== undefined || payload.createdAt !== undefined) {
+    if (!isOwner) {
+      return res.status(403).json({
+        error: 'created_at es de uso exclusivo del Propietario. Solicita permiso a OceanandWild para modificar la fecha de creación.'
+      });
+    }
+    const raw = payload.created_at || payload.createdAt;
+    const parsed = raw ? new Date(raw) : null;
+    customCreatedAt = (parsed && !isNaN(parsed.getTime())) ? parsed.toISOString() : null;
+  }
+
   try {
     const refs = normalizeTimelineProjectRefs(projectNames, projectSlugs);
     const unknownSlugs = await getUnknownTimelineProjectSlugs(refs.projectSlugs);
@@ -11668,6 +11688,12 @@ app.post('/ows-news/updates', async (req, res) => {
     const syncKey = String(bannerMeta?.sync_key || '').trim();
     let row = null;
     if (syncKey) {
+      // upsertOwsNewsEntryBySyncKey no acepta created_at (es interno del
+      // flujo de seeds). Si el Owner intenta fijar created_at aqui, hacemos
+      // un INSERT directo SIN syncKey (el sync_key se preserva via
+      // banner_meta en el INSERT, igual que hacia antes, pero con created_at
+      // controlado). En la practica, el flujo de admin del Panel SIEMPRE
+      // usa el path sin syncKey, asi que esta rama es de seeds/legado.
       row = await upsertOwsNewsEntryBySyncKey({
         syncKey,
         projectNames: refs.projectNames,
@@ -11697,9 +11723,10 @@ app.post('/ows-news/updates', async (req, res) => {
       const { rows } = await pool.query(
         `INSERT INTO ows_store_timeline (
            project_slugs, project_names, title, description, content_lines, details, published_at, kind, platforms,
-           model_2d_key, model_2d_payload, visual_meta, is_active, priority, starts_at, ends_at, include_in_ows_store
+           model_2d_key, model_2d_payload, visual_meta, is_active, priority, starts_at, ends_at, include_in_ows_store,
+           created_at
          )
-         VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, NOW()),$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, NOW()),$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
          RETURNING *`,
         [
           refs.projectSlugs,
@@ -11718,7 +11745,8 @@ app.post('/ows-news/updates', async (req, res) => {
           priority,
           eventStart,
           eventEnd,
-          includeInOwsStore
+          includeInOwsStore,
+          customCreatedAt
         ]
       );
       row = rows[0] || null;
@@ -12030,6 +12058,26 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
   if (payload.event_end !== undefined || payload.eventEnd !== undefined) {
     const eventEnd = payload.event_end || payload.eventEnd || null;
     pushUpdate('ends_at', eventEnd);
+  }
+
+  // created_at SOLO modificable por el Propietario (OceanandWild).
+  // Mantener la fecha de creacion original es importante para integridad
+  // historica; solo el Owner puede alterarla (p.ej. para corregir un seed
+  // mal migrado). Cualquier otro admin recibe 403 explicito.
+  if (payload.created_at !== undefined || payload.createdAt !== undefined) {
+    const patchAdmin = String(req.headers['x-ows-admin-name'] || '').trim().toLowerCase();
+    if (patchAdmin !== 'oceanandwild') {
+      return res.status(403).json({
+        error: 'created_at es de uso exclusivo del Propietario. Solicita permiso a OceanandWild para modificar la fecha de creación.'
+      });
+    }
+    const raw = payload.created_at || payload.createdAt;
+    const parsed = raw ? new Date(raw) : null;
+    if (parsed && !isNaN(parsed.getTime())) {
+      pushUpdate('created_at', parsed.toISOString());
+    } else {
+      return res.status(400).json({ error: 'created_at invalido' });
+    }
   }
 
   if (!updates.length) {

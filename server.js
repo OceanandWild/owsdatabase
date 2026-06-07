@@ -1097,18 +1097,34 @@ const OWS_PROJECT_ICON_OVERRIDES = {
 
 function resolveOwsProjectIconUrl(project) {
   const cur = String(project?.icon_url || '').trim();
-  // 1) URL absoluta (http/https) o data URI: válida tal cual
-  if (/^(https?:|data:)/i.test(cur)) return cur;
-
-  // 2) Override por slug canónico
   const slug = String(project?.slug || '').trim().toLowerCase();
+
+  // 1) data URI: válida tal cual (no se puede proxy)
+  if (/^data:/i.test(cur)) return cur;
+
+  // 2) Override por slug canónico (URL absoluta verificada HTTP 200 para
+  //    repos publicos como dinobox, ecoxion, etc.).
   if (slug && OWS_PROJECT_ICON_OVERRIDES[slug]) {
     return OWS_PROJECT_ICON_OVERRIDES[slug];
   }
 
-  // 3) Sólo reconstruir desde repo si el campo actual ya contenía un hint
-  //    (path relativo del estilo './build/x.ext'). Si está vacío, no
-  //    inventamos URLs para evitar 404s.
+  // 3) URL absoluta http/https:
+  //    - Si apunta a owsrecover (repo PRIVADO), raw.githubusercontent.com
+  //      devuelve 404 para cualquier usuario no autenticado. Reescribimos
+  //      al proxy del propio servidor, que usa GITHUB_TOKEN para servir el
+  //      binario al navegador.
+  //    - Si apunta a otro repo (publico), la dejamos como está.
+  if (/^https?:\/\//i.test(cur)) {
+    if (/raw\.githubusercontent\.com\/[^\/]+\/owsrecover\//i.test(cur)
+        || /github\.com\/[^\/]+\/owsrecover\//i.test(cur)) {
+      if (slug) return `/ows-store/admin-projects/${slug}/icon`;
+      return '';
+    }
+    return cur;
+  }
+
+  // 4) Reconstruir desde repo si el campo actual es un path relativo
+  //    ('./build/x.ext') y conocemos el repo. Si no, evitamos inventar URLs.
   const meta = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
   const rawRepo = String(project?.repo || meta.repo || '').trim()
     .replace(/^https?:\/\/github\.com\//i, '')
@@ -1119,14 +1135,23 @@ function resolveOwsProjectIconUrl(project) {
     const name  = repoMatch[2];
     const rel = cur.match(/[/\\]?build[/\\]([^/\\?]+)(?:\?.*)?$/i);
     if (rel) {
-      // Reemplazar .ico → .png cuando sea posible (mejor renderizado en navegador)
       const base = rel[1].replace(/\.ico$/i, '.png');
+      // Si el repo reconstruido es owsrecover, mandamos al proxy.
+      if (name.toLowerCase() === 'owsrecover' && slug) {
+        return `/ows-store/admin-projects/${slug}/icon`;
+      }
       return `https://raw.githubusercontent.com/${owner}/${name}/main/build/${base}`;
     }
   }
 
-  // 4) Sin información suficiente: devolver string vacío para que el cliente
-  //    use su fallback visual (iniciales del proyecto).
+  // 5) Si tenemos slug + github_folder, usar el proxy de owsrecover.
+  //    Caso comun: icon_url quedo vacio en DB tras migrar a BACKUP_STATUS.json.
+  if (slug && project?.github_folder) {
+    return `/ows-store/admin-projects/${slug}/icon`;
+  }
+
+  // 6) Sin información suficiente: devolver string vacío para que el
+  //    cliente use su fallback visual (iniciales del proyecto).
   return '';
 }
 
@@ -1966,6 +1991,81 @@ async function verifyOwsProjectBackups({ adminName = 'OceanandWild', onlySlug = 
     });
   }
   return results;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   ICON PROXY (sirve archivos de owsrecover al navegador)
+   owsrecover es un repo PRIVADO, por lo tanto raw.githubusercontent.com
+   devuelve 404 para usuarios no autenticados. Para que los iconos de
+   los proyectos que viven alli (OWS Store, Wild Destiny, WildWeapon
+   Mayhem, etc.) se vean en el admin panel y en la UI publica, este
+   proxy descarga el binario via la API de GitHub (con GITHUB_TOKEN)
+   y lo reenvia como image/* al cliente.
+
+   Cache: 1h para archivos encontrados, 5min para 404. Asi un push
+   reciente se refleja rapido, pero un icono estable no consume
+   rate-limit de GitHub en cada carga de pagina.
+   Endpoint publico (no requiere admin auth) porque los <img src> del
+   navegador no pueden enviar headers custom. La cache de 1h limita
+   el consumo de rate-limit a 1 llamada/hora por icono.
+─────────────────────────────────────────────────────────────── */
+const OWS_RECOVER_FILE_CACHE_TTL_MS = 60 * 60 * 1000;       // 1h (hit)
+const OWS_RECOVER_FILE_NEG_TTL_MS  =  5 * 60 * 1000;       // 5min (404)
+const OWS_RECOVER_FILE_CACHE_PREFIX = '__recover_file__';
+
+async function fetchOwsRecoverFile(filePath) {
+  const cleanPath = String(filePath || '').trim().replace(/^\/+/, '');
+  if (!cleanPath) return { ok: false, reason: 'invalid_path' };
+  const cacheKey = OWS_RECOVER_FILE_CACHE_PREFIX + cleanPath.toLowerCase();
+  const cached = owsRecoverProbeCache.get(cacheKey);
+  if (cached) {
+    const age = Date.now() - Number(cached.ts || 0);
+    const ttl = cached.result.ok ? OWS_RECOVER_FILE_CACHE_TTL_MS : OWS_RECOVER_FILE_NEG_TTL_MS;
+    if (age < ttl) return cached.result;
+  }
+  const url = `https://api.github.com/repos/${OWS_RECOVER_REPO}/contents/${encodeURI(cleanPath)}`;
+  const headers = {
+    'User-Agent': 'OWS-Store-Server',
+    'Accept': 'application/vnd.github+json'
+  };
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const res = await fetch(url, { headers, cache: 'no-store' });
+    if (!res.ok) {
+      const result = {
+        ok: false,
+        reason: res.status === 404 ? 'not_found' : 'api_error',
+        status: res.status,
+        rateLimited: res.status === 403 || res.status === 429,
+        error: res.status === 404
+          ? `${cleanPath} no existe en ${OWS_RECOVER_REPO}`
+          : `GitHub API ${res.status} para ${cleanPath}`
+      };
+      owsRecoverProbeCache.set(cacheKey, { ts: Date.now(), result });
+      return result;
+    }
+    const payload = await res.json();
+    const contentB64 = String(payload?.content || '').replace(/\n/g, '');
+    if (!contentB64) {
+      const result = { ok: false, reason: 'empty_content', error: 'GitHub devolvio contenido vacio', status: 200 };
+      owsRecoverProbeCache.set(cacheKey, { ts: Date.now(), result });
+      return result;
+    }
+    const result = {
+      ok: true,
+      reason: 'ok',
+      status: 200,
+      size: Number(payload?.size || 0),
+      mime: String(payload?.mime_type || 'application/octet-stream'),
+      contentB64,
+      path: cleanPath
+    };
+    owsRecoverProbeCache.set(cacheKey, { ts: Date.now(), result });
+    return result;
+  } catch (err) {
+    return { ok: false, reason: 'fetch_failed', status: 0, error: err?.message || 'fetch failed' };
+  }
 }
 
 async function ensureOwsAdminProjectsSeedData() {
@@ -14900,6 +15000,77 @@ app.delete('/ows-store/admin-projects/:slug', async (req, res) => {
     return res.json({ success: true, deleted: rows[0].slug });
   } catch (err) {
     console.error('Error en DELETE /ows-store/admin-projects/:slug:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// GET /ows-store/admin-projects/:slug/icon
+// Proxy que sirve el icono del proyecto desde owsrecover. Necesario
+// porque owsrecover es privado y raw.githubusercontent.com devuelve 404
+// para usuarios no autenticados. Endpoint PUBLICO (no requiere admin
+// auth) porque los <img src> del navegador no pueden enviar headers
+// custom; la cache de 1h limita el consumo de rate-limit a 1 llamada/
+// hora por icono.
+// Uso: <img src="/ows-store/admin-projects/<slug>/icon">
+// Override: <img src="...?file=OWS%20Store/build/icon.png"> (debugging)
+app.get('/ows-store/admin-projects/:slug/icon', async (req, res) => {
+  const cleanSlug = String(req.params.slug || '').trim().toLowerCase();
+  if (!cleanSlug) return res.status(400).json({ error: 'slug invalido' });
+  try {
+    const { rows } = await pool.query(
+      'SELECT slug, name, icon_url, github_folder FROM ows_admin_projects WHERE slug = $1',
+      [cleanSlug]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ error: `Proyecto "${cleanSlug}" no existe` });
+    }
+    const project = rows[0];
+    const folder = String(project.github_folder || cleanSlug).trim();
+    const override = req.query?.file ? String(req.query.file).trim() : '';
+    let candidates;
+    if (override) {
+      candidates = [override];
+    } else {
+      // Probar extensiones en orden: png (preferido) > jpg > jpeg > ico > webp > gif
+      candidates = ['png', 'jpg', 'jpeg', 'ico', 'webp', 'gif']
+        .map((ext) => `${folder}/build/icon.${ext}`);
+    }
+    for (const candidate of candidates) {
+      const file = await fetchOwsRecoverFile(candidate);
+      if (file.ok) {
+        const buf = Buffer.from(file.contentB64, 'base64');
+        let mime = String(file.mime || 'application/octet-stream');
+        if (mime === 'application/octet-stream' || mime === '') {
+          if (candidate.endsWith('.png')) mime = 'image/png';
+          else if (candidate.endsWith('.jpg') || candidate.endsWith('.jpeg')) mime = 'image/jpeg';
+          else if (candidate.endsWith('.ico')) mime = 'image/x-icon';
+          else if (candidate.endsWith('.webp')) mime = 'image/webp';
+          else if (candidate.endsWith('.gif')) mime = 'image/gif';
+          else mime = 'application/octet-stream';
+        }
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Content-Length', String(buf.length));
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('X-OWS-Icon-Source', 'owsrecover-proxy');
+        res.setHeader('X-OWS-Icon-Path', candidate);
+        return res.status(200).send(buf);
+      }
+      if (file.rateLimited) {
+        res.setHeader('Retry-After', '60');
+        return res.status(503).json({
+          error: 'Rate-limited por GitHub. Reintenta en unos minutos.',
+          source: 'github_api'
+        });
+      }
+    }
+    return res.status(404).json({
+      error: `No se encontro icono para "${cleanSlug}" en owsrecover`,
+      tried: candidates,
+      github_folder: folder,
+      hint: 'Sube el icono (icon.png) a owsrecover/<github_folder>/build/ y corré ejecutar-backup.bat'
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-store/admin-projects/:slug/icon:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

@@ -1818,13 +1818,18 @@ async function verifyOwsProjectBackups({ adminName = 'OceanandWild', onlySlug = 
     where.push(`slug = $${params.length}`);
   }
   const { rows: projects } = await pool.query(
-    `SELECT slug FROM ows_admin_projects ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY slug`,
+    `SELECT slug, github_folder FROM ows_admin_projects ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY slug`,
     params
   );
   const results = [];
   for (const project of projects) {
     const slug = project.slug;
-    const probe = await fetchOwsRecoverProjectBackup(slug);
+    // Preferimos el github_folder real (ej: 'OWS Store') sobre el slug
+    // normalizado. Si no hay github_folder configurado, caemos al slug
+    // como ultimo intento. Asi el Owner puede corregir el path exacto
+    // desde la UI para casos especiales.
+    const folderPath = String(project.github_folder || '').trim() || slug;
+    const probe = await fetchOwsRecoverProjectBackup(folderPath);
     const checkedAt = new Date();
     const status = probe.exists
       ? 'ok'
@@ -1833,7 +1838,7 @@ async function verifyOwsProjectBackups({ adminName = 'OceanandWild', onlySlug = 
     const backupDate = probe.exists && probe.date ? probe.date : null;
     const message = probe.exists
       ? (probe.message || 'ok')
-      : (probe.error || 'Proyecto no encontrado en owsrecover');
+      : (probe.error || `Carpeta "${folderPath}" no encontrada en ${OWS_RECOVER_REPO}`);
     await pool.query(
       `INSERT INTO ows_project_backups
          (project_slug, is_backed_up, backup_date, last_checked_at,
@@ -1870,6 +1875,31 @@ async function ensureOwsAdminProjectsSeedData() {
   const n = Number(countRows[0]?.n || 0);
   if (n > 0) return { seeded: 0, skipped: true };
 
+  // Mapping canonico slug -> nombre exacto de la carpeta en owsrecover.
+  // Los slugs estan normalizados (lowercase, sin espacios) pero las
+  // carpetas en owsrecover tienen mayusculas y espacios, asi que esto
+  // es necesario para que la verificacion contra GitHub funcione.
+  const GITHUB_FOLDER_BY_SLUG = {
+    'ows-store': 'OWS Store',
+    'a-wild-question-game': 'A Wild Question Game',
+    'dinobox': 'DinoBox',
+    'ecoxion': 'Ecoxion',
+    'floretshop': 'Floret Shop',
+    'incremental-cosmic-odyssey': 'Incremental Cosmic Odyssey',
+    'natbee': 'NatBee',
+    'naturepedia': 'Naturepedia',
+    'ocean-cinemas': 'Ocean Cinemas',
+    'oceanpay': 'Ocean Pay',
+    'savagespaceanimals': 'Savage Space Animals',
+    'velocity-surge': 'Velocity Surge',
+    'wild-destiny': 'Wild Destiny',
+    'wild-fireworks': 'Wild Fireworks',
+    'wildshorts': 'WildShorts',
+    'wildtransfer': 'WildTransfer',
+    'wildwave': 'WildWave',
+    'wildweapon-mayhem': 'WildWeapon Mayhem'
+  };
+
   // Tomamos la lista "canonica" de proyectos desde ows_projects (que es
   // la fuente de verdad de OWS Store). Si esa tabla esta vacia (caso
   // borde), sembramos desde OWS_PROJECT_RELEASE_SOURCES para no romper
@@ -1885,19 +1915,24 @@ async function ensureOwsAdminProjectsSeedData() {
       slug: String(r.slug || '').trim().toLowerCase(),
       name: String(r.name || r.slug || '').trim(),
       icon_url: r.icon_url || null,
-      is_in_ows_store: true
+      is_in_ows_store: true,
+      github_folder: GITHUB_FOLDER_BY_SLUG[String(r.slug || '').trim().toLowerCase()] || null
     })).filter((s) => s.slug);
   } catch (_) {
     seeds = [];
   }
 
   if (!seeds.length) {
-    seeds = OWS_PROJECT_RELEASE_SOURCES.map((p) => ({
-      slug: String(p.slug || '').trim().toLowerCase(),
-      name: p.name,
-      icon_url: null,
-      is_in_ows_store: true
-    })).filter((s) => s.slug);
+    seeds = OWS_PROJECT_RELEASE_SOURCES.map((p) => {
+      const slug = String(p.slug || '').trim().toLowerCase();
+      return {
+        slug,
+        name: p.name,
+        icon_url: null,
+        is_in_ows_store: true,
+        github_folder: GITHUB_FOLDER_BY_SLUG[slug] || null
+      };
+    }).filter((s) => s.slug);
   }
 
   let inserted = 0;
@@ -1905,10 +1940,10 @@ async function ensureOwsAdminProjectsSeedData() {
     try {
       await pool.query(
         `INSERT INTO ows_admin_projects
-           (slug, name, icon_url, is_in_ows_store, added_by)
-         VALUES ($1, $2, $3, TRUE, 'OceanandWild')
+           (slug, name, icon_url, is_in_ows_store, github_folder, added_by)
+         VALUES ($1, $2, $3, TRUE, $4, 'OceanandWild')
          ON CONFLICT (slug) DO NOTHING`,
-        [item.slug, item.name, item.icon_url || null]
+        [item.slug, item.name, item.icon_url || null, item.github_folder || null]
       );
       inserted += 1;
     } catch (err) {
@@ -3935,11 +3970,49 @@ async function runDatabaseMigrations() {
         icon_url TEXT,
         is_in_ows_store BOOLEAN NOT NULL DEFAULT TRUE,
         notes TEXT,
+        github_folder VARCHAR(160),
         added_by VARCHAR(80) NOT NULL DEFAULT 'OceanandWild',
         added_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `).catch(err => console.log('⚠️ Error creando ows_admin_projects:', err.message));
+    // Migracion: agregar columna github_folder a DBs existentes
+    await pool.query(`
+      ALTER TABLE ows_admin_projects
+      ADD COLUMN IF NOT EXISTS github_folder VARCHAR(160)
+    `).catch(() => console.log('⚠️ Columna github_folder ya existe en ows_admin_projects'));
+    // Backfill idempotente: para las filas existentes con github_folder NULL,
+    // completamos con el nombre real del folder en owsrecover segun el slug.
+    // Asi las migraciones previas (sin esta columna) quedan funcionales
+    // apenas Render haga el deploy.
+    const GITHUB_FOLDER_BACKFILL = {
+      'owstore': 'OWS Store',
+      'a-wild-question-game': 'A Wild Question Game',
+      'dinobox': 'DinoBox',
+      'ecoxion': 'Ecoxion',
+      'floretshop': 'Floret Shop',
+      'incremental-cosmic-odyssey': 'Incremental Cosmic Odyssey',
+      'natbee': 'NatBee',
+      'naturepedia': 'Naturepedia',
+      'ocean-cinemas': 'Ocean Cinemas',
+      'oceanpay': 'Ocean Pay',
+      'savagespaceanimals': 'Savage Space Animals',
+      'velocity-surge': 'Velocity Surge',
+      'wild-destiny': 'Wild Destiny',
+      'wild-fireworks': 'Wild Fireworks',
+      'wildshorts': 'WildShorts',
+      'wildtransfer': 'WildTransfer',
+      'wildwave': 'WildWave',
+      'wildweapon-mayhem': 'WildWeapon Mayhem'
+    };
+    for (const [slug, folder] of Object.entries(GITHUB_FOLDER_BACKFILL)) {
+      await pool.query(
+        `UPDATE ows_admin_projects
+            SET github_folder = $1
+          WHERE slug = $2 AND github_folder IS NULL`,
+        [folder, slug]
+      ).catch(() => {});
+    }
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ows_admin_projects_store_flag
       ON ows_admin_projects(is_in_ows_store)
@@ -14584,6 +14657,7 @@ app.get('/ows-store/admin-projects', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT
         ap.id, ap.slug, ap.name, ap.icon_url, ap.is_in_ows_store, ap.notes,
+        ap.github_folder,
         ap.added_by, ap.added_at, ap.updated_at,
         b.is_backed_up, b.backup_date, b.last_checked_at,
         b.last_check_status, b.last_check_message, b.verified_by
@@ -14617,6 +14691,7 @@ app.post('/ows-store/admin-projects', async (req, res) => {
   const icon_url = body.icon_url ? String(body.icon_url).trim() : null;
   const is_in_ows_store = body.is_in_ows_store === undefined ? true : Boolean(body.is_in_ows_store);
   const notes = body.notes ? String(body.notes).trim() : null;
+  const github_folder = body.github_folder ? String(body.github_folder).trim() : null;
   if (!slug || !name) {
     return res.status(400).json({ error: 'slug y name son obligatorios' });
   }
@@ -14624,10 +14699,10 @@ app.post('/ows-store/admin-projects', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `INSERT INTO ows_admin_projects
-         (slug, name, icon_url, is_in_ows_store, notes, added_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (slug, name, icon_url, is_in_ows_store, notes, github_folder, added_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [slug, name, icon_url, is_in_ows_store, notes, adminName]
+      [slug, name, icon_url, is_in_ows_store, notes, github_folder, adminName]
     );
     await pool.query(
       `INSERT INTO ows_project_backups (project_slug, last_check_status)
@@ -14637,7 +14712,7 @@ app.post('/ows-store/admin-projects', async (req, res) => {
     logAdminActivity({
       action: 'create', entityType: 'admin_project', entityId: slug,
       entityName: name, adminName,
-      meta: { is_in_ows_store, icon_url: Boolean(icon_url) }
+      meta: { is_in_ows_store, icon_url: Boolean(icon_url), github_folder: Boolean(github_folder) }
     });
     return res.status(201).json({ success: true, project: rows[0] });
   } catch (err) {
@@ -14658,7 +14733,7 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
   }
   const { slug } = req.params;
   const body = req.body || {};
-  const allowed = ['name', 'icon_url', 'is_in_ows_store', 'notes'];
+  const allowed = ['name', 'icon_url', 'is_in_ows_store', 'notes', 'github_folder'];
   const updates = {};
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key];
@@ -14673,6 +14748,9 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
   }
   if (Object.prototype.hasOwnProperty.call(updates, 'icon_url')) {
     updates.icon_url = updates.icon_url ? String(updates.icon_url).trim() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'github_folder')) {
+    updates.github_folder = updates.github_folder ? String(updates.github_folder).trim() : null;
   }
   try {
     const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
@@ -14729,7 +14807,7 @@ app.get('/ows-store/project-backups', async (req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT
-        ap.slug, ap.name, ap.icon_url, ap.is_in_ows_store,
+        ap.slug, ap.name, ap.icon_url, ap.is_in_ows_store, ap.github_folder,
         b.is_backed_up, b.backup_date, b.last_checked_at,
         b.last_check_status, b.last_check_message, b.verified_by, b.updated_at
       FROM ows_admin_projects ap

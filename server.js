@@ -1829,7 +1829,10 @@ async function fetchOwsRecoverBackupStatus() {
     let parsed = null;
     if (contentB64) {
       try {
-        const decoded = Buffer.from(contentB64, 'base64').toString('utf8');
+        let decoded = Buffer.from(contentB64, 'base64').toString('utf8');
+        // backup-to-github.ps1 (PowerShell Set-Content) puede escribir UTF-8 BOM.
+        // JSON.parse falla con '\uFEFF' al inicio. Lo removemos defensivamente.
+        if (decoded.charCodeAt(0) === 0xFEFF) decoded = decoded.slice(1);
         parsed = JSON.parse(decoded);
       } catch (_) {
         parsed = null;

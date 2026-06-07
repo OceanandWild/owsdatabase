@@ -15031,9 +15031,14 @@ app.get('/ows-store/admin-projects/:slug/icon', async (req, res) => {
     if (override) {
       candidates = [override];
     } else {
-      // Probar extensiones en orden: png (preferido) > jpg > jpeg > ico > webp > gif
-      candidates = ['png', 'jpg', 'jpeg', 'ico', 'webp', 'gif']
-        .map((ext) => `${folder}/build/icon.${ext}`);
+      // Probar primero assets/ (sincronizado por backup script) y luego
+      // build/ (que el backup script excluye por ser output de Electron,
+      // pero a veces contiene el icono historico de Electron).
+      const exts = ['png', 'jpg', 'jpeg', 'ico', 'webp', 'gif'];
+      candidates = [
+        ...exts.map((ext) => `${folder}/assets/icon.${ext}`),
+        ...exts.map((ext) => `${folder}/build/icon.${ext}`)
+      ];
     }
     for (const candidate of candidates) {
       const file = await fetchOwsRecoverFile(candidate);

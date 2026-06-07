@@ -1756,18 +1756,20 @@ if (!globalThis.__owsRecoverProbeCache) {
 }
 const owsRecoverProbeCache = globalThis.__owsRecoverProbeCache;
 
-async function fetchOwsRecoverProjectBackup(slug) {
-  const cleanSlug = String(slug || '').trim().toLowerCase();
-  if (!cleanSlug) {
-    return { exists: false, error: 'slug vacio' };
-  }
-  const cacheKey = cleanSlug;
+const OWS_RECOVER_STATUS_FILE = 'BACKUP_STATUS.json';
+const OWS_RECOVER_STATUS_CACHE_KEY = '__status_json__';
+
+// Descargamos el archivo BACKUP_STATUS.json desde owsrecover UNA sola vez
+// y lo cacheamos por OWS_RECOVER_PROBE_CACHE_TTL_MS. A partir de ese JSON
+// resolvemos cada proyecto por nombre de carpeta (github_folder).
+// Es la unica fuente autoritativa: la escribe backup-to-github.ps1.
+async function fetchOwsRecoverBackupStatus() {
   const now = Date.now();
-  const cached = owsRecoverProbeCache.get(cacheKey);
+  const cached = owsRecoverProbeCache.get(OWS_RECOVER_STATUS_CACHE_KEY);
   if (cached && (now - Number(cached.ts || 0)) < OWS_RECOVER_PROBE_CACHE_TTL_MS) {
     return cached.result;
   }
-  const url = `https://api.github.com/repos/${OWS_RECOVER_REPO}/commits?path=${encodeURIComponent(cleanSlug)}&per_page=1`;
+  const url = `https://api.github.com/repos/${OWS_RECOVER_REPO}/contents/${OWS_RECOVER_STATUS_FILE}`;
   const headers = {
     'User-Agent': 'OWS-Store-Server',
     'Accept': 'application/vnd.github+json'
@@ -1775,39 +1777,125 @@ async function fetchOwsRecoverProjectBackup(slug) {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { headers, cache: 'no-store' });
     if (!res.ok) {
+      // 404 = el archivo todavia no fue creado por el script. Eso es un
+      // estado valido, no es "rate limit" — el admin deberia correr el
+      // backup al menos una vez para que se genere.
       const text = await res.text().catch(() => '');
       const result = {
-        exists: false,
-        error: `GitHub API ${res.status}`,
+        ok: false,
+        reason: res.status === 404 ? 'status_file_missing' : 'api_error',
+        status: res.status,
         rateLimited: res.status === 403 || res.status === 429,
-        raw: text.slice(0, 200)
+        error: res.status === 404
+          ? `${OWS_RECOVER_STATUS_FILE} aun no existe en ${OWS_RECOVER_REPO} (corre backup-to-github.ps1 al menos una vez)`
+          : `GitHub API ${res.status}`,
+        raw: text.slice(0, 200),
+        lastFullBackup: null,
+        projects: {}
       };
-      owsRecoverProbeCache.set(cacheKey, { ts: now, result });
+      owsRecoverProbeCache.set(OWS_RECOVER_STATUS_CACHE_KEY, { ts: now, result });
       return result;
     }
-    const commits = await res.json();
-    if (Array.isArray(commits) && commits.length > 0) {
-      const first = commits[0] || {};
-      const commit = first.commit || {};
-      const dateRaw = commit.committer?.date || commit.author?.date || first.commit?.committer?.date || null;
-      const date = dateRaw ? new Date(dateRaw) : null;
+    const payload = await res.json();
+    const contentB64 = String(payload?.content || '').replace(/\n/g, '');
+    let parsed = null;
+    if (contentB64) {
+      try {
+        const decoded = Buffer.from(contentB64, 'base64').toString('utf8');
+        parsed = JSON.parse(decoded);
+      } catch (_) {
+        parsed = null;
+      }
+    }
+    if (!parsed || typeof parsed !== 'object') {
       const result = {
-        exists: true,
-        date: (date && !isNaN(date.getTime())) ? date.toISOString() : null,
-        sha: first.sha || null,
-        message: String(commit.message || '').split('\n')[0].slice(0, 160)
+        ok: false,
+        reason: 'status_file_invalid',
+        status: 200,
+        rateLimited: false,
+        error: `${OWS_RECOVER_STATUS_FILE} no se pudo parsear`,
+        lastFullBackup: null,
+        projects: {}
       };
-      owsRecoverProbeCache.set(cacheKey, { ts: now, result });
+      owsRecoverProbeCache.set(OWS_RECOVER_STATUS_CACHE_KEY, { ts: now, result });
       return result;
     }
-    const result = { exists: false, error: 'no commits affecting path' };
-    owsRecoverProbeCache.set(cacheKey, { ts: now, result });
+    // Aceptamos 'web_projects' (lo que escribe backup-to-github.ps1) y
+    // 'projects' como alias para retro-compatibilidad. Asi si en el
+    // futuro cambia la convencion seguimos funcionando.
+    const projects = (parsed.web_projects && typeof parsed.web_projects === 'object')
+      ? parsed.web_projects
+      : ((parsed.projects && typeof parsed.projects === 'object') ? parsed.projects : {});
+    const result = {
+      ok: true,
+      reason: 'ok',
+      status: 200,
+      rateLimited: false,
+      lastFullBackup: parsed.last_full_backup || null,
+      scriptVersion: parsed.script_version || null,
+      schemaVersion: parsed.schema_version || 1,
+      projects,
+      rawSize: contentB64.length
+    };
+    owsRecoverProbeCache.set(OWS_RECOVER_STATUS_CACHE_KEY, { ts: now, result });
     return result;
   } catch (err) {
-    return { exists: false, error: err?.message || 'fetch failed' };
+    const result = {
+      ok: false,
+      reason: 'fetch_failed',
+      status: 0,
+      rateLimited: false,
+      error: err?.message || 'fetch failed',
+      lastFullBackup: null,
+      projects: {}
+    };
+    owsRecoverProbeCache.set(OWS_RECOVER_STATUS_CACHE_KEY, { ts: now, result });
+    return result;
   }
+}
+
+async function fetchOwsRecoverProjectBackup(slug) {
+  const cleanSlug = String(slug || '').trim();
+  if (!cleanSlug) {
+    return { exists: false, error: 'slug vacio' };
+  }
+  const status = await fetchOwsRecoverBackupStatus();
+  if (!status || !status.ok) {
+    if (status?.reason === 'status_file_missing') {
+      return {
+        exists: false,
+        rateLimited: false,
+        error: status.error,
+        statusFileMissing: true
+      };
+    }
+    return {
+      exists: false,
+      rateLimited: Boolean(status?.rateLimited),
+      error: status?.error || 'status file no disponible'
+    };
+  }
+  // Buscamos por nombre exacto del folder (case-sensitive, con espacios).
+  // El script escribe el mismo nombre que esta en github_folder del DB.
+  const folderKey = cleanSlug;
+  const isoDate = status.projects[folderKey];
+  if (!isoDate) {
+    return {
+      exists: false,
+      error: `Proyecto "${folderKey}" no figura en ${OWS_RECOVER_STATUS_FILE} (corri el script de backup)`,
+      statusFileMissing: false,
+      statusLastBackup: status.lastFullBackup
+    };
+  }
+  const date = new Date(isoDate);
+  return {
+    exists: true,
+    date: !isNaN(date.getTime()) ? date.toISOString() : null,
+    message: `Respaldado el ${isoDate} (script v${status.scriptVersion || '?'})`,
+    lastFullBackup: status.lastFullBackup
+  };
 }
 
 async function verifyOwsProjectBackups({ adminName = 'OceanandWild', onlySlug = null } = {}) {

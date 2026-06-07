@@ -1082,6 +1082,7 @@ function inferPlatformsFromReleaseAssets(assets = [], fallback = ['windows']) {
    relativo (ej: './build/x.ico'), aquí lo resolvemos a una URL
    raw.githubusercontent.com pública (preferimos .png sobre .ico).
 ─────────────────────────────────────────────────────────────── */
+const OWS_PUBLIC_BASE_URL = 'https://owsdatabase.onrender.com';
 const OWS_PROJECT_ICON_OVERRIDES = {
   // slug canónico -> URL absoluta verificada (HTTP 200, image/*)
   'dinobox':            'https://raw.githubusercontent.com/OceanandWild/dinobox/main/build/dinobox.jpg',
@@ -1117,7 +1118,7 @@ function resolveOwsProjectIconUrl(project) {
   if (/^https?:\/\//i.test(cur)) {
     if (/raw\.githubusercontent\.com\/[^\/]+\/owsrecover\//i.test(cur)
         || /github\.com\/[^\/]+\/owsrecover\//i.test(cur)) {
-      if (slug) return `/ows-store/admin-projects/${slug}/icon`;
+      if (slug) return `${OWS_PUBLIC_BASE_URL}/ows-store/admin-projects/${slug}/icon`;
       return '';
     }
     return cur;
@@ -1138,7 +1139,7 @@ function resolveOwsProjectIconUrl(project) {
       const base = rel[1].replace(/\.ico$/i, '.png');
       // Si el repo reconstruido es owsrecover, mandamos al proxy.
       if (name.toLowerCase() === 'owsrecover' && slug) {
-        return `/ows-store/admin-projects/${slug}/icon`;
+        return `${OWS_PUBLIC_BASE_URL}/ows-store/admin-projects/${slug}/icon`;
       }
       return `https://raw.githubusercontent.com/${owner}/${name}/main/build/${base}`;
     }
@@ -1147,7 +1148,7 @@ function resolveOwsProjectIconUrl(project) {
   // 5) Si tenemos slug + github_folder, usar el proxy de owsrecover.
   //    Caso comun: icon_url quedo vacio en DB tras migrar a BACKUP_STATUS.json.
   if (slug && project?.github_folder) {
-    return `/ows-store/admin-projects/${slug}/icon`;
+    return `${OWS_PUBLIC_BASE_URL}/ows-store/admin-projects/${slug}/icon`;
   }
 
   // 6) Sin información suficiente: devolver string vacío para que el

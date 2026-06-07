@@ -4088,7 +4088,7 @@ async function runDatabaseMigrations() {
     // Asi las migraciones previas (sin esta columna) quedan funcionales
     // apenas Render haga el deploy.
     const GITHUB_FOLDER_BACKFILL = {
-      'owstore': 'OWS Store',
+      'ows-store': 'OWS Store',
       'a-wild-question-game': 'A Wild Question Game',
       'dinobox': 'DinoBox',
       'ecoxion': 'Ecoxion',

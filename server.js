@@ -2046,7 +2046,19 @@ async function fetchOwsRecoverFile(filePath) {
       return result;
     }
     const payload = await res.json();
-    const contentB64 = String(payload?.content || '').replace(/\n/g, '');
+    let contentB64 = String(payload?.content || '').replace(/\n/g, '');
+    // GitHub API omite el campo 'content' para archivos > 1MB y devuelve
+    // un git_url al blob. Hay que hacer un segundo fetch para bajarlo.
+    // Si el content esta vacio y hay git_url, pedimos el blob aparte.
+    if (!contentB64 && payload?.git_url) {
+      try {
+        const blobRes = await fetch(String(payload.git_url), { headers, cache: 'no-store' });
+        if (blobRes.ok) {
+          const blobPayload = await blobRes.json();
+          contentB64 = String(blobPayload?.content || '').replace(/\n/g, '');
+        }
+      } catch (_) { /* caemos al empty_content mas abajo */ }
+    }
     if (!contentB64) {
       const result = { ok: false, reason: 'empty_content', error: 'GitHub devolvio contenido vacio', status: 200 };
       owsRecoverProbeCache.set(cacheKey, { ts: Date.now(), result });

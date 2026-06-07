@@ -40,3 +40,10 @@ Estas reglas tienen prioridad operativa cuando se trabaje en este workspace, esp
 - Si el usuario NO pidió release/publicación → correr `ejecutar-backup.bat` sin parámetros (queda como `WIP-YYYY.M.D-tHHMM`).
 - Si el usuario SÍ pidió release → correr `ejecutar-backup.bat -version <version-real>` (la misma que se bumpea en OWS Store).
 - WIP ≠ Release. WIP = cambios de preparación, no publicados. Release = cambio publicado con versión fija.
+
+8. OWS Admin Panel = SOLO LOCAL (OBLIGATORIO)
+- La carpeta `OWS Admin Panel/` contiene secretos, rutas internas y lógica de autenticación. NUNCA debe estar en owsdatabase ni en owsrecover como archivo trackeado.
+- Está en `.gitignore` (carpeta entera). Si se trackeó por error, usar `git rm --cached` para sacarlo.
+- El servidor de producción (Render) NUNCA debe servir el panel: la línea `app.use('/ows-admin-panel', express.static(...))` está PROHIBIDA.
+- Para usar el panel: abrir localmente vía Live Server (VSCode, puerto 5501) o `npx http-server`. La API_BASE se autodetecta y apunta a `https://owsdatabase.onrender.com` en cualquier caso local.
+- CORS ya está abierto (`origin: true, credentials: true`) para permitir llamadas desde localhost/file:// al Render.

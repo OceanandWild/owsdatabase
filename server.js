@@ -6506,8 +6506,10 @@ function recordAdminFailure(req) {
   return false;
 }
 
-// Servir OWS Admin Panel de forma estática
-app.use('/ows-admin-panel', express.static(join(__dirname, 'OWS Admin Panel')));
+// OWS Admin Panel: NUNCA se sirve desde el servidor de producción.
+// El panel contiene secretos y rutas internas; debe abrirse en local
+// (Live Server VSCode, http-server, o doble click) y consumir esta API
+// por CORS. La API_BASE del cliente apunta a https://owsdatabase.onrender.com.
 
 // Endpoints del Panel de Administración OWS
 app.post('/ows-admin-panel/login', checkAdminLockout, async (req, res) => {

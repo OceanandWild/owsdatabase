@@ -19,6 +19,7 @@ PRIORIDAD MAXIMA (NO OMITIR):
 - OBLIGATORIO: Hacer git push al finalizar CADA tarea para evitar perdida de codigo.
 - Cuando finalices una tarea, haz git push SOLO de los archivos del proyecto trabajado en esa tarea.
 - REGLA ABSOLUTA DE SEGURIDAD: NUNCA, bajo ningún concepto, hacer git push de la carpeta 'OWS Admin Panel'. Esta carpeta está estrictamente restringida a desarrollo local y debe permanecer ignorada por completo en el archivo .gitignore.
+- OWS Admin Panel es 100% LOCAL: contiene secretos, rutas internas y logica de autenticacion. No debe estar en owsdatabase ni en owsrecover como archivo trackeado. Esta en .gitignore (carpeta entera). Si por error se trackeo, usar `git rm --cached` para sacarlo. La ruta `app.use('/ows-admin-panel', express.static(...))` en server.js esta PROHIBIDA (Render no debe servir el panel). Para usar el panel: abrir localmente via Live Server (VSCode, puerto 5501) o `npx http-server`. La API_BASE del cliente se autodetecta y apunta a `https://owsdatabase.onrender.com` en cualquier caso local. CORS ya esta abierto (`origin: true, credentials: true`) para permitir llamadas desde localhost/file:// al Render.
 
 
 --- PROTOCOLO EMERGENCY PUSH (archivos grandes/git bloqueado) ---

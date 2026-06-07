@@ -110,6 +110,10 @@ $statusObject = [ordered]@{
 $statusJson = $statusObject | ConvertTo-Json -Depth 5
 $statusPath = Join-Path $BACKUP_WEB "BACKUP_STATUS.json"
 Set-Content -LiteralPath $statusPath -Value $statusJson -Encoding UTF8 -Force
+# NOTA: PowerShell 5.1 Set-Content -Encoding UTF8 escribe BOM (EF BB BF) que rompe JSON.parse en Node.
+# Lo removemos explicitamente para mantener el archivo compatible con clientes estrictos.
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($statusPath, $statusJson, $utf8NoBom)
 Write-Host "   BACKUP_STATUS.json escrito con $($statusProjects.Count) proyectos (version: $version, wip: $isWip)" -ForegroundColor DarkGray
 
 # ─────────────────────────────────────────────────────────────────────────────

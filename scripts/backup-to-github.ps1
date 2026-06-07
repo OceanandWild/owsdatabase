@@ -4,7 +4,8 @@
 
 [CmdletBinding()]
 param(
-    [string]$version = ""
+    [string]$version = "",
+    [string]$OnlyFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,6 +41,9 @@ Write-Host "=== INICIANDO RESPALDO AUTOMATICO OWS ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Version registrada: $version" -ForegroundColor $(if ($isWip) { 'Yellow' } else { 'Green' })
 Write-Host "Timestamp Uruguay : $uryTimestamp" -ForegroundColor DarkGray
+if ($OnlyFile) {
+    Write-Host "Solo archivo      : $OnlyFile" -ForegroundColor Magenta
+}
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,33 +51,54 @@ Write-Host ""
 # ─────────────────────────────────────────────────────────────────────────────
 Write-Host ">> Sincronizando proyectos Web..." -ForegroundColor Yellow
 
-$webProjects = Get-ChildItem -Path $DEV_WEB -Directory | Where-Object { 
-    $_.Name -notmatch "Discontinued Projects" -and 
+$webProjects = Get-ChildItem -Path $DEV_WEB -Directory | Where-Object {
+    $_.Name -notmatch "Discontinued Projects" -and
     (Test-Path (Join-Path $_.FullName "index.html"))
 }
 
-foreach ($proj in $webProjects) {
-    $src = $proj.FullName
-    $dest = Join-Path $BACKUP_WEB $proj.Name
-    
-    Write-Host "   Sincronizando: $($proj.Name)" -ForegroundColor DarkGray
-    New-Item -ItemType Directory -Path $dest -Force | Out-Null
-    
-    # Robocopy para copiar de forma inteligente
-    $robocopyArgs = @(
-        "`"$src`"", "`"$dest`"", "/E", "/NFL", "/NDL", "/NP", "/R:1", "/W:1",
-        "/XD", "node_modules", "android\build", "android\.gradle", "android\app\build", "android\capacitor-cordova-android-plugins", ".git", "build", "dist", "out", "www", ".cache",
-        "/XF", "*.apk", "*.aab", "*.keystore", "*.jks", "*.log", "shadow_pulse_astats.txt", "temp_eclipse_astats.txt"
-    )
-    & robocopy $robocopyArgs | Out-Null
-}
+# MODO SELECTIVO: si -OnlyFile esta definido, sincronizar solo ese archivo.
+# Ruta relativa a $DEV_WEB (ej: "OWS Store/index.html").
+# BACKUP_STATUS.json se regenera con el listado completo igualmente, para
+# mantener consistencia con el server de OWS.
+if ($OnlyFile) {
+    $onlyFileClean = $OnlyFile -replace '\\', '/'
+    $onlyFileSrc = Join-Path $DEV_WEB $onlyFileClean
+    if (-not (Test-Path $onlyFileSrc)) {
+        Write-Host "   ERROR: archivo no encontrado: $onlyFileSrc" -ForegroundColor Red
+        exit 1
+    }
+    $onlyFileName = Split-Path $onlyFileClean -Leaf
+    $onlyProjectFolder = Split-Path $onlyFileClean -Parent
+    if (-not $onlyProjectFolder) { $onlyProjectFolder = "." }
+    $onlyDestFolder = Join-Path $BACKUP_WEB $onlyProjectFolder
+    $onlyDestFile = Join-Path $onlyDestFolder $onlyFileName
+    New-Item -ItemType Directory -Path $onlyDestFolder -Force | Out-Null
+    Copy-Item -Path $onlyFileSrc -Destination $onlyDestFile -Force
+    Write-Host "   Copiado: $onlyFileClean" -ForegroundColor DarkGray
+} else {
+    foreach ($proj in $webProjects) {
+        $src = $proj.FullName
+        $dest = Join-Path $BACKUP_WEB $proj.Name
 
-# Sincronizar scripts y secrets específicamente
-Write-Host "   Sincronizando scripts y secrets..." -ForegroundColor DarkGray
-New-Item -ItemType Directory -Path (Join-Path $BACKUP_WEB "OWS Store\scripts") -Force | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $BACKUP_WEB "secrets") -Force | Out-Null
-& robocopy "`"$DEV_WEB\OWS Store\scripts`"" "`"$BACKUP_WEB\OWS Store\scripts`"" /E /NFL /NDL /NP /R:1 /W:1 | Out-Null
-& robocopy "`"$DEV_WEB\secrets`"" "`"$BACKUP_WEB\secrets`"" /E /NFL /NDL /NP /R:1 /W:1 | Out-Null
+        Write-Host "   Sincronizando: $($proj.Name)" -ForegroundColor DarkGray
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+
+        # Robocopy para copiar de forma inteligente
+        $robocopyArgs = @(
+            "`"$src`"", "`"$dest`"", "/E", "/NFL", "/NDL", "/NP", "/R:1", "/W:1",
+            "/XD", "node_modules", "android\build", "android\.gradle", "android\app\build", "android\capacitor-cordova-android-plugins", ".git", "build", "dist", "out", "www", ".cache",
+            "/XF", "*.apk", "*.aab", "*.keystore", "*.jks", "*.log", "shadow_pulse_astats.txt", "temp_eclipse_astats.txt"
+        )
+        & robocopy $robocopyArgs | Out-Null
+    }
+
+    # Sincronizar scripts y secrets específicamente
+    Write-Host "   Sincronizando scripts y secrets..." -ForegroundColor DarkGray
+    New-Item -ItemType Directory -Path (Join-Path $BACKUP_WEB "OWS Store\scripts") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $BACKUP_WEB "secrets") -Force | Out-Null
+    & robocopy "`"$DEV_WEB\OWS Store\scripts`"" "`"$BACKUP_WEB\OWS Store\scripts`"" /E /NFL /NDL /NP /R:1 /W:1 | Out-Null
+    & robocopy "`"$DEV_WEB\secrets`"" "`"$BACKUP_WEB\secrets`"" /E /NFL /NDL /NP /R:1 /W:1 | Out-Null
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1.5. GENERAR BACKUP_STATUS.json (fuente autoritativa para el Admin Panel)

@@ -14591,6 +14591,12 @@ app.get('/ows-store/admin-projects', async (req, res) => {
       LEFT JOIN ows_project_backups b ON b.project_slug = ap.slug
       ORDER BY ap.is_in_ows_store DESC, ap.name ASC
     `);
+    // Resolver icon_url para que el cliente reciba siempre una URL absoluta
+    // utilizable (mismo helper que /ows-store/projects). Asi evitamos 404s
+    // por iconos guardados como paths relativos del estilo './build/x.ico'.
+    rows.forEach((p) => {
+      try { p.icon_url = resolveOwsProjectIconUrl(p); } catch (_) {}
+    });
     return res.json({ projects: rows, is_owner: isOwsStoreOwner(req) });
   } catch (err) {
     console.error('Error en GET /ows-store/admin-projects:', err);
@@ -14730,6 +14736,9 @@ app.get('/ows-store/project-backups', async (req, res) => {
       LEFT JOIN ows_project_backups b ON b.project_slug = ap.slug
       ORDER BY ap.is_in_ows_store DESC, ap.name ASC
     `);
+    rows.forEach((p) => {
+      try { p.icon_url = resolveOwsProjectIconUrl(p); } catch (_) {}
+    });
     return res.json({
       backups: rows,
       is_owner: isOwsStoreOwner(req),

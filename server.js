@@ -1836,6 +1836,9 @@ async function fetchOwsRecoverBackupStatus() {
       lastFullBackup: parsed.last_full_backup || null,
       scriptVersion: parsed.script_version || null,
       schemaVersion: parsed.schema_version || 1,
+      currentVersion: parsed.current_version || null,
+      isWip: parsed.is_wip === true,
+      timezone: parsed.timezone || null,
       projects,
       rawSize: contentB64.length
     };
@@ -1894,7 +1897,10 @@ async function fetchOwsRecoverProjectBackup(slug) {
     exists: true,
     date: !isNaN(date.getTime()) ? date.toISOString() : null,
     message: `Respaldado el ${isoDate} (script v${status.scriptVersion || '?'})`,
-    lastFullBackup: status.lastFullBackup
+    lastFullBackup: status.lastFullBackup,
+    currentVersion: status.currentVersion || null,
+    isWip: Boolean(status.isWip),
+    timezone: status.timezone || null
   };
 }
 
@@ -1909,6 +1915,10 @@ async function verifyOwsProjectBackups({ adminName = 'OceanandWild', onlySlug = 
     `SELECT slug, github_folder FROM ows_admin_projects ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY slug`,
     params
   );
+  // Obtenemos el status UNA sola vez para reusar el current_version
+  // (es el mismo para todos los proyectos en una corrida del script)
+  const globalStatus = await fetchOwsRecoverBackupStatus().catch(() => null);
+  const currentVersion = (globalStatus && globalStatus.ok && globalStatus.currentVersion) || null;
   const results = [];
   for (const project of projects) {
     const slug = project.slug;
@@ -1924,8 +1934,10 @@ async function verifyOwsProjectBackups({ adminName = 'OceanandWild', onlySlug = 
       : (probe.rateLimited ? 'rate_limited' : (probe.error ? 'error' : 'missing'));
     const isBackedUp = Boolean(probe.exists);
     const backupDate = probe.exists && probe.date ? probe.date : null;
+    // Mensaje incluye la version registrada por el script (WIP o release)
+    const versionTag = currentVersion ? ` (v${currentVersion}${probe.isWip ? ' WIP' : ''})` : '';
     const message = probe.exists
-      ? (probe.message || 'ok')
+      ? ((probe.message || 'ok') + versionTag)
       : (probe.error || `Carpeta "${folderPath}" no encontrada en ${OWS_RECOVER_REPO}`);
     await pool.query(
       `INSERT INTO ows_project_backups
@@ -1948,7 +1960,9 @@ async function verifyOwsProjectBackups({ adminName = 'OceanandWild', onlySlug = 
       backup_date: backupDate,
       last_checked_at: checkedAt.toISOString(),
       last_check_status: status,
-      last_check_message: message
+      last_check_message: message,
+      current_version: currentVersion,
+      is_wip: Boolean(probe.isWip)
     });
   }
   return results;
@@ -14905,11 +14919,22 @@ app.get('/ows-store/project-backups', async (req, res) => {
     rows.forEach((p) => {
       try { p.icon_url = resolveOwsProjectIconUrl(p); } catch (_) {}
     });
+    // Status global (version WIP/release registrada por el script de backup)
+    const globalStatus = await fetchOwsRecoverBackupStatus().catch(() => null);
     return res.json({
       backups: rows,
       is_owner: isOwsStoreOwner(req),
       repo: OWS_RECOVER_REPO,
-      cache_ttl_ms: OWS_RECOVER_PROBE_CACHE_TTL_MS
+      cache_ttl_ms: OWS_RECOVER_PROBE_CACHE_TTL_MS,
+      status: globalStatus && globalStatus.ok
+        ? {
+            last_full_backup: globalStatus.lastFullBackup,
+            current_version: globalStatus.currentVersion || null,
+            is_wip: Boolean(globalStatus.isWip),
+            timezone: globalStatus.timezone || null,
+            script_version: globalStatus.scriptVersion || null
+          }
+        : { available: false, reason: globalStatus?.reason || 'unknown' }
     });
   } catch (err) {
     console.error('Error en GET /ows-store/project-backups:', err);

@@ -1,5 +1,11 @@
 # Script de Respaldo Automatizado OWS
-# Ubicación original: Escritorio\Ocean and Wild Studios\OWS Store\scripts\backup-to-github.ps1
+# Ubicación: $BACKUP_WEB\..\Ocean and Wild Studios\scripts\backup-to-github.ps1
+# Lanzador: $BACKUP_WEB\..\Ocean and Wild Studios\OWS Store\scripts\ejecutar-backup.bat
+
+[CmdletBinding()]
+param(
+    [string]$version = ""
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -8,7 +14,32 @@ $DEV_UNITY = "C:\Users\hachi\OneDrive\Escritorio\OWS Unity"
 $BACKUP_WEB = "C:\Users\hachi\OneDrive\Escritorio\owsrecover"
 $BACKUP_UNITY = "C:\Users\hachi\OneDrive\Escritorio\owsrecover-unity"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. RESOLVER VERSION + TIMESTAMP URUGUAY
+# ─────────────────────────────────────────────────────────────────────────────
+# Uruguay = America/Montevideo. .NET expone zonas via TimeZoneInfo.
+try {
+    $uryTz = [System.TimeZoneInfo]::FindSystemTimeZoneById('America/Montevideo')
+} catch {
+    $uryTz = $null
+}
+$uryNow = if ($uryTz) { [System.TimeZoneInfo]::ConvertTime([System.DateTime]::Now, $uryTz) } else { Get-Date }
+$uryTimestamp = $uryNow.ToString('o')
+$uryCompact = $uryNow.ToString('yyyy.M.d-tHHmm')
+
+# Si el usuario paso -version, ese valor va literal (es la version real del
+# release/publicacion). Si no, registramos un marcador "WIP" con la fecha
+# y hora Uruguay para que el Centro de Control OWS pueda ver cuando se
+# hicieron cambios de preparacion, separados de releases reales.
+$isWip = $false
+if ([string]::IsNullOrWhiteSpace($version)) {
+    $version = "WIP-$uryCompact"
+    $isWip = $true
+}
 Write-Host "=== INICIANDO RESPALDO AUTOMATICO OWS ===" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Version registrada: $version" -ForegroundColor $(if ($isWip) { 'Yellow' } else { 'Green' })
+Write-Host "Timestamp Uruguay : $uryTimestamp" -ForegroundColor DarkGray
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -53,7 +84,7 @@ New-Item -ItemType Directory -Path (Join-Path $BACKUP_WEB "secrets") -Force | Ou
 # sincronizaron arriba, asi cualquier proyecto nuevo (que tenga index.html
 # en $DEV_WEB) queda automaticamente registrado.
 Write-Host "   Generando BACKUP_STATUS.json..." -ForegroundColor DarkGray
-$backupTimestamp = (Get-Date).ToString('o')
+$backupTimestamp = $uryTimestamp
 $statusProjects = [ordered]@{}
 foreach ($proj in $webProjects) {
     # La clave es el nombre exacto del folder en owsrecover (case-sensitive,
@@ -62,17 +93,24 @@ foreach ($proj in $webProjects) {
     $statusProjects[$proj.Name] = $backupTimestamp
 }
 # Metadata global del script
+# - current_version: la version pasada por parametro (o WIP-YYYY.M.D-tHHMM si no)
+# - is_wip: true cuando es un respaldo de cambios sin release publicado
+# - last_full_backup: timestamp ISO Uruguay
+# - schema_version: 1 (estable)
 $statusObject = [ordered]@{
     schema_version   = 1
     last_full_backup = $backupTimestamp
-    script_version   = "1.0"
+    script_version   = "1.1"
     source           = "scripts/backup-to-github.ps1"
+    current_version  = $version
+    is_wip           = $isWip
+    timezone         = "America/Montevideo"
     web_projects     = $statusProjects
 }
 $statusJson = $statusObject | ConvertTo-Json -Depth 5
 $statusPath = Join-Path $BACKUP_WEB "BACKUP_STATUS.json"
 Set-Content -LiteralPath $statusPath -Value $statusJson -Encoding UTF8 -Force
-Write-Host "   BACKUP_STATUS.json escrito con $($statusProjects.Count) proyectos" -ForegroundColor DarkGray
+Write-Host "   BACKUP_STATUS.json escrito con $($statusProjects.Count) proyectos (version: $version, wip: $isWip)" -ForegroundColor DarkGray
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. ACTUALIZAR PROYECTOS UNITY
@@ -123,7 +161,9 @@ Set-Location $BACKUP_WEB
 git add .
 $status = git status --porcelain
 if ($status) {
-    git commit -m "Backup automatico - Web & Secrets [$(Get-Date -Format 'yyyy-MM-dd HH:mm')]"
+    $commitType = if ($isWip) { "WIP" } else { "Release" }
+    $commitMsg = "$commitType automatico - Web & Secrets [$version | $uryCompact UY]"
+    git commit -m $commitMsg
     git pull origin main --no-rebase -s recursive -X ours --quiet
     git push origin main
     Write-Host "   ¡Web & Secrets subidos con éxito!" -ForegroundColor Green

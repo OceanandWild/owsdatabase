@@ -3999,6 +3999,48 @@ async function runDatabaseMigrations() {
     `).catch(() => {});
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_polls (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        options JSONB NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        requires_ocean_pay BOOLEAN DEFAULT TRUE,
+        is_mandatory BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        ends_at TIMESTAMP
+      );
+    `).catch(err => console.log('[OWS] Error creando ows_polls:', err.message));
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_poll_votes (
+        id SERIAL PRIMARY KEY,
+        poll_id INT REFERENCES ows_polls(id) ON DELETE CASCADE,
+        user_id VARCHAR(100) NOT NULL,
+        option_idx INT NOT NULL,
+        voted_at TIMESTAMP DEFAULT NOW(),
+        ip_address VARCHAR(45),
+        CONSTRAINT unique_poll_user_vote UNIQUE (poll_id, user_id)
+      );
+    `).catch(err => console.log('[OWS] Error creando ows_poll_votes:', err.message));
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_poll_votes_poll_user
+      ON ows_poll_votes(poll_id, user_id)
+    `).catch(() => {});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_poll_penalties (
+        user_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        poll_id INTEGER REFERENCES ows_polls(id) ON DELETE CASCADE,
+        penalty_amount NUMERIC(20,2) DEFAULT 50.00,
+        created_at TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (user_id, poll_id)
+      );
+    `).catch(err => console.log('[OWS] Error creando ows_poll_penalties:', err.message));
+
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ows_store_push_devices (
         id SERIAL PRIMARY KEY,
         device_id VARCHAR(120) NOT NULL,
@@ -12032,6 +12074,269 @@ app.get('/ows-store/events', async (req, res) => {
   }
 });
 
+// ==========================================
+// POLLS (ENCUESTAS) API ENDPOINTS
+// ==========================================
+
+// GET /api/ows-store/polls - Lista pública de encuestas activas
+app.get('/api/ows-store/polls', async (req, res) => {
+  const username = String(req.query.username || '').trim(); // Ocean Pay username
+  try {
+    const { rows: polls } = await pool.query(
+      `SELECT id, title, description, options, is_mandatory, ends_at 
+         FROM ows_polls 
+        WHERE is_active = TRUE 
+        ORDER BY created_at DESC`
+    );
+
+    // Enriquecer con conteos de votos y voto del usuario si está conectado
+    const list = [];
+    for (const poll of polls) {
+      const { rows: votes } = await pool.query(
+        `SELECT option_idx, COUNT(*)::int as count 
+           FROM ows_poll_votes 
+          WHERE poll_id = $1 
+          GROUP BY option_idx`,
+        [poll.id]
+      );
+
+      const { rows: myVoteRows } = await pool.query(
+        `SELECT option_idx 
+           FROM ows_poll_votes 
+          WHERE poll_id = $1 AND user_id = $2`,
+        [poll.id, username]
+      );
+
+      const totalVotesResult = await pool.query(
+        `SELECT COUNT(*)::int as total FROM ows_poll_votes WHERE poll_id = $1`,
+        [poll.id]
+      );
+
+      const optionCounts = {};
+      const optionsArr = Array.isArray(poll.options) ? poll.options : [];
+      optionsArr.forEach((_, idx) => {
+        optionCounts[idx] = 0;
+      });
+      // Abstención
+      optionCounts[-1] = 0;
+
+      votes.forEach(v => {
+        optionCounts[v.option_idx] = v.count;
+      });
+
+      list.push({
+        id: poll.id,
+        title: poll.title,
+        description: poll.description,
+        options: optionsArr,
+        is_mandatory: poll.is_mandatory === true,
+        ends_at: poll.ends_at,
+        total_votes: totalVotesResult.rows[0]?.total || 0,
+        option_votes: optionCounts,
+        my_vote: myVoteRows.length ? myVoteRows[0].option_idx : null
+      });
+    }
+
+    return res.json(list);
+  } catch (err) {
+    console.error('Error en GET /api/ows-store/polls:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /api/ows-store/polls/:id/vote - Registrar voto en una encuesta
+app.post('/api/ows-store/polls/:id/vote', async (req, res) => {
+  const pollId = parseInt(req.params.id, 10);
+  const username = String(req.body.username || '').trim(); // Ocean Pay username
+  const optionIdx = parseInt(req.body.option_idx ?? -1, 10);
+  const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
+  if (isNaN(pollId)) return res.status(400).json({ error: 'ID de encuesta inválido' });
+  if (!username) return res.status(401).json({ error: 'Debes estar vinculado a Ocean Pay para votar' });
+
+  try {
+    // Verificar si el usuario existe en Ocean Pay
+    const { rows: opUser } = await pool.query(
+      `SELECT id FROM ocean_pay_users WHERE username = $1`,
+      [username]
+    );
+    if (!opUser.length) {
+      return res.status(400).json({ error: 'Usuario de Ocean Pay no válido' });
+    }
+
+    // Obtener encuesta
+    const { rows: pollRows } = await pool.query(
+      `SELECT is_active, is_mandatory, options, ends_at FROM ows_polls WHERE id = $1`,
+      [pollId]
+    );
+    if (!pollRows.length) return res.status(404).json({ error: 'Encuesta no encontrada' });
+    
+    const poll = pollRows[0];
+    if (!poll.is_active || (poll.ends_at && new Date(poll.ends_at) < new Date())) {
+      return res.status(400).json({ error: 'Esta encuesta ya no está activa o ha expirado' });
+    }
+
+    const options = Array.isArray(poll.options) ? poll.options : [];
+    if (optionIdx !== -1 && (optionIdx < 0 || optionIdx >= options.length)) {
+      return res.status(400).json({ error: 'Opción de voto inválida' });
+    }
+
+    // Si es obligatoria, no puede abstenerse (-1)
+    if (poll.is_mandatory && optionIdx === -1) {
+      return res.status(400).json({ error: 'Esta encuesta es obligatoria, debes seleccionar una opción' });
+    }
+
+    // Insertar voto con ON CONFLICT para prevenir duplicado del mismo usuario
+    await pool.query(
+      `INSERT INTO ows_poll_votes (poll_id, user_id, option_idx, ip_address)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (poll_id, user_id) 
+       DO UPDATE SET option_idx = EXCLUDED.option_idx, voted_at = NOW()`,
+      [pollId, username, optionIdx, ipAddress]
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en POST /api/ows-store/polls/:id/vote:', err);
+    return res.status(500).json({ error: 'Error interno al registrar el voto' });
+  }
+});
+
+// GET /api/ows-admin/polls - Lista completa para administración (con/sin activar)
+app.get('/api/ows-admin/polls', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    const { rows: polls } = await pool.query(
+      `SELECT id, title, description, options, is_active, requires_ocean_pay, is_mandatory, created_at, ends_at 
+         FROM ows_polls 
+        ORDER BY created_at DESC`
+    );
+
+    // Enriquecer con totales y conteos
+    const list = [];
+    for (const poll of polls) {
+      const { rows: votes } = await pool.query(
+        `SELECT option_idx, COUNT(*)::int as count 
+           FROM ows_poll_votes 
+          WHERE poll_id = $1 
+          GROUP BY option_idx`,
+        [poll.id]
+      );
+      const totalVotesResult = await pool.query(
+        `SELECT COUNT(*)::int as total FROM ows_poll_votes WHERE poll_id = $1`,
+        [poll.id]
+      );
+
+      const optionCounts = {};
+      const optionsArr = Array.isArray(poll.options) ? poll.options : [];
+      optionsArr.forEach((_, idx) => {
+        optionCounts[idx] = 0;
+      });
+      optionCounts[-1] = 0;
+
+      votes.forEach(v => {
+        optionCounts[v.option_idx] = v.count;
+      });
+
+      list.push({
+        id: poll.id,
+        title: poll.title,
+        description: poll.description,
+        options: optionsArr,
+        is_active: poll.is_active === true,
+        requires_ocean_pay: poll.requires_ocean_pay === true,
+        is_mandatory: poll.is_mandatory === true,
+        created_at: poll.created_at,
+        ends_at: poll.ends_at,
+        total_votes: totalVotesResult.rows[0]?.total || 0,
+        option_votes: optionCounts
+      });
+    }
+
+    return res.json(list);
+  } catch (err) {
+    console.error('Error en GET /api/ows-admin/polls:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /api/ows-admin/polls - Crear encuesta
+app.post('/api/ows-admin/polls', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const title = String(req.body.title || '').trim();
+  const description = String(req.body.description || '').trim();
+  const options = req.body.options || [];
+  const isMandatory = req.body.is_mandatory === true;
+  const endsAt = req.body.ends_at ? new Date(req.body.ends_at) : null;
+
+  if (!title) return res.status(400).json({ error: 'El título es requerido' });
+  if (!Array.isArray(options) || options.length < 2) {
+    return res.status(400).json({ error: 'Debes definir al menos 2 opciones de respuesta' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ows_polls (title, description, options, is_mandatory, ends_at)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [title, description, JSON.stringify(options), isMandatory, endsAt]
+    );
+    return res.json({ success: true, poll: rows[0] });
+  } catch (err) {
+    console.error('Error en POST /api/ows-admin/polls:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// PUT /api/ows-admin/polls/:id - Modificar encuesta
+app.put('/api/ows-admin/polls/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const pollId = parseInt(req.params.id, 10);
+  if (isNaN(pollId)) return res.status(400).json({ error: 'ID de encuesta inválido' });
+
+  const title = String(req.body.title || '').trim();
+  const description = String(req.body.description || '').trim();
+  const isActive = req.body.is_active === true;
+  const isMandatory = req.body.is_mandatory === true;
+  const endsAt = req.body.ends_at ? new Date(req.body.ends_at) : null;
+
+  if (!title) return res.status(400).json({ error: 'El título es requerido' });
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE ows_polls 
+          SET title = $1, description = $2, is_active = $3, is_mandatory = $4, ends_at = $5 
+        WHERE id = $6
+        RETURNING *`,
+      [title, description, isActive, isMandatory, endsAt, pollId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Encuesta no encontrada' });
+    return res.json({ success: true, poll: rows[0] });
+  } catch (err) {
+    console.error('Error en PUT /api/ows-admin/polls/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE /api/ows-admin/polls/:id - Borrar encuesta
+app.delete('/api/ows-admin/polls/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const pollId = parseInt(req.params.id, 10);
+  if (isNaN(pollId)) return res.status(400).json({ error: 'ID de encuesta inválido' });
+
+  try {
+    const { rowCount } = await pool.query(
+      `DELETE FROM ows_polls WHERE id = $1`,
+      [pollId]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Encuesta no encontrada' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /api/ows-admin/polls/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 app.post('/ows-store/news', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const title = String(req.body?.title || '').trim();
@@ -14239,12 +14544,71 @@ async function getPrimaryCardForOceanPassUser(client, userId) {
   return rows[0] || null;
 }
 
+async function checkAndApplyMandatoryPollDebts(userId) {
+  try {
+    const { rows: userRows } = await pool.query(
+      `SELECT username FROM ocean_pay_users WHERE id = $1`,
+      [userId]
+    );
+    if (!userRows.length) return;
+    const username = userRows[0].username;
+
+    const { rows: unpaidPolls } = await pool.query(
+      `SELECT id FROM ows_polls
+        WHERE is_mandatory = TRUE
+          AND ends_at < NOW()
+          AND id NOT IN (SELECT poll_id FROM ows_poll_votes WHERE user_id = $1)
+          AND id NOT IN (SELECT poll_id FROM ows_poll_penalties WHERE user_id = $2)`,
+      [username, userId]
+    );
+
+    if (unpaidPolls.length > 0) {
+      const penaltyPerSurvey = 50.00;
+      const totalPenalty = unpaidPolls.length * penaltyPerSurvey;
+
+      const { rows: passRows } = await pool.query(
+        `SELECT user_id FROM ocean_pass WHERE user_id = $1`,
+        [userId]
+      );
+      if (!passRows.length) {
+        await pool.query(
+          `INSERT INTO ocean_pass (user_id, is_active, expiry, has_debt, debt_amount, missions, minutes_tracked)
+           VALUES ($1, FALSE, NULL, TRUE, $2, '[]'::jsonb, 0)`,
+          [userId, totalPenalty]
+        );
+      } else {
+        await pool.query(
+          `UPDATE ocean_pass
+              SET has_debt = TRUE,
+                  debt_amount = COALESCE(debt_amount, 0) + $1,
+                  is_active = FALSE
+            WHERE user_id = $2`,
+          [totalPenalty, userId]
+        );
+      }
+
+      for (const p of unpaidPolls) {
+        await pool.query(
+          `INSERT INTO ows_poll_penalties (user_id, poll_id, penalty_amount)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, poll_id) DO NOTHING`,
+          [userId, p.id, penaltyPerSurvey]
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Error al aplicar penalizaciones de encuestas obligatorias:', err);
+  }
+}
+
 // Estado de Ocean Pass (fallback seguro para clientes)
 app.get('/ocean-pay/pass/status', async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
   try {
+    await checkAndApplyMandatoryPollDebts(userId);
+
     const { rows } = await pool.query(
       `SELECT user_id, is_active, expiry, has_debt, debt_amount, missions, last_reward_claim, minutes_tracked,
               plan_id, billing_currency, billing_amount, next_renew_at

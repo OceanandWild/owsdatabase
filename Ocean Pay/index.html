@@ -1,4 +1,4 @@
-﻿<!doctype html> <html lang="es"> <head> <meta charset="utf-8" /> <title>Ocean Pay - Tu billetera universal</title> <meta name="viewport" content="width=device-width,initial-scale=1" /> <style> @import url('https://fonts.googleapis.com/css2family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+<!doctype html> <html lang="es"> <head> <meta charset="utf-8" /> <title>Ocean Pay - Tu billetera universal</title> <meta name="viewport" content="width=device-width,initial-scale=1" /> <style> @import url('https://fonts.googleapis.com/css2family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     @import url('https://fonts.googleapis.com/css2family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
     :root {
@@ -1420,7 +1420,7 @@
       }
     }
 
-    /* Hero: DiseÃ±o tipo "dashboard premium" con glassmorphism intenso */
+    /* Hero: Diseño tipo "dashboard premium" con glassmorphism intenso */
     .wallet-hero {
       background: linear-gradient(145deg, rgba(6, 78, 99, 0.25) 0%, rgba(15, 23, 42, 0.6) 40%, rgba(30, 58, 138, 0.15) 100%);
       border: 1px solid rgba(34, 211, 238, 0.2);
@@ -1461,7 +1461,7 @@
       z-index: 0;
     }
 
-    /* PatrÃ³n grid sutil sobre el hero */
+    /* Patrón grid sutil sobre el hero */
     .wallet-hero {
       background-image: linear-gradient(145deg, rgba(6, 78, 99, 0.2) 0%, rgba(15, 23, 42, 0.7) 40%, rgba(30, 58, 138, 0.1) 100%),
         linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
@@ -1825,7 +1825,7 @@
     }
 
 
-    /* Sidebar derecho: cards con mÃ¡s personalidad */
+    /* Sidebar derecho: cards con más personalidad */
     .wallet-side-stack {
       display: flex;
       flex-direction: column;
@@ -2085,13 +2085,13 @@
       .modern-cards-grid {
         grid-template-columns: 1fr;
       }
-    } </style> <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> </head> <body> <!-- Auth Overlay (Login/Register) --> <div id="auth-section" class="auth-overlay"> <div class="auth-card"> <div class="brand" style="justify-content: center; margin-bottom: 2rem;"> <h1><i class="fas fa-wallet" style="margin-right:.5rem;color:var(--accent);"></i>Ocean Pay</h1> </div> <!-- Login Form --> <form id="loginForm" class="form-box"> <h2 style="margin-bottom: 1.5rem;">Iniciar SesiÃ³n</h2> <input type="text" id="logUser" required placeholder="Usuario" /> <input type="password" id="logPass" required placeholder="ContraseÃ±a" /> <button type="submit">Entrar</button> <p id="logMsg" class="msg"></p> <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;"> Â¿No tienes cuenta <a href="#" id="toRegister" style="color: var(--accent);">RegÃ­strate</a> </p> </form> <!-- Register Form --> <form id="regForm" class="form-box hidden"> <h2 style="margin-bottom: 1.5rem;">Crear Cuenta</h2> <input type="text" id="regUser" required placeholder="Nuevo Usuario" /> <input type="password" id="regPass" required placeholder="ContraseÃ±a" /> <button type="submit">Crear Cuenta</button> <p id="regMsg" class="msg"></p> <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;"> Â¿Ya tienes cuenta <a href="#" id="toLogin" style="color: var(--accent);">Inicia SesiÃ³n</a> </p> </form> </div> </div> </div> <!-- CHECKOUT MODAL REDESIGN --> <div id="checkout-modal" class="checkout-overlay"> <div class="checkout-card"> <div class="checkout-header"> <i class="fas fa-water" style="color:var(--accent); font-size:1.5rem;"></i> <h2 style="font-weight:900; font-size:1.2rem; letter-spacing:-0.5px;">Ocean Pay Checkout</h2> </div> <div class="checkout-body"> <!-- Order Context --> <div class="product-preview"> <div class="product-img"> <canvas id="checkout-product-canvas" class="currency-canvas" data-currency="wildgems"></canvas> </div> <div class="product-info"> <h3 id="checkout-concept-display">SuscripciÃ³n Premium</h3> <p id="checkout-origin-display">WildShorts VIP</p> </div> </div> <!-- Method Selector --> <div class="payment-tabs"> <button class="payment-tab active" id="tab-ocean" onclick="setPaymentMethod('ocean')">Ocean Card</button> <button class="payment-tab" id="tab-external" onclick="setPaymentMethod('external')">Otra Tarjeta</button> </div> <!-- Method: Ocean Card Selection --> <div id="method-ocean" class="method-section"> <p style="margin-bottom:1rem; font-size:0.85rem; font-weight:700; color:#64748b; text-transform:uppercase;"> Selecciona tu tarjeta Ocean</p> <div id="checkout-card-list" class="card-selector-list"> <!-- Rendered by JS --> </div> </div> <!-- Method: External Card Form --> <div id="method-external" class="method-section hidden"> <div class="card-form"> <div class="input-wrapper"> <label>NÃºmero de Tarjeta</label> <input type="text" id="ext-card-number" class="checkout-input" placeholder="0000 0000 0000 0000"
-                maxlength="19"> </div> <div class="input-wrapper"> <label>Nombre del Titular</label> <input type="text" id="ext-card-name" class="checkout-input" placeholder="JUAN PEREZ"> </div> <div class="form-row"> <div class="input-wrapper"> <label>Vencimiento (MM/AA)</label> <input type="text" id="ext-card-expiry" class="checkout-input" placeholder="MM/AA" maxlength="5"> </div> <div class="input-wrapper"> <label>CVV</label> <input type="password" id="ext-card-cvv" class="checkout-input" placeholder="***" maxlength="3"> </div> </div> </div> </div> </div> <div class="checkout-footer"> <div class="checkout-summary"> <span class="summary-label">Total a pagar:</span> <div class="summary-total"> <span id="checkout-amount-val">0</span> <span class="currency" id="checkout-currency-val">WILDGEMS</span> </div> </div> <button id="checkout-confirm-btn" class="btn-checkout-confirm" onclick="confirmCheckout()"> Confirmar y Pagar </button> <button class="btn-checkout-cancel" onclick="closeCheckout()">Cancelar transacciÃ³n</button> </div> </div> </div> <!-- Main App Layout --> <div id="app-layout" class="app-layout hidden"> <!-- Sidebar --> <aside class="sidebar"> <div class="brand"> <h1><i class="fas fa-wallet" style="margin-right:.5rem;color:var(--accent);"></i>Ocean Pay</h1> </div> <nav class="nav-menu"> <button class="nav-item active" onclick="showSection('wallet')"> <span><i class="fas fa-wallet"></i></span> Billetera </button> <button class="nav-item" onclick="showSection('history')"> <span><i class="fas fa-clock-rotate-left"></i></span> Historial </button> <button class="nav-item" onclick="showSection('pos')"> <span><i class="fas fa-cash-register"></i></span> POS Virtual </button> <button class="nav-item" onclick="showSection('pass')"> <span><i class="fas fa-ticket"></i></span> Ocean Pass </button> <button class="nav-item" onclick="showSection('notifications')"> <span><i class="fas fa-bell"></i></span> Notificaciones </button> <button class="nav-item" onclick="showSection('misc')"> <span><i class="fas fa-chart-line"></i></span> Misc. </button> <button class="nav-item" onclick="showSection('settings')"> <span><i class="fas fa-gear"></i></span> Ajustes </button> </nav> <div class="user-profile-mini"> <div class="user-avatar" id="userAvatar">U</div> <div class="user-info-text"> <span class="user-name" id="userNameDisplay">Usuario</span> <span class="user-id" id="userIdDisplay">ID: 0</span> <div id="user-pass-badge" class="pass-ticket-badge"> <i class="fas fa-water"></i> PASS </div> </div> </div> </aside> <!-- Main Content Area --> <main class="main-content"> <!-- Wallet Section --> <section id="wallet-section" class="wallet-viewport"> <!-- Hero: Resumen real de tu billetera --> <div class="wallet-hero"> <div class="hero-content"> <span class="hero-label">Tu balance total (estimado)</span> <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small
-                style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1> <div class="hero-subtitle" id="hero-currencies-breakdown"> <i class="fas fa-wallet"></i> <span id="hero-balances-text">Sincroniza para ver tus saldos reales</span> </div> </div> <div class="hero-actions"> <button class="action-pill primary" onclick="refreshAllBalances()"> <i class="fas fa-sync-alt"></i> Sincronizar </button> <button class="action-pill" onclick="showSection('history')"> <i class="fas fa-list-ul"></i> Actividad </button> </div> </div> <div class="wallet-grid"> <!-- MAIN AREA - Reordenado: Activos primero, Tarjetas despuÃ©s --> <div class="wallet-main-content"> <!-- Assets Section - PRIMERO, agrupados por ecosistema --> <div class="asset-group"> <div class="section-header-modern"> <h3>Activos y Divisas</h3> <span class="view-all" onclick="openAssetsModal()">Ver todos</span> </div> <!-- Grupo: Ecosistema Ocean --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label"><i class="fas fa-globe" style="margin-right:.35rem;"></i>Ocean</h4> <div class="assets-grid-modern assets-row-ocean"> <div class="asset-card-modern" id="aquabux-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="bux" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">AquaBux</span> <span class="asset-balance-modern" id="bux">0</span> </div> <div class="asset-footer-modern"> <span>Ocean Cinemas</span> <span style="color:var(--accent)">Ocean</span> </div> </div> </div> </div> <!-- Grupo: Ecosistema Wild --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">xR Wild</h4> <div class="assets-grid-modern assets-row-wild"> <div class="asset-card-modern" id="wildcredits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildCredits</span> <span class="asset-balance-modern" id="wildcredits">0</span> </div> <div class="asset-footer-modern"> <span>Wild Explorer</span> <span style="color:var(--wild)">Wild</span> </div> </div> <div class="asset-card-modern" id="wildgems-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildgems" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildGems</span> <span class="asset-balance-modern" id="wildgems">0</span> </div> <div class="asset-footer-modern"> <span>WildShorts</span> <span style="color:var(--gold)">Wild</span> </div> </div> <div class="asset-card-modern" id="relayshards-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="relayshards" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">RelayShards</span> <span class="asset-balance-modern" id="relayshards">0</span> </div> <div class="asset-footer-modern"> <span>WildTransfer</span> <span style="color:#00f3ff">Wild</span> </div> </div> </div> </div> <!-- Grupo: Core & Knowledge --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">Core & Knowledge</h4> <div class="assets-grid-modern assets-row-core"> <div class="asset-card-modern" id="ecoxionums-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecoxionums" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Ecoxionums</span> <span class="asset-balance-modern" id="ecoxionums">0</span> </div> <div class="asset-footer-modern"> <span>Ecoxion</span> <span style="color:var(--ok)">Core</span> </div> </div> <div class="asset-card-modern" id="ecobits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecobits" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoCoreBits</span> <span class="asset-balance-modern" id="ecobits">0</span> </div> <div class="asset-footer-modern"> <span>EcoConsole</span> <span style="color:var(--purple)">Core</span> </div> </div> <div class="asset-card-modern" id="ecobooks-card" onclick="loadEcoBooksBalance()"
-                    style="cursor:pointer;"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoBooks</span> <span class="asset-balance-modern" id="ecobooks">0</span> </div> <div class="asset-footer-modern"> <span>Naturepedia</span> <span style="color:var(--ok)">Knowledge</span> </div> </div> <div class="asset-card-modern" id="ecotokens-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoTokens</span> <span class="asset-balance-modern" id="ecotokens">0</span> </div> <div class="asset-footer-modern"> <span>Wild Savage</span> <span style="color:var(--ok)">Survival</span> </div> </div> </div> </div> <!-- Grupo: Gaming & Premium --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">Gaming & Premium</h4> <div class="assets-grid-modern assets-row-gaming"> <div class="asset-card-modern" id="nxb-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="nxb" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Nexus Bits</span> <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span> </div> <div class="asset-footer-modern"> <span>Nexus Dominion Front</span> <span style="color:#f08a5d">Gaming</span> </div> </div> <div class="asset-card-modern" id="amber-card" onclick="loadAmberBalance()" style="cursor:pointer;"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="amber" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Ambar</span> <span class="asset-balance-modern" id="amber" style="color: #fbbf24;">0</span> </div> <div class="asset-footer-modern"> <span>DinoBox</span> <span style="color:#fbbf24">Prehistoric Assets</span> </div> </div> <!-- VoltBits --> <div class="asset-card-modern" id="voltbits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="voltbit" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">VoltBits</span> <span class="asset-balance-modern" id="voltbit" style="color: #00e5ff;">0</span> </div> <div class="asset-footer-modern"> <span>Velocity Surge</span> <span style="color:#00e5ff">Volt Network</span> </div> </div> <div class="asset-card-modern" id="wildwavetokens-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildwavetokens" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildWave Tokens</span> <span class="asset-balance-modern" id="wildwavetokens" style="color:#7dd3fc;">0</span> </div> <div class="asset-footer-modern"> <span>WildWave</span> <span style="color:#7dd3fc">Social Network</span> </div> </div> <div class="asset-card-modern" id="appbux-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="appbux" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">AppBux</span> <span class="asset-balance-modern" id="appbux">0</span> </div> <div class="asset-footer-modern"> <span>AllApp</span> <span style="color:var(--orange)">Gaming</span> </div> </div> <!-- MayhemCoins --> <div class="asset-card-modern" id="mayhemcoins-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="mayhemcoins" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">MayhemCoins</span> <span class="asset-balance-modern" id="mayhemcoins" style="color: #e040fb;">0</span> </div> <div class="asset-footer-modern"> <span>WildWeapon Mayhem</span> <span style="color:#e040fb">Mayhem Network</span> </div> </div> <div class="asset-card-modern" id="cosmicdust-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="cosmicdust" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Polvora Cosmica</span> <span class="asset-balance-modern" id="cosmicdust" style="color:#ffb74d;">0</span> </div> <div class="asset-footer-modern"> <span>Savage Space Animals</span> <span style="color:#ffb74d">SSA</span> </div> </div> </div> </div> <!-- Cards Section - DESPUÃ‰S de activos --> <div class="cards-group"> <div class="section-header-modern"> <h3>Tarjetas Ocean Card</h3> <span class="view-all" onclick="showNewCardModal()">+ Nueva Tarjeta</span> </div> <div id="cards-container" class="modern-cards-grid"> <!-- Rendered by JS --> </div> </div> </div> <!-- SIDE AREA --> <div class="wallet-side-stack"> <!-- Stats Box --> <div class="glass-box"> <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Resumen de Cuenta </h4> <div class="stat-row"> <span class="stat-label">Tipo de Cuenta</span> <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span> </div> <div class="stat-row"> <span class="stat-label">LÃ­mite Diario</span> <span class="stat-value" id="daily-limit-display">ilimitado</span> </div> <div class="stat-row"> <span class="stat-label">VerificaciÃ³n</span> <span class="stat-value" style="color:var(--ok)" id="verification-level-display"> <i class="fas fa-check-circle"></i> Nivel 3 </span> </div> <div class="stat-row"
+    } </style> <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> </head> <body> <!-- Auth Overlay (Login/Register) --> <div id="auth-section" class="auth-overlay"> <div class="auth-card"> <div class="brand" style="justify-content: center; margin-bottom: 2rem;"> <h1><i class="fas fa-wallet" style="margin-right:.5rem;color:var(--accent);"></i>Ocean Pay</h1> </div> <!-- Login Form --> <form id="loginForm" class="form-box"> <h2 style="margin-bottom: 1.5rem;">Iniciar Sesión</h2> <input type="text" id="logUser" required placeholder="Usuario" /> <input type="password" id="logPass" required placeholder="Contraseña" /> <button type="submit">Entrar</button> <p id="logMsg" class="msg"></p> <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;"> ¿No tienes cuenta <a href="#" id="toRegister" style="color: var(--accent);">Regístrate</a> </p> </form> <!-- Register Form --> <form id="regForm" class="form-box hidden"> <h2 style="margin-bottom: 1.5rem;">Crear Cuenta</h2> <input type="text" id="regUser" required placeholder="Nuevo Usuario" /> <input type="password" id="regPass" required placeholder="Contraseña" /> <button type="submit">Crear Cuenta</button> <p id="regMsg" class="msg"></p> <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;"> ¿Ya tienes cuenta <a href="#" id="toLogin" style="color: var(--accent);">Inicia Sesión</a> </p> </form> </div> </div> </div> <!-- CHECKOUT MODAL REDESIGN --> <div id="checkout-modal" class="checkout-overlay"> <div class="checkout-card"> <div class="checkout-header"> <i class="fas fa-water" style="color:var(--accent); font-size:1.5rem;"></i> <h2 style="font-weight:900; font-size:1.2rem; letter-spacing:-0.5px;">Ocean Pay Checkout</h2> </div> <div class="checkout-body"> <!-- Order Context --> <div class="product-preview"> <div class="product-img"> <canvas id="checkout-product-canvas" class="currency-canvas" data-currency="wildgems"></canvas> </div> <div class="product-info"> <h3 id="checkout-concept-display">Suscripción Premium</h3> <p id="checkout-origin-display">WildShorts VIP</p> </div> </div> <!-- Method Selector --> <div class="payment-tabs"> <button class="payment-tab active" id="tab-ocean" onclick="setPaymentMethod('ocean')">Ocean Card</button> <button class="payment-tab" id="tab-external" onclick="setPaymentMethod('external')">Otra Tarjeta</button> </div> <!-- Method: Ocean Card Selection --> <div id="method-ocean" class="method-section"> <p style="margin-bottom:1rem; font-size:0.85rem; font-weight:700; color:#64748b; text-transform:uppercase;"> Selecciona tu tarjeta Ocean</p> <div id="checkout-card-list" class="card-selector-list"> <!-- Rendered by JS --> </div> </div> <!-- Method: External Card Form --> <div id="method-external" class="method-section hidden"> <div class="card-form"> <div class="input-wrapper"> <label>Número de Tarjeta</label> <input type="text" id="ext-card-number" class="checkout-input" placeholder="0000 0000 0000 0000"
+                maxlength="19"> </div> <div class="input-wrapper"> <label>Nombre del Titular</label> <input type="text" id="ext-card-name" class="checkout-input" placeholder="JUAN PEREZ"> </div> <div class="form-row"> <div class="input-wrapper"> <label>Vencimiento (MM/AA)</label> <input type="text" id="ext-card-expiry" class="checkout-input" placeholder="MM/AA" maxlength="5"> </div> <div class="input-wrapper"> <label>CVV</label> <input type="password" id="ext-card-cvv" class="checkout-input" placeholder="***" maxlength="3"> </div> </div> </div> </div> </div> <div class="checkout-footer"> <div class="checkout-summary"> <span class="summary-label">Total a pagar:</span> <div class="summary-total"> <span id="checkout-amount-val">0</span> <span class="currency" id="checkout-currency-val">WILDGEMS</span> </div> </div> <button id="checkout-confirm-btn" class="btn-checkout-confirm" onclick="confirmCheckout()"> Confirmar y Pagar </button> <button class="btn-checkout-cancel" onclick="closeCheckout()">Cancelar transacción</button> </div> </div> </div> <!-- Main App Layout --> <div id="app-layout" class="app-layout hidden"> <!-- Sidebar --> <aside class="sidebar"> <div class="brand"> <h1><i class="fas fa-wallet" style="margin-right:.5rem;color:var(--accent);"></i>Ocean Pay</h1> </div> <nav class="nav-menu"> <button class="nav-item active" onclick="showSection('wallet')"> <span><i class="fas fa-wallet"></i></span> Billetera </button> <button class="nav-item" onclick="showSection('history')"> <span><i class="fas fa-clock-rotate-left"></i></span> Historial </button> <button class="nav-item" onclick="showSection('pos')"> <span><i class="fas fa-cash-register"></i></span> POS Virtual </button> <button class="nav-item" onclick="showSection('pass')"> <span><i class="fas fa-ticket"></i></span> Ocean Pass </button> <button class="nav-item" onclick="showSection('notifications')"> <span><i class="fas fa-bell"></i></span> Notificaciones </button> <button class="nav-item" onclick="showSection('misc')"> <span><i class="fas fa-chart-line"></i></span> Misc. </button> <button class="nav-item" onclick="showSection('settings')"> <span><i class="fas fa-gear"></i></span> Ajustes </button> </nav> <div class="user-profile-mini"> <div class="user-avatar" id="userAvatar">U</div> <div class="user-info-text"> <span class="user-name" id="userNameDisplay">Usuario</span> <span class="user-id" id="userIdDisplay">ID: 0</span> <div id="user-pass-badge" class="pass-ticket-badge"> <i class="fas fa-water"></i> PASS </div> </div> </div> </aside> <!-- Main Content Area --> <main class="main-content"> <!-- Wallet Section --> <section id="wallet-section" class="wallet-viewport"> <!-- Hero: Resumen real de tu billetera --> <div class="wallet-hero"> <div class="hero-content"> <span class="hero-label">Tu balance total (estimado)</span> <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small
+                style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1> <div class="hero-subtitle" id="hero-currencies-breakdown"> <i class="fas fa-wallet"></i> <span id="hero-balances-text">Sincroniza para ver tus saldos reales</span> </div> </div> <div class="hero-actions"> <button class="action-pill primary" onclick="refreshAllBalances()"> <i class="fas fa-sync-alt"></i> Sincronizar </button> <button class="action-pill" onclick="showSection('history')"> <i class="fas fa-list-ul"></i> Actividad </button> </div> </div> <div class="wallet-grid"> <!-- MAIN AREA - Reordenado: Activos primero, Tarjetas después --> <div class="wallet-main-content"> <!-- Assets Section - PRIMERO, agrupados por ecosistema --> <div class="asset-group"> <div class="section-header-modern"> <h3>Activos y Divisas</h3> <span class="view-all" onclick="openAssetsModal()">Ver todos</span> </div> <!-- Grupo: Ecosistema Ocean --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label"><i class="fas fa-globe" style="margin-right:.35rem;"></i>Ocean</h4> <div class="assets-grid-modern assets-row-ocean"> <div class="asset-card-modern" id="aquabux-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="bux" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">AquaBux</span> <span class="asset-balance-modern" id="bux">0</span> </div> <div class="asset-footer-modern"> <span>Ocean Cinemas</span> <span style="color:var(--accent)">Ocean</span> </div> </div> </div> </div> <!-- Grupo: Ecosistema Wild --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">xR Wild</h4> <div class="assets-grid-modern assets-row-wild"> <div class="asset-card-modern" id="wildcredits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildCredits</span> <span class="asset-balance-modern" id="wildcredits">0</span> </div> <div class="asset-footer-modern"> <span>Wild Explorer</span> <span style="color:var(--wild)">Wild</span> </div> </div> <div class="asset-card-modern" id="wildgems-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildgems" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildGems</span> <span class="asset-balance-modern" id="wildgems">0</span> </div> <div class="asset-footer-modern"> <span>WildShorts</span> <span style="color:var(--gold)">Wild</span> </div> </div> <div class="asset-card-modern" id="relayshards-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="relayshards" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">RelayShards</span> <span class="asset-balance-modern" id="relayshards">0</span> </div> <div class="asset-footer-modern"> <span>WildTransfer</span> <span style="color:#00f3ff">Wild</span> </div> </div> </div> </div> <!-- Grupo: Core & Knowledge --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">Core & Knowledge</h4> <div class="assets-grid-modern assets-row-core"> <div class="asset-card-modern" id="ecoxionums-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecoxionums" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Ecoxionums</span> <span class="asset-balance-modern" id="ecoxionums">0</span> </div> <div class="asset-footer-modern"> <span>Ecoxion</span> <span style="color:var(--ok)">Core</span> </div> </div> <div class="asset-card-modern" id="ecobits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecobits" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoCoreBits</span> <span class="asset-balance-modern" id="ecobits">0</span> </div> <div class="asset-footer-modern"> <span>EcoConsole</span> <span style="color:var(--purple)">Core</span> </div> </div> <div class="asset-card-modern" id="ecobooks-card" onclick="loadEcoBooksBalance()"
+                    style="cursor:pointer;"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoBooks</span> <span class="asset-balance-modern" id="ecobooks">0</span> </div> <div class="asset-footer-modern"> <span>Naturepedia</span> <span style="color:var(--ok)">Knowledge</span> </div> </div> <div class="asset-card-modern" id="ecotokens-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoTokens</span> <span class="asset-balance-modern" id="ecotokens">0</span> </div> <div class="asset-footer-modern"> <span>Wild Savage</span> <span style="color:var(--ok)">Survival</span> </div> </div> </div> </div> <!-- Grupo: Gaming & Premium --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">Gaming & Premium</h4> <div class="assets-grid-modern assets-row-gaming"> <div class="asset-card-modern" id="nxb-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="nxb" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Nexus Bits</span> <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span> </div> <div class="asset-footer-modern"> <span>Nexus Dominion Front</span> <span style="color:#f08a5d">Gaming</span> </div> </div> <div class="asset-card-modern" id="amber-card" onclick="loadAmberBalance()" style="cursor:pointer;"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="amber" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Ambar</span> <span class="asset-balance-modern" id="amber" style="color: #fbbf24;">0</span> </div> <div class="asset-footer-modern"> <span>DinoBox</span> <span style="color:#fbbf24">Prehistoric Assets</span> </div> </div> <!-- VoltBits --> <div class="asset-card-modern" id="voltbits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="voltbit" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">VoltBits</span> <span class="asset-balance-modern" id="voltbit" style="color: #00e5ff;">0</span> </div> <div class="asset-footer-modern"> <span>Velocity Surge</span> <span style="color:#00e5ff">Volt Network</span> </div> </div> <div class="asset-card-modern" id="wildwavetokens-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildwavetokens" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildWave Tokens</span> <span class="asset-balance-modern" id="wildwavetokens" style="color:#7dd3fc;">0</span> </div> <div class="asset-footer-modern"> <span>WildWave</span> <span style="color:#7dd3fc">Social Network</span> </div> </div> <div class="asset-card-modern" id="appbux-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="appbux" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">AppBux</span> <span class="asset-balance-modern" id="appbux">0</span> </div> <div class="asset-footer-modern"> <span>AllApp</span> <span style="color:var(--orange)">Gaming</span> </div> </div> <!-- MayhemCoins --> <div class="asset-card-modern" id="mayhemcoins-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="mayhemcoins" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">MayhemCoins</span> <span class="asset-balance-modern" id="mayhemcoins" style="color: #e040fb;">0</span> </div> <div class="asset-footer-modern"> <span>WildWeapon Mayhem</span> <span style="color:#e040fb">Mayhem Network</span> </div> </div> <div class="asset-card-modern" id="cosmicdust-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="cosmicdust" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Polvora Cosmica</span> <span class="asset-balance-modern" id="cosmicdust" style="color:#ffb74d;">0</span> </div> <div class="asset-footer-modern"> <span>Savage Space Animals</span> <span style="color:#ffb74d">SSA</span> </div> </div> </div> </div> <!-- Cards Section - DESPUí‰S de activos --> <div class="cards-group"> <div class="section-header-modern"> <h3>Tarjetas Ocean Card</h3> <span class="view-all" onclick="showNewCardModal()">+ Nueva Tarjeta</span> </div> <div id="cards-container" class="modern-cards-grid"> <!-- Rendered by JS --> </div> </div> </div> <!-- SIDE AREA --> <div class="wallet-side-stack"> <!-- Stats Box --> <div class="glass-box"> <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Resumen de Cuenta </h4> <div class="stat-row"> <span class="stat-label">Tipo de Cuenta</span> <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span> </div> <div class="stat-row"> <span class="stat-label">Límite Diario</span> <span class="stat-value" id="daily-limit-display">ilimitado</span> </div> <div class="stat-row"> <span class="stat-label">Verificación</span> <span class="stat-value" style="color:var(--ok)" id="verification-level-display"> <i class="fas fa-check-circle"></i> Nivel 3 </span> </div> <div class="stat-row"
                   style="margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05);"> <span class="stat-label">EcoPower a</span> <span class="stat-value" style="color:#00ff64" id="ecopower-display">100</span> </div> </div> <!-- Quick Access --> <div class="glass-box"> <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Novedades Ecosistema </h4> <div class="card-mini-preview"
                   style="background: linear-gradient(145deg, rgba(30, 58, 138, 0.3) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(34, 211, 238, 0.15); display: flex; align-items: center; justify-content: center;"> <div style="text-align:center; padding: 1rem;"> <i class="fas fa-newspaper"
-                      style="font-size:2.25rem; color:var(--accent); margin-bottom:0.5rem; display:block; opacity:0.9;"></i> <p style="font-size:0.75rem; color:var(--text-dim); line-height: 1.3;"> Consulta los Ãºltimos logs de actualizaciÃ³n del protocolo. </p> </div> </div> <button class="primary"
+                      style="font-size:2.25rem; color:var(--accent); margin-bottom:0.5rem; display:block; opacity:0.9;"></i> <p style="font-size:0.75rem; color:var(--text-dim); line-height: 1.3;"> Consulta los últimos logs de actualización del protocolo. </p> </div> </div> <button class="primary"
                   style="width:100%; border-radius:14px; font-size:0.9rem; font-weight:700; margin-bottom:10px; border:none; padding: 1rem; cursor:pointer; background: linear-gradient(135deg, #0891b2, #22d3ee); color:#0f172a; transition: all 0.3s;"
                   onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 30px rgba(34,211,238,0.3)'"
                   onmouseout="this.style.transform=''; this.style.boxShadow=''"
@@ -2103,13 +2103,11 @@
               style="margin-bottom: 1.75rem; color: #94a3b8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 800; font-family: 'Plus Jakarta Sans', sans-serif;"> Suscripciones Activas </h3> <div id="subs-container"
               style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;"> <!-- Cargando... --> <div
                 style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08); padding: 2.5rem; border-radius: 20px; text-align: center; color: #64748b; grid-column: 1/-1; font-size: 0.9rem;"> No hay suscripciones activas vinculadas </div> </div> </div> </section> <!-- History Section --> <section id="history-section" class="hidden"> <div class="main-header"> <h2 class="page-title">Historial de Transacciones</h2> </div> <div id="tx-history-list"> <div id="txList"></div> </div> </section> <!-- Ocean Pass Section --> <section id="pass-section" class="hidden"> <div class="main-header"> <h2 class="page-title">x:ï¸ Ocean Pass</h2> </div> <div class="ocean-pass-section"> <!-- Ocean Wave Background --> <div class="ocean-wave-container"> <svg class="waves" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-              viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"> <defs> <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" /> </defs> <g class="parallax"> <use xlink:href="#gentle-wave" x="48" y="0" fill="rgba(34, 211, 238, 0.7)" /> <use xlink:href="#gentle-wave" x="48" y="3" fill="rgba(34, 211, 238, 0.5)" /> <use xlink:href="#gentle-wave" x="48" y="5" fill="rgba(34, 211, 238, 0.3)" /> <use xlink:href="#gentle-wave" x="48" y="7" fill="#0f172a" /> </g> </svg> </div> <div class="pass-header"> <div> <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: white;">Estado del Pase</h3> <p style="color: #cbd5e1;" id="pass-timer-display">Cargando tiempo restante...</p> </div> <div id="pass-status-container"> <span class="pass-status-badge status-inactive" id="pass-status-badge">Inactivo</span> </div> </div> <div id="pass-active-content" class="hidden"> <h4 style="margin-bottom: 1.5rem; color: var(--accent); position: relative; z-index: 2;">Suscripcion activa </h4> <div class="mission-grid" id="mission-grid"> <!-- Resumen de suscripciÃ³n --> </div> </div> <div id="pass-inactive-content"> <div style="text-align: center; padding: 3rem; position: relative; z-index: 2;"> <div class="mission-card" style="display:inline-block; max-width: 500px; margin: 0 auto;"> <i class="fas fa-water"
-                  style="font-size: 4rem; color: var(--accent); margin-bottom: 2rem; display: block;"></i> <h3 style="color: white;">Sumergirte en Ocean Pass</h3> <p style="color: #94a3b8; margin: 1rem 0 1.25rem;">Ocean Pass ahora funciona por suscripciÃ³n. Elige una divisa, paga una vez y activa 30 dÃ­as de beneficios completos.</p> <label style="display:block; color:#cbd5e1; margin:0 0 0.5rem; text-align:left;">Divisa de pago</label> <select id="pass-activation-currency" class="pos-currency-select" style="margin-bottom:1rem;"> <option value="aquabux">AquaBux</option> <option value="ecoxionums">Ecoxionums</option> <option value="wildcredits">WildCredits</option> <option value="wildgems">WildGems</option> <option value="voltbit">VoltBits</option> <option value="appbux">AppBux</option> <option value="amber">Amber</option> <option value="nxb">Nexus Bits</option> <option value="mayhemcoins">MayhemCoins</option> <option value="relayshards">RelayShards</option> </select> <button class="pos-btn-primary" onclick="activateOceanPass()" style="width: 100%;">Activar Ocean Pass (30 dÃ­as)</button> </div> </div> </div> <div id="pass-debt-content" class="hidden"> <div class="debt-alert" style="position: relative; z-index: 2;"> <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ef4444;"></i> <div> <h4 style="color: #ef4444; font-size: 1.2rem;">Â¡Pase Cancelado por Deuda!</h4> <p style="color: #cbd5e1; font-size: 0.95rem; margin-top: 0.5rem;">Te has hundido en deudas. No
-                  regularizaste tu suscripciÃ³n. Ve al POS Virtual > SecciÃ³n Deudas para regularizar tu situaciÃ³n y
-                  volver a la superficie.</p> </div> </div> </div> </div> <div style="margin-top: 3rem; position: relative; z-index: 2;"> <h3
+              viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto"> <defs> <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" /> </defs> <g class="parallax"> <use xlink:href="#gentle-wave" x="48" y="0" fill="rgba(34, 211, 238, 0.7)" /> <use xlink:href="#gentle-wave" x="48" y="3" fill="rgba(34, 211, 238, 0.5)" /> <use xlink:href="#gentle-wave" x="48" y="5" fill="rgba(34, 211, 238, 0.3)" /> <use xlink:href="#gentle-wave" x="48" y="7" fill="#0f172a" /> </g> </svg> </div> <div class="pass-header"> <div> <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: white;">Estado del Pase</h3> <p style="color: #cbd5e1;" id="pass-timer-display">Cargando tiempo restante...</p> </div> <div id="pass-status-container"> <span class="pass-status-badge status-inactive" id="pass-status-badge">Inactivo</span> </div> </div> <div id="pass-active-content" class="hidden"> <h4 style="margin-bottom: 1.5rem; color: var(--accent); position: relative; z-index: 2;">Suscripcion activa </h4> <div class="mission-grid" id="mission-grid"> <!-- Resumen de suscripción --> </div> </div> <div id="pass-inactive-content"> <div style="text-align: center; padding: 3rem; position: relative; z-index: 2;"> <div class="mission-card" style="display:inline-block; max-width: 500px; margin: 0 auto;"> <i class="fas fa-water"
+                  style="font-size: 4rem; color: var(--accent); margin-bottom: 2rem; display: block;"></i> <h3 style="color: white;">Sumergirte en Ocean Pass</h3> <p style="color: #94a3b8; margin: 1rem 0 1.25rem;">Ocean Pass ahora funciona por suscripción. Elige una divisa, paga una vez y activa 30 días de beneficios completos.</p> <label style="display:block; color:#cbd5e1; margin:0 0 0.5rem; text-align:left;">Divisa de pago</label> <select id="pass-activation-currency" class="pos-currency-select" style="margin-bottom:1rem;"> <option value="aquabux">AquaBux</option> <option value="ecoxionums">Ecoxionums</option> <option value="wildcredits">WildCredits</option> <option value="wildgems">WildGems</option> <option value="voltbit">VoltBits</option> <option value="appbux">AppBux</option> <option value="amber">Amber</option> <option value="nxb">Nexus Bits</option> <option value="mayhemcoins">MayhemCoins</option> <option value="relayshards">RelayShards</option> </select> <button class="pos-btn-primary" onclick="activateOceanPass()" style="width: 100%;">Activar Ocean Pass (30 días)</button> </div> </div> </div> <div id="pass-debt-content" class="hidden"> <div class="debt-alert" style="position: relative; z-index: 2;"> <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ef4444;"></i> <div> <h4 style="color: #ef4444; font-size: 1.2rem;">¡Pase Cancelado por Deuda!</h4> <p style="color: #cbd5e1; font-size: 0.95rem; margin-top: 0.5rem;">Tu Ocean Pass está bloqueado por una deuda pendiente. Esto puede haberse generado por no participar en una o más <strong style="color:#fbbf24;">encuestas obligatorias de OWS</strong> antes de su fecha de vencimiento, o por una suscripción sin regularizar. Dirígete al <strong>POS Virtual → Sección Deudas</strong> para saldar el monto y reactivar tu pase. Para evitar futuros cargos, participa en las encuestas activas en la sección <strong>Hub → Encuestas</strong> de OWS Store.</p> </div> </div> </div> </div> <div style="margin-top: 3rem; position: relative; z-index: 2;"> <h3
             style="margin-bottom: 2rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 3px; text-align: center;"><i class="fas fa-gem" style="margin-right:.5rem;"></i>Beneficios Exclusivos</h3> <div class="mission-grid"> <div class="mission-card"> <i class="fas fa-gift" style="font-size: 2rem; color: var(--ok); margin-bottom: 1rem;"></i> <h4>Tesoro cada 24h</h4> <p style="color: #cbd5e1;">Reclama 750 unidades en la divisa que elijas directamente desde tu POS
                 Virtual.</p> </div> <div class="mission-card"> <i class="fas fa-crown" style="font-size: 2rem; color: #fbbf24; margin-bottom: 1rem;"></i> <h4>Estatus VIP</h4> <p style="color: #cbd5e1;">Acceso prioritario a futuros eventos y multiplicadores de experiencia en el
-                ecosistema.</p> </div> <div class="mission-card"> <i class="fas fa-bolt" style="font-size: 2rem; color: #3b82f6; margin-bottom: 1rem;"></i> <h4>Suscripcion continua</h4> <p style="color: #cbd5e1;">Sin misiones obligatorias. Tu pase se mantiene activo hasta el vencimiento de la suscripciÃ³n.</p> </div> </div> </div> </section> <!-- POS Section Redesigned & Enhanced --> <section id="pos-section" class="hidden pos-section-viewport"> <div class="pos-section-header"> <h2 class="pos-section-title"><i class="fas fa-cash-register" style="margin-right:.5rem;"></i>POS Virtual</h2> <p class="pos-section-subtitle">Terminal de pagos integrada con Ocean Pay</p> </div> <style> /* POS Section - RediseÃ±o Premium */
+                ecosistema.</p> </div> <div class="mission-card"> <i class="fas fa-bolt" style="font-size: 2rem; color: #3b82f6; margin-bottom: 1rem;"></i> <h4>Suscripcion continua</h4> <p style="color: #cbd5e1;">Sin misiones obligatorias. Tu pase se mantiene activo hasta el vencimiento de la suscripción.</p> </div> </div> </div> </section> <!-- POS Section Redesigned & Enhanced --> <section id="pos-section" class="hidden pos-section-viewport"> <div class="pos-section-header"> <h2 class="pos-section-title"><i class="fas fa-cash-register" style="margin-right:.5rem;"></i>POS Virtual</h2> <p class="pos-section-subtitle">Terminal de pagos integrada con Ocean Pay</p> </div> <style> /* POS Section - Rediseño Premium */
           .pos-section-viewport {
             animation: sectionEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           }
@@ -2564,18 +2562,18 @@
                       onclick="showPosView('pos-self')"> <i class="fas fa-exchange-alt" style="color:#8b5cf6;"></i> <span>Transferencia Propia</span> </button> <button class="pos-big-btn"
                       style="flex-direction:row; height:auto; background: #faf5ff; border-color: #e9d5ff;"
                       onclick="showPendingSwaps()"> <i class="fas fa-sync-alt" style="color:#a855f7;"></i> <span>Solicitudes de Intercambio</span> </button> </div> </div> <!-- VIEW: DEBTS (Ocean Pass) --> <div id="pos-debts" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
-                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Deudas Ocean Pass</span> </div> <div id="pos-debts-list" style="margin-top: 20px;"> <!-- Se cargarÃ¡ dinÃ¡micamente --> </div> </div> <!-- VIEW: REWARDS (Ocean Pass) --> <div id="pos-rewards" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
-                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Recompensas Ocean Pass</span> </div> <div id="pos-rewards-list" style="margin-top: 20px;"> <!-- Se cargarÃ¡ dinÃ¡micamente --> </div> </div> <!-- VIEW: SEND (GENERATE) --> <div id="pos-send" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
+                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Deudas Ocean Pass</span> </div> <div id="pos-debts-list" style="margin-top: 20px;"> <!-- Se cargará dinámicamente --> </div> </div> <!-- VIEW: REWARDS (Ocean Pass) --> <div id="pos-rewards" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
+                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Recompensas Ocean Pass</span> </div> <div id="pos-rewards-list" style="margin-top: 20px;"> <!-- Se cargará dinámicamente --> </div> </div> <!-- VIEW: SEND (GENERATE) --> <div id="pos-send" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
                         class="fas fa-arrow-left"></i></button> <span class="pos-title">Enviar Dinero</span> </div> <div class="pos-field"> <label>Monto a enviar</label> <div class="pos-input-group"> <span style="color:#64748b; font-weight:bold; font-size:1.2rem;">$</span> <input type="number" id="pos-amount-input" class="pos-input" placeholder="0.00" min="0"
                         step="0.01"> </div> </div> <div class="pos-field"> <label>Divisa</label> <div class="pos-input-group"> <select id="pos-currency-select" class="pos-select" onchange="updatePosSendVisual()"> <option value="aquabux">AquaBux</option> <option value="ecoxionums">Ecoxionums</option> <option value="ecorebits">EcoCoreBits</option> <option value="wildcredits">WildCredits</option> <option value="wildgems">WildGems</option> <option value="appbux">AppBux</option> <option value="ecobooks">EcoBooks</option> <option value="ecotokens">EcoTokens</option> <option value="amber">Amber</option> <option value="nxb">Nexus Bits (NXB)</option> <option value="voltbit">VoltBits</option> <option value="wildwavetokens">WildWave Tokens</option> <option value="mayhemcoins">MayhemCoins</option> </select> </div> </div> <div class="pos-visual-card"> <canvas id="posSendCanvas" class="currency-canvas pos-currency-symbol"
-                      data-currency="aquabux"></canvas> <span style="font-size:0.8rem; color:#64748b; font-weight:600;">Seleccionado</span> </div> <div class="pos-field"> <label>Pagar desde</label> <div class="pos-input-group"> <select id="pos-card-source" class="pos-select"></select> </div> </div> <button class="pos-btn-primary" onclick="generatePOSCode()">Generar CÃ³digo</button> </div> <!-- VIEW: SELF TRANSFER (NEW) --> <div id="pos-self" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
-                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Transferirse a sÃ­ mismo</span> </div> <div class="pos-field"> <label>Monto</label> <div class="pos-input-group"> <input type="number" id="self-amount-input" class="pos-input" placeholder="0.00" min="0"
+                      data-currency="aquabux"></canvas> <span style="font-size:0.8rem; color:#64748b; font-weight:600;">Seleccionado</span> </div> <div class="pos-field"> <label>Pagar desde</label> <div class="pos-input-group"> <select id="pos-card-source" class="pos-select"></select> </div> </div> <button class="pos-btn-primary" onclick="generatePOSCode()">Generar Código</button> </div> <!-- VIEW: SELF TRANSFER (NEW) --> <div id="pos-self" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
+                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Transferirse a sí mismo</span> </div> <div class="pos-field"> <label>Monto</label> <div class="pos-input-group"> <input type="number" id="self-amount-input" class="pos-input" placeholder="0.00" min="0"
                         step="0.01"> </div> </div> <div class="pos-field"> <label>Divisa</label> <div class="pos-input-group"> <select id="self-currency-select" class="pos-select"> <option value="aquabux">AquaBux</option> <option value="ecoxionums">Ecoxionums</option> <option value="ecorebits">EcoCoreBits</option> <option value="wildcredits">WildCredits</option> <option value="wildgems">WildGems</option> <option value="appbux">AppBux</option> <option value="ecobooks">EcoBooks</option> <option value="ecotokens">EcoTokens</option> <option value="amber">Amber</option> <option value="nxb">Nexus Bits (NXB)</option> <option value="voltbit">VoltBits</option> <option value="wildwavetokens">WildWave Tokens</option> <option value="mayhemcoins">MayhemCoins</option> </select> </div> </div> <div class="pos-field"> <label>Desde (Origen)</label> <div class="pos-input-group"> <select id="self-card-source" class="pos-select"></select> </div> </div> <div style="text-align:center; margin:-10px 0 10px 0;"> <i class="fas fa-arrow-down" style="color:#64748b;"></i> </div> <div class="pos-field"> <label>Hacia (Destino)</label> <div class="pos-input-group"> <select id="self-card-dest" class="pos-select"></select> </div> </div> <button class="pos-btn-primary"
                     style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); box-shadow: 0 6px 0 #5b21b6, 0 10px 20px rgba(139, 92, 246, 0.3);"
                     onclick="executeSelfTransfer()">Confirmar Transferencia</button> </div> <!-- VIEW: CODE RESULT --> <div id="pos-result" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-send')"><i
-                        class="fas fa-arrow-left"></i></button> <span class="pos-title">CÃ³digo Generado</span> </div> <div style="text-align:center; flex:1; display:flex; flex-direction:column; justify-content:center;"> <p style="color:#64748b; margin-bottom:10px; font-weight:600;">Muestra este cÃ³digo al receptor</p> <div class="pos-code-container"> <div id="pos-generated-code-display" class="pos-generated-code">------</div> </div> <p
+                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Código Generado</span> </div> <div style="text-align:center; flex:1; display:flex; flex-direction:column; justify-content:center;"> <p style="color:#64748b; margin-bottom:10px; font-weight:600;">Muestra este código al receptor</p> <div class="pos-code-container"> <div id="pos-generated-code-display" class="pos-generated-code">------</div> </div> <p
                       style="color:#0ea5e9; font-weight:bold; font-size:1rem; display:flex; align-items:center; justify-content:center; gap:10px;"> <i class="fas fa-spinner fa-spin"></i> Esperando cobro... </p> </div> <button class="pos-btn-primary pos-btn-secondary" onclick="showPosView('pos-home')">Cancelar</button> </div> <!-- VIEW: RECEIVE (CLAIM) --> <div id="pos-receive" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
-                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Ingresar CÃ³digo</span> </div> <div class="pos-field"> <label>CÃ³digo POS</label> <div class="pos-input-group"> <input type="text" id="pos-claim-input" class="pos-input" placeholder="------"
+                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Ingresar Código</span> </div> <div class="pos-field"> <label>Código POS</label> <div class="pos-input-group"> <input type="text" id="pos-claim-input" class="pos-input" placeholder="------"
                         style="text-transform:uppercase; text-align:center; letter-spacing:4px; font-size:2rem; font-family:'Courier New'; font-weight:900;"> </div> </div> <!-- Numeric Pad Simulation --> <div class="pos-numpad" id="pos-numpad"> <!-- JS will fill logic to append to input --> <div class="pos-num-key" onclick="posType('1')">1</div> <div class="pos-num-key" onclick="posType('2')">2</div> <div class="pos-num-key" onclick="posType('3')">3</div> <div class="pos-num-key" onclick="posType('4')">4</div> <div class="pos-num-key" onclick="posType('5')">5</div> <div class="pos-num-key" onclick="posType('6')">6</div> <div class="pos-num-key" onclick="posType('7')">7</div> <div class="pos-num-key" onclick="posType('8')">8</div> <div class="pos-num-key" onclick="posType('9')">9</div> <div class="pos-num-key" onclick="posType('C')" style="color:#ef4444; background:#fef2f2;">DEL </div> <div class="pos-num-key" onclick="posType('0')">0</div> <div class="pos-num-key" onclick="posType('OK')"
                       style="background:#0ea5e9; color:white; border-color:#0369a1; box-shadow:0 3px 0 #0369a1;">OK </div> </div> </div> <!-- VIEW: CONFIRM RECEIVE --> <div id="pos-confirm" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-receive')"><i
                         class="fas fa-arrow-left"></i></button> <span class="pos-title" id="pos-confirm-title">Confirmar Cobro</span> </div> <div
@@ -2584,19 +2582,20 @@
                       style="margin:10px 0; font-size:2.5rem; color:#0f172a; font-weight:900;"> 0.00</h2> <canvas id="posConfirmCanvas" class="currency-canvas" data-currency="aquabux"
                       style="width: 70px; height: 70px; margin: 10px 0;"></canvas> <div
                       style="background:#f1f5f9; padding:5px 15px; border-radius:20px; color:#3b82f6; font-size:0.9rem; font-weight:700;"> <i class="fas fa-user-circle"></i> <span id="pos-confirm-sender">Usuario</span> </div> </div> <div id="pos-swap-details" class="hidden" style="text-align:center; margin-bottom:20px;"> <i class="fas fa-arrow-down" style="color:#64748b; margin-bottom:10px;"></i> <div
-                      style="background:rgba(168, 85, 247, 0.1); padding:15px; border-radius:20px; border:1px solid rgba(168, 85, 247, 0.2);"> <p style="color:#7c3aed; font-size:0.75rem; font-weight:800; text-transform:uppercase; margin:0;"> RecibirÃ¡s</p> <h3 id="pos-swap-target-amount" style="margin:5px 0; color:#1e293b; font-weight:900;">0.00</h3> <canvas id="posSwapTargetCanvas" class="currency-canvas" data-currency="wildgems"
+                      style="background:rgba(168, 85, 247, 0.1); padding:15px; border-radius:20px; border:1px solid rgba(168, 85, 247, 0.2);"> <p style="color:#7c3aed; font-size:0.75rem; font-weight:800; text-transform:uppercase; margin:0;"> Recibirás</p> <h3 id="pos-swap-target-amount" style="margin:5px 0; color:#1e293b; font-weight:900;">0.00</h3> <canvas id="posSwapTargetCanvas" class="currency-canvas" data-currency="wildgems"
                         style="width:50px; height:50px;"></canvas> </div> </div> <div class="pos-field" id="pos-dest-card-field"> <label>Depositar en</label> <div class="pos-input-group"> <select id="pos-card-dest" class="pos-select"></select> </div> </div> <button class="pos-btn-primary" onclick="completePOS()" id="pos-confirm-btn">Aceptar
-                    TransacciÃ³n</button> </div> <!-- VIEW: PENDING SWAPS --> <div id="pos-swaps" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
+                    Transacción</button> </div> <!-- VIEW: PENDING SWAPS --> <div id="pos-swaps" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
                         class="fas fa-arrow-left"></i></button> <span class="pos-title">Intercambios Solicitados</span> </div> <div id="swaps-list"
-                    style="flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:10px;"> <p style="text-align:center; color:#64748b; margin-top:20px;">Cargando solicitudes...</p> </div> </div> </div> </div> <div class="pos-printer-slit"></div> </div> </div> </section> <!-- Notifications Section --> <section id="notifications-section" class="hidden"> <div class="main-header" style="justify-content: space-between; display: flex;"> <h2 class="page-title">Notificaciones</h2> <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="loadNotifications()"> <i class="fas fa-sync-alt"></i> Actualizar </button> </div> <div id="notifications-list"> <p style="color: #64748b; text-align: center; margin-top: 2rem;">Cargando notificaciones...</p> </div> </section> <!-- Misc Section (Charts) --> <section id="misc-section" class="hidden"> <div class="main-header"> <h2 class="page-title">EstadÃ­sticas y GrÃ¡ficas</h2> <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="loadMiscStats()"> <i class="fas fa-sync-alt"></i> Actualizar </button> </div> <div class="balance-grid" style="grid-template-columns: 1fr 1fr; gap: 2rem;"> <div
-            style="background: var(--card); padding: 2rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);"> <h3 style="margin-bottom: 20px; color: var(--ok); text-align:center;">x  Ingresos (MÃ¡s Usado)</h3> <div style="position: relative; height: 300px;"> <canvas id="chartIncomes"></canvas> </div> </div> <div
+                    style="flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:10px;"> <p style="text-align:center; color:#64748b; margin-top:20px;">Cargando solicitudes...</p> </div> </div> </div> </div> <div class="pos-printer-slit"></div> </div> </div> </section> <!-- Notifications Section --> <section id="notifications-section" class="hidden"> <div class="main-header" style="justify-content: space-between; display: flex;"> <h2 class="page-title">Notificaciones</h2> <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="loadNotifications()"> <i class="fas fa-sync-alt"></i> Actualizar </button> </div> <div id="notifications-list"> <p style="color: #64748b; text-align: center; margin-top: 2rem;">Cargando notificaciones...</p> </div> </section> <!-- Misc Section (Charts) --> <section id="misc-section" class="hidden"> <div class="main-header"> <h2 class="page-title">Estadísticas y Gráficas</h2> <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="loadMiscStats()"> <i class="fas fa-sync-alt"></i> Actualizar </button> </div> <div class="balance-grid" style="grid-template-columns: 1fr 1fr; gap: 2rem;"> <div
+            style="background: var(--card); padding: 2rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);"> <h3 style="margin-bottom: 20px; color: var(--ok); text-align:center;">x  Ingresos (Más Usado)</h3> <div style="position: relative; height: 300px;"> <canvas id="chartIncomes"></canvas> </div> </div> <div
             style="background: var(--card); padding: 2rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);"> <h3 style="margin-bottom: 20px; color: var(--err); text-align:center;"><i class="fas fa-arrow-trend-down" style="margin-right:.35rem;"></i>Gastos (Ms Usado)</h3> <div style="position: relative; height: 300px;"> <canvas id="chartExpenses"></canvas> </div> </div> </div> </section> <!-- Settings Section --> <section id="settings-section" class="hidden"> <div class="main-header"> <h2 class="page-title">Ajustes de Cuenta</h2> </div> <div style="max-width: 600px;"> <div
-            style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 1.5rem; border-radius: 1rem;"> <h3 style="color: var(--err); margin-bottom: 1rem;">Zona de Peligro</h3> <p style="margin-bottom: 1rem; font-size: 0.9rem;">Eliminar tu cuenta es irreversible. PerderÃ¡s todos tus
+            style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 1.5rem; border-radius: 1rem;"> <h3 style="color: var(--err); margin-bottom: 1rem;">Zona de Peligro</h3> <p style="margin-bottom: 1rem; font-size: 0.9rem;">Eliminar tu cuenta es irreversible. Perderás todos tus
               fondos.</p> <button id="deleteAccountBtn" style="background: var(--err); color: white;">xï¸ Eliminar Cuenta
-              Permanentemente</button> </div> <button id="logoutBtn" class="secondary" style="margin-top: 2rem;">Cerrar SesiÃ³n</button> </div> </section> </main> </div> <script> const API = 'https://owsdatabase.onrender.com';
+              Permanentemente</button> </div> <button id="logoutBtn" class="secondary" style="margin-top: 2rem;">Cerrar Sesión</button> </div> </section> </main> </div> <script> const API = 'https://owsdatabase.onrender.com';
     let token = '', userId = 0;
     let userCards = []; // Array de tarjetas con saldos
-    let activeCardIndex = 0; // Ãndice de la tarjeta activa
+    window.userCards = userCards; // Expose to global scope for other scripts
+    let activeCardIndex = 0; // índice de la tarjeta activa
     let isRefreshingToken = false; // Prevent concurrent refresh attempts
 
     // Ocean Pass State
@@ -3002,7 +3001,7 @@
           opUser.token = token;
           localStorage.setItem('opUser', JSON.stringify(opUser));
 
-          showToast('SesiÃ³n renovada automÃ¡ticamente.', 'success', 3000);
+          showToast('Sesión renovada automáticamente.', 'success', 3000);
           console.log('S& Token refreshed successfully');
           isRefreshingToken = false;
           return true;
@@ -3560,7 +3559,7 @@
       ctx.lineWidth = size * 0.03;
       ctx.stroke();
 
-      // NÃºcleo acuoso interno
+      // Núcleo acuoso interno
       const inner = ctx.createRadialGradient(-dropW * 0.12, dropH * 0.02, 0, 0, dropH * 0.1, dropW * 0.52);
       inner.addColorStop(0, "rgba(191, 245, 255, 0.95)");
       inner.addColorStop(1, "rgba(34, 211, 238, 0)");
@@ -3645,7 +3644,7 @@
       }
     }
 
-    // Actualizar displays de saldos segÃºn tarjeta activa
+    // Actualizar displays de saldos según tarjeta activa
     function updateBalanceDisplays() {
       if (!userCards[activeCardIndex]) return;
 
@@ -3659,11 +3658,11 @@
       qs('#ecoxionums').textContent = Math.round(balances.ecoxionums || 0).toLocaleString();
       qs('#ecobits').textContent = Math.round(balances.ecorebits || 0).toLocaleString();
 
-      // SincronizaciÃ³n de WildCredits mejorada
+      // Sincronización de WildCredits mejorada
       const localWildCredits = localStorage.getItem('wildCredits');
       const serverWildCredits = Math.round(balances.wildcredits || 0);
 
-      // Intentamos usar el valor local si es mayor (indicador de desincronizaciÃ³n temporal)
+      // Intentamos usar el valor local si es mayor (indicador de desincronización temporal)
       const finalWildCredits = localWildCredits !== null ? Math.max(parseInt(localWildCredits), serverWildCredits) : serverWildCredits;
 
       const wcEl = qs('#wildcredits');
@@ -3731,7 +3730,7 @@
         return parseFloat(el.textContent.replace(/,/g, '')) || 0;
       };
 
-      // Tasas de conversiÃ³n oficiales (paridad Ecosystem EX)
+      // Tasas de conversión oficiales (paridad Ecosystem EX)
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, wildwavetokens: 0.18, appbux: 0.05,
@@ -3809,7 +3808,7 @@
       const amount = parseFloat(qs('#pos-amount-input').value);
       const currency = qs('#pos-currency-select').value;
       const cardId = qs('#pos-card-source').value;
-      if (!amount || amount <= 0) return alert('Ingresa un monto vÃ¡lido');
+      if (!amount || amount <= 0) return alert('Ingresa un monto válido');
       if (!cardId) return alert('Selecciona una tarjeta de origen');
       try {
         const res = await fetch(`${API}/pos/create`, {
@@ -3826,14 +3825,14 @@
           alert('Error: ' + data.error);
         }
       } catch (e) {
-        alert('Error de conexiÃ³n');
+        alert('Error de conexión');
       }
     }
 
     // Receiver: Verify Code 
     async function fetchPOSInfo() {
       const code = qs('#pos-claim-input').value.trim();
-      if (!code) return alert('Ingresa un cÃ³digo');
+      if (!code) return alert('Ingresa un código');
       try {
         const res = await
           fetch(`${API}/pos/${code}`); const data = await res.json(); if (data.success) {
@@ -3859,13 +3858,13 @@
         ${pos.target_currency.toUpperCase()}`; qs('#posSwapTargetCanvas').dataset.currency = pos.target_currency;
               qs('#pos-confirm-btn').textContent = 'Confirmar Intercambio';
             } else {
-              qs('#pos-confirm-btn').textContent = 'Aceptar TransacciÃ³n';
+              qs('#pos-confirm-btn').textContent = 'Aceptar Transacción';
             } const confirmCanvas = qs('#posConfirmCanvas'); if
               (confirmCanvas) { confirmCanvas.dataset.currency = pos.currency; } // Store data for completion
             qs('#pos-confirm').dataset.code = code; showPosView('pos-confirm');
           } else { alert(data.error); }
       } catch (e) {
-        alert('Error de conexiÃ³n');
+        alert('Error de conexión');
       }
     }
 
@@ -3885,7 +3884,7 @@
               receiptCanvas = qs('#receiptCanvas'); const confirmCanvas = qs('#posConfirmCanvas'); if (receiptCanvas &&
                 confirmCanvas) { receiptCanvas.dataset.currency = confirmCanvas.dataset.currency; }
             receipt.classList.add('printing'); setTimeout(() => {
-              alert('Â¡TransacciÃ³n completada!');
+              alert('¡Transacción completada!');
               receipt.classList.remove('printing');
               qs('#pos-claim-input').value = '';
               refreshAllBalances();
@@ -3939,7 +3938,7 @@
 
     // Confirmar intercambio directamente
     async function confirmSwap(code) {
-      if (!confirm('Â¿Confirmar esta conversiÃ³n de divisas')) return;
+      if (!confirm('¿Confirmar esta conversión de divisas')) return;
 
       try {
         const res = await fetch(`${API}/pos/complete`, {
@@ -3950,14 +3949,14 @@
         const data = await res.json();
 
         if (data.success) {
-          alert('Â¡Intercambio completado exitosamente!');
+          alert('¡Intercambio completado exitosamente!');
           refreshAllBalances();
           showPendingSwaps();
         } else {
           alert('Error: ' + data.error);
         }
       } catch (e) {
-        alert('Error de conexiÃ³n al procesar el intercambio');
+        alert('Error de conexión al procesar el intercambio');
       }
     }
 
@@ -4028,7 +4027,7 @@
             <h2 class="page-title">Tides</h2>
           </div>
           <div style="margin:0 0 1rem; color:#94a3b8; font-size:0.92rem;">
-            Compra paquetes premium y utilÃ­zalos para desbloqueos directos dentro del ecosistema.
+            Compra paquetes premium y utilízalos para desbloqueos directos dentro del ecosistema.
           </div>
         `;
         mainContent.appendChild(section);
@@ -4166,7 +4165,7 @@
 
     async function activateOceanPass() {
       const currency = (qs('#pass-activation-currency').value || PREMIUM_CURRENCY_ID).toLowerCase();
-      if (!confirm(`Confirmar suscripciÃ³n Ocean Pass con ${currency.toUpperCase()}`)) return;
+      if (!confirm(`Confirmar suscripción Ocean Pass con ${currency.toUpperCase()}`)) return;
       try {
         const res = await apiFetch(`${API}/ocean-pay/pass/activate`, {
           method: 'POST',
@@ -4200,11 +4199,11 @@
       const btn = document.querySelector('#pass-inactive-content .pos-btn-primary');
       if (!btn) return;
       if (amount > 0) {
-        btn.textContent = `Activar Ocean Pass (${amount.toLocaleString()} ${String(select.value).toUpperCase()}  30 dÃ­as)`;
+        btn.textContent = `Activar Ocean Pass (${amount.toLocaleString()} ${String(select.value).toUpperCase()}  30 días)`;
       } else if (key === PREMIUM_CURRENCY_ID) {
-        btn.textContent = `Activar Ocean Pass (${OCEAN_PASS_PREMIUM_PRICE.toLocaleString()} ${PREMIUM_CURRENCY_ID.toUpperCase()}  30 dÃ­as)`;
+        btn.textContent = `Activar Ocean Pass (${OCEAN_PASS_PREMIUM_PRICE.toLocaleString()} ${PREMIUM_CURRENCY_ID.toUpperCase()}  30 días)`;
       } else {
-        btn.textContent = 'Activar Ocean Pass (30 dÃ­as)';
+        btn.textContent = 'Activar Ocean Pass (30 días)';
       }
     }
 
@@ -4309,11 +4308,11 @@
         const billingAmount = Number(oceanPass.billingAmount || 0);
 
         const grid = qs('#mission-grid');
-        grid.innerHTML = ` <div class="mission-card"> <h4>${oceanPass.planName || 'Ocean Pass'}</h4> <p>Cobro de suscripciÃ³n: <b>${billingAmount.toLocaleString()} ${billingCurrency}</b></p> <p>Renovacion/vencimiento: <b>${oceanPass.nextRenewAt ? new Date(oceanPass.nextRenewAt).toLocaleString() : 'Sin dato'}</b></p> </div> <div class="mission-card"> <h4>Recompensa diaria</h4> <p>750 en la divisa elegida cada ${oceanPass.rewardEveryHours || 24}h.</p> <p>${rewardReady ? 'Disponible ahora' : `Disponible en ${rewardH}h ${rewardM}m`}</p> </div> `;
+        grid.innerHTML = ` <div class="mission-card"> <h4>${oceanPass.planName || 'Ocean Pass'}</h4> <p>Cobro de suscripción: <b>${billingAmount.toLocaleString()} ${billingCurrency}</b></p> <p>Renovacion/vencimiento: <b>${oceanPass.nextRenewAt ? new Date(oceanPass.nextRenewAt).toLocaleString() : 'Sin dato'}</b></p> </div> <div class="mission-card"> <h4>Recompensa diaria</h4> <p>750 en la divisa elegida cada ${oceanPass.rewardEveryHours || 24}h.</p> <p>${rewardReady ? 'Disponible ahora' : `Disponible en ${rewardH}h ${rewardM}m`}</p> </div> `;
       } else {
         badge.textContent = 'Inactivo';
         badge.className = 'pass-status-badge status-inactive';
-        timerDisplay.textContent = 'Activa tu suscripciÃ³n para empezar';
+        timerDisplay.textContent = 'Activa tu suscripción para empezar';
         show('#pass-active-content', false);
         show('#pass-inactive-content', true);
         show('#pass-debt-content', false);
@@ -4327,12 +4326,44 @@
         return;
       }
 
-      list.innerHTML = ` <div class="pos-debt-item"> <div> <h4 style="margin:0; color:#ef4444;">Deuda Ocean Pass</h4> <p style="margin:0; font-size:0.8rem; color:#64748b;">Suscripci?n pendiente de regularizaci?n</p> </div> <div style="text-align:right;"> <span style="font-weight:900;">$${oceanPass.debtAmount}</span> </div> </div> <div class="pos-field" style="margin-top:20px;"> <label>Pagar con Divisa</label> <select id="debt-currency-select" class="pos-currency-select"> <option value="aquabux">AquaBux</option> <option value="ecoxionums">Ecoxionums</option> <option value="wildcredits">WildCredits</option> <option value="wildgems">WildGems</option> <option value="voltbit">VoltBits</option> <option value="appbux">AppBux</option> <option value="amber">Amber</option> <option value="nxb">Nexus Bits</option> <option value="mayhemcoins">MayhemCoins</option> <option value="relayshards">RelayShards</option> </select> <button class="pos-btn-primary" onclick="payPassDebt()">Pagar Deuda ahora</button> </div> `;
+      list.innerHTML = `
+        <div class="pos-debt-item">
+          <div>
+            <h4 style="margin:0; color:#ef4444;">⚠️ Deuda Pendiente — Ocean Pass</h4>
+            <p style="margin:4px 0 0; font-size:0.82rem; color:#94a3b8; line-height:1.5;">
+              Monto total adeudado: <strong style="color:#fbbf24;">${oceanPass.debtAmount.toLocaleString()}</strong> unidades.
+              Esta deuda puede haberse originado por no haber participado en una o más
+              <strong style="color:#f87171;">encuestas obligatorias de OWS</strong> antes de su vencimiento.
+              Para evitar futuros cargos, participa en las encuestas activas desde
+              <strong>OWS Store → Hub → Encuestas</strong>.
+            </p>
+          </div>
+          <div style="text-align:right; margin-top:8px;">
+            <span style="font-weight:900; font-size:1.3rem; color:#ef4444;">${oceanPass.debtAmount.toLocaleString()}</span>
+          </div>
+        </div>
+        <div class="pos-field" style="margin-top:20px;">
+          <label>Pagar con Divisa</label>
+          <select id="debt-currency-select" class="pos-currency-select">
+            <option value="aquabux">AquaBux</option>
+            <option value="ecoxionums">Ecoxionums</option>
+            <option value="wildcredits">WildCredits</option>
+            <option value="wildgems">WildGems</option>
+            <option value="voltbit">VoltBits</option>
+            <option value="appbux">AppBux</option>
+            <option value="amber">Amber</option>
+            <option value="nxb">Nexus Bits</option>
+            <option value="mayhemcoins">MayhemCoins</option>
+            <option value="relayshards">RelayShards</option>
+          </select>
+          <button class="pos-btn-primary" onclick="payPassDebt()">Pagar Deuda ahora</button>
+        </div>
+      `;
     }
 
     async function payPassDebt() {
       const currency = qs('#debt-currency-select').value;
-      if (!confirm(`Â¿Pagar la deuda con ${currency.toUpperCase()}`)) return;
+      if (!confirm(`¿Pagar la deuda con ${currency.toUpperCase()}`)) return;
 
       try {
         const res = await apiFetch(`${API}/ocean-pay/pass/pay-debt`, {
@@ -4342,7 +4373,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast('Â¡Deuda saldada! Ocean Pass reactivado.', 'success');
+          showToast('¡Deuda saldada! Ocean Pass reactivado.', 'success');
           refreshAllBalances();
           loadOceanPass();
           showPosView('pos-home');
@@ -4367,7 +4398,7 @@
         const remaining = nextReward - now;
         const h = Math.floor(remaining / 3600000);
         const m = Math.floor((remaining % 3600000) / 60000);
-        list.innerHTML = `<p style="text-align:center; color:#64748b; margin-top:20px;">PrÃ³ximo regalo disponible en:<br><b style="font-size:1.2rem; color:#0f172a;">${h}h ${m}m</b></p>`;
+        list.innerHTML = `<p style="text-align:center; color:#64748b; margin-top:20px;">Próximo regalo disponible en:<br><b style="font-size:1.2rem; color:#0f172a;">${h}h ${m}m</b></p>`;
         return;
       }
 
@@ -4439,7 +4470,7 @@
           <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; flex-wrap:wrap;">
             <div>
               <h3 style="margin:0; color:#e7f5ff; font-size:1.04rem;"><i class="fas fa-shield-halved" style="margin-right:.45rem;"></i>Seguridad</h3>
-              <p style="margin:.32rem 0 0; color:#c6dcf1; font-size:.86rem;">Recomendado: activar verificaciÃ³n en 2 pasos para accesos desde OWS Store.</p>
+              <p style="margin:.32rem 0 0; color:#c6dcf1; font-size:.86rem;">Recomendado: activar verificación en 2 pasos para accesos desde OWS Store.</p>
             </div>
             <button id="op-2fa-toggle-btn" style="width:auto; min-width:170px; padding:.65rem .9rem; border-radius:10px; border:1px solid rgba(109,234,255,.45); background:rgba(11,32,50,.8); color:#d9f1ff; font-weight:700;">Cargando...</button>
           </div>
@@ -4449,10 +4480,10 @@
         <div style="background: rgba(6, 16, 30, 0.65); border: 1px solid rgba(131, 170, 209, 0.28); border-radius: 14px; padding: 1rem;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; flex-wrap:wrap;">
             <div>
-              <h3 style="margin:0; color:#e8f6ff; font-size:1rem;"><i class="fas fa-key" style="margin-right:.42rem;"></i>CÃ³digos solicitados por OWS Store</h3>
-              <p style="margin:.3rem 0 0; color:#bfd8ee; font-size:.84rem;">Cuando OWS Store te pida verificaciÃ³n, copia el cÃ³digo activo y pÃ©galo en el modal de acceso.</p>
+              <h3 style="margin:0; color:#e8f6ff; font-size:1rem;"><i class="fas fa-key" style="margin-right:.42rem;"></i>Códigos solicitados por OWS Store</h3>
+              <p style="margin:.3rem 0 0; color:#bfd8ee; font-size:.84rem;">Cuando OWS Store te pida verificación, copia el código activo y pégalo en el modal de acceso.</p>
             </div>
-            <button id="op-2fa-refresh-codes-btn" class="secondary" style="width:auto; padding:.58rem .82rem;">Actualizar cÃ³digos</button>
+            <button id="op-2fa-refresh-codes-btn" class="secondary" style="width:auto; padding:.58rem .82rem;">Actualizar códigos</button>
           </div>
           <div id="op-2fa-codes-list" style="margin-top:.7rem; display:grid; gap:.52rem;"></div>
         </div>
@@ -4499,8 +4530,8 @@
         : 'rgba(11,32,50,.8)';
       btn.style.color = enabled ? '#05231c' : '#d9f1ff';
       status.textContent = enabled
-        ? 'OWS Store solicitarÃ¡ un cÃ³digo adicional al iniciar sesiÃ³n con tus credenciales.'
-        : 'Acceso clÃ¡sico habilitado en OWS Store (sin cÃ³digo extra).';
+        ? 'OWS Store solicitará un código adicional al iniciar sesión con tus credenciales.'
+        : 'Acceso clásico habilitado en OWS Store (sin código extra).';
     }
 
     async function setOceanPayTwoFactorEnabled(enabled) {
@@ -4519,7 +4550,7 @@
           body: JSON.stringify({ enabled: !!enabled })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'No se pudo actualizar la verificaciÃ³n en 2 pasos.');
+        if (!res.ok) throw new Error(data.error || 'No se pudo actualizar la verificación en 2 pasos.');
         renderOceanPayTwoFactorStatus(!!data.enabled);
         showToast(data.message || 'Ajuste de seguridad actualizado.', 'success');
       } catch (err) {
@@ -4536,7 +4567,7 @@
       const now = Date.now();
       const safeCodes = Array.isArray(codes) ? codes : [];
       if (!safeCodes.length) {
-        container.innerHTML = `<div style="border:1px dashed rgba(147,184,217,.3); border-radius:10px; padding:.75rem; color:#9fc0dc; font-size:.84rem;">No hay cÃ³digos pendientes en este momento. Inicia sesiÃ³n en OWS Store para generar uno nuevo.</div>`;
+        container.innerHTML = `<div style="border:1px dashed rgba(147,184,217,.3); border-radius:10px; padding:.75rem; color:#9fc0dc; font-size:.84rem;">No hay códigos pendientes en este momento. Inicia sesión en OWS Store para generar uno nuevo.</div>`;
         return;
       }
       container.innerHTML = safeCodes.map((entry) => {
@@ -4554,7 +4585,7 @@
               <span style="font-size:.72rem; color:#9dd9ff;">Expira en ${safeLabel}</span>
             </div>
             <div style="display:flex; gap:.45rem; flex-wrap:wrap;">
-              <button type="button" data-copy-code="${code}" style="width:auto; padding:.42rem .68rem; border-radius:8px; border:1px solid rgba(126,210,240,.4); background:rgba(16,39,58,.78); color:#daf2ff; font-size:.78rem;">Copiar cÃ³digo</button>
+              <button type="button" data-copy-code="${code}" style="width:auto; padding:.42rem .68rem; border-radius:8px; border:1px solid rgba(126,210,240,.4); background:rgba(16,39,58,.78); color:#daf2ff; font-size:.78rem;">Copiar código</button>
               <button type="button" data-copy-challenge="${challengeId}" style="width:auto; padding:.42rem .68rem; border-radius:8px; border:1px solid rgba(126,210,240,.4); background:rgba(16,39,58,.78); color:#daf2ff; font-size:.78rem;">Copiar ID solicitud</button>
             </div>
           </article>
@@ -4566,9 +4597,9 @@
           const value = String(btn.getAttribute('data-copy-code') || '');
           try {
             await navigator.clipboard.writeText(value);
-            showToast('CÃ³digo copiado para OWS Store.', 'success');
+            showToast('Código copiado para OWS Store.', 'success');
           } catch (_err) {
-            showToast('No se pudo copiar automÃ¡ticamente. Copia manualmente el cÃ³digo.', 'warning');
+            showToast('No se pudo copiar automáticamente. Copia manualmente el código.', 'warning');
           }
         };
       });
@@ -4588,16 +4619,16 @@
     async function loadOceanPayOwsStoreCodes() {
       const container = document.getElementById('op-2fa-codes-list');
       if (!container) return;
-      container.innerHTML = `<div style="border:1px dashed rgba(147,184,217,.3); border-radius:10px; padding:.75rem; color:#9fc0dc; font-size:.84rem;">Consultando cÃ³digos activos...</div>`;
+      container.innerHTML = `<div style="border:1px dashed rgba(147,184,217,.3); border-radius:10px; padding:.75rem; color:#9fc0dc; font-size:.84rem;">Consultando códigos activos...</div>`;
       try {
         const res = await fetch(`${API}/ocean-pay/security/ows-store/codes`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'No se pudieron obtener los cÃ³digos de OWS Store.');
+        if (!res.ok) throw new Error(data.error || 'No se pudieron obtener los códigos de OWS Store.');
         renderOceanPayOwsStoreCodes(data.codes || []);
       } catch (err) {
-        container.innerHTML = `<div style="border:1px dashed rgba(239,68,68,.35); border-radius:10px; padding:.75rem; color:#ffb1c0; font-size:.84rem;">${err.message || 'Error al consultar cÃ³digos.'}</div>`;
+        container.innerHTML = `<div style="border:1px dashed rgba(239,68,68,.35); border-radius:10px; padding:.75rem; color:#ffb1c0; font-size:.84rem;">${err.message || 'Error al consultar códigos.'}</div>`;
       }
     }
 
@@ -4632,7 +4663,7 @@
       const username = qs('#regUser').value;
       const password = qs('#regPass').value;
       if (password.length < 4) {
-        qs('#regMsg').textContent = 'La contraseÃ±a debe tener al menos 4 caracteres.';
+        qs('#regMsg').textContent = 'La contraseña debe tener al menos 4 caracteres.';
         qs('#regMsg').className = 'msg error'; return;
       } try {
         const res = await fetch(API + '/ocean-pay/register', {
@@ -4640,7 +4671,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
         });
-        const data = await res.json().catch(() => { throw new Error('Error del servidor (respuesta no vÃ¡lida)'); });
+        const data = await res.json().catch(() => { throw new Error('Error del servidor (respuesta no válida)'); });
 
         if (!res.ok) {
           qs('#regMsg').textContent = data.error || `Error del servidor (${res.status})`;
@@ -4649,11 +4680,11 @@
         }
 
         qs('#regMsg').className = 'msg success';
-        qs('#regMsg').textContent = 'Â¡Cuenta creada! Bienvenido.';
+        qs('#regMsg').textContent = '¡Cuenta creada! Bienvenido.';
         setTimeout(() => autoLogin(username, password), 1000);
       } catch (err) {
         console.error(err);
-        qs('#regMsg').textContent = 'Error de conexiÃ³n o del servidor.';
+        qs('#regMsg').textContent = 'Error de conexión o del servidor.';
         qs('#regMsg').className = 'msg error';
       }
     };
@@ -4674,7 +4705,7 @@
 
         const data = await res.json();
         if (!res.ok) {
-          qs('#logMsg').textContent = data.error || 'Error al iniciar sesiÃ³n';
+          qs('#logMsg').textContent = data.error || 'Error al iniciar sesión';
           qs('#logMsg').className = 'msg error';
           return;
         }
@@ -4706,7 +4737,7 @@
         }
       } catch (err) {
         console.error(err);
-        qs('#logMsg').textContent = 'Error de conexiÃ³n';
+        qs('#logMsg').textContent = 'Error de conexión';
       }
     }
 
@@ -4715,7 +4746,7 @@
       console.warn('Session expired. Logging out...');
 
       // Show toast BEFORE clearing state so it's visible
-      showToast('Tu sesiÃ³n ha expirado. Redirigiendo al inicio de sesiÃ³n...', 'warning', 6000);
+      showToast('Tu sesión ha expirado. Redirigiendo al inicio de sesión...', 'warning', 6000);
 
       // Delay logout slightly so user sees the toast
       setTimeout(() => {
@@ -4726,7 +4757,7 @@
         show('#app-layout', false);
         show('#auth-section', true);
         show('#loginForm', true);
-        qs('#logMsg').textContent = 'Tu sesiÃ³n ha expirado. Por favor, inicia sesiÃ³n de nuevo.';
+        qs('#logMsg').textContent = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
         qs('#logMsg').className = 'msg error';
         if (balanceRefreshInterval) clearInterval(balanceRefreshInterval);
       }, 1500);
@@ -4857,7 +4888,7 @@
           const balance = parseInt(data.ecobooks || 0);
           ecobooksEl.textContent = balance.toLocaleString();
 
-          // AnimaciÃ³n de Ã©xito
+          // Animación de éxito
           const card = qs('#ecobooks-card');
           card.style.borderColor = '#10b981';
           setTimeout(() => { card.style.borderColor = ''; }, 1000);
@@ -4926,8 +4957,9 @@
 
           // Actualizar variable global
           userCards = data.cards;
+          window.userCards = userCards; // Keep global reference in sync
 
-          // Restaurar Ã­ndice de tarjeta activa
+          // Restaurar índice de tarjeta activa
           if (currentUser.activeCardIndex !== undefined && currentUser.activeCardIndex < userCards.length) {
             activeCardIndex = currentUser.activeCardIndex;
           } else { activeCardIndex = 0; } // Actualizar displays
@@ -4950,7 +4982,7 @@
                 title="Renombrar Tarjeta"><i class="fas fa-pencil-alt"></i></button> ${!card.is_primary ? `<button onclick="deleteCard(event, ${card.id})"
                 style="position: absolute; top: 10px; right: 20px; background: rgba(239,68,68,0.2); color: #ef4444; border:none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 0.8rem;"
                 title="Eliminar Tarjeta"><i class="fas fa-trash"></i></button>` : ''} <span class="card-number"
-                onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.card_number}'); alert('NÃºmero copiado')"
+                onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.card_number}'); alert('Número copiado')"
                 style="cursor:pointer;" title="Clic para copiar">${formattedNumber}</span> <div class="card-details"> <div> <span class="card-label">${cardName}</span> <span class="card-val">${JSON.parse(localStorage.getItem('opUser')).username}</span> </div> <div style="margin-left: auto; margin-right: 2rem;"> <span class="card-label">Expira</span> <span class="card-val">${card.expiry_date}</span> </div> <div
                   onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.cvv}'); alert('CVV Copiado')"
                   style="cursor:pointer;" title="Clic para copiar CVV"> <span class="card-label">CVV</span> <span class="card-val">${card.cvv} <i class="fas fa-copy"
@@ -4958,7 +4990,7 @@
         }).join('');
 
       if (cards.length < 2) {
-        html += ` <button class="new-card-btn" onclick="createNewCard()"> <i class="fas fa-plus-circle"></i> <span>Solicitar Nueva Tarjeta</span> <small style="opacity:0.6;">MÃ¡ximo 2 tarjetas</small> </button> `;
+        html += ` <button class="new-card-btn" onclick="createNewCard()"> <i class="fas fa-plus-circle"></i> <span>Solicitar Nueva Tarjeta</span> <small style="opacity:0.6;">Máximo 2 tarjetas</small> </button> `;
       }
 
       container.innerHTML = html;
@@ -4971,13 +5003,13 @@
       const expYear = 2000 + y;
       const expMonth = m - 1; // 0-indexed
 
-      // La tarjeta expira el Ãºltimo dÃ­a del mes
+      // La tarjeta expira el último día del mes
       const expDate = new Date(expYear, expMonth + 1, 0);
       return now > expDate;
     }
 
     async function renewCard(cardNumber) {
-      if (!confirm('Â¿Deseas renovar esta tarjeta por 3 aÃ±os mÃ¡s')) return;
+      if (!confirm('¿Deseas renovar esta tarjeta por 3 años más')) return;
 
       try {
         const res = await fetch(`${API} /ocean-pay/cards / renew`, {
@@ -4987,14 +5019,14 @@
         });
 
         if (res.ok) {
-          alert('Â¡Tarjeta renovada con Ã©xito!');
+          alert('¡Tarjeta renovada con éxito!');
           loadOceanCards();
         }
       } catch (e) { alert('Error al renovar'); }
     }
 
     async function createNewCard() {
-      if (!confirm('Â¿Solicitar una segunda Ocean Card vinculada a tu cuenta')) return;
+      if (!confirm('¿Solicitar una segunda Ocean Card vinculada a tu cuenta')) return;
 
       try {
         const res = await fetch(`${API} /ocean-pay/cards / create`, {
@@ -5003,13 +5035,13 @@
         });
 
         if (res.ok) {
-          alert('Â¡Nueva tarjeta generada!');
+          alert('¡Nueva tarjeta generada!');
           loadOceanCards();
         } else {
           const data = await res.json();
           alert(data.error || 'Error al crear tarjeta');
         }
-      } catch (e) { alert('Error de conexiÃ³n'); }
+      } catch (e) { alert('Error de conexión'); }
     }
 
     async function refreshAllBalances() {
@@ -5034,7 +5066,7 @@
 
     /* ---------- CHECKOUT INTEGRATION ---------- */
     window.triggerDeposit = function () {
-      const amount = parseFloat(prompt('Â¿QuÃ© cantidad deseas cargar', '1000'));
+      const amount = parseFloat(prompt('¿Qué cantidad deseas cargar', '1000'));
       if (!amount || amount <= 0) return; openCheckout({
         type: 'income', amount: amount, currency: 'aquabux',
         concept: 'Carga de Saldo desde Tarjeta Externa', callback: async (cardId) => {
@@ -5048,11 +5080,11 @@
               cardId: cardId,
               amount: amount,
               currency: 'aquabux',
-              concept: 'Carga de Saldo vÃ­a Checkout'
+              concept: 'Carga de Saldo vía Checkout'
             })
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Error al procesar depÃ³sito');
+          if (!res.ok) throw new Error(data.error || 'Error al procesar depósito');
 
           await refreshAllBalances();
           await renderTransacciones(); // Actualizar historial
@@ -5061,7 +5093,7 @@
     };
 
     qs('#deleteAccountBtn').onclick = async () => {
-      if (!confirm('Â¿EstÃ¡s seguro de eliminar tu cuenta permanentemente')) return;
+      if (!confirm('¿Estás seguro de eliminar tu cuenta permanentemente')) return;
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
       try {
         const res = await fetch(`${API}/ocean-pay/delete-account`, {
@@ -5122,7 +5154,7 @@
         container.innerHTML = txs.map(tx => {
           const date = new Date(tx.created_at).toLocaleDateString();
           const isPos = tx.monto > 0;
-          return ` <div style="display:flex; justify-content:space-between; padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;"> <div> <div style="font-weight:bold;">${tx.concepto || 'TransacciÃ³n'}</div> <div style="font-size:0.8rem; color:#64748b;">${date} â¬¢ ${tx.origen || 'Sistema'}</div> </div> <div style="font-weight:bold; color:${isPos ? 'var(--ok)' : 'var(--err)'}"> ${isPos ? '+' : ''}${tx.monto} ${tx.moneda || ''} </div> </div>`;
+          return ` <div style="display:flex; justify-content:space-between; padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;"> <div> <div style="font-weight:bold;">${tx.concepto || 'Transacción'}</div> <div style="font-size:0.8rem; color:#64748b;">${date} â¬¢ ${tx.origen || 'Sistema'}</div> </div> <div style="font-weight:bold; color:${isPos ? 'var(--ok)' : 'var(--err)'}"> ${isPos ? '+' : ''}${tx.monto} ${tx.moneda || ''} </div> </div>`;
         }).join('');
       } catch (e) { container.innerHTML = '<div style="color:var(--err)">Error cargando historial</div>'; }
     }
@@ -5132,7 +5164,7 @@
 
     async function deleteCard(e, cardId) {
       e.stopPropagation(); // Avoid selecting card
-      if (!confirm('Â¿Eliminar esta tarjeta secundaria y todo su historial/saldo asociado Esta acciÃ³n no se puede deshacer.')) return;
+      if (!confirm('¿Eliminar esta tarjeta secundaria y todo su historial/saldo asociado Esta acción no se puede deshacer.')) return;
 
       try {
         const res = await fetch(`${API}/ocean-pay/api/cards/${cardId}`, {
@@ -5146,7 +5178,7 @@
           const d = await res.json();
           alert(d.error || 'No se pudo eliminar');
         }
-      } catch (err) { alert('Error de conexiÃ³n'); }
+      } catch (err) { alert('Error de conexión'); }
     }
 
     async function handleRenameCard(e, cardId, currentName) {
@@ -5165,13 +5197,13 @@
         });
 
         if (res.ok) {
-          alert('Â¡Tarjeta personalizada exitosamente!');
+          alert('¡Tarjeta personalizada exitosamente!');
           loadOceanCards(); // Refresh to show new name
         } else {
           const d = await res.json();
           alert(d.error || 'No se pudo renombrar');
         }
-      } catch (err) { alert('Error de conexiÃ³n'); }
+      } catch (err) { alert('Error de conexión'); }
     }
 
     async function executeSelfTransfer() {
@@ -5180,7 +5212,7 @@
       const sourceCardId = qs('#self-card-source').value;
       const destCardId = qs('#self-card-dest').value;
 
-      if (!amount || amount <= 0) return alert('Monto invÃ¡lido'); if (sourceCardId === destCardId) return
+      if (!amount || amount <= 0) return alert('Monto inválido'); if (sourceCardId === destCardId) return
       alert('Selecciona tarjetas diferentes'); try {
         const res = await
           fetch(`${API}/ocean-pay/api/transfer-self`, {
@@ -5192,14 +5224,14 @@
               destCardId, currency, amount
             })
           }); const data = await res.json(); if (data.success) {
-            alert('Â¡Transferencia Exitosa!');
+            alert('¡Transferencia Exitosa!');
             qs('#self-amount-input').value = '';
             loadOceanCards(); // Refresh balances
             showPosView('pos-home');
           } else {
           alert('Error: ' + data.error);
         }
-      } catch (e) { alert(' Error de conexiÃ³n'); }
+      } catch (e) { alert(' Error de conexión'); }
     }
     const miscCharts = {};
 
@@ -5427,7 +5459,7 @@
       const btn = qs('#checkout-confirm-btn');
 
       modal.classList.add('active');
-      conceptDisplay.textContent = details.concept || 'TransacciÃ³n';
+      conceptDisplay.textContent = details.concept || 'Transacción';
       originDisplay.textContent = details.origin || 'Ocean Pay';
       amountVal.textContent = details.amount.toLocaleString();
       currencyVal.textContent = (details.currency || 'wildgems').toUpperCase();
@@ -5506,7 +5538,7 @@
           return;
         }
 
-        // Simular verificaciÃ³n de red bancaria (Mercado Pago Style)
+        // Simular verificación de red bancaria (Mercado Pago Style)
         btn.textContent = 'Verificando red bancaria...';
         btn.disabled = true;
         await new Promise(r => setTimeout(r, 1500));
@@ -5550,7 +5582,7 @@
           window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: true }, '*');
         }
 
-        alert('Â¡Pago completado! Se ha procesado tu compra exitosamente.');
+        alert('¡Pago completado! Se ha procesado tu compra exitosamente.');
         closeCheckout();
         refreshAllBalances();
         renderTransacciones();
@@ -5619,7 +5651,9 @@
       if (unavailableMount) unavailableMount.innerHTML = `<div class="subs-unavailable-empty">Analizando historial de suscripciones...</div>`;
 
       const fallbackCatalog = [
-        { key: 'nature_pass', name: 'Nature-Pass', pid: 'Naturepedia', icon: 'fas fa-leaf', themeClass: 'sub-nature-pass' },
+        { key: 'nature_pass_basic', name: 'Nature-Pass Basic', pid: 'Naturepedia', icon: 'fas fa-leaf', themeClass: 'sub-nature-pass-basic', tier: 'basic' },
+        { key: 'nature_pass_premium', name: 'Nature-Pass Premium', pid: 'Naturepedia', icon: 'fas fa-leaf', themeClass: 'sub-nature-pass-premium', tier: 'premium' },
+        { key: 'nature_pass_ultimate', name: 'Nature-Pass Ultimate', pid: 'Naturepedia', icon: 'fas fa-leaf', themeClass: 'sub-nature-pass-ultimate', tier: 'ultimate' },
         { key: 'dinobox_premium', name: 'DinoPass Premium', pid: 'DinoBox', icon: 'fas fa-dragon', themeClass: 'sub-dinopass-premium' },
         { key: 'dinobox_elite', name: 'DinoPass Elite', pid: 'DinoBox', icon: 'fas fa-crown', themeClass: 'sub-dinopass-elite' },
         { key: 'wildshorts_vip', name: 'Premium VIP', pid: 'WildShorts', icon: 'fas fa-crown', themeClass: 'sub-wildshorts-premium' },
@@ -5633,7 +5667,11 @@
       const detectCatalogKey = (s) => {
         const rawName = String(s.plan_name || s.sub_name || '').toLowerCase();
         const pid = String(s.project_id || '').toLowerCase();
-        if (rawName.includes('nature-pass') || pid.includes('naturepedia')) return 'nature_pass';
+        if (rawName.includes('nature-pass') || pid.includes('naturepedia')) {
+          if (rawName.includes('ultimate')) return 'nature_pass_ultimate';
+          if (rawName.includes('premium')) return 'nature_pass_premium';
+          return 'nature_pass_basic';
+        }
         if (rawName.includes('dinopass elite')) return 'dinobox_elite';
         if (rawName.includes('dinopass premium')) return 'dinobox_premium';
         if (rawName.includes('premium vip') || pid.includes('wildshorts')) return 'wildshorts_vip';
@@ -5658,7 +5696,7 @@
       };
 
       const explainInactive = (sub) => {
-        if (!sub) return { badge: 'Nunca activada', reason: 'Todavia no registras una suscripciÃ³n para este plan.' };
+        if (!sub) return { badge: 'Nunca activada', reason: 'Todavia no registras una suscripción para este plan.' };
         const status = String(sub.status || '').toLowerCase();
         const reasonRaw = String(sub.cancel_reason || sub.cancellation_reason || sub.reason || '').toLowerCase();
         if (status === 'cancelled' || status === 'canceled') {
@@ -5722,23 +5760,109 @@
 
         const activeCatalogKeys = new Set(activeSubs.map((s) => detectCatalogKey(s)).filter(Boolean));
 
-        // Reglas por tier: si Elite esta activa, Premium no se muestra como faltante.
+        // Reglas por tier: si un tier superior esta activo, los inferiores no se muestran como faltantes.
         // El plan gratuito de Ocean Cinemas nunca aparece en suscripciones (es el estado base).
         const hiddenByTier = new Set(['ocean_cinemas_free']);
         if (activeCatalogKeys.has('dinobox_elite')) hiddenByTier.add('dinobox_premium');
+        if (activeCatalogKeys.has('nature_pass_ultimate')) { hiddenByTier.add('nature_pass_premium'); hiddenByTier.add('nature_pass_basic'); }
+        else if (activeCatalogKeys.has('nature_pass_premium')) hiddenByTier.add('nature_pass_basic');
 
-        const unavailableItems = catalog
-          .filter((item) => !activeCatalogKeys.has(item.key))
-          .filter((item) => !hiddenByTier.has(item.key))
-          .map((item) => {
+        // Agrupacion por proyecto para consolidar planes multiples en una sola tarjeta
+        const projectGroups = {
+          'Naturepedia': {
+            keys: ['nature_pass_basic', 'nature_pass_premium', 'nature_pass_ultimate'],
+            name: 'Nature-Pass',
+            icon: 'fas fa-leaf',
+            themeClass: 'sub-nature-pass',
+            pid: 'Naturepedia'
+          },
+          'DinoBox': {
+            keys: ['dinobox_premium', 'dinobox_elite'],
+            name: 'DinoBox',
+            icon: 'fas fa-dragon',
+            themeClass: 'sub-dinobox',
+            pid: 'DinoBox'
+          },
+          'Ocean Cinemas': {
+            keys: ['ocean_cinemas_abyssal'],
+            name: 'Ocean Cinemas',
+            icon: 'fas fa-film',
+            themeClass: 'sub-oceancinemas',
+            pid: 'Ocean Cinemas'
+          }
+        };
+
+        // Invertir mapa: key -> projectGroup
+        const keyToProject = {};
+        for (const [projName, group] of Object.entries(projectGroups)) {
+          for (const key of group.keys) {
+            keyToProject[key] = group;
+          }
+        }
+
+        // Determinar que proyectos tienen suscripciones activas (para ocultar entradas de catalogo desactualizadas o keys antiguas)
+        const activeProjectPids = new Set();
+        for (const key of activeCatalogKeys) {
+          const group = keyToProject[key];
+          if (group) activeProjectPids.add(group.pid);
+        }
+        // Fallback: marcar proyecto activo si hay subs activas aunque detectCatalogKey falle o keys no coincidan
+        activeSubs.forEach(s => {
+          const pid = String(s.project_id || '');
+          if (pid.toLowerCase().includes('naturepedia')) activeProjectPids.add('Naturepedia');
+          if (pid.toLowerCase().includes('dinobox')) activeProjectPids.add('DinoBox');
+          if (pid.toLowerCase().includes('ocean cinemas') || pid.toLowerCase().includes('ocean-cinemas')) activeProjectPids.add('Ocean Cinemas');
+        });
+
+        const unavailableItems = [];
+        const processedProjects = new Set();
+
+        for (const item of catalog) {
+          if (activeCatalogKeys.has(item.key)) continue;
+          if (hiddenByTier.has(item.key)) continue;
+
+          const projectGroup = keyToProject[item.key];
+          
+          // Verificar si el item pertenece a un proyecto que ya tiene suscripcion activa
+          // Esto maneja casos donde el catalogo de la API tiene keys antiguas (ej: 'nature_pass')
+          // pero el usuario tiene una suscripcion activa de un tier (ej: 'nature_pass_ultimate')
+          const itemPid = item.pid || (projectGroup ? projectGroup.pid : null);
+          if (itemPid && activeProjectPids.has(itemPid)) {
+            if (projectGroup) processedProjects.add(projectGroup.pid);
+            continue;
+          }
+          
+          if (projectGroup && !processedProjects.has(projectGroup.pid)) {
+            // Proyecto con multiples planes: consolidar en una sola tarjeta
+            processedProjects.add(projectGroup.pid);
+            
+            // Obtener el historial mas reciente de cualquier plan del proyecto
+            const allHistory = [];
+            for (const key of projectGroup.keys) {
+              if (historyByCatalog[key]) {
+                allHistory.push(...historyByCatalog[key]);
+              }
+            }
+            const latest = getLatestByDate(allHistory);
+            const info = explainInactive(latest);
+            
+            unavailableItems.push({
+              ...projectGroup,
+              badge: info.badge,
+              reason: info.reason,
+              key: projectGroup.keys[0] // Usar el primer key como referencia
+            });
+          } else if (!projectGroup) {
+            // Proyecto con un solo plan: mostrar normalmente
             const latest = getLatestByDate(historyByCatalog[item.key] || []);
             const info = explainInactive(latest);
-            return {
+            unavailableItems.push({
               ...item,
               badge: info.badge,
               reason: info.reason
-            };
-          });
+            });
+          }
+        }
 
         if (!activeSubs.length) {
           if (heroMount) heroMount.innerHTML = `<div class="subs-carousel-empty">No hay suscripciones activas vinculadas.</div>`;
@@ -5755,7 +5879,7 @@
 
           const items = activeSubs
             .filter((s) => {
-              // No mostrar el plan gratuito de Ocean Cinemas â€” es el estado base, no una suscripcion
+              // No mostrar el plan gratuito de Ocean Cinemas "” es el estado base, no una suscripcion
               const key = detectCatalogKey(s);
               return key !== 'ocean_cinemas_free';
             })
@@ -5774,7 +5898,12 @@
 
             let icon = 'fas fa-bolt';
             let themeClass = '';
-            if (rawName === 'Nature-Pass') { icon = 'fas fa-leaf'; themeClass = 'sub-nature-pass'; }
+            if (rawName.includes('Nature-Pass')) {
+              icon = 'fas fa-leaf';
+              if (rawName.includes('Ultimate')) themeClass = 'sub-nature-pass-ultimate';
+              else if (rawName.includes('Premium')) themeClass = 'sub-nature-pass-premium';
+              else themeClass = 'sub-nature-pass-basic';
+            }
             else if (rawName.includes('DinoPass Premium')) { icon = 'fas fa-dragon'; themeClass = 'sub-dinopass-premium'; }
             else if (rawName.includes('DinoPass Elite')) { icon = 'fas fa-crown'; themeClass = 'sub-dinopass-elite'; }
             else if (rawName.includes('Premium VIP')) { icon = 'fas fa-crown'; themeClass = 'sub-wildshorts-premium'; }
@@ -5812,47 +5941,71 @@
               <button class="subs-nav-btn prev" data-subs-nav="prev" aria-label="Anterior"><i class="fas fa-chevron-left"></i></button>
               <div class="subs-carousel-window">
                 <div class="subs-carousel-track">
-                  ${items.map((it) => {
-                    const isOceanCinemas = it.themeClass === 'sub-oceancinemas-abyssal' || it.themeClass === 'sub-oceancinemas-free';
-                    if (isOceanCinemas) {
-                      // Card mejorado para Ocean Cinemas
-                      const isAbyssal = it.themeClass === 'sub-oceancinemas-abyssal';
-                      const planBadge = isAbyssal ? 'ABISAL' : 'FREE';
-                      const planColor = isAbyssal ? '#14b8a6' : '#38bdf8';
-                      const perks = isAbyssal
-                        ? ['50% descuento en todas las pelÃ­culas', 'Fast Pass desbloqueado', 'Recompensas 2x']
-                        : ['Acceso al catÃ¡logo base', 'Pre-compra estÃ¡ndar', 'Recompensas diarias'];
-                      return `
-                        <article class="subs-carousel-card ${it.themeClass}" style="position:relative;overflow:hidden;">
-                          <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:${planColor};opacity:0.08;filter:blur(20px);pointer-events:none;"></div>
-                          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                            <div style="display:flex;align-items:center;gap:8px;">
-                              <div class="sub-icon" style="width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#06111f;font-size:1rem;flex-shrink:0;"><i class="${it.icon}"></i></div>
-                              <div>
-                                <div style="font-size:0.62rem;color:#7fb8d4;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Ocean Cinemas</div>
-                                <div style="font-size:0.88rem;color:#f2fbff;font-weight:800;line-height:1.1;">${it.name}</div>
-                              </div>
-                            </div>
-                            <span style="font-size:0.6rem;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:${planColor};border:1px solid ${planColor}44;background:${planColor}18;border-radius:999px;padding:3px 8px;">${planBadge}</span>
-                          </div>
-                          <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
-                            ${perks.map(p => `<div style="display:flex;align-items:center;gap:6px;font-size:0.7rem;color:#b4d8e8;"><i class="fas fa-check" style="color:${planColor};font-size:0.6rem;flex-shrink:0;"></i>${p}</div>`).join('')}
-                          </div>
-                          <div class="subs-meta">
-                            <div><small>RenovaciÃ³n</small><strong>${it.renewDate}</strong></div>
-                            <div><small>Vencimiento</small><strong>${it.nextDate}</strong></div>
-                            <div><small>Estado</small><strong class="${it.statusLabel === 'Activa' ? 'ok' : 'off'}">${it.statusLabel}</strong></div>
-                          </div>
-                        </article>`;
-                    }
-                    // Card estÃ¡ndar para otros proyectos
+                   ${items.map((it) => {
+                     const isOceanCinemas = it.themeClass === 'sub-oceancinemas-abyssal' || it.themeClass === 'sub-oceancinemas-free';
+                     if (isOceanCinemas) {
+                       // Card mejorado para Ocean Cinemas
+                       const isAbyssal = it.themeClass === 'sub-oceancinemas-abyssal';
+                       const planBadge = isAbyssal ? 'ABISAL' : 'FREE';
+                       const planColor = isAbyssal ? '#14b8a6' : '#38bdf8';
+                       const perks = isAbyssal
+                         ? ['50% descuento en todas las películas', 'Fast Pass desbloqueado', 'Recompensas 2x']
+                         : ['Acceso al catálogo base', 'Pre-compra estándar', 'Recompensas diarias'];
+                       return `
+                         <article class="subs-carousel-card ${it.themeClass}" style="position:relative;overflow:hidden;">
+                           <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:${planColor};opacity:0.08;filter:blur(20px);pointer-events:none;"></div>
+                           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                             <div style="display:flex;align-items:center;gap:8px;">
+                               <div class="sub-icon" style="width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#06111f;font-size:1rem;flex-shrink:0;"><i class="${it.icon}"></i></div>
+                               <div>
+                                 <div style="font-size:0.62rem;color:#7fb8d4;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Ocean Cinemas</div>
+                                 <div style="font-size:0.88rem;color:#f2fbff;font-weight:800;line-height:1.1;">${it.name}</div>
+                               </div>
+                             </div>
+                             <span style="font-size:0.6rem;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:${planColor};border:1px solid ${planColor}44;background:${planColor}18;border-radius:999px;padding:3px 8px;">${planBadge}</span>
+                           </div>
+                           <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
+                             ${perks.map(p => `<div style="display:flex;align-items:center;gap:6px;font-size:0.7rem;color:#b4d8e8;"><i class="fas fa-check" style="color:${planColor};font-size:0.6rem;flex-shrink:0;"></i>${p}</div>`).join('')}
+                           </div>
+                           <div class="subs-meta">
+                             <div><small>Renovación</small><strong>${it.renewDate}</strong></div>
+                             <div><small>Vencimiento</small><strong>${it.nextDate}</strong></div>
+                             <div><small>Estado</small><strong class="${it.statusLabel === 'Activa' ? 'ok' : 'off'}">${it.statusLabel}</strong></div>
+                           </div>
+                         </article>`;
+                     }
+                     const isNaturePass = it.themeClass && it.themeClass.startsWith('sub-nature-pass');
+                     if (isNaturePass) {
+                       const tierName = it.themeClass.includes('ultimate') ? 'ULTIMATE' : (it.themeClass.includes('premium') ? 'PREMIUM' : 'BASIC');
+                       const tierColor = it.themeClass.includes('ultimate') ? '#c084fc' : (it.themeClass.includes('premium') ? '#fbbf24' : '#93a4b6');
+                       return `
+                         <article class="subs-carousel-card ${it.themeClass}" style="position:relative;overflow:hidden;">
+                           <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:${tierColor};opacity:0.08;filter:blur(20px);pointer-events:none;"></div>
+                           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                             <div style="display:flex;align-items:center;gap:8px;">
+                               <div class="sub-icon" style="width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#06111f;font-size:1rem;flex-shrink:0;"><i class="${it.icon}"></i></div>
+                               <div>
+                                 <div style="font-size:0.62rem;color:#7fb8d4;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Naturepedia</div>
+                                 <div style="font-size:0.88rem;color:#f2fbff;font-weight:800;line-height:1.1;">${it.name}</div>
+                               </div>
+                             </div>
+                             <span style="font-size:0.6rem;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor}44;background:${tierColor}18;border-radius:999px;padding:3px 8px;">${tierName}</span>
+                           </div>
+                           <div class="subs-meta">
+                             <div><small>Renovación</small><strong>${it.renewDate}</strong></div>
+                             <div><small>Vencimiento</small><strong>${it.nextDate}</strong></div>
+                             <div><small>Estado</small><strong class="${it.statusLabel === 'Activa' ? 'ok' : 'off'}">${it.statusLabel}</strong></div>
+                           </div>
+                         </article>`;
+                     }
+                     // Card estándar para otros proyectos
                     return `
                       <article class="subs-carousel-card ${it.themeClass}">
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><div class="sub-icon" style="width:42px;height:42px;border-radius:11px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#06111f;font-size:1.15rem;"><i class="${it.icon}"></i></div><div class="subs-chip" style="margin:0;"><i class="fas fa-satellite"></i> ${it.pid}</div></div>
                         <h4>${it.name}</h4>
                         <p class="subs-money">${it.price} <span>${it.currency}</span></p>
                         <div class="subs-meta">
-                          <div><small>RenovaciÃ³n</small><strong>${it.renewDate}</strong></div>
+                          <div><small>Renovación</small><strong>${it.renewDate}</strong></div>
                           <div><small>Vencimiento</small><strong>${it.nextDate}</strong></div>
                           <div><small>Estado</small><strong class="${it.statusLabel === 'Activa' ? 'ok' : 'off'}">${it.statusLabel}</strong></div>
                         </div>
@@ -5909,7 +6062,7 @@
 
         if (unavailableMount) {
           if (!unavailableItems.length) {
-            unavailableMount.innerHTML = `<div class="subs-unavailable-empty">Tenes activadas todas las suscripciones registradas.</div>`;
+            unavailableMount.innerHTML = `<div class="subs-unavailable-empty">Tenés activadas todas las suscripciones registradas.</div>`;
           } else {
             unavailableMount.innerHTML = `
               <div class="subs-unavailable-head">
@@ -5918,19 +6071,24 @@
               </div>
               <div class="subs-unavailable-grid">
                 ${unavailableItems.map((it) => {
-                  const isOceanCinemas = it.themeClass === 'sub-oceancinemas-abyssal' || it.themeClass === 'sub-oceancinemas-free';
+                  // Usar themeClass e icon directamente del item consolidado
+                  const themeClass = it.themeClass || '';
+                  const iconClass = it.icon || 'fas fa-ticket';
+                  const nameLower = (it.name || '').toLowerCase();
+                  const pidLower = (it.pid || '').toLowerCase();
+                  
+                  const isOceanCinemas = themeClass === 'sub-oceancinemas' || pidLower.includes('ocean cinemas') || pidLower.includes('ocean-cinemas');
                   if (isOceanCinemas) {
-                    const isAbyssal = it.themeClass === 'sub-oceancinemas-abyssal';
-                    const planColor = isAbyssal ? '#14b8a6' : '#38bdf8';
-                    const planBadge = isAbyssal ? 'ABISAL' : 'FREE';
-                    const planDesc = isAbyssal ? '50% desc. Â· Fast Pass Â· Recompensas 2x' : 'CatÃ¡logo base Â· Pre-compra estÃ¡ndar';
+                    const planColor = '#38bdf8';
+                    const planBadge = 'FREE';
+                    const planDesc = 'Catálogo base · Pre-compra estándar';
                     return `
-                      <article class="subs-unavailable-card ${it.themeClass}" style="position:relative;overflow:hidden;">
+                      <article class="subs-unavailable-card ${themeClass}">
                         <div class="left">
-                          <span class="sub-icon" style="flex-shrink:0;"><i class="${it.icon}"></i></span>
+                          <span class="sub-icon"><i class="${iconClass}"></i></span>
                           <div>
-                            <h4 style="display:flex;align-items:center;gap:6px;">${it.name} <span style="font-size:0.58rem;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;color:${planColor};border:1px solid ${planColor}44;background:${planColor}18;border-radius:999px;padding:2px 6px;">${planBadge}</span></h4>
-                            <small style="color:#7fb8d4;">${it.pid} Â· ${planDesc}</small>
+                            <h4>${it.name} <span style="font-size:0.58rem;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;color:${planColor};border:1px solid ${planColor}44;background:${planColor}18;border-radius:999px;padding:2px 6px;">${planBadge}</span></h4>
+                            <small>${it.pid} · ${planDesc}</small>
                           </div>
                         </div>
                         <div class="right">
@@ -5940,9 +6098,9 @@
                       </article>`;
                   }
                   return `
-                    <article class="subs-unavailable-card ${it.themeClass}">
+                    <article class="subs-unavailable-card ${themeClass}">
                       <div class="left">
-                        <span class="sub-icon"><i class="${it.icon}"></i></span>
+                        <span class="sub-icon"><i class="${iconClass}"></i></span>
                         <div>
                           <h4>${it.name}</h4>
                           <small>${it.pid}</small>
@@ -6049,7 +6207,7 @@
             amount: parseFloat(urlParams.get('amount') || 0),
             currency: urlParams.get('currency') || 'voltbit',
             concept: urlParams.get('concept') || 'Compra Externa',
-            origin: urlParams.get('origin') || 'AplicaciÃ³n Externa'
+            origin: urlParams.get('origin') || 'Aplicación Externa'
           };
           // Show Pos Section to make it look contextual, or just wallet
           showSection('wallet');
@@ -6089,20 +6247,20 @@
         { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transaccines generales del ecosistema.', project: 'Ocean Cinemas' },
         { id: 'tides', name: 'Tides', desc: 'Divisa premium del ecosistema OWS para desbloqueos de alto nivel.', project: 'Ocean Pay' },
         { id: 'coralbits', name: 'Coral Bits', desc: 'Divisa de Ocean AI sincronizada con Ocean Pay.', project: 'Ocean AI' },
-        { id: 'wildcredits', name: 'WildCredits', desc: 'CrÃ©ditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
+        { id: 'wildcredits', name: 'WildCredits', desc: 'Créditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },
         { id: 'tigrys', name: 'Tigrys', desc: 'Divisa semanal de Tiger Tasks para recompensas y Tiger Pass.', project: 'Tiger Tasks' },
         { id: 'relayshards', name: 'RelayShards', desc: 'Divisa nativa de WildTransfer. Se gana al subir y recibir archivos para pagar planes semanales.', project: 'WildTransfer' },
         { id: 'ecoxionums', name: 'Ecoxionums', desc: 'Activo digital de alto valor, base del protocolo de intercambio Ecoxion.', project: 'Ecoxion' },
         { id: 'nxb-balance', name: 'NXB', desc: 'Divisa de combate y mejoras utilizada en Nexus Dominion Front.', project: 'Nexus Dominion Front' },
-        { id: 'amber', name: 'Amber', desc: 'Resina fÃ³sil valiosa para la gestiÃ³n de expediciones dinosÃ¡uricas.', project: 'DinoBox' },
-        { id: 'voltbit', name: 'VoltBit', desc: 'Unidades de energÃ­a sintÃ©tica necesarias para la aceleraciÃ³n en Velocity Surge.', project: 'Velocity Surge' },
+        { id: 'amber', name: 'Amber', desc: 'Resina fósil valiosa para la gestión de expediciones dinosáuricas.', project: 'DinoBox' },
+        { id: 'voltbit', name: 'VoltBit', desc: 'Unidades de energía sintética necesarias para la aceleración en Velocity Surge.', project: 'Velocity Surge' },
         { id: 'wildwavetokens', name: 'WildWave Tokens', desc: 'Token social de WildWave. Se sincroniza con tu actividad y recompensas de la red.', project: 'WildWave' },
-        { id: 'appbux', name: 'AppBux', desc: 'CrÃ©ditos universales para microtransacciones en aplicaciones de terceros.', project: 'Ecosistema' },
+        { id: 'appbux', name: 'AppBux', desc: 'Créditos universales para microtransacciones en aplicaciones de terceros.', project: 'Ecosistema' },
         { id: 'ecobooks', name: 'EcoBooks', desc: 'Activo de conocimiento para desbloquear recursos en Naturepedia.', project: 'Naturepedia' },
         { id: 'ecobits', name: 'EcoCoreBits', desc: 'Unidades de procesamiento de datos para la infraestructura Core.', project: 'Tidal Core' },
         { id: 'ecotokens', name: 'EcoTokens', desc: 'Tokens de gobernanza para participar en decisiones de Wild Savage.', project: 'Wild Savage' },
-        { id: 'mayhemcoins', name: 'MayhemCoins', desc: 'Moneda caÃ³tica obtenida en WildWeapon Mayhem a travÃ©s de combates y misiones.', project: 'WildWeapon Mayhem' },
+        { id: 'mayhemcoins', name: 'MayhemCoins', desc: 'Moneda caótica obtenida en WildWeapon Mayhem a través de combates y misiones.', project: 'WildWeapon Mayhem' },
         { id: 'cosmicdust', name: 'Polvora Cosmica', desc: 'Recurso principal de Savage Space Animals para mejoras, compras y eventos.', project: 'Savage Space Animals' }
       ];
 
@@ -6121,8 +6279,8 @@
           }
         });
       }, 50);
-    } </script> <!-- ASSETS MODAL OVERLAY --> <div id="assets-modal" class="modal-overlay"> <div class="modal-container"> <div class="modal-header-nav"> <div> <h2 style="font-size:1.75rem; font-weight:900; letter-spacing:-1px;">Activos del Ecosistema</h2> <p style="color:var(--text-dim); font-size:0.85rem; font-weight:600;">GestiÃ³n centralizada de divisas
-            digitales</p> </div> <div style="display:flex; gap:1.5rem; align-items:center;"> <div class="view-toggle"> <button id="toggle-economy" class="toggle-btn active" onclick="renderModalAssets('economy')">Saldos</button> <button id="toggle-info" class="toggle-btn" onclick="renderModalAssets('info')">InformaciÃ³n</button> </div> <button class="modal-close" onclick="closeAssetsModal()"> <i class="fas fa-times"></i> </button> </div> </div> <div id="modal-assets-grid" class="assets-full-grid"> <!-- DinÃ¡mico --> </div> </div> </div> <script> (function initOceanPayDesktopBridge() {
+    } </script> <!-- ASSETS MODAL OVERLAY --> <div id="assets-modal" class="modal-overlay"> <div class="modal-container"> <div class="modal-header-nav"> <div> <h2 style="font-size:1.75rem; font-weight:900; letter-spacing:-1px;">Activos del Ecosistema</h2> <p style="color:var(--text-dim); font-size:0.85rem; font-weight:600;">Gestión centralizada de divisas
+            digitales</p> </div> <div style="display:flex; gap:1.5rem; align-items:center;"> <div class="view-toggle"> <button id="toggle-economy" class="toggle-btn active" onclick="renderModalAssets('economy')">Saldos</button> <button id="toggle-info" class="toggle-btn" onclick="renderModalAssets('info')">Información</button> </div> <button class="modal-close" onclick="closeAssetsModal()"> <i class="fas fa-times"></i> </button> </div> </div> <div id="modal-assets-grid" class="assets-full-grid"> <!-- Dinámico --> </div> </div> </div> <script> (function initOceanPayDesktopBridge() {
       if (!window.oceanPayDesktop) return;
 
       window.oceanPayDesktop.getVersion()
@@ -6413,6 +6571,62 @@
       }
     }
 
+    function ensureMiscDashboardLayout() {
+      const section = document.getElementById('misc-section');
+      if (!section || section.dataset.v2Dashboard === '1') return;
+      section.dataset.v2Dashboard = '1';
+      section.innerHTML = `
+        <div class="main-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <h2 class="page-title">Centro de Analiticas Globales</h2>
+          <button class="secondary" style="width:auto;padding:.55rem 1rem;" onclick="loadMiscStats()">
+            <i class="fas fa-sync-alt"></i> Actualizar
+          </button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+          <div style="background:linear-gradient(160deg,rgba(16,185,129,.12),rgba(7,17,36,.95));border:1px solid rgba(16,185,129,.25);border-radius:14px;padding:12px;">
+            <div style="font-size:.72rem;color:#86efac;text-transform:uppercase;letter-spacing:.08em;">Usuarios activos</div>
+            <div id="misc-kpi-users" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
+          </div>
+          <div style="background:linear-gradient(160deg,rgba(56,189,248,.12),rgba(7,17,36,.95));border:1px solid rgba(56,189,248,.25);border-radius:14px;padding:12px;">
+            <div style="font-size:.72rem;color:#7dd3fc;text-transform:uppercase;letter-spacing:.08em;">Movimientos</div>
+            <div id="misc-kpi-tx" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
+          </div>
+          <div style="background:linear-gradient(160deg,rgba(244,114,182,.12),rgba(7,17,36,.95));border:1px solid rgba(244,114,182,.25);border-radius:14px;padding:12px;">
+            <div style="font-size:.72rem;color:#f9a8d4;text-transform:uppercase;letter-spacing:.08em;">POS completados</div>
+            <div id="misc-kpi-pos" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
+          </div>
+          <div style="background:linear-gradient(160deg,rgba(250,204,21,.12),rgba(7,17,36,.95));border:1px solid rgba(250,204,21,.25);border-radius:14px;padding:12px;">
+            <div style="font-size:.72rem;color:#fde68a;text-transform:uppercase;letter-spacing:.08em;">Volumen total</div>
+            <div id="misc-kpi-volume" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
+          </div>
+        </div>
+        <div id="misc-data-note" style="margin-bottom:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.2);background:rgba(15,23,42,.55);color:#94a3b8;font-size:.84rem;line-height:1.45;">
+          Datos reales agregados de toda la plataforma. <b style="color:#e2e8f0;">Volumen total</b> = suma de entradas + salidas registradas en TX y POS completados.
+          <b style="color:#e2e8f0;">Flujo por divisa</b> = comparativa entre monto total de entrada y salida por cada divisa.
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div style="background:var(--card);border:1px solid rgba(56,189,248,.2);border-radius:16px;padding:14px;">
+            <h3 style="margin:0 0 10px;color:#67e8f9;">Divisas mas usadas</h3>
+            <div style="position:relative;height:280px;"><canvas id="chartMostUsed"></canvas></div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(250,204,21,.2);border-radius:16px;padding:14px;">
+            <h3 style="margin:0 0 10px;color:#fde68a;">Divisas menos usadas</h3>
+            <div style="position:relative;height:280px;"><canvas id="chartLeastUsed"></canvas></div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(244,114,182,.2);border-radius:16px;padding:14px;">
+            <h3 style="margin:0 0 10px;color:#f9a8d4;">Flujo por divisa</h3>
+            <div style="position:relative;height:300px;"><canvas id="chartCurrencyFlow"></canvas></div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(16,185,129,.2);border-radius:16px;padding:14px;">
+            <h3 style="margin:0 0 10px;color:#86efac;">Actividad global (14 das)</h3>
+            <div style="position:relative;height:300px;"><canvas id="chartActivityTrend"></canvas></div>
+          </div>
+        </div>
+      `;
+    }
+
     function refreshTopbarData() {
       const user = document.getElementById('userNameDisplay').textContent.trim() || 'Usuario';
       const total = document.getElementById('total-estimated-value').textContent.trim() || '0';
@@ -6485,7 +6699,7 @@
         return na.localeCompare(nb, 'es');
       }).forEach((card) => stage.appendChild(card));
 
-      // Estado visual estÃ¡tico (sin carrusel dinÃ¡mico)
+      // Estado visual estático (sin carrusel dinámico)
       cards.forEach((card, i) => {
         card.classList.add('currency-grid-card');
         card.classList.toggle('is-featured', i === 0);
@@ -6532,7 +6746,7 @@
         wrap.dataset.posQuick = type;
         const presets = type === 'send' ? [50, 100, 250, 500, 1000] : [25, 50, 100, 250, 500];
         wrap.innerHTML = `
-          <span class="quick-label">Accesos rÃ¡pidos</span>
+          <span class="quick-label">Accesos rápidos</span>
           <div class="quick-row">
             ${presets.map((v) => `<button type="button" data-quick-value="${v}">${v}</button>`).join('')}
           </div>
@@ -6573,7 +6787,7 @@
         return key;
       };
       const getBalanceByCardAndCurrency = (cardId, currency) => {
-        const cards = Array.isArray(userCards) ? userCards : [];
+        const cards = Array.isArray(window.userCards) ? window.userCards : [];
         const card = cards.find((c) => Number(c.id) === Number(cardId));
         if (!card || !currency) return 0;
         const key = normalizeCurrencyKey(currency);
@@ -6608,7 +6822,7 @@
           <div class="line"><span>Saldo disponible</span><strong>${formatNum(available)} ${currency.toUpperCase()}</strong></div>
           <div class="line"><span>Monto a enviar</span><strong>${formatNum(amount)} ${currency.toUpperCase()}</strong></div>
           <div class="line"><span>Saldo estimado</span><strong>${formatNum(after)} ${currency.toUpperCase()}</strong></div>
-          <div class="meta ${enough ? 'ok' : 'warn'}">${amount <= 0 ? 'Ingresa un monto para previsualizar.' : (enough ? 'Listo para generar cÃ³digo.' : 'Fondos insuficientes en la tarjeta seleccionada.')}</div>
+          <div class="meta ${enough ? 'ok' : 'warn'}">${amount <= 0 ? 'Ingresa un monto para previsualizar.' : (enough ? 'Listo para generar código.' : 'Fondos insuficientes en la tarjeta seleccionada.')}</div>
         `;
       };
 
@@ -6629,7 +6843,7 @@
         bind(el, 'change', renderPosInsight);
       });
 
-      // Override suave: validaciÃ³n + feedback no bloqueante para generar cÃ³digo
+      // Override suave: validación + feedback no bloqueante para generar código
       if (!window.__posGenerateWrapped && typeof window.generatePOSCode === 'function') {
         const originalGenerate = window.generatePOSCode;
         window.generatePOSCode = async function wrappedGeneratePOSCode() {
@@ -6639,11 +6853,11 @@
           const available = getBalanceByCardAndCurrency(cardId, currency);
 
           if (!amount || amount <= 0) {
-            if (typeof showToast === 'function') showToast('IngresÃ¡ un monto vÃ¡lido para continuar.', 'warning');
+            if (typeof showToast === 'function') showToast('Ingresá un monto válido para continuar.', 'warning');
             return;
           }
           if (!cardId) {
-            if (typeof showToast === 'function') showToast('SeleccionÃ¡ una tarjeta origen para enviar.', 'warning');
+            if (typeof showToast === 'function') showToast('Seleccioná una tarjeta origen para enviar.', 'warning');
             return;
           }
           if (available < amount) {
@@ -6655,21 +6869,21 @@
           const oldText = btn.textContent || '';
           if (btn) {
             btn.disabled = true;
-            btn.textContent = 'Generando cÃ³digo...';
+            btn.textContent = 'Generando código...';
           }
           try {
             await originalGenerate();
           } finally {
             if (btn) {
               btn.disabled = false;
-              btn.textContent = oldText || 'Generar CÃ³digo';
+              btn.textContent = oldText || 'Generar Código';
             }
           }
         };
         window.__posGenerateWrapped = true;
       }
 
-      // Contexto dinÃ¡mico del POS (hora + vista)
+      // Contexto dinámico del POS (hora + vista)
       const topBar = posRoot.querySelector('.pos-top-bar');
       const topBarTime = topBar.querySelector('span:nth-child(2)');
       const posTitle = posRoot.querySelector('.pos-logo-area p');
@@ -6685,12 +6899,12 @@
 
       const viewLabel = (id) => ({
         'pos-home': 'Terminal Virtual Pro v3.0',
-        'pos-send': 'GeneraciÃ³n segura de cobro',
-        'pos-receive': 'ValidaciÃ³n de cÃ³digo en vivo',
-        'pos-confirm': 'ConfirmaciÃ³n biomÃ©trica simulada',
+        'pos-send': 'Generación segura de cobro',
+        'pos-receive': 'Validación de código en vivo',
+        'pos-confirm': 'Confirmación biométrica simulada',
         'pos-self': 'Transferencia entre tarjetas propias',
         'pos-swaps': 'Intercambios pendientes',
-        'pos-rewards': 'Recompensas de suscripciÃ³n'
+        'pos-rewards': 'Recompensas de suscripción'
       }[id] || 'Terminal Virtual Pro v3.0');
 
       if (!window.__posShowViewWrapped && typeof window.showPosView === 'function') {
@@ -6709,7 +6923,7 @@
           const codeInput = document.getElementById('pos-claim-input');
           const code = String(codeInput.value || '').trim();
           if (code.length < 4) {
-            if (typeof showToast === 'function') showToast('CÃ³digo incompleto. VerificÃ¡ e intentÃ¡ nuevamente.', 'warning');
+            if (typeof showToast === 'function') showToast('Código incompleto. Verificá e intentá nuevamente.', 'warning');
             return;
           }
           const okBtn = document.querySelector('.pos-num-key[onclick*="posType(\'OK\')"]');
@@ -6734,7 +6948,7 @@
         const originalComplete = window.completePOS;
         window.completePOS = async function wrappedCompletePOS() {
           const btn = document.getElementById('pos-confirm-btn');
-          const old = btn.textContent || 'Aceptar TransacciÃ³n';
+          const old = btn.textContent || 'Aceptar Transacción';
           if (btn) {
             btn.disabled = true;
             btn.textContent = 'Procesando...';
@@ -6787,7 +7001,7 @@
       };
 
       const observer = new MutationObserver((mutations) => {
-        // Ignorar mutaciones dentro del topbar para evitar recursiÃ³n del propio rework.
+        // Ignorar mutaciones dentro del topbar para evitar recursión del propio rework.
         const relevant = mutations.some((m) => {
           const target = m.target;
           return !(target && target.closest && target.closest('#op-v5-topbar'));
@@ -7008,93 +7222,226 @@
 
 
   body.op-v5 .subs-unavailable-panel {
-    margin-top: 12px;
-    border-radius: 16px;
-    border: 1px solid rgba(120, 196, 255, 0.2);
-    background: linear-gradient(160deg, rgba(8, 18, 34, 0.94), rgba(7, 14, 26, 0.92));
-    padding: 14px;
+    margin-top: 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(160deg, rgba(10, 16, 28, 0.96), rgba(6, 12, 22, 0.94));
+    padding: 20px;
+    backdrop-filter: blur(12px);
+  }
+
+  body.op-v5 .subs-unavailable-head {
+    margin-bottom: 16px;
   }
 
   body.op-v5 .subs-unavailable-head h3 {
     margin: 0;
-    font-size: 1rem;
-    color: #d9f4ff;
+    font-size: 1.15rem;
+    color: #e2e8f0;
     font-weight: 800;
+    letter-spacing: -0.01em;
   }
 
   body.op-v5 .subs-unavailable-head p {
-    margin: 5px 0 0;
-    color: #9eb8cf;
+    margin: 6px 0 0;
+    color: #64748b;
     font-size: 0.82rem;
+    line-height: 1.45;
   }
 
   body.op-v5 .subs-unavailable-grid {
-    margin-top: 12px;
+    margin-top: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
   }
 
   body.op-v5 .subs-unavailable-card {
-    border: 1px solid rgba(125, 205, 255, 0.2);
-    background: rgba(10, 22, 40, 0.84);
-    border-radius: 12px;
-    padding: 10px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    padding: 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 14px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    backdrop-filter: blur(8px);
+  }
+
+  body.op-v5 .subs-unavailable-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Project-themed card variants */
+  body.op-v5 .subs-unavailable-card.sub-naturepedia {
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 14, 12, 0.9));
+  }
+  body.op-v5 .subs-unavailable-card.sub-naturepedia::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #10b981, transparent);
+    opacity: 0.6;
+  }
+
+  body.op-v5 .subs-unavailable-card.sub-dinobox {
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(18, 14, 8, 0.9));
+  }
+  body.op-v5 .subs-unavailable-card.sub-dinobox::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #f59e0b, transparent);
+    opacity: 0.6;
+  }
+
+  body.op-v5 .subs-unavailable-card.sub-dinobox-elite {
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(18, 8, 10, 0.9));
+  }
+  body.op-v5 .subs-unavailable-card.sub-dinobox-elite::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #ef4444, transparent);
+    opacity: 0.6;
+  }
+
+  body.op-v5 .subs-unavailable-card.sub-oceancinemas {
+    border: 1px solid rgba(14, 165, 233, 0.3);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(8, 14, 22, 0.9));
+  }
+  body.op-v5 .subs-unavailable-card.sub-oceancinemas::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #0ea5e9, transparent);
+    opacity: 0.6;
+  }
+
+  body.op-v5 .subs-unavailable-card.sub-ecoxion {
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(8, 18, 12, 0.9));
+  }
+  body.op-v5 .subs-unavailable-card.sub-ecoxion::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #22c55e, transparent);
+    opacity: 0.6;
+  }
+
+  body.op-v5 .subs-unavailable-card.sub-wildweapon {
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.08), rgba(20, 12, 6, 0.9));
+  }
+  body.op-v5 .subs-unavailable-card.sub-wildweapon::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #f97316, transparent);
+    opacity: 0.6;
   }
 
   body.op-v5 .subs-unavailable-card .left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     min-width: 0;
+    flex: 1;
+  }
+
+  body.op-v5 .subs-unavailable-card .sub-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  body.op-v5 .subs-unavailable-card.sub-naturepedia .sub-icon {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+  }
+  body.op-v5 .subs-unavailable-card.sub-dinobox .sub-icon,
+  body.op-v5 .subs-unavailable-card.sub-dinobox-elite .sub-icon {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+  }
+  body.op-v5 .subs-unavailable-card.sub-oceancinemas .sub-icon {
+    background: rgba(14, 165, 233, 0.15);
+    color: #0ea5e9;
+  }
+  body.op-v5 .subs-unavailable-card.sub-ecoxion .sub-icon {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+  body.op-v5 .subs-unavailable-card.sub-wildweapon .sub-icon {
+    background: rgba(249, 115, 22, 0.15);
+    color: #f97316;
   }
 
   body.op-v5 .subs-unavailable-card .left h4 {
     margin: 0;
-    font-size: 0.93rem;
-    color: #e6f8ff;
+    font-size: 0.95rem;
+    color: #f1f5f9;
+    font-weight: 700;
+    line-height: 1.3;
   }
 
   body.op-v5 .subs-unavailable-card .left small {
-    color: #8fa9c1;
+    color: #64748b;
     font-size: 0.72rem;
+    display: block;
+    margin-top: 2px;
   }
 
   body.op-v5 .subs-unavailable-card .right {
     text-align: right;
-    max-width: 56%;
+    flex-shrink: 0;
   }
 
   body.op-v5 .subs-unavailable-card .right .badge {
     display: inline-block;
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     font-weight: 800;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #ffddb2;
-    border: 1px solid rgba(255, 190, 120, 0.32);
-    background: rgba(71, 33, 10, 0.45);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    background: rgba(120, 53, 15, 0.5);
     border-radius: 999px;
-    padding: 3px 8px;
-    margin-bottom: 4px;
+    padding: 4px 10px;
+    margin-bottom: 6px;
   }
 
   body.op-v5 .subs-unavailable-card .right p {
     margin: 0;
-    color: #b4c9dd;
-    font-size: 0.74rem;
-    line-height: 1.35;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    max-width: 180px;
   }
 
   body.op-v5 .subs-unavailable-empty {
-    color: #9fb8cf;
+    color: #64748b;
     text-align: center;
-    font-weight: 700;
-    padding: 8px;
+    font-weight: 600;
+    padding: 16px;
+    font-size: 0.85rem;
   }
 
   body.op-v5 .pos-quick-amounts {
@@ -7259,7 +7606,19 @@
   .sub-nature-pass { border-color: #22c55e !important; background: linear-gradient(145deg, #0f2418, #0c1724) !important; }
   .sub-nature-pass .sub-icon { background: linear-gradient(135deg, #22c55e, #86efac) !important; color: #04230f !important; box-shadow: 0 0 16px rgba(34, 197, 94, 0.45); }
 
+  .sub-nature-pass-basic { border-color: #93a4b6 !important; background: linear-gradient(145deg, #111820, #0c1724) !important; }
+  .sub-nature-pass-basic .sub-icon { background: linear-gradient(135deg, #93a4b6, #cbd5e1) !important; color: #0f172a !important; box-shadow: 0 0 16px rgba(147, 164, 182, 0.4); }
+
+  .sub-nature-pass-premium { border-color: #fbbf24 !important; background: linear-gradient(145deg, #1a1508, #0c1724) !important; }
+  .sub-nature-pass-premium .sub-icon { background: linear-gradient(135deg, #fbbf24, #fde68a) !important; color: #422006 !important; box-shadow: 0 0 16px rgba(251, 191, 36, 0.45); }
+
+  .sub-nature-pass-ultimate { border-color: #c084fc !important; background: linear-gradient(145deg, #1a0f24, #0c1724) !important; }
+  .sub-nature-pass-ultimate .sub-icon { background: linear-gradient(135deg, #c084fc, #e9d5ff) !important; color: #2e1065 !important; box-shadow: 0 0 16px rgba(192, 132, 252, 0.45); }
+
   body.op-v5 .subs-carousel-card.sub-nature-pass,
+  body.op-v5 .subs-carousel-card.sub-nature-pass-basic,
+  body.op-v5 .subs-carousel-card.sub-nature-pass-premium,
+  body.op-v5 .subs-carousel-card.sub-nature-pass-ultimate,
   body.op-v5 .subs-carousel-card.sub-dinopass-premium,
   body.op-v5 .subs-carousel-card.sub-dinopass-elite,
   body.op-v5 .subs-carousel-card.sub-wildshorts-premium,

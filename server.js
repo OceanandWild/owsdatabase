@@ -1085,15 +1085,6 @@ function inferPlatformsFromReleaseAssets(assets = [], fallback = ['windows']) {
 const OWS_PUBLIC_BASE_URL = 'https://owsdatabase.onrender.com';
 const OWS_PROJECT_ICON_OVERRIDES = {
   // slug canónico -> URL absoluta verificada (HTTP 200, image/*)
-  'dinobox':            'https://raw.githubusercontent.com/OceanandWild/dinobox/main/build/dinobox.jpg',
-  'ecoxion':            'https://raw.githubusercontent.com/OceanandWild/ecoxion/main/build/ecoxion.png',
-  'floretshop':         'https://raw.githubusercontent.com/OceanandWild/floretshop/main/assets/floretshopicon.png',
-  'oceanpay':           'https://raw.githubusercontent.com/OceanandWild/oceanpay/main/build/icon.png',
-  'savagespaceanimals': 'https://raw.githubusercontent.com/OceanandWild/savagespaceanimals/main/build/icon.png',
-  'velocity-surge':     'https://raw.githubusercontent.com/OceanandWild/velocity-surge/main/build/velocitysurge.png',
-  'wildtransfer':       'https://raw.githubusercontent.com/OceanandWild/wildtransfer/main/build/icon.png',
-  'wildwave':           'https://raw.githubusercontent.com/OceanandWild/wildwave/main/build/icon.png',
-  'wildshorts':         'https://raw.githubusercontent.com/OceanandWild/wildshorts/main/build/wildshorts.png'
 };
 
 function resolveOwsProjectIconUrl(project) {

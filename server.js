@@ -1,4 +1,4 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
 dotenv.config();
 
 // 1ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ DespuÃƒÆ’Ã‚Â©s el resto
@@ -15415,6 +15415,26 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
       values
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto admin no encontrado' });
+
+    // Sincronizar cambios a la tabla ows_projects (que es la consumida por OWS Store)
+    const syncFields = [];
+    const syncValues = [];
+    if (updates.name !== undefined) {
+      syncValues.push(updates.name);
+      syncFields.push(`name = $${syncValues.length}`);
+    }
+    if (updates.icon_url !== undefined) {
+      syncValues.push(updates.icon_url);
+      syncFields.push(`icon_url = $${syncValues.length}`);
+    }
+    if (syncFields.length > 0) {
+      syncValues.push(slug);
+      await pool.query(
+        `UPDATE ows_projects SET ${syncFields.join(', ')} WHERE LOWER(slug) = LOWER($${syncValues.length})`,
+        syncValues
+      );
+    }
+
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
     logAdminActivity({
       action: 'edit', entityType: 'admin_project', entityId: slug,

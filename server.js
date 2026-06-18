@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
 dotenv.config();
 
 // 1ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ DespuÃƒÆ’Ã‚Â©s el resto
@@ -15022,10 +15022,6 @@ app.patch('/ows-store/project-restrictions/:slug', async (req, res) => {
       },
       restriction: buildProjectRestrictionPayload(merged)
     });
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
-    console.error('Error en PATCH /ows-store/project-restrictions/:slug:', err);
-    return res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();
   }
@@ -15037,7 +15033,31 @@ app.post('/ows-store/projects', async (req, res) => {
   const normalizedStatus = normalizeOwsProjectStatus(status || 'launched');
   if (!slug || !name || !url) return res.status(400).json({ error: 'Faltan campos obligatorios (slug, name, url)' });
 
+  const cleanSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
+  if (!cleanSlug) return res.status(400).json({ error: 'Slug inva\u0301lido' });
+
   try {
+    // Blinda OWS Store: check if admin-only in ows_admin_projects
+    const adminProjU = await pool.query('SELECT is_in_ows_store FROM ows_admin_projects WHERE slug = $1', [cleanSlug]);
+    if (adminProjU.rows.length > 0 && !adminProjU.rows[0].is_in_ows_store) {
+      return res.status(403).json({ error: 'El proyecto esta\u0301 marcado como admin-only en el cata\u0301logo y no puede agregarse a OWS Store.' });
+    }
+
+    // Al reve\u0301s: si no existe en el cata\u0301logo admin, lo registramos automa\u0301ticamente como visible
+    if (adminProjU.rows.length === 0) {
+      const adminName = String(req.headers['x-ows-admin-name'] || 'System-Auto').trim();
+      await pool.query(
+        `INSERT INTO ows_admin_projects (slug, name, icon_url, is_in_ows_store, added_by)
+         VALUES ($1, $2, $3, true, $4) ON CONFLICT (slug) DO NOTHING`,
+        [cleanSlug, name, icon_url || null, adminName]
+      );
+      await pool.query(
+        `INSERT INTO ows_project_backups (project_slug, last_check_status)
+         VALUES ($1, 'pending') ON CONFLICT (project_slug) DO NOTHING`,
+        [cleanSlug]
+      );
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO ows_projects (slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata, installer_url)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -15048,32 +15068,41 @@ app.post('/ows-store/projects', async (req, res) => {
          banner_url = EXCLUDED.banner_url,
          url = EXCLUDED.url,
          version = EXCLUDED.version,
-        status = EXCLUDED.status,
-        release_date = COALESCE(EXCLUDED.release_date, ows_projects.release_date),
+         status = EXCLUDED.status,
+         release_date = COALESCE(EXCLUDED.release_date, ows_projects.release_date),
          metadata = ows_projects.metadata || EXCLUDED.metadata,
          installer_url = COALESCE(EXCLUDED.installer_url, ows_projects.installer_url),
          last_update = NOW()
        RETURNING *`,
-      [slug, name, description, icon_url, banner_url, url, version || '1.0.0', normalizedStatus, release_date, metadata || {}, installer_url || null]
+      [cleanSlug, name, description, icon_url, banner_url, url, version || '1.0.0', normalizedStatus, release_date, metadata || {}, installer_url || null]
     );
     await syncOwsProjectRestrictionsTable().catch(() => {});
     res.json({ success: true, project: rows[0] });
   } catch (err) {
-    console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error en POST /ows-store/projects:', err);
+    console.error('Error en POST /ows-store/projects (upsert):', err);
+    if (err.code === '23505') return res.status(409).json({ error: 'Conflicto al insertar proyecto.' });
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// Actualizar versiÃƒÆ’Ã‚Â³n rÃƒÆ’Ã‚Â¡pidamente (Patch)
+// Actualizar versio\u0301n ra\u0301pidamente (Patch)
 app.patch('/ows-store/projects/:slug/version', async (req, res) => {
   const { slug } = req.params;
   const { version, changelog = '', platform = 'all', platforms = null } = req.body || {};
   if (!version) return res.status(400).json({ error: 'Version requerida' });
 
+  const cleanSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
+
   try {
+    // Blinda OWS Store: check if admin-only
+    const adminProjV = await pool.query('SELECT is_in_ows_store FROM ows_admin_projects WHERE slug = $1', [cleanSlug]);
+    if (adminProjV.rows.length > 0 && !adminProjV.rows[0].is_in_ows_store) {
+      return res.status(403).json({ error: 'El proyecto esta\u0301 marcado como admin-only en el cata\u0301logo y no puede modificarse en OWS Store.' });
+    }
+
     const { rows } = await pool.query(
       'UPDATE ows_projects SET version = $1, last_update = NOW() WHERE slug = $2 RETURNING *',
-      [version, slug]
+      [version, cleanSlug]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const project = rows[0];
@@ -15084,8 +15113,8 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
 
     if (hasExplicitPlatform || hasExplicitPlatforms) {
       pushSummary = await queueOwsStorePushUpdate({
-        projectSlug: project.slug || slug,
-        projectName: project.name || slug,
+        projectSlug: project.slug || cleanSlug,
+        projectName: project.name || cleanSlug,
         version,
         changelog,
         targetPlatforms: hasExplicitPlatforms ? platforms : platform
@@ -15113,8 +15142,15 @@ app.patch('/ows-store/projects/:slug/scheduled-release', async (req, res) => {
   const { slug } = req.params;
   const body = req.body || {};
   const clear = Boolean(body.clear);
+  const cleanSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
   try {
-    const { rows } = await pool.query('SELECT id, metadata FROM ows_projects WHERE slug = $1', [slug]);
+    // Blinda OWS Store: check if admin-only
+    const adminProjSR = await pool.query('SELECT is_in_ows_store FROM ows_admin_projects WHERE slug = $1', [cleanSlug]);
+    if (adminProjSR.rows.length > 0 && !adminProjSR.rows[0].is_in_ows_store) {
+      return res.status(403).json({ error: 'El proyecto esta\u0301 marcado como admin-only en el cata\u0301logo.' });
+    }
+
+    const { rows } = await pool.query('SELECT id, metadata FROM ows_projects WHERE slug = $1', [cleanSlug]);
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const meta = (rows[0].metadata && typeof rows[0].metadata === 'object') ? { ...rows[0].metadata } : {};
     if (clear) {
@@ -15128,19 +15164,19 @@ app.patch('/ows-store/projects/:slug/scheduled-release', async (req, res) => {
       if (isNaN(parsedDate.getTime())) return res.status(400).json({ error: 'available_at no es una fecha ISO valida' });
       meta.scheduled_release = { version, available_at: parsedDate.toISOString(), label: label || null };
     }
-    await pool.query('UPDATE ows_projects SET metadata = $1 WHERE slug = $2', [meta, slug]);
-    return res.json({ success: true, slug, scheduled_release: meta.scheduled_release || null });
+    await pool.query('UPDATE ows_projects SET metadata = $1 WHERE slug = $2', [meta, cleanSlug]);
+    return res.json({ success: true, slug: cleanSlug, scheduled_release: meta.scheduled_release || null });
   } catch (err) {
     console.error('Error en PATCH /ows-store/projects/:slug/scheduled-release:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// Obtener ÃƒÆ’Ã‚Âºltimo release Android publicado por slug
 // Actualizar metadata de un proyecto (description, name, etc.)
 app.patch('/ows-store/projects/:slug', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { slug } = req.params;
+  const cleanSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
   const allowed = ['description', 'name', 'status', 'banner_url', 'icon_url', 'installer_url', 'url'];
   const updates = {};
   for (const key of allowed) {
@@ -15153,8 +15189,14 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
     return res.status(400).json({ error: 'No hay campos validos para actualizar' });
   }
   try {
+    // Blinda OWS Store: check if admin-only
+    const adminProjM = await pool.query('SELECT is_in_ows_store FROM ows_admin_projects WHERE slug = $1', [cleanSlug]);
+    if (adminProjM.rows.length > 0 && !adminProjM.rows[0].is_in_ows_store) {
+      return res.status(403).json({ error: 'El proyecto esta\u0301 marcado como admin-only en el cata\u0301logo y no puede modificarse en OWS Store.' });
+    }
+
     const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
-    const values = [...Object.values(updates), slug];
+    const values = [...Object.values(updates), cleanSlug];
     const { rows } = await pool.query(
       `UPDATE ows_projects SET ${setClauses}, last_update = NOW() WHERE slug = $${values.length} RETURNING *`,
       values
@@ -15162,7 +15204,7 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     await syncOwsProjectRestrictionsTable().catch(() => {});
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
-    logAdminActivity({ action: 'edit', entityType: 'project', entityId: slug, entityName: rows[0].name || slug, adminName, meta: { fields: Object.keys(updates) } });
+    logAdminActivity({ action: 'edit', entityType: 'project', entityId: cleanSlug, entityName: rows[0].name || cleanSlug, adminName, meta: { fields: Object.keys(updates) } });
     res.json({ success: true, project: rows[0] });
   } catch (err) {
     console.error('Error en PATCH /ows-store/projects/:slug:', err);
@@ -15171,7 +15213,7 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
 });
 
 
-// Crear un nuevo proyecto en OWS Store
+// Crear un nuevo proyecto en OWS Store (via Admin Panel)
 app.post('/ows-store/projects', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { slug, name, description, status, banner_url, icon_url, installer_url, url } = req.body || {};
@@ -15182,6 +15224,27 @@ app.post('/ows-store/projects', async (req, res) => {
   const finalStatus = normalizeOwsProjectStatus(status || 'active');
 
   try {
+    // Blinda OWS Store: check if admin-only
+    const adminProj = await pool.query('SELECT is_in_ows_store FROM ows_admin_projects WHERE slug = $1', [cleanSlug]);
+    if (adminProj.rows.length > 0 && !adminProj.rows[0].is_in_ows_store) {
+      return res.status(403).json({ error: 'El proyecto está marcado como admin-only en el catálogo y no puede agregarse a OWS Store.' });
+    }
+
+    // Si no existe en el catálogo admin aún, lo registramos automáticamente como visible
+    if (adminProj.rows.length === 0) {
+      const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
+      await pool.query(
+        `INSERT INTO ows_admin_projects (slug, name, icon_url, is_in_ows_store, added_by)
+         VALUES ($1, $2, $3, true, $4) ON CONFLICT (slug) DO NOTHING`,
+        [cleanSlug, name, icon_url || null, adminName]
+      );
+      await pool.query(
+        `INSERT INTO ows_project_backups (project_slug, last_check_status)
+         VALUES ($1, 'pending') ON CONFLICT (project_slug) DO NOTHING`,
+        [cleanSlug]
+      );
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO ows_projects (slug, name, description, status, banner_url, icon_url, installer_url, url, version, created_at, last_update)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '1.0.0', NOW(), NOW())
@@ -15204,17 +15267,24 @@ app.post('/ows-store/projects', async (req, res) => {
 app.delete('/ows-store/projects/:slug', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { slug } = req.params;
+  const cleanSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
   try {
-    const { rows: preRows } = await pool.query('SELECT name FROM ows_projects WHERE slug = $1', [slug]);
-    const preName = preRows[0]?.name || slug;
+    // Blinda OWS Store: si admin-only, no se puede eliminar desde la ruta pública — usar admin-projects
+    const adminProj = await pool.query('SELECT is_in_ows_store FROM ows_admin_projects WHERE slug = $1', [cleanSlug]);
+    if (adminProj.rows.length > 0 && !adminProj.rows[0].is_in_ows_store) {
+      return res.status(403).json({ error: 'El proyecto está marcado como admin-only. Para eliminar, usa el Centro de Control OWS.' });
+    }
+
+    const { rows: preRows } = await pool.query('SELECT name FROM ows_projects WHERE slug = $1', [cleanSlug]);
+    const preName = preRows[0]?.name || cleanSlug;
     const { rows } = await pool.query(
       'DELETE FROM ows_projects WHERE slug = $1 RETURNING slug',
-      [slug]
+      [cleanSlug]
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
     await syncOwsProjectRestrictionsTable().catch(() => {});
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
-    logAdminActivity({ action: 'delete', entityType: 'project', entityId: slug, entityName: preName, adminName, meta: {} });
+    logAdminActivity({ action: 'delete', entityType: 'project', entityId: cleanSlug, entityName: preName, adminName, meta: {} });
     res.json({ success: true, deleted: rows[0].slug });
   } catch (err) {
     console.error('Error en DELETE /ows-store/projects/:slug:', err);

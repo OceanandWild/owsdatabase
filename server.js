@@ -15049,14 +15049,14 @@ app.post('/ows-store/projects', async (req, res) => {
       );
     }
 
-    const { rows } = await pool.query(
+     const { rows } = await pool.query(
       `INSERT INTO ows_projects (slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata, installer_url)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (slug) DO UPDATE SET
          name = EXCLUDED.name,
          description = EXCLUDED.description,
-         icon_url = EXCLUDED.icon_url,
-         banner_url = EXCLUDED.banner_url,
+         icon_url = COALESCE(NULLIF(EXCLUDED.icon_url, ''), ows_projects.icon_url),
+         banner_url = COALESCE(NULLIF(EXCLUDED.banner_url, ''), ows_projects.banner_url),
          url = EXCLUDED.url,
          version = EXCLUDED.version,
          status = EXCLUDED.status,

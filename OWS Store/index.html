@@ -4079,6 +4079,26 @@ document.addEventListener('keydown', (e) => {
 /* ──────────────────────────────────────────────────────────────────
    LOAD DATA
 ───────────────────────────────────────────────────────────────── */
+// Espeja la lógica canonicalSlugFromProject del backend para deduplicar
+// correctamente el merge de STATIC_PROJECTS con lo que devuelve la API.
+function _frontendCanonicalSlug(slug, name) {
+  const s = String(slug || '').toLowerCase().trim();
+  const n = String(name || '').toLowerCase().trim();
+  if (s === 'ocean-pay' || s === 'oceanpay' || n === 'ocean pay') return 'oceanpay';
+  if (s === 'floret-shop' || s === 'floretshop' || n === 'floret shop') return 'floretshop';
+  if (s === 'savage-space-animals' || s === 'savagespaceanimals' || s === 'ssa' || n === 'savage space animals') return 'savagespaceanimals';
+  if (s === 'wild-transfer' || s === 'wildtransfer' || n === 'wildtransfer' || n === 'wild transfer') return 'wildtransfer';
+  if (s === 'velocitysurge' || s === 'velocity-surge' || n === 'velocity surge') return 'velocity-surge';
+  if (s === 'wildx' || s === 'wild-wave' || s === 'wildwave' || n === 'wildwave' || n === 'wild wave') return 'wildwave';
+  if (s === 'wildweapon' || s === 'wildweapon-mayhem' || n === 'wildweapon mayhem') return 'wildweapon-mayhem';
+  if (s === 'owsstore' || s === 'ows-store' || n === 'ows store') return 'ows-store';
+  if (s === 'wild-destiny' || s === 'wilddestiny' || n === 'wild destiny') return 'wild-destiny';
+  if (s === 'a-wild-question-game' || s === 'awildquestiongame' || s === 'awqg' || n === 'a wild question game') return 'a-wild-question-game';
+  if (s === 'ocean-cinemas' || s === 'oceancinemas' || n === 'ocean cinemas') return 'ocean-cinemas';
+  if (s === 'incremental-cosmic-odyssey' || s === 'incrementalcosmicnodyssey' || n === 'incremental cosmic odyssey') return 'incremental-cosmic-odyssey';
+  return s || slug;
+}
+
 async function loadData() {
   try {
     const res = await fetch(`${API_URL}/ows-store/projects?nocache=${Date.now()}`, { cache: 'no-store' });
@@ -4092,10 +4112,16 @@ async function loadData() {
     allProjects = STATIC_PROJECTS;
   }
 
-  // Ensure static ones are present
-  const slugsInAPI = new Set(allProjects.map(p => p.slug));
+  // Deduplica: construye un Set de slugs canónicos ya presentes en la API
+  // para que STATIC_PROJECTS no agregue entradas con alias distintos
+  // (ej: 'wildweapon' no debe añadirse si la API ya devolvió 'wildweapon-mayhem')
+  const canonicalSlugsInAPI = new Set(
+    allProjects.map(p => _frontendCanonicalSlug(p.slug, p.name))
+  );
   STATIC_PROJECTS.forEach(sp => {
-    if (!slugsInAPI.has(sp.slug)) allProjects.push(sp);
+    if (!canonicalSlugsInAPI.has(_frontendCanonicalSlug(sp.slug, sp.name))) {
+      allProjects.push(sp);
+    }
   });
 
   // Filter OWS Store itself

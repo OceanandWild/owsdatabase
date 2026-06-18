@@ -15194,6 +15194,27 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     await syncOwsProjectRestrictionsTable().catch(() => {});
+
+    // Sincronizar icon_url y name de vuelta a ows_admin_projects para que el
+    // editor del Admin Panel siempre muestre el valor actualizado.
+    const adminSyncFields = [];
+    const adminSyncVals  = [];
+    if (updates.icon_url !== undefined && updates.icon_url) {
+      adminSyncVals.push(updates.icon_url);
+      adminSyncFields.push(`icon_url = COALESCE(NULLIF($${adminSyncVals.length}, ''), icon_url)`);
+    }
+    if (updates.name !== undefined && updates.name) {
+      adminSyncVals.push(updates.name);
+      adminSyncFields.push(`name = $${adminSyncVals.length}`);
+    }
+    if (adminSyncFields.length > 0) {
+      adminSyncVals.push(cleanSlug);
+      await pool.query(
+        `UPDATE ows_admin_projects SET ${adminSyncFields.join(', ')} WHERE LOWER(slug) = LOWER($${adminSyncVals.length})`,
+        adminSyncVals
+      ).catch(e => console.warn('[ows-store/projects PATCH] Admin sync warn:', e?.message));
+    }
+
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
     logAdminActivity({ action: 'edit', entityType: 'project', entityId: cleanSlug, entityName: rows[0].name || cleanSlug, adminName, meta: { fields: Object.keys(updates) } });
     res.json({ success: true, project: rows[0] });
@@ -15420,8 +15441,16 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
     }
     if (syncFields.length > 0) {
       syncValues.push(slug);
+      // Usamos COALESCE para icon_url: solo actualizar si el nuevo valor NO es nulo/vacío
+      const safeSyncFields = syncFields.map(clause => {
+        if (clause.startsWith('icon_url =')) {
+          const idx = clause.match(/\$(\d+)/)[1];
+          return `icon_url = COALESCE(NULLIF($${idx}, ''), ows_projects.icon_url)`;
+        }
+        return clause;
+      });
       await pool.query(
-        `UPDATE ows_projects SET ${syncFields.join(', ')} WHERE LOWER(slug) = LOWER($${syncValues.length})`,
+        `UPDATE ows_projects SET ${safeSyncFields.join(', ')} WHERE LOWER(slug) = LOWER($${syncValues.length})`,
         syncValues
       );
     }

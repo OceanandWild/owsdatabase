@@ -15188,6 +15188,9 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
       return res.status(403).json({ error: 'El proyecto esta\u0301 marcado como admin-only en el cata\u0301logo y no puede modificarse en OWS Store.' });
     }
 
+    const { rows: preEditRows } = await pool.query('SELECT * FROM ows_projects WHERE slug = $1', [cleanSlug]);
+    const oldProj = preEditRows[0] || {};
+
     const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
     const values = [...Object.values(updates), cleanSlug];
     const { rows } = await pool.query(
@@ -15215,8 +15218,34 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
       ).catch(e => console.warn('[ows-store/projects PATCH] Admin sync warn:', e?.message));
     }
 
+    // Detect exactly what changed for verbose notification logs
+    const diffDetails = [];
+    const changesMeta = {};
+    for (const key of Object.keys(updates)) {
+      const oldVal = oldProj[key];
+      const newVal = updates[key];
+      if (String(oldVal) !== String(newVal)) {
+        diffDetails.push(`${key}: "${oldVal ?? '—'}" → "${newVal ?? '—'}"`);
+        changesMeta[key] = { oldValue: oldVal, newValue: newVal };
+      }
+    }
+    const changesDetailStr = diffDetails.length > 0 
+      ? `modificó en el proyecto "${rows[0].name || cleanSlug}": ${diffDetails.join(', ')}`
+      : `editó el proyecto "${rows[0].name || cleanSlug}"`;
+
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
-    logAdminActivity({ action: 'edit', entityType: 'project', entityId: cleanSlug, entityName: rows[0].name || cleanSlug, adminName, meta: { fields: Object.keys(updates) } });
+    logAdminActivity({
+      action: 'edit',
+      entityType: 'project',
+      entityId: cleanSlug,
+      entityName: rows[0].name || cleanSlug,
+      adminName,
+      meta: {
+        fields: Object.keys(updates),
+        detail: changesDetailStr,
+        changes: changesMeta
+      }
+    });
     res.json({ success: true, project: rows[0] });
   } catch (err) {
     console.error('Error en PATCH /ows-store/projects/:slug:', err);
@@ -15424,7 +15453,9 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
   if (Object.prototype.hasOwnProperty.call(updates, 'github_folder')) {
     updates.github_folder = updates.github_folder ? String(updates.github_folder).trim() : null;
   }
-  try {
+    const { rows: preEditRows } = await pool.query('SELECT * FROM ows_admin_projects WHERE slug = $1', [slug]);
+    const oldAdminProj = preEditRows[0] || {};
+
     const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
     const values = [...Object.values(updates), slug];
     const { rows } = await pool.query(
@@ -15461,11 +15492,33 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
       );
     }
 
+    // Detect details for verbose admin_project notifications
+    const diffDetails = [];
+    const changesMeta = {};
+    for (const key of Object.keys(updates)) {
+      const oldVal = oldAdminProj[key];
+      const newVal = updates[key];
+      if (String(oldVal) !== String(newVal)) {
+        diffDetails.push(`${key}: "${oldVal ?? '—'}" → "${newVal ?? '—'}"`);
+        changesMeta[key] = { oldValue: oldVal, newValue: newVal };
+      }
+    }
+    const changesDetailStr = diffDetails.length > 0 
+      ? `modificó en el proyecto admin "${rows[0].name || slug}": ${diffDetails.join(', ')}`
+      : `editó el proyecto admin "${rows[0].name || slug}"`;
+
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
     logAdminActivity({
-      action: 'edit', entityType: 'admin_project', entityId: slug,
-      entityName: rows[0].name, adminName,
-      meta: { fields: Object.keys(updates) }
+      action: 'edit',
+      entityType: 'admin_project',
+      entityId: slug,
+      entityName: rows[0].name || slug,
+      adminName,
+      meta: {
+        fields: Object.keys(updates),
+        detail: changesDetailStr,
+        changes: changesMeta
+      }
     });
     return res.json({ success: true, project: rows[0] });
   } catch (err) {

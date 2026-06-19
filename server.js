@@ -11350,9 +11350,11 @@ app.get('/ows-store/projects', async (req, res) => {
         r.reason AS restriction_reason,
         r.rework_message,
         r.unavailable_message,
-        r.updated_at AS restriction_updated_at
+        r.updated_at AS restriction_updated_at,
+        ap.github_folder
       FROM ows_projects p
       LEFT JOIN ows_project_restrictions r ON LOWER(r.project_slug) = LOWER(p.slug)
+      LEFT JOIN ows_admin_projects ap ON LOWER(ap.slug) = LOWER(p.slug)
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY
         CASE LOWER(p.status)

@@ -4271,16 +4271,18 @@ function renderAllProjectsGrid(projects) {
     item.className = 'apg-item';
     item.style.animationDelay = `${idx * 0.12}s`;
 
+    const thumb = _resolveProjectIcon(p);
+    const initials = _projectInitials(p);
+
     let iconContent = '';
-    if (p.icon) {
-      iconContent = `style="background-image: url('${p.icon}')"`;
+    if (thumb) {
+      iconContent = `style="background-image: url('${thumb}')"`;
     } else {
-      const initials = String(p.name || '?').substring(0, 2).toUpperCase();
       iconContent = `>${initials}`;
     }
 
     item.innerHTML = `
-      <div class="apg-icon" ${p.icon ? iconContent : ''}>${!p.icon ? iconContent.substring(1) : ''}</div>
+      <div class="apg-icon" ${thumb ? iconContent : ''}>${!thumb ? iconContent.substring(1) : ''}</div>
       <div class="apg-name">${_escapeHtml(p.name || 'Proyecto')}</div>
     `;
 
@@ -4333,6 +4335,9 @@ function openProjectModal(slug) {
   const version = p.version || '1.0.0';
   const price = p.price || 'Gratis';
 
+  const thumb = _resolveProjectIcon(p);
+  const initials = _projectInitials(p);
+
   modal.innerHTML = `
     <div class="proj-modal-header">
       <button class="proj-modal-back-btn" onclick="closeProjectModal()">
@@ -4343,8 +4348,8 @@ function openProjectModal(slug) {
 
     <div class="proj-modal-body-container">
       <div class="proj-modal-hero">
-        <div class="proj-modal-hero-icon" ${p.icon ? `style="background-image:url('${p.icon}')"` : ''}>
-          ${!p.icon ? _escapeHtml(p.name).substring(0,2).toUpperCase() : ''}
+        <div class="proj-modal-hero-icon" ${thumb ? `style="background-image:url('${thumb}')"` : ''}>
+          ${!thumb ? initials : ''}
         </div>
         <div class="proj-modal-hero-info">
           <h1>${_escapeHtml(p.name)}</h1>

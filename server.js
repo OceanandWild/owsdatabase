@@ -12195,8 +12195,8 @@ app.post('/api/ows-store/polls/:id/vote', async (req, res) => {
   }
 });
 
-// GET /api/ows-store/projects/:slug/reviews - Obtener calificaciones y comentarios
-app.get('/api/ows-store/projects/:slug/reviews', async (req, res) => {
+// GET /ows-store/projects/:slug/reviews - Obtener calificaciones y comentarios
+app.get('/ows-store/projects/:slug/reviews', async (req, res) => {
   const { slug } = req.params;
   try {
     const { rows: reviews } = await pool.query(
@@ -12222,13 +12222,13 @@ app.get('/api/ows-store/projects/:slug/reviews', async (req, res) => {
       reviews
     });
   } catch (err) {
-    console.error('Error en GET /api/ows-store/projects/:slug/reviews:', err);
+    console.error('Error en GET /ows-store/projects/:slug/reviews:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// POST /api/ows-store/projects/:slug/reviews - Publicar o actualizar calificación/comentario
-app.post('/api/ows-store/projects/:slug/reviews', async (req, res) => {
+// POST /ows-store/projects/:slug/reviews - Publicar o actualizar calificación/comentario
+app.post('/ows-store/projects/:slug/reviews', async (req, res) => {
   const { slug } = req.params;
   const username = String(req.body.username || '').trim();
   const rating = parseInt(req.body.rating, 10);
@@ -12258,7 +12258,7 @@ app.post('/api/ows-store/projects/:slug/reviews', async (req, res) => {
 
     return res.json({ success: true });
   } catch (err) {
-    console.error('Error en POST /api/ows-store/projects/:slug/reviews:', err);
+    console.error('Error en POST /ows-store/projects/:slug/reviews:', err);
     return res.status(500).json({ error: 'Error interno al guardar la reseña.' });
   }
 });

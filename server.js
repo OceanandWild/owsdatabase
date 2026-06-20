@@ -12195,6 +12195,75 @@ app.post('/api/ows-store/polls/:id/vote', async (req, res) => {
   }
 });
 
+// GET /api/ows-store/projects/:slug/reviews - Obtener calificaciones y comentarios
+app.get('/api/ows-store/projects/:slug/reviews', async (req, res) => {
+  const { slug } = req.params;
+  try {
+    const { rows: reviews } = await pool.query(
+      `SELECT username, rating, comment, created_at 
+       FROM ows_store_project_reviews 
+       WHERE project_slug = $1 
+       ORDER BY created_at DESC`,
+      [slug]
+    );
+
+    const { rows: stats } = await pool.query(
+      `SELECT COUNT(*)::int as total_reviews, COALESCE(AVG(rating), 0)::float as avg_rating 
+       FROM ows_store_project_reviews 
+       WHERE project_slug = $1`,
+      [slug]
+    );
+
+    const summary = stats[0] || { total_reviews: 0, avg_rating: 0 };
+    return res.json({
+      project_slug: slug,
+      total_reviews: summary.total_reviews,
+      avg_rating: Math.round(summary.avg_rating * 10) / 10,
+      reviews
+    });
+  } catch (err) {
+    console.error('Error en GET /api/ows-store/projects/:slug/reviews:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /api/ows-store/projects/:slug/reviews - Publicar o actualizar calificación/comentario
+app.post('/api/ows-store/projects/:slug/reviews', async (req, res) => {
+  const { slug } = req.params;
+  const username = String(req.body.username || '').trim();
+  const rating = parseInt(req.body.rating, 10);
+  const comment = String(req.body.comment || '').trim();
+
+  if (!username) return res.status(401).json({ error: 'Usuario requerido.' });
+  if (isNaN(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: 'Calificación inválida (debe ser entre 1 y 5).' });
+
+  try {
+    // Validar si el usuario de Ocean Pay existe
+    const { rows: opUser } = await pool.query(
+      `SELECT id FROM ocean_pay_users WHERE username = $1`,
+      [username]
+    );
+    if (!opUser.length) {
+      return res.status(400).json({ error: 'Usuario de Ocean Pay no válido.' });
+    }
+
+    // Insertar o actualizar la reseña
+    await pool.query(
+      `INSERT INTO ows_store_project_reviews (project_slug, username, rating, comment, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (project_slug, username) 
+       DO UPDATE SET rating = EXCLUDED.rating, comment = EXCLUDED.comment, created_at = NOW()`,
+      [slug, username, rating, comment]
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en POST /api/ows-store/projects/:slug/reviews:', err);
+    return res.status(500).json({ error: 'Error interno al guardar la reseña.' });
+  }
+});
+
+
 // GET /api/ows-admin/polls - Lista completa para administración (con/sin activar)
 app.get('/api/ows-admin/polls', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
@@ -15453,6 +15522,7 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
   if (Object.prototype.hasOwnProperty.call(updates, 'github_folder')) {
     updates.github_folder = updates.github_folder ? String(updates.github_folder).trim() : null;
   }
+  try {
     const { rows: preEditRows } = await pool.query('SELECT * FROM ows_admin_projects WHERE slug = $1', [slug]);
     const oldAdminProj = preEditRows[0] || {};
 

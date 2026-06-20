@@ -2929,57 +2929,109 @@
     /* All Projects Grid */
     .all-proj-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
-      gap: 12px;
-      padding: 12px 0;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      padding: 16px 0;
     }
     .apg-item {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
-      text-align: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-mid);
+      border-radius: 16px;
       cursor: pointer;
       text-decoration: none;
       color: inherit;
-      transition: transform 0.2s ease;
-      animation: apg-float 3s ease-in-out infinite;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: apg-float 4s ease-in-out infinite;
+      position: relative;
+      overflow: hidden;
+    }
+    .apg-item::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(59,130,246,0.08));
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
     .apg-item:hover {
-      transform: scale(1.1);
-    }
-    .apg-item:hover .apg-icon {
-      box-shadow: 0 4px 12px rgba(6,182,212,0.3);
+      transform: translateY(-5px) scale(1.02);
       border-color: var(--cyan);
+      box-shadow: 0 8px 24px rgba(6,182,212,0.15);
     }
-    .apg-item:hover .apg-name {
-      color: var(--cyan);
+    .apg-item:hover::before {
+      opacity: 1;
     }
     .apg-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 12px;
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
       background: var(--surface-2);
-      border: 1.5px solid var(--border-mid);
+      border: 1px solid var(--border-mid);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 20px;
       font-weight: bold;
       color: var(--ink-1);
-      transition: all 0.2s ease;
+      transition: all 0.3s ease;
       background-size: cover;
       background-position: center;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    .apg-item:hover .apg-icon {
+      transform: scale(1.05);
+      border-color: var(--cyan);
+      box-shadow: 0 4px 12px rgba(6,182,212,0.3);
+    }
+    .apg-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+      z-index: 1;
     }
     .apg-name {
-      margin-top: 6px;
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--ink-2);
-      max-width: 72px;
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-0);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       transition: color 0.2s;
+    }
+    .apg-item:hover .apg-name {
+      color: var(--cyan);
+    }
+    .apg-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--ink-2);
+    }
+    .apg-platform-badge {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255,255,255,0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .apg-status-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 4px;
+      text-transform: uppercase;
     }
     @keyframes apg-float {
       0%, 100% { transform: translateY(0); }
@@ -4269,21 +4321,33 @@ function renderAllProjectsGrid(projects) {
   projects.forEach((p, idx) => {
     const item = document.createElement('div');
     item.className = 'apg-item';
-    item.style.animationDelay = `${idx * 0.12}s`;
+    item.style.animationDelay = `${idx * 0.18}s`;
+    item.style.animationDuration = `${3.5 + (idx % 3) * 0.5}s`;
 
     const thumb = _resolveProjectIcon(p);
     const initials = _projectInitials(p);
 
-    let iconContent = '';
+    let iconHtml = '';
     if (thumb) {
-      iconContent = `style="background-image: url('${thumb}')"`;
+      iconHtml = `<div class="apg-icon" style="background-image: url('${thumb}')"></div>`;
     } else {
-      iconContent = `>${initials}`;
+      iconHtml = `<div class="apg-icon">${initials}</div>`;
     }
 
+    const platform = getPlatformLabel(p);
+    const statusLabel = p.status || 'launched';
+    const statusColor = statusLabel === 'wip' ? 'var(--orange)' : (statusLabel === 'beta' ? 'var(--yellow)' : 'var(--green)');
+    const statusBg = statusLabel === 'wip' ? 'rgba(249,115,22,0.15)' : (statusLabel === 'beta' ? 'rgba(234,179,8,0.15)' : 'rgba(34,197,94,0.15)');
+
     item.innerHTML = `
-      <div class="apg-icon" ${thumb ? iconContent : ''}>${!thumb ? iconContent.substring(1) : ''}</div>
-      <div class="apg-name">${_escapeHtml(p.name || 'Proyecto')}</div>
+      ${iconHtml}
+      <div class="apg-info">
+        <div class="apg-name" title="${_escapeHtml(p.name)}">${_escapeHtml(p.name || 'Proyecto')}</div>
+        <div class="apg-meta">
+          <span class="apg-platform-badge">${_escapeHtml(platform)}</span>
+          <span class="apg-status-badge" style="color: ${statusColor}; background: ${statusBg}; border: 1px solid ${statusColor}">${_escapeHtml(statusLabel)}</span>
+        </div>
+      </div>
     `;
 
     item.onclick = () => openProjectModal(p.slug);

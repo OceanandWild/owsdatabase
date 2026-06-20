@@ -4103,6 +4103,18 @@ async function runDatabaseMigrations() {
             )
     `).catch(err => console.log('[OWS] Aviso limpiando trailer legacy en ows_news_updates:', err.message));
 
+    // Crear tabla ows_store_project_reviews
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_store_project_reviews(
+        id SERIAL PRIMARY KEY,
+        project_slug VARCHAR(50) NOT NULL REFERENCES ows_projects(slug) ON DELETE CASCADE,
+        username VARCHAR(100) NOT NULL,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        comment TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(err => console.log('⚠️ Error creando ows_store_project_reviews:', err.message));
+
     if (typeof migrateLegacyOwsNewsUpdatesToTimeline === 'function') {
       await migrateLegacyOwsNewsUpdatesToTimeline().catch(err => console.log('[OWS] Error migrando legacy news a timeline:', err.message));
     } else {

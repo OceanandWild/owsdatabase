@@ -12494,13 +12494,36 @@ app.patch('/ows-store/news/:id', async (req, res) => {
   }
   values.push(Number(id));
   try {
+    // Capture pre-edit state for diff
+    const { rows: preRows } = await pool.query('SELECT * FROM ows_store_news WHERE id = $1', [Number(id)]);
+    const oldNews = preRows[0] || {};
+
     const { rows } = await pool.query(
       `UPDATE ows_store_news SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramIdx} RETURNING *`,
       values
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Noticia no encontrada' });
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
-    logAdminActivity({ action: 'edit', entityType: 'news', entityId: String(id), entityName: rows[0].title || '', adminName, meta: {} });
+
+    // Build field-level diff for verbose notifications
+    const SKIP_FIELDS_NEWS = new Set(['updated_at', 'created_at', 'id']);
+    const diffDetails = [];
+    const changesMeta = {};
+    for (const [key, newVal] of Object.entries(rows[0])) {
+      if (SKIP_FIELDS_NEWS.has(key)) continue;
+      const oldVal = oldNews[key];
+      const oldStr = Array.isArray(oldVal) ? JSON.stringify(oldVal) : String(oldVal ?? '');
+      const newStr = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal ?? '');
+      if (oldStr !== newStr) {
+        diffDetails.push(`${key}: "${String(oldVal ?? '—').slice(0, 60)}" → "${String(newVal ?? '—').slice(0, 60)}"`);
+        changesMeta[key] = { oldValue: oldVal, newValue: newVal };
+      }
+    }
+    const changesDetailStr = diffDetails.length > 0
+      ? `modificó en la noticia "${rows[0].title || id}": ${diffDetails.join(', ')}`
+      : `editó la noticia "${rows[0].title || id}"`;
+
+    logAdminActivity({ action: 'edit', entityType: 'news', entityId: String(id), entityName: rows[0].title || '', adminName, meta: { detail: changesDetailStr, changes: changesMeta } });
     return res.json({ success: true, news: rows[0] });
   } catch (err) {
     console.error('Error en PATCH /ows-store/news/:id:', err);
@@ -13003,6 +13026,12 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
   }
 
   try {
+    // Capture pre-edit state for diff
+    const { rows: preEditRows } = await pool.query(
+      `SELECT * FROM ows_store_timeline WHERE id = $1 LIMIT 1`, [id]
+    );
+    const oldEntry = preEditRows[0] || {};
+
     const { rows } = await pool.query(
       `UPDATE ows_store_timeline
        SET ${updates.join(', ')}, updated_at = NOW()
@@ -13012,10 +13041,28 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Update no encontrado' });
     const normalized = normalizeOwsNewsRow(rows[0]);
-    // Auto-log
+    // Auto-log with diff
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim();
     const entityType = normalized.isEvent ? 'event' : (normalized.isBanner ? 'banner' : 'changelog');
-    logAdminActivity({ action: 'edit', entityType, entityId: String(id), entityName: normalized.title || '', adminName, meta: { kind: normalized.entry_type } });
+
+    const SKIP_FIELDS_TL = new Set(['updated_at', 'created_at', 'id']);
+    const diffDetails = [];
+    const changesMeta = {};
+    for (const [key, newVal] of Object.entries(rows[0])) {
+      if (SKIP_FIELDS_TL.has(key)) continue;
+      const oldVal = oldEntry[key];
+      const oldStr = Array.isArray(oldVal) ? JSON.stringify(oldVal) : (typeof oldVal === 'object' && oldVal !== null ? JSON.stringify(oldVal) : String(oldVal ?? ''));
+      const newStr = Array.isArray(newVal) ? JSON.stringify(newVal) : (typeof newVal === 'object' && newVal !== null ? JSON.stringify(newVal) : String(newVal ?? ''));
+      if (oldStr !== newStr) {
+        diffDetails.push(`${key}: "${String(oldVal ?? '—').slice(0, 60)}" → "${String(newVal ?? '—').slice(0, 60)}"`);
+        changesMeta[key] = { oldValue: oldVal, newValue: newVal };
+      }
+    }
+    const changesDetailStr = diffDetails.length > 0
+      ? `modificó en ${entityType === 'event' ? 'el evento' : 'el changelog'} "${normalized.title || id}": ${diffDetails.join(', ')}`
+      : `editó ${entityType === 'event' ? 'el evento' : 'el changelog'} "${normalized.title || id}"`;
+
+    logAdminActivity({ action: 'edit', entityType, entityId: String(id), entityName: normalized.title || '', adminName, meta: { kind: normalized.entry_type, detail: changesDetailStr, changes: changesMeta } });
     return res.json({ success: true, update: normalized });
   } catch (err) {
     console.error('Error en PATCH /ows-news/updates/:id:', err);

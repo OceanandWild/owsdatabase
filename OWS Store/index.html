@@ -228,7 +228,7 @@
     .op-modal-backdrop {
       position: fixed;
       inset: 0;
-      z-index: 300;
+      z-index: 500;
       background: rgba(0,0,0,0);
       display: flex;
       align-items: center;
@@ -441,6 +441,23 @@
         box-shadow 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
       white-space: nowrap;
       overflow: hidden;
+    }
+
+    /* Ripple effect styling inside tab pills */
+    .nav-tab .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(41, 212, 224, 0.35);
+      transform: scale(0);
+      animation: tab-ripple-ani 0.5s ease-out;
+      pointer-events: none;
+    }
+
+    @keyframes tab-ripple-ani {
+      to {
+        transform: scale(3.5);
+        opacity: 0;
+      }
     }
 
     .nav-tab i {
@@ -2926,143 +2943,268 @@
       font-size: 12.5px; color: var(--ink-2);
     }
 
-    /* All Projects Grid */
-    .all-proj-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px;
-      padding: 16px 0;
-    }
-    .apg-item {
+    /* ═══════════════════════════════════════
+       ALL PROJECTS GRID — Premium Card Design
+    ═══════════════════════════════════════ */
+
+    /* Filter bar */
+    .apg-filters {
       display: flex;
-      flex-direction: row;
       align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 0 0 14px 0;
+    }
+    .apg-filter-pill {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
       background: var(--surface-1);
       border: 1px solid var(--border-mid);
-      border-radius: 16px;
+      color: var(--ink-2);
       cursor: pointer;
-      text-decoration: none;
-      color: inherit;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      animation: apg-float 4s ease-in-out infinite;
-      position: relative;
-      overflow: hidden;
+      transition: all 0.18s;
     }
-    .apg-item::before {
+    .apg-filter-pill:hover { color: var(--ink-1); border-color: var(--border-mid); background: var(--surface-2); }
+    .apg-filter-pill.active {
+      background: rgba(41,212,224,0.12);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+    .apg-filter-sep {
+      width: 1px;
+      height: 16px;
+      background: var(--border-mid);
+      margin: 0 4px;
+    }
+
+    /* Grid */
+    .all-proj-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 18px;
+      padding: 4px 0 24px 0;
+    }
+
+    /* Card */
+    /* Card */
+    .apg-card {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      cursor: pointer;
+      background: var(--surface-1);
+      border: 1px solid var(--border-mid);
+      transition: transform 0.28s cubic-bezier(0.34,1.4,0.64,1),
+                  box-shadow 0.28s ease,
+                  border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      animation: apg-enter 0.45s cubic-bezier(0.22,1,0.36,1) forwards;
+      /* Fixed height for consistent icon positioning */
+      height: 220px;
+    }
+    .apg-card:hover {
+      transform: translateY(-6px) scale(1.012);
+      box-shadow: 0 22px 52px rgba(0,0,0,0.55), 0 0 0 1px var(--cyan), 0 0 32px rgba(41,212,224,0.18);
+      border-color: var(--cyan);
+    }
+    @keyframes apg-enter {
+      from { opacity:0; transform: translateY(20px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    /* Shimmer sweep on hover */
+    .apg-card::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(59,130,246,0.08));
-      opacity: 0;
-      transition: opacity 0.3s ease;
+      background: linear-gradient(
+        105deg,
+        transparent 40%,
+        rgba(255,255,255,0.06) 50%,
+        transparent 60%
+      );
+      transform: translateX(-100%);
+      transition: transform 0.6s ease;
+      pointer-events: none;
+      z-index: 6;
     }
-    .apg-item:hover {
-      transform: translateY(-5px) scale(1.02);
-      border-color: var(--cyan);
-      box-shadow: 0 8px 24px rgba(6,182,212,0.15);
+    .apg-card:hover::after {
+      transform: translateX(100%);
     }
-    .apg-item:hover::before {
-      opacity: 1;
-    }
-    .apg-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
+
+    /* ── NEW LAYOUT: Icon left + info slide-up ── */
+
+    /* Icon sits anchored to the left inside the card, large, semi-hidden */
+    .apg-icon-wrap {
+      position: absolute;
+      left: 14px;
+      top: 70px;
+      width: 90px;
+      height: 90px;
+      border-radius: 14px;
+      overflow: hidden;
       background: var(--surface-2);
-      border: 1px solid var(--border-mid);
+      border: 2px solid rgba(255,255,255,0.07);
+      box-shadow: 0 6px 28px rgba(0,0,0,0.6);
+      z-index: 1;
+      transition: transform 0.42s cubic-bezier(0.22,1,0.36,1),
+                  box-shadow 0.42s ease;
+    }
+    .apg-icon-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .apg-icon-wrap .apg-icon-initials {
+      width: 100%;
+      height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
-      font-weight: bold;
-      color: var(--ink-1);
-      transition: all 0.3s ease;
-      background-size: cover;
-      background-position: center;
-      flex-shrink: 0;
-      z-index: 1;
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--ink-2);
+      background: radial-gradient(ellipse at 50% 40%, rgba(41,212,224,0.08) 0%, transparent 70%),
+                  linear-gradient(160deg,#1a2236,#0d1117);
+      letter-spacing: -0.03em;
     }
-    .apg-item:hover .apg-icon {
-      transform: scale(1.05);
-      border-color: var(--cyan);
-      box-shadow: 0 4px 12px rgba(6,182,212,0.3);
+    /* On hover: icon slides up to be fully revealed */
+    .apg-card:hover .apg-icon-wrap {
+      transform: translateY(-50px);
+      box-shadow: 0 12px 40px rgba(41,212,224,0.28), 0 0 0 1.5px rgba(41,212,224,0.4);
     }
-    .apg-info {
+
+    /* Body block: covers most of the icon initially, slides up on hover */
+    .apg-body {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 110px;
+      z-index: 2;
+      background: linear-gradient(175deg, rgba(16,22,36,0.92) 0%, var(--surface-1) 40%);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 12px 14px 14px 118px; /* left padding leaves room for icon */
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      min-width: 0;
-      z-index: 1;
+      gap: 5px;
+      transition: transform 0.42s cubic-bezier(0.22,1,0.36,1),
+                  background 0.3s ease;
+      backdrop-filter: blur(4px);
     }
+    /* On hover: info block slides UP slightly */
+    .apg-card:hover .apg-body {
+      transform: translateY(-4px);
+      background: linear-gradient(175deg, rgba(16,22,36,0.97) 0%, rgba(13,17,23,0.98) 100%);
+    }
+
+    /* Background glow / texture behind everything */
+    .apg-bg {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 80%, rgba(41,212,224,0.04) 0%, transparent 60%),
+                  linear-gradient(160deg, #151e2e 0%, #0d1117 100%);
+      z-index: 0;
+    }
+
     .apg-name {
-      margin: 0;
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 700;
       color: var(--ink-0);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       transition: color 0.2s;
+      margin: 0;
+      letter-spacing: -0.01em;
     }
-    .apg-item:hover .apg-name {
-      color: var(--cyan);
+    .apg-card:hover .apg-name { color: var(--cyan); }
+    .apg-desc {
+      font-size: 11px;
+      color: var(--ink-2);
+      line-height: 1.45;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
-    .apg-meta {
+    .apg-footer {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 10px;
-      color: var(--ink-2);
+      justify-content: space-between;
+      margin-top: 3px;
     }
-    .apg-platform-badge {
-      display: inline-flex;
-      align-items: center;
-      background: rgba(255,255,255,0.06);
-      padding: 1px 5px;
-      border-radius: 4px;
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: 0.02em;
+    .apg-chips {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
     }
-    .apg-status-badge {
+    .apg-chip {
       font-size: 9px;
       font-weight: 700;
-      padding: 1px 4px;
-      border-radius: 4px;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--ink-2);
     }
-    @keyframes apg-float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-4px); }
+    .apg-chip.launched  { color: var(--green);  background: rgba(63,185,80,0.1);   border-color: rgba(63,185,80,0.2); }
+    .apg-chip.wip,
+    .apg-chip.rework    { color: var(--orange); background: rgba(240,136,62,0.1);  border-color: rgba(240,136,62,0.2); }
+    .apg-chip.beta      { color: var(--yellow); background: rgba(210,153,34,0.12); border-color: rgba(210,153,34,0.2); }
+    .apg-chip.coming_soon { color: #a78bfa; background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.2); }
+    .apg-stars-mini {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      color: #eab308;
+      font-weight: 700;
     }
+    .apg-stars-mini i { font-size: 9px; }
+    /* Legacy banner classes — kept for safety but not used in new layout */
+    .apg-banner { display: none; }
+    .apg-icon-float { display: none; }
+    .apg-card.no-banner-layout .apg-body { padding-top: 12px; }
+
+    /* Count badge & ranking button */
     .apg-count {
-      background: rgba(6,182,212,0.1);
+      background: rgba(41,212,224,0.1);
       color: var(--cyan);
       font-size: 11px;
       font-weight: bold;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 8px;
       margin-left: 8px;
     }
     .apg-ranking-btn {
-      background: rgba(234,179,8,0.1);
-      border: 1px solid rgba(234,179,8,0.2);
+      background: linear-gradient(135deg, rgba(234,179,8,0.12), rgba(234,179,8,0.06));
+      border: 1px solid rgba(234,179,8,0.28);
       color: #eab308;
       font-size: 12px;
-      font-weight: bold;
-      padding: 6px 12px;
-      border-radius: 8px;
+      font-weight: 700;
+      padding: 7px 14px;
+      border-radius: 10px;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
       transition: all 0.2s;
+      letter-spacing: 0.02em;
     }
     .apg-ranking-btn:hover {
-      background: rgba(234,179,8,0.2);
-      transform: translateY(-1px);
+      background: linear-gradient(135deg, rgba(234,179,8,0.22), rgba(234,179,8,0.12));
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(234,179,8,0.2);
     }
 
     /* Top Modal Backdrop & Top Modal */
@@ -3141,23 +3283,22 @@
       flex: 1;
     }
 
-    /* Project Detail Modal (Fullscreen slide-up sheet) */
+    /* ═══════════════════════════════════════
+       PROJECT DETAIL MODAL — App Store Style
+    ═══════════════════════════════════════ */
     .proj-modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.65);
-      backdrop-filter: blur(8px);
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(12px);
       z-index: 400;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.28s ease;
+      transition: opacity 0.3s ease;
       display: flex;
       align-items: flex-end;
     }
-    .proj-modal-backdrop.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
+    .proj-modal-backdrop.open { opacity: 1; pointer-events: auto; }
     .proj-modal {
       width: 100vw;
       height: 100dvh;
@@ -3165,318 +3306,682 @@
       display: flex;
       flex-direction: column;
       transform: translateY(100%);
-      transition: transform 0.3s cubic-bezier(0.1, 0.76, 0.55, 0.94);
+      transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
       overflow: hidden;
     }
-    .proj-modal-backdrop.open .proj-modal {
-      transform: translateY(0);
-    }
-    .proj-modal-header {
-      height: 56px;
+    .proj-modal-backdrop.open .proj-modal { transform: translateY(0); }
+
+    /* Topbar */
+    .proj-modal-topbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 52px;
       padding: 0 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border-mid);
-      background: var(--surface-1);
-      z-index: 10;
+      z-index: 20;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
     }
     .proj-modal-back-btn {
-      background: none;
-      border: none;
-      font-size: 16px;
-      color: var(--ink-1);
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 100px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.9);
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-weight: 500;
+      gap: 7px;
+      font-weight: 600;
+      padding: 6px 14px;
+      transition: all 0.18s;
     }
+    .proj-modal-back-btn:hover { background: rgba(0,0,0,0.65); color: #fff; }
     .proj-modal-status-badge {
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      backdrop-filter: blur(8px);
+    }
+
+    /* Hero banner */
+    .proj-modal-hero-banner {
+      position: relative;
+      width: 100%;
+      height: 260px;
+      flex-shrink: 0;
+      overflow: hidden;
+      background: var(--surface-2);
+    }
+    @media (max-width: 600px) {
+      .proj-modal-hero-banner { height: 200px; }
+    }
+    .proj-modal-hero-banner-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .proj-modal-hero-banner-fallback {
+      width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 72px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #1c2230, #0d1117);
+      color: var(--ink-3);
+      letter-spacing: -0.04em;
+    }
+    .proj-modal-hero-banner-gradient {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(0,0,0,0) 30%,
+        rgba(10,13,17,0.7) 70%,
+        #0a0d11 100%
+      );
+    }
+    /* Studio tag over banner */
+    .proj-modal-studio-tag {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 10px;
+      color: rgba(255,255,255,0.55);
+      font-weight: 600;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
     }
+
+    /* Scrollable body */
     .proj-modal-body-container {
       flex: 1;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
     }
-    .proj-modal-hero {
-      position: relative;
-      padding: 40px 24px;
-      background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(59,130,246,0.1));
-      border-bottom: 1px solid var(--border-mid);
-      display: flex;
-      gap: 24px;
-      align-items: center;
+
+    /* Icon pinned inside the hero banner (bottom-left) */
+    .proj-modal-hero-icon-wrap {
+      position: absolute;
+      bottom: 16px;
+      left: 20px;
+      z-index: 3;
     }
-    .proj-modal-hero-icon {
-      width: 96px;
-      height: 96px;
-      border-radius: 20px;
-      background: var(--surface-1);
-      border: 2px solid var(--border-mid);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+
+    /* Identity row (name + chips) — no negative margin, clean flow */
+    .proj-modal-identity {
+      padding: 14px 20px 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+      z-index: 2;
+    }
+    .proj-modal-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 0px;
+      border: 2.5px solid rgba(255,255,255,0.12);
+      background: var(--surface-2);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.7);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 40px;
-      font-weight: bold;
-      color: var(--ink-0);
-      background-size: cover;
-      background-position: center;
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--ink-1);
+      flex-shrink: 0;
+      overflow: hidden;
     }
-    .proj-modal-hero-info {
+    .proj-modal-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .proj-modal-id-info {
       flex: 1;
+      min-width: 0;
+      padding-bottom: 4px;
     }
-    .proj-modal-hero-info h1 {
-      margin: 0;
-      font-size: 26px;
+    .proj-modal-id-info h1 {
+      font-size: 22px;
       font-weight: 800;
       color: var(--ink-0);
+      margin: 0 0 4px 0;
+      line-height: 1.2;
     }
-    .proj-modal-hero-meta {
-      margin-top: 8px;
-      display: flex;
-      gap: 12px;
-      font-size: 13px;
-      color: var(--ink-2);
-      align-items: center;
-    }
-    .proj-modal-actions {
-      margin-top: 16px;
-      display: flex;
-      gap: 12px;
-    }
-    .proj-modal-btn {
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
+    .proj-modal-id-meta {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
+    }
+    .proj-modal-id-chip {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--ink-2);
+    }
+    .proj-modal-id-chip.status-launched { color: var(--green); background: rgba(63,185,80,0.1); border-color: rgba(63,185,80,0.2); }
+    .proj-modal-id-chip.status-wip,
+    .proj-modal-id-chip.status-rework { color: var(--orange); background: rgba(240,136,62,0.1); border-color: rgba(240,136,62,0.2); }
+    .proj-modal-id-chip.status-beta { color: var(--yellow); background: rgba(210,153,34,0.12); border-color: rgba(210,153,34,0.2); }
+    .proj-modal-id-chip.status-coming_soon { color: #a78bfa; background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.2); }
+
+    /* Action buttons row */
+    .proj-modal-actions {
+      display: flex;
+      gap: 10px;
+      padding: 0 20px 16px;
+    }
+    .proj-modal-btn {
+      padding: 10px 22px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.22s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 0.02em;
+      text-decoration: none;
     }
     .proj-modal-btn.primary {
-      background: var(--cyan);
+      background: linear-gradient(135deg, var(--cyan), #1ab6d4);
       color: #000;
+      box-shadow: 0 4px 16px rgba(41,212,224,0.3);
     }
     .proj-modal-btn.primary:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(41,212,224,0.45);
     }
     .proj-modal-btn.secondary {
-      background: var(--surface-1);
+      background: var(--surface-2);
       border: 1px solid var(--border-mid);
       color: var(--ink-1);
     }
-    .proj-modal-btn.secondary:hover {
-      background: var(--border-mid);
+    .proj-modal-btn.secondary:hover { background: var(--surface-3); }
+
+    /* Tab bar */
+    .proj-modal-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border-mid);
+      padding: 0 20px;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .proj-modal-tab {
+      padding: 10px 16px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink-2);
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-bottom: 2px solid transparent;
+      transition: all 0.18s;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .proj-modal-tab:hover { color: var(--ink-1); }
+    .proj-modal-tab.active {
+      color: var(--cyan);
+      border-bottom-color: var(--cyan);
     }
 
+    /* Tab panels */
+    .proj-tab-panel { display: none; }
+    .proj-tab-panel.active { display: block; }
+
+    /* Content grid inside tabs */
     .proj-modal-content-grid {
-      padding: 24px;
+      padding: 22px 20px;
       display: grid;
-      grid-template-columns: 1.6fr 1fr;
-      gap: 32px;
-      max-width: 1200px;
+      grid-template-columns: 1.5fr 280px;
+      gap: 28px;
+      max-width: 1140px;
       margin: 0 auto;
       width: 100%;
     }
-    @media (max-width: 768px) {
-      .proj-modal-content-grid {
-        grid-template-columns: 1fr;
-        gap: 24px;
-      }
+    @media (max-width: 820px) {
+      .proj-modal-content-grid { grid-template-columns: 1fr; gap: 20px; }
+    }
+    .proj-modal-desc {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
     }
     .proj-modal-desc h3, .proj-modal-sidebar h3 {
-      margin-top: 0;
-      font-size: 16px;
-      color: var(--ink-0);
-      border-bottom: 1.5px solid var(--border-mid);
-      padding-bottom: 8px;
-      margin-bottom: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-2);
+      margin: 0 0 10px 0;
     }
     .proj-modal-desc p {
       font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.7;
       color: var(--ink-1);
       white-space: pre-wrap;
+      margin: 0;
+    }
+    .proj-modal-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .proj-meta-card {
+      background: var(--surface-1);
+      border: 1px solid var(--border-mid);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .proj-meta-card-header {
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-2);
+      border-bottom: 1px solid var(--border-mid);
     }
     .proj-meta-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
+      font-size: 12.5px;
     }
-    .proj-meta-table tr {
-      border-bottom: 1px solid var(--border-mid);
-    }
-    .proj-meta-table td {
-      padding: 10px 0;
-    }
-    .proj-meta-table td.label {
-      color: var(--ink-2);
-      font-weight: 500;
-      width: 40%;
-    }
-    .proj-meta-table td.value {
-      color: var(--ink-1);
-      text-align: right;
-      font-weight: 600;
-    }
+    .proj-meta-table tr { border-bottom: 1px solid var(--border-mid); }
+    .proj-meta-table tr:last-child { border-bottom: none; }
+    .proj-meta-table td { padding: 9px 14px; }
+    .proj-meta-table td.label { color: var(--ink-2); font-weight: 500; width: 45%; }
+    .proj-meta-table td.value { color: var(--ink-0); font-weight: 600; text-align: right; }
 
-    /* Ratings and Comments Component */
-    .proj-ratings-section {
-      margin-top: 32px;
-    }
-    .proj-ratings-summary {
-      background: var(--surface-1);
+    /* Ratings section */
+    .proj-ratings-section { padding: 22px 20px; }
+    .proj-ratings-hero {
+      background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
       border: 1px solid var(--border-mid);
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 16px;
+      padding: 22px 24px;
       display: flex;
       align-items: center;
-      gap: 24px;
-      margin-bottom: 20px;
+      gap: 28px;
+      margin-bottom: 24px;
     }
     .proj-rating-big-num {
-      font-size: 44px;
-      font-weight: 800;
+      font-size: 56px;
+      font-weight: 900;
       color: var(--ink-0);
       line-height: 1;
+      letter-spacing: -0.03em;
     }
-    .proj-rating-stars-col {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+    .proj-rating-right { display: flex; flex-direction: column; gap: 5px; }
     .proj-stars-row {
       display: flex;
       color: #eab308;
-      font-size: 16px;
+      font-size: 18px;
       gap: 2px;
     }
-    .proj-stars-row.empty {
-      color: var(--border-mid);
-    }
-    .proj-rating-count-text {
-      font-size: 12px;
-      color: var(--ink-2);
-    }
+    .proj-rating-count-text { font-size: 12px; color: var(--ink-2); }
+
+    /* Review form */
     .proj-comment-form {
       background: var(--surface-1);
       border: 1.5px solid var(--border-mid);
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 14px;
+      padding: 20px;
       margin-bottom: 24px;
+      transition: border-color 0.2s;
     }
-    .proj-comment-form h4 {
-      margin: 0 0 12px 0;
-      font-size: 14px;
+    .proj-comment-form:focus-within { border-color: rgba(41,212,224,0.3); }
+    .proj-comment-form-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .proj-comment-form-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan), #1ab6d4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #000;
+      flex-shrink: 0;
+    }
+    .proj-comment-form-name {
+      font-size: 13px;
+      font-weight: 700;
       color: var(--ink-0);
+    }
+    .proj-comment-form-badge {
+      font-size: 10px;
+      color: var(--cyan);
+      background: rgba(41,212,224,0.1);
+      border: 1px solid rgba(41,212,224,0.2);
+      padding: 1px 7px;
+      border-radius: 20px;
+      font-weight: 600;
     }
     .proj-star-select {
       display: flex;
-      gap: 6px;
-      font-size: 20px;
-      color: var(--border-mid);
+      gap: 8px;
+      font-size: 24px;
+      color: var(--ink-3);
       cursor: pointer;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
+      transition: color 0.15s;
     }
-    .proj-star-select i.selected {
-      color: #eab308;
-    }
+    .proj-star-select i { transition: transform 0.15s, color 0.15s; }
+    .proj-star-select i:hover { transform: scale(1.2); }
+    .proj-star-select i.selected { color: #eab308; }
     .proj-comment-input {
       width: 100%;
-      height: 70px;
+      height: 80px;
       background: var(--bg);
       border: 1px solid var(--border-mid);
-      border-radius: 8px;
-      padding: 10px;
-      font-size: 13px;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13.5px;
       color: var(--ink-1);
-      resize: none;
+      resize: vertical;
       margin-bottom: 12px;
-      font-family: inherit;
+      font-family: var(--font);
+      line-height: 1.5;
+      transition: border-color 0.2s;
     }
-    .proj-comment-input:focus {
-      outline: none;
-      border-color: var(--cyan);
-    }
+    .proj-comment-input::placeholder { color: var(--ink-2); }
+    .proj-comment-input:focus { outline: none; border-color: var(--cyan); }
     .proj-comment-form-footer {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     .proj-comment-user-info {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--ink-2);
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
+    .proj-comment-user-info i { color: var(--cyan); }
+
+    /* Login prompt */
     .proj-comment-login-msg {
-      background: var(--surface-1);
-      border: 1px dashed var(--border-mid);
-      border-radius: 12px;
-      padding: 18px;
+      background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
+      border: 1px solid var(--border-mid);
+      border-radius: 14px;
+      padding: 28px 20px;
       text-align: center;
-      font-size: 13px;
-      color: var(--ink-2);
       margin-bottom: 24px;
     }
+    .proj-comment-login-icon {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: rgba(41,212,224,0.1);
+      border: 1px solid rgba(41,212,224,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: var(--cyan);
+      margin: 0 auto 12px;
+    }
+    .proj-comment-login-msg p { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin: 0 0 14px; }
     .proj-comment-login-msg button {
-      background: var(--cyan);
+      background: linear-gradient(135deg, var(--cyan), #1ab6d4);
       color: #000;
       border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-weight: 600;
-      margin-top: 8px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-weight: 700;
       cursor: pointer;
       font-size: 12px;
     }
+
+    /* Comments list */
     .proj-comments-list {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
     .proj-comment-item {
-      border-bottom: 1px solid var(--border-mid);
-      padding-bottom: 12px;
+      background: var(--surface-1);
+      border: 1px solid var(--border-mid);
+      border-radius: 12px;
+      padding: 14px 16px;
+      transition: border-color 0.2s;
     }
+    .proj-comment-item:hover { border-color: var(--border-mid); }
     .proj-comment-item-header {
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+    .proj-comment-author-row {
+      display: flex;
       align-items: center;
-      margin-bottom: 6px;
+      gap: 8px;
     }
-    .proj-comment-author {
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--ink-1);
-    }
-    .proj-comment-date {
+    .proj-comment-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1e3a5f, #0d2840);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 11px;
-      color: var(--ink-2);
-      cursor: default;
+      font-weight: 700;
+      color: var(--cyan);
+      flex-shrink: 0;
+    }
+    .proj-comment-author { font-weight: 700; font-size: 13px; color: var(--ink-0); }
+    .proj-comment-date { font-size: 10px; color: var(--ink-2); cursor: default; white-space: nowrap; }
+    .proj-stars-row-small {
+      display: flex;
+      color: #eab308;
+      font-size: 11px;
+      gap: 1px;
+      margin-bottom: 6px;
     }
     .proj-comment-text {
       font-size: 13px;
       color: var(--ink-1);
-      line-height: 1.4;
+      line-height: 1.5;
       white-space: pre-wrap;
+    }
+
+    /* ── FLOATING DOWNLOAD HUD ── */
+    .download-hud {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 9999;
+      background: var(--surface-1);
+      border: 1px solid var(--border-mid);
+      border-radius: 12px;
+      padding: 12px 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6), 0 0 0 1.5px rgba(255,255,255,0.05);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      font-family: inherit;
+      color: var(--ink-0);
+      transform: translateY(-100px);
+      opacity: 0;
+      pointer-events: none;
+      min-width: 280px;
+    }
+    .download-hud.active {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+    .download-hud.error {
+      border-color: rgba(239, 68, 68, 0.4);
+      box-shadow: 0 8px 30px rgba(239, 68, 68, 0.15), 0 0 0 1.5px rgba(239, 68, 68, 0.2);
+    }
+    .download-hud-progress-circle {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+    }
+    .download-hud-progress-circle svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    .download-hud-progress-circle circle {
+      fill: none;
+      stroke-width: 3.5;
+      stroke-linecap: round;
+    }
+    .download-hud-progress-circle .bg-circle {
+      stroke: rgba(255,255,255,0.06);
+    }
+    .download-hud-progress-circle .fg-circle {
+      stroke: var(--cyan);
+      stroke-dasharray: 113;
+      stroke-dashoffset: 113;
+      transition: stroke-dashoffset 0.3s ease;
+    }
+    .download-hud.error .fg-circle {
+      stroke: #ef4444;
+    }
+    .download-hud-progress-circle .hud-icon {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: var(--ink-0);
+    }
+    .download-hud.error .hud-icon {
+      color: #ef4444;
+    }
+    .download-hud-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex-grow: 1;
+    }
+    .download-hud-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink-0);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+    }
+    .download-hud-bytes {
+      font-size: 11px;
+      color: var(--ink-2);
+    }
+    .download-hud-eta {
+      font-size: 11px;
+      color: var(--cyan);
+      font-weight: 600;
+    }
+    .download-hud.error .download-hud-eta {
+      color: #ef4444;
+    }
+    .download-hud-err-link {
+      color: #3b82f6;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .download-hud-close {
+      cursor: pointer;
+      color: var(--ink-2);
+      font-size: 14px;
+      background: none;
+      border: none;
+      padding: 4px;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .download-hud-close:hover {
+      opacity: 1;
     }
   </style>
 </head>
 <body>
+
+<!-- ── DOWNLOAD PROGRESS HUD ── -->
+<div class="download-hud" id="download-hud">
+  <div class="download-hud-progress-circle">
+    <svg>
+      <circle class="bg-circle" cx="21" cy="21" r="18"></circle>
+      <circle class="fg-circle" id="hud-progress-ring" cx="21" cy="21" r="18"></circle>
+    </svg>
+    <div class="hud-icon" id="hud-progress-icon"><i class="fas fa-download"></i></div>
+  </div>
+  <div class="download-hud-info">
+    <div class="download-hud-title" id="hud-project-title">Descargando...</div>
+    <div class="download-hud-bytes" id="hud-progress-bytes">0 B / 0 B</div>
+    <div class="download-hud-eta" id="hud-progress-eta">Calculando...</div>
+  </div>
+  <button class="download-hud-close" onclick="hideDownloadHUD()"><i class="fas fa-times"></i></button>
+</div>
+
+<!-- ── DOWNLOAD ERROR DETAILS MODAL ── -->
+<div class="op-modal-backdrop" id="download-error-backdrop" onclick="if(event.target===this) closeDownloadErrorModal();">
+  <div class="op-modal" style="max-width: 480px; width: 90%;">
+    <button class="op-modal-close" onclick="closeDownloadErrorModal()" aria-label="Cerrar">
+      <i class="fas fa-times"></i>
+    </button>
+    <div class="op-modal-header">
+      <div class="op-modal-icon" style="background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:#ef4444;display:flex;align-items:center;justify-content:center;font-size:18px;">
+        <i class="fas fa-circle-xmark"></i>
+      </div>
+      <div>
+        <div class="op-modal-title" style="color:#ef4444;">Error de Instalación</div>
+        <div class="op-modal-subtitle">Log de depuración detallado</div>
+      </div>
+    </div>
+    <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border-mid);border-radius:8px;padding:12px;margin:16px 0;max-height:220px;overflow-y:auto;font-family:monospace;font-size:11px;line-height:1.4;color:#f87171;word-break:break-all;" id="download-error-log">
+      Log vacío.
+    </div>
+    <div class="op-btn-row">
+      <button class="op-btn" onclick="closeDownloadErrorModal()" style="width:100%;">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════ ERA OVERLAY ═══ -->
 <!-- DISABLED locally: la nueva versión ya está aplicada, este
@@ -3699,6 +4204,18 @@
               <i class="fas fa-trophy"></i> Ver Ranking
             </button>
           </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="apg-filters" id="apg-filters">
+          <button class="apg-filter-pill active" data-filter="all" onclick="apgSetFilter('all', this)">Todos</button>
+          <div class="apg-filter-sep"></div>
+          <button class="apg-filter-pill" data-filter="launched" onclick="apgSetFilter('launched', this)"><i class="fas fa-check-circle" style="margin-right:4px;font-size:9px;"></i>Lanzados</button>
+          <button class="apg-filter-pill" data-filter="wip" onclick="apgSetFilter('wip', this)"><i class="fas fa-hammer" style="margin-right:4px;font-size:9px;"></i>En desarrollo</button>
+          <button class="apg-filter-pill" data-filter="coming_soon" onclick="apgSetFilter('coming_soon', this)"><i class="fas fa-clock" style="margin-right:4px;font-size:9px;"></i>Próximamente</button>
+          <div class="apg-filter-sep"></div>
+          <button class="apg-filter-pill" data-filter="windows" onclick="apgSetFilter('windows', this)"><i class="fa-brands fa-windows" style="margin-right:4px;"></i>Windows</button>
+          <button class="apg-filter-pill" data-filter="android" onclick="apgSetFilter('android', this)"><i class="fa-brands fa-android" style="margin-right:4px;"></i>Android</button>
         </div>
 
         <div class="all-proj-grid" id="all-proj-grid">
@@ -3993,6 +4510,12 @@ function showSection(id, el) {
     el.classList.add('active');
     // ripple
     spawnRipple(el);
+  }
+
+  if (id === 'updates') {
+    renderUpdatesSection();
+  } else if (id === 'library') {
+    renderLibrarySection();
   }
 
   const content = document.getElementById('content');
@@ -4310,48 +4833,90 @@ function renderTopShowcase(projects) {
   const sU = document.getElementById('stat-updates');   if (sU) sU.textContent   = '—';
 }
 
+/* ─────────── APG filter state ─────────────── */
+let _apgFilter = 'all';
+let _apgAllProjects = [];
+
+function apgSetFilter(filter, el) {
+  _apgFilter = filter;
+  document.querySelectorAll('#apg-filters .apg-filter-pill').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderAllProjectsGrid(_apgAllProjects);
+}
+
 function renderAllProjectsGrid(projects) {
+  _apgAllProjects = projects;
   const container = document.getElementById('all-proj-grid');
   const countEl = document.getElementById('all-proj-count');
   if (!container) return;
   container.innerHTML = '';
 
-  if (countEl) countEl.textContent = projects.length;
-
-  projects.forEach((p, idx) => {
-    const item = document.createElement('div');
-    item.className = 'apg-item';
-    item.style.animationDelay = `${idx * 0.18}s`;
-    item.style.animationDuration = `${3.5 + (idx % 3) * 0.5}s`;
-
-    const thumb = _resolveProjectIcon(p);
-    const initials = _projectInitials(p);
-
-    let iconHtml = '';
-    if (thumb) {
-      iconHtml = `<div class="apg-icon" style="background-image: url('${thumb}')"></div>`;
-    } else {
-      iconHtml = `<div class="apg-icon">${initials}</div>`;
+  // Filter
+  let filtered = projects;
+  if (_apgFilter !== 'all') {
+    const f = _apgFilter;
+    if (f === 'launched' || f === 'wip' || f === 'coming_soon' || f === 'beta') {
+      filtered = projects.filter(p => (p.status || 'launched') === f);
+    } else if (f === 'windows') {
+      filtered = projects.filter(p => (p.platform || '').toLowerCase().includes('windows'));
+    } else if (f === 'android') {
+      filtered = projects.filter(p => (p.platform || '').toLowerCase().includes('android'));
     }
+  }
 
+  if (countEl) countEl.textContent = filtered.length;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--ink-2);font-size:13px;"><i class="fas fa-box-open" style="font-size:32px;margin-bottom:12px;display:block;opacity:0.3;"></i>No hay proyectos que coincidan con el filtro.</div>`;
+    return;
+  }
+
+  filtered.forEach((p, idx) => {
+    const card = document.createElement('div');
+    card.className = 'apg-card';
+    card.style.animationDelay = `${idx * 0.055}s`;
+
+    const icon = _resolveProjectIcon(p);
+    const initials = _projectInitials(p);
+    const rating = _ratingFor(p);
+    const status = (p.status || 'launched').toLowerCase();
     const platform = getPlatformLabel(p);
-    const statusLabel = p.status || 'launched';
-    const statusColor = statusLabel === 'wip' ? 'var(--orange)' : (statusLabel === 'beta' ? 'var(--yellow)' : 'var(--green)');
-    const statusBg = statusLabel === 'wip' ? 'rgba(249,115,22,0.15)' : (statusLabel === 'beta' ? 'rgba(234,179,8,0.15)' : 'rgba(34,197,94,0.15)');
+    const hasIcon = !!icon;
 
-    item.innerHTML = `
+    // Status label map
+    const statusLabelMap = { launched:'LANZADO', wip:'EN DESARROLLO', rework:'REWORK', beta:'BETA', coming_soon:'PRÓXIMAMENTE' };
+    const statusLabel = statusLabelMap[status] || status.toUpperCase();
+
+    // Platform icons
+    const platIcon = (p.platform || '').toLowerCase().includes('android') && (p.platform || '').toLowerCase().includes('windows')
+      ? '<i class="fa-brands fa-windows"></i> <i class="fa-brands fa-android" style="font-size:10px;"></i>'
+      : (p.platform || '').toLowerCase().includes('android')
+      ? '<i class="fa-brands fa-android"></i>'
+      : '<i class="fa-brands fa-windows"></i>';
+
+    // Icon block — large, anchored bottom-left, semi-revealed
+    const iconHtml = hasIcon
+      ? `<div class="apg-icon-wrap"><img src="${icon}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'apg-icon-initials\'>${initials}</div>';"></div>`
+      : `<div class="apg-icon-wrap"><div class="apg-icon-initials">${initials}</div></div>`;
+
+    card.innerHTML = `
+      <div class="apg-bg"></div>
       ${iconHtml}
-      <div class="apg-info">
+      <div class="apg-body">
         <div class="apg-name" title="${_escapeHtml(p.name)}">${_escapeHtml(p.name || 'Proyecto')}</div>
-        <div class="apg-meta">
-          <span class="apg-platform-badge">${_escapeHtml(platform)}</span>
-          <span class="apg-status-badge" style="color: ${statusColor}; background: ${statusBg}; border: 1px solid ${statusColor}">${_escapeHtml(statusLabel)}</span>
+        <div class="apg-desc">${_escapeHtml(p.desc || p.description || 'Ocean and Wild Studios')}</div>
+        <div class="apg-footer">
+          <div class="apg-chips">
+            <span class="apg-chip ${status}">${statusLabel}</span>
+            <span class="apg-chip">${platIcon} ${platform}</span>
+          </div>
+          <div class="apg-stars-mini"><i class="fas fa-star"></i> ${rating}</div>
         </div>
       </div>
     `;
 
-    item.onclick = () => openProjectModal(p.slug);
-    container.appendChild(item);
+    card.onclick = () => openProjectModal(p.slug);
+    container.appendChild(card);
   });
 }
 
@@ -4381,92 +4946,186 @@ function openProjectModal(slug) {
   backdrop.dataset.activeSlug = slug;
   _activeReviewRating = 5;
 
-  const statusLabel = p.status || 'launched';
-  const statusColor = statusLabel === 'wip' ? 'var(--orange)' : (statusLabel === 'beta' ? 'var(--yellow)' : 'var(--green)');
-  const statusBg = statusLabel === 'wip' ? 'rgba(249,115,22,0.15)' : (statusLabel === 'beta' ? 'rgba(234,179,8,0.15)' : 'rgba(34,197,94,0.15)');
+  const status = (p.status || 'launched').toLowerCase();
+  const statusLabelMap = { launched:'LANZADO', wip:'EN DESARROLLO', rework:'REWORK', beta:'BETA', coming_soon:'PRÓXIMAMENTE' };
+  const statusText = statusLabelMap[status] || status.toUpperCase();
+  const statusColorMap = { launched:'var(--green)', wip:'var(--orange)', rework:'var(--orange)', beta:'var(--yellow)', coming_soon:'#a78bfa' };
+  const statusBgMap = { launched:'rgba(63,185,80,0.15)', wip:'rgba(240,136,62,0.15)', rework:'rgba(240,136,62,0.15)', beta:'rgba(210,153,34,0.15)', coming_soon:'rgba(167,139,250,0.15)' };
+  const statusColor = statusColorMap[status] || 'var(--green)';
+  const statusBg   = statusBgMap[status]   || 'rgba(63,185,80,0.15)';
 
-  let actionBtnHtml = '';
-  if (p.url) {
-    actionBtnHtml += `<a href="${p.url}" target="_blank" class="proj-modal-btn primary" style="text-decoration:none;"><i class="fas fa-arrow-up-right-from-square"></i> Acceder</a>`;
-  } else if (p.download_url) {
-    actionBtnHtml += `<a href="${p.download_url}" download class="proj-modal-btn primary" style="text-decoration:none;"><i class="fas fa-download"></i> Descargar</a>`;
+  const icon   = _resolveProjectIcon(p);
+  const initials = _projectInitials(p);
+  const category = _escapeHtml(p.category  || 'Software');
+  const platform  = _escapeHtml(p.platform  || 'windows');
+  const version   = _escapeHtml(p.version   || '1.0.0');
+  const price     = _escapeHtml(p.price     || 'Gratis');
+  const rating    = _ratingFor(p);
+
+  // Banner
+  const bannerSrc = p.banner || p.banner_url || '';
+  const hasBanner = !!(bannerSrc && /^(https?:|\.)/.test(bannerSrc));
+  const bannerHtml = hasBanner
+    ? `<img class="proj-modal-hero-banner-img" src="${bannerSrc}" alt="" loading="lazy" onerror="this.style.display='none';document.getElementById('pmhb-fallback').style.display='flex';">
+       <div class="proj-modal-hero-banner-gradient"></div>
+       <div class="proj-modal-hero-banner-fallback" id="pmhb-fallback" style="display:none;">${initials}</div>`
+    : (icon
+       ? `<img class="proj-modal-hero-banner-img" src="${icon}" alt="" loading="lazy" style="object-fit:contain;padding:36px;background:linear-gradient(135deg,#1c2230,#0d1117);" onerror="this.style.display='none';document.getElementById('pmhb-fallback').style.display='flex';">
+          <div class="proj-modal-hero-banner-gradient"></div>
+          <div class="proj-modal-hero-banner-fallback" id="pmhb-fallback" style="display:none;">${initials}</div>`
+       : `<div class="proj-modal-hero-banner-fallback" id="pmhb-fallback">${initials}</div>`);
+
+  // Icon
+  const iconHtml = icon
+    ? `<div class="proj-modal-icon"><img src="${icon}" alt="" loading="lazy" onerror="this.parentElement.textContent='${initials}';"></div>`
+    : `<div class="proj-modal-icon">${initials}</div>`;
+
+  // Action button & Android display
+  let actionBtn = '';
+  let installTypeHtml = '';
+
+  const platStr = (p.platform || '').toLowerCase();
+  const isWindowsCompatible = platStr.includes('windows');
+  const isAndroidCompatible = platStr.includes('android');
+
+  if (window.owsUpdater && window.owsUpdater.isElectron) {
+    const instStatus = installedProjectsMap.get(slug);
+    if (isWindowsCompatible) {
+      if (currentDownloadTaskActive && currentDownloadSlug === slug) {
+        actionBtn = `<button class="proj-modal-btn primary" disabled><i class="fas fa-spinner fa-spin"></i> Descargando...</button>`;
+      } else if (instStatus && instStatus.installed) {
+        if (instStatus.hasUpdate) {
+          actionBtn = `<button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')"><i class="fas fa-circle-arrow-down"></i> Actualizar</button>`;
+        } else {
+          actionBtn = `<button class="proj-modal-btn primary" onclick="playProject('${slug}')"><i class="fas fa-play"></i> Jugar</button>`;
+        }
+        actionBtn += `<button class="proj-modal-btn secondary" onclick="uninstallProject('${slug}')" style="color:#ef4444;"><i class="fas fa-trash-can"></i> Desinstalar</button>`;
+      } else {
+        actionBtn = `<button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')"><i class="fas fa-download"></i> Instalar</button>`;
+      }
+    } else {
+      actionBtn = `<button class="proj-modal-btn primary" disabled><i class="fas fa-ban"></i> No disponible en PC</button>`;
+    }
+
+    if (isAndroidCompatible) {
+      installTypeHtml = `
+        <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-mid);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <span style="font-size:11px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:0.04em;">Versión Android disponible</span>
+            <div style="font-size:12px;color:var(--ink-1);margin-top:2px;">Última compilación APK activa.</div>
+          </div>
+          <button class="filter-pill" style="opacity:0.65;cursor:not-allowed;" title="Compatible solo en dispositivos móviles" disabled><i class="fa-brands fa-android"></i> Móvil</button>
+        </div>`;
+    }
   } else {
-    actionBtnHtml += `<button class="proj-modal-btn primary" onclick="alert('Proyecto no disponible para descarga directa.')"><i class="fas fa-info-circle"></i> Info</button>`;
+    // Normal browser / fallback
+    if (p.url) {
+      actionBtn = `<a href="${p.url}" target="_blank" class="proj-modal-btn primary"><i class="fas fa-arrow-up-right-from-square"></i> Acceder</a>`;
+    } else if (p.download_url) {
+      actionBtn = `<a href="${p.download_url}" download class="proj-modal-btn primary"><i class="fas fa-download"></i> Descargar</a>`;
+    } else {
+      actionBtn = `<button class="proj-modal-btn primary" disabled><i class="fas fa-lock"></i> No disponible</button>`;
+    }
   }
 
-  const category = p.category || 'Software';
-  const platform = p.platform || 'windows';
-  const version = p.version || '1.0.0';
-  const price = p.price || 'Gratis';
-
-  const thumb = _resolveProjectIcon(p);
-  const initials = _projectInitials(p);
+  // Platform icons string
+  let platIconStr = '';
+  if (platStr.includes('windows')) platIconStr += '<i class="fa-brands fa-windows" style="margin-right:3px;"></i>';
+  if (platStr.includes('android')) platIconStr += '<i class="fa-brands fa-android" style="margin-right:3px;"></i>';
+  if (!platIconStr) platIconStr = '<i class="fas fa-globe" style="margin-right:3px;"></i>';
 
   modal.innerHTML = `
-    <div class="proj-modal-header">
+    <!-- Floating topbar over banner -->
+    <div class="proj-modal-topbar">
       <button class="proj-modal-back-btn" onclick="closeProjectModal()">
-        <i class="fas fa-arrow-left"></i> Volver
+        <i class="fas fa-chevron-left"></i> Proyectos
       </button>
-      <span class="proj-modal-status-badge" style="color:${statusColor}; background:${statusBg}; border:1px solid ${statusColor}">${statusLabel}</span>
+      <span class="proj-modal-status-badge" style="color:${statusColor};background:${statusBg};border:1px solid ${statusColor}">${statusText}</span>
     </div>
 
+    <!-- Hero banner (no scroll) -->
+    <div class="proj-modal-hero-banner">
+      ${bannerHtml}
+      <div class="proj-modal-studio-tag">Ocean and Wild Studios</div>
+    </div>
+
+    <!-- Scrollable body -->
     <div class="proj-modal-body-container">
-      <div class="proj-modal-hero">
-        <div class="proj-modal-hero-icon" ${thumb ? `style="background-image:url('${thumb}')"` : ''}>
-          ${!thumb ? initials : ''}
-        </div>
-        <div class="proj-modal-hero-info">
+
+      <!-- Identity: icon + name + chips -->
+      <div class="proj-modal-identity">
+        ${iconHtml}
+        <div class="proj-modal-id-info">
           <h1>${_escapeHtml(p.name)}</h1>
-          <div class="proj-modal-hero-meta">
-            <span><i class="fas fa-cube" style="margin-right:4px;"></i>${_escapeHtml(category)}</span>
-            <span><i class="fas fa-laptop" style="margin-right:4px;"></i>${_escapeHtml(platform)}</span>
-          </div>
-          <div class="proj-modal-actions">
-            ${actionBtnHtml}
+          <div class="proj-modal-id-meta">
+            <span class="proj-modal-id-chip status-${status}">${statusText}</span>
+            <span class="proj-modal-id-chip">${platIconStr} ${platform}</span>
+            <span class="proj-modal-id-chip">${category}</span>
+            <span class="proj-modal-id-chip" style="color:#eab308;"><i class="fas fa-star" style="font-size:9px;margin-right:3px;"></i>${rating}</span>
           </div>
         </div>
       </div>
 
-      <div class="proj-modal-content-grid">
-        <div class="proj-modal-desc">
-          <h3>Descripción</h3>
-          <p>${_escapeHtml(p.desc || 'No hay descripción disponible para este proyecto.')}</p>
+      <!-- Actions -->
+      <div class="proj-modal-actions">
+        ${actionBtn}
+        <button class="proj-modal-btn secondary"><i class="fas fa-bookmark"></i> Biblioteca</button>
+        <button class="proj-modal-btn secondary" onclick="navigator.share && navigator.share({title:'${_escapeHtml(p.name)}',url:window.location.href}).catch(()=>{})"><i class="fas fa-share-nodes"></i></button>
+      </div>
 
-          <div class="proj-ratings-section">
-            <h3>Opiniones de la Comunidad</h3>
-            <div id="proj-reviews-container">
-              <div class="skeleton" style="height:100px;border-radius:12px;"></div>
+      <!-- Tab bar -->
+      <div class="proj-modal-tabs">
+        <button class="proj-modal-tab active" id="pm-tab-info" onclick="pmSwitchTab('info')">Información</button>
+        <button class="proj-modal-tab" id="pm-tab-reviews" onclick="pmSwitchTab('reviews')">Opiniones</button>
+      </div>
+
+      <!-- Tab: Información -->
+      <div class="proj-tab-panel active" id="pm-panel-info">
+        <div class="proj-modal-content-grid">
+          <div class="proj-modal-desc">
+            <div>
+              <h3>Descripción</h3>
+              <p>${_escapeHtml(p.desc || p.description || 'No hay descripción disponible para este proyecto.')}</p>
+            </div>
+            ${installTypeHtml}
+          </div>
+          <div class="proj-modal-sidebar">
+            <div class="proj-meta-card">
+              <div class="proj-meta-card-header">Detalles</div>
+              <table class="proj-meta-table">
+                <tr><td class="label">Plataforma</td><td class="value">${platform}</td></tr>
+                <tr><td class="label">Categoría</td><td class="value">${category}</td></tr>
+                <tr><td class="label">Precio</td><td class="value">${price}</td></tr>
+                <tr><td class="label">Versión</td><td class="value">${versionDisplay}</td></tr>
+                <tr><td class="label">Estudio</td><td class="value">OWS</td></tr>
+              </table>
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="proj-modal-sidebar">
-          <h3>Detalles</h3>
-          <table class="proj-meta-table">
-            <tr>
-              <td class="label">Plataforma</td>
-              <td class="value">${_escapeHtml(platform)}</td>
-            </tr>
-            <tr>
-              <td class="label">Categoría</td>
-              <td class="value">${_escapeHtml(category)}</td>
-            </tr>
-            <tr>
-              <td class="label">Precio</td>
-              <td class="value">${_escapeHtml(price)}</td>
-            </tr>
-            <tr>
-              <td class="label">Versión</td>
-              <td class="value">${_escapeHtml(version)}</td>
-            </tr>
-          </table>
+      <!-- Tab: Opiniones -->
+      <div class="proj-tab-panel" id="pm-panel-reviews">
+        <div class="proj-ratings-section" id="proj-reviews-container">
+          <div class="skeleton" style="height:110px;border-radius:14px;margin-bottom:16px;"></div>
+          <div class="skeleton" style="height:80px;border-radius:14px;"></div>
         </div>
       </div>
+
     </div>
   `;
 
   backdrop.classList.add('open');
   loadProjectReviews(slug);
+}
+
+function pmSwitchTab(tab) {
+  document.querySelectorAll('.proj-modal-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.proj-tab-panel').forEach(p => p.classList.remove('active'));
+  const tabEl = document.getElementById('pm-tab-' + tab);
+  const panelEl = document.getElementById('pm-panel-' + tab);
+  if (tabEl) tabEl.classList.add('active');
+  if (panelEl) panelEl.classList.add('active');
 }
 
 function closeProjectModal() {
@@ -4505,21 +5164,30 @@ async function loadProjectReviews(slug) {
       }
     }
 
+    // Summary block
     let summaryHtml = `
-      <div class="proj-ratings-summary">
+      <div class="proj-ratings-hero">
         <div class="proj-rating-big-num">${avgRating > 0 ? avgRating.toFixed(1) : '—'}</div>
-        <div class="proj-rating-stars-col">
+        <div class="proj-rating-right">
           <div class="proj-stars-row">${avgStarsHtml}</div>
-          <div class="proj-rating-count-text">${totalReviews} ${totalReviews === 1 ? 'valoración' : 'valoraciones'}</div>
+          <div class="proj-rating-count-text">${totalReviews} ${totalReviews === 1 ? 'valoración' : 'valoraciones'} · Ocean Pay Verified</div>
         </div>
       </div>
     `;
 
+    // Write form
+    const avatarInitial = currentOpUser ? currentOpUser[0].toUpperCase() : '?';
     let formHtml = '';
     if (currentOpUser) {
       formHtml = `
         <div class="proj-comment-form">
-          <h4>Escribe tu opinión como ${_escapeHtml(currentOpUser)}</h4>
+          <div class="proj-comment-form-header">
+            <div class="proj-comment-form-avatar">${_escapeHtml(avatarInitial)}</div>
+            <div>
+              <div class="proj-comment-form-name">${_escapeHtml(currentOpUser)}</div>
+              <span class="proj-comment-form-badge"><i class="fas fa-shield-halved" style="font-size:9px;margin-right:3px;"></i>Ocean Pay</span>
+            </div>
+          </div>
           <div class="proj-star-select" id="proj-star-select">
             <i class="fas fa-star selected" data-value="1" onclick="setReviewRating(1)"></i>
             <i class="fas fa-star selected" data-value="2" onclick="setReviewRating(2)"></i>
@@ -4527,46 +5195,52 @@ async function loadProjectReviews(slug) {
             <i class="fas fa-star selected" data-value="4" onclick="setReviewRating(4)"></i>
             <i class="fas fa-star selected" data-value="5" onclick="setReviewRating(5)"></i>
           </div>
-          <textarea class="proj-comment-input" id="proj-comment-text" placeholder="Escribe tu reseña o comentario sobre este proyecto..."></textarea>
+          <textarea class="proj-comment-input" id="proj-comment-text" placeholder="Comparte tu experiencia con este proyecto..."></textarea>
           <div class="proj-comment-form-footer">
-            <span class="proj-comment-user-info"><i class="fas fa-circle-user"></i> Conectado con Ocean Pay</span>
-            <button class="proj-modal-btn primary" onclick="submitProjectReview('${slug}')" id="proj-submit-btn" style="padding:6px 14px; font-size:12px;">Publicar Reseña</button>
+            <span class="proj-comment-user-info"><i class="fas fa-circle-user"></i> Comentando como ${_escapeHtml(currentOpUser)}</span>
+            <button class="proj-modal-btn primary" onclick="submitProjectReview('${slug}')" id="proj-submit-btn" style="padding:7px 16px;font-size:12px;"><i class="fas fa-paper-plane"></i> Publicar</button>
           </div>
         </div>
       `;
     } else {
       formHtml = `
         <div class="proj-comment-login-msg">
-          <p>Debes vincular tu cuenta de Ocean Pay para poder calificar y comentar este proyecto.</p>
-          <button onclick="toggleOPWidget()">Conectar con Ocean Pay</button>
+          <div class="proj-comment-login-icon"><i class="fas fa-shield-halved"></i></div>
+          <p>Inicia sesión con <strong style="color:var(--ink-1);">Ocean Pay</strong> para calificar y comentar este proyecto.</p>
+          <button onclick="toggleOPWidget()"><i class="fas fa-shield-halved" style="margin-right:6px;"></i>Conectar con Ocean Pay</button>
         </div>
       `;
     }
 
+    // Comments list
     let commentsListHtml = '<div class="proj-comments-list">';
     if (reviews.length === 0) {
-      commentsListHtml += `<div style="font-size:13px; color:var(--ink-2); text-align:center; padding:12px;">Nadie ha comentado aún. ¡Sé el primero!</div>`;
+      commentsListHtml += `
+        <div style="text-align:center;padding:36px 16px;color:var(--ink-2);">
+          <i class="far fa-comment-dots" style="font-size:36px;opacity:0.25;display:block;margin-bottom:12px;"></i>
+          <div style="font-size:13px;">Nadie ha comentado aún. ¡Sé el primero!</div>
+        </div>`;
     } else {
       reviews.forEach(r => {
         let starsHtml = '';
         for (let i = 1; i <= 5; i++) {
           starsHtml += i <= r.rating ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
         }
-
-        const dateObj = new Date(r.created_at);
-        const exactDate = dateObj.toLocaleString('es-UY', { dateStyle: 'full', timeStyle: 'medium' });
+        const exactDate = new Date(r.created_at).toLocaleString('es-UY', { dateStyle: 'full', timeStyle: 'medium' });
         const relativeDate = _formatRelative(r.created_at);
+        const avatarChar = r.username ? r.username[0].toUpperCase() : '?';
 
         commentsListHtml += `
           <div class="proj-comment-item">
             <div class="proj-comment-item-header">
-              <div class="proj-comment-author">${_escapeHtml(r.username)}</div>
-              <div class="proj-stars-row" style="font-size:12px;">${starsHtml}</div>
-            </div>
-            <div class="proj-comment-text">${_escapeHtml(r.comment || '')}</div>
-            <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+              <div class="proj-comment-author-row">
+                <div class="proj-comment-avatar">${_escapeHtml(avatarChar)}</div>
+                <div class="proj-comment-author">${_escapeHtml(r.username)}</div>
+              </div>
               <span class="proj-comment-date" title="${_escapeHtml(exactDate)}">${_escapeHtml(relativeDate)}</span>
             </div>
+            <div class="proj-stars-row-small">${starsHtml}</div>
+            <div class="proj-comment-text">${_escapeHtml(r.comment || '')}</div>
           </div>
         `;
       });
@@ -5174,6 +5848,9 @@ async function loadData() {
 
   // Load polls
   loadAndRenderStorePolls();
+
+  // Scan installed apps
+  scanInstalledApps();
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -5680,9 +6357,496 @@ function openFilters() {
 function syncNow() { loadData(); }
 
 /* ──────────────────────────────────────────────────────────────────
+   INSTALLER & UPDATES MANAGEMENT (OWS SYSTEM)
+───────────────────────────────────────────────────────────────── */
+const PROJECT_HINTS = {
+  'ocean-cinemas': { installDirNames: ['Ocean Cinemas'], executableNames: ['Ocean Cinemas.exe'], uninstallerNames: ['Uninstall Ocean Cinemas.exe'] },
+  'ecoxion': { installDirNames: ['Ecoxion'], executableNames: ['Ecoxion.exe'], uninstallerNames: ['Uninstall Ecoxion.exe'] },
+  'dinobox': { installDirNames: ['DinoBox'], executableNames: ['DinoBox.exe'], uninstallerNames: ['Uninstall DinoBox.exe'] },
+  'incremental-cosmic-odyssey': { installDirNames: ['Incremental Cosmic Odyssey'], executableNames: ['Incremental Cosmic Odyssey.exe'], uninstallerNames: ['Uninstall Incremental Cosmic Odyssey.exe'] },
+  'wildweapon-mayhem': { installDirNames: ['WildWeapon Mayhem'], executableNames: ['WildWeapon Mayhem.exe'], uninstallerNames: ['Uninstall WildWeapon Mayhem.exe'] },
+  'wildweapon': { installDirNames: ['WildWeapon Mayhem'], executableNames: ['WildWeapon Mayhem.exe'], uninstallerNames: ['Uninstall WildWeapon Mayhem.exe'] },
+  'wildwave': { installDirNames: ['WildWave'], executableNames: ['WildWave.exe'], uninstallerNames: ['Uninstall WildWave.exe'] },
+  'floret-shop': { installDirNames: ['Floret Shop'], executableNames: ['Floret Shop.exe'], uninstallerNames: ['Uninstall Floret Shop.exe'] },
+  'floretshop': { installDirNames: ['Floret Shop'], executableNames: ['Floret Shop.exe'], uninstallerNames: ['Uninstall Floret Shop.exe'] },
+  'wildtransfer': { installDirNames: ['WildTransfer'], executableNames: ['WildTransfer.exe'], uninstallerNames: ['Uninstall WildTransfer.exe'] },
+  'a-wild-question-game': { installDirNames: ['A Wild Question Game'], executableNames: ['A Wild Question Game.exe'], uninstallerNames: ['Uninstall A Wild Question Game.exe'] },
+  'velocity-surge': { installDirNames: ['Velocity Surge'], executableNames: ['Velocity Surge.exe'], uninstallerNames: ['Uninstall Velocity Surge.exe'] },
+  'wildshorts': { installDirNames: ['WildShorts'], executableNames: ['WildShorts.exe'], uninstallerNames: ['Uninstall WildShorts.exe'] },
+  'wild-destiny': { installDirNames: ['Wild Destiny'], executableNames: ['Wild Destiny.exe'], uninstallerNames: ['Uninstall Wild Destiny.exe'] },
+  'naturepedia': { installDirNames: ['Naturepedia'], executableNames: ['Naturepedia.exe'], uninstallerNames: ['Uninstall Naturepedia.exe'] },
+  'ocean-pay': { installDirNames: ['Ocean Pay'], executableNames: ['Ocean Pay.exe'], uninstallerNames: ['Uninstall Ocean Pay.exe'] }
+};
+
+const PROJECT_REPOS = {
+  'ocean-cinemas': 'ocean-cinemas',
+  'ecoxion': 'ecoxion',
+  'dinobox': 'owsdatabase',
+  'incremental-cosmic-odyssey': 'incremental-cosmic-odyssey',
+  'wildweapon': 'wildweapon-mayhem',
+  'wildweapon-mayhem': 'wildweapon-mayhem',
+  'wildwave': 'wildwave',
+  'floret-shop': 'floretshop',
+  'floretshop': 'floretshop',
+  'wildtransfer': 'wildtransfer',
+  'a-wild-question-game': 'a-wild-question-game',
+  'velocity-surge': 'velocity-surge',
+  'wildshorts': 'wildshorts',
+  'wild-destiny': 'wilddestiny',
+  'naturepedia': 'naturepedia',
+  'ocean-pay': 'oceanpay'
+};
+
+const installedProjectsMap = new Map();
+let currentDownloadSlug = null;
+let currentDownloadVersion = null;
+let currentDownloadTaskActive = false;
+
+let lastManualUpdateCheckTime = 0;
+const MANUAL_CHECK_COOLDOWN_MS = 60 * 1000;
+
+function getProjectHints(slug) {
+  const norm = slug.trim().toLowerCase();
+  return PROJECT_HINTS[norm] || {
+    installDirNames: [slug, slug.replace(/-/g, '')],
+    executableNames: [slug + '.exe', slug.replace(/-/g, '') + '.exe'],
+    uninstallerNames: ['Uninstall ' + slug + '.exe', 'uninstall.exe']
+  };
+}
+
+async function scanInstalledApps() {
+  if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
+  const listToScan = allProjects.map(p => ({
+    slug: p.slug,
+    hints: getProjectHints(p.slug)
+  }));
+  try {
+    const results = await window.owsUpdater.resolveInstalledAppsBatch(listToScan);
+    results.forEach(res => {
+      installedProjectsMap.set(res.slug, res);
+    });
+    
+    let installedCount = 0;
+    installedProjectsMap.forEach(v => { if (v.installed) installedCount++; });
+    const sI = document.getElementById('stat-installed');
+    if (sI) sI.textContent = installedCount;
+
+    await checkUpdatesForInstalled();
+  } catch (err) {
+    console.error('Failed to scan installed apps:', err);
+  }
+}
+
+async function checkUpdatesForInstalled(manual = false) {
+  if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
+  let updateCount = 0;
+  
+  const promises = [...installedProjectsMap.entries()].map(async ([slug, status]) => {
+    if (!status.installed) return;
+    const repo = PROJECT_REPOS[slug];
+    if (!repo) return;
+    try {
+      const res = await fetch(`${API_URL}/ows-store/github/repos/OceanandWild/${repo}/releases/latest`, { cache: 'no-store' });
+      if (res.ok) {
+        const release = await res.json();
+        const latestVersion = release.tag_name ? release.tag_name.replace(/^v/, '') : '';
+        const installedVersion = localStorage.getItem('ows_installed_version_' + slug) || '1.0.0';
+        if (latestVersion && latestVersion !== installedVersion) {
+          status.hasUpdate = true;
+          status.latestVersion = latestVersion;
+          status.release = release;
+          updateCount++;
+        } else {
+          status.hasUpdate = false;
+        }
+      }
+    } catch (_) {}
+  });
+
+  await Promise.all(promises);
+  const sU = document.getElementById('stat-updates');
+  if (sU) sU.textContent = updateCount;
+
+  renderUpdatesSection();
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let n = bytes;
+  let idx = 0;
+  while (n >= 1024 && idx < units.length - 1) {
+    n /= 1024;
+    idx += 1;
+  }
+  return `${n.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`;
+}
+
+function showDownloadHUD(projectTitle) {
+  const hud = document.getElementById('download-hud');
+  if (hud) {
+    document.getElementById('hud-project-title').textContent = projectTitle;
+    document.getElementById('hud-progress-bytes').textContent = '0 B / 0 B';
+    document.getElementById('hud-progress-eta').textContent = 'Conectando...';
+    document.getElementById('hud-progress-ring').style.strokeDashoffset = '113';
+    hud.classList.remove('error');
+    hud.classList.add('active');
+  }
+}
+
+function hideDownloadHUD() {
+  const hud = document.getElementById('download-hud');
+  if (hud) hud.classList.remove('active');
+}
+
+function openDownloadErrorModal(logText) {
+  const modal = document.getElementById('download-error-backdrop');
+  const logEl = document.getElementById('download-error-log');
+  if (modal && logEl) {
+    logEl.textContent = logText || 'No hay detalles de error.';
+    modal.classList.add('open');
+  }
+}
+
+function closeDownloadErrorModal() {
+  const modal = document.getElementById('download-error-backdrop');
+  if (modal) modal.classList.remove('open');
+}
+
+async function triggerInstall(slug) {
+  if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
+  if (currentDownloadTaskActive) {
+    alert('Ya hay otra descarga en curso. Espera a que termine.');
+    return;
+  }
+
+  const p = allProjects.find(x => x.slug === slug);
+  if (!p) return;
+
+  currentDownloadSlug = slug;
+  currentDownloadTaskActive = true;
+  showDownloadHUD(p.name);
+
+  openProjectModal(slug);
+
+  const repo = PROJECT_REPOS[slug];
+  let downloadUrl = p.installer_url || '';
+  let expectedSize = 0;
+  let latestVer = p.version || '1.0.0';
+
+  if (repo) {
+    try {
+      const res = await fetch(`${API_URL}/ows-store/github/repos/OceanandWild/${repo}/releases/latest`, { cache: 'no-store' });
+      if (res.ok) {
+        const release = await res.json();
+        latestVer = release.tag_name ? release.tag_name.replace(/^v/, '') : latestVer;
+        const exeAsset = Array.isArray(release.assets) ? release.assets.find(a => /\.(exe|msi)$/i.test(a.name)) : null;
+        if (exeAsset) {
+          downloadUrl = exeAsset.browser_download_url;
+          expectedSize = exeAsset.size;
+        }
+      }
+    } catch (_) {}
+  }
+
+  currentDownloadVersion = latestVer;
+
+  if (!downloadUrl) {
+    currentDownloadTaskActive = false;
+    const err = 'No se encontró un instalador válido para esta versión.';
+    updateHUDProgress(slug, 'error', 0, 0, 0, 0, err);
+    return;
+  }
+
+  try {
+    const res = await window.owsUpdater.installExternalInstaller({
+      url: downloadUrl,
+      name: `${slug}-setup.exe`,
+      taskId: slug,
+      expectedSize: expectedSize
+    });
+    if (!res.ok) {
+      currentDownloadTaskActive = false;
+      updateHUDProgress(slug, 'error', 0, 0, 0, 0, res.error || 'Fallo desconocido.');
+    }
+  } catch (err) {
+    currentDownloadTaskActive = false;
+    updateHUDProgress(slug, 'error', 0, 0, 0, 0, String(err.message || err));
+  }
+}
+
+function updateHUDProgress(slug, phase, percent, downloadedBytes, totalBytes, bytesPerSecond, errorMsg) {
+  const hud = document.getElementById('download-hud');
+  if (!hud) return;
+
+  const proj = allProjects.find(p => p.slug === slug) || { name: slug };
+  document.getElementById('hud-project-title').textContent = proj.name;
+
+  const ring = document.getElementById('hud-progress-ring');
+  const icon = document.getElementById('hud-progress-icon');
+  const bytesEl = document.getElementById('hud-progress-bytes');
+  const etaEl = document.getElementById('hud-progress-eta');
+
+  if (phase === 'error') {
+    hud.classList.add('error');
+    icon.innerHTML = '<i class="fas fa-circle-xmark"></i>';
+    bytesEl.innerHTML = `Error: <span class="download-hud-err-link" onclick="openDownloadErrorModal('${_escapeHtml(errorMsg)}')">Ver detalles</span>`;
+    etaEl.textContent = 'Fallo en la descarga';
+    ring.style.strokeDashoffset = '113';
+    return;
+  }
+
+  hud.classList.remove('error');
+
+  if (phase === 'downloading') {
+    const offset = 113 - (113 * (percent || 0)) / 100;
+    ring.style.strokeDashoffset = offset;
+    icon.innerHTML = '<i class="fas fa-download"></i>';
+
+    const downloadedStr = formatBytes(downloadedBytes);
+    const totalStr = formatBytes(totalBytes);
+    bytesEl.textContent = `${downloadedStr} / ${totalStr}`;
+
+    if (bytesPerSecond > 0 && totalBytes > downloadedBytes) {
+      const remaining = totalBytes - downloadedBytes;
+      const seconds = Math.round(remaining / bytesPerSecond);
+      if (seconds < 60) {
+        etaEl.textContent = `ETA: ${seconds}s (${formatBytes(bytesPerSecond)}/s)`;
+      } else {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        etaEl.textContent = `ETA: ${mins}m ${secs}s (${formatBytes(bytesPerSecond)}/s)`;
+      }
+    } else {
+      etaEl.textContent = 'Calculando...';
+    }
+  } else if (phase === 'launching') {
+    ring.style.strokeDashoffset = '0';
+    icon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    bytesEl.textContent = 'Instalador descargado.';
+    etaEl.textContent = 'Iniciando instalador...';
+  } else if (phase === 'done') {
+    ring.style.strokeDashoffset = '0';
+    icon.innerHTML = '<i class="fas fa-circle-check" style="color:var(--green);"></i>';
+    bytesEl.textContent = 'Completado con éxito.';
+    etaEl.textContent = 'Instalación iniciada.';
+    localStorage.setItem('ows_installed_version_' + slug, currentDownloadVersion || '1.0.0');
+    currentDownloadTaskActive = false;
+    setTimeout(() => {
+      hideDownloadHUD();
+      scanInstalledApps();
+      const projBackdrop = document.getElementById('proj-modal-backdrop');
+      if (projBackdrop && projBackdrop.classList.contains('open') && projBackdrop.dataset.activeSlug === slug) {
+        openProjectModal(slug);
+      }
+    }, 3000);
+  }
+}
+
+async function playProject(slug) {
+  const status = installedProjectsMap.get(slug);
+  if (!status || !status.exePath) return;
+  const res = await window.owsUpdater.launchInstalledApp({ exePath: status.exePath });
+  if (!res.ok) {
+    alert('No se pudo abrir el ejecutable: ' + res.error);
+  }
+}
+
+async function uninstallProject(slug) {
+  const status = installedProjectsMap.get(slug);
+  if (!status || !status.uninstallPath) return;
+  if (confirm('¿Estás seguro de que deseas desinstalar este proyecto?')) {
+    const res = await window.owsUpdater.uninstallInstalledApp({ uninstallPath: status.uninstallPath });
+    if (res.ok) {
+      localStorage.removeItem('ows_installed_version_' + slug);
+      alert('Desinstalador iniciado.');
+      setTimeout(() => {
+        scanInstalledApps();
+        const projBackdrop = document.getElementById('proj-modal-backdrop');
+        if (projBackdrop && projBackdrop.classList.contains('open') && projBackdrop.dataset.activeSlug === slug) {
+          openProjectModal(slug);
+        }
+      }, 2000);
+    } else {
+      alert('Error al iniciar desinstalador: ' + res.error);
+    }
+  }
+}
+
+function renderUpdatesSection() {
+  const container = document.getElementById('section-updates');
+  if (!container) return;
+
+  const header = `<div class="hub-header">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h1>Actualizaciones</h1>
+        <p>Estado de tus apps instaladas y actualizaciones pendientes.</p>
+      </div>
+      <button class="filter-pill active" id="btn-manual-check" onclick="triggerManualUpdatesCheck()"><i class="fas fa-rotate"></i> Buscar ahora</button>
+    </div>
+  </div>`;
+
+  const installedList = [...installedProjectsMap.entries()].filter(([_, status]) => status.installed);
+
+  if (installedList.length === 0) {
+    container.innerHTML = header + `
+      <div class="updates-empty">
+        <div class="library-empty-icon"><i class="fas fa-rotate" style="color:var(--ink-2);font-size:36px;"></i></div>
+        <h3 style="font-size:15px;font-weight:700;color:var(--ink-1);margin-bottom:5px;">Sin aplicaciones instaladas</h3>
+        <p style="font-size:13px;color:var(--ink-2);">Instala aplicaciones desde Explorar para gestionarlas aquí.</p>
+      </div>`;
+    return;
+  }
+
+  let listHtml = '<div style="padding: 20px; display:flex; flex-direction:column; gap:14px;">';
+  installedList.forEach(([slug, status]) => {
+    const p = allProjects.find(x => x.slug === slug) || STATIC_PROJECTS.find(x => x.slug === slug);
+    if (!p) return;
+
+    const icon = _resolveProjectIcon(p);
+    const initials = _projectInitials(p);
+    const iconTag = icon ? `<img src="${icon}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;" onerror="this.outerHTML='<div class=\'apg-icon-initials\' style=\'width:48px;height:48px;border-radius:10px;font-size:16px;\'>${initials}</div>'">` : `<div class="apg-icon-initials" style="width:48px;height:48px;border-radius:10px;font-size:16px;">${initials}</div>`;
+    
+    const installedVer = localStorage.getItem('ows_installed_version_' + slug) || '1.0.0';
+
+    listHtml += `
+      <div style="background:var(--surface-1);border:1px solid var(--border-mid);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          ${iconTag}
+          <div>
+            <h4 style="margin:0;font-size:14px;font-weight:700;color:var(--ink-0);">${_escapeHtml(p.name)}</h4>
+            <div style="font-size:11px;color:var(--ink-2);margin-top:2px;">
+              Versión instalada: <span style="font-weight:bold;color:var(--ink-1);">${installedVer}</span>
+              ${status.hasUpdate ? ` · Última: <span style="font-weight:bold;color:var(--green);">${status.latestVersion}</span>` : ' (Al día)'}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${status.hasUpdate ? `
+            <button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')" style="padding:6px 14px;font-size:11px;height:auto;"><i class="fas fa-arrow-down"></i> Actualizar</button>
+          ` : `
+            <button class="proj-modal-btn secondary" onclick="playProject('${slug}')" style="padding:6px 14px;font-size:11px;height:auto;"><i class="fas fa-play"></i> Jugar</button>
+          `}
+          <button class="filter-pill" onclick="uninstallProject('${slug}')" style="padding:6px 12px;font-size:11px;border-color:rgba(239,68,68,0.2);color:#ef4444;"><i class="fas fa-trash-can"></i></button>
+        </div>
+      </div>`;
+  });
+  listHtml += '</div>';
+
+  container.innerHTML = header + listHtml;
+}
+
+function renderLibrarySection() {
+  const container = document.getElementById('library-list');
+  const empty = document.getElementById('library-empty');
+  if (!container || !empty) return;
+
+  const installedList = [...installedProjectsMap.entries()].filter(([_, status]) => status.installed);
+  
+  if (installedList.length === 0) {
+    empty.style.display = 'block';
+    container.style.display = 'none';
+    return;
+  }
+
+  empty.style.display = 'none';
+  container.style.display = 'grid';
+  container.innerHTML = '';
+
+  installedList.forEach(([slug, _]) => {
+    const p = allProjects.find(x => x.slug === slug) || STATIC_PROJECTS.find(x => x.slug === slug);
+    if (!p) return;
+    
+    const card = document.createElement('div');
+    card.className = 'apg-card';
+    
+    const initials = _projectInitials(p);
+    const icon = _resolveProjectIcon(p);
+    const iconHtml = icon
+      ? `<div class="apg-icon-wrap"><img src="${icon}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'apg-icon-initials\'>${initials}</div>';"></div>`
+      : `<div class="apg-icon-wrap"><div class="apg-icon-initials">${initials}</div></div>`;
+
+    const status = (p.status || 'launched').toLowerCase();
+    const statusLabelMap = { launched:'LANZADO', wip:'EN DESARROLLO', rework:'REWORK', beta:'BETA', coming_soon:'PRÓXIMAMENTE' };
+    const statusLabel = statusLabelMap[status] || status.toUpperCase();
+    const platform = getPlatformLabel(p);
+    const platIcon = (p.platform || '').toLowerCase().includes('android') && (p.platform || '').toLowerCase().includes('windows')
+      ? '<i class="fa-brands fa-windows"></i> <i class="fa-brands fa-android" style="font-size:10px;"></i>'
+      : (p.platform || '').toLowerCase().includes('android')
+      ? '<i class="fa-brands fa-android"></i>'
+      : '<i class="fa-brands fa-windows"></i>';
+    const rating = _ratingFor(p);
+
+    card.innerHTML = `
+      <div class="apg-bg"></div>
+      ${iconHtml}
+      <div class="apg-body">
+        <div class="apg-name" title="${_escapeHtml(p.name)}">${_escapeHtml(p.name || 'Proyecto')}</div>
+        <div class="apg-desc">${_escapeHtml(p.desc || p.description || 'Ocean and Wild Studios')}</div>
+        <div class="apg-footer">
+          <div class="apg-chips">
+            <span class="apg-chip ${status}">${statusLabel}</span>
+            <span class="apg-chip">${platIcon} ${platform}</span>
+          </div>
+          <div class="apg-stars-mini"><i class="fas fa-star"></i> ${rating}</div>
+        </div>
+      </div>
+    `;
+
+    card.onclick = () => openProjectModal(p.slug);
+    container.appendChild(card);
+  });
+}
+
+function triggerManualUpdatesCheck() {
+  const now = Date.now();
+  if (now - lastManualUpdateCheckTime < MANUAL_CHECK_COOLDOWN_MS) {
+    const remain = Math.round((MANUAL_CHECK_COOLDOWN_MS - (now - lastManualUpdateCheckTime)) / 1000);
+    alert(`Espera ${remain}s antes de buscar actualizaciones otra vez.`);
+    return;
+  }
+
+  const btn = document.getElementById('btn-manual-check');
+  if (btn) {
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
+    btn.disabled = true;
+  }
+
+  checkUpdatesForInstalled(true).finally(() => {
+    lastManualUpdateCheckTime = Date.now();
+    if (btn) {
+      btn.innerHTML = '<i class="fas fa-rotate"></i> Buscar ahora';
+      btn.disabled = false;
+    }
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────
    INIT
 ───────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
+  // Bind Electron IPC update listeners
+  if (window.owsUpdater && window.owsUpdater.isElectron) {
+    window.owsUpdater.onExternalInstallStatus((status) => {
+      if (status && status.taskId) {
+        updateHUDProgress(
+          status.taskId,
+          status.phase,
+          status.percent,
+          status.downloadedBytes,
+          status.totalBytes,
+          status.bytesPerSecond,
+          status.message
+        );
+      }
+    });
+
+    // Auto update check interval (every 5 minutes)
+    setInterval(() => {
+      checkUpdatesForInstalled();
+    }, 5 * 60 * 1000);
+  }
   // Restore theme
   const savedTheme = localStorage.getItem('ows_theme') || '';
   if (savedTheme) document.body.dataset.theme = savedTheme;

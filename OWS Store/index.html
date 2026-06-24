@@ -234,24 +234,25 @@
       align-items: center;
       justify-content: center;
       pointer-events: none;
-      transition: background 0.25s ease;
+      transition: background 0.25s ease, backdrop-filter 0.25s ease;
     }
 
     .op-modal-backdrop.open {
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(4px);
+      background: rgba(8, 11, 16, 0.75);
+      backdrop-filter: blur(12px);
       pointer-events: auto;
     }
 
     .op-modal {
       width: 380px;
       max-width: calc(100vw - 32px);
-      background: var(--surface-1);
-      border: 1px solid var(--border-mid);
-      border-radius: 20px;
+      background: rgba(22, 27, 34, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
       padding: 28px 28px 24px;
       position: relative;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.65), 0 0 0 1px var(--border);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.05);
       /* hidden by default — animated in */
       opacity: 0;
       transform: scale(0.88) translateY(20px);
@@ -268,15 +269,15 @@
     /* Close button */
     .op-modal-close {
       position: absolute;
-      top: 14px;
-      right: 14px;
+      top: 18px;
+      right: 18px;
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       color: var(--ink-1);
-      font-size: 12px;
+      font-size: 11px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -285,7 +286,7 @@
     }
 
     .op-modal-close:hover {
-      background: var(--surface-3);
+      background: rgba(255, 255, 255, 0.08);
       color: var(--ink-0);
       transform: rotate(90deg) scale(1.1);
     }
@@ -296,26 +297,28 @@
     .op-modal-header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
+      gap: 14px;
+      margin-bottom: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .op-modal-icon {
-      width: 44px;
-      height: 44px;
-      background: var(--cyan-dim);
-      border: 1.5px solid var(--cyan-glow);
-      border-radius: 12px;
+      width: 46px;
+      height: 46px;
+      background: rgba(41, 212, 224, 0.08);
+      border: 1.5px solid rgba(41, 212, 224, 0.25);
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 19px;
       color: var(--cyan);
       flex-shrink: 0;
+      box-shadow: 0 0 16px rgba(41,212,224,0.15);
       /* subtle pulse when modal opens */
       animation: op-icon-pulse 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.15s both;
+      transition: all 0.3s ease;
     }
 
     @keyframes op-icon-pulse {
@@ -324,7 +327,7 @@
     }
 
     .op-modal-title {
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 800;
       color: var(--ink-0);
       letter-spacing: -0.02em;
@@ -332,22 +335,27 @@
 
     .op-modal-subtitle {
       font-size: 12px;
-      color: var(--ink-2);
-      margin-top: 2px;
+      color: var(--ink-1);
+      margin-top: 3px;
+      font-weight: 500;
     }
 
     /* Inputs */
     .op-modal .op-input {
-      padding: 10px 12px;
-      font-size: 13px;
+      padding: 12px 14px;
+      font-size: 13.5px;
       border-radius: var(--r-md);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--ink-0);
       transition: border-color 0.18s, box-shadow 0.18s, transform 0.12s;
     }
 
     .op-modal .op-input:focus {
       border-color: var(--cyan);
-      box-shadow: 0 0 0 3px var(--cyan-dim);
+      box-shadow: 0 0 0 3px rgba(41, 212, 224, 0.12), 0 0 12px rgba(41, 212, 224, 0.15);
       transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.03);
     }
 
     /* Input stagger animation on open */
@@ -360,27 +368,45 @@
     }
 
     /* Buttons in modal */
-    .op-modal .op-btn-row { margin-top: 14px; gap: 8px; }
+    .op-modal .op-btn-row { margin-top: 14px; display: flex; gap: 10px; }
 
     .op-modal .op-btn {
-      padding: 9px 0;
-      font-size: 12.5px;
-      border-radius: var(--r-md);
-      animation: input-slide 0.22s 0.22s cubic-bezier(0.22,1,0.36,1) both;
+      padding: 10px 0;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--ink-1);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s cubic-bezier(0.22,1,0.36,1);
+      font-family: var(--font);
     }
 
     .op-modal .op-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: var(--ink-0);
+      transform: translateY(-1.5px);
     }
 
     .op-modal .op-btn:active {
-      transform: translateY(0) scale(0.96);
-      box-shadow: none;
+      transform: translateY(0) scale(0.97);
+    }
+
+    .op-modal .op-btn.primary {
+      background: linear-gradient(135deg, #1aa3af 0%, #29d4e0 100%);
+      border: none;
+      color: #05080c;
     }
 
     .op-modal .op-btn.primary:hover {
-      box-shadow: 0 4px 14px var(--cyan-dim);
+      background: linear-gradient(135deg, #29d4e0 0%, #3fe7f3 100%);
+      box-shadow: 0 0 16px rgba(41,212,224,0.35);
+      color: #000;
     }
 
     @keyframes op-shake {
@@ -6591,6 +6617,23 @@ function handleModalBackdropClick(e) {
   }
 }
 
+function updateOPUI(username) {
+  const form = document.getElementById('op-credentials-form');
+  const card = document.getElementById('op-profile-card');
+  const avatar = document.getElementById('op-profile-avatar');
+  const nameEl = document.getElementById('op-profile-name');
+  
+  if (username) {
+    if (form) form.style.display = 'none';
+    if (card) card.style.display = 'block';
+    if (avatar) avatar.textContent = username[0].toUpperCase();
+    if (nameEl) nameEl.textContent = username;
+  } else {
+    if (form) form.style.display = 'flex';
+    if (card) card.style.display = 'none';
+  }
+}
+
 function connectOP() {
   const u = document.getElementById('op-user').value.trim();
   const p = document.getElementById('op-pass').value.trim();
@@ -6609,7 +6652,7 @@ function connectOP() {
   if (statusDetail) statusDetail.textContent = 'Conectando…';
 
   // Animate connecting state
-  const connectBtn = document.querySelector('#op-modal .op-btn.primary');
+  const connectBtn = document.getElementById('op-connect-btn');
   if (connectBtn) { connectBtn.textContent = '…'; connectBtn.disabled = true; }
 
   setTimeout(() => {
@@ -6619,12 +6662,17 @@ function connectOP() {
     document.getElementById('op-sync-btn').disabled = false;
     document.getElementById('op-disc-btn').disabled = false;
     if (connectBtn) { connectBtn.textContent = 'Conectar'; connectBtn.disabled = false; }
+    
+    // Update credentials/profile visibility
+    updateOPUI(u);
+
     // success flash on the modal icon
     const icon = document.querySelector('.op-modal-icon');
     if (icon) {
       icon.style.background = 'rgba(63,185,80,0.18)';
       icon.style.borderColor = 'rgba(63,185,80,0.4)';
       icon.style.color = 'var(--green)';
+      icon.style.boxShadow = '0 0 20px rgba(63,185,80,0.25)';
     }
     // Refresh ratings/comments if project modal is open
     const projBackdrop = document.getElementById('proj-modal-backdrop');
@@ -6655,9 +6703,18 @@ function disconnectOP() {
   document.getElementById('op-pass').value = '';
   document.getElementById('op-sync-btn').disabled = true;
   document.getElementById('op-disc-btn').disabled = true;
+  
+  // Update credentials/profile visibility
+  updateOPUI(null);
+
   // reset icon color
   const icon = document.querySelector('.op-modal-icon');
-  if (icon) { icon.style.background = ''; icon.style.borderColor = ''; icon.style.color = ''; }
+  if (icon) { 
+    icon.style.background = ''; 
+    icon.style.borderColor = ''; 
+    icon.style.color = ''; 
+    icon.style.boxShadow = '';
+  }
   // Refresh ratings/comments if project modal is open
   const projBackdrop = document.getElementById('proj-modal-backdrop');
   if (projBackdrop && projBackdrop.classList.contains('open')) {
@@ -7293,7 +7350,10 @@ document.addEventListener('DOMContentLoaded', function() {
       icon.style.background = 'rgba(63,185,80,0.18)';
       icon.style.borderColor = 'rgba(63,185,80,0.4)';
       icon.style.color = 'var(--green)';
+      icon.style.boxShadow = '0 0 20px rgba(63,185,80,0.25)';
     }
+    // Show profile card instead of credentials form
+    updateOPUI(savedUser);
   }
 
   // Build carousel
@@ -7530,13 +7590,23 @@ async function fetchLatestAndroidRelease(repo, limit = 15) {
       </div>
     </div>
 
-    <input class="op-input" type="text"     placeholder="Usuario Ocean Pay" id="op-user" autocomplete="username">
-    <input class="op-input" type="password" placeholder="Contraseña"        id="op-pass" autocomplete="current-password">
+    <div id="op-credentials-form" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px;">
+      <input class="op-input" type="text"     placeholder="Usuario Ocean Pay" id="op-user" autocomplete="username">
+      <input class="op-input" type="password" placeholder="Contraseña"        id="op-pass" autocomplete="current-password">
+      <button class="op-btn primary" onclick="connectOP()" id="op-connect-btn" style="margin-top: 4px; width: 100%;">Conectar</button>
+    </div>
+
+    <div id="op-profile-card" style="display: none; text-align: center; padding: 20px; margin-bottom: 14px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--r-md); animation: input-slide 0.3s ease both;">
+      <div class="op-profile-avatar" id="op-profile-avatar" style="width: 56px; height: 56px; border-radius: 50%; background: var(--cyan-dim); border: 2px solid var(--cyan); color: var(--cyan); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin: 0 auto 12px; box-shadow: 0 0 16px rgba(41,212,224,0.2);">U</div>
+      <div class="op-profile-name" id="op-profile-name" style="font-size: 16px; font-weight: 800; color: var(--ink-0);">Username</div>
+      <div style="font-size: 12px; color: var(--green); display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 6px; font-weight: 500;">
+        <i class="fas fa-circle-check"></i> Conexión Verificada
+      </div>
+    </div>
 
     <div class="op-btn-row">
-      <button class="op-btn primary" onclick="connectOP()">Conectar</button>
-      <button class="op-btn" onclick="syncOP()"       id="op-sync-btn" disabled>Sync</button>
-      <button class="op-btn" onclick="disconnectOP()" id="op-disc-btn" disabled>Salir</button>
+      <button class="op-btn" onclick="syncOP()"       id="op-sync-btn" disabled style="width: 100%;">Sync</button>
+      <button class="op-btn" onclick="disconnectOP()" id="op-disc-btn" disabled style="width: 100%;">Salir</button>
     </div>
   </div>
 </div>

@@ -11363,10 +11363,17 @@ app.get('/ows-store/projects', async (req, res) => {
         r.rework_message,
         r.unavailable_message,
         r.updated_at AS restriction_updated_at,
-        ap.github_folder
+        ap.github_folder,
+        COALESCE(rev.total_reviews, 0)::int as total_reviews,
+        COALESCE(rev.avg_rating, 0)::float as avg_rating
       FROM ows_projects p
       LEFT JOIN ows_project_restrictions r ON LOWER(r.project_slug) = LOWER(p.slug)
       LEFT JOIN ows_admin_projects ap ON LOWER(ap.slug) = LOWER(p.slug)
+      LEFT JOIN (
+        SELECT LOWER(project_slug) as project_slug, COUNT(*)::int as total_reviews, AVG(rating)::float as avg_rating
+        FROM ows_store_project_reviews
+        GROUP BY LOWER(project_slug)
+      ) rev ON LOWER(rev.project_slug) = LOWER(p.slug)
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY
         CASE LOWER(p.status)
@@ -12191,7 +12198,6 @@ app.post('/api/ows-store/polls/:id/vote', async (req, res) => {
       return res.status(400).json({ error: 'Esta encuesta es obligatoria, debes seleccionar una opción' });
     }
 
-    // Insertar voto con ON CONFLICT para prevenir duplicado del mismo usuario
     await pool.query(
       `INSERT INTO ows_poll_votes (poll_id, user_id, option_idx, ip_address)
        VALUES ($1, $2, $3, $4)
@@ -12259,14 +12265,26 @@ app.post('/ows-store/projects/:slug/reviews', async (req, res) => {
       return res.status(400).json({ error: 'Usuario de Ocean Pay no válido.' });
     }
 
-    // Insertar o actualizar la reseña
-    await pool.query(
-      `INSERT INTO ows_store_project_reviews (project_slug, username, rating, comment, created_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       ON CONFLICT (project_slug, username) 
-       DO UPDATE SET rating = EXCLUDED.rating, comment = EXCLUDED.comment, created_at = NOW()`,
-      [slug, username, rating, comment]
+    // Check if the user already reviewed this project
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM ows_store_project_reviews WHERE LOWER(project_slug) = LOWER($1) AND LOWER(username) = LOWER($2)`,
+      [slug, username]
     );
+
+    if (existing.length > 0) {
+      await pool.query(
+        `UPDATE ows_store_project_reviews 
+         SET rating = $1, comment = $2, created_at = NOW() 
+         WHERE id = $3`,
+        [rating, comment, existing[0].id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO ows_store_project_reviews (project_slug, username, rating, comment, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        [slug, username, rating, comment]
+      );
+    }
 
     return res.json({ success: true });
   } catch (err) {

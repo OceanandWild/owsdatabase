@@ -5599,17 +5599,37 @@ function toggleReviewMenu(event, username) {
 }
 
 function editOwnReview(slug, rating, comment) {
+  // Close any open dropdowns first
+  document.querySelectorAll('.proj-comment-dropdown').forEach(el => el.style.display = 'none');
+
   const textarea = document.getElementById('proj-comment-text');
   if (textarea) {
     textarea.value = comment;
-    textarea.focus();
+    // Scroll inside the modal scroll container
+    const scrollContainer = document.querySelector('.proj-modal-body-container');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }, 300);
   }
   setReviewRating(rating);
-  textarea?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 async function deleteOwnReview(slug, username) {
-  if (!confirm('¿Estás seguro de que deseas eliminar tu reseña?')) return;
+  const confirmed = await showDialogModal({
+    title: 'Eliminar reseña',
+    message: '¿Estás seguro de que deseas eliminar tu reseña? Esta acción no se puede deshacer.',
+    icon: 'fa-trash',
+    iconColor: '#ef4444',
+    showCancel: true,
+    acceptText: 'Eliminar',
+    cancelText: 'Cancelar'
+  });
+  if (!confirmed) return;
+
   try {
     const res = await fetch(`${API_URL}/ows-store/projects/${slug}/reviews`, {
       method: 'DELETE',
@@ -5620,11 +5640,25 @@ async function deleteOwnReview(slug, username) {
       loadProjectReviews(slug);
     } else {
       const data = await res.json();
-      alert('Error: ' + (data.error || 'No se pudo eliminar la reseña.'));
+      showDialogModal({
+        title: 'Error',
+        message: data.error || 'No se pudo eliminar la reseña.',
+        icon: 'fa-circle-exclamation',
+        iconColor: '#f0883e',
+        showCancel: false,
+        acceptText: 'Entendido'
+      });
     }
   } catch (err) {
     console.error('Delete review error:', err);
-    alert('Error al conectar con el servidor.');
+    showDialogModal({
+      title: 'Error de conexión',
+      message: 'No se pudo conectar con el servidor. Intenta de nuevo.',
+      icon: 'fa-wifi',
+      iconColor: '#ef4444',
+      showCancel: false,
+      acceptText: 'Entendido'
+    });
   }
 }
 

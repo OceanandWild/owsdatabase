@@ -3938,6 +3938,127 @@
     .download-hud-close:hover {
       opacity: 1;
     }
+
+    /* ─────────────────────────────────────────────────────────────
+       DIALOG SYSTEM (ALERT / CONFIRM)
+       ───────────────────────────────────────────────────────────── */
+    .dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(2, 6, 23, 0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      backdrop-filter: blur(0px);
+      transition: background 0.3s ease, backdrop-filter 0.3s ease;
+    }
+
+    .dialog-backdrop.open {
+      background: rgba(2, 6, 23, 0.7);
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+
+    .dialog-modal {
+      width: 400px;
+      max-width: calc(100vw - 32px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+      border-radius: 24px;
+      padding: 32px 28px 24px;
+      position: relative;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+      text-align: center;
+      opacity: 0;
+      transform: scale(0.9) translateY(20px);
+      transition:
+        opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .dialog-backdrop.open .dialog-modal {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+
+    .dialog-icon {
+      font-size: 32px;
+      color: #ef4444;
+      margin-bottom: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .dialog-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 12px;
+      font-family: 'Outfit', 'Inter', sans-serif;
+    }
+
+    .dialog-message {
+      font-size: 15px;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .dialog-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .dialog-btn {
+      flex: 1;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      outline: none;
+    }
+
+    .dialog-btn.cancel {
+      background: #334155;
+      color: #f1f5f9;
+      border-color: #475569;
+    }
+
+    .dialog-btn.cancel:hover {
+      background: #475569;
+      transform: translateY(-2px);
+    }
+
+    .dialog-btn.cancel:active {
+      transform: translateY(0);
+    }
+
+    .dialog-btn.accept {
+      background: #ef4444;
+      color: white;
+    }
+
+    .dialog-btn.accept:hover {
+      background: #dc2626;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .dialog-btn.accept:active {
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body>
@@ -4693,11 +4814,10 @@ function _projectInitials(p) {
 }
 
 function _ratingFor(p) {
-  // Stable pseudo-rating per slug so it doesn't change between renders
-  const s = (p.slug || p.name || '');
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return (4.0 + (h % 100) / 100).toFixed(1);
+  if (p && typeof p.avg_rating === 'number' && p.avg_rating > 0) {
+    return p.avg_rating.toFixed(1);
+  }
+  return '—';
 }
 
 function buildTopHero(p) {
@@ -4960,7 +5080,10 @@ function openProjectModal(slug) {
   const platform  = _escapeHtml(p.platform  || 'windows');
   const version   = _escapeHtml(p.version   || '1.0.0');
   const price     = _escapeHtml(p.price     || 'Gratis');
-  const rating    = _ratingFor(p);
+  const categoryChipHtml = (category.toLowerCase() === 'software') ? '' : `<span class="proj-modal-id-chip">${category}</span>`;
+  const initialRatingHtml = (p.avg_rating > 0)
+    ? `<span class="proj-modal-id-chip" id="pm-rating-chip" style="color:#eab308;"><i class="fas fa-star" style="font-size:9px;margin-right:3px;"></i>${p.avg_rating.toFixed(1)}</span>`
+    : `<span class="proj-modal-id-chip" id="pm-rating-chip" style="color:#eab308; display: none;"><i class="fas fa-star" style="font-size:9px;margin-right:3px;"></i></span>`;
 
   // Banner
   const bannerSrc = p.banner || p.banner_url || '';
@@ -4990,7 +5113,27 @@ function openProjectModal(slug) {
 
   if (window.owsUpdater && window.owsUpdater.isElectron) {
     const instStatus = installedProjectsMap.get(slug);
-    if (isWindowsCompatible) {
+
+    // ── Main action button for the CURRENT platform ──────────────────────────
+    const hostIsWindows = IS_WINDOWS_HOST || (!IS_ANDROID_HOST && isWindowsCompatible);
+    const hostIsAndroid = IS_ANDROID_HOST;
+
+    if (hostIsAndroid && isAndroidCompatible) {
+      // ── Android host, Android-compatible project ──
+      if (currentDownloadTaskActive && currentDownloadSlug === slug) {
+        actionBtn = `<button class="proj-modal-btn primary" disabled><i class="fas fa-spinner fa-spin"></i> Descargando...</button>`;
+      } else if (instStatus && instStatus.installed) {
+        if (instStatus.hasUpdate) {
+          actionBtn = `<button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')"><i class="fas fa-circle-arrow-down"></i> Actualizar APK</button>`;
+        } else {
+          actionBtn = `<button class="proj-modal-btn primary" onclick="playProject('${slug}')"><i class="fas fa-play"></i> Abrir</button>`;
+        }
+        actionBtn += `<button class="proj-modal-btn secondary" onclick="uninstallProject('${slug}')" style="color:#ef4444;"><i class="fas fa-trash-can"></i> Desinstalar</button>`;
+      } else {
+        actionBtn = `<button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')"><i class="fas fa-download"></i> Instalar APK</button>`;
+      }
+    } else if (!hostIsAndroid && isWindowsCompatible) {
+      // ── Windows host, Windows-compatible project ──
       if (currentDownloadTaskActive && currentDownloadSlug === slug) {
         actionBtn = `<button class="proj-modal-btn primary" disabled><i class="fas fa-spinner fa-spin"></i> Descargando...</button>`;
       } else if (instStatus && instStatus.installed) {
@@ -5003,18 +5146,25 @@ function openProjectModal(slug) {
       } else {
         actionBtn = `<button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')"><i class="fas fa-download"></i> Instalar</button>`;
       }
+    } else if (hostIsAndroid && !isAndroidCompatible) {
+      actionBtn = `<button class="proj-modal-btn primary" disabled><i class="fas fa-ban"></i> No disponible en Android</button>`;
     } else {
       actionBtn = `<button class="proj-modal-btn primary" disabled><i class="fas fa-ban"></i> No disponible en PC</button>`;
     }
 
-    if (isAndroidCompatible) {
+    // ── Cross-platform info card (other platform's latest version) ──────────
+    if (isAndroidCompatible && isWindowsCompatible) {
+      const otherLabel = IS_ANDROID_HOST ? 'Windows' : 'Android';
+      const otherIcon  = IS_ANDROID_HOST
+        ? '<i class="fa-brands fa-windows"></i>'
+        : '<i class="fa-brands fa-android"></i>';
       installTypeHtml = `
-        <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-mid);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div id="cross-platform-card-${slug}" style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-mid);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <div>
-            <span style="font-size:11px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:0.04em;">Versión Android disponible</span>
-            <div style="font-size:12px;color:var(--ink-1);margin-top:2px;">Última compilación APK activa.</div>
+            <span style="font-size:11px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:0.04em;">${otherIcon} Versión ${otherLabel}</span>
+            <div id="cross-platform-ver-${slug}" style="font-size:12px;color:var(--ink-1);margin-top:2px;"><i class="fas fa-spinner fa-spin" style="font-size:10px;margin-right:4px;"></i> Cargando...</div>
           </div>
-          <button class="filter-pill" style="opacity:0.65;cursor:not-allowed;" title="Compatible solo en dispositivos móviles" disabled><i class="fa-brands fa-android"></i> Móvil</button>
+          <span class="filter-pill" style="opacity:0.55;font-size:11px;">${otherIcon} Solo ${otherLabel}</span>
         </div>`;
     }
   } else {
@@ -5060,8 +5210,8 @@ function openProjectModal(slug) {
           <div class="proj-modal-id-meta">
             <span class="proj-modal-id-chip status-${status}">${statusText}</span>
             <span class="proj-modal-id-chip">${platIconStr} ${platform}</span>
-            <span class="proj-modal-id-chip">${category}</span>
-            <span class="proj-modal-id-chip" style="color:#eab308;"><i class="fas fa-star" style="font-size:9px;margin-right:3px;"></i>${rating}</span>
+            ${categoryChipHtml}
+            ${initialRatingHtml}
           </div>
         </div>
       </div>
@@ -5096,8 +5246,8 @@ function openProjectModal(slug) {
                 <tr><td class="label">Plataforma</td><td class="value">${platform}</td></tr>
                 <tr><td class="label">Categoría</td><td class="value">${category}</td></tr>
                 <tr><td class="label">Precio</td><td class="value">${price}</td></tr>
-                <tr><td class="label">Versión</td><td class="value">${versionDisplay}</td></tr>
-                <tr><td class="label">Estudio</td><td class="value">OWS</td></tr>
+                <tr><td class="label">Versión</td><td class="value" id="pm-version-cell"><span style="opacity:.5;font-size:11px;"><i class="fas fa-spinner fa-spin" style="margin-right:4px;"></i>${version}</span></td></tr>
+                <tr><td class="label">Creador</td><td class="value">Ocean and Wild Studios</td></tr>
               </table>
             </div>
           </div>
@@ -5117,6 +5267,24 @@ function openProjectModal(slug) {
 
   backdrop.classList.add('open');
   loadProjectReviews(slug);
+  _fetchAndUpdateModalVersion(slug);
+  // Asynchronously populate the cross-platform version card if visible
+  if (isAndroidCompatible && isWindowsCompatible) {
+    const repo = PROJECT_REPOS[slug];
+    if (repo) {
+      const fetchFn = IS_ANDROID_HOST ? fetchLatestWindowsRelease : fetchLatestAndroidRelease;
+      fetchFn(repo).then(rel => {
+        const backdrop2 = document.getElementById('proj-modal-backdrop');
+        if (!backdrop2 || backdrop2.dataset.activeSlug !== slug) return;
+        const el = document.getElementById(`cross-platform-ver-${slug}`);
+        if (!el) return;
+        el.textContent = rel ? rel.tag_name.replace(/^v/, '') : 'No disponible';
+      }).catch(() => {
+        const el = document.getElementById(`cross-platform-ver-${slug}`);
+        if (el) el.textContent = 'No disponible';
+      });
+    }
+  }
 }
 
 function pmSwitchTab(tab) {
@@ -5136,6 +5304,40 @@ function closeProjectModal() {
   }
 }
 
+async function _fetchAndUpdateModalVersion(slug) {
+  const repo = PROJECT_REPOS[slug];
+  if (!repo) return;
+  try {
+    // Fetch the release for the current host platform
+    const p = allProjects.find(x => x.slug === slug) || {};
+    const platStr = (p.platform || '').toLowerCase();
+    const hasAndroid = platStr.includes('android');
+    const hasWindows = platStr.includes('windows');
+
+    let release;
+    if (IS_ANDROID_HOST && hasAndroid) {
+      release = await fetchLatestAndroidRelease(repo);
+    } else if (!IS_ANDROID_HOST && hasWindows) {
+      release = await fetchLatestWindowsRelease(repo);
+    } else {
+      release = await fetchLatestReleaseForProject(slug, repo);
+    }
+
+    const tag = release && release.tag_name ? release.tag_name.replace(/^v/, '') : null;
+    if (!tag) return;
+    const backdrop = document.getElementById('proj-modal-backdrop');
+    if (!backdrop || backdrop.dataset.activeSlug !== slug) return;
+    const cell = document.getElementById('pm-version-cell');
+    if (cell) cell.textContent = tag;
+  } catch (_) {
+    const cell = document.getElementById('pm-version-cell');
+    if (cell) {
+      const p = allProjects.find(x => x.slug === slug) || {};
+      cell.textContent = p.version || '1.0.0';
+    }
+  }
+}
+
 async function loadProjectReviews(slug) {
   const container = document.getElementById('proj-reviews-container');
   if (!container) return;
@@ -5150,6 +5352,24 @@ async function loadProjectReviews(slug) {
     const reviews = data.reviews || [];
     const avgRating = data.avg_rating || 0;
     const totalReviews = data.total_reviews || 0;
+
+    // Cache the real rating on the local project objects
+    const proj = allProjects.find(x => x.slug === slug) || STATIC_PROJECTS.find(x => x.slug === slug);
+    if (proj) {
+      proj.avg_rating = avgRating;
+      proj.total_reviews = totalReviews;
+    }
+
+    // Update the rating badge/chip in the modal header
+    const ratingChip = document.getElementById('pm-rating-chip');
+    if (ratingChip) {
+      if (totalReviews > 0) {
+        ratingChip.style.display = '';
+        ratingChip.innerHTML = `<i class="fas fa-star" style="font-size:9px;margin-right:3px;"></i>${avgRating.toFixed(1)}`;
+      } else {
+        ratingChip.style.display = 'none';
+      }
+    }
 
     let avgStarsHtml = '';
     const fullStars = Math.floor(avgRating);
@@ -5196,6 +5416,7 @@ async function loadProjectReviews(slug) {
             <i class="fas fa-star selected" data-value="5" onclick="setReviewRating(5)"></i>
           </div>
           <textarea class="proj-comment-input" id="proj-comment-text" placeholder="Comparte tu experiencia con este proyecto..."></textarea>
+          <div id="proj-review-status" style="margin:8px 0; font-size:12px; display:none; padding:8px 12px; border-radius:8px; font-weight:500; transition:all 0.2s ease;"></div>
           <div class="proj-comment-form-footer">
             <span class="proj-comment-user-info"><i class="fas fa-circle-user"></i> Comentando como ${_escapeHtml(currentOpUser)}</span>
             <button class="proj-modal-btn primary" onclick="submitProjectReview('${slug}')" id="proj-submit-btn" style="padding:7px 16px;font-size:12px;"><i class="fas fa-paper-plane"></i> Publicar</button>
@@ -5229,15 +5450,30 @@ async function loadProjectReviews(slug) {
         const exactDate = new Date(r.created_at).toLocaleString('es-UY', { dateStyle: 'full', timeStyle: 'medium' });
         const relativeDate = _formatRelative(r.created_at);
         const avatarChar = r.username ? r.username[0].toUpperCase() : '?';
+        const isOwnReview = currentOpUser && r.username.toLowerCase() === currentOpUser.toLowerCase();
 
         commentsListHtml += `
           <div class="proj-comment-item">
-            <div class="proj-comment-item-header">
+            <div class="proj-comment-item-header" style="position: relative;">
               <div class="proj-comment-author-row">
                 <div class="proj-comment-avatar">${_escapeHtml(avatarChar)}</div>
                 <div class="proj-comment-author">${_escapeHtml(r.username)}</div>
+                ${r.is_edited ? '<span class="proj-comment-edited-badge" style="font-size: 10px; color: var(--ink-2); font-style: italic; margin-left: 6px;">(EDITADO)</span>' : ''}
               </div>
-              <span class="proj-comment-date" title="${_escapeHtml(exactDate)}">${_escapeHtml(relativeDate)}</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="proj-comment-date" title="${_escapeHtml(exactDate)}">${_escapeHtml(relativeDate)}</span>
+                ${isOwnReview ? `
+                  <div class="proj-comment-menu-container" style="position: relative;">
+                    <button class="proj-comment-menu-btn" onclick="toggleReviewMenu(event, '${_escapeHtml(r.username)}')" style="background: none; border: none; color: var(--ink-2); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; border-radius: 4px; transition: all 0.2s ease;">
+                      <i class="fas fa-ellipsis-vertical"></i>
+                    </button>
+                    <div class="proj-comment-dropdown" id="dropdown-${_escapeHtml(r.username)}" style="display: none; position: absolute; right: 0; top: 24px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 100; min-width: 100px; overflow: hidden;">
+                      <button onclick="editOwnReview('${slug}', ${r.rating}, \`${_escapeHtml(r.comment || '').replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" style="width: 100%; text-align: left; background: none; border: none; color: var(--ink-0); padding: 8px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: var(--font);"><i class="fas fa-pen" style="font-size: 10px;"></i> Editar</button>
+                      <button onclick="deleteOwnReview('${slug}', '${_escapeHtml(r.username)}')" style="width: 100%; text-align: left; background: none; border: none; color: var(--red); padding: 8px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--border); font-family: var(--font);"><i class="fas fa-trash" style="font-size: 10px;"></i> Borrar</button>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
             </div>
             <div class="proj-stars-row-small">${starsHtml}</div>
             <div class="proj-comment-text">${_escapeHtml(r.comment || '')}</div>
@@ -5270,6 +5506,23 @@ function setReviewRating(val) {
 async function submitProjectReview(slug) {
   const commentText = document.getElementById('proj-comment-text')?.value.trim();
   const username = localStorage.getItem('op_username') || '';
+  const statusEl = document.getElementById('proj-review-status');
+  
+  const showStatus = (msg, isError) => {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.style.display = 'block';
+    if (isError) {
+      statusEl.style.color = '#ef4444';
+      statusEl.style.background = 'rgba(239, 68, 68, 0.1)';
+      statusEl.style.border = '1px solid rgba(239, 68, 68, 0.15)';
+    } else {
+      statusEl.style.color = '#3fb950';
+      statusEl.style.background = 'rgba(63, 185, 80, 0.1)';
+      statusEl.style.border = '1px solid rgba(63, 185, 80, 0.15)';
+    }
+  };
+
   if (!username) {
     alert('Debes iniciar sesión con Ocean Pay.');
     return;
@@ -5290,18 +5543,71 @@ async function submitProjectReview(slug) {
     });
 
     if (res.ok) {
-      loadProjectReviews(slug);
+      showStatus('Reseña guardada correctamente.', false);
+      setTimeout(() => {
+        loadProjectReviews(slug);
+      }, 1000);
     } else {
       const errData = await res.json();
-      alert('Error: ' + (errData.error || 'No se pudo publicar la reseña.'));
+      showStatus('Error: ' + (errData.error || 'No se pudo publicar la reseña.'), true);
     }
   } catch (e) {
     console.error('Submit review error:', e);
-    alert('Error al conectar con el servidor.');
+    showStatus('Error al conectar con el servidor.', true);
   } finally {
     if (submitBtn) submitBtn.disabled = false;
   }
 }
+
+function toggleReviewMenu(event, username) {
+  event.stopPropagation();
+  document.querySelectorAll('.proj-comment-dropdown').forEach(el => {
+    if (el.id !== `dropdown-${username}`) {
+      el.style.display = 'none';
+    }
+  });
+  const dropdown = document.getElementById(`dropdown-${username}`);
+  if (dropdown) {
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+function editOwnReview(slug, rating, comment) {
+  const textarea = document.getElementById('proj-comment-text');
+  if (textarea) {
+    textarea.value = comment;
+    textarea.focus();
+  }
+  setReviewRating(rating);
+  textarea?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function deleteOwnReview(slug, username) {
+  if (!confirm('¿Estás seguro de que deseas eliminar tu reseña?')) return;
+  try {
+    const res = await fetch(`${API_URL}/ows-store/projects/${slug}/reviews`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    if (res.ok) {
+      loadProjectReviews(slug);
+    } else {
+      const data = await res.json();
+      alert('Error: ' + (data.error || 'No se pudo eliminar la reseña.'));
+    }
+  } catch (err) {
+    console.error('Delete review error:', err);
+    alert('Error al conectar con el servidor.');
+  }
+}
+
+// Global click-away listener for review menus
+document.addEventListener('click', () => {
+  document.querySelectorAll('.proj-comment-dropdown').forEach(el => {
+    el.style.display = 'none';
+  });
+});
 
 function openProjectDetail(slug) {
   openProjectModal(slug);
@@ -5810,6 +6116,32 @@ async function loadData() {
     if (!canonicalSlugsInAPI.has(_frontendCanonicalSlug(sp.slug, sp.name))) {
       allProjects.push(sp);
     }
+  });
+
+  // Build a lookup of STATIC_PROJECTS platform info to use as authoritative fallback
+  const staticPlatformMap = {};
+  STATIC_PROJECTS.forEach(sp => { staticPlatformMap[sp.slug] = sp.platform || 'windows'; });
+
+  // Normalize platform properties for all projects
+  allProjects.forEach(p => {
+    let platStr = '';
+    if (Array.isArray(p.platforms)) {
+      platStr = p.platforms.join(',');
+    } else if (p.platform && String(p.platform) !== 'undefined') {
+      platStr = String(p.platform);
+    } else if (p.metadata && Array.isArray(p.metadata.platforms)) {
+      platStr = p.metadata.platforms.join(',');
+    }
+    // If API returned a platform that doesn't include 'windows' but STATIC_PROJECTS says it's
+    // windows-compatible, trust STATIC_PROJECTS (API data may be incomplete / Android-only flagged by mistake)
+    const staticPlat = staticPlatformMap[p.slug] || '';
+    if (staticPlat.includes('windows') && platStr && !platStr.toLowerCase().includes('windows')) {
+      // Merge: keep API platforms + add windows from STATIC
+      const parts = new Set(platStr.toLowerCase().split(',').map(s => s.trim()).filter(Boolean));
+      staticPlat.toLowerCase().split(',').map(s => s.trim()).filter(Boolean).forEach(s => parts.add(s));
+      platStr = [...parts].join(',');
+    }
+    p.platform = platStr ? platStr : (staticPlat || 'windows');
   });
 
   // Filter OWS Store itself
@@ -6381,7 +6713,7 @@ const PROJECT_HINTS = {
 const PROJECT_REPOS = {
   'ocean-cinemas': 'ocean-cinemas',
   'ecoxion': 'ecoxion',
-  'dinobox': 'owsdatabase',
+  'dinobox': 'dinobox',
   'incremental-cosmic-odyssey': 'incremental-cosmic-odyssey',
   'wildweapon': 'wildweapon-mayhem',
   'wildweapon-mayhem': 'wildweapon-mayhem',
@@ -6401,6 +6733,11 @@ const installedProjectsMap = new Map();
 let currentDownloadSlug = null;
 let currentDownloadVersion = null;
 let currentDownloadTaskActive = false;
+
+// Platform of this OWS Store instance: 'win32' on Windows, 'android' on Android, etc.
+const OWS_PLATFORM = (window.owsUpdater && window.owsUpdater.platform) || 'win32';
+const IS_ANDROID_HOST = OWS_PLATFORM === 'android';
+const IS_WINDOWS_HOST = !IS_ANDROID_HOST && (OWS_PLATFORM === 'win32' || OWS_PLATFORM === 'win64');
 
 let lastManualUpdateCheckTime = 0;
 const MANUAL_CHECK_COOLDOWN_MS = 60 * 1000;
@@ -6437,6 +6774,44 @@ async function scanInstalledApps() {
   }
 }
 
+/**
+ * Parses OWS version strings like "2026.4.25-t0337" or "2026.5.2-t0316" into
+ * a comparable numeric tuple [year, month, day, time]. Falls back gracefully
+ * for semver-style strings ("1.0.0" → [1,0,0,0]).
+ */
+function _parseOwsVersion(v) {
+  if (!v) return [0, 0, 0, 0];
+  const str = String(v).replace(/^v/, '').trim();
+  // Format: YYYY.M.D-tHHMM or YYYY.M.D-tHHMMSS
+  const owsMatch = str.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:-t(\d+))?/);
+  if (owsMatch) {
+    return [
+      parseInt(owsMatch[1], 10),
+      parseInt(owsMatch[2], 10),
+      parseInt(owsMatch[3], 10),
+      parseInt(owsMatch[4] || '0', 10)
+    ];
+  }
+  // Fallback: semver-style "1.2.3"
+  const parts = str.split('.').map(p => parseInt(p, 10) || 0);
+  while (parts.length < 4) parts.push(0);
+  return parts.slice(0, 4);
+}
+
+/**
+ * Returns true ONLY if `latest` is strictly newer than `installed`.
+ * Equal or older versions return false (no spurious update prompt).
+ */
+function _isStrictlyNewer(latest, installed) {
+  const l = _parseOwsVersion(latest);
+  const i = _parseOwsVersion(installed);
+  for (let idx = 0; idx < 4; idx++) {
+    if (l[idx] > i[idx]) return true;
+    if (l[idx] < i[idx]) return false;
+  }
+  return false; // equal → no update needed
+}
+
 async function checkUpdatesForInstalled(manual = false) {
   if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
   let updateCount = 0;
@@ -6446,19 +6821,22 @@ async function checkUpdatesForInstalled(manual = false) {
     const repo = PROJECT_REPOS[slug];
     if (!repo) return;
     try {
-      const res = await fetch(`${API_URL}/ows-store/github/repos/OceanandWild/${repo}/releases/latest`, { cache: 'no-store' });
-      if (res.ok) {
-        const release = await res.json();
-        const latestVersion = release.tag_name ? release.tag_name.replace(/^v/, '') : '';
-        const installedVersion = localStorage.getItem('ows_installed_version_' + slug) || '1.0.0';
-        if (latestVersion && latestVersion !== installedVersion) {
-          status.hasUpdate = true;
-          status.latestVersion = latestVersion;
-          status.release = release;
-          updateCount++;
-        } else {
-          status.hasUpdate = false;
-        }
+      // Use platform-appropriate release fetcher:
+      // On Windows → look for .exe/.msi; on Android → look for .apk
+      // This handles projects that publish Android and Windows as separate releases.
+      const winRelease = IS_ANDROID_HOST
+        ? await fetchLatestAndroidRelease(repo)
+        : await fetchLatestWindowsRelease(repo);
+      if (!winRelease) return; // no release for this platform → nothing to update
+      const latestVersion = winRelease.tag_name ? winRelease.tag_name.replace(/^v/, '') : '';
+      const installedVersion = status.version || localStorage.getItem('ows_installed_version_' + slug) || '1.0.0';
+      if (latestVersion && _isStrictlyNewer(latestVersion, installedVersion)) {
+        status.hasUpdate = true;
+        status.latestVersion = latestVersion;
+        status.release = winRelease;
+        updateCount++;
+      } else {
+        status.hasUpdate = false;
       }
     } catch (_) {}
   });
@@ -6533,17 +6911,31 @@ async function triggerInstall(slug) {
   let downloadUrl = p.installer_url || '';
   let expectedSize = 0;
   let latestVer = p.version || '1.0.0';
+  let isApk = false;
 
   if (repo) {
     try {
-      const res = await fetch(`${API_URL}/ows-store/github/repos/OceanandWild/${repo}/releases/latest`, { cache: 'no-store' });
-      if (res.ok) {
-        const release = await res.json();
-        latestVer = release.tag_name ? release.tag_name.replace(/^v/, '') : latestVer;
-        const exeAsset = Array.isArray(release.assets) ? release.assets.find(a => /\.(exe|msi)$/i.test(a.name)) : null;
-        if (exeAsset) {
-          downloadUrl = exeAsset.browser_download_url;
-          expectedSize = exeAsset.size;
+      // Find the latest release with the correct asset for this platform
+      if (IS_ANDROID_HOST) {
+        const rel = await fetchLatestAndroidRelease(repo);
+        if (rel) {
+          latestVer = rel.tag_name ? rel.tag_name.replace(/^v/, '') : latestVer;
+          const apkAsset = rel.assets.find(a => /\.apk$/i.test(a.name));
+          if (apkAsset) {
+            downloadUrl = apkAsset.browser_download_url;
+            expectedSize = apkAsset.size;
+            isApk = true;
+          }
+        }
+      } else {
+        const rel = await fetchLatestWindowsRelease(repo);
+        if (rel) {
+          latestVer = rel.tag_name ? rel.tag_name.replace(/^v/, '') : latestVer;
+          const exeAsset = rel.assets.find(a => /\.(exe|msi)$/i.test(a.name));
+          if (exeAsset) {
+            downloadUrl = exeAsset.browser_download_url;
+            expectedSize = exeAsset.size;
+          }
         }
       }
     } catch (_) {}
@@ -6553,17 +6945,20 @@ async function triggerInstall(slug) {
 
   if (!downloadUrl) {
     currentDownloadTaskActive = false;
-    const err = 'No se encontró un instalador válido para esta versión.';
+    const plat = IS_ANDROID_HOST ? 'Android (APK)' : 'Windows (.exe)';
+    const err = `No se encontró un instalador válido para ${plat} en esta versión.`;
     updateHUDProgress(slug, 'error', 0, 0, 0, 0, err);
     return;
   }
 
   try {
+    const fileName = isApk ? `${slug}-setup.apk` : `${slug}-setup.exe`;
     const res = await window.owsUpdater.installExternalInstaller({
       url: downloadUrl,
-      name: `${slug}-setup.exe`,
+      name: fileName,
       taskId: slug,
-      expectedSize: expectedSize
+      expectedSize: expectedSize,
+      isApk: isApk
     });
     if (!res.ok) {
       currentDownloadTaskActive = false;
@@ -6648,18 +7043,42 @@ async function playProject(slug) {
   if (!status || !status.exePath) return;
   const res = await window.owsUpdater.launchInstalledApp({ exePath: status.exePath });
   if (!res.ok) {
-    alert('No se pudo abrir el ejecutable: ' + res.error);
+    showDialogModal({
+      title: 'Error de Ejecución',
+      message: 'No se pudo abrir el ejecutable: ' + res.error,
+      icon: 'fa-triangle-exclamation',
+      iconColor: '#ef4444',
+      showCancel: false,
+      acceptText: 'Aceptar'
+    });
   }
 }
 
 async function uninstallProject(slug) {
   const status = installedProjectsMap.get(slug);
   if (!status || !status.uninstallPath) return;
-  if (confirm('¿Estás seguro de que deseas desinstalar este proyecto?')) {
+  
+  const confirmed = await showDialogModal({
+    title: 'Desinstalar Proyecto',
+    message: '¿Estás seguro de que deseas desinstalar este proyecto?',
+    icon: 'fa-trash-can',
+    iconColor: '#ef4444',
+    acceptText: 'Desinstalar',
+    cancelText: 'Cancelar'
+  });
+
+  if (confirmed) {
     const res = await window.owsUpdater.uninstallInstalledApp({ uninstallPath: status.uninstallPath });
     if (res.ok) {
       localStorage.removeItem('ows_installed_version_' + slug);
-      alert('Desinstalador iniciado.');
+      showDialogModal({
+        title: 'Desinstalación Iniciada',
+        message: 'El desinstalador se ha ejecutado correctamente.',
+        icon: 'fa-circle-check',
+        iconColor: '#22c55e',
+        showCancel: false,
+        acceptText: 'Aceptar'
+      });
       setTimeout(() => {
         scanInstalledApps();
         const projBackdrop = document.getElementById('proj-modal-backdrop');
@@ -6668,7 +7087,14 @@ async function uninstallProject(slug) {
         }
       }, 2000);
     } else {
-      alert('Error al iniciar desinstalador: ' + res.error);
+      showDialogModal({
+        title: 'Error de Desinstalación',
+        message: 'Error al iniciar desinstalador: ' + res.error,
+        icon: 'fa-circle-xmark',
+        iconColor: '#ef4444',
+        showCancel: false,
+        acceptText: 'Aceptar'
+      });
     }
   }
 }
@@ -6708,7 +7134,7 @@ function renderUpdatesSection() {
     const initials = _projectInitials(p);
     const iconTag = icon ? `<img src="${icon}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;" onerror="this.outerHTML='<div class=\'apg-icon-initials\' style=\'width:48px;height:48px;border-radius:10px;font-size:16px;\'>${initials}</div>'">` : `<div class="apg-icon-initials" style="width:48px;height:48px;border-radius:10px;font-size:16px;">${initials}</div>`;
     
-    const installedVer = localStorage.getItem('ows_installed_version_' + slug) || '1.0.0';
+    const installedVer = status.version || localStorage.getItem('ows_installed_version_' + slug) || '1.0.0';
 
     listHtml += `
       <div style="background:var(--surface-1);border:1px solid var(--border-mid);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -6888,6 +7314,195 @@ document.addEventListener('DOMContentLoaded', function() {
   const vEl = document.getElementById('app-version');
   if (vEl) vEl.textContent = 'v' + (window.APP_VERSION || '2026.6.5-t0306');
 });
+
+function showDialogModal({ title = 'OWS Store', message = '', icon = 'fa-question-circle', iconColor = '#ef4444', showCancel = true, acceptText = 'Aceptar', cancelText = 'Cancelar' }) {
+  return new Promise((resolve) => {
+    const backdrop = document.getElementById('dialog-backdrop');
+    const titleEl = document.getElementById('dialog-title');
+    const messageEl = document.getElementById('dialog-message');
+    const iconEl = document.getElementById('dialog-icon');
+    const btnCancel = document.getElementById('dialog-btn-cancel');
+    const btnAccept = document.getElementById('dialog-btn-accept');
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    iconEl.innerHTML = `<i class="fas ${icon}"></i>`;
+    iconEl.style.color = iconColor;
+    
+    // Set dynamic transparent backgrounds for premium visual touch
+    const rgb = hexToRgb(iconColor);
+    iconEl.style.backgroundColor = `rgba(${rgb}, 0.1)`;
+    iconEl.style.borderColor = `rgba(${rgb}, 0.25)`;
+
+    if (showCancel) {
+      btnCancel.style.display = 'block';
+      btnCancel.textContent = cancelText;
+    } else {
+      btnCancel.style.display = 'none';
+    }
+    btnAccept.textContent = acceptText;
+    
+    // Style accept button dynamically based on context
+    btnAccept.style.backgroundColor = iconColor;
+    btnAccept.style.boxShadow = `0 4px 12px rgba(${rgb}, 0.2)`;
+
+    function cleanup() {
+      backdrop.classList.remove('open');
+      btnAccept.removeEventListener('click', onAccept);
+      btnCancel.removeEventListener('click', onCancel);
+    }
+
+    function onAccept() {
+      cleanup();
+      resolve(true);
+    }
+
+    function onCancel() {
+      cleanup();
+      resolve(false);
+    }
+
+    btnAccept.addEventListener('click', onAccept);
+    btnCancel.addEventListener('click', onCancel);
+
+    // Trigger open animation
+    backdrop.classList.add('open');
+  });
+}
+
+function hexToRgb(hex) {
+  const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+  const fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '239, 68, 68';
+}
+
+async function fetchLatestReleaseForProject(slug, repo) {
+  const isSharedRepo = repo === 'owsdatabase';
+  
+  if (isSharedRepo) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const res = await fetch(`${API_URL}/ows-store/github/repos/OceanandWild/${repo}/releases?per_page=100`, { cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const releases = await res.json();
+        if (Array.isArray(releases)) {
+          // Find the first release matching this specific project
+          for (const rel of releases) {
+            const name = String(rel.name || '').toLowerCase();
+            const tag = String(rel.tag_name || '').toLowerCase();
+            
+            if (slug === 'dinobox') {
+              if (name.includes('dinobox') || tag.includes('dinobox')) {
+                return rel;
+              }
+              const hasDinoboxAsset = Array.isArray(rel.assets) && rel.assets.some(a => a.name.toLowerCase().includes('dinobox'));
+              if (hasDinoboxAsset) {
+                return rel;
+              }
+            } else if (slug === 'ows-store') {
+              if (name.includes('ows-store') || tag.includes('ows-store') || name.includes('ows store')) {
+                return rel;
+              }
+              const hasOwsStoreAsset = Array.isArray(rel.assets) && rel.assets.some(a => a.name.toLowerCase().includes('ows.store') || a.name.toLowerCase().includes('ows-store'));
+              if (hasOwsStoreAsset) {
+                return rel;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.warn('[UPDATE] Error fetching releases list:', e);
+    }
+  }
+
+  // Default fallback for single-project repositories or if shared resolution fails
+  const ctrl2 = new AbortController();
+  const timer2 = setTimeout(() => ctrl2.abort(), 12000);
+  try {
+    const res = await fetch(`${API_URL}/ows-store/github/repos/OceanandWild/${repo}/releases/latest`, { cache: 'no-store', signal: ctrl2.signal });
+    clearTimeout(timer2);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    clearTimeout(timer2);
+    if (e.name !== 'AbortError') console.warn('[UPDATE] fetchLatestReleaseForProject fallback error:', e);
+  }
+  throw new Error('Failed to fetch release from github proxy');
+}
+
+/**
+ * Fetches the most recent GitHub release that contains a Windows installer (.exe/.msi).
+ * Scans up to `limit` releases so that Android-only releases published after the last
+ * Windows release do not block the Windows update check.
+ * Returns null if no Windows release is found or if the request times out.
+ */
+async function fetchLatestWindowsRelease(repo, limit = 15) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000); // 12s timeout
+  try {
+    const res = await fetch(
+      `${API_URL}/ows-store/github/repos/OceanandWild/${repo}/releases?per_page=${limit}`,
+      { cache: 'no-store', signal: ctrl.signal }
+    );
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const releases = await res.json();
+    if (!Array.isArray(releases)) return null;
+    for (const rel of releases) {
+      const hasWinAsset = Array.isArray(rel.assets) &&
+        rel.assets.some(a => /\.(exe|msi)$/i.test(a.name));
+      if (hasWinAsset) return rel;
+    }
+    return null; // no Windows release found in the last `limit` releases
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') {
+      console.warn('[UPDATE] fetchLatestWindowsRelease timed out for repo:', repo);
+    } else {
+      console.warn('[UPDATE] fetchLatestWindowsRelease error:', e);
+    }
+    return null;
+  }
+}
+
+/**
+ * Fetches the most recent GitHub release that contains an Android APK (.apk).
+ * Mirrors fetchLatestWindowsRelease but for Android.
+ * Returns null if no Android release is found or if the request times out.
+ */
+async function fetchLatestAndroidRelease(repo, limit = 15) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000); // 12s timeout
+  try {
+    const res = await fetch(
+      `${API_URL}/ows-store/github/repos/OceanandWild/${repo}/releases?per_page=${limit}`,
+      { cache: 'no-store', signal: ctrl.signal }
+    );
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const releases = await res.json();
+    if (!Array.isArray(releases)) return null;
+    for (const rel of releases) {
+      const hasApk = Array.isArray(rel.assets) &&
+        rel.assets.some(a => /\.apk$/i.test(a.name));
+      if (hasApk) return rel;
+    }
+    return null;
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') {
+      console.warn('[UPDATE] fetchLatestAndroidRelease timed out for repo:', repo);
+    } else {
+      console.warn('[UPDATE] fetchLatestAndroidRelease error:', e);
+    }
+    return null;
+  }
+}
 </script>
 <!-- ═══════════════════ BIOME SEARCH OVERLAY ═══════════════════ -->
 <div class="search-overlay-backdrop" id="search-overlay-backdrop" onclick="handleSearchBackdropClick(event)">
@@ -6959,6 +7574,19 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="proj-modal-backdrop" id="proj-modal-backdrop" onclick="if(event.target===this) closeProjectModal();">
   <div class="proj-modal" id="proj-modal">
     <!-- Rellenado dinámicamente por JS -->
+  </div>
+</div>
+
+<!-- ═══════════════════ DIALOG SYSTEM MODAL (ALERT/CONFIRM) ═══════════════════ -->
+<div class="dialog-backdrop" id="dialog-backdrop">
+  <div class="dialog-modal" id="dialog-modal" role="dialog" aria-modal="true">
+    <div class="dialog-icon" id="dialog-icon"><i class="fas fa-question-circle"></i></div>
+    <h3 class="dialog-title" id="dialog-title">OWS Store</h3>
+    <p class="dialog-message" id="dialog-message"></p>
+    <div class="dialog-buttons" id="dialog-buttons">
+      <button class="dialog-btn cancel" id="dialog-btn-cancel">Cancelar</button>
+      <button class="dialog-btn accept" id="dialog-btn-accept">Aceptar</button>
+    </div>
   </div>
 </div>
 

@@ -195,6 +195,12 @@ const pool = new Pool(
     }
 );
 
+// Ensure database has is_edited column in reviews table
+pool.query(`
+  ALTER TABLE ows_store_project_reviews 
+  ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE
+`).catch(err => console.error('Error ensuring column is_edited exists:', err));
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -12218,7 +12224,7 @@ app.get('/ows-store/projects/:slug/reviews', async (req, res) => {
   const { slug } = req.params;
   try {
     const { rows: reviews } = await pool.query(
-      `SELECT username, rating, comment, created_at 
+      `SELECT username, rating, comment, created_at, is_edited 
        FROM ows_store_project_reviews 
        WHERE project_slug = $1 
        ORDER BY created_at DESC`,
@@ -12274,14 +12280,14 @@ app.post('/ows-store/projects/:slug/reviews', async (req, res) => {
     if (existing.length > 0) {
       await pool.query(
         `UPDATE ows_store_project_reviews 
-         SET rating = $1, comment = $2, created_at = NOW() 
+         SET rating = $1, comment = $2, created_at = NOW(), is_edited = TRUE 
          WHERE id = $3`,
         [rating, comment, existing[0].id]
       );
     } else {
       await pool.query(
-        `INSERT INTO ows_store_project_reviews (project_slug, username, rating, comment, created_at)
-         VALUES ($1, $2, $3, $4, NOW())`,
+        `INSERT INTO ows_store_project_reviews (project_slug, username, rating, comment, created_at, is_edited)
+         VALUES ($1, $2, $3, $4, NOW(), FALSE)`,
         [slug, username, rating, comment]
       );
     }
@@ -12290,6 +12296,36 @@ app.post('/ows-store/projects/:slug/reviews', async (req, res) => {
   } catch (err) {
     console.error('Error en POST /ows-store/projects/:slug/reviews:', err);
     return res.status(500).json({ error: 'Error interno al guardar la reseña.' });
+  }
+});
+
+// DELETE /ows-store/projects/:slug/reviews - Eliminar calificación/comentario
+app.delete('/ows-store/projects/:slug/reviews', async (req, res) => {
+  const { slug } = req.params;
+  const username = String(req.body.username || '').trim();
+
+  if (!username) return res.status(401).json({ error: 'Usuario requerido.' });
+
+  try {
+    // Validar si el usuario de Ocean Pay existe
+    const { rows: opUser } = await pool.query(
+      `SELECT id FROM ocean_pay_users WHERE username = $1`,
+      [username]
+    );
+    if (!opUser.length) {
+      return res.status(400).json({ error: 'Usuario de Ocean Pay no válido.' });
+    }
+
+    await pool.query(
+      `DELETE FROM ows_store_project_reviews 
+       WHERE LOWER(project_slug) = LOWER($1) AND LOWER(username) = LOWER($2)`,
+      [slug, username]
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-store/projects/:slug/reviews:', err);
+    return res.status(500).json({ error: 'Error interno al eliminar la reseña.' });
   }
 });
 

@@ -5598,25 +5598,124 @@ function toggleReviewMenu(event, username) {
   }
 }
 
-function editOwnReview(slug, rating, comment) {
+function editOwnReview(slug, currentRating, currentComment) {
   // Close any open dropdowns first
   document.querySelectorAll('.proj-comment-dropdown').forEach(el => el.style.display = 'none');
 
-  const textarea = document.getElementById('proj-comment-text');
-  if (textarea) {
-    textarea.value = comment;
-    // Scroll inside the modal scroll container
-    const scrollContainer = document.querySelector('.proj-modal-body-container');
-    if (scrollContainer) {
-      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    }, 300);
+  // Find the comment item parent of the active user review
+  const commentTextElement = document.querySelector('.proj-comment-item .proj-comment-text');
+  if (!commentTextElement) return;
+
+  const commentItem = commentTextElement.closest('.proj-comment-item');
+  if (!commentItem) return;
+
+  // Let's store the original HTML of this comment item so we can revert if they cancel.
+  const originalHtml = commentItem.innerHTML;
+
+  // Create active inline edit state
+  let editRating = currentRating;
+
+  // Render the inline editor HTML
+  commentItem.innerHTML = `
+    <div class="proj-inline-edit-container" style="display:flex; flex-direction:column; gap:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:12px; border-radius:8px; margin-top:4px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <span style="font-size:12px; color:var(--ink-2); font-weight:500;"><i class="fas fa-pen"></i> Editando tu reseña</span>
+        <div class="proj-star-select-inline" style="display:flex; gap:4px; font-size:16px; color:var(--ink-3); cursor:pointer;">
+          <i class="fas fa-star ${editRating >= 1 ? 'selected' : ''}" data-val="1" style="color: ${editRating >= 1 ? 'var(--cyan)' : 'var(--ink-3)'}"></i>
+          <i class="fas fa-star ${editRating >= 2 ? 'selected' : ''}" data-val="2" style="color: ${editRating >= 2 ? 'var(--cyan)' : 'var(--ink-3)'}"></i>
+          <i class="fas fa-star ${editRating >= 3 ? 'selected' : ''}" data-val="3" style="color: ${editRating >= 3 ? 'var(--cyan)' : 'var(--ink-3)'}"></i>
+          <i class="fas fa-star ${editRating >= 4 ? 'selected' : ''}" data-val="4" style="color: ${editRating >= 4 ? 'var(--cyan)' : 'var(--ink-3)'}"></i>
+          <i class="fas fa-star ${editRating >= 5 ? 'selected' : ''}" data-val="5" style="color: ${editRating >= 5 ? 'var(--cyan)' : 'var(--ink-3)'}"></i>
+        </div>
+      </div>
+      <textarea class="proj-comment-input" id="proj-inline-edit-text" style="width:100%; min-height:80px; background:var(--surface-3); border:1px solid var(--border); border-radius:6px; color:var(--ink-0); padding:8px; font-family:var(--font); font-size:13px; resize:vertical; outline:none; transition:border-color 0.2s ease;">${_escapeHtml(currentComment)}</textarea>
+      <div id="proj-inline-edit-error" style="display:none; font-size:11px; color:#ef4444; margin-top:-4px;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="proj-modal-btn" id="proj-inline-cancel-btn" style="padding:6px 12px; font-size:12px; background:transparent; border:1px solid var(--border); color:var(--ink-1); cursor:pointer; border-radius:6px;">Cancelar</button>
+        <button class="proj-modal-btn primary" id="proj-inline-save-btn" style="padding:6px 12px; font-size:12px; cursor:pointer; border-radius:6px;"><i class="fas fa-check"></i> Guardar</button>
+      </div>
+    </div>
+  `;
+
+  // Attach interactive star listeners in inline view
+  const inlineStars = commentItem.querySelectorAll('.proj-star-select-inline i');
+  inlineStars.forEach(star => {
+    star.addEventListener('click', () => {
+      editRating = parseInt(star.dataset.val, 10);
+      inlineStars.forEach(s => {
+        const sVal = parseInt(s.dataset.val, 10);
+        if (sVal <= editRating) {
+          s.style.color = 'var(--cyan)';
+          s.classList.add('selected');
+        } else {
+          s.style.color = 'var(--ink-3)';
+          s.classList.remove('selected');
+        }
+      });
+    });
+  });
+
+  // Focus the input and place cursor at end
+  const inlineTextarea = commentItem.querySelector('#proj-inline-edit-text');
+  if (inlineTextarea) {
+    inlineTextarea.focus();
+    inlineTextarea.setSelectionRange(inlineTextarea.value.length, inlineTextarea.value.length);
   }
-  setReviewRating(rating);
+
+  // Cancel action
+  commentItem.querySelector('#proj-inline-cancel-btn').addEventListener('click', () => {
+    commentItem.innerHTML = originalHtml;
+  });
+
+  // Save action
+  commentItem.querySelector('#proj-inline-save-btn').addEventListener('click', async () => {
+    const newComment = inlineTextarea.value.trim();
+    const username = localStorage.getItem('op_username') || '';
+    const errorEl = commentItem.querySelector('#proj-inline-edit-error');
+    const saveBtn = commentItem.querySelector('#proj-inline-save-btn');
+
+    if (!newComment) {
+      if (errorEl) {
+        errorEl.textContent = 'El comentario no puede estar vacío.';
+        errorEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+      const res = await fetch(`${API_URL}/ows-store/projects/${slug}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          rating: editRating,
+          comment: newComment
+        })
+      });
+
+      if (res.ok) {
+        loadProjectReviews(slug);
+      } else {
+        const errData = await res.json();
+        if (errorEl) {
+          errorEl.textContent = errData.error || 'Error al guardar la edición.';
+          errorEl.style.display = 'block';
+        }
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    } catch (e) {
+      console.error(e);
+      if (errorEl) {
+        errorEl.textContent = 'Error de conexión.';
+        errorEl.style.display = 'block';
+      }
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  });
 }
+
 
 async function deleteOwnReview(slug, username) {
   const confirmed = await showDialogModal({

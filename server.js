@@ -12244,6 +12244,8 @@ app.get('/ows-store/banners', async (req, res) => {
         secondary: String(visual.secondary || visual.background || '').trim(),
         background_url: String(visual.background_url || visual.hero_url || visual.cover_url || visual.image || '').trim(),
         image_url: String(visual.image_url || visual.cover_url || visual.image || '').trim(),
+        style_config: (visual.style_config && typeof visual.style_config === 'object') ? visual.style_config : {},
+        visual_meta: visual,
         project_names: Array.isArray(row.project_names) ? row.project_names.map((x) => String(x || '').trim()).filter(Boolean) : [],
         project_slugs: Array.isArray(row.project_slugs) ? row.project_slugs.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [],
         platforms: Array.isArray(row.platforms) ? row.platforms.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [],

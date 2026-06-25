@@ -11663,6 +11663,100 @@ app.get('/ows-store/projects', async (req, res) => {
   }
 });
 
+// OWS Store featured spotlight feed
+// Sirve una curaduría liviana para el carrusel de Explorar usando datos reales
+// de ows_projects, sin hardcodear la experiencia completa en el cliente.
+app.get('/ows-store/featured', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `
+        SELECT slug, name, description, banner_url, icon_url, status, metadata, platform, platforms, version, release_date, last_update
+          FROM ows_projects
+         WHERE LOWER(slug) = ANY($1::text[])
+            OR LOWER(name) = ANY($2::text[])
+         ORDER BY
+           CASE LOWER(slug)
+             WHEN 'ocean-cinemas' THEN 0
+             WHEN 'ecoxion' THEN 1
+             WHEN 'dinobox' THEN 2
+             WHEN 'incremental-cosmic-odyssey' THEN 3
+             ELSE 9
+           END,
+           COALESCE(last_update, release_date, created_at) DESC NULLS LAST,
+           name ASC
+      `,
+      [[
+        'ocean-cinemas',
+        'ecoxion',
+        'dinobox',
+        'incremental-cosmic-odyssey'
+      ], [
+        'ocean cinemas',
+        'ecoxion',
+        'dinobox',
+        'incremental cosmic odyssey'
+      ]]
+    );
+
+    const curated = rows.map((row) => {
+      const slug = String(row.slug || '').trim().toLowerCase();
+      const status = String(row.status || '').trim().toLowerCase();
+      const metadata = (row.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+      const platforms = Array.isArray(row.platforms)
+        ? row.platforms
+        : (row.platform ? [row.platform] : []);
+      const badge = metadata.featured_badge
+        || (status === 'launched' ? 'DISPONIBLE' : status === 'coming_soon' ? 'PRÓXIMAMENTE' : 'DESTACADO');
+      const breadcrumb = metadata.featured_breadcrumb
+        || [
+          metadata.category || (platforms[0] || 'Ecosistema'),
+          metadata.studio || 'Ocean and Wild Studios',
+          platforms.join(' · ')
+        ].filter(Boolean).join(' · ');
+      const title = metadata.featured_title || row.name;
+      const desc = metadata.featured_desc || row.description || 'Explora este destacado del ecosistema.';
+      const bg = metadata.featured_bg || row.banner_url || row.icon_url || '';
+      const cta = metadata.featured_cta || 'Explorar ahora';
+      return {
+        slug,
+        badge,
+        breadcrumb,
+        title,
+        desc,
+        bg,
+        cta
+      };
+    });
+
+    const fallback = [
+      {
+        slug: 'ocean-cinemas',
+        badge: 'EXCLUSIVO',
+        breadcrumb: 'Cine · Ocean and Wild Studios · Streaming',
+        title: 'Ocean Cinemas',
+        desc: 'Sumérgete en historias inmersivas y experiencias cinematográficas. Contenido exclusivo del estudio.',
+        bg: './assets/ocean-cinemas.banner.png',
+        cta: 'Explorar ahora'
+      }
+    ];
+
+    return res.json(curated.length ? curated : fallback);
+  } catch (err) {
+    console.error('Error en GET /ows-store/featured:', err);
+    return res.json([
+      {
+        slug: 'ocean-cinemas',
+        badge: 'EXCLUSIVO',
+        breadcrumb: 'Cine · Ocean and Wild Studios · Streaming',
+        title: 'Ocean Cinemas',
+        desc: 'Sumérgete en historias inmersivas y experiencias cinematográficas. Contenido exclusivo del estudio.',
+        bg: './assets/ocean-cinemas.banner.png',
+        cta: 'Explorar ahora'
+      }
+    ]);
+  }
+});
+
 // Ocean AI helper: resumen de OWS Store (latest releases + catalogo segmentado)
 app.get('/ocean-ai/ows-store/context', async (_req, res) => {
   try {

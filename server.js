@@ -12186,6 +12186,86 @@ app.get('/ows-store/events', async (req, res) => {
   }
 });
 
+// OWS Store announcement banners
+// Usa ows_store_timeline con kind='banner' para mostrar anuncios rapidos
+// arriba del carrusel de Explorar sin requerir una nueva version.
+app.get('/ows-store/banners', async (req, res) => {
+  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const limit = Math.max(1, Math.min(8, normalizeNewsNumber(req.query.limit, 3)));
+  try {
+    const { rows } = await pool.query(
+      `SELECT id,
+              title,
+              description,
+              project_slugs,
+              project_names,
+              platforms,
+              kind,
+              visual_meta,
+              is_active,
+              priority,
+              starts_at,
+              ends_at,
+              published_at,
+              created_at,
+              updated_at,
+              include_in_ows_store
+         FROM ows_store_timeline
+        WHERE kind = 'banner'
+          ${includeInactive ? '' : 'AND is_active = TRUE'}
+        ORDER BY priority DESC,
+                 COALESCE(published_at, starts_at, created_at) DESC NULLS LAST,
+                 created_at DESC
+        LIMIT $1`,
+      [limit]
+    );
+
+    const now = Date.now();
+    const list = rows.map((row) => {
+      const visual = (row.visual_meta && typeof row.visual_meta === 'object') ? row.visual_meta : {};
+      const startsAt = row.starts_at ? new Date(row.starts_at).toISOString() : null;
+      const endsAt = row.ends_at ? new Date(row.ends_at).toISOString() : null;
+      const publishedAt = row.published_at ? new Date(row.published_at).toISOString() : null;
+      const startTs = startsAt ? Date.parse(startsAt) : 0;
+      const endTs = endsAt ? Date.parse(endsAt) : 0;
+      let phase = 'active';
+      if (endTs && now > endTs) phase = 'ended';
+      else if (startTs && now < startTs) phase = 'upcoming';
+
+      return {
+        id: Number(row.id || 0),
+        title: String(row.title || 'Anuncio').trim(),
+        description: String(row.description || '').trim(),
+        eyebrow: String(visual.eyebrow || visual.label || '').trim(),
+        cta_label: String(visual.cta_label || visual.button_label || '').trim(),
+        cta_url: String(visual.cta_url || visual.button_url || '').trim(),
+        layout: String(visual.layout || visual.variant || 'editorial').trim().toLowerCase(),
+        accent: String(visual.accent || visual.color || '').trim() || 'var(--cyan)',
+        secondary: String(visual.secondary || visual.background || '').trim(),
+        background_url: String(visual.background_url || visual.hero_url || visual.cover_url || visual.image || '').trim(),
+        image_url: String(visual.image_url || visual.cover_url || visual.image || '').trim(),
+        project_names: Array.isArray(row.project_names) ? row.project_names.map((x) => String(x || '').trim()).filter(Boolean) : [],
+        project_slugs: Array.isArray(row.project_slugs) ? row.project_slugs.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [],
+        platforms: Array.isArray(row.platforms) ? row.platforms.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [],
+        phase,
+        is_active: row.is_active !== false,
+        priority: Number(row.priority || 0),
+        starts_at: startsAt,
+        ends_at: endsAt,
+        published_at: publishedAt,
+        created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+        updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null,
+        include_in_ows_store: row.include_in_ows_store === true
+      };
+    }).filter((banner) => banner.phase !== 'ended' || includeInactive);
+
+    return res.json(list);
+  } catch (err) {
+    console.error('Error en GET /ows-store/banners:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // ==========================================
 // POLLS (ENCUESTAS) API ENDPOINTS
 // ==========================================

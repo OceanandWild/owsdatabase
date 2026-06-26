@@ -1070,6 +1070,82 @@ function splitReleaseBody(body = '') {
     .slice(0, 14);
 }
 
+/**
+ * Parsea el cuerpo markdown de una release de GitHub en categorías estructuradas.
+ * Detecta encabezados (## Arreglos, ## Mejoras, ## Adiciones, etc.) para asignar
+ * cada ítem a la categoría correcta. Sin encabezados, todo va a 'otros'.
+ */
+function parseReleaseBodyToChangelog(body = '') {
+  const text = String(body || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const result = { adiciones: [], mejoras: [], arreglos: [], rendimiento: [], otros: [] };
+
+  // Mapeo de palabras clave de encabezado a categoría interna
+  const CAT_MAP = [
+    { keys: ['adicion', 'nuevo', 'new', 'feature', 'agregad', 'added'], cat: 'adiciones' },
+    { keys: ['mejora', 'improv', 'enhanc', 'update', 'cambio', 'change'], cat: 'mejoras' },
+    { keys: ['arregl', 'fix', 'correc', 'bug', 'patch', 'solucion'], cat: 'arreglos' },
+    { keys: ['rendimiento', 'performance', 'optim', 'speed', 'fast'], cat: 'rendimiento' },
+    { keys: ['otro', 'other', 'misc', 'general', 'nota', 'note'], cat: 'otros' }
+  ];
+
+  const detectCat = (header) => {
+    const lc = String(header || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    for (const { keys, cat } of CAT_MAP) {
+      if (keys.some(k => lc.includes(k))) return cat;
+    }
+    return 'otros';
+  };
+
+  const lines = text.split('\n');
+  let currentCat = null;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    // Detectar encabezados ## o ###
+    const headerMatch = line.match(/^#{1,4}\s+(.+)/);
+    if (headerMatch) {
+      currentCat = detectCat(headerMatch[1]);
+      continue;
+    }
+
+    // Ítem de lista
+    const itemMatch = line.match(/^[-*•]\s+(.+)/);
+    if (itemMatch) {
+      const item = itemMatch[1].trim();
+      if (!item) continue;
+      const cat = currentCat || 'otros';
+      if (result[cat]) result[cat].push(item);
+      else result.otros.push(item);
+      continue;
+    }
+
+    // Línea de texto plano (sin viñeta) → va a categoría actual o 'otros'
+    if (currentCat && line && !line.startsWith('#')) {
+      const cleaned = line.replace(/^\s*[-*?]+\s*/, '').trim();
+      if (cleaned) (result[currentCat] || result.otros).push(cleaned);
+    }
+  }
+
+  // Si no se detectó ninguna categoría por encabezado, poner todo en 'otros'
+  const totalCategorized = result.adiciones.length + result.mejoras.length + result.arreglos.length + result.rendimiento.length;
+  if (totalCategorized === 0 && result.otros.length === 0) {
+    // Último recurso: extraer todas las líneas con viñetas
+    lines.forEach(raw => {
+      const line = raw.trim();
+      const m = line.match(/^[-*•]\s+(.+)/);
+      if (m && m[1].trim()) result.otros.push(m[1].trim());
+      else if (line && !line.startsWith('#') && line.length > 4) {
+        const cleaned = line.replace(/^\s*[-*?]+\s*/, '').trim();
+        if (cleaned) result.otros.push(cleaned);
+      }
+    });
+  }
+
+  return result;
+}
+
 function inferPlatformsFromReleaseAssets(assets = [], fallback = ['windows']) {
   const set = new Set();
   (Array.isArray(assets) ? assets : []).forEach((asset) => {
@@ -2826,6 +2902,36 @@ async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = 
         priority: 0
       });
 
+      // Auto-upsert del changelog estructurado para la sección Novedades de OWS Store
+      try {
+        const parsed = parseReleaseBodyToChangelog(release?.body || '');
+        await pool.query(
+          `INSERT INTO ows_project_changelogs
+             (project_slug, version, adiciones, mejoras, arreglos, rendimiento, otros, published_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (project_slug, version)
+           DO UPDATE SET
+             adiciones   = EXCLUDED.adiciones,
+             mejoras     = EXCLUDED.mejoras,
+             arreglos    = EXCLUDED.arreglos,
+             rendimiento = EXCLUDED.rendimiento,
+             otros       = EXCLUDED.otros,
+             published_at = EXCLUDED.published_at`,
+          [
+            source.slug,
+            tag,
+            parsed.adiciones,
+            parsed.mejoras,
+            parsed.arreglos,
+            parsed.rendimiento,
+            parsed.otros,
+            new Date(publishedAt)
+          ]
+        );
+      } catch (clErr) {
+        console.warn('⚠️ No se pudo upsert ows_project_changelogs para', source.slug, tag, clErr?.message);
+      }
+
       summary.updated++;
     } catch (err) {
       summary.errors.push({
@@ -4354,6 +4460,23 @@ async function runDatabaseMigrations() {
         UNIQUE(project_slug, version_code)
       );
     `).catch(err => console.log('Ã¢Å¡Â Ã¯Â¸Â Error creando ows_android_releases:', err.message));
+
+    // Tabla de changelogs estructurados por proyecto y versión
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_project_changelogs (
+        id SERIAL PRIMARY KEY,
+        project_slug VARCHAR(50) NOT NULL REFERENCES ows_projects(slug) ON DELETE CASCADE,
+        version VARCHAR(30) NOT NULL,
+        adiciones TEXT[] DEFAULT '{}',
+        mejoras TEXT[] DEFAULT '{}',
+        arreglos TEXT[] DEFAULT '{}',
+        rendimiento TEXT[] DEFAULT '{}',
+        otros TEXT[] DEFAULT '{}',
+        published_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(project_slug, version)
+      );
+    `).catch(err => console.log('⚠️ Error creando ows_project_changelogs:', err.message));
 
     // MigraciÃƒÂ³n: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
@@ -9908,9 +10031,131 @@ app.post('/ows-store/changelogs/sync', async (req, res) => {
   }
 });
 
-// ==========================================
-// BIOPRESENTATIONS API (Cloud Save + Sharing)
-// ==========================================
+// ─────────────────────────────────────────────────────────────────────────────
+// OWS STORE STRUCTURED PROJECT CHANGELOGS (ows_project_changelogs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /ows-store/projects/:slug/changelog
+// Devuelve el changelog estructurado más reciente del proyecto (última versión).
+app.get('/ows-store/projects/:slug/changelog', async (req, res) => {
+  const slug = String(req.params.slug || '').trim().toLowerCase();
+  if (!slug) return res.status(400).json({ error: 'slug requerido' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, project_slug, version, adiciones, mejoras, arreglos, rendimiento, otros, published_at, created_at
+       FROM ows_project_changelogs
+       WHERE project_slug = $1
+       ORDER BY published_at DESC, created_at DESC
+       LIMIT 1`,
+      [slug]
+    );
+    if (!rows.length) {
+      return res.json({ success: true, changelog: null });
+    }
+    const row = rows[0];
+    return res.json({
+      success: true,
+      changelog: {
+        id: row.id,
+        project_slug: row.project_slug,
+        version: row.version,
+        adiciones: row.adiciones || [],
+        mejoras: row.mejoras || [],
+        arreglos: row.arreglos || [],
+        rendimiento: row.rendimiento || [],
+        otros: row.otros || [],
+        published_at: row.published_at,
+        created_at: row.created_at
+      }
+    });
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/projects/:slug/changelog:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// GET /ows-store/projects/:slug/changelogs (historial de versiones)
+app.get('/ows-store/projects/:slug/changelogs', async (req, res) => {
+  const slug = String(req.params.slug || '').trim().toLowerCase();
+  const limit = Math.max(1, Math.min(50, parseInt(req.query.limit || '10', 10)));
+  if (!slug) return res.status(400).json({ error: 'slug requerido' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, project_slug, version, adiciones, mejoras, arreglos, rendimiento, otros, published_at, created_at
+       FROM ows_project_changelogs
+       WHERE project_slug = $1
+       ORDER BY published_at DESC, created_at DESC
+       LIMIT $2`,
+      [slug, limit]
+    );
+    return res.json({
+      success: true,
+      total: rows.length,
+      changelogs: rows.map(row => ({
+        id: row.id,
+        project_slug: row.project_slug,
+        version: row.version,
+        adiciones: row.adiciones || [],
+        mejoras: row.mejoras || [],
+        arreglos: row.arreglos || [],
+        rendimiento: row.rendimiento || [],
+        otros: row.otros || [],
+        published_at: row.published_at,
+        created_at: row.created_at
+      }))
+    });
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/projects/:slug/changelogs:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-store/projects/:slug/changelog  (admin — crear/actualizar changelog)
+// Body: { version, adiciones?, mejoras?, arreglos?, rendimiento?, otros?, published_at?, admin_token? }
+app.post('/ows-store/projects/:slug/changelog', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const slug = String(req.params.slug || '').trim().toLowerCase();
+  const body = req.body || {};
+  const version = String(body.version || '').trim();
+  if (!slug || !version) return res.status(400).json({ error: 'slug y version son requeridos' });
+
+  const toArray = (val) => {
+    if (Array.isArray(val)) return val.filter(s => typeof s === 'string' && s.trim());
+    if (typeof val === 'string' && val.trim()) return val.split('\n').map(s => s.trim()).filter(Boolean);
+    return [];
+  };
+
+  const adiciones  = toArray(body.adiciones);
+  const mejoras    = toArray(body.mejoras);
+  const arreglos   = toArray(body.arreglos);
+  const rendimiento = toArray(body.rendimiento);
+  const otros      = toArray(body.otros);
+  const publishedAt = body.published_at ? new Date(body.published_at) : new Date();
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ows_project_changelogs
+         (project_slug, version, adiciones, mejoras, arreglos, rendimiento, otros, published_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (project_slug, version)
+       DO UPDATE SET
+         adiciones   = EXCLUDED.adiciones,
+         mejoras     = EXCLUDED.mejoras,
+         arreglos    = EXCLUDED.arreglos,
+         rendimiento = EXCLUDED.rendimiento,
+         otros       = EXCLUDED.otros,
+         published_at = EXCLUDED.published_at
+       RETURNING *`,
+      [slug, version, adiciones, mejoras, arreglos, rendimiento, otros, publishedAt]
+    );
+    return res.json({ success: true, changelog: rows[0] });
+  } catch (err) {
+    console.error('❌ Error en POST /ows-store/projects/:slug/changelog:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+
 
 // Guardar/Actualizar presentación (propietario o colaborador puede guardar)
 app.post('/biopresentations/save', async (req, res) => {

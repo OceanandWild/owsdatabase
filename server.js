@@ -15803,6 +15803,19 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     await syncOwsProjectRestrictionsTable().catch(() => {});
 
+    // Sync is_rework / is_unavailable flags in ows_project_restrictions based on new status
+    if (updates.status !== undefined) {
+      const newStatus = updates.status;
+      const isRework      = newStatus === 'rework';
+      const isUnavailable = newStatus === 'unavailable';
+      await pool.query(
+        `UPDATE ows_project_restrictions
+         SET is_rework = $1, is_unavailable = $2, updated_at = NOW()
+         WHERE LOWER(project_slug) = LOWER($3)`,
+        [isRework, isUnavailable, cleanSlug]
+      ).catch(e => console.warn('[PATCH projects] Flag sync warn:', e?.message));
+    }
+
     const adminSyncFields = [];
     const adminSyncVals  = [];
     if (updates.icon_url !== undefined) {

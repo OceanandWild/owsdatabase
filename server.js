@@ -16065,7 +16065,7 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
   }
   const { slug } = req.params;
   const body = req.body || {};
-  const allowed = ['name', 'icon_url', 'is_in_ows_store', 'notes', 'github_folder', 'status'];
+  const allowed = ['name', 'icon_url', 'is_in_ows_store', 'notes', 'github_folder'];
   const updates = {};
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key];

@@ -1,6 +1,6 @@
 {
     "name":  "ows-server",
-    "version":  "2026.6.5-t0306",
+    "version":  "2026.6.27-t1200",
     "main":  "server.js",
     "type":  "module",
     "scripts":  {

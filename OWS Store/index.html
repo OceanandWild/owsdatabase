@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="app-version" content="2026.6.9-events-card-rework">
+  <meta name="app-version" content="2026.6.27-t1200">
   <meta name="app-name" content="OWS Store">
-  <script>window.APP_VERSION = '2026.6.9-events-card-rework'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+  <script>window.APP_VERSION = '2026.6.27-t1200'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
   <title>OWS Store</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* ─────────────────────────────────────────────────────────────
-       ROOT TOKENS
-    ───────────────────────────────────────────────────────────── */
+    /* ---------------------------------------------------------------------- */
+    /* ROOT TOKENS                                                           */
+    /* ---------------------------------------------------------------------- */
     :root {
       --bg:          #0a0d11;
       --surface-0:   #0d1117;
@@ -55,9 +55,9 @@
       overflow: hidden;
     }
 
-    /* ─────────────────────────────────────────────────────────────
-       LAYOUT SHELL
-    ───────────────────────────────────────────────────────────── */
+    /* ---------------------------------------------------------------------- */
+    /* LAYOUT SHELL                                                          */
+    /* ---------------------------------------------------------------------- */
     .shell {
       display: flex;
       flex-direction: column;
@@ -65,9 +65,9 @@
       width: 100vw;
     }
 
-    /* ─────────────────────────────────────────────────────────────
-       TOP HEADER  (brand + search + actions)
-    ───────────────────────────────────────────────────────────── */
+    /* ---------------------------------------------------------------------- */
+    /* TOP HEADER  (brand + search + actions)                                 */
+    /* ---------------------------------------------------------------------- */
     .topbar {
       height: var(--topbar-h);
       min-height: var(--topbar-h);
@@ -222,9 +222,9 @@
 
     .op-topbar-btn:active { transform: translateY(0) scale(0.97); }
 
-    /* ─────────────────────────────────────────────────────────────
-       OCEAN PAY MODAL
-    ───────────────────────────────────────────────────────────── */
+    /* ---------------------------------------------------------------------- */
+    /* OCEAN PAY MODAL                                                        */
+    /* ---------------------------------------------------------------------- */
     .op-modal-backdrop {
       position: fixed;
       inset: 0;
@@ -253,7 +253,7 @@
       padding: 28px 28px 24px;
       position: relative;
       box-shadow: 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.05);
-      /* hidden by default — animated in */
+      /* hidden by default - animated in */
       opacity: 0;
       transform: scale(0.88) translateY(20px);
       transition:
@@ -417,12 +417,7 @@
       80%       { transform: scale(1.01) translateX(3px); }
     }
 
-    /* ─────────────────────────────────────────────────────────────
-       NAVBAR  (tabs: Explorar / Hub / Biblioteca …)
-    ───────────────────────────────────────────────────────────── */
-    /* ─────────────────────────────────────────────────────────────
-       NAVBAR  (tabs: Explorar / Hub / Biblioteca …) - PROFESSIONAL REWORK
-    ───────────────────────────────────────────────────────────── */
+    /* NAVBAR (tabs: Explorar / Hub / Biblioteca ...) */
     .navbar {
       height: var(--navbar-h);
       min-height: var(--navbar-h);
@@ -717,9 +712,9 @@
       border-radius: 100px;
     }
 
-    /* ─────────────────────────────────────────────────────────────
+    /* -------------------------------------------------
        OCEAN PAY shared inputs (reused in dropdown)
-    ───────────────────────────────────────────────────────────── */
+    ------------------------------------------------- */
     .op-input {
       width: 100%;
       background: var(--surface-2);
@@ -799,6 +794,209 @@
       height: 360px;
       background: var(--surface-1);
       isolation: isolate;
+    }
+
+    .explore-announcement {
+      position: relative;
+      margin: 14px 20px 0;
+      padding: 16px 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.10);
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(255,255,255,0.12), transparent 34%),
+        linear-gradient(135deg, rgba(15,23,42,0.92), rgba(2,8,20,0.88));
+      box-shadow: 0 22px 58px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);
+      display: none;
+      isolation: isolate;
+    }
+
+    .explore-announcement::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--announcement-gradient, linear-gradient(135deg, rgba(45,212,191,0.22), rgba(14,165,233,0.10)));
+      opacity: 0.95;
+      pointer-events: none;
+    }
+
+    .explore-announcement::after {
+      content: '';
+      position: absolute;
+      inset: 1px;
+      border-radius: 15px;
+      border: 1px solid rgba(255,255,255,0.06);
+      pointer-events: none;
+    }
+
+    .explore-announcement.open {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px 18px;
+      align-items: center;
+    }
+
+    .explore-announcement[data-layout="glass"] {
+      border-radius: 20px;
+      backdrop-filter: blur(14px);
+      border-color: rgba(255,255,255,0.14);
+      box-shadow: 0 18px 30px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+
+    .explore-announcement[data-layout="editorial"] {
+      border-radius: 16px;
+      box-shadow: 0 22px 58px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .explore-announcement[data-layout="signal"] {
+      border-radius: 18px;
+    }
+
+    .explore-announcement[data-layout="signal"] .explore-announcement-title {
+      font-size: clamp(20px, 3vw, 28px);
+      line-height: 1.08;
+    }
+
+    .explore-announcement[data-layout="signal"] .explore-announcement-text {
+      max-width: 38ch;
+    }
+
+    .explore-announcement[data-layout="signal"] .explore-announcement-badge {
+      background: rgba(255,255,255,0.10);
+      border-color: rgba(255,255,255,0.20);
+    }
+
+    .explore-announcement[data-layout="glass"] .explore-announcement-badge {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.22);
+    }
+
+    .explore-announcement[data-layout="gradient"] {
+      border-radius: 18px;
+    }
+
+    .explore-announcement[data-layout="gradient"] .explore-announcement-title {
+      letter-spacing: -0.04em;
+    }
+
+    .explore-announcement-copy {
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+    }
+
+    .explore-announcement-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 11px;
+      margin-bottom: 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      color: var(--announcement-accent, var(--cyan));
+      border: 1px solid color-mix(in srgb, var(--announcement-accent, var(--cyan)) 55%, transparent);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .explore-announcement-title {
+      margin: 0;
+      color: var(--ink-0);
+      font-size: clamp(22px, 3vw, 34px);
+      line-height: 1.04;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+
+    .explore-announcement-text {
+      margin-top: 9px;
+      color: var(--ink-1);
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 70ch;
+    }
+
+    .explore-announcement-title.rainbow-text,
+    .explore-announcement-text.rainbow-text {
+      background: linear-gradient(90deg, #ff5f6d, #ffb347, #2ee59d, #2f80ed, #9b51e0, #ff5f6d);
+      background-size: 260% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: storeRainbowText 4s linear infinite;
+    }
+
+    .explore-announcement.rainbow-mode::before {
+      background: linear-gradient(135deg, rgba(255,95,109,0.16), rgba(255,179,71,0.14), rgba(46,229,157,0.14), rgba(47,128,237,0.14), rgba(155,81,224,0.16));
+      background-size: 240% 240%;
+      animation: storeRainbowBg 8s linear infinite;
+    }
+
+    @keyframes storeRainbowText {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+
+    @keyframes storeRainbowBg {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+
+    .explore-announcement-actions {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .explore-announcement-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      background: var(--announcement-accent, var(--cyan));
+      color: #06121e;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 14px 30px color-mix(in srgb, var(--announcement-accent, var(--cyan)) 28%, transparent);
+      transition: transform 0.18s ease, filter 0.18s ease;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .explore-announcement-cta:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    .explore-announcement-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink-2);
+      font-size: 12px;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+    }
+
+    .explore-announcement-meta .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--announcement-accent, var(--cyan));
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--announcement-accent, var(--cyan)) 14%, transparent);
+      flex: 0 0 auto;
     }
 
     .featured-slide {
@@ -1923,6 +2121,106 @@
       50%      { box-shadow: 0 0 0 6px rgba(41,212,224,0);   transform: scale(1.15); }
     }
 
+    /* Dedicated events tab */
+    .events-page {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 6px 0 24px;
+    }
+    .events-page-hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 18px 18px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(41,212,224,0.14);
+      background:
+        radial-gradient(900px 220px at 20% 0%, rgba(41,212,224,0.12), transparent 60%),
+        linear-gradient(180deg, rgba(15,23,38,0.98) 0%, rgba(10,16,28,0.98) 100%);
+      box-shadow: 0 16px 38px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    .events-page-copy { min-width: 0; flex: 1; }
+    .events-page-kicker {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--cyan);
+      margin-bottom: 8px;
+    }
+    .events-page-title {
+      font-size: clamp(1.45rem, 2.5vw, 2.1rem);
+      line-height: 1.08;
+      font-weight: 900;
+      color: var(--ink-0);
+      margin-bottom: 6px;
+    }
+    .events-page-subtitle {
+      color: var(--ink-1);
+      font-size: 14px;
+      line-height: 1.6;
+      max-width: 72ch;
+    }
+    .events-page-stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+    }
+    .events-page-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--ink-1);
+      font-size: 11px;
+      font-family: var(--mono);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .events-page-stat strong {
+      color: var(--ink-0);
+      font-size: 12px;
+    }
+    .events-page-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 14px;
+    }
+    .events-page-grid .event-card {
+      background: linear-gradient(180deg, rgba(14,20,31,0.98) 0%, rgba(10,15,25,0.98) 100%);
+      border-color: rgba(255,255,255,0.06);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.24);
+    }
+    .events-page-grid .event-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.42), 0 0 0 1px rgba(41,212,224,0.12);
+    }
+    .events-page-grid .event-card .event-card-body { padding-top: 16px; }
+    .events-page-grid .event-card .event-card-title {
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+    .events-page-grid .event-card .event-card-desc { color: var(--ink-1); }
+    .events-page-grid .event-card .event-card-cover { aspect-ratio: 16 / 8.9; }
+    .events-page-empty {
+      padding: 18px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.03);
+      color: var(--ink-1);
+      font-size: 14px;
+    }
+
     /* Live + upcoming: 2-column card grid */
     .events-grid {
       display: grid;
@@ -2736,6 +3034,9 @@
     ───────────────────────────────────────────────────────────── */
     @media (max-width: 680px) {
       .topbar-search { display: none; }
+      .explore-announcement { margin: 10px 12px 0; padding: 14px 14px 15px; }
+      .explore-announcement.open { grid-template-columns: 1fr; }
+      .explore-announcement-actions { justify-content: flex-start; }
       .featured { height: 240px; margin: 10px 12px 0; }
       .featured-content { padding: 16px 18px 56px; max-width: 78%; }
       .featured-accent { left: 10px; top: 40px; bottom: 50px; }
@@ -4211,8 +4512,9 @@
 
     <!-- Actions -->
     <div class="topbar-actions">
+      <button class="topbar-btn" id="btn-whats-new" onclick="openOwsStoreChangelog()" style="display:none;"><i class="fas fa-sparkles"></i> ¿Qué hay de nuevo?</button>
       <button class="topbar-btn" onclick="syncNow()"><i class="fas fa-rotate"></i> Sync</button>
-      <button class="topbar-btn" onclick="toggleTheme()" id="theme-btn">☽</button>
+      <button class="topbar-btn" onclick="toggleTheme()" id="theme-btn">˜½</button>
 
       <!-- Ocean Pay -->
       <button class="op-topbar-btn" id="op-topbar-btn" onclick="toggleOPWidget()">
@@ -4241,10 +4543,13 @@
       <i class="fas fa-rotate"></i><span>Actualizaciones</span>
       <span class="nav-badge" id="update-badge" style="display:none;">!</span>
     </button>
+    <button class="nav-tab" id="nav-events" onclick="showSection('events', this)">
+      <i class="fas fa-calendar-star"></i><span>Eventos</span>
+    </button>
     <button class="nav-tab" id="nav-settings" onclick="showSection('settings', this)">
       <i class="fas fa-gear"></i><span>Configuraciones</span>
     </button>
-    <span class="navbar-version" id="app-version">v2026.6.9-events-card-rework</span>
+    <span class="navbar-version" id="app-version">v2026.6.27-t1200</span>
   </nav>
 
   <!-- ── MAIN ────────────────────────────────────────────────── -->
@@ -4255,26 +4560,7 @@
 
       <!-- ══════════════════ EXPLORE SECTION ══════════════════ -->
       <div class="section active" id="section-explore">
-
-        <!-- Events showcase (served by /ows-store/events) -->
-        <div class="top-header">
-          <div class="top-header-title">
-            <span class="top-header-bar"></span>
-            <div>
-              <div class="top-header-eyebrow">En vivo y próximos</div>
-              <h2>Eventos OWS</h2>
-              <p>Lanzamientos, actualizaciones y teasers del ecosistema.</p>
-            </div>
-          </div>
-          <div class="top-header-right" id="events-stat-slot"></div>
-        </div>
-
-        <div class="events-strip">
-          <div class="events-grid" id="explore-events">
-            <div class="events-empty"><i class="fas fa-satellite-dish"></i>Cargando eventos desde el servidor…</div>
-          </div>
-        </div>
-
+        <div class="explore-announcement" id="explore-announcement" aria-live="polite"></div>
         <!-- Featured carousel -->
         <div class="featured" id="featured-carousel">
           <!-- Slides injected by JS -->
@@ -4282,7 +4568,54 @@
 
       </div><!-- /explore -->
 
-      <!-- ══════════════════ HUB SECTION ══════════════════════ -->
+      <!-- ══════════════════ EVENTS SECTION ══════════════════════ -->
+      <div class="section" id="section-events">
+        <div class="events-page">
+          <div class="events-page-hero">
+            <div class="events-page-copy">
+              <div class="events-page-kicker"><i class="fas fa-calendar-star"></i> Archivo vivo y lanzamientos</div>
+              <h2 class="events-page-title">Eventos OWS</h2>
+              <p class="events-page-subtitle">Una vista dedicada para lanzamientos, actualizaciones y hitos del ecosistema, con cards más editoriales, un resumen más claro y acceso directo al archivo histórico.</p>
+            </div>
+            <div class="events-page-stats">
+              <div class="events-page-stat"><i class="fas fa-satellite-dish" style="color:var(--cyan);"></i> <strong id="events-live-count">0</strong> en vivo</div>
+              <div class="events-page-stat"><i class="fas fa-hourglass-half" style="color:var(--yellow);"></i> <strong id="events-upcoming-count">0</strong> próximos</div>
+              <div class="events-page-stat"><i class="fas fa-clock-rotate-left" style="color:var(--ink-2);"></i> <strong id="events-ended-count">0</strong> finalizados</div>
+            </div>
+          </div>
+
+          <div class="top-header" style="margin-bottom:0;">
+            <div class="top-header-title">
+              <span class="top-header-bar"></span>
+              <div>
+                <div class="top-header-eyebrow">En vivo y próximos</div>
+                <h2>Portada de eventos</h2>
+                <p>Lo más importante del ecosistema, ordenado por relevancia y cercanía.</p>
+              </div>
+            </div>
+            <div class="top-header-right">
+              <button class="events-section-stat" type="button" onclick="document.getElementById('events-ended-section').classList.toggle('open');">
+                <span class="pulse"></span>
+                <span>Ver finalizados</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="events-page-grid" id="events-grid">
+            <div class="events-page-empty"><i class="fas fa-satellite-dish"></i>Cargando eventos desde el servidor…</div>
+          </div>
+
+          <div class="events-ended-section" id="events-ended-section" style="display:none;">
+            <div class="section-header" style="padding-top:4px;margin-bottom:8px;">
+              <div class="section-header-left">
+                <h2>Eventos finalizados</h2>
+              </div>
+            </div>
+            <div class="events-ended-list" id="events-ended-list"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="section" id="section-hub">
         <div class="hub-header">
           <h1>Hub del Estudio</h1>
@@ -4446,9 +4779,18 @@
     </footer>
 
   </div><!-- /main -->
-</div><!-- /shell -->
+  </div><!-- /shell -->
 
-<script>
+  <style>
+  /* Preview flash (shared with Admin Panel) */
+  .preview-flash {
+    box-shadow: 0 6px 30px rgba(34,211,238,0.12), 0 0 60px rgba(34,211,238,0.04) inset;
+    transform: translateY(-3px) scale(1.002);
+    transition: box-shadow 0.45s, transform 0.28s;
+  }
+  </style>
+
+  <script>
 'use strict';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -4603,7 +4945,7 @@ const STATIC_PROJECTS = [
 ];
 
 /* Featured carousel slides */
-const FEATURED_SLIDES = [
+const FEATURED_SLIDES_FALLBACK = [
   { slug:'ocean-cinemas',   badge:'EXCLUSIVO',  breadcrumb:'Cine · Ocean and Wild Studios · Streaming',          title:'Ocean Cinemas',              desc:'Sumérgete en historias inmersivas y experiencias cinematográficas. Contenido exclusivo del estudio.',          bg:'./assets/ocean-cinemas.banner.png' },
   { slug:'ecoxion',         badge:'DISPONIBLE', breadcrumb:'Juego · Windows · Ecosistema',                       title:'Ecoxion',                    desc:'Explora un mundo de criaturas y ecosistemas digitales. Descubre, colecciona y da vida a tu propio entorno.',    bg:'./assets/ecoxion.banner.png' },
   { slug:'dinobox',         badge:'DISPONIBLE', breadcrumb:'Colección · Windows · Temporada',                    title:'DinoBox',                    desc:'Colecciona dinosaurios, completa expediciones y progresa en el pase de temporada.',                              bg:'./assets/dinobox.banner.png' },
@@ -4620,7 +4962,7 @@ const FEATURED_PLATFORM_ICONS = {
   cine:       'fa-solid fa-clapperboard',
   juego:      'fa-solid fa-gamepad',
   'ocean and wild studios': 'fa-solid fa-water',
-  colección:  'fa-solid fa-boxes-stacked',
+  'colección':  'fa-solid fa-boxes-stacked',
   coleccion:  'fa-solid fa-boxes-stacked',
   idle:       'fa-solid fa-infinity',
   estrategia: 'fa-solid fa-chess',
@@ -4633,6 +4975,8 @@ function _featuredChipIcon(label) {
   const key = String(label || '').trim().toLowerCase();
   return FEATURED_PLATFORM_ICONS[key] || 'fa-solid fa-circle-dot';
 }
+
+// Preview flash CSS was moved to a <style> tag before this script.
 
 let allProjects  = [];
 let currentSlide = 0;
@@ -4661,6 +5005,8 @@ function showSection(id, el) {
 
   if (id === 'updates') {
     renderUpdatesSection();
+  } else if (id === 'events') {
+    renderExploreEvents(_lastEventsList);
   } else if (id === 'library') {
     renderLibrarySection();
   }
@@ -4682,24 +5028,129 @@ function spawnRipple(btn) {
 /* ──────────────────────────────────────────────────────────────────
    FEATURED CAROUSEL
 ───────────────────────────────────────────────────────────────── */
-function buildCarousel() {
+async function loadFeaturedSlides() {
+  try {
+    const res = await fetch(`${API_URL}/ows-store/featured?nocache=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length) return data;
+  } catch (err) {
+    console.warn('featured feed fallback:', err?.message || err);
+  }
+  return FEATURED_SLIDES_FALLBACK;
+}
+
+async function loadExploreBanner() {
+  // Prefer the Admin Panel preview if it exists locally, so the Store can
+  // reflect color and rainbow changes immediately without waiting for API sync.
+  try {
+    const raw = localStorage.getItem('ows_store_latest_banner');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.include_in_ows_store && parsed.is_active) return parsed;
+    }
+  } catch (e) {
+    console.warn('local preview read failed', e);
+  }
+  try {
+    const res = await fetch(`${API_URL}/ows-store/banners?limit=1&nocache=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length) return data[0];
+  } catch (err) {
+    console.warn('announcement banner fallback:', err?.message || err);
+  }
+  return null;
+}
+
+function renderExploreBanner(banner) {
+  const el = document.getElementById('explore-announcement');
+  if (!el) return;
+  if (!banner) {
+    el.classList.remove('open');
+    el.innerHTML = '';
+    return;
+  }
+
+  const accent = banner.accent || 'var(--cyan)';
+  const secondary = banner.secondary || 'rgba(15,23,42,0.92)';
+  const layout = String(banner.layout || 'editorial').toLowerCase();
+  const bgImage = banner.background_url || banner.image_url || '';
+  const badgeText = banner.eyebrow || 'Anuncio';
+  const ctaLabel = banner.cta_label || 'Ver más';
+  const ctaUrl = banner.cta_url || '';
+  const styleConfig = banner.style_config || banner.visual_meta?.style_config || {};
+  const metaParts = [];
+  if (banner.project_names && banner.project_names.length) metaParts.push(banner.project_names[0]);
+  else if (banner.project_slugs && banner.project_slugs.length) metaParts.push(banner.project_slugs[0]);
+  if (banner.platforms && banner.platforms.length) metaParts.push(banner.platforms.slice(0, 2).join(' · '));
+
+  el.style.setProperty('--announcement-accent', accent);
+  el.style.setProperty('--announcement-gradient', layout === 'gradient'
+    ? `linear-gradient(135deg, color-mix(in srgb, ${accent} 20%, rgba(15,23,42,0.96)), color-mix(in srgb, ${secondary} 22%, rgba(15,23,42,0.94)), rgba(7,12,22,0.96))`
+    : layout === 'signal'
+      ? `linear-gradient(135deg, rgba(15,23,42,0.98), color-mix(in srgb, ${accent} 18%, rgba(15,23,42,0.94)) 44%, rgba(7,12,22,0.96))`
+      : layout === 'glass'
+        ? `linear-gradient(135deg, color-mix(in srgb, ${accent} 18%, rgba(15,23,42,0.95)), rgba(255,255,255,0.06) 42%, color-mix(in srgb, ${secondary} 12%, rgba(15,23,42,0.92)))`
+        : `linear-gradient(135deg, color-mix(in srgb, ${accent} 10%, rgba(15,23,42,0.96)), rgba(15,23,42,0.96) 56%, color-mix(in srgb, ${secondary} 14%, rgba(15,23,42,0.96)))`);
+  const overlayOpacity = layout === 'gradient' ? 0.74 : layout === 'signal' ? 0.82 : 0.88;
+  el.style.backgroundImage = bgImage ? `linear-gradient(90deg, rgba(2,8,20,${overlayOpacity}) 0%, rgba(2,8,20,0.68) 44%, rgba(2,8,20,0.28) 100%), url('${_escapeHtml(bgImage)}')` : '';
+  el.style.backgroundSize = bgImage ? 'cover' : '';
+  el.style.backgroundPosition = bgImage ? 'center center' : '';
+  el.dataset.layout = layout;
+  el.dataset.density = String(styleConfig.editorial_density || 'balanced');
+  el.dataset.weight = String(styleConfig.editorial_weight || 'balanced');
+  el.dataset.glassStrength = String(styleConfig.glass_strength || 'medium');
+  el.dataset.signalIntensity = String(styleConfig.signal_intensity || 'medium');
+  el.dataset.gradientIntensity = String(styleConfig.gradient_intensity || 'medium');
+  const titleColor = styleConfig.title_color || '#f8fafc';
+  const textColor = styleConfig.text_color || '#cbd5e1';
+  const titleRainbow = styleConfig.title_rainbow === true;
+  const textRainbow = styleConfig.text_rainbow === true;
+  const accentRainbow = styleConfig.accent_rainbow === true;
+  const secondaryRainbow = styleConfig.secondary_rainbow === true;
+  el.classList.toggle('rainbow-mode', accentRainbow || secondaryRainbow || titleRainbow || textRainbow);
+  el.classList.add('open');
+  // subtle flash to draw attention when preview is applied from admin localStorage
+  try {
+    el.classList.remove('preview-flash');
+    void el.offsetWidth;
+    el.classList.add('preview-flash');
+    setTimeout(() => el.classList.remove('preview-flash'), 700);
+  } catch (e) {}
+  const titleClass = layout === 'signal' ? 'explore-announcement-title compact' : 'explore-announcement-title';
+  const textClass = layout === 'signal' ? 'explore-announcement-text compact' : 'explore-announcement-text';
+  el.innerHTML = `
+    <div class="explore-announcement-copy">
+      <div class="explore-announcement-badge"><i class="fa-solid fa-bullhorn"></i>${_escapeHtml(badgeText)}</div>
+      <h2 class="${titleClass}${titleRainbow ? ' rainbow-text' : ''}" style="${titleRainbow ? '' : `color:${_escapeHtml(titleColor)};`}">${_escapeHtml(banner.title || 'Anuncio de OWS')}</h2>
+      <div class="${textClass}${textRainbow ? ' rainbow-text' : ''}" style="${textRainbow ? '' : `color:${_escapeHtml(textColor)};`}">${_escapeHtml(banner.description || 'Actualización rápida visible en OWS Store.')}</div>
+    </div>
+    <div class="explore-announcement-actions">
+      ${ctaUrl ? `<a class="explore-announcement-cta" href="${_escapeHtml(ctaUrl)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-right"></i>${_escapeHtml(ctaLabel)}</a>` : ''}
+      ${metaParts.length ? `<div class="explore-announcement-meta"><span class="dot"></span><span>${_escapeHtml(metaParts.join(' · '))}</span></div>` : ''}
+    </div>
+  `;
+}
+async function buildCarousel() {
   const container = document.getElementById('featured-carousel');
   if (!container) return;
 
   container.innerHTML = '';
 
-  FEATURED_SLIDES.forEach((slide, i) => {
+  const slides = await loadFeaturedSlides();
+
+  slides.forEach((slide, i) => {
     const div = document.createElement('div');
     div.className = 'featured-slide' + (i === 0 ? ' active' : '');
 
     const chips = String(slide.breadcrumb || '')
-      .split('·')
-      .map(s => s.trim())
+        .split('·')
       .filter(Boolean)
       .map(label => `<span class="featured-chip"><i class="${_featuredChipIcon(label)}"></i>${label}</span>`)
       .join('');
 
-    const total = FEATURED_SLIDES.length;
+    const total = slides.length;
     const num = String(i + 1).padStart(2, '0');
     const tot = String(total).padStart(2, '0');
 
@@ -4736,8 +5187,8 @@ function buildCarousel() {
   const nav = document.createElement('div');
   nav.className = 'featured-nav';
   nav.innerHTML = `
-    <button class="featured-arrow" aria-label="Anterior" onclick="setSlide((currentSlide - 1 + FEATURED_SLIDES.length) % FEATURED_SLIDES.length)"><i class="fa-solid fa-chevron-up"></i></button>
-    <button class="featured-arrow" aria-label="Siguiente" onclick="setSlide((currentSlide + 1) % FEATURED_SLIDES.length)"><i class="fa-solid fa-chevron-down"></i></button>
+    <button class="featured-arrow" aria-label="Anterior" onclick="setSlide((currentSlide - 1 + slides.length) % slides.length)"><i class="fa-solid fa-chevron-up"></i></button>
+    <button class="featured-arrow" aria-label="Siguiente" onclick="setSlide((currentSlide + 1) % slides.length)"><i class="fa-solid fa-chevron-down"></i></button>
   `;
   container.appendChild(nav);
 
@@ -4749,7 +5200,7 @@ function buildCarousel() {
   container.querySelectorAll('.featured-slide').forEach((s, i) => {
     s.addEventListener('click', (e) => {
       if (e.target.closest('button')) return;
-      openProjectDetail(FEATURED_SLIDES[i].slug);
+      openProjectDetail(slides[i].slug);
     });
   });
 
@@ -4757,9 +5208,10 @@ function buildCarousel() {
 }
 
 function setSlide(idx) {
-  if (idx < 0) idx = FEATURED_SLIDES.length - 1;
-  if (idx >= FEATURED_SLIDES.length) idx = 0;
   const slides = document.querySelectorAll('.featured-slide');
+  if (!slides.length) return;
+  if (idx < 0) idx = slides.length - 1;
+  if (idx >= slides.length) idx = 0;
   slides.forEach((s, i) => {
     s.classList.toggle('active', i === idx);
     const nowEl = s.querySelector('.featured-counter-now');
@@ -4783,7 +5235,8 @@ function setSlide(idx) {
 function startSlideTimer() {
   if (slideTimer) clearInterval(slideTimer);
   slideTimer = setInterval(() => {
-    setSlide((currentSlide + 1) % FEATURED_SLIDES.length);
+    const total = document.querySelectorAll('.featured-slide').length || FEATURED_SLIDES_FALLBACK.length;
+    setSlide((currentSlide + 1) % total);
   }, 5000);
 }
 
@@ -5252,6 +5705,7 @@ function openProjectModal(slug) {
       <!-- Tab bar -->
       <div class="proj-modal-tabs">
         <button class="proj-modal-tab active" id="pm-tab-info" onclick="pmSwitchTab('info')">Información</button>
+        <button class="proj-modal-tab" id="pm-tab-changelog" onclick="pmSwitchTab('changelog')">Novedades</button>
         <button class="proj-modal-tab" id="pm-tab-reviews" onclick="pmSwitchTab('reviews')">Opiniones</button>
       </div>
 
@@ -5280,6 +5734,13 @@ function openProjectModal(slug) {
         </div>
       </div>
 
+      <!-- Tab: Novedades -->
+      <div class="proj-tab-panel" id="pm-panel-changelog">
+        <div class="proj-ratings-section" id="proj-changelog-container" style="padding: 22px 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div class="skeleton" style="height:110px;border-radius:14px;"></div>
+        </div>
+      </div>
+
       <!-- Tab: Opiniones -->
       <div class="proj-tab-panel" id="pm-panel-reviews">
         <div class="proj-ratings-section" id="proj-reviews-container">
@@ -5293,6 +5754,7 @@ function openProjectModal(slug) {
 
   backdrop.classList.add('open');
   loadProjectReviews(slug);
+  loadProjectChangelog(slug);
   _fetchAndUpdateModalVersion(slug);
   // Asynchronously populate the cross-platform version card if visible
   if (isAndroidCompatible && isWindowsCompatible) {
@@ -5768,6 +6230,90 @@ document.addEventListener('click', () => {
   });
 });
 
+async function loadProjectChangelog(slug) {
+  const container = document.getElementById('proj-changelog-container');
+  if (!container) return;
+  container.innerHTML = '<div class="skeleton" style="height:110px;border-radius:14px;"></div>';
+
+  try {
+    const res = await fetch(`${API_URL}/ows-store/projects/${slug}/changelog?nocache=${Date.now()}`);
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+
+    if (!data.success || !data.changelog) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:36px 16px;color:var(--ink-2);">
+          <i class="fas fa-file-circle-exclamation" style="font-size:36px;opacity:0.25;display:block;margin-bottom:12px;"></i>
+          <div style="font-size:13px;">No hay notas de novedades disponibles para este proyecto.</div>
+        </div>`;
+      return;
+    }
+
+    const cl = data.changelog;
+    const version = cl.version || '1.0.0';
+    const dateStr = cl.published_at ? new Date(cl.published_at).toLocaleDateString('es-UY', { dateStyle: 'long' }) : '';
+
+    const categories = [
+      { name: 'Adiciones y Novedades', list: cl.adiciones || [], color: 'var(--green)', bg: 'rgba(63,185,80,0.1)', border: 'rgba(63,185,80,0.2)', icon: 'fa-circle-plus' },
+      { name: 'Mejoras Generales', list: cl.mejoras || [], color: 'var(--cyan)', bg: 'rgba(41,212,224,0.1)', border: 'rgba(41,212,224,0.2)', icon: 'fa-circle-up' },
+      { name: 'Arreglos y Correcciones', list: cl.arreglos || [], color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', icon: 'fa-circle-check' },
+      { name: 'Rendimiento y Optimización', list: cl.rendimiento || [], color: '#eab308', bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.2)', icon: 'fa-bolt' },
+      { name: 'Otros cambios', list: cl.otros || [], color: 'var(--ink-2)', bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.06)', icon: 'fa-circle-info' }
+    ];
+
+    let catsHtml = '';
+    let totalItems = 0;
+
+    categories.forEach(cat => {
+      if (cat.list.length === 0) return;
+      totalItems += cat.list.length;
+      const itemsHtml = cat.list.map(item => `
+        <li style="margin-bottom:8px; font-size:13px; color:var(--ink-1); line-height:1.55; display:flex; align-items:flex-start; gap:8px;">
+          <span style="color:${cat.color}; font-size:10px; margin-top:5px;">●</span>
+          <span>${_escapeHtml(item)}</span>
+        </li>
+      `).join('');
+
+      catsHtml += `
+        <div style="margin-bottom:20px; padding:16px; background:var(--surface-1); border:1px solid var(--border-mid); border-radius:12px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:${cat.color};">
+            <i class="fas ${cat.icon}"></i>
+            <span>${cat.name}</span>
+          </div>
+          <ul style="list-style:none; padding:0; margin:0;">
+            ${itemsHtml}
+          </ul>
+        </div>
+      `;
+    });
+
+    if (totalItems === 0) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:36px 16px;color:var(--ink-2);">
+          <i class="fas fa-file-circle-exclamation" style="font-size:36px;opacity:0.25;display:block;margin-bottom:12px;"></i>
+          <div style="font-size:13px;">No hay cambios registrados en la versión ${version}.</div>
+        </div>`;
+      return;
+    }
+
+    const headerBannerHtml = `
+      <div style="background: linear-gradient(135deg, rgba(41,212,224,0.12), rgba(15,23,42,0.4)); border: 1px solid var(--border-mid); border-radius: 16px; padding: 22px 24px; display: flex; flex-direction: column; gap: 8px; position:relative; overflow:hidden;">
+        <div style="position:absolute; right:-20px; top:-20px; font-size:120px; opacity:0.03; color:var(--cyan); pointer-events:none; font-weight:900;"><i class="fas fa-bullhorn"></i></div>
+        <div style="font-size:11px; font-weight:800; color:var(--cyan); text-transform:uppercase; letter-spacing:0.08em; display:flex; align-items:center; gap:6px;">
+          <i class="fas fa-bullhorn"></i> ¿Qué hay de nuevo?
+        </div>
+        <h2 style="margin:0; font-size:24px; font-weight:800; color:var(--ink-0);">Versión ${version}</h2>
+        ${dateStr ? `<div style="font-size:12px; color:var(--ink-2);">${dateStr}</div>` : ''}
+      </div>
+    `;
+
+    container.innerHTML = headerBannerHtml + `<div style="display:flex; flex-direction:column; gap:4px; margin-top:8px;">${catsHtml}</div>`;
+  } catch (err) {
+    console.error('Error fetching changelog:', err);
+    container.innerHTML = `<div style="color:var(--orange); font-size:13px; text-align:center;">Error al cargar novedades del proyecto.</div>`;
+  }
+}
+
 function openProjectDetail(slug) {
   openProjectModal(slug);
 }
@@ -5964,73 +6510,54 @@ function _buildEventMiniRow(e) {
 }
 
 function _renderEventsStat(liveCount, endedCount) {
-  const slot = document.getElementById('events-stat-slot');
-  if (!slot) return;
-  if (!liveCount && !endedCount) {
-    slot.innerHTML = '';
-    return;
-  }
-  slot.innerHTML = `
-    <div class="events-section-stat" title="Eventos en vivo y finalizados">
-      <span class="pulse"></span>
-      <span class="stat-num">${liveCount}</span><span class="stat-muted">en vivo</span>
-      ${endedCount ? `<span class="stat-sep">·</span><span class="stat-num">${endedCount}</span><span class="stat-muted">finalizados</span>` : ''}
-    </div>
-  `;
+  const liveCountEl = document.getElementById('events-live-count');
+  const upcomingCountEl = document.getElementById('events-upcoming-count');
+  const endedCountEl = document.getElementById('events-ended-count');
+  if (liveCountEl) liveCountEl.textContent = String(liveCount || 0);
+  if (endedCountEl) endedCountEl.textContent = String(endedCount || 0);
+  if (upcomingCountEl && !upcomingCountEl.dataset.manual) upcomingCountEl.textContent = '0';
 }
 
 function renderExploreEvents(events) {
-  const container = document.getElementById('explore-events');
-  if (!container) return;
-  container.innerHTML = '';
+  const eventsGrid = document.getElementById('events-grid');
+  const endedGrid = document.getElementById('events-ended-list');
+  const upcomingCountEl = document.getElementById('events-upcoming-count');
+  if (!eventsGrid && !endedGrid) return;
+  if (eventsGrid) eventsGrid.innerHTML = '';
+  if (endedGrid) endedGrid.innerHTML = '';
 
   const list = Array.isArray(events) ? events : [];
   _lastEventsList = list;
 
   if (!list.length) {
     _renderEventsStat(0, 0);
-    container.innerHTML = `<div class="events-empty"><i class="fas fa-calendar-star"></i>No hay eventos disponibles en este momento.</div>`;
+    if (eventsGrid) eventsGrid.innerHTML = `<div class="events-page-empty"><i class="fas fa-calendar-star"></i>No hay eventos disponibles en este momento.</div>`;
     return;
   }
 
-  const live   = list.filter((e) => String(e.phase || 'active') !== 'ended');
-  const ended  = list.filter((e) => String(e.phase) === 'ended');
+  const live = list.filter((e) => String(e.phase || 'active') !== 'ended');
+  const ended = list.filter((e) => String(e.phase) === 'ended');
+  const upcoming = list.filter((e) => String(e.phase || 'active') === 'upcoming');
 
   _renderEventsStat(live.length, ended.length);
-
-  // Live + upcoming: card grid
-  if (live.length) {
-    live.forEach((e, i) => container.appendChild(_buildEventCard(e, i)));
-  } else {
-    const note = document.createElement('div');
-    note.className = 'events-empty';
-    note.style.gridColumn = '1 / -1';
-    note.innerHTML = `<i class="fas fa-moon"></i>No hay eventos en vivo ahora mismo.`;
-    container.appendChild(note);
+  if (upcomingCountEl) {
+    upcomingCountEl.dataset.manual = '1';
+    upcomingCountEl.textContent = String(upcoming.length);
   }
 
-  // Ended (collapsible)
-  if (ended.length) {
-    const sec = document.createElement('div');
-    sec.className = 'events-ended-section';
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'events-ended-toggle';
-    btn.innerHTML = `<span>Eventos finalizados<span class="count">${ended.length}</span></span><i class="fa-solid fa-chevron-down chev"></i>`;
-    const listEl = document.createElement('div');
-    listEl.className = 'events-ended-list';
-    ended.forEach((e) => listEl.appendChild(_buildEventMiniRow(e)));
-    btn.onclick = () => {
-      const open = btn.classList.toggle('open');
-      listEl.classList.toggle('open', open);
-    };
-    sec.appendChild(btn);
-    sec.appendChild(listEl);
-    container.appendChild(sec);
+  if (live.length) {
+    if (eventsGrid) {
+      live.forEach((e, i) => eventsGrid.appendChild(_buildEventCard(e, i)));
+    }
+  } else {
+    if (eventsGrid) eventsGrid.innerHTML = `<div class="events-page-empty"><i class="fas fa-moon"></i>No hay eventos en vivo ahora mismo.</div>`;
+  }
+
+  if (ended.length && endedGrid) {
+    ended.forEach((e) => endedGrid.appendChild(_buildEventMiniRow(e)));
   }
 }
 
-/* ─── Event detail modal ─── */
 function _buildEventModalNode() {
   let bd = document.getElementById('event-modal-backdrop');
   if (bd) return bd;
@@ -6648,7 +7175,7 @@ function spawnBiomeParticle(biome) {
     particle.innerHTML = '💧';
     particle.style.fontSize = `${6 + Math.random() * 8}px`;
   } else if (biome.name === 'desert') {
-    particle.innerHTML = '☀️';
+    particle.innerHTML = '˜€ï¸';
     particle.style.fontSize = `${8 + Math.random() * 8}px`;
   } else {
     particle.innerHTML = '❄️';
@@ -6877,6 +7404,146 @@ function openFilters() {
    SYNC
 ───────────────────────────────────────────────────────────────── */
 function syncNow() { loadData(); }
+
+/* ──────────────────────────────────────────────────────────────────
+   OWS STORE SELF-UPDATE & CHANGELOG
+───────────────────────────────────────────────────────────────── */
+
+// State
+let owsStoreSelfUpdate = null; // { hasUpdate, latestVersion, installedVersion, release }
+let owsClCurrentOffset = 0;   // página actual en el historial de changelogs
+let owsClAllVersions = [];    // caché de changelogs cargados
+
+async function checkOwsStoreSelfUpdate() {
+  try {
+    const release = await fetchLatestReleaseForProject('ows-store', 'owsdatabase');
+    const latestVersion = release && release.tag_name ? release.tag_name.replace(/^v/, '') : null;
+    const installedVersion = window.APP_VERSION || '1.0.0';
+
+    if (!latestVersion) return;
+
+    const hasUpdate = _isStrictlyNewer(latestVersion, installedVersion);
+    owsStoreSelfUpdate = { hasUpdate, latestVersion, installedVersion, release };
+
+    // Botón "¿Qué hay de nuevo?" — siempre visible si hay changelog disponible
+    const btn = document.getElementById('btn-whats-new');
+    if (btn) btn.style.display = '';
+
+    // Actualiza la sección Actualizaciones si está visible
+    const sec = document.getElementById('section-updates');
+    if (sec && !sec.classList.contains('hidden') && sec.style.display !== 'none') {
+      renderUpdatesSection();
+    }
+
+    // Badge en el nav si hay update pendiente
+    const badge = document.getElementById('update-badge');
+    if (badge) badge.style.display = hasUpdate ? '' : 'none';
+  } catch (_) {
+    // silencioso: si falla la detección, no rompemos nada
+  }
+}
+
+// Offset 0 = versión más nueva, 1 = segunda más nueva, etc.
+async function loadOwsStoreChangelogPage(offset = 0) {
+  owsClCurrentOffset = offset;
+  const body = document.getElementById('ows-cl-modal-body');
+  const title = document.getElementById('ows-cl-modal-title');
+  const date = document.getElementById('ows-cl-modal-date');
+  const prevBtn = document.getElementById('ows-cl-load-prev');
+  if (!body) return;
+
+  body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--ink-2,#64748b)"><i class="fas fa-spinner fa-spin" style="font-size:24px;"></i></div>';
+
+  try {
+    // Cargar historial si no está cacheado
+    if (owsClAllVersions.length === 0) {
+      const res = await fetch(`${API_URL}/ows-store/projects/ows-store/changelogs?limit=20&nocache=${Date.now()}`);
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      owsClAllVersions = Array.isArray(data.changelogs) ? data.changelogs : [];
+    }
+
+    if (owsClAllVersions.length === 0) {
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--ink-2,#64748b);font-size:13px;">No hay novedades disponibles todavía.</div>';
+      if (title) title.textContent = 'OWS Store';
+      if (prevBtn) prevBtn.style.display = 'none';
+      return;
+    }
+
+    const cl = owsClAllVersions[offset];
+    if (!cl) {
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--ink-2,#64748b);font-size:13px;">No hay más versiones anteriores.</div>';
+      if (prevBtn) prevBtn.style.display = 'none';
+      return;
+    }
+
+    // Header
+    if (title) title.textContent = `Versión ${cl.version || '?'}`;
+    if (date) {
+      const d = cl.published_at ? new Date(cl.published_at).toLocaleDateString('es-UY', { dateStyle: 'long' }) : '';
+      date.textContent = d;
+    }
+    if (prevBtn) prevBtn.style.display = offset + 1 < owsClAllVersions.length ? '' : 'none';
+
+    // Renderizar categorías (mismo sistema que loadProjectChangelog)
+    const categories = [
+      { name: 'Adiciones y Novedades', list: cl.adiciones || [], color: 'var(--green,#3fb950)', icon: 'fa-circle-plus' },
+      { name: 'Mejoras Generales',     list: cl.mejoras   || [], color: 'var(--cyan,#29d4e0)',  icon: 'fa-circle-up' },
+      { name: 'Arreglos y Correcciones', list: cl.arreglos || [], color: '#ef4444', icon: 'fa-circle-check' },
+      { name: 'Rendimiento y Optimización', list: cl.rendimiento || [], color: '#eab308', icon: 'fa-bolt' },
+      { name: 'Otros cambios',         list: cl.otros     || [], color: 'var(--ink-2,#64748b)', icon: 'fa-circle-info' }
+    ];
+
+    let html = '';
+    let totalItems = 0;
+
+    categories.forEach(cat => {
+      if (!cat.list.length) return;
+      totalItems += cat.list.length;
+      html += `
+        <div style="margin-bottom:16px;padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:${cat.color};">
+            <i class="fas ${cat.icon}"></i><span>${cat.name}</span>
+          </div>
+          <ul style="list-style:none;padding:0;margin:0;">
+            ${cat.list.map(item => `
+              <li style="margin-bottom:6px;font-size:13px;color:var(--ink-1,#cbd5e1);line-height:1.5;display:flex;align-items:flex-start;gap:7px;">
+                <span style="color:${cat.color};font-size:9px;margin-top:5px;flex-shrink:0;">●</span>
+                <span>${_escapeHtml(item)}</span>
+              </li>`).join('')}
+          </ul>
+        </div>`;
+    });
+
+    if (totalItems === 0) {
+      html = '<div style="text-align:center;padding:30px;color:var(--ink-2,#64748b);font-size:13px;">Sin cambios registrados en esta versión.</div>';
+    }
+
+    // Indicador de versión anterior si no es la más reciente
+    if (offset > 0) {
+      html = `<div style="padding:8px 12px;border-radius:8px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);font-size:11px;color:rgba(99,102,241,0.8);margin-bottom:16px;text-align:center;">
+        <i class="fas fa-clock-rotate-left"></i> Versión anterior · <button onclick="loadOwsStoreChangelogPage(0)" style="background:none;border:none;color:rgba(99,102,241,0.9);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">Ver la más reciente</button>
+      </div>` + html;
+    }
+
+    body.innerHTML = html;
+  } catch (err) {
+    body.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;font-size:13px;">Error al cargar el changelog.</div>`;
+  }
+}
+
+function openOwsStoreChangelog() {
+  owsClCurrentOffset = 0;
+  owsClAllVersions = []; // siempre fresco al abrir
+  const backdrop = document.getElementById('ows-store-changelog-backdrop');
+  if (backdrop) backdrop.style.display = 'flex';
+  loadOwsStoreChangelogPage(0);
+}
+
+function closeOwsStoreChangelog() {
+  const backdrop = document.getElementById('ows-store-changelog-backdrop');
+  if (backdrop) backdrop.style.display = 'none';
+}
 
 /* ──────────────────────────────────────────────────────────────────
    INSTALLER & UPDATES MANAGEMENT (OWS SYSTEM)
@@ -7303,11 +7970,45 @@ function renderUpdatesSection() {
     </div>
   </div>`;
 
+  // ── Tarjeta destacada de OWS Store (self-update) ──────────────────────────
+  let owsStoreBannerHtml = '';
+  if (owsStoreSelfUpdate) {
+    const { hasUpdate, latestVersion, installedVersion } = owsStoreSelfUpdate;
+    if (hasUpdate) {
+      owsStoreBannerHtml = `
+        <div style="margin:20px 20px 0; padding:18px 20px; background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12)); border:1.5px solid rgba(99,102,241,0.45); border-radius:16px; position:relative; overflow:hidden;">
+          <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(135deg,rgba(99,102,241,0.07),transparent);border-radius:16px;"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;position:relative;">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(139,92,246,0.25));border:1px solid rgba(99,102,241,0.4);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏪</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px;">
+                  <h4 style="margin:0;font-size:14px;font-weight:700;color:var(--ink-0);">OWS Store</h4>
+                  <span style="font-size:10px;font-weight:700;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;padding:2px 7px;border-radius:20px;letter-spacing:0.03em;">NUEVA VERSIÓN</span>
+                </div>
+                <div style="font-size:11px;color:var(--ink-2);line-height:1.5;">
+                  Instalada: <span style="font-weight:600;color:var(--ink-1);">${installedVersion}</span>
+                  &nbsp;→&nbsp;
+                  Disponible: <span style="font-weight:700;color:#a5b4fc;">${latestVersion}</span>
+                </div>
+                <div style="font-size:11px;color:rgba(99,102,241,0.75);margin-top:4px;"><i class="fas fa-info-circle"></i> Descarga la nueva versión desde el sitio web de OWS Store.</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+              <button onclick="openOwsStoreChangelog()" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.35);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:600;color:#a5b4fc;cursor:pointer;white-space:nowrap;">
+                <i class="fas fa-sparkles"></i> ¿Qué hay de nuevo?
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }
+  }
+
   const installedList = [...installedProjectsMap.entries()].filter(([_, status]) => status.installed);
 
   if (installedList.length === 0) {
-    container.innerHTML = header + `
-      <div class="updates-empty">
+    container.innerHTML = header + owsStoreBannerHtml + `
+      <div class="updates-empty" style="margin-top:${owsStoreSelfUpdate?.hasUpdate ? '14px' : '0'}">
         <div class="library-empty-icon"><i class="fas fa-rotate" style="color:var(--ink-2);font-size:36px;"></i></div>
         <h3 style="font-size:15px;font-weight:700;color:var(--ink-1);margin-bottom:5px;">Sin aplicaciones instaladas</h3>
         <p style="font-size:13px;color:var(--ink-2);">Instala aplicaciones desde Explorar para gestionarlas aquí.</p>
@@ -7350,7 +8051,7 @@ function renderUpdatesSection() {
   });
   listHtml += '</div>';
 
-  container.innerHTML = header + listHtml;
+  container.innerHTML = header + owsStoreBannerHtml + listHtml;
 }
 
 function renderLibrarySection() {
@@ -7436,6 +8137,9 @@ function triggerManualUpdatesCheck() {
       btn.disabled = false;
     }
   });
+
+  // También re-chequea si hay update de OWS Store mismo
+  checkOwsStoreSelfUpdate();
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -7490,10 +8194,14 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Build carousel
+  loadExploreBanner().then(renderExploreBanner);
   buildCarousel();
 
   // Load projects from API
   loadData();
+
+  // Check OWS Store self-update in background (non-blocking)
+  setTimeout(() => checkOwsStoreSelfUpdate(), 2500);
 
   // Escape key closes Ocean Pay modal
   document.addEventListener('keydown', function(e) {
@@ -7793,5 +8501,33 @@ async function fetchLatestAndroidRelease(repo, limit = 15) {
   </div>
 </div>
 
+<!-- ══════════════════ OWS STORE SELF-CHANGELOG MODAL ══════════════════ -->
+<div id="ows-store-changelog-backdrop" style="display:none; position:fixed; inset:0; z-index:500; align-items:center; justify-content:center; padding:16px; background:rgba(2,8,20,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);" onclick="if(event.target===this)closeOwsStoreChangelog()">
+  <div style="background:var(--surface-0,#0f172a); border:1px solid rgba(99,102,241,0.35); border-radius:20px; width:100%; max-width:560px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 0 60px rgba(99,102,241,0.18), 0 20px 60px rgba(0,0,0,0.6);">
+    <!-- Header -->
+    <div style="padding:22px 24px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; align-items:flex-start; gap:14px; flex-shrink:0;">
+      <div style="width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.2)); border:1px solid rgba(99,102,241,0.35); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🏪</div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:rgba(99,102,241,0.85); margin-bottom:3px;">OWS Store · Novedades</div>
+        <div style="font-size:18px; font-weight:700; color:var(--ink-0,#f1f5f9);" id="ows-cl-modal-title">Cargando...</div>
+        <div style="font-size:12px; color:var(--ink-2,#64748b); margin-top:2px;" id="ows-cl-modal-date"></div>
+      </div>
+      <button onclick="closeOwsStoreChangelog()" style="background:none;border:none;color:var(--ink-2,#64748b);font-size:18px;cursor:pointer;padding:4px;line-height:1;flex-shrink:0;">✕</button>
+    </div>
+    <!-- Body -->
+    <div id="ows-cl-modal-body" style="flex:1; overflow-y:auto; padding:20px 24px; min-height:0;">
+      <div style="text-align:center;padding:40px;color:var(--ink-2,#64748b)"><i class="fas fa-spinner fa-spin" style="font-size:24px;"></i></div>
+    </div>
+    <!-- Footer -->
+    <div style="padding:14px 24px; border-top:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-shrink:0;">
+      <button id="ows-cl-load-prev" onclick="loadOwsStoreChangelogPage(owsClCurrentOffset + 1)" style="background:none;border:1px solid var(--border-mid,rgba(255,255,255,0.1));border-radius:8px;padding:7px 14px;font-size:12px;color:var(--ink-1,#94a3b8);cursor:pointer;">
+        <i class="fas fa-clock-rotate-left"></i> Versiones anteriores
+      </button>
+      <button onclick="closeOwsStoreChangelog()" style="background:linear-gradient(135deg,#6366f1,#7c3aed);border:none;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:600;color:#fff;cursor:pointer;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
+

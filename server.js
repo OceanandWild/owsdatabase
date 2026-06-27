@@ -15826,6 +15826,10 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
       adminSyncVals.push(updates.name);
       adminSyncFields.push(`name = $${adminSyncVals.length}`);
     }
+    if (updates.status !== undefined) {
+      adminSyncVals.push(updates.status);
+      adminSyncFields.push(`status = $${adminSyncVals.length}`);
+    }
     if (adminSyncFields.length > 0) {
       adminSyncVals.push(cleanSlug);
       await pool.query(
@@ -15966,14 +15970,16 @@ app.get('/ows-store/admin-projects', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   try {
     const { rows } = await pool.query(`
-      SELECT
+       SELECT
         ap.id, ap.slug, ap.name, ap.icon_url, ap.is_in_ows_store, ap.notes,
         ap.github_folder,
         ap.added_by, ap.added_at, ap.updated_at,
         b.is_backed_up, b.backup_date, b.last_checked_at,
-        b.last_check_status, b.last_check_message, b.verified_by
+        b.last_check_status, b.last_check_message, b.verified_by,
+        p.status
       FROM ows_admin_projects ap
-      LEFT JOIN ows_project_backups b ON b.project_slug = ap.slug
+      LEFT JOIN ows_project_backups b ON LOWER(b.project_slug) = LOWER(ap.slug)
+      LEFT JOIN ows_projects p ON LOWER(p.slug) = LOWER(ap.slug)
       ORDER BY ap.is_in_ows_store DESC, ap.name ASC
     `);
     // Resolver icon_url para que el cliente reciba siempre una URL absoluta
@@ -16015,6 +16021,21 @@ app.post('/ows-store/admin-projects', async (req, res) => {
        RETURNING *`,
       [slug, name, icon_url, is_in_ows_store, notes, github_folder, adminName]
     );
+    // Also sync to ows_projects and restrictions
+    const initialStatus = body.status ? normalizeOwsProjectStatus(body.status) : 'launched';
+    await pool.query(
+      `UPDATE ows_projects SET status = $1 WHERE LOWER(slug) = LOWER($2)`,
+      [initialStatus, slug]
+    );
+    const isRework = initialStatus === 'rework';
+    const isUnavailable = initialStatus === 'unavailable';
+    await pool.query(
+      `INSERT INTO ows_project_restrictions (project_slug, is_rework, is_unavailable)
+       VALUES ($1, $2, $3) ON CONFLICT (project_slug) DO UPDATE
+       SET is_rework = EXCLUDED.is_rework, is_unavailable = EXCLUDED.is_unavailable, updated_at = NOW()`,
+      [slug, isRework, isUnavailable]
+    ).catch(() => {});
+
     await pool.query(
       `INSERT INTO ows_project_backups (project_slug, last_check_status)
        VALUES ($1, 'pending') ON CONFLICT (project_slug) DO NOTHING`,
@@ -16044,7 +16065,7 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
   }
   const { slug } = req.params;
   const body = req.body || {};
-  const allowed = ['name', 'icon_url', 'is_in_ows_store', 'notes', 'github_folder'];
+  const allowed = ['name', 'icon_url', 'is_in_ows_store', 'notes', 'github_folder', 'status'];
   const updates = {};
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key];
@@ -16107,6 +16128,25 @@ app.patch('/ows-store/admin-projects/:slug', async (req, res) => {
         `UPDATE ows_projects SET ${syncFields.join(', ')} WHERE LOWER(slug) = LOWER($${syncValues.length})`,
         syncValues
       );
+    }
+
+    // Synchronize status to ows_projects if provided
+    if (body.status !== undefined) {
+      const normalizedStatus = normalizeOwsProjectStatus(body.status);
+      await pool.query(
+        `UPDATE ows_projects SET status = $1, last_update = NOW() WHERE LOWER(slug) = LOWER($2)`,
+        [normalizedStatus, slug]
+      );
+      
+      // Sync restrictions
+      const isRework      = normalizedStatus === 'rework';
+      const isUnavailable = normalizedStatus === 'unavailable';
+      await pool.query(
+        `UPDATE ows_project_restrictions
+         SET is_rework = $1, is_unavailable = $2, updated_at = NOW()
+         WHERE LOWER(project_slug) = LOWER($3)`,
+        [isRework, isUnavailable, slug]
+      ).catch(e => console.warn('[Admin PATCH projects] Flag sync warn:', e?.message));
     }
 
     // Detect details for verbose admin_project notifications

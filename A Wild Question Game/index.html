@@ -1308,7 +1308,11 @@ const gameData = {
             { id: "medusa_luna", name: "Medusa Luna", traits: { tipo: "Cnidario", habitat: "Costero", tamano: "Pequeno", dieta: "Plancton", movilidad: "Flotante", peligro: "Bajo", social: "Colonia" } },
             { id: "pez_payaso", name: "Pez Payaso", traits: { tipo: "Pez", habitat: "Arrecife", tamano: "Pequeno", dieta: "Omnivoro", movilidad: "Rapida", peligro: "Bajo", social: "Pareja" } },
             { id: "orca", name: "Orca", traits: { tipo: "Mamifero", habitat: "Oceanico", tamano: "Grande", dieta: "Carnivoro", movilidad: "Muy rapida", peligro: "Alto", social: "Manada" } },
-            { id: "cangrejo", name: "Cangrejo Azul", traits: { tipo: "Crustaceo", habitat: "Costero", tamano: "Pequeno", dieta: "Omnivoro", movilidad: "Lenta", peligro: "Bajo", social: "Colonia" } }
+            { id: "cangrejo", name: "Cangrejo Azul", traits: { tipo: "Crustaceo", habitat: "Costero", tamano: "Pequeno", dieta: "Omnivoro", movilidad: "Lenta", peligro: "Bajo", social: "Colonia" } },
+            { id: "narval", name: "Narval", traits: { tipo: "Mamifero", habitat: "Polar", tamano: "Grande", dieta: "Carnivoro", movilidad: "Rapida", peligro: "Bajo", social: "Manada" } },
+            { id: "calamar_gigante", name: "Calamar Gigante", traits: { tipo: "Molusco", habitat: "Oceanico", tamano: "Grande", dieta: "Carnivoro", movilidad: "Rapida", peligro: "Medio", social: "Solitario" } },
+            { id: "estrella_mar", name: "Estrella de Mar", traits: { tipo: "Equinodermo", habitat: "Arrecife", tamano: "Pequeno", dieta: "Carnivoro", movilidad: "Lenta", peligro: "Bajo", social: "Solitario" } },
+            { id: "pez_espada", name: "Pez Espada", traits: { tipo: "Pez", habitat: "Oceanico", tamano: "Grande", dieta: "Carnivoro", movilidad: "Muy rapida", peligro: "Medio", social: "Solitario" } }
         ]
     },
     inventos_historicos: {
@@ -1325,7 +1329,11 @@ const gameData = {
             { id: "pc", name: "Computadora Personal", traits: { era: "Siglo XX", energia: "Electrica", uso: "Computacion", portatil: "No", estado: "Digital", impacto: "Global", entorno: "Hogar" } },
             { id: "internet", name: "Internet", traits: { era: "Siglo XX", energia: "Red", uso: "Comunicacion", portatil: "No", estado: "Digital", impacto: "Global", entorno: "Infraestructura" } },
             { id: "smartphone", name: "Smartphone", traits: { era: "Siglo XXI", energia: "Electrica", uso: "Comunicacion", portatil: "Si", estado: "Digital", impacto: "Global", entorno: "Movilidad" } },
-            { id: "impresora_3d", name: "Impresora 3D", traits: { era: "Siglo XXI", energia: "Electrica", uso: "Industria", portatil: "No", estado: "Digital", impacto: "Especializado", entorno: "Laboratorio" } }
+            { id: "impresora_3d", name: "Impresora 3D", traits: { era: "Siglo XXI", energia: "Electrica", uso: "Industria", portatil: "No", estado: "Digital", impacto: "Especializado", entorno: "Laboratorio" } },
+            { id: "telescopio", name: "Telescopio", traits: { era: "Renacimiento", energia: "Manual", uso: "Ciencia", portatil: "Si", estado: "Analogico", impacto: "Global", entorno: "Laboratorio" } },
+            { id: "vacuna", name: "Vacuna", traits: { era: "Revolucion Industrial", energia: "Biologico", uso: "Salud", portatil: "Si", estado: "Hibrido", impacto: "Global", entorno: "Laboratorio" } },
+            { id: "gps", name: "GPS", traits: { era: "Siglo XX", energia: "Electrica", uso: "Navegacion", portatil: "Si", estado: "Digital", impacto: "Global", entorno: "Movilidad" } },
+            { id: "energia_solar", name: "Panel Solar", traits: { era: "Siglo XXI", energia: "Solar", uso: "Industria", portatil: "No", estado: "Digital", impacto: "Especializado", entorno: "Infraestructura" } }
         ]
     }
 };
@@ -1352,7 +1360,9 @@ const questions = {
         { text: "¿Tiene movimiento flotante?", trait: "movilidad", value: "Flotante" },
         { text: "¿Su nivel de peligro es alto?", trait: "peligro", value: "Alto" },
         { text: "¿Suele vivir en manada?", trait: "social", value: "Manada" },
-        { text: "¿Suele vivir en colonia?", trait: "social", value: "Colonia" }
+        { text: "¿Suele vivir en colonia?", trait: "social", value: "Colonia" },
+        { text: "¿Es un equinodermo?", trait: "tipo", value: "Equinodermo" },
+        { text: "¿Es de nivel de peligro medio?", trait: "peligro", value: "Medio" }
     ],
     inventos_historicos: [
         { text: "¿Es un invento de la antiguedad?", trait: "era", value: "Antiguedad" },
@@ -1374,7 +1384,10 @@ const questions = {
         { text: "¿Es analogico?", trait: "estado", value: "Analogico" },
         { text: "¿Tiene impacto global?", trait: "impacto", value: "Global" },
         { text: "¿Se usa principalmente en laboratorio?", trait: "entorno", value: "Laboratorio" },
-        { text: "¿Se usa principalmente en movilidad?", trait: "entorno", value: "Movilidad" }
+        { text: "¿Se usa principalmente en movilidad?", trait: "entorno", value: "Movilidad" },
+        { text: "¿Su uso principal es navegacion?", trait: "uso", value: "Navegacion" },
+        { text: "¿Su uso principal es ciencia?", trait: "uso", value: "Ciencia" },
+        { text: "¿Usa energía solar?", trait: "energia", value: "Solar" }
     ]
 };
         // Estado del juego
@@ -1392,6 +1405,8 @@ let gameState = {
     extraQuestionAwarded  : false, // se activa cuando el rival salta
     p1ReminderSeen: false,   // ← nueva
     ultraGuided: true,
+    player1FailedGuesses: 0,
+    player2FailedGuesses: 0,
 };
 
 const onlineState = {
@@ -2053,12 +2068,32 @@ function selectCategory(category) {
     }
 }
 
-function renderCharacters() {
+function renderCharacters(filterQuery) {
+    if (filterQuery === undefined) filterQuery = '';
     const categoryData = gameData[gameState.currentCategory];
     const grid = document.getElementById('characterGrid');
     grid.innerHTML = '';
-    
-    categoryData.characters.forEach(character => {
+
+    // Agregar buscador si no existe
+    let searchInput = document.getElementById('char-search-input');
+    if (!searchInput) {
+        searchInput = document.createElement('input');
+        searchInput.id = 'char-search-input';
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Buscar personaje...';
+        searchInput.style.cssText = 'width:100%;padding:10px 14px;margin-bottom:16px;background:rgba(0,255,255,0.07);border:1px solid rgba(0,255,255,0.3);border-radius:10px;color:#fff;font-size:1rem;outline:none;font-family:inherit;';
+        searchInput.addEventListener('input', () => renderCharacters(searchInput.value));
+        grid.parentElement.insertBefore(searchInput, grid);
+    } else {
+        searchInput = document.getElementById('char-search-input');
+    }
+    const filterText = (typeof filterQuery === 'string' ? filterQuery : '') || (searchInput ? searchInput.value : '');
+
+    const filteredChars = filterText
+        ? categoryData.characters.filter(c => c.name.toLowerCase().includes(filterText.toLowerCase()))
+        : categoryData.characters;
+
+    filteredChars.forEach(character => {
         const card = document.createElement('div');
         card.className = 'character-card';
         card.onclick = () => selectCharacter(character);
@@ -2076,7 +2111,6 @@ function renderCharacters() {
         grid.appendChild(card);
     });
 }
-
 function selectCharacter(character) {
     if (isOnlineMode()) {
         const socket = ensureOnlineSocket();
@@ -2192,6 +2226,15 @@ function autoEliminateForAsker(trait, value, answer){
 function consumeQuestion(){
     gameState.questionsLeftThisTurn--;
     updateQuestionCountBadge();
+    if (gameState.availableQuestions.length === 0) {
+        // Se agotaron todas las preguntas — empate
+        showEventToast('¡Se agotaron todas las preguntas! Termina el turno actual para llegar al empate.', 'Sin preguntas');
+        // Deshabilitar el botón de preguntas
+        const qBtn = document.getElementById('questionButtons');
+        if (qBtn) qBtn.style.display = 'none';
+        // Forzar fin de turno cuando el jugador termine de responder la pregunta actual
+        gameState.questionsLeftThisTurn = 0;
+    }
     if(gameState.questionsLeftThisTurn <= 0){
         endTurn();
     }
@@ -2481,19 +2524,25 @@ function endTurn() {
     // 1) si aún le quedan preguntas en este turno, no hacemos nada
     if (gameState.questionsLeftThisTurn > 0) return;
 
-    // 2) cambiamos de jugador
+    // 2) comprobar empate por preguntas agotadas
+    if (gameState.availableQuestions.length === 0 && gameState.questionsLeftThisTurn === 0) {
+        showDrawScreen();
+        return;
+    }
+
+    // 3) cambiamos de jugador
     gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
 
-    // 3) asignamos preguntas para el nuevo turno
+    // 4) asignamos preguntas para el nuevo turno
     gameState.questionsLeftThisTurn = gameState.extraQuestionAwarded ? 2 : 1;
     gameState.extraQuestionAwarded = false;
 
-    // 4) mostramos la pantalla de cambio (para que no vea el rival)
+    // 5) mostramos la pantalla de cambio (para que no vea el rival)
     showTurnScreen();
     showEventToast(`Cambio de turno: ahora juega el Jugador ${gameState.currentPlayer}.`, 'Turno');
     updateGuidePanel();
 
-    // 5) **auto-iniciamos** el turno del jugador que toca
+    // 6) **auto-iniciamos** el turno del jugador que toca
     setTimeout(() => {
         hideTurnScreen();
         updateGameDisplay();          // oculta/muestra paneles
@@ -2502,6 +2551,25 @@ function endTurn() {
         document.getElementById('currentQuestion').textContent = `Turno del Jugador ${gameState.currentPlayer}: elige tu pregunta.`;
         updateGuidePanel();
     }, 800); // 0,8 s para que se lea el mensaje
+}
+
+function showDrawScreen() {
+    hideAllScreens();
+    const victory = document.getElementById('victoryScreen');
+    if (!victory) return;
+    victory.style.display = 'flex';
+    const title = victory.querySelector('.victory-title') || victory.querySelector('h1');
+    const sub   = victory.querySelector('.victory-subtitle') || victory.querySelector('p');
+    if (title) title.textContent = '¡EMPATE!';
+    if (sub)   sub.textContent  = 'Se agotaron las preguntas sin que nadie adivinara.';
+    if (typeof confetti !== 'undefined') {
+        confetti({ particleCount: 60, spread: 50, colors: ['#aaa', '#fff', '#888'] });
+    }
+}
+
+function hideAllScreens() {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    hideTurnScreen();
 }
 
 function startTurn() {
@@ -2513,6 +2581,11 @@ function startTurn() {
     updateGuidePanel();
 }
 
+function _normalizeGuess(s) {
+    return String(s || '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+}
 async function guessCharacter(){
     if (isOnlineMode()) {
         const expectedTurn = onlineState.role === 'host' ? 1 : 2;
@@ -2542,10 +2615,17 @@ async function guessCharacter(){
     const guess = await uiPrompt(msg, '', 'Adivinar personaje');
     if(!guess) return;
 
-    if(guess.trim().toLowerCase() === opponent.name.toLowerCase()){
+    if (_normalizeGuess(guess) === _normalizeGuess(opponent.name)) {
         showVictoryScreen(currentPlayer);
-    }else{
-        await uiAlert(`❌ Incorrecto. El personaje no era “${guess}”.`, 'Intento fallido');
+    } else {
+        // Penalizacion: pierde su turno Y el rival gana pregunta extra
+        const failKey = currentPlayer === 1 ? 'player1FailedGuesses' : 'player2FailedGuesses';
+        gameState[failKey] = (gameState[failKey] || 0) + 1;
+        if (gameState[failKey] >= 2) {
+            showEventToast(`!Jugador ${currentPlayer} tiene ${gameState[failKey]} intentos fallidos! El rival gana pregunta extra.`, 'Penalizacion');
+            gameState.extraQuestionAwarded = true;
+        }
+        await uiAlert(`❌ Incorrecto. El personaje no era "${guess}".`, 'Intento fallido');
         endTurn();
     }
 }
@@ -2579,7 +2659,9 @@ function resetGame() {
         questionsLeftThisTurn: 1,
         extraQuestionAwarded: false,
         p1ReminderSeen: false,
-        ultraGuided: keepUltraGuide
+        ultraGuided: keepUltraGuide,
+        player1FailedGuesses: 0,
+        player2FailedGuesses: 0,
     };
 }
 
@@ -2664,7 +2746,12 @@ document.addEventListener('keydown', function(e) {
                 }
             }
         } else if (e.key === 'Escape') {
-            endTurn();
+            // Solo si Ultra guiado esta OFF, y no hay respuesta pendiente, y no quedan preguntas
+            if (!gameState.ultraGuided) return; // con UG off los botones ya estan todos desbloqueados
+            const answering = document.getElementById('answerButtons')?.style.display !== 'none';
+            if (!answering && gameState.questionsLeftThisTurn <= 0) {
+                endTurn();
+            }
         }
     }
 });

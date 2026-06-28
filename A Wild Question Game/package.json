@@ -1,0 +1,49 @@
+{
+  "name": "a-wild-question-game",
+  "productName": "A Wild Question Game",
+  "version": "2026.6.27-t1500",
+  "description": "A Wild Question Game - Ocean and Wild Studios",
+  "main": "main.js",
+  "author": "Ocean and Wild Studios",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "dist:nsis": "electron-builder --win nsis --publish never",
+    "dist:dir": "electron-builder --win dir"
+  },
+  "devDependencies": {
+    "electron": "^37.3.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.oceanandwild.awqg",
+    "productName": "A Wild Question Game",
+    "directories": {
+      "output": "C:/builds/a-wild-question-game"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "build/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/awqgicon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "AWQG-Setup-${version}.${ext}",
+      "shortcutName": "A Wild Question Game",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

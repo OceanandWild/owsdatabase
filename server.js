@@ -10077,7 +10077,7 @@ app.get('/ows-store/projects/:slug/changelog', async (req, res) => {
 // GET /ows-store/projects/:slug/changelogs (historial de versiones)
 app.get('/ows-store/projects/:slug/changelogs', async (req, res) => {
   const slug = String(req.params.slug || '').trim().toLowerCase();
-  const limit = Math.max(1, Math.min(50, parseInt(req.query.limit || '10', 10)));
+  const limit = Math.max(1, Math.min(200, parseInt(req.query.limit || '10', 10)));
   if (!slug) return res.status(400).json({ error: 'slug requerido' });
   try {
     const { rows } = await pool.query(

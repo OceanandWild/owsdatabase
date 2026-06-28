@@ -4495,7 +4495,7 @@
   <header class="topbar">
     <!-- Brand -->
     <div class="topbar-brand">
-      <div class="topbar-brand-icon">🌊</div>
+      <div class="topbar-brand-icon"><img src="build/icon.png" style="width:22px;height:22px;border-radius:4px;object-fit:cover;display:block;"></div>
       <div>
         <div class="brand-name">OWS Store</div>
         <div class="brand-sub">Studio Hub</div>
@@ -5590,7 +5590,29 @@ function openProjectModal(slug) {
   const isWindowsCompatible = platStr.includes('windows');
   const isAndroidCompatible = platStr.includes('android');
 
-  if (window.owsUpdater && window.owsUpdater.isElectron) {
+  // ── Status gate: estados que bloquean instalación/ejecución ──────────────
+  const _blockedStatuses = ['rework', 'pleno_rework', 'full_rework', 'wip', 'coming_soon', 'unavailable', 'indisponible', 'disabled', 'blocked'];
+  const _projStatus = (p.status || 'launched').toLowerCase().replace(/[\s-]/g, '_');
+  const _isBlocked = _blockedStatuses.includes(_projStatus);
+
+  if (_isBlocked) {
+    const _statusMsgMap = {
+      rework:       { icon: 'fa-wrench',        color: 'var(--orange)', label: 'En rework',         msg: 'Este proyecto está en proceso de rework y no está disponible temporalmente.' },
+      pleno_rework: { icon: 'fa-wrench',        color: 'var(--orange)', label: 'En rework',         msg: 'Este proyecto está en proceso de rework y no está disponible temporalmente.' },
+      full_rework:  { icon: 'fa-wrench',        color: 'var(--orange)', label: 'En rework',         msg: 'Este proyecto está en proceso de rework y no está disponible temporalmente.' },
+      wip:          { icon: 'fa-hammer',        color: 'var(--orange)', label: 'En desarrollo',     msg: 'Este proyecto está en desarrollo activo. Disponible próximamente.' },
+      coming_soon:  { icon: 'fa-clock',         color: '#a78bfa',       label: 'Próximamente',      msg: 'Este proyecto aún no ha sido lanzado.' },
+      unavailable:  { icon: 'fa-ban',           color: 'var(--ink-2)',  label: 'No disponible',     msg: 'Este proyecto no está disponible en este momento.' },
+      indisponible: { icon: 'fa-ban',           color: 'var(--ink-2)',  label: 'No disponible',     msg: 'Este proyecto no está disponible en este momento.' },
+      disabled:     { icon: 'fa-ban',           color: 'var(--ink-2)',  label: 'Deshabilitado',     msg: 'Este proyecto ha sido deshabilitado.' },
+      blocked:      { icon: 'fa-circle-xmark',  color: 'var(--red)',    label: 'Bloqueado',         msg: 'Este proyecto no está disponible en este momento.' },
+    };
+    const _sm = _statusMsgMap[_projStatus] || { icon: 'fa-ban', color: 'var(--ink-2)', label: 'No disponible', msg: 'Este proyecto no está disponible.' };
+    actionBtn = `
+      <button class="proj-modal-btn primary" disabled style="opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:${_sm.color};">
+        <i class="fas ${_sm.icon}"></i> ${_sm.label}
+      </button>`;
+  } else if (window.owsUpdater && window.owsUpdater.isElectron) {
     const instStatus = installedProjectsMap.get(slug);
 
     // ── Main action button for the CURRENT platform ──────────────────────────
@@ -5646,8 +5668,8 @@ function openProjectModal(slug) {
           <span class="filter-pill" style="opacity:0.55;font-size:11px;">${otherIcon} Solo ${otherLabel}</span>
         </div>`;
     }
-  } else {
-    // Normal browser / fallback
+  } else if (!_isBlocked) {
+    // Normal browser / fallback (solo si no está bloqueado)
     if (p.url) {
       actionBtn = `<a href="${p.url}" target="_blank" class="proj-modal-btn primary"><i class="fas fa-arrow-up-right-from-square"></i> Acceder</a>`;
     } else if (p.download_url) {
@@ -6230,88 +6252,108 @@ document.addEventListener('click', () => {
   });
 });
 
-async function loadProjectChangelog(slug) {
+// Caché de changelogs por proyecto
+const _projChangelogCache = {}; // slug -> versions[]
+
+async function loadProjectChangelog(slug, selectedVersion = null) {
   const container = document.getElementById('proj-changelog-container');
   if (!container) return;
-  container.innerHTML = '<div class="skeleton" style="height:110px;border-radius:14px;"></div>';
 
-  try {
-    const res = await fetch(`${API_URL}/ows-store/projects/${slug}/changelog?nocache=${Date.now()}`);
-    if (!res.ok) throw new Error('API error');
-    const data = await res.json();
-
-    if (!data.success || !data.changelog) {
-      container.innerHTML = `
-        <div style="text-align:center;padding:36px 16px;color:var(--ink-2);">
-          <i class="fas fa-file-circle-exclamation" style="font-size:36px;opacity:0.25;display:block;margin-bottom:12px;"></i>
-          <div style="font-size:13px;">No hay notas de novedades disponibles para este proyecto.</div>
-        </div>`;
+  // Skeleton solo en carga inicial
+  if (!_projChangelogCache[slug]) {
+    container.innerHTML = '<div class="skeleton" style="height:110px;border-radius:14px;"></div>';
+    try {
+      const res = await fetch(`${API_URL}/ows-store/projects/${slug}/changelogs?limit=100&nocache=${Date.now()}`);
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      _projChangelogCache[slug] = Array.isArray(data.changelogs) ? data.changelogs : [];
+    } catch (err) {
+      container.innerHTML = `<div style="color:var(--orange);font-size:13px;text-align:center;">Error al cargar novedades del proyecto.</div>`;
       return;
     }
-
-    const cl = data.changelog;
-    const version = cl.version || '1.0.0';
-    const dateStr = cl.published_at ? new Date(cl.published_at).toLocaleDateString('es-UY', { dateStyle: 'long' }) : '';
-
-    const categories = [
-      { name: 'Adiciones y Novedades', list: cl.adiciones || [], color: 'var(--green)', bg: 'rgba(63,185,80,0.1)', border: 'rgba(63,185,80,0.2)', icon: 'fa-circle-plus' },
-      { name: 'Mejoras Generales', list: cl.mejoras || [], color: 'var(--cyan)', bg: 'rgba(41,212,224,0.1)', border: 'rgba(41,212,224,0.2)', icon: 'fa-circle-up' },
-      { name: 'Arreglos y Correcciones', list: cl.arreglos || [], color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', icon: 'fa-circle-check' },
-      { name: 'Rendimiento y Optimización', list: cl.rendimiento || [], color: '#eab308', bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.2)', icon: 'fa-bolt' },
-      { name: 'Otros cambios', list: cl.otros || [], color: 'var(--ink-2)', bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.06)', icon: 'fa-circle-info' }
-    ];
-
-    let catsHtml = '';
-    let totalItems = 0;
-
-    categories.forEach(cat => {
-      if (cat.list.length === 0) return;
-      totalItems += cat.list.length;
-      const itemsHtml = cat.list.map(item => `
-        <li style="margin-bottom:8px; font-size:13px; color:var(--ink-1); line-height:1.55; display:flex; align-items:flex-start; gap:8px;">
-          <span style="color:${cat.color}; font-size:10px; margin-top:5px;">●</span>
-          <span>${_escapeHtml(item)}</span>
-        </li>
-      `).join('');
-
-      catsHtml += `
-        <div style="margin-bottom:20px; padding:16px; background:var(--surface-1); border:1px solid var(--border-mid); border-radius:12px;">
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:${cat.color};">
-            <i class="fas ${cat.icon}"></i>
-            <span>${cat.name}</span>
-          </div>
-          <ul style="list-style:none; padding:0; margin:0;">
-            ${itemsHtml}
-          </ul>
-        </div>
-      `;
-    });
-
-    if (totalItems === 0) {
-      container.innerHTML = `
-        <div style="text-align:center;padding:36px 16px;color:var(--ink-2);">
-          <i class="fas fa-file-circle-exclamation" style="font-size:36px;opacity:0.25;display:block;margin-bottom:12px;"></i>
-          <div style="font-size:13px;">No hay cambios registrados en la versión ${version}.</div>
-        </div>`;
-      return;
-    }
-
-    const headerBannerHtml = `
-      <div style="background: linear-gradient(135deg, rgba(41,212,224,0.12), rgba(15,23,42,0.4)); border: 1px solid var(--border-mid); border-radius: 16px; padding: 22px 24px; display: flex; flex-direction: column; gap: 8px; position:relative; overflow:hidden;">
-        <div style="position:absolute; right:-20px; top:-20px; font-size:120px; opacity:0.03; color:var(--cyan); pointer-events:none; font-weight:900;"><i class="fas fa-bullhorn"></i></div>
-        <div style="font-size:11px; font-weight:800; color:var(--cyan); text-transform:uppercase; letter-spacing:0.08em; display:flex; align-items:center; gap:6px;">
-          <i class="fas fa-bullhorn"></i> ¿Qué hay de nuevo?
-        </div>
-        <h2 style="margin:0; font-size:24px; font-weight:800; color:var(--ink-0);">Versión ${version}</h2>
-        ${dateStr ? `<div style="font-size:12px; color:var(--ink-2);">${dateStr}</div>` : ''}
-      </div>
-    `;
-
-    container.innerHTML = headerBannerHtml + `<div style="display:flex; flex-direction:column; gap:4px; margin-top:8px;">${catsHtml}</div>`;
-  } catch (err) {
-    console.error('Error fetching changelog:', err);
-    container.innerHTML = `<div style="color:var(--orange); font-size:13px; text-align:center;">Error al cargar novedades del proyecto.</div>`;
   }
+
+  const versions = _projChangelogCache[slug];
+
+  if (!versions.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:36px 16px;color:var(--ink-2);">
+        <i class="fas fa-file-circle-exclamation" style="font-size:36px;opacity:0.25;display:block;margin-bottom:12px;"></i>
+        <div style="font-size:13px;">No hay notas de novedades disponibles para este proyecto.</div>
+      </div>`;
+    return;
+  }
+
+  const targetVersion = selectedVersion || versions[0].version;
+  const cl = versions.find(v => v.version === targetVersion) || versions[0];
+
+  const version = cl.version || '1.0.0';
+  const dateStr = cl.published_at ? new Date(cl.published_at).toLocaleDateString('es-UY', { dateStyle: 'long' }) : '';
+
+  const categories = [
+    { name: 'Adiciones y Novedades', list: cl.adiciones || [], color: 'var(--green)', icon: 'fa-circle-plus' },
+    { name: 'Mejoras Generales',     list: cl.mejoras   || [], color: 'var(--cyan)',  icon: 'fa-circle-up' },
+    { name: 'Arreglos y Correcciones', list: cl.arreglos || [], color: '#ef4444',    icon: 'fa-circle-check' },
+    { name: 'Rendimiento y Optimización', list: cl.rendimiento || [], color: '#eab308', icon: 'fa-bolt' },
+    { name: 'Otros cambios',         list: cl.otros     || [], color: 'var(--ink-2)', icon: 'fa-circle-info' }
+  ];
+
+  let catsHtml = '';
+  let totalItems = 0;
+  categories.forEach(cat => {
+    if (!cat.list.length) return;
+    totalItems += cat.list.length;
+    const itemsHtml = cat.list.map(item => `
+      <li style="margin-bottom:8px;font-size:13px;color:var(--ink-1);line-height:1.55;display:flex;align-items:flex-start;gap:8px;">
+        <span style="color:${cat.color};font-size:10px;margin-top:5px;">●</span>
+        <span>${_escapeHtml(item)}</span>
+      </li>`).join('');
+    catsHtml += `
+      <div style="margin-bottom:16px;padding:16px;background:var(--surface-1);border:1px solid var(--border-mid);border-radius:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:${cat.color};">
+          <i class="fas ${cat.icon}"></i><span>${cat.name}</span>
+        </div>
+        <ul style="list-style:none;padding:0;margin:0;">${itemsHtml}</ul>
+      </div>`;
+  });
+
+  if (totalItems === 0) {
+    catsHtml = `<div style="text-align:center;padding:24px;color:var(--ink-2);font-size:13px;">Sin cambios registrados en esta versión.</div>`;
+  }
+
+  // Selector de versiones (solo si hay más de una)
+  let versionPickerHtml = '';
+  if (versions.length > 1) {
+    const items = versions.map(v => {
+      const isActive = v.version === version;
+      const d = v.published_at ? new Date(v.published_at).toLocaleDateString('es-UY', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+      return `<button
+        onclick="loadProjectChangelog('${slug}', '${v.version}')"
+        style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid ${isActive ? 'var(--cyan)' : 'var(--border-mid)'};background:${isActive ? 'rgba(41,212,224,0.08)' : 'transparent'};cursor:pointer;width:100%;text-align:left;font-family:var(--font);">
+        <span style="font-size:12px;font-weight:${isActive ? '700' : '500'};color:${isActive ? 'var(--cyan)' : 'var(--ink-1)'};">${v.version}</span>
+        ${d ? `<span style="font-size:11px;color:var(--ink-2);">${d}</span>` : ''}
+      </button>`;
+    }).join('');
+    versionPickerHtml = `
+      <div style="margin-bottom:16px;padding:14px;background:var(--surface-1);border:1px solid var(--border-mid);border-radius:12px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-2);margin-bottom:10px;">
+          <i class="fas fa-clock-rotate-left" style="margin-right:5px;"></i>Historial de versiones
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;padding-right:2px;">${items}</div>
+      </div>`;
+  }
+
+  const headerHtml = `
+    <div style="background:linear-gradient(135deg,rgba(41,212,224,0.12),rgba(15,23,42,0.4));border:1px solid var(--border-mid);border-radius:16px;padding:20px 24px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;margin-bottom:16px;">
+      <div style="position:absolute;right:-20px;top:-20px;font-size:120px;opacity:0.03;color:var(--cyan);pointer-events:none;font-weight:900;"><i class="fas fa-bullhorn"></i></div>
+      <div style="font-size:11px;font-weight:800;color:var(--cyan);text-transform:uppercase;letter-spacing:0.08em;display:flex;align-items:center;gap:6px;">
+        <i class="fas fa-bullhorn"></i> ¿Qué hay de nuevo?
+      </div>
+      <h2 style="margin:0;font-size:22px;font-weight:800;color:var(--ink-0);">Versión ${version}</h2>
+      ${dateStr ? `<div style="font-size:12px;color:var(--ink-2);">${dateStr}</div>` : ''}
+    </div>`;
+
+  container.innerHTML = headerHtml + versionPickerHtml + `<div style="display:flex;flex-direction:column;gap:4px;">${catsHtml}</div>`;
 }
 
 function openProjectDetail(slug) {
@@ -7429,9 +7471,9 @@ async function checkOwsStoreSelfUpdate() {
     const btn = document.getElementById('btn-whats-new');
     if (btn) btn.style.display = '';
 
-    // Actualiza la sección Actualizaciones si está visible
+    // Siempre re-renderiza la tarjeta para reflejar el estado actual
     const sec = document.getElementById('section-updates');
-    if (sec && !sec.classList.contains('hidden') && sec.style.display !== 'none') {
+    if (sec && sec.classList.contains('active')) {
       renderUpdatesSection();
     }
 
@@ -7440,6 +7482,57 @@ async function checkOwsStoreSelfUpdate() {
     if (badge) badge.style.display = hasUpdate ? '' : 'none';
   } catch (_) {
     // silencioso: si falla la detección, no rompemos nada
+  }
+}
+
+async function triggerOwsStoreSelfUpdate() {
+  if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
+  if (currentDownloadTaskActive) {
+    alert('Ya hay otra descarga en curso. Espera a que termine.');
+    return;
+  }
+
+  const selfUpd = owsStoreSelfUpdate;
+  if (!selfUpd || !selfUpd.hasUpdate) return;
+
+  // Buscar el asset .exe en el release
+  const assets = (selfUpd.release && Array.isArray(selfUpd.release.assets)) ? selfUpd.release.assets : [];
+  const exeAsset = assets.find(a => /\.(exe|msi)$/i.test(a.name));
+
+  if (!exeAsset) {
+    alert('No se encontró el instalador en la última release. Intenta más tarde.');
+    return;
+  }
+
+  const downloadUrl = exeAsset.browser_download_url;
+  const expectedSize = exeAsset.size || 0;
+  const latestVer = selfUpd.latestVersion;
+
+  currentDownloadSlug = 'ows-store';
+  currentDownloadVersion = latestVer;
+  currentDownloadTaskActive = true;
+  showDownloadHUD('OWS Store');
+
+  // Deshabilitar botón mientras descarga
+  const btn = document.getElementById('ows-self-update-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Descargando...'; }
+
+  try {
+    const res = await window.owsUpdater.installExternalInstaller({
+      url: downloadUrl,
+      name: 'OWS.Store.Setup.exe',
+      taskId: 'ows-store',
+      expectedSize,
+      isApk: false
+    });
+    if (!res.ok) {
+      currentDownloadTaskActive = false;
+      updateHUDProgress('ows-store', 'error', 0, 0, 0, 0, res.error || 'Fallo al descargar OWS Store.');
+    }
+    // Al completar con phase='done', updateHUDProgress guarda la versión y re-escanea
+  } catch (err) {
+    currentDownloadTaskActive = false;
+    updateHUDProgress('ows-store', 'error', 0, 0, 0, 0, String(err.message || err));
   }
 }
 
@@ -7564,7 +7657,11 @@ const PROJECT_HINTS = {
   'wildshorts': { installDirNames: ['WildShorts'], executableNames: ['WildShorts.exe'], uninstallerNames: ['Uninstall WildShorts.exe'] },
   'wild-destiny': { installDirNames: ['Wild Destiny'], executableNames: ['Wild Destiny.exe'], uninstallerNames: ['Uninstall Wild Destiny.exe'] },
   'naturepedia': { installDirNames: ['Naturepedia'], executableNames: ['Naturepedia.exe'], uninstallerNames: ['Uninstall Naturepedia.exe'] },
-  'ocean-pay': { installDirNames: ['Ocean Pay'], executableNames: ['Ocean Pay.exe'], uninstallerNames: ['Uninstall Ocean Pay.exe'] }
+  'ocean-pay': { installDirNames: ['Ocean Pay'], executableNames: ['Ocean Pay.exe'], uninstallerNames: ['Uninstall Ocean Pay.exe'] },
+  'oceanpay': { installDirNames: ['Ocean Pay'], executableNames: ['Ocean Pay.exe'], uninstallerNames: ['Uninstall Ocean Pay.exe'] },
+  'savagespaceanimals': { installDirNames: ['Savage Space Animals'], executableNames: ['Savage Space Animals.exe'], uninstallerNames: ['Uninstall Savage Space Animals.exe'] },
+  'savage-space-animals': { installDirNames: ['Savage Space Animals'], executableNames: ['Savage Space Animals.exe'], uninstallerNames: ['Uninstall Savage Space Animals.exe'] },
+  'natbee': { installDirNames: ['NatBee'], executableNames: ['NatBee.exe'], uninstallerNames: ['Uninstall NatBee.exe'] }
 };
 
 const PROJECT_REPOS = {
@@ -7583,7 +7680,11 @@ const PROJECT_REPOS = {
   'wildshorts': 'wildshorts',
   'wild-destiny': 'wilddestiny',
   'naturepedia': 'naturepedia',
-  'ocean-pay': 'oceanpay'
+  'ocean-pay': 'oceanpay',
+  'oceanpay': 'oceanpay',
+  'savagespaceanimals': 'savagespaceanimals',
+  'savage-space-animals': 'savagespaceanimals',
+  'natbee': 'natbee'
 };
 
 const installedProjectsMap = new Map();
@@ -7617,8 +7718,39 @@ async function scanInstalledApps() {
   try {
     const results = await window.owsUpdater.resolveInstalledAppsBatch(listToScan);
     results.forEach(res => {
+      // Si el IPC no devuelve versión (ejecutable sin metadata en registro),
+      // usamos el localStorage que se guarda al hacer download/install desde OWS Store
+      if (res.installed && !res.version) {
+        const savedVer = localStorage.getItem('ows_installed_version_' + res.slug);
+        if (savedVer) res.version = savedVer;
+      }
       installedProjectsMap.set(res.slug, res);
     });
+
+    // Para apps instaladas sin versión conocida, sincronizar con la versión
+    // registrada en DB (cubre el caso de instalación manual fuera de OWS Store)
+    const noVersionSlugs = [...installedProjectsMap.entries()]
+      .filter(([, s]) => s.installed && !s.version)
+      .map(([slug]) => slug);
+    if (noVersionSlugs.length > 0) {
+      try {
+        const dbRes = await fetch(`${API_URL}/ows-store/projects?nocache=${Date.now()}`, { cache: 'no-store' });
+        if (dbRes.ok) {
+          const dbData = await dbRes.json();
+          const projects = Array.isArray(dbData) ? dbData : (dbData.projects || []);
+          projects.forEach(p => {
+            const slug = p.slug;
+            if (noVersionSlugs.includes(slug) && p.version) {
+              const st = installedProjectsMap.get(slug);
+              if (st) {
+                st.version = p.version;
+                localStorage.setItem('ows_installed_version_' + slug, p.version);
+              }
+            }
+          });
+        }
+      } catch (_) {}
+    }
     
     let installedCount = 0;
     installedProjectsMap.forEach(v => { if (v.installed) installedCount++; });
@@ -7681,10 +7813,19 @@ async function checkUpdatesForInstalled(manual = false) {
       // Use platform-appropriate release fetcher:
       // On Windows → look for .exe/.msi; on Android → look for .apk
       // This handles projects that publish Android and Windows as separate releases.
-      const winRelease = IS_ANDROID_HOST
+      let winRelease = IS_ANDROID_HOST
         ? await fetchLatestAndroidRelease(repo)
         : await fetchLatestWindowsRelease(repo);
-      if (!winRelease) return; // no release for this platform → nothing to update
+
+      // Fallback para proyectos sin instalador nativo (ej: juegos web puros):
+      // si no hay release con .exe/.apk, comparamos igualmente contra el tag del latest release
+      if (!winRelease) {
+        try {
+          winRelease = await fetchLatestReleaseForProject(slug, repo);
+        } catch (_) {}
+      }
+
+      if (!winRelease) return; // no release disponible → nada que actualizar
       const latestVersion = winRelease.tag_name ? winRelease.tag_name.replace(/^v/, '') : '';
       const installedVersion = status.version || localStorage.getItem('ows_installed_version_' + slug) || '1.0.0';
       if (latestVersion && _isStrictlyNewer(latestVersion, installedVersion)) {
@@ -7970,51 +8111,95 @@ function renderUpdatesSection() {
     </div>
   </div>`;
 
-  // ── Tarjeta destacada de OWS Store (self-update) ──────────────────────────
+  // ── Tarjeta fija de OWS Store (siempre al tope, con o sin update) ──────────
   let owsStoreBannerHtml = '';
-  if (owsStoreSelfUpdate) {
-    const { hasUpdate, latestVersion, installedVersion } = owsStoreSelfUpdate;
-    if (hasUpdate) {
-      owsStoreBannerHtml = `
-        <div style="margin:20px 20px 0; padding:18px 20px; background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12)); border:1.5px solid rgba(99,102,241,0.45); border-radius:16px; position:relative; overflow:hidden;">
-          <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(135deg,rgba(99,102,241,0.07),transparent);border-radius:16px;"></div>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;position:relative;">
+  {
+    const selfUpd = owsStoreSelfUpdate;
+    const installedVersion = window.APP_VERSION || '1.0.0';
+    const latestVersion = selfUpd ? selfUpd.latestVersion : null;
+    const hasUpdate = selfUpd ? selfUpd.hasUpdate : false;
+    const checking = !selfUpd;
+
+    const verLine = checking
+      ? `<span style="color:var(--ink-2);font-style:italic;font-size:11px;">Verificando versión...</span>`
+      : hasUpdate
+        ? `<span style="font-size:11px;color:var(--ink-2);">Instalada: <strong style="color:var(--ink-1);">${installedVersion}</strong> &nbsp;→&nbsp; Disponible: <strong style="color:#a5b4fc;">${latestVersion}</strong></span>`
+        : `<span style="font-size:11px;color:var(--ink-2);">Versión <strong style="color:var(--ink-1);">${installedVersion}</strong></span>`;
+
+    const statusPill = hasUpdate
+      ? `<span style="font-size:9px;font-weight:800;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;padding:3px 8px;border-radius:20px;letter-spacing:0.06em;text-transform:uppercase;">Nueva versión</span>`
+      : `<span style="font-size:9px;font-weight:700;background:rgba(63,185,80,0.15);color:var(--green);border:1px solid rgba(63,185,80,0.3);padding:2px 8px;border-radius:20px;letter-spacing:0.04em;">Al día</span>`;
+
+    let actionBtn = '';
+    if (hasUpdate && window.owsUpdater && window.owsUpdater.isElectron) {
+      actionBtn = `<button id="ows-self-update-btn" onclick="triggerOwsStoreSelfUpdate()" style="background:linear-gradient(135deg,#6366f1,#7c3aed);border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(99,102,241,0.35);">
+        <i class="fas fa-arrow-circle-down"></i> Actualizar OWS Store
+      </button>`;
+    }
+
+    // Separador con etiqueta — solo se añade cuando hay apps instaladas debajo
+    const dividerHtml = `__DIVIDER_PLACEHOLDER__`;
+
+    owsStoreBannerHtml = `
+      <div style="margin:20px 20px 0; position:relative;">
+        <!-- Glow de fondo -->
+        <div style="position:absolute;inset:0;border-radius:16px;background:radial-gradient(ellipse at 30% 50%,rgba(99,102,241,0.12),transparent 70%);pointer-events:none;"></div>
+
+        <!-- Tarjeta principal -->
+        <div style="position:relative; padding:18px 20px; background:linear-gradient(135deg,rgba(99,102,241,0.13) 0%,rgba(13,17,23,0.9) 60%); border:1.5px solid ${hasUpdate ? 'rgba(99,102,241,0.5)' : 'rgba(99,102,241,0.2)'}; border-radius:16px; overflow:hidden;">
+
+          <!-- Borde luminoso superior -->
+          <div style="position:absolute;top:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,transparent,rgba(99,102,241,0.6),transparent);"></div>
+
+          <!-- Etiqueta esquina -->
+          <div style="position:absolute;top:12px;right:14px;font-size:9px;font-weight:800;color:rgba(99,102,241,0.5);letter-spacing:0.12em;text-transform:uppercase;">OWS STORE</div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <!-- Left: icon + info -->
             <div style="display:flex;align-items:center;gap:14px;">
-              <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(139,92,246,0.25));border:1px solid rgba(99,102,241,0.4);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏪</div>
+              <div style="width:52px;height:52px;border-radius:14px;border:1.5px solid rgba(99,102,241,0.4);overflow:hidden;flex-shrink:0;box-shadow:0 4px 16px rgba(99,102,241,0.25);">
+                <img src="build/icon.png" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='🏪'">
+              </div>
               <div>
-                <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px;">
-                  <h4 style="margin:0;font-size:14px;font-weight:700;color:var(--ink-0);">OWS Store</h4>
-                  <span style="font-size:10px;font-weight:700;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;padding:2px 7px;border-radius:20px;letter-spacing:0.03em;">NUEVA VERSIÓN</span>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+                  <span style="font-size:15px;font-weight:800;color:var(--ink-0);letter-spacing:-0.01em;">OWS Store</span>
+                  ${statusPill}
                 </div>
-                <div style="font-size:11px;color:var(--ink-2);line-height:1.5;">
-                  Instalada: <span style="font-weight:600;color:var(--ink-1);">${installedVersion}</span>
-                  &nbsp;→&nbsp;
-                  Disponible: <span style="font-weight:700;color:#a5b4fc;">${latestVersion}</span>
-                </div>
-                <div style="font-size:11px;color:rgba(99,102,241,0.75);margin-top:4px;"><i class="fas fa-info-circle"></i> Descarga la nueva versión desde el sitio web de OWS Store.</div>
+                ${verLine}
+                <div style="font-size:10px;color:rgba(99,102,241,0.55);margin-top:4px;font-weight:500;">Launcher del ecosistema Ocean and Wild Studios</div>
               </div>
             </div>
+
+            <!-- Right: acciones -->
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-              <button onclick="openOwsStoreChangelog()" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.35);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:600;color:#a5b4fc;cursor:pointer;white-space:nowrap;">
-                <i class="fas fa-sparkles"></i> ¿Qué hay de nuevo?
+              ${actionBtn}
+              <button onclick="openOwsStoreChangelog()" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:9px;padding:7px 13px;font-size:11px;font-weight:600;color:#a5b4fc;cursor:pointer;white-space:nowrap;transition:background 0.15s;">
+                <i class="fas fa-sparkles" style="margin-right:5px;"></i>¿Qué hay de nuevo?
               </button>
             </div>
           </div>
-        </div>`;
-    }
+        </div>
+        ${dividerHtml}
+      </div>`;
   }
 
   const installedList = [...installedProjectsMap.entries()].filter(([_, status]) => status.installed);
 
   if (installedList.length === 0) {
-    container.innerHTML = header + owsStoreBannerHtml + `
-      <div class="updates-empty" style="margin-top:${owsStoreSelfUpdate?.hasUpdate ? '14px' : '0'}">
+    container.innerHTML = header + owsStoreBannerHtml.replace('__DIVIDER_PLACEHOLDER__', '') + `
+      <div class="updates-empty" style="margin-top:14px;">
         <div class="library-empty-icon"><i class="fas fa-rotate" style="color:var(--ink-2);font-size:36px;"></i></div>
         <h3 style="font-size:15px;font-weight:700;color:var(--ink-1);margin-bottom:5px;">Sin aplicaciones instaladas</h3>
         <p style="font-size:13px;color:var(--ink-2);">Instala aplicaciones desde Explorar para gestionarlas aquí.</p>
       </div>`;
     return;
   }
+
+  const _divider = `<div style="margin:18px 20px 0; display:flex; align-items:center; gap:10px;">
+    <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
+    <span style="font-size:10px;font-weight:700;color:var(--ink-2);letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap;">Aplicaciones instaladas</span>
+    <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
+  </div>`;
 
   let listHtml = '<div style="padding: 20px; display:flex; flex-direction:column; gap:14px;">';
   installedList.forEach(([slug, status]) => {
@@ -8024,34 +8209,51 @@ function renderUpdatesSection() {
     const icon = _resolveProjectIcon(p);
     const initials = _projectInitials(p);
     const iconTag = icon ? `<img src="${icon}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;" onerror="this.outerHTML='<div class=\'apg-icon-initials\' style=\'width:48px;height:48px;border-radius:10px;font-size:16px;\'>${initials}</div>'">` : `<div class="apg-icon-initials" style="width:48px;height:48px;border-radius:10px;font-size:16px;">${initials}</div>`;
-    
+
     const installedVer = status.version || localStorage.getItem('ows_installed_version_' + slug) || '1.0.0';
 
+    // Gate de status — proyectos bloqueados no pueden ser jugados ni actualizados
+    const _projStatusU = (p.status || 'launched').toLowerCase().replace(/[\s-]/g, '_');
+    const _blockedU = ['rework','pleno_rework','full_rework','wip','coming_soon','unavailable','indisponible','disabled','blocked'].includes(_projStatusU);
+
+    let rowActionBtn = '';
+    if (_blockedU) {
+      const _lblMap = { rework:'En rework', pleno_rework:'En rework', full_rework:'En rework', wip:'En desarrollo', coming_soon:'Próximamente', unavailable:'No disponible', indisponible:'No disponible', disabled:'Deshabilitado', blocked:'No disponible' };
+      rowActionBtn = `<button class="proj-modal-btn primary" disabled style="padding:6px 14px;font-size:11px;height:auto;opacity:0.45;cursor:not-allowed;"><i class="fas fa-ban"></i> ${_lblMap[_projStatusU] || 'No disponible'}</button>`;
+    } else if (status.hasUpdate) {
+      // Verificar si el proyecto tiene instalador real o es solo web
+      const _hasRepo = !!PROJECT_REPOS[slug];
+      const _isWebOnly = _hasRepo && !(status.release && Array.isArray(status.release.assets) && status.release.assets.some(a => /\.(exe|msi|apk)$/i.test(a.name)));
+      if (_isWebOnly) {
+        rowActionBtn = `<button class="proj-modal-btn primary" onclick="openProjectModal('${slug}')" style="padding:6px 14px;font-size:11px;height:auto;"><i class="fas fa-arrow-up-right-from-square"></i> Ver actualización</button>`;
+      } else {
+        rowActionBtn = `<button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')" style="padding:6px 14px;font-size:11px;height:auto;"><i class="fas fa-arrow-down"></i> Actualizar</button>`;
+      }
+    } else {
+      rowActionBtn = `<button class="proj-modal-btn secondary" onclick="playProject('${slug}')" style="padding:6px 14px;font-size:11px;height:auto;"><i class="fas fa-play"></i> Jugar</button>`;
+    }
+
     listHtml += `
-      <div style="background:var(--surface-1);border:1px solid var(--border-mid);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="background:var(--surface-1);border:1px solid var(--border-mid);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;${_blockedU ? 'opacity:0.65;' : ''}">
         <div style="display:flex;align-items:center;gap:14px;">
           ${iconTag}
           <div>
             <h4 style="margin:0;font-size:14px;font-weight:700;color:var(--ink-0);">${_escapeHtml(p.name)}</h4>
             <div style="font-size:11px;color:var(--ink-2);margin-top:2px;">
               Versión instalada: <span style="font-weight:bold;color:var(--ink-1);">${installedVer}</span>
-              ${status.hasUpdate ? ` · Última: <span style="font-weight:bold;color:var(--green);">${status.latestVersion}</span>` : ' (Al día)'}
+              ${_blockedU ? ` · <span style="color:var(--orange);font-weight:600;">${(p.status||'').toUpperCase()}</span>` : status.hasUpdate ? ` · Última: <span style="font-weight:bold;color:var(--green);">${status.latestVersion}</span>` : ' (Al día)'}
             </div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          ${status.hasUpdate ? `
-            <button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')" style="padding:6px 14px;font-size:11px;height:auto;"><i class="fas fa-arrow-down"></i> Actualizar</button>
-          ` : `
-            <button class="proj-modal-btn secondary" onclick="playProject('${slug}')" style="padding:6px 14px;font-size:11px;height:auto;"><i class="fas fa-play"></i> Jugar</button>
-          `}
+          ${rowActionBtn}
           <button class="filter-pill" onclick="uninstallProject('${slug}')" style="padding:6px 12px;font-size:11px;border-color:rgba(239,68,68,0.2);color:#ef4444;"><i class="fas fa-trash-can"></i></button>
         </div>
       </div>`;
   });
   listHtml += '</div>';
 
-  container.innerHTML = header + owsStoreBannerHtml + listHtml;
+  container.innerHTML = header + owsStoreBannerHtml.replace('__DIVIDER_PLACEHOLDER__', _divider) + listHtml;
 }
 
 function renderLibrarySection() {
@@ -8506,7 +8708,7 @@ async function fetchLatestAndroidRelease(repo, limit = 15) {
   <div style="background:var(--surface-0,#0f172a); border:1px solid rgba(99,102,241,0.35); border-radius:20px; width:100%; max-width:560px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 0 60px rgba(99,102,241,0.18), 0 20px 60px rgba(0,0,0,0.6);">
     <!-- Header -->
     <div style="padding:22px 24px 16px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; align-items:flex-start; gap:14px; flex-shrink:0;">
-      <div style="width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.2)); border:1px solid rgba(99,102,241,0.35); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🏪</div>
+      <div style="width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.2)); border:1px solid rgba(99,102,241,0.35); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; overflow:hidden;"><img src="build/icon.png" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" onerror="this.outerHTML='🏪'"></div>
       <div style="flex:1; min-width:0;">
         <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:rgba(99,102,241,0.85); margin-bottom:3px;">OWS Store · Novedades</div>
         <div style="font-size:18px; font-weight:700; color:var(--ink-0,#f1f5f9);" id="ows-cl-modal-title">Cargando...</div>

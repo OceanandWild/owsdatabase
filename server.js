@@ -15598,7 +15598,8 @@ app.get('/ows-store/rework-guard.js', async (req, res) => {
     return res.send('/* rework-guard: ' + slug + ' is not blocked */');
   }
 
-  const js = `(function(){
+  const js = `console.log("[OWG] rework-guard executing for","${slug}","blocked=true");
+(function(){
 var N="${projectName}",R="${reason}",I="${iconUrl}";
 var s=document.createElement("style");
 s.id="owg-style";

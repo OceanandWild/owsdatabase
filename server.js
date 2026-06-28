@@ -15609,7 +15609,6 @@ o.innerHTML=h;document.body.appendChild(o);document.body.style.overflow="hidden"
 })();`;
   res.send(js);
 });
-});
 
 // Edicion admin de flags de rework/unavailable por proyecto
 app.patch('/ows-store/project-restrictions/:slug', async (req, res) => {

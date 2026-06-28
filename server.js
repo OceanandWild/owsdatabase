@@ -15599,6 +15599,8 @@ app.get('/ows-store/rework-guard.js', async (req, res) => {
   }
 
   const js = `(function(){
+var h=location.hostname;
+if(h==="localhost"||h==="127.0.0.1"||h==="0.0.0.0")return;
 var N="${projectName}",R="${reason}",I="${iconUrl}";
 var s=document.createElement("style");
 s.id="owg-style";

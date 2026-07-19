@@ -30822,8 +30822,11 @@ const OCEAN_PAY_SUBSCRIPTION_CATALOG = [
   { key: 'wildshorts_vip', name: 'Premium VIP', pid: 'WildShorts', icon: 'fas fa-crown', themeClass: 'sub-wildshorts-premium' },
   { key: 'wildtransfer_relay', name: 'Relay', pid: 'WildTransfer', icon: 'fas fa-paper-plane', themeClass: 'sub-wildtransfer-relay' },
   { key: 'ecoxion_pass', name: 'Ecoxion Pass', pid: 'Ecoxion', icon: 'fas fa-atom', themeClass: 'sub-ecoxion-premium' },
-  { key: 'ocean_cinemas_free', name: 'Corriente Libre', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-free' },
-  { key: 'ocean_cinemas_abyssal', name: 'Marea Abisal', pid: 'Ocean Cinemas', icon: 'fas fa-wave-square', themeClass: 'sub-oceancinemas-abyssal' }
+  { key: 'ocean_cinemas_litoral', name: 'Litoral', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-free' },
+  { key: 'ocean_cinemas_oleaje', name: 'Oleaje', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-oleaje' },
+  { key: 'ocean_cinemas_marea', name: 'Marea', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-marea' },
+  { key: 'ocean_cinemas_abysal', name: 'Abisal', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-abysal' },
+  { key: 'ocean_cinemas_leviatan', name: 'Leviatán', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-leviatan' }
 ];
 
 function detectOceanPayCatalogKey(sub = {}) {
@@ -30836,11 +30839,17 @@ function detectOceanPayCatalogKey(sub = {}) {
   if (pid.includes('wildtransfer') || rawName.includes('relay')) return 'wildtransfer_relay';
   if (pid.includes('ecoxion') || rawName.includes('ecoxion')) return 'ecoxion_pass';
   if (pid.includes('ocean cinemas') || pid.includes('ocean-cinemas') || pid.includes('oceancinemas')) {
-    if (rawName.includes('abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abyssal';
-    if (rawName.includes('corriente') || rawName.includes('libre') || rawName.includes('free')) return 'ocean_cinemas_free';
+    if (rawName.includes('leviat')) return 'ocean_cinemas_leviatan';
+    if (rawName.includes('abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abysal';
+    if (rawName.includes('marea') && !rawName.includes('abisal')) return 'ocean_cinemas_marea';
+    if (rawName.includes('oleaje') || rawName.includes('wave')) return 'ocean_cinemas_oleaje';
+    if (rawName.includes('litoral') || rawName.includes('corriente') || rawName.includes('libre') || rawName.includes('free')) return 'ocean_cinemas_litoral';
   }
-  if (rawName.includes('marea abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abyssal';
-  if (rawName.includes('corriente libre')) return 'ocean_cinemas_free';
+  if (rawName.includes('leviat')) return 'ocean_cinemas_leviatan';
+  if (rawName.includes('abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abysal';
+  if (rawName.includes('marea')) return 'ocean_cinemas_marea';
+  if (rawName.includes('oleaje')) return 'ocean_cinemas_oleaje';
+  if (rawName.includes('litoral') || rawName.includes('corriente libre')) return 'ocean_cinemas_litoral';
   return null;
 }
 
@@ -30901,14 +30910,19 @@ app.get('/ocean-pay/subscriptions/catalog', (_req, res) => {
 
 app.get('/ocean-cinemas/subscriptions/plans', (_req, res) => {
   const plans = OCEAN_PAY_SUBSCRIPTION_CATALOG.filter((item) =>
-    item.key === 'ocean_cinemas_free' || item.key === 'ocean_cinemas_abyssal'
+    item.pid === 'Ocean Cinemas'
   ).map((item) => ({
     key: item.key,
     name: item.name,
     projectId: 'Ocean Cinemas',
     currency: 'tides',
     intervalDays: 30,
-    price: item.key === 'ocean_cinemas_abyssal' ? 520 : 0
+    price: item.key === 'ocean_cinemas_litoral' ? 0
+      : item.key === 'ocean_cinemas_oleaje' ? 60
+      : item.key === 'ocean_cinemas_marea' ? 180
+      : item.key === 'ocean_cinemas_abysal' ? 400
+      : item.key === 'ocean_cinemas_leviatan' ? 850
+      : 0
   }));
   return res.json({ project: 'Ocean Cinemas', plans });
 });
@@ -30926,11 +30940,13 @@ app.post('/ocean-cinemas/subscriptions/status', async (req, res) => {
       `SELECT *
        FROM ocean_pay_subscriptions
        WHERE user_id = $1
-         AND (
+          AND (
            LOWER(COALESCE(project_id, '')) IN ('ocean cinemas', 'ocean-cinemas', 'oceancinemas')
-           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%corriente libre%'
-           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%marea abisal%'
-           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%abyssal%'
+           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%litoral%'
+           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%oleaje%'
+           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%marea%'
+           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%abisal%'
+           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%leviat%'
          )
        ORDER BY created_at DESC`,
       [userId]
@@ -30972,10 +30988,13 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
 
     const { planId, cardId } = req.body || {};
     const PLANS = {
-      abyssal: { name: 'Marea Abisal', price: 520, currency: 'tides', intervalDays: 30 }
+      oleaje: { name: 'Oleaje', price: 60, currency: 'tides', intervalDays: 30 },
+      marea: { name: 'Marea', price: 180, currency: 'tides', intervalDays: 30 },
+      abysal: { name: 'Abisal', price: 400, currency: 'tides', intervalDays: 30 },
+      leviatan: { name: 'Leviatán', price: 850, currency: 'tides', intervalDays: 30 }
     };
     const plan = PLANS[String(planId || '').toLowerCase()];
-    if (!plan) return res.status(400).json({ error: 'Plan no valido. Solo se puede suscribir al plan Marea Abisal.' });
+    if (!plan) return res.status(400).json({ error: 'Plan no válido. Elige Oleaje, Marea, Abisal o Leviatán.' });
 
     const safeCardId = Number(cardId);
     if (!Number.isFinite(safeCardId) || safeCardId <= 0) {

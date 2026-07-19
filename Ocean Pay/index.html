@@ -1318,26 +1318,59 @@
       box-shadow: 0 0 16px rgba(124, 58, 237, 0.45);
     }
 
-    .sub-oceancinemas-free {
+    .sub-oceancinemas-litoral {
       border-color: #38bdf8 !important;
       background: linear-gradient(145deg, #0b1d30, #0b1322) !important;
     }
 
-    .sub-oceancinemas-free .sub-icon {
+    .sub-oceancinemas-litoral .sub-icon {
       background: linear-gradient(135deg, #38bdf8, #22d3ee) !important;
       color: #031722 !important;
       box-shadow: 0 0 16px rgba(56, 189, 248, 0.45);
     }
 
-    .sub-oceancinemas-abyssal {
+    .sub-oceancinemas-oleaje {
+      border-color: #0e7490 !important;
+      background: linear-gradient(145deg, #032730, #081d28) !important;
+    }
+
+    .sub-oceancinemas-oleaje .sub-icon {
+      background: linear-gradient(135deg, #0e7490, #0891b2) !important;
+      color: #eaffff !important;
+      box-shadow: 0 0 16px rgba(14, 116, 144, 0.45);
+    }
+
+    .sub-oceancinemas-marea {
+      border-color: #06b6d4 !important;
+      background: linear-gradient(145deg, #031a2b, #0a1f33) !important;
+    }
+
+    .sub-oceancinemas-marea .sub-icon {
+      background: linear-gradient(135deg, #06b6d4, #0ea5e9) !important;
+      color: #eaffff !important;
+      box-shadow: 0 0 16px rgba(6, 182, 212, 0.5);
+    }
+
+    .sub-oceancinemas-abysal {
       border-color: #14b8a6 !important;
       background: linear-gradient(145deg, #062226, #0b1322) !important;
     }
 
-    .sub-oceancinemas-abyssal .sub-icon {
+    .sub-oceancinemas-abysal .sub-icon {
       background: linear-gradient(135deg, #14b8a6, #0ea5e9) !important;
       color: #eaffff !important;
       box-shadow: 0 0 18px rgba(20, 184, 166, 0.5);
+    }
+
+    .sub-oceancinemas-leviatan {
+      border-color: #7c3aed !important;
+      background: linear-gradient(145deg, #1a0633, #12052a) !important;
+    }
+
+    .sub-oceancinemas-leviatan .sub-icon {
+      background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
+      color: #f3e8ff !important;
+      box-shadow: 0 0 18px rgba(124, 58, 237, 0.5);
     }
 
 
@@ -5659,8 +5692,11 @@
         { key: 'wildshorts_vip', name: 'Premium VIP', pid: 'WildShorts', icon: 'fas fa-crown', themeClass: 'sub-wildshorts-premium' },
         { key: 'wildtransfer_relay', name: 'Relay', pid: 'WildTransfer', icon: 'fas fa-paper-plane', themeClass: 'sub-wildtransfer-relay' },
         { key: 'ecoxion_pass', name: 'Ecoxion Pass', pid: 'Ecoxion', icon: 'fas fa-atom', themeClass: 'sub-ecoxion-premium' },
-        // ocean_cinemas_free omitido: el plan gratuito es el estado base, no una suscripcion
-        { key: 'ocean_cinemas_abyssal', name: 'Marea Abisal', pid: 'Ocean Cinemas', icon: 'fas fa-wave-square', themeClass: 'sub-oceancinemas-abyssal' }
+        // ocean_cinemas_litoral omitido: el plan gratuito es el estado base, no una suscripcion
+        { key: 'ocean_cinemas_oleaje', name: 'Oleaje', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-oleaje' },
+        { key: 'ocean_cinemas_marea', name: 'Marea', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-marea' },
+        { key: 'ocean_cinemas_abysal', name: 'Abisal', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-abysal' },
+        { key: 'ocean_cinemas_leviatan', name: 'Leviatán', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-leviatan' }
       ];
       let catalog = fallbackCatalog;
 
@@ -5678,11 +5714,17 @@
         if (pid.includes('wildtransfer') || rawName.includes('relay')) return 'wildtransfer_relay';
         if (pid.includes('ecoxion') || rawName.includes('ecoxion')) return 'ecoxion_pass';
         if (pid.includes('ocean cinemas') || pid.includes('ocean-cinemas') || pid.includes('oceancinemas')) {
-          if (rawName.includes('abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abyssal';
-          if (rawName.includes('corriente') || rawName.includes('libre') || rawName.includes('free')) return 'ocean_cinemas_free';
+          if (rawName.includes('leviat')) return 'ocean_cinemas_leviatan';
+          if (rawName.includes('abisal')) return 'ocean_cinemas_abysal';
+          if (rawName.includes('marea')) return 'ocean_cinemas_marea';
+          if (rawName.includes('oleaje')) return 'ocean_cinemas_oleaje';
+          if (rawName.includes('litoral')) return 'ocean_cinemas_litoral';
         }
-        if (rawName.includes('marea abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abyssal';
-        if (rawName.includes('corriente libre')) return 'ocean_cinemas_free';
+        if (rawName.includes('leviat')) return 'ocean_cinemas_leviatan';
+        if (rawName.includes('abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abysal';
+        if (rawName.includes('marea')) return 'ocean_cinemas_marea';
+        if (rawName.includes('oleaje')) return 'ocean_cinemas_oleaje';
+        if (rawName.includes('litoral') || rawName.includes('corriente libre')) return 'ocean_cinemas_litoral';
         return null;
       };
 
@@ -5762,7 +5804,10 @@
 
         // Reglas por tier: si un tier superior esta activo, los inferiores no se muestran como faltantes.
         // El plan gratuito de Ocean Cinemas nunca aparece en suscripciones (es el estado base).
-        const hiddenByTier = new Set(['ocean_cinemas_free']);
+        const hiddenByTier = new Set(['ocean_cinemas_litoral']);
+        if (activeCatalogKeys.has('ocean_cinemas_leviatan')) { hiddenByTier.add('ocean_cinemas_abysal'); hiddenByTier.add('ocean_cinemas_marea'); hiddenByTier.add('ocean_cinemas_oleaje'); }
+        if (activeCatalogKeys.has('ocean_cinemas_abysal')) { hiddenByTier.add('ocean_cinemas_marea'); hiddenByTier.add('ocean_cinemas_oleaje'); }
+        if (activeCatalogKeys.has('ocean_cinemas_marea')) hiddenByTier.add('ocean_cinemas_oleaje');
         if (activeCatalogKeys.has('dinobox_elite')) hiddenByTier.add('dinobox_premium');
         if (activeCatalogKeys.has('nature_pass_ultimate')) { hiddenByTier.add('nature_pass_premium'); hiddenByTier.add('nature_pass_basic'); }
         else if (activeCatalogKeys.has('nature_pass_premium')) hiddenByTier.add('nature_pass_basic');
@@ -5784,7 +5829,7 @@
             pid: 'DinoBox'
           },
           'Ocean Cinemas': {
-            keys: ['ocean_cinemas_abyssal'],
+            keys: ['ocean_cinemas_oleaje', 'ocean_cinemas_marea', 'ocean_cinemas_abysal', 'ocean_cinemas_leviatan'],
             name: 'Ocean Cinemas',
             icon: 'fas fa-film',
             themeClass: 'sub-oceancinemas',
@@ -5879,9 +5924,9 @@
 
           const items = activeSubs
             .filter((s) => {
-              // No mostrar el plan gratuito de Ocean Cinemas "” es el estado base, no una suscripcion
+              // No mostrar el plan gratuito de Ocean Cinemas — es el estado base, no una suscripcion
               const key = detectCatalogKey(s);
-              return key !== 'ocean_cinemas_free';
+              return key !== 'ocean_cinemas_litoral';
             })
             .map((s) => {
             const rawName = s.plan_name || s.sub_name || 'Plan';
@@ -5910,12 +5955,22 @@
             else if (pidKey.includes('wildtransfer')) { icon = 'fas fa-paper-plane'; themeClass = 'sub-wildtransfer-relay'; }
             else if (pidKey.includes('ecoxion')) { icon = 'fas fa-atom'; themeClass = 'sub-ecoxion-premium'; }
             else if (pidKey.includes('ocean cinemas') || pidKey.includes('ocean-cinemas') || pidKey.includes('oceancinemas')) {
-              if (String(rawName).toLowerCase().includes('abisal') || String(rawName).toLowerCase().includes('abyssal')) {
-                icon = 'fas fa-wave-square';
-                themeClass = 'sub-oceancinemas-abyssal';
+              const planLower = String(rawName).toLowerCase();
+              if (planLower.includes('leviat')) {
+                icon = 'fas fa-water';
+                themeClass = 'sub-oceancinemas-leviatan';
+              } else if (planLower.includes('abisal') || planLower.includes('abyssal')) {
+                icon = 'fas fa-water';
+                themeClass = 'sub-oceancinemas-abysal';
+              } else if (planLower.includes('marea')) {
+                icon = 'fas fa-water';
+                themeClass = 'sub-oceancinemas-marea';
+              } else if (planLower.includes('oleaje')) {
+                icon = 'fas fa-water';
+                themeClass = 'sub-oceancinemas-oleaje';
               } else {
                 icon = 'fas fa-water';
-                themeClass = 'sub-oceancinemas-free';
+                themeClass = 'sub-oceancinemas-litoral';
               }
             }
 
@@ -5942,37 +5997,39 @@
               <div class="subs-carousel-window">
                 <div class="subs-carousel-track">
                    ${items.map((it) => {
-                     const isOceanCinemas = it.themeClass === 'sub-oceancinemas-abyssal' || it.themeClass === 'sub-oceancinemas-free';
+                     const isOceanCinemas = it.themeClass && it.themeClass.startsWith('sub-oceancinemas');
                      if (isOceanCinemas) {
-                       // Card mejorado para Ocean Cinemas
-                       const isAbyssal = it.themeClass === 'sub-oceancinemas-abyssal';
-                       const planBadge = isAbyssal ? 'ABISAL' : 'FREE';
-                       const planColor = isAbyssal ? '#14b8a6' : '#38bdf8';
-                       const perks = isAbyssal
-                         ? ['50% descuento en todas las películas', 'Fast Pass desbloqueado', 'Recompensas 2x']
-                         : ['Acceso al catálogo base', 'Pre-compra estándar', 'Recompensas diarias'];
-                       return `
-                         <article class="subs-carousel-card ${it.themeClass}" style="position:relative;overflow:hidden;">
-                           <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:${planColor};opacity:0.08;filter:blur(20px);pointer-events:none;"></div>
-                           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                             <div style="display:flex;align-items:center;gap:8px;">
-                               <div class="sub-icon" style="width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#06111f;font-size:1rem;flex-shrink:0;"><i class="${it.icon}"></i></div>
-                               <div>
-                                 <div style="font-size:0.62rem;color:#7fb8d4;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Ocean Cinemas</div>
-                                 <div style="font-size:0.88rem;color:#f2fbff;font-weight:800;line-height:1.1;">${it.name}</div>
-                               </div>
-                             </div>
-                             <span style="font-size:0.6rem;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:${planColor};border:1px solid ${planColor}44;background:${planColor}18;border-radius:999px;padding:3px 8px;">${planBadge}</span>
-                           </div>
-                           <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
-                             ${perks.map(p => `<div style="display:flex;align-items:center;gap:6px;font-size:0.7rem;color:#b4d8e8;"><i class="fas fa-check" style="color:${planColor};font-size:0.6rem;flex-shrink:0;"></i>${p}</div>`).join('')}
-                           </div>
-                           <div class="subs-meta">
-                             <div><small>Renovación</small><strong>${it.renewDate}</strong></div>
-                             <div><small>Vencimiento</small><strong>${it.nextDate}</strong></div>
-                             <div><small>Estado</small><strong class="${it.statusLabel === 'Activa' ? 'ok' : 'off'}">${it.statusLabel}</strong></div>
-                           </div>
-                         </article>`;
+                        const planLower = it.themeClass.replace('sub-oceancinemas-', '');
+                        const planInfo = {
+                          litoral: { badge: 'LITORAL', color: '#38bdf8', perks: ['Acceso al 50% catálogo', 'Pre-compra estándar', 'Sin recompensas'] },
+                          oleaje: { badge: 'OLEAJE', color: '#0e7490', perks: ['Catálogo base completo', 'Recompensas diarias x1'] },
+                          marea: { badge: 'MAREA', color: '#06b6d4', perks: ['Catálogo extendido', '25% descuento pre-compra', 'Fast Pass parcial', 'Recompensas x2'] },
+                          abysal: { badge: 'ABISAL', color: '#14b8a6', perks: ['50% descuento todas las películas', 'Fast Pass desbloqueado', 'Recompensas x3', 'Sinopsis exclusivas'] },
+                          leviatan: { badge: 'LEVIATÁN', color: '#7c3aed', perks: ['70% descuento', 'Acceso anticipado 48h', 'Fast Pass ilimitado', 'Recompensas x4'] }
+                        };
+                        const info = planInfo[planLower] || planInfo.litoral;
+                        return `
+                          <article class="subs-carousel-card ${it.themeClass}" style="position:relative;overflow:hidden;">
+                            <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:${info.color};opacity:0.08;filter:blur(20px);pointer-events:none;"></div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                              <div style="display:flex;align-items:center;gap:8px;">
+                                <div class="sub-icon" style="width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#06111f;font-size:1rem;flex-shrink:0;"><i class="${it.icon}"></i></div>
+                                <div>
+                                  <div style="font-size:0.62rem;color:#7fb8d4;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Ocean Cinemas</div>
+                                  <div style="font-size:0.88rem;color:#f2fbff;font-weight:800;line-height:1.1;">${it.name}</div>
+                                </div>
+                              </div>
+                              <span style="font-size:0.6rem;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:${info.color};border:1px solid ${info.color}44;background:${info.color}18;border-radius:999px;padding:3px 8px;">${info.badge}</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
+                              ${info.perks.map(p => `<div style="display:flex;align-items:center;gap:6px;font-size:0.7rem;color:#b4d8e8;"><i class="fas fa-check" style="color:${info.color};font-size:0.6rem;flex-shrink:0;"></i>${p}</div>`).join('')}
+                            </div>
+                            <div class="subs-meta">
+                              <div><small>Renovación</small><strong>${it.renewDate}</strong></div>
+                              <div><small>Vencimiento</small><strong>${it.nextDate}</strong></div>
+                              <div><small>Estado</small><strong class="${it.statusLabel === 'Activa' ? 'ok' : 'off'}">${it.statusLabel}</strong></div>
+                            </div>
+                          </article>`;
                      }
                      const isNaturePass = it.themeClass && it.themeClass.startsWith('sub-nature-pass');
                      if (isNaturePass) {
@@ -7624,8 +7681,11 @@
   body.op-v5 .subs-carousel-card.sub-wildshorts-premium,
   body.op-v5 .subs-carousel-card.sub-wildtransfer-relay,
   body.op-v5 .subs-carousel-card.sub-ecoxion-premium,
-  body.op-v5 .subs-carousel-card.sub-oceancinemas-free,
-  body.op-v5 .subs-carousel-card.sub-oceancinemas-abyssal {
+  body.op-v5 .subs-carousel-card.sub-oceancinemas-litoral,
+  body.op-v5 .subs-carousel-card.sub-oceancinemas-oleaje,
+  body.op-v5 .subs-carousel-card.sub-oceancinemas-marea,
+  body.op-v5 .subs-carousel-card.sub-oceancinemas-abysal,
+  body.op-v5 .subs-carousel-card.sub-oceancinemas-leviatan {
     border-width: 1px !important;
   }
 </style>

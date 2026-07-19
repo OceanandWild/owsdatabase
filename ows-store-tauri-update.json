@@ -1,11 +1,11 @@
-﻿{
-    "version": "0.1.0",
-    "notes": "OWS Store 2026.7.19-t1901 - Fixed Tauri v2 shim compatibility and update button",
-    "pub_date": "2026-07-19T22:20:00Z",
-    "platforms": {
-        "windows-x86_64": {
-            "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUM0tVQzdNUFBsUi9iT3ZWcVg4MlJiOFA2Rkg5ajZLVGhWajNyMUFZTWo5cklHRTNSa3NtWnRTN0k0MzdxZ1ZNT0tlVDI4a25vT2RTQ1hUVTRtbzlDSm56TGJsVGw3MmdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0NTAwODcyCWZpbGU6T1dTIFN0b3JlXzAuMS4wX3g2NC1zZXR1cC5leGUKdmV6SGRCbXMwZHROMFY4VmRsVENWeHd6RE8yY0kxZ1VGbGdZWjhmdjhmNEZsa29iYjJsVS91cmtBZG9DVXJ1Zk02N2xxRDY0SDNPdkpPai9uUi9DRHc9PQo=",
-            "url": "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.19-t1901/OWS Store_0.1.0_x64-setup.exe"
-        }
-    }
+{
+    "platforms":  {
+                      "windows-x86_64":  {
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUM0tVQzdNUFBsUjNBZUNwSUtsaGJQczRwblhnNzI4dGRJdWw5RXRQNld3L01HVDg3TDZGNnNIN2xRbDBtclVvdlVVbHZidGVGL1JoRXoxUXRsbThYSk1IYkIwL2dWaXc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0NTA1MTc4CWZpbGU6T1dTIFN0b3JlXzAuMS4wX3g2NC1zZXR1cC5leGUKRktMNjMzM0Y1MjJaSWtZbklkdGdQWjJyQVEvNHR5d1J5UGVVdEx0MWFjNEhvZDhiV3E0Z3FxbmFJbU5QaldEZlFFNndvRFZRYlRuTTdEekZFNVdCQ2c9PQo=",
+                                             "url":  "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.19-t1902/OWS Store_0.1.0_x64-setup.exe"
+                                         }
+                  },
+    "pub_date":  "2026-07-19T23:53:04Z",
+    "version":  "0.1.0",
+    "notes":  "OWS Store 2026.7.19-t1902 - Premium NSIS installer with custom nsDialogs welcome page, dark theme, and premium bitmap design"
 }

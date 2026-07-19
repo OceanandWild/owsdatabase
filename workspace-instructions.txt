@@ -341,17 +341,27 @@ LIMPIEZA POST-SCRIPT:
     - PATCH /ows-store/projects/:slug/version
 
 
---- SCRIPT DE RELEASE UNIVERSAL (IMPORTANTE) ---
+--- SCRIPTS DE RELEASE ---
 
-EXISTE UN SCRIPT en scripts/release.ps1 que automatiza TODO el proceso de release.
-EJECUTAR ESTE SCRIPT SOLO SI EL USUARIO INDICA EXPLICITAMENTE QUE SE DEBE HACER BUILD/RELEASE.
+EXISTEN DOS SCRIPTS de release segun la arquitectura del proyecto:
+
+A) `scripts/release.ps1` -- Para proyectos ELECTRON/WEB del ecosistema (Wild Destiny, Ocean Pay, etc.):
+   - Automatiza build electron-builder + GitHub Release + DB/API.
+   - Usar solo cuando el usuario indique BUILD/RELEASE explicitamente.
+   - NO ejecutar `npm run dist` manualmente para releases.
+   - Regla critica para `owsdatabase` (repo compartido): solo releases de `ows-store` pueden marcarse como `latest` en GitHub.
+     Para proyectos en `owsdatabase` que NO sean `ows-store` (ej. `dinobox`), publicar con `--latest=false` para no romper el updater.
+
+B) `scripts/release-ows-store.ps1` -- Para OWS Store (Tauri/Rust):
+   - Automatiza: version bump, `cargo tauri build`, firma del installer, generacion de `ows-store-tauri-update.json`, GitHub Release y registro en DB.
+   - Parametros: `-owsVersion <YYYY.M.D-tHHMM>` (obligatorio), `-cargoVersion <semver>` (opcional, default 0.1.0).
+   - NO usar `cargo tauri build` manual para releases; siempre usar este script.
+   - Requiere: Rust toolchain, Tauri CLI v2 (`cargo install tauri-cli --locked`), VS Build Tools, NSIS.
+   - Post-build: ejecutar `scripts/patch-nsis-installer.ps1` para aplicar tema oscuro al installer NSIS.
 
 REGLA BLOQUEANTE (OWS Store y apps del ecosistema):
-- NO ejecutar `npm run dist` manualmente para releases.
-- Para releases y deteccion de updates, usar SIEMPRE `scripts/release.ps1`.
+- Para releases, usar SIEMPRE el script correspondiente segun arquitectura.
 - Objetivo: garantizar pipeline completo (GitHub Release + DB/API + metadata de update), evitando builds locales sueltos que no se reflejan en deteccion.
-- Regla critica para `owsdatabase` (repo compartido): solo releases de `ows-store` pueden marcarse como `latest` en GitHub.
-  Para proyectos en `owsdatabase` que NO sean `ows-store` (ej. `dinobox`), publicar con `--latest=false` para no romper el updater de OWS Store (`latest.yml`).
 
 SETUP INICIAL (solo una vez):
   Unblock-File -Path ".\scripts\release.ps1"
@@ -419,8 +429,59 @@ Nota: "(Proyecto)" es un placeholder conceptual, NO literal. Reemplazar siempre 
 4) Requisitos minimos de un nuevo proyecto:
    - Tener carpeta `build/`.
    - Icono `.ico` en `build/` para Windows.
-   - `package.json` + `main.js` + `preload.js` si es app Electron.
+   - Si es app Electron: `package.json` + `main.js` + `preload.js`.
+   - Si es app Tauri (OWS Store): `src-tauri/Cargo.toml` + `src-tauri/src/lib.rs` + `src-tauri/tauri.conf.json`.
    - Versionado en formato `YYYY.M.D-tHHMM`.
+
+--- ARQUITECTURA OWS STORE (TAURI v2) ---
+
+OWS Store fue migrado de Electron a Tauri v2 + Rust. Es el UNICO proyecto en esta arquitectura;
+todos los demas proyectos del ecosistema (Ocean Cinemas, Wild Destiny, Ocean Pay, etc.) siguen en Electron o web.
+
+ESTRUCTURA DEL PROYECTO:
+- `index.html` + `dist/index.html`: Frontend HTML/JS/CSS con Tauri shim.
+- `src-tauri/src/lib.rs`: Backend Rust (~720 lineas) con todos los comandos IPC.
+- `src-tauri/tauri.conf.json`: Configuracion Tauri (ventana, updater, NSIS, icons).
+- `src-tauri/Cargo.toml`: Dependencias Rust (tauri v2, tauri-plugin-updater, reqwest, etc.).
+- `src-tauri/updater-keys.json`: Clave privada para firmar updates (SECRETO).
+- `src-tauri/updater-keys.json.pub`: Clave publica para verify updates.
+
+Tauri SHIM (en index.html, linea 10):
+- Reemplaza al preload.js de Electron.
+- Detecta automaticamente Tauri v1 (`window.__TAURI__`) o v2 (`window.__TAURI_INTERNALS__`).
+- Expone `window.owsUpdater` con metodos IPC identicos a Electron para compatibilidad del frontend.
+- Propiedades: `isElectron: true` (compat), `isTauri: true` (deteccion).
+
+MECANISMO DE UPDATE (SELF-UPDATE):
+- NO usa electron-updater ni latest.yml.
+- Frontend consulta GitHub Releases API directamente para detectar version nueva.
+- Descarga e instalacion via comando Rust `install_external_installer`.
+- Manifest de update: `ows-store-tauri-update.json` en raiz de owsdatabase.
+- Firma del installer: `cargo tauri signer sign`.
+
+BUILD:
+- `cargo tauri build` produce: `ows-store.exe` y `OWS Store_<cargo-version>_x64-setup.exe`.
+- NSIS installer con tema oscuro via post-build `scripts/patch-nsis-installer.ps1`.
+- Version semver en Cargo.toml (0.1.0); version real YYYY.M.D-tHHMM en APP_VERSION del frontend y tag GitHub.
+
+COMANDOS RUST DISPONIBLES (via invoke IPC):
+- `check_for_updates`: Busca nueva version en GitHub Releases.
+- `install_update`: Descarga e instalacion via updater plugin (con fallback manual).
+- `install_external_installer`: Descarga un instalador externo y lo ejecuta (usado para self-update).
+- `get_app_version`: Devuelve la version compilada.
+- `get_wns_channel_uri`: Obtiene URI de canal WNS (notificaciones).
+- `show_system_notification`: Muestra notificacion del sistema.
+- `open_external_url`: Abre URL en browser externo.
+- `resolve_installed_apps_batch`: Verifica apps instaladas en el sistema.
+- `launch_installed_app`: Lanza una app instalada.
+- `uninstall_installed_app`: Desinstala una app.
+
+TRAY ICON:
+- Feature activada: `tray-icon` en Cargo.toml.
+- Menu contextual con: Mostrar/Ocultar, Buscar actualizaciones, Acerca de, Salir.
+
+NOTA: Los demas proyectos listados en OWS Store (Ocean Cinemas, WildDestiny, OceanPay, etc.)
+siguen siendo apps Electron/web y NO tienen esta arquitectura Tauri. La migracion es solo para OWS Store por ahora.
 
 --- ANDROID ---
 Los builds Android se hacen via GitHub Actions (workflow: release-android-universal.yml).
@@ -439,7 +500,7 @@ REGLA CRITICA DE INTEGRIDAD DEL KEYSTORE (OBLIGATORIO PARA AGENTES):
 
 AVISO CRITICO -- DIRECTORIOS DE PROYECTOS:
 - OWS Store Electron/ --> IGNORAR, carpeta antigua en desuso, NO usar para builds
-- OWS Store/ ----------> Carpeta correcta del OWS Store
+- OWS Store/ ----------> Carpeta correcta del OWS Store (frontend HTML/JS + backend Rust/Tauri v2)
 
 PROYECTOS Y SUS DIRECTORIOS CORRECTOS:
   ows-store            -> OWS Store/
@@ -476,7 +537,7 @@ No ejecutarlo automaticamente al terminar cambios de codigo -- solo cuando el us
 
 AVISO CRITICO -- DIRECTORIOS DE PROYECTOS:
 - OWS Store Electron/ --> IGNORAR, es una carpeta antigua y en desuso, NO usar para builds
-- OWS Store/ ----------> Esta es la carpeta correcta del OWS Store (frontend + Electron)
+- OWS Store/ ----------> Esta es la carpeta correcta del OWS Store (frontend HTML/JS + backend Rust/Tauri v2)
 - Cualquier referencia a 'OWS Store Electron' en scripts o configs debe corregirse a 'OWS Store'
 
 PROYECTOS Y SUS DIRECTORIOS CORRECTOS:
@@ -592,14 +653,26 @@ Promote:
   - OWS News -> OceanandWild/ocean-and-wild-studios-news
 - En ambos casos: mark_latest=false para APK Android.
 
-5) BUILD WINDOWS (ELECTRON) + RELEASE WINDOWS
-En proyecto Electron (ej: OWS Store, Ocean Pay, Wild Destiny):
+5) BUILD WINDOWS + RELEASE WINDOWS
+
+5a) Proyectos ELECTRON (Ocean Pay, Wild Destiny, etc.):
 - Usar `.\scripts\release.ps1` como unico entrypoint de release (no usar `npm run dist` manual para releases).
 - El release debe terminar con assets coherentes en GitHub y sincronizacion de version en DB/API.
-
-Notas:
 - Para updater Windows debe existir latest.yml + .exe en release Windows.
+
+5b) OWS Store (TAURI/RUST):
+- Usar `.\scripts\release-ows-store.ps1` como entrypoint de release Tauri.
+- Build: `cargo tauri build` produce `ows-store.exe` (~45 MB) + `OWS Store_<version>_x64-setup.exe` (~31 MB).
+- El installer NSIS reemplazo al installer Squirrel/msi de Electron.
+- Post-build obligatorio: ejecutar `.\scripts\patch-nsis-installer.ps1` para inyectar tema oscuro MUI2 y bitmaps personalizados.
+- Update manifest: `ows-store-tauri-update.json` en raiz de `owsdatabase` (NO usa `latest.yml`).
+- Firma: `cargo tauri signer sign -f updater-keys.json -p <password> <installer>` (clave privada en `src-tauri/updater-keys.json`, publica en `tauri.conf.json`).
+- Version en Cargo.toml usa semver (0.1.0); la version real YYYY.M.D-tHHMM va solo en APP_VERSION del frontend y en el tag de GitHub.
+- Requisitos previos: PowerShell, Rust toolchain, Tauri CLI v2, VS Build Tools (Desktop C++), NSIS (Tauri lo baja automatico).
+
+5c) Notas generales:
 - Si solo se publica Android, NO usar --latest en repos con updater Windows.
+- Todos los demas proyectos del ecosistema (Wild Destiny, Ocean Pay, etc.) siguen en Electron y usan el flujo 5a.
 
 6) CHEQUEOS RAPIDOS DESPUES DE PROMOTE/RELEASE
 - Ver assets en GitHub (exe/apk/latest.yml segun plataforma).
@@ -620,18 +693,30 @@ CHECK BLOQUEANTE DE DETECCION (OWS Store + proyectos):
   3) version nueva reflejada en DB (`ows_projects.version`) para el slug correspondiente.
   4) OWS Store muestra update disponible en su flujo de check.
 
-CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
-- Antes de cerrar una release Windows, validar SIEMPRE:
-  1) https://github.com/OceanandWild/<repo>/releases/latest/download/latest.yml responde 200.
-  2) latest.yml incluye version NUEVA (estrictamente mayor a la instalada).
-  3) latest.yml referencia el .exe correcto (mismo build/version) y su hash.
-  4) El release Windows debe quedar como Latest (si usa updater por latest.yml).
-  5) Ninguna release Android debe quedar como Latest en ese repo mixto.
-- Si el usuario reporta "No hay updates" en Windows:
-  - Caso esperado: version instalada == version en latest.yml.
-  - Caso error real: latest.yml ausente, version no incrementada, Latest apuntando a Android, o assets inconsistentes.
-- Regla operativa:
-  - Si quieres forzar deteccion de update en Windows, debes publicar una version nueva (bump de version) + release Windows Latest con latest.yml.
+CHECK BLOQUEANTE WINDOWS (UPDATER):
+
+A) Proyectos ELECTRON (latest.yml):
+  - Antes de cerrar una release Windows, validar SIEMPRE:
+    1) https://github.com/OceanandWild/<repo>/releases/latest/download/latest.yml responde 200.
+    2) latest.yml incluye version NUEVA (estrictamente mayor a la instalada).
+    3) latest.yml referencia el .exe correcto (mismo build/version) y su hash.
+    4) El release Windows debe quedar como Latest (si usa updater por latest.yml).
+    5) Ninguna release Android debe quedar como Latest en ese repo mixto.
+
+B) OWS Store (TAURI - ows-store-tauri-update.json):
+  - El manifest se sirve desde: https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/ows-store-tauri-update.json
+  - Validar que el manifest exista y contenga:
+    1) version: semver (0.1.0) — la app compara la version del tag GitHub (YYYY.M.D-tHHMM), no el semver.
+    2) platforms.windows-x86_64.signature: firma base64 generada con `cargo tauri signer sign`.
+    3) platforms.windows-x86_64.url: URL directa al .exe en GitHub Releases.
+  - El manifest se actualiza via API de GitHub (gh api PUT contents) en el repo owsdatabase.
+  - El Tauri updater plugin verifica la firma contra la pubkey embebida en tauri.conf.json.
+
+C) Reglas generales:
+  - Si el usuario reporta "No hay updates":
+    - Electron: version instalada == version en latest.yml (esperado), o latest.yml ausente/version no incrementada.
+    - Tauri: verificar que ows-store-tauri-update.json tenga la URL y firma correctas, y que el tag del release exista.
+  - Para forzar deteccion de update, publicar una version nueva (bump) + release con assets actualizados.
   - Sin bump de version, el updater no debe ofrecer update.
 
 7) ESTANDAR DE COMANDOS GH EN POWERSHELL

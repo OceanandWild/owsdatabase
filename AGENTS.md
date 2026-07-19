@@ -8,7 +8,9 @@ Estas reglas tienen prioridad operativa cuando se trabaje en este workspace, esp
 
 2. Flujo de release
 - Ejecutar build/release solo cuando el usuario lo pida explicitamente.
-- Seguir `workspace-instructions.txt` y `scripts/release.ps1`.
+- Seguir `workspace-instructions.txt`.
+- OWS Store (Tauri/Rust): usar `scripts/release-ows-store.ps1` + `scripts/patch-nsis-installer.ps1` post-build.
+- Otros proyectos (Electron/web): usar `scripts/release.ps1`.
 
 3. Higiene de cambios
 - No incluir archivos o proyectos ajenos a la tarea en commit/push.
@@ -19,7 +21,16 @@ Estas reglas tienen prioridad operativa cuando se trabaje en este workspace, esp
 - No documentar en borradores operaciones internas de gestion (por ejemplo, creacion de evento por API) salvo pedido explicito del usuario.
 - Evitar texto literal calcado del pedido; redactar de forma natural y contextual.
 
-5. Estandar para spritesheets malformados (obligatorio)
+5. OWS Store - Arquitectura Tauri (UNICO, NO Electron)
+- OWS Store migro de Electron a Tauri v2 + Rust. NO usar electron-builder ni preload.js.
+- Backend Rust en `src-tauri/src/lib.rs` con comandos IPC via invoke.
+- Frontend usa Tauri shim (inline script) que reemplaza a preload.js.
+- Build: `cargo tauri build` (NO `npm run dist`). Release: `scripts/release-ows-store.ps1`.
+- Update manifest: `ows-store-tauri-update.json` en owsdatabase (NO latest.yml).
+- NSIS installer con post-build patch para tema oscuro (`scripts/patch-nsis-installer.ps1`).
+- NOTA: Los demas proyectos (Ocean Cinemas, Wild Destiny, Ocean Pay, etc.) SIGUEN en Electron/web.
+
+6. Estandar para spritesheets malformados (obligatorio)
 - Si un spritesheet no divide exacto por su grilla objetivo, primero normalizar canvas y luego recortar.
 - Evitar recorte manual frame por frame cuando se pueda resolver con pipeline automatizado.
 - Pipeline recomendado (ImageMagick):
@@ -28,12 +39,12 @@ Estas reglas tienen prioridad operativa cuando se trabaje en este workspace, esp
   3) normalizar cada frame a tamano fijo centrado (`-trim +repage -gravity center -extent`).
 - Si hay overflow visual entre celdas, priorizar secuencias de frames estables en codigo hasta regenerar assets.
 
-6. Regla de Integridad de Keystore Android (OBLIGATORIO)
+7. Regla de Integridad de Keystore Android (OBLIGATORIO)
 - ESTRICTAMENTE PROHIBIDO: Ningún agente debe sugerir, generar o reemplazar el keystore de Android (`ANDROID_SIGNING_KEY_BASE64`) en GitHub Secrets.
 - Todo el ecosistema de OWS usa un único certificado universal. Reemplazarlo corrompe la ruta de actualización para todos los usuarios (error "Paquete no válido").
 - Si hay problemas de firma, revisar `build.gradle` y el workflow de GitHub, pero NUNCA rotar la llave criptográfica.
 
-7. Backup a owsrecover (OBLIGATORIO)
+8. Backup a owsrecover (OBLIGATORIO)
 - SIEMPRE usar `scripts/backup-to-github.ps1` (o el lanzador `OWS Store/scripts/ejecutar-backup.bat`) para sincronizar a owsrecover.
 - NUNCA usar `git add/commit/push` directo desde la carpeta owsrecover: eso no actualiza `BACKUP_STATUS.json` y rompe el Centro de Control OWS.
 - Cada vez que se hagan cambios de código (WIP) o se publique una release, se DEBE correr el script para registrar la versión con timestamp Uruguay.
@@ -41,7 +52,7 @@ Estas reglas tienen prioridad operativa cuando se trabaje en este workspace, esp
 - Si el usuario SÍ pidió release → correr `ejecutar-backup.bat -version <version-real>` (la misma que se bumpea en OWS Store).
 - WIP ≠ Release. WIP = cambios de preparación, no publicados. Release = cambio publicado con versión fija.
 
-8. OWS Admin Panel = SOLO LOCAL (OBLIGATORIO)
+9. OWS Admin Panel = SOLO LOCAL (OBLIGATORIO)
 - La carpeta `OWS Admin Panel/` contiene secretos, rutas internas y lógica de autenticación. NUNCA debe estar en owsdatabase ni en owsrecover como archivo trackeado.
 - Está en `.gitignore` (carpeta entera). Si se trackeó por error, usar `git rm --cached` para sacarlo.
 - El servidor de producción (Render) NUNCA debe servir el panel: la línea `app.use('/ows-admin-panel', express.static(...))` está PROHIBIDA.

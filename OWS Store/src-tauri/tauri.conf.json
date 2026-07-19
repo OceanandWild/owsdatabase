@@ -1,0 +1,57 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/nicegui/main/tauri/tauri.conf.json",
+  "productName": "OWS Store",
+  "version": "0.1.0",
+  "identifier": "com.oceanwildstudios.owsstore",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5500",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "OWS Store",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2QjMxN0FFOUZGQ0M1REIKUldUYnhmeWZyaGV6WnBLdWw5U2R6RWlrek9hWjBsTDhRd1FFcTI1RklRbklQSWxxQmJMeHNDNksK",
+      "endpoints": ["https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/ows-store-tauri-update.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "nsis",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

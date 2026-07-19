@@ -30,7 +30,7 @@
     "updater": {
       "active": true,
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2QjMxN0FFOUZGQ0M1REIKUldUYnhmeWZyaGV6WnBLdWw5U2R6RWlrek9hWjBsTDhRd1FFcTI1RklRbklQSWxxQmJMeHNDNksK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ3RTVGMzMwQkI0MDI5RjcKUldUM0tVQzdNUFBsUjVNcE9zcitUd2R6a2lqcC9nQTdmYzdiM0YvVkQyOExHSHZobzBYYldMangK",
       "endpoints": ["https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/ows-store-tauri-update.json"],
       "windows": {
         "installMode": "passive"

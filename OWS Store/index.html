@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="app-version" content="2026.6.27-t1200">
   <meta name="app-name" content="OWS Store">
-  <script>window.APP_VERSION = '2026.7.19-t1900'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+  <script>window.APP_VERSION = '2026.7.19-t1901'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
   <script>
-(function(){if(!window.__TAURI__)return;var i=window.__TAURI__.core.invoke,l=window.__TAURI__.event.listen,p=navigator.platform.toLowerCase();window.owsUpdater={isElectron:true,isTauri:true,platform:p.includes('win')?'win32':p.includes('mac')?'darwin':'linux',onUpdateAvailable:function(c){l('update-available',function(e){c(e.payload)})},onUpdateDownloaded:function(c){l('update-downloaded',function(){c()})},onDownloadProgress:function(c){l('update-download-progress',function(e){c(e.payload)})},onUpdateNotAvailable:function(c){l('update-not-available',function(){c()})},onUpdateError:function(c){l('update-error',function(e){c(e.payload)})},onExternalInstallStatus:function(c){l('external-install-status',function(e){c(e.payload)})},installUpdate:function(){return i('install_update')},getAppVersion:function(){return i('get_app_version')},checkForUpdates:function(){return i('check_for_updates')},getWnsChannelUri:function(){return i('get_wns_channel_uri')},showSystemNotification:function(a){return i('show_system_notification',{payload:a})},installExternalInstaller:function(a){return i('install_external_installer',{payload:a})},cancelExternalInstaller:function(a){return i('cancel_external_installer',{payload:a})},openExternalUrl:function(a){return i('open_external_url',{url:a})},resolveInstalledApp:function(a){return i('resolve_installed_app',{payload:a})},resolveInstalledAppsBatch:function(a){return i('resolve_installed_apps_batch',{projects:a})},launchInstalledApp:function(a){return i('launch_installed_app',{payload:a})},uninstallInstalledApp:function(a){return i('uninstall_installed_app',{payload:a})},readProjectPackageJson:function(a){return i('read_project_package_json',{path:a})}};})();
+(function(){var i,l;if(window.__TAURI__){i=window.__TAURI__.core.invoke;l=window.__TAURI__.event.listen}else if(window.__TAURI_INTERNALS__){i=window.__TAURI_INTERNALS__.invoke;l=window.__TAURI_INTERNALS__.ipc&&window.__TAURI_INTERNALS__.ipc.listen?window.__TAURI_INTERNALS__.ipc.listen:function(){}}else return;var p=navigator.platform.toLowerCase();window.owsUpdater={isElectron:true,isTauri:true,platform:p.includes('win')?'win32':p.includes('mac')?'darwin':'linux',onUpdateAvailable:function(c){l('update-available',function(e){c(e.payload)})},onUpdateDownloaded:function(c){l('update-downloaded',function(){c()})},onDownloadProgress:function(c){l('update-download-progress',function(e){c(e.payload)})},onUpdateNotAvailable:function(c){l('update-not-available',function(){c()})},onUpdateError:function(c){l('update-error',function(e){c(e.payload)})},onExternalInstallStatus:function(c){l('external-install-status',function(e){c(e.payload)})},installUpdate:function(){return i('install_update')},getAppVersion:function(){return i('get_app_version')},checkForUpdates:function(){return i('check_for_updates')},getWnsChannelUri:function(){return i('get_wns_channel_uri')},showSystemNotification:function(a){return i('show_system_notification',{payload:a})},installExternalInstaller:function(a){return i('install_external_installer',{payload:a})},cancelExternalInstaller:function(a){return i('cancel_external_installer',{payload:a})},openExternalUrl:function(a){return i('open_external_url',{url:a})},resolveInstalledApp:function(a){return i('resolve_installed_app',{payload:a})},resolveInstalledAppsBatch:function(a){return i('resolve_installed_apps_batch',{projects:a})},launchInstalledApp:function(a){return i('launch_installed_app',{payload:a})},uninstallInstalledApp:function(a){return i('uninstall_installed_app',{payload:a})},readProjectPackageJson:function(a){return i('read_project_package_json',{path:a})}};})();
   </script>
   <title>OWS Store</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -6123,7 +6123,7 @@ function openProjectModal(slug) {
       <button class="proj-modal-btn primary" disabled style="opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:${_sm.color};">
         <i class="fas ${_sm.icon}"></i> ${_sm.label}
       </button>`;
-  } else if (window.owsUpdater && window.owsUpdater.isElectron) {
+  } else if (window.owsUpdater && (window.owsUpdater.isElectron || window.owsUpdater.isTauri)) {
     const instStatus = installedProjectsMap.get(slug);
 
     // ── Main action button for the CURRENT platform ──────────────────────────
@@ -8027,7 +8027,7 @@ async function checkOwsStoreSelfUpdate() {
 }
 
 async function triggerOwsStoreSelfUpdate() {
-  if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
+  if (!window.owsUpdater || !(window.owsUpdater.isElectron || window.owsUpdater.isTauri)) return;
   if (currentDownloadTaskActive) {
     alert('Ya hay otra descarga en curso. Espera a que termine.');
     return;
@@ -8251,7 +8251,7 @@ function getProjectHints(slug) {
 }
 
 async function scanInstalledApps() {
-  if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
+  if (!window.owsUpdater || !(window.owsUpdater.isElectron || window.owsUpdater.isTauri)) return;
   const listToScan = allProjects.map(p => ({
     slug: p.slug,
     hints: getProjectHints(p.slug)
@@ -8343,7 +8343,7 @@ function _isStrictlyNewer(latest, installed) {
 }
 
 async function checkUpdatesForInstalled(manual = false) {
-  if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
+  if (!window.owsUpdater || !(window.owsUpdater.isElectron || window.owsUpdater.isTauri)) return;
   let updateCount = 0;
   
   const promises = [...installedProjectsMap.entries()].map(async ([slug, status]) => {
@@ -8431,7 +8431,7 @@ function closeDownloadErrorModal() {
 }
 
 async function triggerInstall(slug) {
-  if (!window.owsUpdater || !window.owsUpdater.isElectron) return;
+  if (!window.owsUpdater || !(window.owsUpdater.isElectron || window.owsUpdater.isTauri)) return;
   if (currentDownloadTaskActive) {
     alert('Ya hay otra descarga en curso. Espera a que termine.');
     return;
@@ -8740,7 +8740,7 @@ function renderUpdatesSection() {
       : `<span style="font-size:9px;font-weight:700;background:rgba(63,185,80,0.15);color:var(--green);border:1px solid rgba(63,185,80,0.3);padding:2px 8px;border-radius:20px;letter-spacing:0.04em;">Al día</span>`;
 
     let actionBtn = '';
-    if (hasUpdate && window.owsUpdater && window.owsUpdater.isElectron) {
+    if (hasUpdate && window.owsUpdater && (window.owsUpdater.isElectron || window.owsUpdater.isTauri)) {
       actionBtn = `<button id="ows-self-update-btn" onclick="triggerOwsStoreSelfUpdate()" style="background:linear-gradient(135deg,#6366f1,#7c3aed);border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(99,102,241,0.35);">
         <i class="fas fa-arrow-circle-down"></i> Actualizar OWS Store
       </button>`;
@@ -8958,7 +8958,7 @@ function triggerManualUpdatesCheck() {
 ───────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
   // Bind Electron IPC update listeners
-  if (window.owsUpdater && window.owsUpdater.isElectron) {
+  if (window.owsUpdater && (window.owsUpdater.isElectron || window.owsUpdater.isTauri)) {
     window.owsUpdater.onExternalInstallStatus((status) => {
       if (status && status.taskId) {
         updateHUDProgress(

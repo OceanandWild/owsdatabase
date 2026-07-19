@@ -2,10 +2,10 @@
     "platforms":  {
                       "windows-x86_64":  {
                                              "signature":  "",
-                                             "url":  "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.19-t1801/OWS Store_0.1.0_x64-setup.exe"
+                                             "url":  "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.19-t1900/OWS Store_0.1.0_x64-setup.exe"
                                          }
                   },
-    "pub_date":  "2026-07-19T21:04:12Z",
+    "pub_date":  "2026-07-19T22:03:58Z",
     "version":  "0.1.0",
-    "notes":  "OWS Store 2026.7.19-t1801"
+    "notes":  "OWS Store 2026.7.19-t1900 - Dark Edition installer with custom bitmaps and dark theme"
 }

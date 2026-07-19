@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="app-version" content="2026.6.27-t1200">
   <meta name="app-name" content="OWS Store">
-  <script>window.APP_VERSION = '2026.6.27-t1200'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+  <script>window.APP_VERSION = '2026.7.19-t1801'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+  <script>
+(function(){if(!window.__TAURI__)return;var i=window.__TAURI__.core.invoke,l=window.__TAURI__.event.listen,p=navigator.platform.toLowerCase();window.owsUpdater={isElectron:true,isTauri:true,platform:p.includes('win')?'win32':p.includes('mac')?'darwin':'linux',onUpdateAvailable:function(c){l('update-available',function(e){c(e.payload)})},onUpdateDownloaded:function(c){l('update-downloaded',function(){c()})},onDownloadProgress:function(c){l('update-download-progress',function(e){c(e.payload)})},onUpdateNotAvailable:function(c){l('update-not-available',function(){c()})},onUpdateError:function(c){l('update-error',function(e){c(e.payload)})},onExternalInstallStatus:function(c){l('external-install-status',function(e){c(e.payload)})},installUpdate:function(){return i('install_update')},getAppVersion:function(){return i('get_app_version')},checkForUpdates:function(){return i('check_for_updates')},getWnsChannelUri:function(){return i('get_wns_channel_uri')},showSystemNotification:function(a){return i('show_system_notification',{payload:a})},installExternalInstaller:function(a){return i('install_external_installer',{payload:a})},cancelExternalInstaller:function(a){return i('cancel_external_installer',{payload:a})},openExternalUrl:function(a){return i('open_external_url',{url:a})},resolveInstalledApp:function(a){return i('resolve_installed_app',{payload:a})},resolveInstalledAppsBatch:function(a){return i('resolve_installed_apps_batch',{projects:a})},launchInstalledApp:function(a){return i('launch_installed_app',{payload:a})},uninstallInstalledApp:function(a){return i('uninstall_installed_app',{payload:a})},readProjectPackageJson:function(a){return i('read_project_package_json',{path:a})}};})();
+  </script>
   <title>OWS Store</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -3747,26 +3750,26 @@
       z-index: 3;
     }
 
-    /* Identity row (name + chips) — no negative margin, clean flow */
+    /* Identity row (name + chips) — premium layout with modern centering & gapless cohesion */
     .proj-modal-identity {
-      padding: 14px 20px 16px 20px;
+      padding: 24px 24px 20px 24px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 20px;
       position: relative;
       z-index: 2;
     }
     .proj-modal-icon {
-      width: 72px;
-      height: 72px;
-      border-radius: 0px;
-      border: 2.5px solid rgba(255,255,255,0.12);
+      width: 80px;
+      height: 80px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
       background: var(--surface-2);
-      box-shadow: 0 6px 24px rgba(0,0,0,0.7);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 900;
       color: var(--ink-1);
       flex-shrink: 0;
@@ -3781,19 +3784,19 @@
     .proj-modal-id-info {
       flex: 1;
       min-width: 0;
-      padding-bottom: 4px;
     }
     .proj-modal-id-info h1 {
-      font-size: 22px;
+      font-size: 26px;
       font-weight: 800;
       color: var(--ink-0);
-      margin: 0 0 4px 0;
-      line-height: 1.2;
+      margin: 0 0 6px 0;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
     }
     .proj-modal-id-meta {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .proj-modal-id-chip {
@@ -3801,53 +3804,59 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      padding: 2px 7px;
-      border-radius: 5px;
-      background: rgba(255,255,255,0.06);
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.08);
-      color: var(--ink-2);
+      color: var(--ink-1);
     }
-    .proj-modal-id-chip.status-launched { color: var(--green); background: rgba(63,185,80,0.1); border-color: rgba(63,185,80,0.2); }
+    .proj-modal-id-chip.status-launched { color: #10b981; background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.15); }
     .proj-modal-id-chip.status-wip,
-    .proj-modal-id-chip.status-rework { color: var(--orange); background: rgba(240,136,62,0.1); border-color: rgba(240,136,62,0.2); }
-    .proj-modal-id-chip.status-beta { color: var(--yellow); background: rgba(210,153,34,0.12); border-color: rgba(210,153,34,0.2); }
-    .proj-modal-id-chip.status-coming_soon { color: #a78bfa; background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.2); }
+    .proj-modal-id-chip.status-rework { color: var(--orange); background: rgba(240,136,62,0.08); border-color: rgba(240,136,62,0.15); }
+    .proj-modal-id-chip.status-beta { color: var(--yellow); background: rgba(210,153,34,0.08); border-color: rgba(210,153,34,0.15); }
+    .proj-modal-id-chip.status-coming_soon { color: #a78bfa; background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.15); }
 
-    /* Action buttons row */
+    /* Action buttons row with elegant pill buttons and crisp hover states */
     .proj-modal-actions {
       display: flex;
-      gap: 10px;
-      padding: 0 20px 16px;
+      gap: 8px;
+      padding: 0 24px 20px;
     }
     .proj-modal-btn {
-      padding: 10px 22px;
-      border-radius: 12px;
+      padding: 10px 24px;
+      border-radius: 999px;
       font-weight: 700;
       font-size: 13px;
       cursor: pointer;
-      border: none;
-      transition: all 0.22s;
+      border: 1px solid transparent;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.01em;
       text-decoration: none;
     }
     .proj-modal-btn.primary {
-      background: linear-gradient(135deg, var(--cyan), #1ab6d4);
-      color: #000;
-      box-shadow: 0 4px 16px rgba(41,212,224,0.3);
+      background: #29d4e0;
+      color: #0d1117;
+      box-shadow: 0 4px 14px rgba(41,212,224,0.25);
     }
     .proj-modal-btn.primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(41,212,224,0.45);
+      background: #3fe7f3;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(41,212,224,0.35);
     }
     .proj-modal-btn.secondary {
-      background: var(--surface-2);
-      border: 1px solid var(--border-mid);
-      color: var(--ink-1);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--ink-0);
     }
-    .proj-modal-btn.secondary:hover { background: var(--surface-3); }
+    .proj-modal-btn.secondary:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-1px);
+    }
 
     /* Tab bar */
     .proj-modal-tabs {
@@ -3922,30 +3931,111 @@
       gap: 18px;
     }
     .proj-meta-card {
-      background: var(--surface-1);
-      border: 1px solid var(--border-mid);
-      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(22,27,34,0.8), rgba(13,17,23,0.95));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
       overflow: hidden;
+      position: relative;
     }
+
+    .proj-meta-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 20px;
+      right: 20px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(41,212,224,0.3), transparent);
+    }
+
     .proj-meta-card-header {
-      padding: 10px 14px;
-      font-size: 11px;
-      font-weight: 700;
+      padding: 14px 18px 10px;
+      font-size: 10px;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.14em;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .proj-meta-card-header::before {
+      content: '';
+      width: 3px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--cyan);
+      flex-shrink: 0;
+    }
+
+    .proj-meta-rows {
+      display: flex;
+      flex-direction: column;
+      padding: 0 6px 6px;
+    }
+
+    .proj-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 10px;
+      transition: background 0.15s;
+    }
+
+    .proj-meta-row:hover {
+      background: rgba(255,255,255,0.025);
+    }
+
+    .proj-meta-row-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .proj-meta-row-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: var(--ink-1);
+    }
+
+    .proj-meta-row-label {
+      font-size: 12px;
       color: var(--ink-2);
-      border-bottom: 1px solid var(--border-mid);
+      font-weight: 500;
     }
-    .proj-meta-table {
-      width: 100%;
-      border-collapse: collapse;
+
+    .proj-meta-row-value {
       font-size: 12.5px;
+      color: var(--ink-0);
+      font-weight: 600;
+      text-align: right;
+      white-space: nowrap;
     }
-    .proj-meta-table tr { border-bottom: 1px solid var(--border-mid); }
-    .proj-meta-table tr:last-child { border-bottom: none; }
-    .proj-meta-table td { padding: 9px 14px; }
-    .proj-meta-table td.label { color: var(--ink-2); font-weight: 500; width: 45%; }
-    .proj-meta-table td.value { color: var(--ink-0); font-weight: 600; text-align: right; }
+
+    .proj-meta-row-value.version-val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      border: 1px solid rgba(41,212,224,0.15);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .proj-meta-row-value.free-val {
+      color: var(--green);
+    }
 
     /* Ratings section */
     .proj-ratings-section { padding: 22px 20px; }
@@ -4385,6 +4475,427 @@
 
     .dialog-btn.accept:active {
       transform: translateY(0);
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       TOAST NOTIFICATION SYSTEM
+    ───────────────────────────────────────────────────────────── */
+    .ows-toast-container {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .ows-toast {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-radius: 14px;
+      background: rgba(13,17,23,0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(41,212,224,0.25);
+      box-shadow: 0 12px 36px rgba(0,0,0,0.45), 0 0 20px rgba(41,212,224,0.08);
+      min-width: 280px;
+      max-width: 420px;
+      opacity: 0;
+      transform: translateX(40px) scale(0.95);
+      animation: toast-enter 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+
+    .ows-toast.toast-exit {
+      animation: toast-exit 0.3s cubic-bezier(0.55,0,1,0.45) forwards;
+    }
+
+    @keyframes toast-enter {
+      to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+
+    @keyframes toast-exit {
+      to { opacity: 0; transform: translateX(40px) scale(0.9); }
+    }
+
+    .ows-toast-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+      background: rgba(41,212,224,0.12);
+      color: var(--cyan);
+      border: 1px solid rgba(41,212,224,0.2);
+    }
+
+    .ows-toast-icon.error {
+      background: rgba(248,81,73,0.12);
+      color: var(--red);
+      border-color: rgba(248,81,73,0.2);
+    }
+
+    .ows-toast-icon.success {
+      background: rgba(63,185,80,0.12);
+      color: var(--green);
+      border-color: rgba(63,185,80,0.2);
+    }
+
+    .ows-toast-body { flex: 1; min-width: 0; }
+
+    .ows-toast-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink-0);
+      margin-bottom: 1px;
+    }
+
+    .ows-toast-msg {
+      font-size: 11.5px;
+      color: var(--ink-1);
+      line-height: 1.4;
+    }
+
+    .ows-toast-action {
+      flex-shrink: 0;
+      padding: 5px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(41,212,224,0.3);
+      background: rgba(41,212,224,0.08);
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .ows-toast-action:hover {
+      background: rgba(41,212,224,0.16);
+      border-color: var(--cyan);
+    }
+
+    .ows-toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 14px;
+      right: 14px;
+      height: 2px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .ows-toast-progress-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--cyan), rgba(41,212,224,0.3));
+      animation: toast-progress linear forwards;
+    }
+
+    @keyframes toast-progress {
+      from { width: 100%; }
+      to   { width: 0%; }
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       LAUNCH ANIMATION (Jugar button)
+    ───────────────────────────────────────────────────────────── */
+    .launch-ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(41,212,224,0.3);
+      transform: scale(0);
+      animation: launch-ripple-expand 0.7s cubic-bezier(0.22,1,0.36,1) forwards;
+      pointer-events: none;
+    }
+
+    @keyframes launch-ripple-expand {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    @keyframes launch-pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(41,212,224,0.4); }
+      70%  { box-shadow: 0 0 0 12px rgba(41,212,224,0); }
+      100% { box-shadow: 0 0 0 0 rgba(41,212,224,0); }
+    }
+
+    @keyframes launch-shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .proj-modal-btn.launching {
+      position: relative;
+      overflow: hidden;
+      pointer-events: none;
+      animation: launch-pulse-ring 1s ease-out 3;
+    }
+
+    .proj-modal-btn.launching::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+      background-size: 200% 100%;
+      animation: launch-shimmer 1.2s ease-in-out infinite;
+    }
+
+    .proj-modal-btn.launching .launch-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       DUAL-MODE ERROR MODAL (dev + user)
+    ───────────────────────────────────────────────────────────── */
+    .error-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 600;
+      background: rgba(8,11,16,0);
+      backdrop-filter: blur(0px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      transition: background 0.3s, backdrop-filter 0.3s;
+    }
+
+    .error-modal-backdrop.open {
+      background: rgba(8,11,16,0.75);
+      backdrop-filter: blur(14px);
+      pointer-events: auto;
+    }
+
+    .error-modal {
+      width: 480px;
+      max-width: calc(100vw - 32px);
+      background: rgba(22,27,34,0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 32px 64px rgba(0,0,0,0.6), 0 0 40px rgba(41,212,224,0.06);
+      opacity: 0;
+      transform: scale(0.92) translateY(16px);
+      transition: opacity 0.3s, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .error-modal-backdrop.open .error-modal {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+
+    .error-modal-header {
+      padding: 22px 24px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .error-modal-header-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      background: rgba(41,212,224,0.1);
+      border: 1px solid rgba(41,212,224,0.2);
+      color: var(--cyan);
+    }
+
+    .error-modal-header-text { flex: 1; }
+
+    .error-modal-header-text h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink-0);
+      margin: 0;
+    }
+
+    .error-modal-header-text p {
+      font-size: 12px;
+      color: var(--ink-2);
+      margin: 2px 0 0;
+    }
+
+    .error-modal-close {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: var(--ink-2);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .error-modal-close:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--ink-0);
+    }
+
+    .error-modal-mode-toggle {
+      display: flex;
+      margin: 16px 24px 0;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 3px;
+    }
+
+    .error-mode-btn {
+      flex: 1;
+      padding: 7px 0;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink-2);
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background 0.2s, color 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .error-mode-btn.active {
+      background: var(--cyan-dim);
+      color: var(--cyan);
+      border: 1px solid rgba(41,212,224,0.2);
+    }
+
+    .error-mode-btn:hover:not(.active) {
+      color: var(--ink-1);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .error-modal-body {
+      padding: 16px 24px 20px;
+      min-height: 80px;
+    }
+
+    .error-user-msg {
+      font-size: 14px;
+      color: var(--ink-0);
+      line-height: 1.6;
+    }
+
+    .error-user-msg .error-highlight {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .error-dev-msg {
+      display: none;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink-1);
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      line-height: 1.6;
+      word-break: break-all;
+      white-space: pre-wrap;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .error-dev-msg .dev-label {
+      color: var(--cyan);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 10px;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .error-dev-msg .dev-stack {
+      color: var(--red);
+      opacity: 0.85;
+    }
+
+    .error-modal-footer {
+      padding: 14px 24px 18px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .error-modal-btn {
+      padding: 8px 18px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+      border: none;
+      transition: all 0.18s;
+    }
+
+    .error-modal-btn.primary {
+      background: var(--cyan);
+      color: #0d1117;
+    }
+
+    .error-modal-btn.primary:hover {
+      background: #3fe7f3;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(41,212,224,0.3);
+    }
+
+    .error-modal-btn.secondary {
+      background: var(--surface-2);
+      border: 1px solid var(--border-mid);
+      color: var(--ink-1);
+    }
+
+    .error-modal-btn.secondary:hover {
+      background: var(--surface-3);
+      color: var(--ink-0);
+    }
+
+    .error-modal-btn.copy-btn {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--ink-2);
+      font-size: 11px;
+    }
+
+    .error-modal-btn.copy-btn:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--ink-1);
     }
   </style>
 </head>
@@ -5641,7 +6152,7 @@ function openProjectModal(slug) {
         if (instStatus.hasUpdate) {
           actionBtn = `<button class="proj-modal-btn primary" onclick="triggerInstall('${slug}')"><i class="fas fa-circle-arrow-down"></i> Actualizar</button>`;
         } else {
-          actionBtn = `<button class="proj-modal-btn primary" onclick="playProject('${slug}')"><i class="fas fa-play"></i> Jugar</button>`;
+          actionBtn = `<button class="proj-modal-btn primary launch-btn-active" onclick="playProject('${slug}')"><i class="fas fa-play"></i> Jugar</button>`;
         }
         actionBtn += `<button class="proj-modal-btn secondary" onclick="uninstallProject('${slug}')" style="color:#ef4444;"><i class="fas fa-trash-can"></i> Desinstalar</button>`;
       } else {
@@ -5744,13 +6255,43 @@ function openProjectModal(slug) {
           <div class="proj-modal-sidebar">
             <div class="proj-meta-card">
               <div class="proj-meta-card-header">Detalles</div>
-              <table class="proj-meta-table">
-                <tr><td class="label">Plataforma</td><td class="value">${platform}</td></tr>
-                <tr><td class="label">Categoría</td><td class="value">${category}</td></tr>
-                <tr><td class="label">Precio</td><td class="value">${price}</td></tr>
-                <tr><td class="label">Versión</td><td class="value" id="pm-version-cell"><span style="opacity:.5;font-size:11px;"><i class="fas fa-spinner fa-spin" style="margin-right:4px;"></i>${version}</span></td></tr>
-                <tr><td class="label">Creador</td><td class="value">Ocean and Wild Studios</td></tr>
-              </table>
+              <div class="proj-meta-rows">
+                <div class="proj-meta-row">
+                  <div class="proj-meta-row-left">
+                    <div class="proj-meta-row-icon"><i class="fas fa-globe"></i></div>
+                    <span class="proj-meta-row-label">Plataforma</span>
+                  </div>
+                  <span class="proj-meta-row-value">${platform}</span>
+                </div>
+                <div class="proj-meta-row">
+                  <div class="proj-meta-row-left">
+                    <div class="proj-meta-row-icon"><i class="fas fa-folder"></i></div>
+                    <span class="proj-meta-row-label">Categoría</span>
+                  </div>
+                  <span class="proj-meta-row-value">${category}</span>
+                </div>
+                <div class="proj-meta-row">
+                  <div class="proj-meta-row-left">
+                    <div class="proj-meta-row-icon"><i class="fas fa-tag"></i></div>
+                    <span class="proj-meta-row-label">Precio</span>
+                  </div>
+                  <span class="proj-meta-row-value free-val">${price}</span>
+                </div>
+                <div class="proj-meta-row">
+                  <div class="proj-meta-row-left">
+                    <div class="proj-meta-row-icon"><i class="fas fa-code-branch"></i></div>
+                    <span class="proj-meta-row-label">Versión</span>
+                  </div>
+                  <span class="proj-meta-row-value version-val" id="pm-version-cell">${version}</span>
+                </div>
+                <div class="proj-meta-row">
+                  <div class="proj-meta-row-left">
+                    <div class="proj-meta-row-icon"><i class="fas fa-building"></i></div>
+                    <span class="proj-meta-row-label">Creador</span>
+                  </div>
+                  <span class="proj-meta-row-value">Ocean and Wild Studios</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -8038,16 +8579,84 @@ function updateHUDProgress(slug, phase, percent, downloadedBytes, totalBytes, by
 
 async function playProject(slug) {
   const status = installedProjectsMap.get(slug);
-  if (!status || !status.exePath) return;
-  const res = await window.owsUpdater.launchInstalledApp({ exePath: status.exePath });
-  if (!res.ok) {
-    showDialogModal({
-      title: 'Error de Ejecución',
-      message: 'No se pudo abrir el ejecutable: ' + res.error,
-      icon: 'fa-triangle-exclamation',
-      iconColor: '#ef4444',
-      showCancel: false,
-      acceptText: 'Aceptar'
+  if (!status || !status.exePath) {
+    showOwsToast({
+      title: 'Proyecto no encontrado',
+      msg: 'No se encontro la ruta de instalacion. Intenta reinstalar el proyecto.',
+      type: 'warning',
+      duration: 4500,
+    });
+    return;
+  }
+
+  const p = allProjects.find(x => x.slug === slug) || STATIC_PROJECTS.find(x => x.slug === slug);
+  const projName = p ? p.name : slug;
+
+  // Find and animate the Jugar button
+  const playBtn = document.querySelector('.proj-modal-btn.primary.launch-btn-active');
+  const anim = _animateLaunchButton(playBtn);
+
+  try {
+    const res = await window.owsUpdater.launchInstalledApp({ exePath: status.exePath });
+
+    if (res.ok) {
+      anim.stop(true);
+      showOwsToast({
+        title: `${projName} iniciado`,
+        msg: 'El proyecto se esta ejecutando correctamente.',
+        type: 'success',
+        duration: 3000,
+      });
+    } else {
+      anim.stop(false);
+
+      const errorDetail = res.error || 'Error desconocido';
+      const exePath = status.exePath || 'N/A';
+
+      showOwsToast({
+        title: 'Error al lanzar',
+        msg: `No se pudo abrir ${projName}. Toca para mas detalles.`,
+        type: 'error',
+        duration: 7000,
+        actionText: 'Ver error',
+        onAction: () => {
+          openErrorModal({
+            title: 'Error al lanzar proyecto',
+            subtitle: `${projName} no pudo iniciarse`,
+            userMsg: `<p>No se pudo abrir <span class="error-highlight">${projName}</span> porque el sistema operativo rechazo ejecutar el archivo.</p>
+              <p style="margin-top:10px;color:var(--ink-1);font-size:13px;">Esto puede pasar si el archivo fue movido, eliminado o bloqueado por el antivirus. Intenta <span class="error-highlight">reinstalar el proyecto</span> desde la tienda.</p>`,
+            devMsg: `<span class="dev-label">Error Detail</span>${errorDetail}
+              <span class="dev-label" style="margin-top:10px;display:block;">Executable Path</span>${exePath}
+              <span class="dev-label" style="margin-top:10px;display:block;">Slug</span>${slug}
+              <span class="dev-label" style="margin-top:10px;display:block;">Stack</span><span class="dev-stack">${errorDetail}</span>`,
+          });
+        },
+      });
+    }
+  } catch (err) {
+    anim.stop(false);
+
+    const errMsg = err?.message || String(err);
+    const stack = err?.stack || '';
+
+    showOwsToast({
+      title: 'Excepcion al lanzar',
+      msg: `Error inesperado: ${errMsg}`,
+      type: 'error',
+      duration: 7000,
+      actionText: 'Ver detalle',
+      onAction: () => {
+        openErrorModal({
+          title: 'Excepcion inesperada',
+          subtitle: `${projName} fallo al iniciarse`,
+          userMsg: `<p>Ocurrio un error inesperado al intentar abrir <span class="error-highlight">${projName}</span>.</p>
+            <p style="margin-top:10px;color:var(--ink-1);font-size:13px;">Si el problema persiste, <span class="error-highlight">reinicia OWS Store</span> o <span class="error-highlight">reinstala el proyecto</span>.</p>`,
+          devMsg: `<span class="dev-label">Exception</span>${errMsg}
+            <span class="dev-label" style="margin-top:10px;display:block;">Executable Path</span>${status.exePath || 'N/A'}
+            <span class="dev-label" style="margin-top:10px;display:block;">Slug</span>${slug}
+            ${stack ? `<span class="dev-label" style="margin-top:10px;display:block;">Stack Trace</span><span class="dev-stack">${stack}</span>` : ''}`,
+        });
+      },
     });
   }
 }
@@ -8480,6 +9089,132 @@ function hexToRgb(hex) {
   return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '239, 68, 68';
 }
 
+/* ─────────────────────────────────────────────────────────────
+   TOAST NOTIFICATION SYSTEM
+───────────────────────────────────────────────────────────── */
+let _toastCounter = 0;
+
+function showOwsToast({ title = '', msg = '', type = 'info', duration = 5000, actionText = '', onAction = null }) {
+  const container = document.getElementById('ows-toast-container');
+  if (!container) return;
+
+  const id = `toast-${++_toastCounter}`;
+  const iconMap = {
+    info: 'fa-circle-info',
+    error: 'fa-circle-xmark',
+    success: 'fa-circle-check',
+    warning: 'fa-triangle-exclamation',
+  };
+  const typeClass = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+
+  const toast = document.createElement('div');
+  toast.className = 'ows-toast';
+  toast.id = id;
+  toast.style.position = 'relative';
+  toast.innerHTML = `
+    <div class="ows-toast-icon ${typeClass}"><i class="fas ${iconMap[type] || iconMap.info}"></i></div>
+    <div class="ows-toast-body">
+      <div class="ows-toast-title">${title}</div>
+      <div class="ows-toast-msg">${msg}</div>
+    </div>
+    ${actionText ? `<button class="ows-toast-action" id="${id}-action">${actionText}</button>` : ''}
+    <div class="ows-toast-progress"><div class="ows-toast-progress-bar" style="animation-duration:${duration}ms"></div></div>
+  `;
+
+  container.appendChild(toast);
+
+  if (actionText && onAction) {
+    toast.querySelector(`#${id}-action`).addEventListener('click', () => {
+      onAction();
+      dismissToast(toast);
+    });
+  }
+
+  const timer = setTimeout(() => dismissToast(toast), duration);
+  toast._timer = timer;
+
+  return toast;
+}
+
+function dismissToast(toast) {
+  if (!toast || toast._dismissed) return;
+  toast._dismissed = true;
+  clearTimeout(toast._timer);
+  toast.classList.add('toast-exit');
+  setTimeout(() => toast.remove(), 320);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DUAL-MODE ERROR MODAL
+───────────────────────────────────────────────────────────── */
+let _errorModalData = { userMsg: '', devMsg: '', title: '', subtitle: '' };
+
+function openErrorModal({ title = 'Error al lanzar', subtitle = 'Algo salio mal', userMsg = '', devMsg = '' }) {
+  _errorModalData = { userMsg, devMsg, title, subtitle };
+  const backdrop = document.getElementById('error-modal-backdrop');
+  const titleEl = document.getElementById('error-modal-title');
+  const subtitleEl = document.getElementById('error-modal-subtitle');
+  const userEl = document.getElementById('error-user-msg');
+  const devEl = document.getElementById('error-dev-msg');
+
+  titleEl.textContent = title;
+  subtitleEl.textContent = subtitle;
+  userEl.innerHTML = userMsg;
+  devEl.innerHTML = devMsg;
+
+  switchErrorMode('user');
+  backdrop.classList.add('open');
+}
+
+function closeErrorModal() {
+  const backdrop = document.getElementById('error-modal-backdrop');
+  backdrop.classList.remove('open');
+}
+
+function switchErrorMode(mode) {
+  const userBtn = document.getElementById('error-mode-user');
+  const devBtn = document.getElementById('error-mode-dev');
+  const userEl = document.getElementById('error-user-msg');
+  const devEl = document.getElementById('error-dev-msg');
+
+  if (mode === 'dev') {
+    userBtn.classList.remove('active');
+    devBtn.classList.add('active');
+    userEl.style.display = 'none';
+    devEl.style.display = 'block';
+  } else {
+    devBtn.classList.remove('active');
+    userBtn.classList.add('active');
+    devEl.style.display = 'none';
+    userEl.style.display = 'block';
+  }
+}
+
+function copyErrorDetails() {
+  const text = `${_errorModalData.title}\n${_errorModalData.subtitle}\n\n--- Usuario ---\n${_errorModalData.userMsg.replace(/<[^>]+>/g, '')}\n\n--- Desarrollador ---\n${_errorModalData.devMsg.replace(/<[^>]+>/g, '')}`;
+  navigator.clipboard.writeText(text).then(() => {
+    showOwsToast({ title: 'Copiado', msg: 'Detalles del error copiados al portapapeles.', type: 'success', duration: 2500 });
+  }).catch(() => {});
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LAUNCH ANIMATION HELPER
+───────────────────────────────────────────────────────────── */
+function _animateLaunchButton(btn) {
+  const noop = { stop() {} };
+  if (!btn) return noop;
+  btn.classList.add('launching');
+  const originalHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="launch-spinner"></span> Iniciando...';
+
+  return {
+    stop() {
+      btn.classList.remove('launching');
+      btn.innerHTML = originalHTML;
+    }
+  };
+}
+
 async function fetchLatestReleaseForProject(slug, repo) {
   const isSharedRepo = repo === 'owsdatabase';
   
@@ -8699,6 +9434,35 @@ async function fetchLatestAndroidRelease(repo, limit = 15) {
     <div class="dialog-buttons" id="dialog-buttons">
       <button class="dialog-btn cancel" id="dialog-btn-cancel">Cancelar</button>
       <button class="dialog-btn accept" id="dialog-btn-accept">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ TOAST NOTIFICATION CONTAINER ═══════════════════ -->
+<div class="ows-toast-container" id="ows-toast-container"></div>
+
+<!-- ═══════════════════ DUAL-MODE ERROR MODAL ═══════════════════ -->
+<div class="error-modal-backdrop" id="error-modal-backdrop" onclick="if(event.target===this) closeErrorModal();">
+  <div class="error-modal" id="error-modal">
+    <div class="error-modal-header">
+      <div class="error-modal-header-icon"><i class="fas fa-triangle-exclamation"></i></div>
+      <div class="error-modal-header-text">
+        <h3 id="error-modal-title">Error al lanzar</h3>
+        <p id="error-modal-subtitle">Algo salio mal al intentar abrir el proyecto</p>
+      </div>
+      <button class="error-modal-close" onclick="closeErrorModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="error-modal-mode-toggle">
+      <button class="error-mode-btn active" id="error-mode-user" onclick="switchErrorMode('user')"><i class="fas fa-user"></i> Usuario</button>
+      <button class="error-mode-btn" id="error-mode-dev" onclick="switchErrorMode('dev')"><i class="fas fa-code"></i> Desarrollador</button>
+    </div>
+    <div class="error-modal-body">
+      <div class="error-user-msg" id="error-user-msg"></div>
+      <div class="error-dev-msg" id="error-dev-msg"></div>
+    </div>
+    <div class="error-modal-footer">
+      <button class="error-modal-btn copy-btn" onclick="copyErrorDetails()"><i class="fas fa-copy"></i> Copiar detalles</button>
+      <button class="error-modal-btn primary" onclick="closeErrorModal()">Entendido</button>
     </div>
   </div>
 </div>

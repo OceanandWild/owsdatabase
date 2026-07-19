@@ -42,8 +42,9 @@ jobs:
           $slug = '${{ inputs.project }}'
           $dir = ''
           $targetRepo = 'owsdatabase'
+          $isTauri = $false
           switch ($slug) {
-            'ows-store'            { $dir = 'OWS Store';            $targetRepo = 'owsdatabase' }
+            'ows-store'            { $dir = 'OWS Store';            $targetRepo = 'owsdatabase'; $isTauri = $true }
             'dinobox'              { $dir = 'DinoBox';              $targetRepo = 'owsdatabase' }
             'floretshop'           { $dir = 'Floret Shop';          $targetRepo = 'floretshop' }
             'wildtransfer'         { $dir = 'WildTransfer';         $targetRepo = 'wildtransfer' }
@@ -54,17 +55,43 @@ jobs:
           "project_dir=$dir" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "target_repo=$targetRepo" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "tag=v${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "is_tauri=$isTauri" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Install dependencies
+      # ── Electron projects ──────────────────────────────────────────────────
+      - name: Install dependencies (Electron)
+        if: steps.resolve.outputs.is_tauri != 'True'
         working-directory: ${{ steps.resolve.outputs.project_dir }}
         run: npm ci --legacy-peer-deps
 
-      - name: Build (NSIS)
+      - name: Build NSIS (Electron)
+        if: steps.resolve.outputs.is_tauri != 'True'
         working-directory: ${{ steps.resolve.outputs.project_dir }}
         run: |
           npm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
           npm run dist:nsis
 
+      # ── Tauri projects ────────────────────────────────────────────────────
+      - name: Setup Rust toolchain
+        if: steps.resolve.outputs.is_tauri == 'True'
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
+
+      - name: Install Tauri CLI (cargo)
+        if: steps.resolve.outputs.is_tauri == 'True'
+        shell: pwsh
+        run: cargo install tauri-cli --locked
+
+      - name: Build Tauri (ows-store)
+        if: steps.resolve.outputs.is_tauri == 'True'
+        working-directory: ${{ steps.resolve.outputs.project_dir }}
+        shell: pwsh
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: cargo tauri build
+
+      # ── Upload assets ─────────────────────────────────────────────────────
       - name: Create/Update GitHub release + upload assets
         shell: pwsh
         env:
@@ -74,8 +101,8 @@ jobs:
           $tag  = "${{ steps.resolve.outputs.tag }}"
           $name = "${{ inputs.project }} ${{ inputs.version }}"
           $notes = "${{ inputs.release_notes }}"
+          $isTauri = "${{ steps.resolve.outputs.is_tauri }}"
 
-          # Create or update release (--clobber updates if already exists)
           $existing = gh release view $tag --repo $repo 2>&1
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Creating release $tag in $repo"
@@ -84,11 +111,21 @@ jobs:
             Write-Host "Release $tag already exists in $repo, uploading assets..."
           }
 
-          # Collect and upload assets
+          # ── Collect assets ────────────────────────────────────────────────
           $files = @()
-          foreach ($pat in @("C:/builds/*/*.exe","C:/builds/*/*.appx","C:/builds/*/latest.yml","C:/builds/*/*.blockmap")) {
-            $found = Get-Item $pat -ErrorAction SilentlyContinue
-            if ($found) { $files += $found.FullName }
+
+          if ($isTauri -eq 'True') {
+            # Tauri build artifacts
+            $nsisDir = "${{ steps.resolve.outputs.project_dir }}\src-tauri\target\release\bundle\nsis"
+            $msiDir  = "${{ steps.resolve.outputs.project_dir }}\src-tauri\target\release\bundle\msi"
+            if (Test-Path $nsisDir) { $files += (Get-ChildItem $nsisDir -Filter *.exe).FullName }
+            if (Test-Path $msiDir)  { $files += (Get-ChildItem $msiDir -Filter *.msi).FullName }
+          } else {
+            # Electron build artifacts
+            foreach ($pat in @("C:/builds/*/*.exe","C:/builds/*/*.appx","C:/builds/*/latest.yml","C:/builds/*/*.blockmap")) {
+              $found = Get-Item $pat -ErrorAction SilentlyContinue
+              if ($found) { $files += $found.FullName }
+            }
           }
 
           if ($files.Count -eq 0) {
@@ -97,6 +134,5 @@ jobs:
             gh release upload $tag --repo $repo --clobber @files
           }
 
-          # Always mark as latest after Windows assets are uploaded
           gh release edit $tag --repo $repo --latest
           Write-Host "Done: https://github.com/$repo/releases/tag/$tag"

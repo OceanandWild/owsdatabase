@@ -6330,6 +6330,8 @@ app.get('/ocean-cinemas/movies/:movieId/access-policy', async (req, res) => {
     console.error('Error en GET /ocean-cinemas/movies/:movieId/access-policy:', error);
     return res.status(500).json({ error: 'Error interno' });
   }
+});
+
 // Registrar salida prematura y gestionar AquaBux grace + advertencias + suspensiones de 24h
 app.post('/ocean-cinemas/movies/exit', async (req, res) => {
   try {

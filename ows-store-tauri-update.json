@@ -1,11 +1,11 @@
-﻿{
+{
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUM0tVQzdNUFBsUndiNWw5SzZkT0NuTjFndGh0Z2kxbHJvR2hreTFtWVJZWVFBbUJsZ3FsSHV4L2JieUlmMDE3bTB0b0RtZzZsUGU5RGd3QVpERmpBWWFjVmlwL2lpT3dBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0NTA2ODEzCWZpbGU6T1dTIFN0b3JlXzAuMS4wX3g2NC1zZXR1cC5leGUKb0RCUFA5bVJzTm90UXVTMTBuRFVua0YwcEhCUDIwWFp4Q0Y3T0dPVko3RmtwbzNnTkVRTEhESk9mNXBoVFVkcy9ESDFScEhoUXJLS0JERWRFQkh5Q0E9PQo=",
-                                             "url":  "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.19-t1902/OWS.Store_0.1.0_x64-setup.exe"
-                                         }
-                  },
+                                              "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUM0tVQzdNUFBsUndiNWw5SzZkT0NuTjFndGh0Z2kxbHJvR2hreTFtWVJZWVFBbUJsZ3FsSHV4L2JieUlmMDE3bTB0b0RtZzZsUGU5RGd3QVpERmpBWWFjVmlwL2lpT3dBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0NTA2ODEzCWZpbGU6T1dTIFN0b3JlXzAuMS4wX3g2NC1zZXR1cC5leGUKb0RCUFA5bVJzTm90UXVTMTBuRFVua0YwcEhCUDIwWFp4Q0Y3T0dPVko3RmtwbzNnTkVRTEhESk9mNXBoVFVkcy9ESDFScEhoUXJLS0JERWRFQkh5Q0E9PQo=",
+                                              "url":  "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.19-t1902/OWS.Store_0.1.0_x64-setup.exe"
+                                          }
+                   },
     "pub_date":  "2026-07-19T23:55:00Z",
     "version":  "0.1.0",
-    "notes":  "OWS Store 2026.7.19-t1902 - Fix mojibake encoding in installer Spanish text + copyright symbol. Remove duplicate onInstSuccess.", dark theme, and premium bitmap design":  "OWS Store 2026.7.19-t1903 - Fix mojibake (encoding) in installer Spanish text + copyright symbol. Remove duplicate .onInstSuccess that overrode Tauri template."
+    "notes":  "OWS Store 2026.7.19-t1902 - Fix mojibake encoding in installer Spanish text and copyright symbol. Remove duplicate onInstSuccess."
 }

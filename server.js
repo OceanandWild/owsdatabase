@@ -6072,9 +6072,27 @@ pool.query(`
     plan_id VARCHAR(20) DEFAULT 'litoral',
     tides_balance INTEGER DEFAULT 1200,
     created_at TIMESTAMP DEFAULT NOW(),
-    last_login TIMESTAMP
-  )
-`).catch(e => console.warn('[OC] ocean_cinemas_users table:', e.message));
+    last_login TIMESTAMP,
+    early_exits_count INTEGER DEFAULT 0,
+    last_early_exit_at TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS ocean_cinemas_suspensions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+    restricted_project VARCHAR(50) NOT NULL,
+    reason TEXT,
+    suspended_until TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`).then(async () => {
+  // Asegurar columnas si la tabla ya existía
+  await pool.query(`
+    ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS early_exits_count INTEGER DEFAULT 0;
+    ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS last_early_exit_at TIMESTAMP;
+  `).catch(() => {});
+}).catch(e => console.warn('[OC] Bootstrap tables error:', e.message));
+
 
 function ocNormalizeUsername(raw) {
   return String(raw || '').trim().toLowerCase().slice(0, 40);
@@ -6111,6 +6129,7 @@ app.post('/ocean-cinemas/auth/login', async (req, res) => {
     const username = ocNormalizeUsername(req.body?.username || '');
     const password = String(req.body?.password || '').normalize('NFKC');
     if (!username || !password) return res.status(400).json({ error: 'Completa usuario y contrasena.' });
+    
     const { rows } = await pool.query(
       `SELECT id, username, password_hash, plan_id, tides_balance FROM ocean_cinemas_users WHERE username = $1`,
       [username]
@@ -6119,6 +6138,25 @@ app.post('/ocean-cinemas/auth/login', async (req, res) => {
     const user = rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Usuario o contrasena incorrectos.' });
+
+    // Check active suspensions in ocean_cinemas_suspensions linked via Ocean Pay username
+    const suspRes = await pool.query(
+      `SELECT suspended_until, reason FROM ocean_cinemas_suspensions s
+       JOIN ocean_pay_users u ON s.user_id = u.id
+       WHERE LOWER(u.username) = LOWER($1) AND s.suspended_until > NOW()
+       LIMIT 1`,
+      [username]
+    );
+
+    if (suspRes.rows.length > 0) {
+      const susp = suspRes.rows[0];
+      return res.status(403).json({
+        suspended: true,
+        suspendedUntil: new Date(susp.suspended_until).getTime(),
+        reason: susp.reason || 'Comportamiento abusivo en salas (salidas repetidas).'
+      });
+    }
+
     await pool.query('UPDATE ocean_cinemas_users SET last_login = NOW() WHERE id = $1', [user.id]);
     const token = jwt.sign({ id: user.id, username: user.username, app: 'ocean_cinemas' }, process.env.JWT_SECRET || process.env.STUDIO_SECRET || 'oc_secret', { expiresIn: '90d' });
     return res.json({ success: true, token, user: { id: user.id, username: user.username, planId: user.plan_id === 'free' ? 'litoral' : user.plan_id, tidesBalance: user.tides_balance } });
@@ -6141,12 +6179,39 @@ app.get('/ocean-cinemas/auth/me', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado.' });
     const user = rows[0];
-    return res.json({ id: user.id, username: user.username, planId: user.plan_id === 'free' ? 'litoral' : user.plan_id, tidesBalance: user.tides_balance });
+
+    // Check active suspensions in ocean_cinemas_suspensions linked via Ocean Pay username
+    const suspRes = await pool.query(
+      `SELECT suspended_until, reason FROM ocean_cinemas_suspensions s
+       JOIN ocean_pay_users u ON s.user_id = u.id
+       WHERE LOWER(u.username) = LOWER($1) AND s.suspended_until > NOW()
+       LIMIT 1`,
+      [user.username]
+    );
+
+    let suspensionInfo = null;
+    if (suspRes.rows.length > 0) {
+      const susp = suspRes.rows[0];
+      suspensionInfo = {
+        suspended: true,
+        suspendedUntil: new Date(susp.suspended_until).getTime(),
+        reason: susp.reason
+      };
+    }
+
+    return res.json({ 
+      id: user.id, 
+      username: user.username, 
+      planId: user.plan_id === 'free' ? 'litoral' : user.plan_id, 
+      tidesBalance: user.tides_balance,
+      suspension: suspensionInfo
+    });
   } catch (e) {
     if (e.name === 'JsonWebTokenError' || e.name === 'TokenExpiredError') return res.status(401).json({ error: 'Token invalido o expirado.' });
     return res.status(500).json({ error: 'Error interno.' });
   }
 });
+
 
 // Obtener resumen de calificaciones para una pelicula de Ocean Cinemas
 app.get('/ocean-cinemas/movies/:movieId/rating-summary', async (req, res) => {
@@ -6265,7 +6330,183 @@ app.get('/ocean-cinemas/movies/:movieId/access-policy', async (req, res) => {
     console.error('Error en GET /ocean-cinemas/movies/:movieId/access-policy:', error);
     return res.status(500).json({ error: 'Error interno' });
   }
+// Registrar salida prematura y gestionar AquaBux grace + advertencias + suspensiones de 24h
+app.post('/ocean-cinemas/movies/exit', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Token requerido.' });
+    const token = authHeader.replace('Bearer ', '').trim();
+    const payload = jwt.verify(token, process.env.JWT_SECRET || process.env.STUDIO_SECRET || 'oc_secret');
+    if (payload.app !== 'ocean_cinemas') return res.status(401).json({ error: 'Token invalido.' });
+
+    const { movieId, currentTime, duration, watchedRatio } = req.body;
+    
+    // Obtener detalles del usuario de Ocean Cinemas
+    const userRes = await pool.query(
+      'SELECT id, username, early_exits_count, last_early_exit_at, tides_balance FROM ocean_cinemas_users WHERE id = $1',
+      [payload.id]
+    );
+    if (!userRes.rows.length) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    const user = userRes.rows[0];
+
+    // Obtener su ID de Ocean Pay correspondiente para vincular notificaciones y la suspensión real
+    const opRes = await pool.query('SELECT id, aquabux FROM ocean_pay_users WHERE LOWER(username) = LOWER($1)', [user.username]);
+    if (!opRes.rows.length) return res.status(404).json({ error: 'Usuario no vinculado a Ocean Pay.' });
+    const opUser = opRes.rows[0];
+
+    let message = '';
+    let notificationText = '';
+    let updatedExits = user.early_exits_count || 0;
+    let newBalance = opUser.aquabux;
+    let shouldSuspend = false;
+    let penaltyAmount = 0;
+    let rewardAmount = 0;
+
+    const isEarly = watchedRatio < 0.95;
+
+    if (isEarly) {
+      updatedExits++;
+      
+      // Update early exits in DB
+      await pool.query(
+        'UPDATE ocean_cinemas_users SET early_exits_count = $1, last_early_exit_at = NOW() WHERE id = $2',
+        [updatedExits, user.id]
+      );
+
+      if (updatedExits === 1) {
+        penaltyAmount = 15;
+        newBalance = Math.max(0, opUser.aquabux - penaltyAmount);
+        message = `Saliste temprano. Penalización: -15 AquaBux.`;
+        notificationText = `⚠️ Has abandonado la sala prematuramente (1ra vez). Se han deducido 15 AquaBux de tu saldo.`;
+      } 
+      else if (updatedExits === 2) {
+        // Recibe AquaBux pero proporcional a lo visto. La visualización completa otorga 50 AquaBux normalmente.
+        rewardAmount = Math.max(0, Math.floor(50 * watchedRatio));
+        newBalance = opUser.aquabux + rewardAmount;
+        message = `Saliste temprano (2da vez). Recompensa proporcional: +${rewardAmount} AquaBux. Plazo de 12 horas activo.`;
+        notificationText = `⚠️ ADVERTENCIA: Has abandonado la sala prematuramente por 2da vez. Has recibido una recompensa reducida de ${rewardAmount} AquaBux. Debes esperar un Plazo de 12 horas de buen comportamiento, de lo contrario una 3ra salida provocará una suspensión de 24 horas.`;
+      } 
+      else if (updatedExits >= 3) {
+        shouldSuspend = true;
+        // Resetea el contador de salidas prematuras tras aplicar la suspensión
+        await pool.query('UPDATE ocean_cinemas_users SET early_exits_count = 0 WHERE id = $1', [user.id]);
+        
+        // Crear suspensión de 24 horas en ocean_cinemas_suspensions
+        const suspendedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const suspReason = 'Salidas prematuras reiteradas (3 veces o más)';
+        await pool.query(
+          `INSERT INTO ocean_cinemas_suspensions (user_id, restricted_project, reason, suspended_until)
+           VALUES ($1, $2, $3, $4)`,
+          [opUser.id, 'Ocean Cinemas', suspReason, suspendedUntil]
+        );
+        // Store for response
+        penaltyAmount = 0;
+        message = `Cuenta suspendida por 24 horas.`;
+        notificationText = `🚨 Tu cuenta ha sido SUSPENDIDA de Ocean Cinemas por 24 horas debido a salidas prematuras recurrentes.`;
+        // Attach to outer scope for response
+        res._suspendedUntil = suspendedUntil;
+        res._suspReason = suspReason;
+      }
+
+      // Actualizar el balance unificado del usuario en Ocean Pay (AquaBux)
+      // La tabla wallet unificada manda sobre fuentes legacy
+      const opClient = await pool.connect();
+      try {
+        await opClient.query('BEGIN');
+        // Usar la función helper del backend para setear el balance
+        if (typeof setUnifiedBalance === 'function') {
+          await setUnifiedBalance(opClient, opUser.id, 'aquabux', newBalance);
+        } else {
+          await opClient.query('UPDATE ocean_pay_users SET aquabux = $1 WHERE id = $2', [newBalance, opUser.id]);
+        }
+        await opClient.query('COMMIT');
+      } catch (err) {
+        await opClient.query('ROLLBACK');
+        console.error('[ExitPenalty] Error actualizando saldo:', err);
+      } finally {
+        opClient.release();
+      }
+
+      // Insertar la notificación en Ocean Pay para que aparezca en el panel de notificaciones de Ocean Pay / Ocean Cinemas
+      await pool.query(
+        `INSERT INTO ocean_pay_notifications (user_id, type, title, message)
+         VALUES ($1, 'warning', 'Alerta de Comportamiento: Ocean Cinemas', $2)`,
+        [opUser.id, notificationText]
+      );
+    } else {
+      // Completada normalmente: recompensa completa de 50 AquaBux y se resetean early exits tras ver completo
+      rewardAmount = 50;
+      newBalance = opUser.aquabux + rewardAmount;
+      await pool.query('UPDATE ocean_cinemas_users SET early_exits_count = 0 WHERE id = $1', [user.id]);
+      
+      const opClient = await pool.connect();
+      try {
+        await opClient.query('BEGIN');
+        if (typeof setUnifiedBalance === 'function') {
+          await setUnifiedBalance(opClient, opUser.id, 'aquabux', newBalance);
+        } else {
+          await opClient.query('UPDATE ocean_pay_users SET aquabux = $1 WHERE id = $2', [newBalance, opUser.id]);
+        }
+        await opClient.query('COMMIT');
+      } catch (err) {
+        await opClient.query('ROLLBACK');
+      } finally {
+        opClient.release();
+      }
+
+      message = `¡Película vista con éxito! +50 AquaBux.`;
+    }
+
+    res.json({
+      success: true,
+      earlyExitsCount: updatedExits,
+      isEarly,
+      penaltyAmount,
+      rewardAmount,
+      newBalance,
+      suspended: shouldSuspend,
+      suspended_until: res._suspendedUntil || null,
+      reason: res._suspReason || null,
+      message,
+      notification: notificationText
+    });
+  } catch (err) {
+    console.error('Error en /ocean-cinemas/movies/exit:', err);
+    res.status(500).json({ error: 'Error interno.' });
+  }
 });
+
+// Obtener suspensiones del usuario autenticado de Ocean Pay
+app.get('/ocean-pay/suspensions', async (req, res) => {
+  try {
+    const token = parseStudioAuthToken(req);
+    const decoded = decodeStudioTokenOrNull(token);
+    if (!decoded) return res.status(401).json({ error: 'Token invalido' });
+    const userId = Number(decoded.id || decoded.uid || decoded.sub || 0);
+
+    const includeAll = req.query.all === 'true';
+    const { rows } = await pool.query(
+      `SELECT restricted_project, reason, suspended_until, created_at
+       FROM ocean_cinemas_suspensions
+       WHERE user_id = $1${includeAll ? '' : ' AND suspended_until > NOW()'}
+       ORDER BY suspended_until DESC
+       ${includeAll ? 'LIMIT 50' : ''}`,
+      [userId]
+    );
+
+    const now = new Date();
+    const suspensions = rows.map(r => ({
+      ...r,
+      active: new Date(r.suspended_until) > now
+    }));
+
+    res.json({ success: true, suspensions });
+  } catch (err) {
+    console.error('Error en GET /ocean-pay/suspensions:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 
 // Obtener una review puntual de producto (para modal de notificacion)
 app.get('/floret/reviews/product-detail/:reviewId', async (req, res) => {

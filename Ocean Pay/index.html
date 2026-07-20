@@ -2148,16 +2148,26 @@
                 ecosistema.</p> </div> <div class="mission-card"> <i class="fas fa-bolt" style="font-size: 2rem; color: #3b82f6; margin-bottom: 1rem;"></i> <h4>Suscripcion continua</h4> <p style="color: #cbd5e1;">Sin misiones obligatorias. Tu pase se mantiene activo hasta el vencimiento de la suscripción.</p> </div> </div> </div> </section> <!-- POS Section Redesigned & Enhanced --> <section id="pos-section" class="hidden pos-section-viewport"> <div class="pos-section-header"> <h2 class="pos-section-title"><i class="fas fa-cash-register" style="margin-right:.5rem;"></i>POS Virtual</h2> <p class="pos-section-subtitle">Terminal de pagos integrada con Ocean Pay</p> </div> <style> /* POS Section - Rediseño Premium */
 
     .virtual-pos-device {
-      width: 520px !important;
+      width: 460px !important;
       height: 860px !important;
-      background: linear-gradient(135deg, #1c0e35 0%, #0d061e 50%, #020108 100%) !important;
+      background: linear-gradient(165deg, #1e293b 0%, #0f172a 50%, #020617 100%) !important;
       border-radius: 48px !important;
-      border: 8px solid #231244 !important;
+      border: 10px solid #0a1020 !important;
       box-shadow: 
-        0 0 0 1px rgba(168, 85, 247, 0.2),
-        0 40px 90px -20px rgba(0, 0, 0, 0.8),
-        0 0 80px -10px rgba(168, 85, 247, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+        0 0 0 1px rgba(34, 211, 238, 0.2),
+        0 50px 100px -20px rgba(0, 0, 0, 0.85),
+        0 0 80px -10px rgba(34, 211, 238, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+    }
+    .pos-view {
+      padding: 28px !important;
+    }
+    .pos-home-buttons {
+      gap: 14px !important;
+    }
+    .pos-big-btn {
+      padding: 22px 12px !important;
+      font-size: 0.95rem !important;
     }
     .pos-section-title {
       color: #d8b4fe !important;
@@ -2209,30 +2219,30 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 2rem;
+            padding: 3rem 2rem;
             perspective: 1500px;
             background: linear-gradient(145deg, rgba(6, 78, 99, 0.08) 0%, transparent 50%);
             border-radius: 32px;
             border: 1px solid rgba(34, 211, 238, 0.1);
             margin: 0 auto;
-            max-width: 480px;
+            max-width: 720px;
           }
 
           .virtual-pos-device {
-            width: 380px;
-            height: 720px;
+            width: 460px;
+            height: 860px;
             background: linear-gradient(165deg, #1e293b 0%, #0f172a 50%, #020617 100%);
-            border-radius: 42px;
+            border-radius: 48px;
             box-shadow:
-              0 0 0 1px rgba(34, 211, 238, 0.15),
-              0 40px 80px -20px rgba(0, 0, 0, 0.7),
-              0 0 60px -15px rgba(34, 211, 238, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
-            padding: 22px;
+              0 0 0 1px rgba(34, 211, 238, 0.2),
+              0 50px 100px -20px rgba(0, 0, 0, 0.85),
+              0 0 80px -10px rgba(34, 211, 238, 0.25),
+              inset 0 1px 0 rgba(255, 255, 255, 0.07);
+            padding: 28px;
             position: relative;
             display: flex;
             flex-direction: column;
-            border: 8px solid #0f172a;
+            border: 10px solid #0a1020;
             transform-style: preserve-3d;
             transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           }
@@ -2636,8 +2646,28 @@
                 style="width: 50px; height: 50px; margin: 10px auto; display:block;"></canvas> <p id="receipt-id" style="font-size: 0.7rem; font-family:'Courier New'; margin-top:10px;"></p> <p style="margin-bottom:0;">Gracias por su preferencia</p> <div style="margin-top:10px; font-size:1.5rem;">barcode</div> </div> <div class="pos-screen-frame"> <div class="pos-screen"> <div class="pos-top-bar"> <span style="display:flex; gap:5px;"><i class="fas fa-signal"></i> 5G</span> <span>14:02 PM</span> <span style="display:flex; gap:5px;"><i class="fas fa-battery-full"></i> 100%</span> </div> <!-- VIEW: HOME --> <div id="pos-home" class="pos-view active"> <div class="pos-logo-area"> <i class="fas fa-water pos-logo-icon"></i> <h2 style="margin:0; font-weight:900; font-size: 2rem; color:#0f172a; letter-spacing:-1px;"> OceanPay </h2> <p style="margin:0; color:#64748b; font-size:0.9rem; font-weight:500;">Terminal Virtual Pro v2.1 </p> </div> <div class="pos-home-buttons"> <button class="pos-big-btn" onclick="showPosView('pos-send')"> <i class="fas fa-paper-plane"></i> <span>Enviar</span> </button> <button class="pos-big-btn" onclick="showPosView('pos-receive')"> <i class="fas fa-qrcode"></i> <span>Cobrar</span> </button> <button class="pos-big-btn" onclick="showPosView('pos-debts')"> <i class="fas fa-hand-holding-usd" style="color:var(--err);"></i> <span>Deudas</span> </button> <button class="pos-big-btn" onclick="showPosView('pos-rewards')"> <i class="fas fa-gift" style="color:var(--ok);"></i> <span>Regalos</span> </button> </div> <div class="pos-home-buttons-full"> <button class="pos-big-btn" style="flex-direction:row; height:auto; margin-bottom:10px;"
                       onclick="showPosView('pos-self')"> <i class="fas fa-exchange-alt" style="color:#8b5cf6;"></i> <span>Transferencia Propia</span> </button> <button class="pos-big-btn"
                       style="flex-direction:row; height:auto; background: #faf5ff; border-color: #e9d5ff;"
-                      onclick="showPendingSwaps()"> <i class="fas fa-sync-alt" style="color:#a855f7;"></i> <span>Solicitudes de Intercambio</span> </button> </div> </div> <!-- VIEW: DEBTS (Ocean Pass) --> <div id="pos-debts" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
-                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Deudas Ocean Pass</span> </div> <div id="pos-debts-list" style="margin-top: 20px;"> <!-- Se cargará dinámicamente --> </div> </div> <!-- VIEW: REWARDS (Ocean Pass) --> <div id="pos-rewards" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
+                      onclick="showPendingSwaps()"> <i class="fas fa-sync-alt" style="color:#a855f7;"></i> <span>Solicitudes de Intercambio</span> </button>
+              <!-- Suspensiones full-width button -->
+              <button class="pos-big-btn" id="pos-home-suspensions-btn"
+                style="flex-direction:row; height:auto; background: linear-gradient(135deg, rgba(244,63,94,0.08) 0%, rgba(239,68,68,0.04) 100%); border-color: rgba(244,63,94,0.25); color:#1e293b; margin-top:2px;"
+                onclick="showPosView('pos-suspensions'); loadPosSuspensions()">
+                <i class="fas fa-user-slash" style="color:#f43f5e;"></i>
+                <span style="flex:1;">Suspensiones</span>
+                <span id="pos-susp-badge" class="hidden" style="background:#f43f5e; color:white; border-radius:20px; padding:2px 8px; font-size:0.7rem; font-weight:800;">!</span>
+              </button>
+            </div> </div> <!-- VIEW: DEBTS (Ocean Pass) --> <div id="pos-debts" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
+                        class="fas fa-arrow-left"></i></button> <span class="pos-title">Deudas Ocean Pass</span> </div> <div id="pos-debts-list" style="margin-top: 20px;"> <!-- Se cargará dinámicamente --> </div> </div>
+              <!-- VIEW: SUSPENSIONS -->
+              <div id="pos-suspensions" class="pos-view">
+                <div class="pos-header-nav">
+                  <button class="pos-back-btn" onclick="showPosView('pos-home')"><i class="fas fa-arrow-left"></i></button>
+                  <span class="pos-title" style="color:#f43f5e;"><i class="fas fa-shield-halved" style="margin-right:4px;"></i>Suspensiones</span>
+                </div>
+                <div id="pos-susp-inner" style="margin-top:16px; flex:1; overflow-y:auto;">
+                  <p style="text-align:center; color:#94a3b8; margin-top:30px;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>
+                </div>
+              </div>
+              <!-- VIEW: REWARDS (Ocean Pass) --> <div id="pos-rewards" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
                         class="fas fa-arrow-left"></i></button> <span class="pos-title">Recompensas Ocean Pass</span> </div> <div id="pos-rewards-list" style="margin-top: 20px;"> <!-- Se cargará dinámicamente --> </div> </div> <!-- VIEW: SEND (GENERATE) --> <div id="pos-send" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
                         class="fas fa-arrow-left"></i></button> <span class="pos-title">Enviar Dinero</span> </div> <div class="pos-field"> <label>Monto a enviar</label> <div class="pos-input-group"> <span style="color:#64748b; font-weight:bold; font-size:1.2rem;">$</span> <input type="number" id="pos-amount-input" class="pos-input" placeholder="0.00" min="0"
                         step="0.01"> </div> </div> <div class="pos-field"> <label>Divisa</label> <div class="pos-input-group"> <select id="pos-currency-select" class="pos-select" onchange="updatePosSendVisual()"> <option value="aquabux">AquaBux</option> <option value="ecoxionums">Ecoxionums</option> <option value="ecorebits">EcoCoreBits</option> <option value="wildcredits">WildCredits</option> <option value="wildgems">WildGems</option> <option value="appbux">AppBux</option> <option value="ecobooks">EcoBooks</option> <option value="ecotokens">EcoTokens</option> <option value="amber">Amber</option> <option value="nxb">Nexus Bits (NXB)</option> <option value="voltbit">VoltBits</option> <option value="wildwavetokens">WildWave Tokens</option> <option value="mayhemcoins">MayhemCoins</option> </select> </div> </div> <div class="pos-visual-card"> <canvas id="posSendCanvas" class="currency-canvas pos-currency-symbol"
@@ -4539,6 +4569,7 @@
       }
       if (id === 'tides') loadTidesPackages();
       if (id === 'wallet') loadGlobalGoalStatus();
+      if (id === 'suspensions') loadSuspensionsPage();
       if (id === 'settings') {
         ensureOceanPaySecuritySettingsSection();
         refreshOceanPaySecurityCenter();
@@ -5461,6 +5492,105 @@
           ...extraOptions
         }
       });
+    }
+
+    // ============================================================
+    //  SUSPENSIONES - Ocean Cinemas
+    // ============================================================
+    function _fmtSuspCountdown(until) {
+      const ms = new Date(until) - Date.now();
+      if (ms <= 0) return 'Expirada';
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      return h > 0 ? `${h}h ${m}m restantes` : `${m} min restantes`;
+    }
+
+    function _renderSuspCard(s, compact = false) {
+      const until = new Date(s.suspended_until);
+      const active = until > new Date();
+      const statusColor = active ? '#f43f5e' : '#64748b';
+      const statusLabel = active ? 'ACTIVA' : 'EXPIRADA';
+      const countdown = active ? _fmtSuspCountdown(s.suspended_until) : 'Levantada';
+      if (compact) {
+        return `<div style="background:rgba(244,63,94,0.07);border:1px solid rgba(244,63,94,0.25);border-radius:14px;padding:14px 16px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-weight:800;color:#1e293b;font-size:0.9rem;"><i class="fas fa-ban" style="color:${statusColor};margin-right:6px;"></i>${s.restricted_project}</span>
+            <span style="background:${statusColor};color:white;border-radius:20px;padding:2px 10px;font-size:0.65rem;font-weight:800;">${statusLabel}</span>
+          </div>
+          <p style="font-size:0.75rem;color:#64748b;margin:0 0 4px;">${s.reason}</p>
+          <p style="font-size:0.8rem;font-weight:700;color:${statusColor};margin:0;"><i class="fas fa-clock" style="margin-right:4px;"></i>${countdown}</p>
+        </div>`;
+      }
+      return `<div class="susp-panel-item" style="animation:fadeIn 0.4s ease;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="background:rgba(244,63,94,0.12);border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-ban" style="color:${statusColor};font-size:1.2rem;"></i>
+            </div>
+            <div>
+              <h4 style="margin:0;color:#f8fafc;font-size:1rem;">${s.restricted_project}</h4>
+              <span style="font-size:0.7rem;color:#94a3b8;">Suspensión de 24h</span>
+            </div>
+          </div>
+          <span style="background:${statusColor};color:white;border-radius:20px;padding:3px 12px;font-size:0.7rem;font-weight:800;">${statusLabel}</span>
+        </div>
+        <p style="font-size:0.85rem;color:#cbd5e1;margin:0 0 8px;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;">${s.reason}</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:0.78rem;color:#64748b;"><i class="fas fa-calendar-plus" style="margin-right:4px;"></i>Desde: ${new Date(s.created_at||s.suspended_until).toLocaleString('es-ES')}</span>
+          <span style="font-size:0.82rem;font-weight:700;color:${statusColor};"><i class="fas fa-clock" style="margin-right:4px;"></i>${countdown}</span>
+        </div>
+        <div style="margin-top:10px;background:rgba(244,63,94,0.1);border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#f43f5e;">
+          <i class="fas fa-circle-exclamation" style="margin-right:6px;"></i>
+          ${active ? 'Tu acceso a ' + s.restricted_project + ' está bloqueado hasta que expire la suspensión.' : 'Esta suspensión ya expiró y tu acceso fue restaurado.'}
+        </div>
+      </div>`;
+    }
+
+    async function loadPosSuspensions() {
+      const inner = document.getElementById('pos-susp-inner');
+      if (!inner) return;
+      inner.innerHTML = '<p style="text-align:center;color:#94a3b8;margin-top:30px;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>';
+      try {
+        const res = await fetch(`${API}/ocean-pay/suspensions`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        const susps = data.suspensions || [];
+        if (!susps.length) {
+          inner.innerHTML = `<div style="text-align:center;padding:30px 16px;">
+            <i class="fas fa-shield-check" style="font-size:2.5rem;color:#22d3ee;margin-bottom:12px;display:block;"></i>
+            <p style="font-weight:800;color:#1e293b;margin:0 0 4px;">Sin suspensiones</p>
+            <p style="font-size:0.8rem;color:#64748b;margin:0;">Tu cuenta está libre de restricciones</p>
+          </div>`;
+          return;
+        }
+        // Show badge on home button
+        const badge = document.getElementById('pos-susp-badge');
+        if (badge) badge.classList.remove('hidden');
+        inner.innerHTML = susps.map(s => _renderSuspCard(s, true)).join('');
+      } catch (e) {
+        inner.innerHTML = '<p style="text-align:center;color:#ef4444;margin-top:20px;"><i class="fas fa-circle-xmark"></i> Error al cargar suspensiones</p>';
+      }
+    }
+
+    async function loadSuspensionsPage() {
+      const log = document.getElementById('suspension-status-log');
+      if (!log) return;
+      log.innerHTML = '<p style="color:#64748b;text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>';
+      try {
+        const res = await fetch(`${API}/ocean-pay/suspensions`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        const susps = data.suspensions || [];
+        if (!susps.length) {
+          log.innerHTML = `<div style="text-align:center;padding:4rem 2rem;">
+            <div style="font-size:3.5rem;margin-bottom:1rem;">🛡️</div>
+            <h3 style="color:#22d3ee;margin:0 0 0.5rem;">Sin suspensiones activas</h3>
+            <p style="color:#64748b;margin:0;font-size:0.9rem;">Tu cuenta está libre de restricciones en todos los proyectos OWS.</p>
+          </div>`;
+          return;
+        }
+        log.innerHTML = susps.map(s => _renderSuspCard(s, false)).join('');
+      } catch (e) {
+        log.innerHTML = '<p style="color:#ef4444;text-align:center;padding:2rem;"><i class="fas fa-circle-xmark"></i> Error al cargar. Intenta de nuevo.</p>';
+      }
     }
 
     async function loadMiscStats() {

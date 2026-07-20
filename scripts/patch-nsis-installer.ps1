@@ -1,4 +1,4 @@
-# OWS Store - NSIS Post-Build Patch Script (Dark Edition v2)
+﻿# OWS Store - NSIS Post-Build Patch Script (Dark Edition v2)
 # Patches the generated NSIS script to add dark theme, custom bitmaps, and premium nsDialogs pages
 # Run AFTER `cargo tauri build`
 param(

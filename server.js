@@ -32318,13 +32318,25 @@ app.get('/ocean-pay/notifications/me', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
   const token = authHeader.split(' ')[1];
+  const secrets = [
+    process.env.STUDIO_SECRET,
+    process.env.JWT_SECRET,
+    'secret',
+    'oc_secret',
+    'oc'
+  ].filter(Boolean);
+  let decoded;
+  for (const s of secrets) {
+    try { decoded = jwt.verify(token, s); break; }
+    catch (e) { continue; }
+  }
+  if (!decoded) return res.status(401).json({ error: 'Token inválido' });
+  const userId = decoded.id || decoded.uid;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || (decoded.id || decoded.uid);
     const { rows } = await pool.query('SELECT * FROM ocean_pay_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
     res.json(rows);
   } catch (e) {
-    res.status(401).json({ error: 'Token inválido' });
+    res.status(500).json({ error: 'Error al obtener notificaciones' });
   }
 });
 

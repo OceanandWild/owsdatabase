@@ -2655,6 +2655,15 @@
                 <span style="flex:1;">Suspensiones</span>
                 <span id="pos-susp-badge" class="hidden" style="background:#f43f5e; color:white; border-radius:20px; padding:2px 8px; font-size:0.7rem; font-weight:800;">!</span>
               </button>
+              <!-- Active suspension countdown banner (only shows when suspended) -->
+              <div id="pos-susp-active-banner" class="hidden" style="margin-top:6px;padding:10px 14px;border-radius:14px;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.3);display:flex;align-items:center;gap:10px;">
+                <i class="fas fa-exclamation-triangle" style="color:#f43f5e;font-size:1rem;"></i>
+                <div style="flex:1;">
+                  <span style="font-size:0.75rem;font-weight:800;color:#f43f5e;display:block;">SUSPENSIÓN ACTIVA</span>
+                  <span id="pos-susp-countdown-display" style="font-size:0.7rem;color:#94a3b8;"></span>
+                </div>
+                <button onclick="showPosView('pos-suspensions'); loadPosSuspensions()" style="background:rgba(244,63,94,0.2);border:none;color:#fca5a5;font-size:0.7rem;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;">Ver</button>
+              </div>
             </div> </div> <!-- VIEW: DEBTS (Ocean Pass) --> <div id="pos-debts" class="pos-view"> <div class="pos-header-nav"> <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
                         class="fas fa-arrow-left"></i></button> <span class="pos-title">Deudas Ocean Pass</span> </div> <div id="pos-debts-list" style="margin-top: 20px;"> <!-- Se cargará dinámicamente --> </div> </div>
               <!-- VIEW: SUSPENSIONS -->
@@ -4854,6 +4863,7 @@
         startBalanceRefresh();
         ensureOceanPaySecuritySettingsSection();
         refreshOceanPaySecurityCenter();
+        checkPosSuspensionBanner();
 
         if (window.opener) {
           window.opener.postMessage({ type: 'ocean-pay-token', token: token, user: data.user }, '*');
@@ -5494,6 +5504,50 @@
       });
     }
 
+    // POS Suspension banner tick
+    let _suspBannerTimer = null;
+    let _suspBannerEnd = null;
+
+    function tickPosSuspensionBanner() {
+      const banner = document.getElementById('pos-susp-active-banner');
+      const display = document.getElementById('pos-susp-countdown-display');
+      if (!banner || !display) return;
+      if (!_suspBannerEnd) { banner.classList.add('hidden'); return; }
+      const ms = _suspBannerEnd - Date.now();
+      if (ms <= 0) {
+        banner.classList.add('hidden');
+        _suspBannerEnd = null;
+        if (_suspBannerTimer) clearInterval(_suspBannerTimer);
+        return;
+      }
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      display.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} restantes`;
+      banner.classList.remove('hidden');
+    }
+
+    async function checkPosSuspensionBanner() {
+      if (!token) return;
+      try {
+        const res = await fetch(`${API}/ocean-pay/suspensions`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        const susps = data.suspensions || [];
+        const active = susps.find(s => new Date(s.suspended_until) > new Date());
+        if (active) {
+          _suspBannerEnd = new Date(active.suspended_until).getTime();
+          tickPosSuspensionBanner();
+          if (_suspBannerTimer) clearInterval(_suspBannerTimer);
+          _suspBannerTimer = setInterval(tickPosSuspensionBanner, 1000);
+        } else {
+          const banner = document.getElementById('pos-susp-active-banner');
+          if (banner) banner.classList.add('hidden');
+          _suspBannerEnd = null;
+          if (_suspBannerTimer) clearInterval(_suspBannerTimer);
+        }
+      } catch (e) { /* ignore */ }
+    }
+
     // ============================================================
     //  SUSPENSIONES - Ocean Cinemas
     // ============================================================
@@ -5554,7 +5608,9 @@
         const res = await fetch(`${API}/ocean-pay/suspensions`, { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await res.json();
         const susps = data.suspensions || [];
+        const badge = document.getElementById('pos-susp-badge');
         if (!susps.length) {
+          if (badge) badge.classList.add('hidden');
           inner.innerHTML = `<div style="text-align:center;padding:30px 16px;">
             <i class="fas fa-shield-check" style="font-size:2.5rem;color:#22d3ee;margin-bottom:12px;display:block;"></i>
             <p style="font-weight:800;color:#1e293b;margin:0 0 4px;">Sin suspensiones</p>
@@ -5563,7 +5619,6 @@
           return;
         }
         // Show badge on home button
-        const badge = document.getElementById('pos-susp-badge');
         if (badge) badge.classList.remove('hidden');
         inner.innerHTML = susps.map(s => _renderSuspCard(s, true)).join('');
       } catch (e) {
@@ -5576,18 +5631,29 @@
       if (!log) return;
       log.innerHTML = '<p style="color:#64748b;text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>';
       try {
-        const res = await fetch(`${API}/ocean-pay/suspensions`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch(`${API}/ocean-pay/suspensions?all=true`, { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await res.json();
         const susps = data.suspensions || [];
+        const active = susps.filter(s => s.active);
+        const expired = susps.filter(s => !s.active);
+
+        let html = '';
+        if (active.length) {
+          html += `<h4 style="color:#f43f5e;font-size:0.85rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 1rem;"><i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>Activas (${active.length})</h4>`;
+          html += active.map(s => _renderSuspCard(s, false)).join('');
+        }
+        if (expired.length) {
+          html += `<h4 style="color:#64748b;font-size:0.85rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;margin:${active.length ? '2rem' : '0'} 0 1rem;"><i class="fas fa-clock-rotate-left" style="margin-right:6px;"></i>Historial (${expired.length})</h4>`;
+          html += expired.map(s => _renderSuspCard(s, false)).join('');
+        }
         if (!susps.length) {
-          log.innerHTML = `<div style="text-align:center;padding:4rem 2rem;">
+          html = `<div style="text-align:center;padding:4rem 2rem;">
             <div style="font-size:3.5rem;margin-bottom:1rem;">🛡️</div>
-            <h3 style="color:#22d3ee;margin:0 0 0.5rem;">Sin suspensiones activas</h3>
+            <h3 style="color:#22d3ee;margin:0 0 0.5rem;">Sin suspensiones registradas</h3>
             <p style="color:#64748b;margin:0;font-size:0.9rem;">Tu cuenta está libre de restricciones en todos los proyectos OWS.</p>
           </div>`;
-          return;
         }
-        log.innerHTML = susps.map(s => _renderSuspCard(s, false)).join('');
+        log.innerHTML = html;
       } catch (e) {
         log.innerHTML = '<p style="color:#ef4444;text-align:center;padding:2rem;"><i class="fas fa-circle-xmark"></i> Error al cargar. Intenta de nuevo.</p>';
       }
@@ -6438,7 +6504,8 @@
         ensureOceanPaySecuritySettingsSection();
         refreshOceanPaySecurityCenter();
         setInterval(checkOceanPassStatus, 1000); // UI updates every second if active
-        // checkOceanPassStatus(); // initial check is done by interval immediately or by first tick
+        checkPosSuspensionBanner();
+        setInterval(checkPosSuspensionBanner, 30000); // refresh every 30s
 
         // Notify Opener
         if (window.opener) {
@@ -7265,52 +7332,59 @@
     window.addEventListener('DOMContentLoaded', () => setTimeout(activate, 40));
   })();
 
-    function renderSuspensionsLog() {
+    async function renderSuspensionsLog() {
       const container = document.getElementById('suspension-status-log');
       if (!container) return;
-      
-      const suspendedUntil = parseInt(localStorage.getItem('oc_suspended_until') || '0');
-      const isSuspended = suspendedUntil && Date.now() < suspendedUntil;
-      
-      if (!isSuspended) {
-        container.innerHTML = `
-          <div class="p-6 bg-emerald-950/20 border border-emerald-500/25 rounded-2xl flex items-center gap-4 text-emerald-200">
-            <i class="fas fa-check-circle text-3xl text-emerald-400"></i>
-            <div>
-              <h4 class="font-bold text-sm">Tu cuenta está libre de restricciones</h4>
-              <p class="text-xs text-emerald-300/80 mt-1">No hay suspensiones ni reportes de comportamiento aplicados.</p>
+
+      try {
+        const res = await fetch(`${API}/ocean-pay/suspensions`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        const susps = data.suspensions || [];
+
+        if (!susps.length) {
+          container.innerHTML = `
+            <div class="p-6 bg-emerald-950/20 border border-emerald-500/25 rounded-2xl flex items-center gap-4 text-emerald-200">
+              <i class="fas fa-check-circle text-3xl text-emerald-400"></i>
+              <div>
+                <h4 class="font-bold text-sm">Tu cuenta está libre de restricciones</h4>
+                <p class="text-xs text-emerald-300/80 mt-1">No hay suspensiones ni reportes de comportamiento aplicados.</p>
+              </div>
             </div>
-          </div>
-        `;
-        return;
+          `;
+          return;
+        }
+
+        container.innerHTML = susps.map(s => {
+          const until = new Date(s.suspended_until);
+          const active = until > new Date();
+          const statusColor = active ? '#f43f5e' : '#64748b';
+          const ms = until - Date.now();
+          const h = Math.floor(ms / 3600000);
+          const m = Math.floor((ms % 3600000) / 60000);
+          const countdown = active ? `${h}h ${m}m restantes` : 'Expirada';
+          return `
+            <div class="susp-panel-item" style="border-color:${statusColor}40; animation:fadeIn 0.4s ease;">
+              <div class="flex items-center gap-3 mb-3">
+                <div style="background:${statusColor}15;border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;">
+                  <i class="fas fa-ban" style="color:${statusColor};font-size:1.2rem;"></i>
+                </div>
+                <div class="flex-1">
+                  <h4 style="margin:0;color:#f8fafc;font-size:0.95rem;font-weight:800;">${s.restricted_project}</h4>
+                  <span style="font-size:0.7rem;color:#94a3b8;">${active ? 'Activa' : 'Expirada'}</span>
+                </div>
+                <span style="background:${statusColor};color:white;border-radius:20px;padding:3px 12px;font-size:0.65rem;font-weight:800;white-space:nowrap;">${active ? 'ACTIVA' : 'EXPIRADA'}</span>
+              </div>
+              <p style="font-size:0.82rem;color:#cbd5e1;margin:0 0 10px;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;">${s.reason || 'Comportamiento abusivo en salas'}</p>
+              <div class="flex justify-between items-center text-xs">
+                <span style="color:#64748b;"><i class="fas fa-calendar-plus mr-1"></i>${new Date(s.created_at || s.suspended_until).toLocaleString('es-ES')}</span>
+                <span style="color:${statusColor};font-weight:700;"><i class="fas fa-clock mr-1"></i>${countdown}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        container.innerHTML = '<p style="color:#ef4444;text-align:center;padding:2rem;"><i class="fas fa-circle-xmark mr-2"></i>Error al cargar suspensiones.</p>';
       }
-      
-      container.innerHTML = `
-        <div class="susp-panel-item bg-red-950/20 border border-red-500/20 p-6 rounded-2xl space-y-4">
-          <div class="flex items-center gap-3 text-red-400">
-            <i class="fas fa-exclamation-triangle text-2xl"></i>
-            <h4 class="font-black text-sm">RESTRICCIÓN ACTIVA</h4>
-          </div>
-          <div class="grid grid-cols-2 gap-4 text-xs">
-            <div>
-              <span class="text-gray-500 uppercase tracking-widest">Proyecto</span>
-              <p class="text-white font-bold mt-1">Ocean Cinemas</p>
-            </div>
-            <div>
-              <span class="text-gray-500 uppercase tracking-widest">Razón</span>
-              <p class="text-white font-bold mt-1">Salidas prematuras reiteradas</p>
-            </div>
-            <div>
-              <span class="text-gray-500 uppercase tracking-widest">Remoción</span>
-              <p class="text-cyan-400 font-bold mt-1">${new Date(suspendedUntil).toLocaleString()}</p>
-            </div>
-            <div>
-              <span class="text-gray-500 uppercase tracking-widest">Efecto</span>
-              <p class="text-red-400 font-bold mt-1">Bloqueo de Login y Catálogo</p>
-            </div>
-          </div>
-        </div>
-      `;
     }
   </script>
 <style>

@@ -6088,8 +6088,11 @@ pool.query(`
 `).then(async () => {
   // Asegurar columnas si la tabla ya existía
   await pool.query(`
-    ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS early_exits_count INTEGER DEFAULT 0;
-    ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS last_early_exit_at TIMESTAMP;
+  ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS early_exits_count INTEGER DEFAULT 0;
+  ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS last_early_exit_at TIMESTAMP;
+    ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS plan_id VARCHAR(20) DEFAULT 'litoral';
+    ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS tides_balance INTEGER DEFAULT 1200;
+    ALTER TABLE ocean_cinemas_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
   `).catch(() => {});
 }).catch(e => console.warn('[OC] Bootstrap tables error:', e.message));
 
@@ -6341,7 +6344,16 @@ app.post('/ocean-cinemas/movies/exit', async (req, res) => {
     const payload = jwt.verify(token, process.env.JWT_SECRET || process.env.STUDIO_SECRET || 'oc_secret');
     if (payload.app !== 'ocean_cinemas') return res.status(401).json({ error: 'Token invalido.' });
 
-    const { movieId, currentTime, duration, watchedRatio } = req.body;
+    const { movieId, currentTime, duration } = req.body || {};
+    const parsedMovieId = Number(movieId);
+    const parsedCurrentTime = Number(currentTime);
+    const parsedDuration = Number(duration);
+    if (!Number.isInteger(parsedMovieId) || parsedMovieId <= 0 ||
+        !Number.isFinite(parsedCurrentTime) || !Number.isFinite(parsedDuration) ||
+        parsedDuration <= 0 || parsedCurrentTime < 0) {
+      return res.status(400).json({ error: 'Datos de progreso invalidos.' });
+    }
+    const watchedRatio = Math.min(1, parsedCurrentTime / parsedDuration);
     
     // Obtener detalles del usuario de Ocean Cinemas
     const userRes = await pool.query(
@@ -6355,6 +6367,23 @@ app.post('/ocean-cinemas/movies/exit', async (req, res) => {
     const opRes = await pool.query('SELECT id, aquabux FROM ocean_pay_users WHERE LOWER(username) = LOWER($1)', [user.username]);
     if (!opRes.rows.length) return res.status(404).json({ error: 'Usuario no vinculado a Ocean Pay.' });
     const opUser = opRes.rows[0];
+
+    const activeSuspension = await pool.query(
+      `SELECT suspended_until, reason
+       FROM ocean_cinemas_suspensions
+       WHERE user_id = $1 AND restricted_project = 'Ocean Cinemas' AND suspended_until > NOW()
+       ORDER BY suspended_until DESC LIMIT 1`,
+      [opUser.id]
+    );
+    if (activeSuspension.rows.length) {
+      const suspension = activeSuspension.rows[0];
+      return res.status(403).json({
+        suspended: true,
+        suspended_until: suspension.suspended_until,
+        reason: suspension.reason || 'Cuenta suspendida temporalmente.',
+        error: 'La cuenta ya tiene una suspensión activa.'
+      });
+    }
 
     let message = '';
     let notificationText = '';

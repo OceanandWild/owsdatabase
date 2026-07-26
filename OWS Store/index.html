@@ -8970,7 +8970,7 @@ function showDownloadHUD(projectTitle) {
   if (hud) {
     document.getElementById('hud-project-title').textContent = projectTitle;
     document.getElementById('hud-progress-bytes').textContent = '0 B / 0 B';
-    document.getElementById('hud-progress-eta').textContent = 'Conectando...';
+    document.getElementById('hud-progress-eta').innerHTML = 'Conectando... &nbsp;<span style="font-size:0.68rem;opacity:0.7;">· <a href="https://github.com/OceanandWild/owsdatabase/releases/latest" target="_blank" rel="noopener" style="color:var(--accent-cyan);text-decoration:underline;cursor:pointer;">Descargar manualmente</a></span>';
     document.getElementById('hud-progress-ring').style.strokeDashoffset = '113';
     hud.classList.remove('error');
     hud.classList.add('active');
@@ -8981,7 +8981,7 @@ function showDownloadHUD(projectTitle) {
     _hudConnectTimer = null;
     const hud = document.getElementById('download-hud');
     if (hud && hud.classList.contains('active')) {
-      updateHUDProgress(currentDownloadSlug || 'unknown', 'error', 0, 0, 0, 0, 'Tiempo de conexion agotado. Verifica tu conexion a internet e intentalo de nuevo.');
+      updateHUDProgress(currentDownloadSlug || 'unknown', 'error', 0, 0, 0, 0, 'Tiempo de conexion agotado. La descarga no pudo completarse.');
       currentDownloadTaskActive = false;
     }
   }, 45000);
@@ -9115,7 +9115,7 @@ function updateHUDProgress(slug, phase, percent, downloadedBytes, totalBytes, by
     hud.classList.add('error');
     icon.innerHTML = '<i class="fas fa-circle-xmark"></i>';
     bytesEl.innerHTML = `Error: <span class="download-hud-err-link" onclick="openDownloadErrorModal('${_escapeHtml(errorMsg)}')">Ver detalles</span>`;
-    etaEl.textContent = 'Fallo en la descarga';
+    etaEl.innerHTML = `Fallo en la descarga &nbsp;·&nbsp; <a href="https://github.com/OceanandWild/owsdatabase/releases/latest" target="_blank" rel="noopener" style="color:var(--accent-cyan);text-decoration:underline;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:0.72rem;">Descargar manualmente</a>`;
     ring.style.strokeDashoffset = '113';
     currentDownloadTaskActive = false;
     return;

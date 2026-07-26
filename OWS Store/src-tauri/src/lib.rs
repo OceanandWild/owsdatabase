@@ -490,18 +490,58 @@ async fn install_external_installer(
         return Ok(InstallResult { ok: false, file_path: None, task_id: Some(task_id), cached: None, error: Some("El archivo descargado no es un instalador Windows valido.".into()) });
     }
 
-    // Launch
+    // ── CRITICAL: Explicitly flush and close the file handle before launching ──
+    // On Windows, an open write handle on an .exe can cause ERROR_SHARING_VIOLATION (os error 32)
+    // when another process (NSIS installer) tries to read/execute the file.
+    drop(file);
+    // Small delay to ensure the OS fully releases the file handle
+    std::thread::sleep(std::time::Duration::from_millis(300));
+
+    // Kill any existing instance of the installer file (stale lock from previous failed attempt)
+    if !is_apk {
+        let _ = std::process::Command::new("cmd")
+            .args(["/c", "taskkill", "/F", "/IM", &installer_name, "/T"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+
+    // Launch with retry logic (up to 3 attempts)
     let _ = app.emit("external-install-status", serde_json::json!({
         "taskId": task_id, "phase": "launching", "message": "Abriendo instalador...",
     }));
 
-    let launch_result: Result<(), String> = if is_apk {
-        app.opener().open_url(&format!("file://{}", target_path.to_string_lossy()), None::<&str>)
-            .map_err(|e| e.to_string())
-    } else {
-        std::process::Command::new(&target_path).spawn()
-            .map_err(|e| e.to_string()).map(|_| ())
-    };
+    let mut launch_result: Result<(), String> = Err("Not attempted".into());
+    for attempt in 1..=3u32 {
+        launch_result = if is_apk {
+            app.opener().open_url(&format!("file://{}", target_path.to_string_lossy()), None::<&str>)
+                .map_err(|e| e.to_string())
+        } else {
+            std::process::Command::new(&target_path).spawn()
+                .map_err(|e| e.to_string()).map(|_| ())
+        };
+
+        match &launch_result {
+            Ok(_) => break,
+            Err(e) => {
+                if attempt < 3 {
+                    let _ = app.emit("external-install-status", serde_json::json!({
+                        "taskId": &task_id, "phase": "downloading",
+                        "message": format!("Reintento {}/3: {}", attempt + 1, e),
+                    }));
+                    std::thread::sleep(std::time::Duration::from_millis(1000u64 * attempt as u64));
+                    // Force close any file locks before retry
+                    let _ = std::process::Command::new("cmd")
+                        .args(["/c", "taskkill", "/F", "/IM", &installer_name, "/T"])
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .spawn();
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                }
+            }
+        }
+    }
 
     match launch_result {
         Ok(_) => {

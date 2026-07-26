@@ -1,11 +1,11 @@
 {
-  "version": "2026.7.26-t0108",
-  "notes": "Fix: self-update loop - app closes after launching installer so files can be replaced. Banner structure cleanup with proper CSS classes.",
-  "pub_date": "2026-07-26T04:13:15Z",
+  "version": "2026.7.26-t0125",
+  "notes": "Fix critical: backend now auto-closes app after launching self-update installer so NSIS can replace files. Banner structure cleanup.",
+  "pub_date": "2026-07-26T04:25:00Z",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.26-t0108/OWS+Store_0.1.0_x64-setup.exe"
+      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.26-t0125/OWS+Store_0.1.0_x64-setup.exe"
     }
   }
 }

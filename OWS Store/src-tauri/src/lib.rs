@@ -467,6 +467,16 @@ async fn install_external_installer(
                 "taskId": task_id, "phase": "done", "message": "Instalador abierto.",
             }));
             state.download_tasks.lock().unwrap().remove(&task_id);
+
+            // Self-update: close the app so the NSIS installer can replace files
+            if task_id == "ows-store" {
+                let app_clone = app.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    app_clone.exit(0);
+                });
+            }
+
             Ok(InstallResult { ok: true, file_path: Some(target_path.to_string_lossy().to_string()), task_id: Some(task_id), cached: Some(false), error: None })
         }
         Err(e) => {

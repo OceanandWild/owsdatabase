@@ -1413,7 +1413,7 @@ async function openPathWithRetry(filePath, attempts = 6, delayMs = 350) {
         return '';
       } catch (err) {
         lastError = err && err.message ? err.message : String(err);
-        if (/being used by another process|used by another process|in use|locked|bloquead/i.test(String(lastError))) {
+        if (/being used by another process|used by another process|in use|locked|bloquead|utilizado por otro proceso|acceso al archivo|no tiene acceso/i.test(String(lastError))) {
           await wait(delayMs);
           continue;
         }
@@ -1423,7 +1423,7 @@ async function openPathWithRetry(filePath, attempts = 6, delayMs = 350) {
         return '';
       } catch (err) {
         lastError = err && err.message ? err.message : String(err);
-        if (/being used by another process|used by another process|in use|locked|bloquead/i.test(String(lastError))) {
+        if (/being used by another process|used by another process|in use|locked|bloquead|utilizado por otro proceso|acceso al archivo|no tiene acceso/i.test(String(lastError))) {
           await wait(delayMs);
           continue;
         }
@@ -1433,7 +1433,7 @@ async function openPathWithRetry(filePath, attempts = 6, delayMs = 350) {
     const error = await shell.openPath(filePath);
     if (!error) return '';
     lastError = error;
-    if (/being used by another process|used by another process|in use|locked|bloquead/i.test(String(error))) {
+    if (/being used by another process|used by another process|in use|locked|bloquead|utilizado por otro proceso|acceso al archivo|no tiene acceso/i.test(String(error))) {
       await wait(delayMs);
       continue;
     }

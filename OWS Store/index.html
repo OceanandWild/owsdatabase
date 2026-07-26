@@ -8795,6 +8795,8 @@ function formatBytes(bytes) {
   return `${n.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`;
 }
 
+let _hudConnectTimer = null;
+
 function showDownloadHUD(projectTitle) {
   const hud = document.getElementById('download-hud');
   if (hud) {
@@ -8805,9 +8807,19 @@ function showDownloadHUD(projectTitle) {
     hud.classList.remove('error');
     hud.classList.add('active');
   }
+  // Auto-hide HUD si no hay progreso en 30s (timeout de conexion)
+  if (_hudConnectTimer) clearTimeout(_hudConnectTimer);
+  _hudConnectTimer = setTimeout(function() {
+    hideDownloadHUD();
+    _hudConnectTimer = null;
+  }, 30000);
 }
 
 function hideDownloadHUD() {
+  if (_hudConnectTimer) {
+    clearTimeout(_hudConnectTimer);
+    _hudConnectTimer = null;
+  }
   const hud = document.getElementById('download-hud');
   if (hud) hud.classList.remove('active');
 }

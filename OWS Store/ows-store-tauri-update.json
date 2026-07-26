@@ -1,11 +1,11 @@
 {
-  "version": "2026.7.26-t0125",
-  "notes": "CRITICAL FIX: backend auto-closes app for self-update installer. PROJECT_REPOS now includes ows-store for proper download resolution.",
-  "pub_date": "2026-07-26T05:30:00Z",
+  "version": "2026.7.26-t0230",
+  "notes": "Fix: download timeout + progress fix + self-update auto-close",
+  "pub_date": "2026-07-26T06:02:47Z",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.26-t0125/OWS.Store_0.1.0_x64-setup.exe"
+      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/v2026.7.26-t0230/OWS.Store_0.1.0_x64-setup.exe"
     }
   }
 }

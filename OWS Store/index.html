@@ -8975,12 +8975,16 @@ function showDownloadHUD(projectTitle) {
     hud.classList.remove('error');
     hud.classList.add('active');
   }
-  // Auto-hide HUD si no hay progreso en 30s (timeout de conexion)
+  // Show error if no progress after 45s (timeout de conexion)
   if (_hudConnectTimer) clearTimeout(_hudConnectTimer);
   _hudConnectTimer = setTimeout(function() {
-    hideDownloadHUD();
     _hudConnectTimer = null;
-  }, 30000);
+    const hud = document.getElementById('download-hud');
+    if (hud && hud.classList.contains('active')) {
+      updateHUDProgress(currentDownloadSlug || 'unknown', 'error', 0, 0, 0, 0, 'Tiempo de conexion agotado. Verifica tu conexion a internet e intentalo de nuevo.');
+      currentDownloadTaskActive = false;
+    }
+  }, 45000);
 }
 
 function hideDownloadHUD() {
@@ -9113,6 +9117,7 @@ function updateHUDProgress(slug, phase, percent, downloadedBytes, totalBytes, by
     bytesEl.innerHTML = `Error: <span class="download-hud-err-link" onclick="openDownloadErrorModal('${_escapeHtml(errorMsg)}')">Ver detalles</span>`;
     etaEl.textContent = 'Fallo en la descarga';
     ring.style.strokeDashoffset = '113';
+    currentDownloadTaskActive = false;
     return;
   }
 

@@ -409,10 +409,18 @@ async fn install_external_installer(
 
     let client = reqwest::Client::builder()
         .user_agent("OWS-Store-Client")
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(600))
         .build()
         .map_err(|e| e.to_string())?;
 
-    let response = client.get(url).send().await.map_err(|e| e.to_string())?;
+    let response = client.get(url).send().await.map_err(|e| {
+        let _ = app.emit("external-install-status", serde_json::json!({
+            "taskId": &task_id, "phase": "error", "message": format!("Error de conexion: {}", e),
+        }));
+        format!("Error de conexion: {}", e)
+    })?;
+
     let total = response.content_length().unwrap_or(0);
     let mut file = std::fs::File::create(&target_path).map_err(|e| e.to_string())?;
 
@@ -420,6 +428,7 @@ async fn install_external_installer(
     let mut stream = response.bytes_stream();
     let mut downloaded: u64 = 0;
     let mut last_emit: u64 = 0;
+    let mut chunks_since_emit: u64 = 0;
 
     while let Some(item) = stream.next().await {
         if cancelled_flag.load(Ordering::SeqCst) {
@@ -428,17 +437,50 @@ async fn install_external_installer(
             return Ok(InstallResult { ok: false, file_path: None, task_id: Some(task_id), cached: None, error: Some("Instalacion cancelada por el usuario.".into()) });
         }
         use std::io::Write;
-        let chunk = item.map_err(|e| e.to_string())?;
+        let chunk = item.map_err(|e| {
+            let _ = app.emit("external-install-status", serde_json::json!({
+                "taskId": &task_id, "phase": "error", "message": format!("Error de descarga: {}", e),
+            }));
+            format!("Error de descarga: {}", e)
+        })?;
         file.write_all(&chunk).map_err(|e| e.to_string())?;
         downloaded += chunk.len() as u64;
-        if total > 0 && downloaded - last_emit > 524288 {
+        chunks_since_emit += chunk.len() as u64;
+        // Emit progress every 512KB OR when we have no content_length (emit every 2MB)
+        let should_emit = if total > 0 {
+            downloaded - last_emit > 524288
+        } else {
+            chunks_since_emit > 2_097_152
+        };
+        if should_emit {
             last_emit = downloaded;
-            let percent = ((downloaded as f64 / total as f64) * 100.0) as u32;
+            chunks_since_emit = 0;
+            let (percent, msg) = if total > 0 {
+                let p = ((downloaded as f64 / total as f64) * 100.0) as u32;
+                (p, format!("Descargando... {}%", p))
+            } else {
+                let mb = downloaded as f64 / 1_048_576.0;
+                (0, format!("Descargando... {:.1} MB", mb))
+            };
             let _ = app.emit("external-install-status", serde_json::json!({
-                "taskId": task_id, "phase": "downloading", "message": format!("Descargando... {}%", percent),
+                "taskId": task_id, "phase": "downloading", "message": msg,
                 "percent": percent, "downloadedBytes": downloaded, "totalBytes": total,
             }));
         }
+    }
+    // Final progress emit
+    if downloaded > 0 {
+        let (percent, msg) = if total > 0 {
+            let p = ((downloaded as f64 / total as f64) * 100.0) as u32;
+            (p, format!("Descargado {}%", p))
+        } else {
+            let mb = downloaded as f64 / 1_048_576.0;
+            (100, format!("Descargado {:.1} MB", mb))
+        };
+        let _ = app.emit("external-install-status", serde_json::json!({
+            "taskId": task_id, "phase": "downloading", "message": msg,
+            "percent": percent, "downloadedBytes": downloaded, "totalBytes": total,
+        }));
     }
 
     // Validate

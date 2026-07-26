@@ -4605,6 +4605,225 @@
       to   { width: 0%; }
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       BANNER MODAL — Slide-in Premium Card
+    ═══════════════════════════════════════════════════════════ */
+    .banner-modal-wrap {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 800;
+      max-width: 420px;
+      width: calc(100vw - 48px);
+      pointer-events: none;
+      transform: translateY(calc(100% + 30px));
+      opacity: 0;
+      transition:
+        transform 0.55s cubic-bezier(0.22,1,0.36,1),
+        opacity 0.45s ease;
+    }
+    .banner-modal-wrap.open {
+      pointer-events: auto;
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .banner-modal-card {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 140% 80% at 0% 100%, rgba(41,212,224,0.12) 0%, transparent 65%),
+        linear-gradient(145deg, rgba(18,24,40,0.96), rgba(8,12,24,0.94));
+      border: 1px solid rgba(41,212,224,0.16);
+      box-shadow:
+        0 20px 60px rgba(0,0,0,0.65),
+        0 0 0 1px rgba(255,255,255,0.03) inset,
+        0 0 40px rgba(41,212,224,0.08);
+      padding: 24px 24px 20px;
+      pointer-events: auto;
+      cursor: default;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .banner-modal-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), rgba(168,85,247,0.6), transparent);
+      opacity: 0.8;
+    }
+
+    /* Shimmer sweep */
+    .banner-modal-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.04) 50%, transparent 70%);
+      transform: translateX(-100%);
+      transition: transform 0.8s ease;
+      pointer-events: none;
+    }
+    .banner-modal-card:hover::after {
+      transform: translateX(100%);
+    }
+
+    /* Close button */
+    .banner-modal-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--ink-2);
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 2;
+    }
+    .banner-modal-close:hover {
+      background: rgba(255,255,255,0.10);
+      color: var(--ink-0);
+      transform: rotate(90deg) scale(1.15);
+    }
+    .banner-modal-close:active {
+      transform: rotate(90deg) scale(0.9);
+    }
+
+    /* Top row: eyebrow + NUEVO tag */
+    .banner-modal-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding-right: 30px;
+    }
+    .banner-modal-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      background: rgba(41,212,224,0.08);
+      border: 1px solid rgba(41,212,224,0.18);
+      padding: 3px 9px;
+      border-radius: 100px;
+    }
+
+    /* NUEVO tag with animation */
+    .banner-modal-nuevo {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fff;
+      background: linear-gradient(135deg, #f97316, #ef4444);
+      padding: 3px 8px;
+      border-radius: 100px;
+      animation: nuevoPulse 1.6s ease-in-out infinite;
+      box-shadow: 0 0 12px rgba(249,115,22,0.35);
+    }
+    @keyframes nuevoPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(249,115,22,0.25); }
+      50% { transform: scale(1.06); box-shadow: 0 0 18px rgba(249,115,22,0.5); }
+    }
+
+    /* Title */
+    .banner-modal-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink-0);
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+
+    /* Description */
+    .banner-modal-desc {
+      font-size: 12.5px;
+      color: var(--ink-1);
+      line-height: 1.5;
+      margin-bottom: 14px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* CTA Button */
+    .banner-modal-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, var(--cyan) 0%, #1a8fff 100%);
+      color: #05080c;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--font);
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.18s ease, box-shadow 0.2s ease, filter 0.18s ease;
+      box-shadow: 0 6px 20px rgba(41,212,224,0.25);
+      width: 100%;
+    }
+    .banner-modal-cta:hover {
+      transform: translateY(-1.5px);
+      box-shadow: 0 10px 28px rgba(41,212,224,0.4);
+      filter: brightness(1.08);
+    }
+    .banner-modal-cta:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    /* Dismiss link */
+    .banner-modal-dismiss {
+      display: block;
+      text-align: center;
+      margin-top: 10px;
+      font-size: 10.5px;
+      color: var(--ink-2);
+      cursor: pointer;
+      transition: color 0.15s;
+      border: none;
+      background: none;
+      font-family: var(--font);
+      width: 100%;
+    }
+    .banner-modal-dismiss:hover {
+      color: var(--ink-1);
+    }
+
+    /* Entry animation for card elements */
+    .banner-modal-card > * {
+      animation: bannerFadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .banner-modal-card > *:nth-child(2) { animation-delay: 0.04s; }
+    .banner-modal-card > *:nth-child(3) { animation-delay: 0.08s; }
+    .banner-modal-card > *:nth-child(4) { animation-delay: 0.12s; }
+    .banner-modal-card > *:nth-child(5) { animation-delay: 0.16s; }
+
+    @keyframes bannerFadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     /* ─────────────────────────────────────────────────────────────
        LAUNCH ANIMATION (Jugar button)
     ───────────────────────────────────────────────────────────── */
@@ -5309,6 +5528,183 @@
 ───────────────────────────────────────────────────────────────── */
 const API_URL     = 'https://owsdatabase.onrender.com';
 const REPO_RAW    = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main';
+
+/* ═══════════════════════════════════════════════════════════════
+   BANNER MODAL SYSTEM — Gestion de banners modales
+   - Fetch banners from /ows-store/banners
+   - NUEVO tag visible primeros 3-5 dias
+   - Banners normales: aparecen por 14 dias, luego se desvanecen
+   - Banners permanentes (Patreon): aparecen cada 14 dias
+═══════════════════════════════════════════════════════════════ */
+const BANNER_COOLDOWN_DAYS = 14; // 14 days for permanent banners
+const BANNER_MAX_AGE_DAYS = 14;  // 14 days max for non-permanent
+const BANNER_DISMISSED_KEY = 'ows_banner_dismissed';
+
+function getBannerDismissed() {
+  try {
+    return JSON.parse(localStorage.getItem(BANNER_DISMISSED_KEY) || '{}');
+  } catch (_) { return {}; }
+}
+
+function setBannerDismissed(bannerId) {
+  const d = getBannerDismissed();
+  d[String(bannerId)] = Date.now();
+  try { localStorage.setItem(BANNER_DISMISSED_KEY, JSON.stringify(d)); } catch (_) {}
+}
+
+function shouldShowBanner(banner) {
+  if (!banner || !banner.is_active) return false;
+  if (banner.phase === 'ended') return false;
+
+  const now = Date.now();
+  const bid = String(banner.id || '0');
+
+  // Check dismissed state: if dismissed, respect cooldown/dismissal
+  const dismissed = getBannerDismissed();
+  const dismissedAt = Number(dismissed[bid] || 0);
+
+  if (banner.is_permanent) {
+    // Permanent banners: show if never dismissed, or if cooldown expired
+    if (dismissedAt > 0) {
+      const cooldownMs = BANNER_COOLDOWN_DAYS * 86400000;
+      if ((now - dismissedAt) < cooldownMs) return false;
+    }
+    return true;
+  }
+
+  // Non-permanent banners
+  const publishedTs = banner.published_at ? Date.parse(banner.published_at) : 0;
+  if (!publishedTs) return false;
+  const daysSince = Math.floor((now - publishedTs) / 86400000);
+  if (daysSince < 0) return false;
+
+  // After 14 days, don't show
+  if (daysSince >= BANNER_MAX_AGE_DAYS) return false;
+
+  // Gradual fade: days 12-14 reduce frequency
+  if (daysSince >= 12) {
+    // Show only ~25% of the time
+    if (Math.random() > 0.25) return false;
+  } else if (daysSince >= 10) {
+    // Show only ~50% of the time
+    if (Math.random() > 0.5) return false;
+  } else if (daysSince >= 7) {
+    // Show ~70% of the time
+    if (Math.random() > 0.7) return false;
+  }
+
+  // If dismissed, respect a shorter cooldown (3 days for non-permanent)
+  if (dismissedAt > 0) {
+    const shortCooldownMs = 3 * 86400000;
+    if ((now - dismissedAt) < shortCooldownMs) return false;
+  }
+
+  return true;
+}
+
+async function fetchAndShowBanner() {
+  try {
+    const res = await fetch(API_URL + '/ows-store/banners?limit=5&_=' + Date.now(), {
+      cache: 'no-store'
+    });
+    if (!res.ok) return;
+    const banners = await res.json();
+    if (!Array.isArray(banners) || !banners.length) return;
+
+    // Find the first banner that should be shown
+    let candidate = null;
+    for (const b of banners) {
+      if (shouldShowBanner(b)) {
+        candidate = b;
+        break;
+      }
+    }
+    if (!candidate) return;
+
+    showBannerModal(candidate);
+  } catch (_) {
+    // Silently fail — banner is optional
+  }
+}
+
+function showBannerModal(banner) {
+  const wrap = document.getElementById('banner-modal-wrap');
+  if (!wrap) return;
+
+  const eyebrowEl = wrap.querySelector('.banner-modal-eyebrow');
+  const nuevoEl = wrap.querySelector('.banner-modal-nuevo');
+  const titleEl = wrap.querySelector('.banner-modal-title');
+  const descEl = wrap.querySelector('.banner-modal-desc');
+  const ctaEl = wrap.querySelector('.banner-modal-cta');
+  const dismissBtn = wrap.querySelector('.banner-modal-dismiss');
+
+  if (eyebrowEl) {
+    eyebrowEl.textContent = banner.eyebrow || 'ANUNCIO';
+  }
+
+  // NUEVO tag
+  if (nuevoEl) {
+    const isNuevo = banner.is_nuevo === true;
+    // For permanent banners, NUEVO shows for 5 days after publish
+    const isNewEnough = banner.days_since_published >= 0 && banner.days_since_published <= 5;
+    if (isNuevo || isNewEnough) {
+      nuevoEl.style.display = 'inline-flex';
+    } else {
+      nuevoEl.style.display = 'none';
+    }
+  }
+
+  if (titleEl) {
+    titleEl.textContent = banner.title || 'Novedad';
+  }
+
+  if (descEl) {
+    descEl.textContent = banner.description || '';
+  }
+
+  // CTA
+  const ctaUrl = banner.cta_url || 'https://www.patreon.com/cw/OceanandWildStudios';
+  if (ctaEl) {
+    ctaEl.textContent = (banner.cta_label || 'Saber mas') + '  →';
+    ctaEl.onclick = function(e) {
+      e.preventDefault();
+      // Mark as dismissed before opening link
+      setBannerDismissed(String(banner.id || '0'));
+      window.open(ctaUrl, '_blank', 'noopener,noreferrer');
+      closeBannerModal();
+      // Permanent banners already use dismissedAt for cooldown tracking
+    };
+  }
+
+  // Dismiss button
+  if (dismissBtn) {
+    dismissBtn.onclick = function() {
+      setBannerDismissed(String(banner.id || '0'));
+      closeBannerModal();
+    };
+  }
+
+  // Store banner id on the wrap for reference
+  wrap.dataset.bannerId = String(banner.id || '0');
+  wrap.dataset.isPermanent = banner.is_permanent ? '1' : '0';
+
+  // Show with animation after a short delay
+  setTimeout(function() {
+    wrap.classList.add('open');
+  }, 1200);
+}
+
+function closeBannerModal() {
+  const wrap = document.getElementById('banner-modal-wrap');
+  if (!wrap) return;
+  wrap.classList.remove('open');
+}
+
+// Initialize banner system after page loads
+document.addEventListener('DOMContentLoaded', function() {
+  // Wait a bit for everything to settle, then check for banners
+  setTimeout(fetchAndShowBanner, 2500);
+});
 // const SHUTDOWN_UTC = new Date('2026-06-06T12:50:00Z').getTime();
 // const API_BASE_SHUTDOWN = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
 //   ? API_URL : '';
@@ -9491,6 +9887,35 @@ async function fetchLatestAndroidRelease(repo, limit = 15) {
       </button>
       <button onclick="closeOwsStoreChangelog()" style="background:linear-gradient(135deg,#6366f1,#7c3aed);border:none;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:600;color:#fff;cursor:pointer;">Cerrar</button>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BANNER MODAL — Slide-in Premium Card
+     Gestionado via /ows-store/banners API
+═══════════════════════════════════════════════════════════ -->
+<div class="banner-modal-wrap" id="banner-modal-wrap">
+  <div class="banner-modal-card">
+    <!-- Close button -->
+    <button class="banner-modal-close" onclick="closeBannerModal()" aria-label="Cerrar banner">✕</button>
+
+    <!-- Top row: eyebrow + NUEVO tag -->
+    <div class="banner-modal-top">
+      <span class="banner-modal-eyebrow">ANUNCIO</span>
+      <span class="banner-modal-nuevo">✦ NUEVO</span>
+    </div>
+
+    <!-- Title -->
+    <div class="banner-modal-title">Novedad</div>
+
+    <!-- Description -->
+    <div class="banner-modal-desc"></div>
+
+    <!-- CTA Button -->
+    <button class="banner-modal-cta">Saber mas →</button>
+
+    <!-- Dismiss link -->
+    <button class="banner-modal-dismiss">Recordarme despues</button>
   </div>
 </div>
 

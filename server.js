@@ -12749,6 +12749,14 @@ app.get('/ows-store/banners', async (req, res) => {
       if (endTs && now > endTs) phase = 'ended';
       else if (startTs && now < startTs) phase = 'upcoming';
 
+      // Extract is_permanent from visual_meta (default false)
+      const isPermanent = visual.is_permanent === true || visual.permanent === true;
+      // NUEVO tag: show for first `nuevo_days` days after publish (default 5)
+      const nuevoDays = Math.max(1, Math.min(30, Number(visual.nuevo_days) || 5));
+      const publishedTs = publishedAt ? Date.parse(publishedAt) : 0;
+      const daysSincePublished = publishedTs > 0 ? Math.floor((now - publishedTs) / 86400000) : -1;
+      const isNuevo = publishedTs > 0 && daysSincePublished >= 0 && daysSincePublished <= nuevoDays;
+
       return {
         id: Number(row.id || 0),
         title: String(row.title || 'Anuncio').trim(),
@@ -12774,9 +12782,49 @@ app.get('/ows-store/banners', async (req, res) => {
         published_at: publishedAt,
         created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
         updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null,
-        include_in_ows_store: row.include_in_ows_store === true
+        include_in_ows_store: row.include_in_ows_store === true,
+        is_permanent: isPermanent,
+        is_nuevo: isNuevo,
+        nuevo_days: nuevoDays,
+        days_since_published: daysSincePublished
       };
     }).filter((banner) => banner.phase !== 'ended' || includeInactive);
+
+    // If no banners from DB, provide a fallback Patreon banner
+    if (!list.length && !includeInactive) {
+      const patreonBanner = {
+        id: 0,
+        title: 'Apoya el Desarrollo de Nuevos Juegos',
+        description: 'Unete a nuestro Patreon y apoya directamente los nuevos juegos que estamos creando con Unity. Tu apoyo hace posible que sigamos innovando y lanzando titulos increibles.',
+        eyebrow: 'PATREON',
+        cta_label: 'Apoyar en Patreon',
+        cta_url: 'https://www.patreon.com/cw/OceanandWildStudios',
+        layout: 'editorial',
+        accent: 'var(--cyan)',
+        secondary: '',
+        background_url: '',
+        image_url: '',
+        style_config: {},
+        visual_meta: { is_permanent: true, nuevo_days: 5 },
+        project_names: [],
+        project_slugs: [],
+        platforms: ['windows', 'android'],
+        phase: 'active',
+        is_active: true,
+        priority: 999,
+        starts_at: null,
+        ends_at: null,
+        published_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        include_in_ows_store: true,
+        is_permanent: true,
+        is_nuevo: true,
+        nuevo_days: 5,
+        days_since_published: 0
+      };
+      return res.json([patreonBanner]);
+    }
 
     return res.json(list);
   } catch (err) {

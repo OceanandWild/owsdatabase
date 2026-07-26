@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="app-version" content="2026.6.27-t1200">
   <meta name="app-name" content="OWS Store">
-  <script>window.APP_VERSION = '2026.7.26-t0022'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
+  <script>window.APP_VERSION = '2026.7.26-t0108'; window.APP_NAME = 'OWS Store'; window.VERSION_DETECTION_ENABLED = true;</script>
   <script>
-(function(){var i,l;if(window.__TAURI__){i=window.__TAURI__.core.invoke;l=window.__TAURI__.event.listen}else if(window.__TAURI_INTERNALS__){i=window.__TAURI_INTERNALS__.invoke;l=window.__TAURI_INTERNALS__.ipc&&window.__TAURI_INTERNALS__.ipc.listen?window.__TAURI_INTERNALS__.ipc.listen:function(){}}else return;var p=navigator.platform.toLowerCase();window.owsUpdater={isElectron:true,isTauri:true,platform:p.includes('win')?'win32':p.includes('mac')?'darwin':'linux',onUpdateAvailable:function(c){l('update-available',function(e){c(e.payload)})},onUpdateDownloaded:function(c){l('update-downloaded',function(){c()})},onDownloadProgress:function(c){l('update-download-progress',function(e){c(e.payload)})},onUpdateNotAvailable:function(c){l('update-not-available',function(){c()})},onUpdateError:function(c){l('update-error',function(e){c(e.payload)})},onExternalInstallStatus:function(c){l('external-install-status',function(e){c(e.payload)})},installUpdate:function(){return i('install_update')},getAppVersion:function(){return i('get_app_version')},checkForUpdates:function(){return i('check_for_updates')},getWnsChannelUri:function(){return i('get_wns_channel_uri')},showSystemNotification:function(a){return i('show_system_notification',{payload:a})},installExternalInstaller:function(a){return i('install_external_installer',{payload:a})},cancelExternalInstaller:function(a){return i('cancel_external_installer',{payload:a})},openExternalUrl:function(a){return i('open_external_url',{url:a})},resolveInstalledApp:function(a){return i('resolve_installed_app',{payload:a})},resolveInstalledAppsBatch:function(a){return i('resolve_installed_apps_batch',{projects:a})},launchInstalledApp:function(a){return i('launch_installed_app',{payload:a})},uninstallInstalledApp:function(a){return i('uninstall_installed_app',{payload:a})},readProjectPackageJson:function(a){return i('read_project_package_json',{path:a})}};})();
+(function(){var i,l;if(window.__TAURI__){i=window.__TAURI__.core.invoke;l=window.__TAURI__.event.listen}else if(window.__TAURI_INTERNALS__){i=window.__TAURI_INTERNALS__.invoke;l=window.__TAURI_INTERNALS__.ipc&&window.__TAURI_INTERNALS__.ipc.listen?window.__TAURI_INTERNALS__.ipc.listen:function(){}}else return;var p=navigator.platform.toLowerCase();window.owsUpdater={isElectron:true,isTauri:true,platform:p.includes('win')?'win32':p.includes('mac')?'darwin':'linux',onUpdateAvailable:function(c){l('update-available',function(e){c(e.payload)})},onUpdateDownloaded:function(c){l('update-downloaded',function(){c()})},onDownloadProgress:function(c){l('update-download-progress',function(e){c(e.payload)})},onUpdateNotAvailable:function(c){l('update-not-available',function(){c()})},onUpdateError:function(c){l('update-error',function(e){c(e.payload)})},onExternalInstallStatus:function(c){l('external-install-status',function(e){c(e.payload)})},installUpdate:function(){return i('install_update')},getAppVersion:function(){return i('get_app_version')},checkForUpdates:function(){return i('check_for_updates')},getWnsChannelUri:function(){return i('get_wns_channel_uri')},showSystemNotification:function(a){return i('show_system_notification',{payload:a})},installExternalInstaller:function(a){return i('install_external_installer',{payload:a})},cancelExternalInstaller:function(a){return i('cancel_external_installer',{payload:a})},quitApp:function(){return i('quit_app')},openExternalUrl:function(a){return i('open_external_url',{url:a})},resolveInstalledApp:function(a){return i('resolve_installed_app',{payload:a})},resolveInstalledAppsBatch:function(a){return i('resolve_installed_apps_batch',{projects:a})},launchInstalledApp:function(a){return i('launch_installed_app',{payload:a})},uninstallInstalledApp:function(a){return i('uninstall_installed_app',{payload:a})},readProjectPackageJson:function(a){return i('read_project_package_json',{path:a})}};})();
   </script>
   <title>OWS Store</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -4824,6 +4824,167 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       OWS STORE UPDATE BANNER — Actualizaciones section
+    ═══════════════════════════════════════════════════════════ */
+    .ows-update-banner {
+      position: relative;
+      margin: 20px 20px 0;
+    }
+    .ows-update-banner-glow {
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      background: radial-gradient(ellipse at 30% 50%, rgba(99,102,241,0.12), transparent 70%);
+      pointer-events: none;
+    }
+    .ows-update-card {
+      position: relative;
+      padding: 18px 20px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.13) 0%, rgba(13,17,23,0.9) 60%);
+      border: 1.5px solid rgba(99,102,241,0.2);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: border-color 0.3s ease;
+    }
+    .ows-update-card.has-update {
+      border-color: rgba(99,102,241,0.5);
+    }
+    .ows-update-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 20px; right: 20px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(99,102,241,0.6), transparent);
+    }
+    .ows-update-label {
+      position: absolute;
+      top: 12px; right: 14px;
+      font-size: 9px;
+      font-weight: 800;
+      color: rgba(99,102,241,0.5);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .ows-update-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .ows-update-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .ows-update-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      border: 1.5px solid rgba(99,102,241,0.4);
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(99,102,241,0.25);
+    }
+    .ows-update-icon img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    .ows-update-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .ows-update-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--ink-0);
+      letter-spacing: -0.01em;
+    }
+    .ows-update-pill {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .ows-update-pill--new {
+      background: linear-gradient(135deg, #6366f1, #7c3aed);
+      color: #fff;
+    }
+    .ows-update-pill--ok {
+      font-weight: 700;
+      background: rgba(63,185,80,0.15);
+      color: var(--green);
+      border: 1px solid rgba(63,185,80,0.3);
+      letter-spacing: 0.04em;
+    }
+    .ows-update-ver {
+      font-size: 11px;
+      color: var(--ink-2);
+    }
+    .ows-update-ver strong {
+      color: var(--ink-1);
+    }
+    .ows-update-ver .available {
+      color: #a5b4fc;
+    }
+    .ows-update-ver em {
+      font-style: italic;
+    }
+    .ows-update-subtitle {
+      font-size: 10px;
+      color: rgba(99,102,241,0.55);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+    .ows-update-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .ows-update-btn {
+      background: linear-gradient(135deg, #6366f1, #7c3aed);
+      border: none;
+      border-radius: 8px;
+      padding: 7px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+      transition: transform 0.15s, box-shadow 0.2s;
+      font-family: var(--font);
+    }
+    .ows-update-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+    }
+    .ows-update-btn:active { transform: translateY(0) scale(0.97); }
+    .ows-update-btn-changelog {
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      color: var(--ink-1);
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .ows-update-btn-changelog:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--ink-0);
+    }
+
     /* ─────────────────────────────────────────────────────────────
        LAUNCH ANIMATION (Jugar button)
     ───────────────────────────────────────────────────────────── */
@@ -8402,6 +8563,12 @@ async function checkOwsStoreSelfUpdate() {
     if (!latestVersion) return;
 
     const hasUpdate = _isStrictlyNewer(latestVersion, installedVersion);
+
+    // If we had a pending self-update that succeeded (now up to date), clear the flag
+    try {
+      if (!hasUpdate) localStorage.removeItem('ows_pending_self_update');
+    } catch(_){}
+
     owsStoreSelfUpdate = { hasUpdate, latestVersion, installedVersion, release };
 
     // Botón "¿Qué hay de nuevo?" — siempre visible si hay changelog disponible
@@ -8845,6 +9012,11 @@ async function triggerInstall(slug) {
     return;
   }
 
+  // Clear any stale pending self-update flag at the start of a new attempt
+  if (slug === 'ows-store') {
+    try { localStorage.removeItem('ows_pending_self_update'); } catch(_){}
+  }
+
   const p = allProjects.find(x => x.slug === slug);
   if (!p) return;
 
@@ -8910,6 +9082,16 @@ async function triggerInstall(slug) {
     if (!res.ok) {
       currentDownloadTaskActive = false;
       updateHUDProgress(slug, 'error', 0, 0, 0, 0, res.error || 'Fallo desconocido.');
+    } else if (slug === 'ows-store') {
+      // Self-update: save pending flag and close app so installer can replace files
+      try { localStorage.setItem('ows_pending_self_update', latestVer); } catch(_){}
+      currentDownloadTaskActive = false;
+      if (window.owsUpdater && window.owsUpdater.quitApp) {
+        updateHUDProgress(slug, 'done', 100, 0, 0, 0, 'Instalador abierto. La app se cerrara para completar la actualizacion...');
+        setTimeout(() => { window.owsUpdater.quitApp().catch(()=>{}); }, 3000);
+      } else {
+        updateHUDProgress(slug, 'done', 100, 0, 0, 0, 'Instalador abierto. Por favor, cierra y vuelve a abrir OWS Store manualmente.');
+      }
     }
   } catch (err) {
     currentDownloadTaskActive = false;
@@ -9138,60 +9320,47 @@ function renderUpdatesSection() {
     const checking = !selfUpd;
 
     const verLine = checking
-      ? `<span style="color:var(--ink-2);font-style:italic;font-size:11px;">Verificando versión...</span>`
+      ? `<span class="ows-update-ver"><em>Verificando version...</em></span>`
       : hasUpdate
-        ? `<span style="font-size:11px;color:var(--ink-2);">Instalada: <strong style="color:var(--ink-1);">${installedVersion}</strong> &nbsp;→&nbsp; Disponible: <strong style="color:#a5b4fc;">${latestVersion}</strong></span>`
-        : `<span style="font-size:11px;color:var(--ink-2);">Versión <strong style="color:var(--ink-1);">${installedVersion}</strong></span>`;
+        ? `<span class="ows-update-ver">Instalada: <strong>${installedVersion}</strong> &nbsp;&rarr;&nbsp; Disponible: <strong class="available">${latestVersion}</strong></span>`
+        : `<span class="ows-update-ver">Version <strong>${installedVersion}</strong></span>`;
 
     const statusPill = hasUpdate
-      ? `<span style="font-size:9px;font-weight:800;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;padding:3px 8px;border-radius:20px;letter-spacing:0.06em;text-transform:uppercase;">Nueva versión</span>`
-      : `<span style="font-size:9px;font-weight:700;background:rgba(63,185,80,0.15);color:var(--green);border:1px solid rgba(63,185,80,0.3);padding:2px 8px;border-radius:20px;letter-spacing:0.04em;">Al día</span>`;
+      ? `<span class="ows-update-pill ows-update-pill--new">Nueva version</span>`
+      : `<span class="ows-update-pill ows-update-pill--ok">Al dia</span>`;
 
     let actionBtn = '';
     if (hasUpdate && window.owsUpdater && (window.owsUpdater.isElectron || window.owsUpdater.isTauri)) {
-      actionBtn = `<button id="ows-self-update-btn" onclick="triggerOwsStoreSelfUpdate()" style="background:linear-gradient(135deg,#6366f1,#7c3aed);border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(99,102,241,0.35);">
+      actionBtn = `<button id="ows-self-update-btn" class="ows-update-btn" onclick="triggerOwsStoreSelfUpdate()">
         <i class="fas fa-arrow-circle-down"></i> Actualizar OWS Store
       </button>`;
     }
 
-    // Separador con etiqueta — solo se añade cuando hay apps instaladas debajo
     const dividerHtml = `__DIVIDER_PLACEHOLDER__`;
 
     owsStoreBannerHtml = `
-      <div style="margin:20px 20px 0; position:relative;">
-        <!-- Glow de fondo -->
-        <div style="position:absolute;inset:0;border-radius:16px;background:radial-gradient(ellipse at 30% 50%,rgba(99,102,241,0.12),transparent 70%);pointer-events:none;"></div>
-
-        <!-- Tarjeta principal -->
-        <div style="position:relative; padding:18px 20px; background:linear-gradient(135deg,rgba(99,102,241,0.13) 0%,rgba(13,17,23,0.9) 60%); border:1.5px solid ${hasUpdate ? 'rgba(99,102,241,0.5)' : 'rgba(99,102,241,0.2)'}; border-radius:16px; overflow:hidden;">
-
-          <!-- Borde luminoso superior -->
-          <div style="position:absolute;top:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,transparent,rgba(99,102,241,0.6),transparent);"></div>
-
-          <!-- Etiqueta esquina -->
-          <div style="position:absolute;top:12px;right:14px;font-size:9px;font-weight:800;color:rgba(99,102,241,0.5);letter-spacing:0.12em;text-transform:uppercase;">OWS STORE</div>
-
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
-            <!-- Left: icon + info -->
-            <div style="display:flex;align-items:center;gap:14px;">
-              <div style="width:52px;height:52px;border-radius:14px;border:1.5px solid rgba(99,102,241,0.4);overflow:hidden;flex-shrink:0;box-shadow:0 4px 16px rgba(99,102,241,0.25);">
-                <img src="build/icon.png" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='🏪'">
+      <div class="ows-update-banner">
+        <div class="ows-update-banner-glow"></div>
+        <div class="ows-update-card${hasUpdate ? ' has-update' : ''}">
+          <span class="ows-update-label">OWS STORE</span>
+          <div class="ows-update-row">
+            <div class="ows-update-left">
+              <div class="ows-update-icon">
+                <img src="build/icon.png" onerror="this.style.display='none';this.parentElement.innerHTML='\u{1F3EA}'">
               </div>
               <div>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
-                  <span style="font-size:15px;font-weight:800;color:var(--ink-0);letter-spacing:-0.01em;">OWS Store</span>
+                <div class="ows-update-title-row">
+                  <span class="ows-update-name">OWS Store</span>
                   ${statusPill}
                 </div>
                 ${verLine}
-                <div style="font-size:10px;color:rgba(99,102,241,0.55);margin-top:4px;font-weight:500;">Launcher del ecosistema Ocean and Wild Studios</div>
+                <div class="ows-update-subtitle">Launcher del ecosistema Ocean and Wild Studios</div>
               </div>
             </div>
-
-            <!-- Right: acciones -->
-            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <div class="ows-update-right">
               ${actionBtn}
-              <button onclick="openOwsStoreChangelog()" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:9px;padding:7px 13px;font-size:11px;font-weight:600;color:#a5b4fc;cursor:pointer;white-space:nowrap;transition:background 0.15s;">
-                <i class="fas fa-sparkles" style="margin-right:5px;"></i>¿Qué hay de nuevo?
+              <button class="ows-update-btn-changelog" onclick="openOwsStoreChangelog()">
+                <i class="fas fa-sparkles" style="margin-right:5px;"></i>Que hay de nuevo?
               </button>
             </div>
           </div>

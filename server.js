@@ -6507,6 +6507,105 @@ app.post('/ocean-cinemas/movies/exit', async (req, res) => {
   }
 });
 
+/* ===== OCEAN CINEMAS DRAFT EXPORTS (30 MIN TTL & COOLDOWN) ===== */
+const oceanCinemasDraftExports = new Map(); // key: draftId or exportId, value: { payload, expiresAt }
+
+// Cleanup expired exports every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, item] of oceanCinemasDraftExports.entries()) {
+    if (item.expiresAt && now > item.expiresAt) {
+      oceanCinemasDraftExports.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+const handleDraftExportPost = (req, res) => {
+  try {
+    const payload = req.body;
+    if (!payload || !payload.draftId) {
+      return res.status(400).json({ error: 'Falta payload o draftId invalido.' });
+    }
+
+    const draftId = String(payload.draftId);
+    const now = Date.now();
+    const existing = oceanCinemasDraftExports.get(draftId);
+
+    // 30 minute cooldown check
+    if (existing && existing.expiresAt && now < existing.expiresAt) {
+      const remainingMinutes = Math.ceil((existing.expiresAt - now) / 60000);
+      return res.status(429).json({
+        error: `Cooldown activo. Este borrador ya fue exportado al servidor. Estara disponible para volver a exportar en ${remainingMinutes} minutos.`,
+        remainingMinutes,
+        export: existing.payload
+      });
+    }
+
+    const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+    const expiresAt = now + COOLDOWN_MS;
+
+    const exportData = {
+      ...payload,
+      exportedAt: new Date(now).toISOString(),
+      expiresAt: new Date(expiresAt).toISOString(),
+      ttlMinutes: 30
+    };
+
+    oceanCinemasDraftExports.set(draftId, { payload: exportData, expiresAt });
+    if (payload.exportId) {
+      oceanCinemasDraftExports.set(String(payload.exportId), { payload: exportData, expiresAt });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Borrador exportado exitosamente al servidor por 30 minutos.',
+      export: exportData
+    });
+  } catch (err) {
+    console.error('Error en export-draft POST:', err);
+    return res.status(500).json({ error: 'Error interno guardando borrador exportado.' });
+  }
+};
+
+const handleDraftExportGet = (req, res) => {
+  try {
+    const id = req.query.id || req.query.draftId || req.query.exportId;
+    const now = Date.now();
+
+    if (id) {
+      const item = oceanCinemasDraftExports.get(String(id));
+      if (!item || (item.expiresAt && now > item.expiresAt)) {
+        if (item) oceanCinemasDraftExports.delete(String(id));
+        return res.status(404).json({ error: 'El borrador exportado expiro o no fue encontrado en el servidor (TTL: 30 min).' });
+      }
+      return res.json(item.payload);
+    }
+
+    const activeExports = [];
+    for (const [key, item] of oceanCinemasDraftExports.entries()) {
+      if (item.expiresAt && now <= item.expiresAt) {
+        if (!activeExports.some(x => String(x.draftId) === String(item.payload.draftId))) {
+          activeExports.push(item.payload);
+        }
+      }
+    }
+
+    return res.json({
+      count: activeExports.length,
+      exports: activeExports
+    });
+  } catch (err) {
+    console.error('Error en export-draft GET:', err);
+    return res.status(500).json({ error: 'Error interno obteniendo borradores exportados.' });
+  }
+};
+
+app.post('/api/ocean-cinemas/export-draft', handleDraftExportPost);
+app.post('/ocean-cinemas/export-draft', handleDraftExportPost);
+
+app.get('/api/ocean-cinemas/export-draft', handleDraftExportGet);
+app.get('/ocean-cinemas/export-draft', handleDraftExportGet);
+
 // Obtener suspensiones del usuario autenticado de Ocean Pay
 app.get('/ocean-pay/suspensions', async (req, res) => {
   try {

@@ -6530,9 +6530,10 @@ const handleDraftExportPost = (req, res) => {
     const draftId = String(payload.draftId);
     const now = Date.now();
     const existing = oceanCinemasDraftExports.get(draftId);
+    const isForce = payload.force === true || req.query.force === 'true';
 
-    // 30 minute cooldown check
-    if (existing && existing.expiresAt && now < existing.expiresAt) {
+    // 30 minute cooldown check (skipped if force === true)
+    if (!isForce && existing && existing.expiresAt && now < existing.expiresAt) {
       const remainingMinutes = Math.ceil((existing.expiresAt - now) / 60000);
       return res.status(429).json({
         error: `Cooldown activo. Este borrador ya fue exportado al servidor. Estara disponible para volver a exportar en ${remainingMinutes} minutos.`,
@@ -6551,6 +6552,8 @@ const handleDraftExportPost = (req, res) => {
       ttlMinutes: 30
     };
 
+    delete exportData.force;
+
     oceanCinemasDraftExports.set(draftId, { payload: exportData, expiresAt });
     if (payload.exportId) {
       oceanCinemasDraftExports.set(String(payload.exportId), { payload: exportData, expiresAt });
@@ -6558,7 +6561,7 @@ const handleDraftExportPost = (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Borrador exportado exitosamente al servidor por 30 minutos.',
+      message: isForce ? 'Borrador actualizado/re-exportado en el servidor.' : 'Borrador exportado exitosamente al servidor por 30 minutos.',
       export: exportData
     });
   } catch (err) {
@@ -6600,11 +6603,40 @@ const handleDraftExportGet = (req, res) => {
   }
 };
 
+const handleDraftExportDelete = (req, res) => {
+  try {
+    const id = req.query.id || req.query.draftId || req.query.exportId || (req.body && req.body.draftId);
+    if (!id) {
+      return res.status(400).json({ error: 'Falta parametro id o draftId para eliminar.' });
+    }
+
+    const key = String(id);
+    const item = oceanCinemasDraftExports.get(key);
+    if (item && item.payload) {
+      oceanCinemasDraftExports.delete(String(item.payload.draftId));
+      if (item.payload.exportId) oceanCinemasDraftExports.delete(String(item.payload.exportId));
+    } else {
+      oceanCinemasDraftExports.delete(key);
+    }
+
+    return res.json({
+      success: true,
+      message: `Borrador ${id} eliminado del servidor exitosamente.`
+    });
+  } catch (err) {
+    console.error('Error en export-draft DELETE:', err);
+    return res.status(500).json({ error: 'Error interno al eliminar borrador del servidor.' });
+  }
+};
+
 app.post('/api/ocean-cinemas/export-draft', handleDraftExportPost);
 app.post('/ocean-cinemas/export-draft', handleDraftExportPost);
 
 app.get('/api/ocean-cinemas/export-draft', handleDraftExportGet);
 app.get('/ocean-cinemas/export-draft', handleDraftExportGet);
+
+app.delete('/api/ocean-cinemas/export-draft', handleDraftExportDelete);
+app.delete('/ocean-cinemas/export-draft', handleDraftExportDelete);
 
 // Obtener suspensiones del usuario autenticado de Ocean Pay
 app.get('/ocean-pay/suspensions', async (req, res) => {

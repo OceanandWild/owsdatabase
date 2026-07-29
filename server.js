@@ -12921,7 +12921,7 @@ app.get('/ows-store/banners', async (req, res) => {
       };
     }).filter((banner) => banner.phase !== 'ended' || includeInactive);
 
-    // If no banners from DB, provide a fallback Patreon banner
+    // If no banners from DB, provide fallback banners (Patreon + Unity announcement)
     if (!list.length && !includeInactive) {
       const patreonBanner = {
         id: 0,
@@ -12954,7 +12954,45 @@ app.get('/ows-store/banners', async (req, res) => {
         nuevo_days: 5,
         days_since_published: 0
       };
-      return res.json([patreonBanner]);
+      const unityBanner = {
+        id: -1,
+        title: 'Nuevos Proyectos en Camino con Unity',
+        description: 'Estamos desarrollando nuevos titulos con Unity. El primer proyecto podria lanzarse en Septiembre, o incluso en Agosto si todo sale bien. Seguinos para no perderte las novedades.',
+        eyebrow: 'UNITY ANNOUNCEMENT',
+        cta_label: 'Seguir novedades',
+        cta_url: 'https://oceanandwild.com',
+        layout: 'editorial',
+        accent: '#ff7b24',
+        secondary: '#1a1a2e',
+        background_url: 'https://i.ibb.co/Qjc81cB0/unity-announcementowsstore.png',
+        image_url: 'https://i.ibb.co/Qjc81cB0/unity-announcementowsstore.png',
+        style_config: {
+          editorial_density: 'balanced',
+          editorial_weight: 'bold',
+          title_color: '#ffffff',
+          text_color: 'rgba(255,255,255,0.85)',
+          title_rainbow: false,
+          text_rainbow: false
+        },
+        visual_meta: { is_permanent: true, nuevo_days: 14 },
+        project_names: ['Unity Titles'],
+        project_slugs: [],
+        platforms: ['windows', 'android'],
+        phase: 'active',
+        is_active: true,
+        priority: 998,
+        starts_at: null,
+        ends_at: null,
+        published_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        include_in_ows_store: true,
+        is_permanent: true,
+        is_nuevo: true,
+        nuevo_days: 14,
+        days_since_published: 0
+      };
+      return res.json([patreonBanner, unityBanner]);
     }
 
     return res.json(list);

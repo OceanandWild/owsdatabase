@@ -348,7 +348,7 @@ async function getOceanPayAuthedUserFromRequest(req) {
 
 async function buildOceanPayLoginPayload(opUser) {
   const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-  const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+  const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '30d' });
 
   const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [opUser.id]);
   if (existingCards.length === 0) {
@@ -435,7 +435,7 @@ app.post('/ocean-pay/register', async (req, res) => {
       const opUser = newUser.rows[0];
 
       const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-      const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+      const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '30d' });
 
       res.json({
         success: true,
@@ -602,9 +602,9 @@ app.post('/ocean-pay/refresh-token', async (req, res) => {
     }
 
     const user = rows[0];
-    const newToken = jwt.sign({ id: user.id, uid: user.id, username: user.username }, secret, { expiresIn: '7d' });
+    const newToken = jwt.sign({ id: user.id, uid: user.id, username: user.username }, secret, { expiresIn: '30d' });
 
-    console.log(`Ã°Ã…Â¸—Â—Å¾ Token refreshed for user: ${user.username} (ID: ${user.id})`);
+    console.log(`Token refreshed for user: ${user.username} (ID: ${user.id})`);
 
     res.json({
       success: true,
@@ -656,7 +656,7 @@ app.post('/tigertasks/auth/register', async (req, res) => {
     const token = jwt.sign(
       { tid: user.id, username: user.username, source: 'tigertasks' },
       process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
     res.json({ success: true, token, user: { id: user.id, username: user.username } });
   } catch (e) {
@@ -683,7 +683,7 @@ app.post('/tigertasks/auth/login', async (req, res) => {
     const token = jwt.sign(
       { tid: user.id, username: user.username, source: 'tigertasks' },
       process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
     res.json({ success: true, token, user: { id: user.id, username: user.username } });
   } catch (e) {
@@ -729,7 +729,7 @@ app.post('/tigertasks/link/oceanpay', async (req, res) => {
     const oceanPayToken = jwt.sign(
       { id: opUser.id, uid: opUser.id, username: opUser.username },
       process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
     res.json({
@@ -14088,7 +14088,38 @@ app.get('/ows-store/github/repos/:owner/:repo/*', githubProxyHandler);
 // Perfil Ocean Pay usado por apps (cards + balances unificados)
 app.get('/ocean-pay/me', async (req, res) => {
   const token = parseStudioAuthToken(req);
-  const decoded = decodeStudioTokenOrNull(token);
+  let decoded = decodeStudioTokenOrNull(token);
+  let freshToken = null;
+
+  // Si el token está expirado, intentamos auto-refrescarlo (grace period 30 días)
+  if (!decoded && token) {
+    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    try {
+      const expiredDecoded = jwt.verify(token, secret, { ignoreExpiration: true });
+      const userId = Number(expiredDecoded.id || expiredDecoded.uid || expiredDecoded.sub || 0);
+      if (userId) {
+        const expiredAt = expiredDecoded.exp ? new Date(expiredDecoded.exp * 1000) : null;
+        const gracePeriodMs = 30 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        if (!expiredAt || (now - expiredAt.getTime() <= gracePeriodMs)) {
+          // User still has valid session within grace period — auto-refresh
+          const { rows: userRows } = await pool.query(
+            'SELECT id, username FROM ocean_pay_users WHERE id = $1 LIMIT 1',
+            [userId]
+          );
+          if (userRows.length) {
+            freshToken = jwt.sign(
+              { id: userRows[0].id, uid: userRows[0].id, username: userRows[0].username },
+              secret,
+              { expiresIn: '30d' }
+            );
+            decoded = jwt.verify(freshToken, secret);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   if (!decoded) return res.status(401).json({ error: 'Token invalido' });
 
   const userId = Number(decoded.id || decoded.uid || decoded.sub || 0);
@@ -14143,7 +14174,7 @@ app.get('/ocean-pay/me', async (req, res) => {
 
     const twoFactorEnabled = await getOceanPayTwoFactorEnabled(user.id);
 
-    return res.json({
+    const response = {
       success: true,
       id: user.id,
       uid: user.id,
@@ -14156,7 +14187,11 @@ app.get('/ocean-pay/me', async (req, res) => {
       two_factor_enabled: twoFactorEnabled,
       balances: mergedUserBalances,
       cards
-    });
+    };
+    // Si se refrescó el token automáticamente, lo devolvemos al cliente
+    if (freshToken) response.token = freshToken;
+
+    return res.json(response);
   } catch (err) {
     console.error('Error en GET /ocean-pay/me:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -17554,7 +17589,7 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '30d' });
 
     // Asegurar que existe el registro de internet_gb (inicializar si no existe)
     try {
@@ -23275,7 +23310,7 @@ async function handleWildWaveRegister(req, res) {
     );
     const userRow = rows[0];
 
-    const token = jwt.sign({ wid: userRow.id, un: userRow.username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ wid: userRow.id, un: userRow.username }, process.env.STUDIO_SECRET, { expiresIn: '30d' });
     const user = { id: userRow.id, username: userRow.username, display_name: userRow.display_name || userRow.username, avatar_url: userRow.avatar_url || null, created_at: userRow.created_at, bio: userRow.bio || null, posts_count: 0 };
     res.json({ token, user });
   } catch (err) {
@@ -23306,7 +23341,7 @@ async function handleWildWaveLogin(req, res) {
     );
     const postsCount = countRows[0]?.posts_count || 0;
 
-    const token = jwt.sign({ wid: rows[0].id, un: rows[0].username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ wid: rows[0].id, un: rows[0].username }, process.env.STUDIO_SECRET, { expiresIn: '30d' });
     const user = {
       id: rows[0].id,
       username: rows[0].username,
@@ -25233,7 +25268,7 @@ app.patch('/wildwave/api/profile/username', async (req, res) => {
       created_at: current.created_at,
       posts_count: postsCount
     };
-    const token = jwt.sign({ wid: current.id, un: uname }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ wid: current.id, un: uname }, process.env.STUDIO_SECRET, { expiresIn: '30d' });
     res.json({ success: true, user, token });
   } catch (err) {
     console.error('Error en PATCH /wildwave/api/profile/username:', err);
@@ -31421,7 +31456,30 @@ app.post('/ocean-cinemas/subscriptions/status', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    let decoded;
+    try {
+      decoded = jwt.verify(token, secret);
+    } catch (jwtErr) {
+      // Attempt auto-refresh for expired tokens
+      if (jwtErr.name === 'TokenExpiredError') {
+        const expiredDecoded = jwt.verify(token, secret, { ignoreExpiration: true });
+        const uid = Number(expiredDecoded.id || expiredDecoded.uid || expiredDecoded.sub || 0);
+        if (uid) {
+          const expiredAt = expiredDecoded.exp ? new Date(expiredDecoded.exp * 1000) : null;
+          const graceMs = 30 * 24 * 60 * 60 * 1000;
+          if (!expiredAt || (Date.now() - expiredAt.getTime() <= graceMs)) {
+            const { rows: userRows } = await pool.query(
+              'SELECT id FROM ocean_pay_users WHERE id = $1 LIMIT 1', [uid]
+            );
+            if (userRows.length) {
+              decoded = { id: uid, uid, username: expiredDecoded.username || '' };
+            }
+          }
+        }
+      }
+      if (!decoded) return res.status(401).json({ error: 'Token invalido o expirado' });
+    }
     const userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token invalido' });
 
@@ -31471,7 +31529,29 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    let decoded;
+    try {
+      decoded = jwt.verify(token, secret);
+    } catch (jwtErr) {
+      if (jwtErr.name === 'TokenExpiredError') {
+        const expiredDecoded = jwt.verify(token, secret, { ignoreExpiration: true });
+        const uid = Number(expiredDecoded.id || expiredDecoded.uid || expiredDecoded.sub || 0);
+        if (uid) {
+          const expiredAt = expiredDecoded.exp ? new Date(expiredDecoded.exp * 1000) : null;
+          const graceMs = 30 * 24 * 60 * 60 * 1000;
+          if (!expiredAt || (Date.now() - expiredAt.getTime() <= graceMs)) {
+            const { rows: userRows } = await pool.query(
+              'SELECT id FROM ocean_pay_users WHERE id = $1 LIMIT 1', [uid]
+            );
+            if (userRows.length) {
+              decoded = { id: uid, uid, username: expiredDecoded.username || '' };
+            }
+          }
+        }
+      }
+      if (!decoded) return res.status(401).json({ error: 'Token invalido o expirado' });
+    }
     const userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token invalido' });
 

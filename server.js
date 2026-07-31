@@ -31432,7 +31432,66 @@ app.get('/ocean-pay/subscriptions/catalog', (_req, res) => {
   });
 });
 
+// ── Ocean Cinemas Offers ──
+// Generates occasional modest discounts to create urgency.
+// Offers are stored in memory and regenerate on a timer.
+let _ocOffersCache = [];
+let _ocOffersCacheExpiry = 0;
+const OC_OFFER_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+const OC_OFFER_DURATION_MS = 4 * 60 * 60 * 1000; // Each offer lasts 4 hours
+
+function _generateOceanCinemasOffers() {
+  const now = Date.now();
+  // Refresh the cache every 5 minutes
+  if (now < _ocOffersCacheExpiry && _ocOffersCache.length) return _ocOffersCache;
+  _ocOffersCacheExpiry = now + OC_OFFER_REFRESH_MS;
+
+  // Paid plans only (skip Litoral which is free)
+  const paidPlans = [
+    { key: 'ocean_cinemas_oleaje', name: 'Oleaje', price: 60 },
+    { key: 'ocean_cinemas_marea', name: 'Marea', price: 180 },
+    { key: 'ocean_cinemas_abysal', name: 'Abisal', price: 400 },
+    { key: 'ocean_cinemas_leviatan', name: 'Leviatán', price: 850 }
+  ];
+
+  // ~40% chance any offer is active at all
+  if (Math.random() > 0.4) {
+    _ocOffersCache = [];
+    return [];
+  }
+
+  // Pick 1 or 2 plans to offer
+  const shuffled = [...paidPlans].sort(() => Math.random() - 0.5);
+  const count = Math.random() > 0.5 ? 1 : 2;
+  const selected = shuffled.slice(0, count);
+
+  const offers = selected.map(p => {
+    // Modest discount: 10-15%
+    const discountPct = 10 + Math.floor(Math.random() * 6); // 10-15%
+    const discountedPrice = Math.round(p.price * (1 - discountPct / 100));
+    const expiresAt = now + OC_OFFER_DURATION_MS;
+    return {
+      plan_key: p.key,
+      plan_name: p.name,
+      original_price: p.price,
+      discount_pct: discountPct,
+      discounted_price: discountedPrice,
+      expires_at: new Date(expiresAt).toISOString(),
+      expires_in_ms: OC_OFFER_DURATION_MS
+    };
+  });
+
+  _ocOffersCache = offers;
+  return offers;
+}
+
+app.get('/ocean-cinemas/subscriptions/offers', (_req, res) => {
+  const offers = _generateOceanCinemasOffers();
+  res.json({ offers, generated_at: new Date().toISOString() });
+});
+
 app.get('/ocean-cinemas/subscriptions/plans', (_req, res) => {
+
   const plans = OCEAN_PAY_SUBSCRIPTION_CATALOG.filter((item) =>
     item.pid === 'Ocean Cinemas'
   ).map((item) => ({

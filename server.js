@@ -31437,13 +31437,24 @@ app.get('/ocean-pay/subscriptions/catalog', (_req, res) => {
 // Offers are stored in memory and regenerate on a timer.
 let _ocOffersCache = [];
 let _ocOffersCacheExpiry = 0;
+// Persistent map of all unexpired offers — keys survive cache regeneration
+// so users who take longer than 5min to subscribe still get their discount
+const _ocAllOffers = new Map();
 const OC_OFFER_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 const OC_OFFER_DURATION_MS = 4 * 60 * 60 * 1000; // Each offer lasts 4 hours
 
 function _generateOceanCinemasOffers() {
   const now = Date.now();
-  // Refresh the cache every 5 minutes
-  if (now < _ocOffersCacheExpiry && _ocOffersCache.length) return _ocOffersCache;
+
+  // Purge expired offers from the persistent map
+  for (const [code, offer] of _ocAllOffers) {
+    if (new Date(offer.expires_at).getTime() <= now) _ocAllOffers.delete(code);
+  }
+
+  // If cache is fresh, return the latest batch (frontend display)
+  if (now < _ocOffersCacheExpiry && _ocOffersCache.length) {
+    return _ocOffersCache;
+  }
   _ocOffersCacheExpiry = now + OC_OFFER_REFRESH_MS;
 
   // Paid plans only (skip Litoral which is free)
@@ -31457,7 +31468,8 @@ function _generateOceanCinemasOffers() {
   // ~40% chance any offer is active at all
   if (Math.random() > 0.4) {
     _ocOffersCache = [];
-    return [];
+    // Keep any unexpired offers in _ocAllOffers for validation
+    return Array.from(_ocAllOffers.values());
   }
 
   // Pick 1 or 2 plans to offer
@@ -31470,7 +31482,10 @@ function _generateOceanCinemasOffers() {
     const discountPct = 10 + Math.floor(Math.random() * 6); // 10-15%
     const discountedPrice = Math.round(p.price * (1 - discountPct / 100));
     const expiresAt = now + OC_OFFER_DURATION_MS;
+    // Generate a unique offer code for validation
+    const offerCode = 'oc_' + p.key.replace('ocean_cinemas_', '') + '_' + discountPct + '_' + Math.random().toString(36).substring(2, 6);
     return {
+      offer_code: offerCode,
       plan_key: p.key,
       plan_name: p.name,
       original_price: p.price,
@@ -31482,6 +31497,8 @@ function _generateOceanCinemasOffers() {
   });
 
   _ocOffersCache = offers;
+  // Store all new offers in the persistent map for future validation
+  offers.forEach(o => _ocAllOffers.set(o.offer_code, o));
   return offers;
 }
 
@@ -31614,7 +31631,7 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
     const userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token invalido' });
 
-    const { planId, cardId } = req.body || {};
+    const { planId, cardId, offerCode } = req.body || {};
     const PLANS = {
       oleaje: { name: 'Oleaje', price: 60, currency: 'tides', intervalDays: 30 },
       marea: { name: 'Marea', price: 180, currency: 'tides', intervalDays: 30 },
@@ -31623,6 +31640,29 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
     };
     const plan = PLANS[String(planId || '').toLowerCase()];
     if (!plan) return res.status(400).json({ error: 'Plan no válido. Elige Oleaje, Marea, Abisal o Leviatán.' });
+
+    // Validate offer code if provided — check against ALL unexpired offers
+    // (including previous cache batches stored in _ocAllOffers)
+    let effectivePrice = plan.price;
+    let appliedOffer = null;
+    if (offerCode) {
+      // First ensure expired offers are purged so we only validate live ones
+      const now = Date.now();
+      for (const [code, offer] of _ocAllOffers) {
+        if (new Date(offer.expires_at).getTime() <= now) _ocAllOffers.delete(code);
+      }
+      const offer = Array.from(_ocAllOffers.values()).find(o =>
+        o.offer_code === String(offerCode).trim() &&
+        o.plan_key === 'ocean_cinemas_' + String(planId || '').toLowerCase() &&
+        new Date(o.expires_at).getTime() > Date.now()
+      );
+      if (offer) {
+        effectivePrice = offer.discounted_price;
+        appliedOffer = { code: offer.offer_code, discount_pct: offer.discount_pct };
+      }
+      // If offer is invalid/expired, silently use full price —
+      // the frontend already shows the full price as fallback
+    }
 
     const safeCardId = Number(cardId);
     if (!Number.isFinite(safeCardId) || safeCardId <= 0) {
@@ -31660,27 +31700,30 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
 
       // Check Tides balance on card
       const currentBalance = await getUnifiedCardCurrencyBalance(client, safeCardId, plan.currency, true);
-      if (currentBalance < plan.price) {
+      if (currentBalance < effectivePrice) {
         await client.query('ROLLBACK');
         return res.status(400).json({
-          error: `Saldo insuficiente de Tides. Necesitas ${plan.price} Tides, tienes ${currentBalance}.`,
-          required: plan.price,
+          error: `Saldo insuficiente de Tides. Necesitas ${effectivePrice} Tides, tienes ${currentBalance}.`,
+          required: effectivePrice,
           available: currentBalance
         });
       }
 
-      // Deduct Tides
+      // Deduct Tides (use discounted price if offer was applied)
       await setUnifiedCardCurrencyBalance(client, {
         userId,
         cardId: safeCardId,
         currency: plan.currency,
-        newBalance: currentBalance - plan.price
+        newBalance: currentBalance - effectivePrice
       });
 
-      // Log transaction
+      // Log transaction (include discount info if applicable)
+      const conceptoOferta = appliedOffer
+        ? `Suscripcion: ${plan.name} (Ocean Cinemas) — OFERTA -${appliedOffer.discount_pct}% (${appliedOffer.code})`
+        : `Suscripcion: ${plan.name} (Ocean Cinemas)`;
       await client.query(
         'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-        [userId, `Suscripcion: ${plan.name} (Ocean Cinemas)`, -plan.price, 'Ocean Cinemas', plan.currency]
+        [userId, conceptoOferta, -effectivePrice, 'Ocean Cinemas', plan.currency]
       );
 
       // Create subscription
@@ -31692,7 +31735,7 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
            (user_id, card_id, project_id, plan_name, sub_name, price, currency, interval_days, next_payment, status)
          VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, 'active')
          RETURNING *`,
-        [userId, safeCardId, 'Ocean Cinemas', plan.name, plan.price, plan.currency, plan.intervalDays, nextPayment]
+        [userId, safeCardId, 'Ocean Cinemas', plan.name, effectivePrice, plan.currency, plan.intervalDays, nextPayment]
       );
 
       await client.query('COMMIT');
@@ -31701,8 +31744,9 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
         success: true,
         subscription: subRows[0],
         plan: { id: planId, ...plan },
+        appliedOffer: appliedOffer,
         nextPayment: nextPayment.toISOString(),
-        newTidesBalance: currentBalance - plan.price
+        newTidesBalance: currentBalance - effectivePrice
       });
     } catch (e) {
       await client.query('ROLLBACK');

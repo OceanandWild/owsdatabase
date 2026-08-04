@@ -4415,10 +4415,14 @@ async function runDatabaseMigrations() {
       ON ows_project_backups(is_backed_up, backup_date)
     `).catch(() => {});
 
-    if (typeof ensureOwsStoreProjectsSeedData === 'function') {
+    // ⚠️ Seed automático de ows_projects DESACTIVADO (2026-08-04).
+    // El catálogo de OWS Store quedó vacío a propósito (se borraron los proyectos
+    // de la BD) y este seed lo re-poblaba en cada reinicio de Render.
+    // Para reactivar el seed, setear ENABLE_OWS_STORE_PROJECTS_SEED=true en el entorno.
+    if (process.env.ENABLE_OWS_STORE_PROJECTS_SEED === 'true' && typeof ensureOwsStoreProjectsSeedData === 'function') {
       await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
     } else {
-      console.warn('[OWS] ensureOwsStoreProjectsSeedData no definida, se omite seed de ows_projects.');
+      console.log('[OWS] Seed automático de ows_projects DESACTIVADO (catálogo vacío). Para reactivarlo: ENABLE_OWS_STORE_PROJECTS_SEED=true');
     }
     await syncOwsProjectRestrictionsTable().catch(err => console.log('[OWS] Error syncing ows_project_restrictions:', err.message));
 

@@ -31507,6 +31507,12 @@ app.get('/ocean-cinemas/subscriptions/offers', (_req, res) => {
   res.json({ offers, generated_at: new Date().toISOString() });
 });
 
+// Lightweight endpoint for client-side countdown sync — returns current server time
+// Used by _syncServerTime() to calculate clock offset and avoid drift
+app.get('/ocean-cinemas/subscriptions/server-time', (_req, res) => {
+  res.json({ now: Date.now(), iso: new Date().toISOString() });
+});
+
 app.get('/ocean-cinemas/subscriptions/plans', (_req, res) => {
 
   const plans = OCEAN_PAY_SUBSCRIPTION_CATALOG.filter((item) =>
@@ -33581,6 +33587,95 @@ app.get('/ows-store/windows/releases/wildweapon-mayhem/latest', async (req, res)
   }
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OWS STORE — ACTIVITY FEED
+// GET  /api/store/activity  → returns { success, activities: [...] }  (public)
+// POST /api/store/activity  → adds a new activity entry              (admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+// DB-backed activity feed. Survives Render deploys/restarts.
+// Activities are short, compact reports for the "Actividad reciente" widget.
+
+async function ensureStoreActivityTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_store_activity (
+      id          BIGSERIAL PRIMARY KEY,
+      title       TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      icon        TEXT NOT NULL DEFAULT 'fa-file',
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_store_activity_created
+      ON ows_store_activity(created_at DESC)
+  `);
+}
+
+app.get('/api/store/activity', async (_req, res) => {
+  try {
+    await ensureStoreActivityTable();
+    const { rows } = await pool.query(
+      `SELECT id, title, description, icon, created_at
+       FROM ows_store_activity
+       ORDER BY created_at DESC
+       LIMIT 10`
+    );
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.json({
+      success: true,
+      activities: rows.map(r => ({
+        id: r.id,
+        title: r.title,
+        description: r.description || '',
+        icon: r.icon || 'fa-file',
+        createdAt: r.created_at
+      }))
+    });
+  } catch (err) {
+    console.error('[OWS STORE ACTIVITY] Error fetching:', err);
+    res.status(500).json({ error: 'Error al cargar actividad' });
+  }
+});
+
+app.post('/api/store/activity', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const { title, description, icon } = req.body;
+  if (!title || !String(title).trim()) {
+    return res.status(400).json({ error: 'El título es requerido' });
+  }
+
+  try {
+    await ensureStoreActivityTable();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_store_activity (title, description, icon)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, description, icon, created_at`,
+      [
+        String(title).trim(),
+        String(description || '').trim(),
+        String(icon || 'fa-file').trim()
+      ]
+    );
+
+    const entry = rows[0];
+    console.log(`[OWS STORE ACTIVITY] Added: "${entry.title}" (ID: ${entry.id})`);
+    res.json({
+      success: true,
+      activity: {
+        id: entry.id,
+        title: entry.title,
+        description: entry.description || '',
+        icon: entry.icon || 'fa-file',
+        createdAt: entry.created_at
+      }
+    });
+  } catch (err) {
+    console.error('[OWS STORE ACTIVITY] Error adding:', err);
+    res.status(500).json({ error: 'Error al añadir actividad' });
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OWS STORE — SHUTDOWN / ERA TRANSITION CONFIG

@@ -33681,6 +33681,31 @@ app.post('/api/store/activity', async (req, res) => {
   }
 });
 
+app.delete('/api/store/activity/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+
+  try {
+    await ensureStoreActivityTable();
+    const { rowCount } = await pool.query(
+      'DELETE FROM ows_store_activity WHERE id = $1',
+      [id]
+    );
+    if (rowCount === 0) {
+      return res.status(404).json({ error: 'Actividad no encontrada' });
+    }
+    console.log(`[OWS STORE ACTIVITY] Deleted: ID ${id}`);
+    res.json({ success: true, deleted: id });
+  } catch (err) {
+    console.error('[OWS STORE ACTIVITY] Error deleting:', err);
+    res.status(500).json({ error: 'Error al eliminar actividad' });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // OWS STORE — SHUTDOWN / ERA TRANSITION CONFIG
 // GET  /ows-store/shutdown-config  → returns { return_date, active }  (public)

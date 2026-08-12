@@ -7449,6 +7449,8 @@ app.get('/a-wild-question-game', (_req, res) => {
   }
 });
 app.use('/a-wild-question-game', express.static(join(__dirname, 'A Wild Question Game')));
+app.use('/ows-spaces/assets', express.static(join(__dirname, 'OWS Spaces', 'assets')));
+
 
 // ===== WILD TRANSFER - COMPARTIR ARCHIVOS (MULTIPLE) =====
 const wildTransferStorage = multer.diskStorage({

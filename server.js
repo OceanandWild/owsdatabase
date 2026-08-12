@@ -33853,6 +33853,27 @@ async function ensureOwsSpacesTables() {
     CREATE INDEX IF NOT EXISTS idx_ows_space_messages_chat
       ON ows_space_messages(chat_id, id ASC)
   `);
+  // ── Tabla de noticias propias de OWS Spaces ──────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_spaces_news (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      content_lines TEXT[] DEFAULT '{}',
+      cover_url TEXT DEFAULT '',
+      project_tag TEXT DEFAULT 'OWS Spaces',
+      author_name TEXT DEFAULT 'Ocean and Wild Studios',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      priority INTEGER NOT NULL DEFAULT 0,
+      published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_spaces_news:', e.message));
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_spaces_news_active
+      ON ows_spaces_news(is_active, published_at DESC)
+  `).catch(() => {});
 }
 
 // ── Autenticación ────────────────────────────────────────────────────────────
@@ -34570,6 +34591,135 @@ app.post('/ows-spaces/api/demo/reset', async (req, res) => {
   } catch (err) {
     console.error('[OWS SPACES] Error al vaciar:', err);
     res.status(500).json({ error: 'Error al vaciar todo' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OWS SPACES — NOTICIAS / BLOG
+// Tabla propia: ows_spaces_news (desacoplada de ows_store_news)
+// GET  /ows-spaces/api/news          → público, lista activas ordenadas
+// POST /ows-spaces/api/news          → requiere auth (cualquier usuario logueado)
+// PATCH  /ows-spaces/api/news/:id    → requiere auth
+// DELETE /ows-spaces/api/news/:id    → requiere auth
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET — lista pública
+app.get('/ows-spaces/api/news', async (_req, res) => {
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(`
+      SELECT id, title, description, content_lines, cover_url, project_tag,
+             author_name, is_active, priority, published_at, created_at, updated_at
+      FROM ows_spaces_news
+      WHERE is_active = TRUE
+      ORDER BY priority DESC, published_at DESC
+      LIMIT 50
+    `);
+    return res.json(rows.map((r) => ({
+      id: Number(r.id),
+      title: String(r.title || '').trim(),
+      description: String(r.description || '').trim(),
+      content_lines: Array.isArray(r.content_lines) ? r.content_lines.filter(Boolean) : [],
+      cover_url: String(r.cover_url || '').trim(),
+      project_tag: String(r.project_tag || 'OWS Spaces').trim(),
+      author_name: String(r.author_name || 'Ocean and Wild Studios').trim(),
+      is_active: r.is_active !== false,
+      priority: Number(r.priority || 0),
+      published_at: r.published_at || r.created_at || null,
+    })));
+  } catch (err) {
+    console.error('[OWS SPACES] GET /news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST — crear noticia
+app.post('/ows-spaces/api/news', async (req, res) => {
+  const user = await requireOwsSpacesAuth(req, res);
+  if (!user) return;
+  try {
+    await ensureOwsSpacesTables();
+    const {
+      title, description = '', content_lines = [], cover_url = '',
+      project_tag = 'OWS Spaces', author_name = '', priority = 0,
+      published_at
+    } = req.body || {};
+    if (!title || !String(title).trim()) return res.status(400).json({ error: 'El título es requerido' });
+    const lines = Array.isArray(content_lines) ? content_lines.map(String).filter(Boolean) : [];
+    const pubAt = published_at ? new Date(published_at) : new Date();
+    const { rows } = await pool.query(`
+      INSERT INTO ows_spaces_news
+        (title, description, content_lines, cover_url, project_tag, author_name, priority, published_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      RETURNING *
+    `, [
+      String(title).trim(),
+      String(description || '').trim(),
+      lines,
+      String(cover_url || '').trim(),
+      String(project_tag || 'OWS Spaces').trim(),
+      String(author_name || user.display_name || user.username || 'OWS').trim(),
+      Number(priority) || 0,
+      pubAt,
+    ]);
+    return res.status(201).json({ success: true, news: rows[0] });
+  } catch (err) {
+    console.error('[OWS SPACES] POST /news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// PATCH — editar noticia
+app.patch('/ows-spaces/api/news/:id', async (req, res) => {
+  const user = await requireOwsSpacesAuth(req, res);
+  if (!user) return;
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const allowed = ['title','description','content_lines','cover_url','project_tag','author_name','priority','published_at','is_active'];
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    for (const key of allowed) {
+      if (!(key in (req.body || {}))) continue;
+      let val = req.body[key];
+      if (key === 'content_lines') val = Array.isArray(val) ? val.map(String).filter(Boolean) : [];
+      else if (key === 'published_at') val = val ? new Date(val) : new Date();
+      else if (key === 'is_active') val = Boolean(val);
+      else if (key === 'priority') val = Number(val) || 0;
+      else val = String(val || '').trim();
+      updates.push(`${key} = $${idx++}`);
+      values.push(val);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'Sin campos a actualizar' });
+    values.push(id);
+    const { rows } = await pool.query(
+      `UPDATE ows_spaces_news SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`,
+      values
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Noticia no encontrada' });
+    return res.json({ success: true, news: rows[0] });
+  } catch (err) {
+    console.error('[OWS SPACES] PATCH /news/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE — eliminar noticia
+app.delete('/ows-spaces/api/news/:id', async (req, res) => {
+  const user = await requireOwsSpacesAuth(req, res);
+  if (!user) return;
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query('DELETE FROM ows_spaces_news WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Noticia no encontrada' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] DELETE /news/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
   }
 });
 

@@ -34725,3 +34725,19 @@ app.delete('/ows-spaces/api/news/:id', async (req, res) => {
   }
 });
 
+
+// POST /ows-spaces/api/news/seed - insercion protegida por STUDIO_SECRET
+app.post('/ows-spaces/api/news/seed', async (req, res) => {
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || '';
+  const provided = String(req.headers['x-studio-secret'] || '').trim();
+  if (!secret || provided !== secret) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    await ensureOwsSpacesTables();
+    const { title, description='', content_lines=[], cover_url='', project_tag='OWS Spaces', author_name='Ocean and Wild Studios', priority=0, published_at } = req.body || {};
+    if (!title || !String(title).trim()) return res.status(400).json({ error: 'Titulo requerido' });
+    const lines = Array.isArray(content_lines) ? content_lines.map(String).filter(Boolean) : [];
+    const pubAt = published_at ? new Date(published_at) : new Date();
+    const { rows } = await pool.query(`INSERT INTO ows_spaces_news (title,description,content_lines,cover_url,project_tag,author_name,priority,published_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [String(title).trim(),String(description||'').trim(),lines,String(cover_url||'').trim(),String(project_tag||'OWS Spaces').trim(),String(author_name||'Ocean and Wild Studios').trim(),Number(priority)||0,pubAt]);
+    return res.status(201).json({ success: true, news: rows[0] });
+  } catch (err) { console.error('[OWS SPACES] POST /news/seed:', err); return res.status(500).json({ error: 'Error interno' }); }
+});

@@ -33737,3 +33737,558 @@ app.post('/ows-store/shutdown-config', (req, res) => {
   console.log(`[OWS SHUTDOWN] return_date="${owsShutdownReturnDate}" active=${owsShutdownActiveOverride}`);
   res.json({ success: true, return_date: owsShutdownReturnDate, active: owsShutdownActiveOverride });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OWS SPACES — Espacios para tu equipo y tus clientes (prototipo)
+//
+// Permite crear un espacio (nombre + icono) y, dentro de él, chats públicos
+// (visibles para clientes/visitantes) y chats de equipo (visibles solo según
+// el rol). Cada rol ve ciertos chats: cliente/visitante → públicos; equipo →
+// públicos + equipo (+ restricción por rol cuando aplica).
+//
+// Endpoints abiertos (sin auth) a propósito: es un prototipo de demostración.
+// Prefijo: /ows-spaces/api/*
+// ─────────────────────────────────────────────────────────────────────────────
+const OWS_SPACES_TEAM_ROLES = ['owner', 'admin', 'staff', 'member'];
+const OWS_SPACES_ALL_ROLES = [...OWS_SPACES_TEAM_ROLES, 'client', 'guest'];
+
+function owsSpacesNormalizeRole(role) {
+  const r = String(role || '').trim().toLowerCase();
+  return OWS_SPACES_ALL_ROLES.includes(r) ? r : '';
+}
+
+function owsSpacesIsTeamRole(role) {
+  return OWS_SPACES_TEAM_ROLES.includes(owsSpacesNormalizeRole(role));
+}
+
+function owsSpacesSlugify(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+async function ensureOwsSpacesTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_spaces (
+      id SERIAL PRIMARY KEY,
+      slug TEXT UNIQUE,
+      name TEXT NOT NULL,
+      icon TEXT DEFAULT '🚀',
+      description TEXT DEFAULT '',
+      owner_name TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_chats (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL REFERENCES ows_spaces(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      icon TEXT DEFAULT '💬',
+      chat_type TEXT NOT NULL DEFAULT 'public',
+      visible_roles TEXT[] DEFAULT ARRAY[]::TEXT[],
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_chats_space
+      ON ows_space_chats(space_id)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_messages (
+      id SERIAL PRIMARY KEY,
+      chat_id INTEGER NOT NULL REFERENCES ows_space_chats(id) ON DELETE CASCADE,
+      sender_name TEXT NOT NULL,
+      sender_role TEXT DEFAULT 'client',
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_messages_chat
+      ON ows_space_messages(chat_id, id ASC)
+  `);
+}
+
+// ¿Un chat es visible para este rol?
+function owsSpacesChatVisibleToRole(chat, role) {
+  const r = owsSpacesNormalizeRole(role) || 'guest';
+  if (String(chat?.chat_type || 'public') === 'team') {
+    if (!owsSpacesIsTeamRole(r)) return false;
+    const roles = Array.isArray(chat?.visible_roles)
+      ? chat.visible_roles.map((x) => String(x).toLowerCase()).filter(Boolean)
+      : [];
+    if (roles.length && !roles.includes(r)) return false;
+    return true;
+  }
+  return true; // chat público → visible para todos
+}
+
+// ¿Este rol puede escribir en este chat?
+function owsSpacesCanSend(chat, role) {
+  const r = owsSpacesNormalizeRole(role) || 'guest';
+  if (r === 'guest') return false; // invitado: solo lectura
+  if (!owsSpacesChatVisibleToRole(chat, r)) return false;
+  return true;
+}
+
+function owsSpacesSpaceToJson(s) {
+  return {
+    id: s.id,
+    slug: s.slug || '',
+    name: s.name,
+    icon: s.icon || '🚀',
+    description: s.description || '',
+    ownerName: s.owner_name || '',
+    chatCount: Number(s.chat_count || 0),
+    messageCount: Number(s.message_count || 0),
+    createdAt: s.created_at
+  };
+}
+
+function owsSpacesChatToJson(c, role) {
+  return {
+    id: c.id,
+    name: c.name,
+    icon: c.icon || '💬',
+    chatType: String(c.chat_type || 'public'),
+    visibleRoles: Array.isArray(c.visible_roles) ? c.visible_roles : [],
+    messageCount: Number(c.message_count || 0),
+    canSend: owsSpacesCanSend(c, role),
+    createdAt: c.created_at
+  };
+}
+
+function owsSpacesMessageToJson(m) {
+  return {
+    id: m.id,
+    senderName: m.sender_name || '',
+    senderRole: m.sender_role || 'guest',
+    body: m.body || '',
+    createdAt: m.created_at
+  };
+}
+
+// ── Health ───────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/health', (_req, res) => {
+  res.json({ ok: true, service: 'ows-spaces', time: new Date().toISOString() });
+});
+
+// ── Espacios ─────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/spaces', async (_req, res) => {
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(`
+      SELECT s.*,
+        (SELECT COUNT(*)::int FROM ows_space_chats c WHERE c.space_id = s.id) AS chat_count,
+        (SELECT COUNT(*)::int FROM ows_space_messages m
+           JOIN ows_space_chats c ON c.id = m.chat_id
+          WHERE c.space_id = s.id) AS message_count
+      FROM ows_spaces s
+      ORDER BY s.created_at ASC
+    `);
+    res.json({ success: true, spaces: rows.map(owsSpacesSpaceToJson) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error listando espacios:', err);
+    res.status(500).json({ error: 'Error al listar espacios' });
+  }
+});
+
+app.get('/ows-spaces/api/spaces/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(`
+      SELECT s.*,
+        (SELECT COUNT(*)::int FROM ows_space_chats c WHERE c.space_id = s.id) AS chat_count,
+        (SELECT COUNT(*)::int FROM ows_space_messages m
+           JOIN ows_space_chats c ON c.id = m.chat_id
+          WHERE c.space_id = s.id) AS message_count
+      FROM ows_spaces s WHERE s.id = $1
+    `, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Espacio no encontrado' });
+    res.json({ success: true, space: owsSpacesSpaceToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error obteniendo espacio:', err);
+    res.status(500).json({ error: 'Error al obtener el espacio' });
+  }
+});
+
+app.post('/ows-spaces/api/spaces', async (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre del espacio es obligatorio' });
+  try {
+    await ensureOwsSpacesTables();
+    const icon = String(req.body?.icon || '🚀').trim().slice(0, 8) || '🚀';
+    const description = String(req.body?.description || '').trim().slice(0, 500);
+    const ownerName = String(req.body?.ownerName || '').trim().slice(0, 80);
+
+    const baseSlug = owsSpacesSlugify(name) || 'espacio';
+    let slug = baseSlug;
+    for (let i = 0; i < 5; i++) {
+      const check = await pool.query('SELECT 1 FROM ows_spaces WHERE slug = $1', [slug]);
+      if (check.rowCount === 0) break;
+      slug = `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO ows_spaces (slug, name, icon, description, owner_name)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [slug, name, icon, description, ownerName]
+    );
+    res.json({ success: true, space: owsSpacesSpaceToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando espacio:', err);
+    res.status(500).json({ error: 'Error al crear el espacio' });
+  }
+});
+
+app.patch('/ows-spaces/api/spaces/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_spaces WHERE id = $1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Espacio no encontrado' });
+    const cur = rows[0];
+    const name = String(req.body?.name ?? cur.name).trim();
+    if (!name) return res.status(400).json({ error: 'El nombre no puede quedar vacío' });
+    const icon = String(req.body?.icon ?? cur.icon).trim().slice(0, 8) || cur.icon;
+    const description = String(req.body?.description ?? cur.description).trim().slice(0, 500);
+    const ownerName = String(req.body?.ownerName ?? cur.owner_name).trim().slice(0, 80);
+    const updated = await pool.query(
+      `UPDATE ows_spaces
+          SET name = $2, icon = $3, description = $4, owner_name = $5
+        WHERE id = $1
+        RETURNING *`,
+      [id, name, icon, description, ownerName]
+    );
+    res.json({ success: true, space: owsSpacesSpaceToJson(updated.rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando espacio:', err);
+    res.status(500).json({ error: 'Error al editar el espacio' });
+  }
+});
+
+app.delete('/ows-spaces/api/spaces/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query('DELETE FROM ows_spaces WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Espacio no encontrado' });
+    res.json({ success: true, deleted: id });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando espacio:', err);
+    res.status(500).json({ error: 'Error al eliminar el espacio' });
+  }
+});
+
+// ── Chats ────────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const role = owsSpacesNormalizeRole(req.query.role) || 'owner';
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(
+      `SELECT c.*,
+        (SELECT COUNT(*)::int FROM ows_space_messages m WHERE m.chat_id = c.id) AS message_count
+       FROM ows_space_chats c
+       WHERE c.space_id = $1
+       ORDER BY c.created_at ASC, c.id ASC`,
+      [id]
+    );
+    const chats = rows
+      .filter((c) => owsSpacesChatVisibleToRole(c, role))
+      .map((c) => owsSpacesChatToJson(c, role));
+    res.json({ success: true, role, chats });
+  } catch (err) {
+    console.error('[OWS SPACES] Error listando chats:', err);
+    res.status(500).json({ error: 'Error al listar los chats' });
+  }
+});
+
+app.post('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID de espacio inválido' });
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre del chat es obligatorio' });
+  try {
+    await ensureOwsSpacesTables();
+    const spaceCheck = await pool.query('SELECT 1 FROM ows_spaces WHERE id = $1', [id]);
+    if (spaceCheck.rowCount === 0) return res.status(404).json({ error: 'Espacio no encontrado' });
+
+    const chatType = String(req.body?.chatType || 'public').toLowerCase() === 'team' ? 'team' : 'public';
+    const icon = String(req.body?.icon || '💬').trim().slice(0, 8) || '💬';
+    const roles = chatType === 'team' && Array.isArray(req.body?.roles)
+      ? [...new Set(req.body.roles.map(owsSpacesNormalizeRole).filter(Boolean))]
+      : [];
+
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_chats (space_id, name, icon, chat_type, visible_roles)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [id, name, icon, chatType, roles]
+    );
+    res.json({ success: true, chat: owsSpacesChatToJson(rows[0], 'owner') });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando chat:', err);
+    res.status(500).json({ error: 'Error al crear el chat' });
+  }
+});
+
+app.patch('/ows-spaces/api/chats/:chatId', async (req, res) => {
+  const chatId = Number(req.params.chatId);
+  if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!rows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    const cur = rows[0];
+
+    const name = String(req.body?.name ?? cur.name).trim();
+    if (!name) return res.status(400).json({ error: 'El nombre no puede quedar vacío' });
+    const chatType = String(req.body?.chatType ?? cur.chat_type).toLowerCase() === 'team' ? 'team' : 'public';
+    const icon = String(req.body?.icon ?? cur.icon).trim().slice(0, 8) || cur.icon;
+    const roles = chatType === 'team' && Array.isArray(req.body?.roles)
+      ? [...new Set(req.body.roles.map(owsSpacesNormalizeRole).filter(Boolean))]
+      : [];
+
+    const updated = await pool.query(
+      `UPDATE ows_space_chats
+          SET name = $2, icon = $3, chat_type = $4, visible_roles = $5
+        WHERE id = $1
+        RETURNING *`,
+      [chatId, name, icon, chatType, roles]
+    );
+    res.json({ success: true, chat: owsSpacesChatToJson(updated.rows[0], 'owner') });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando chat:', err);
+    res.status(500).json({ error: 'Error al editar el chat' });
+  }
+});
+
+app.delete('/ows-spaces/api/chats/:chatId', async (req, res) => {
+  const chatId = Number(req.params.chatId);
+  if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query('DELETE FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!rowCount) return res.status(404).json({ error: 'Chat no encontrado' });
+    res.json({ success: true, deleted: chatId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando chat:', err);
+    res.status(500).json({ error: 'Error al eliminar el chat' });
+  }
+});
+
+// ── Mensajes ────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
+  const chatId = Number(req.params.chatId);
+  if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
+  const role = owsSpacesNormalizeRole(req.query.role) || 'owner';
+  try {
+    await ensureOwsSpacesTables();
+    const { rows: chatRows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    if (!owsSpacesChatVisibleToRole(chatRows[0], role)) {
+      return res.status(403).json({ error: 'Este chat no es visible para tu rol' });
+    }
+    const { rows } = await pool.query(
+      `SELECT * FROM ows_space_messages
+        WHERE chat_id = $1
+        ORDER BY id ASC
+        LIMIT 300`,
+      [chatId]
+    );
+    res.json({ success: true, messages: rows.map(owsSpacesMessageToJson) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error leyendo mensajes:', err);
+    res.status(500).json({ error: 'Error al leer los mensajes' });
+  }
+});
+
+app.post('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
+  const chatId = Number(req.params.chatId);
+  if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
+  const body = String(req.body?.body || '').trim();
+  if (!body) return res.status(400).json({ error: 'El mensaje está vacío' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows: chatRows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    const chat = chatRows[0];
+
+    const senderName = String(req.body?.senderName || '').trim().slice(0, 60) || 'Anónimo';
+    const senderRole = owsSpacesNormalizeRole(req.body?.senderRole) || 'guest';
+    if (!owsSpacesCanSend(chat, senderRole)) {
+      return res.status(403).json({ error: 'Tu rol no puede escribir en este chat' });
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_messages (chat_id, sender_name, sender_role, body)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [chatId, senderName, senderRole, body.slice(0, 2000)]
+    );
+    res.json({ success: true, message: owsSpacesMessageToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error enviando mensaje:', err);
+    res.status(500).json({ error: 'Error al enviar el mensaje' });
+  }
+});
+
+// ── Demo ─────────────────────────────────────────────────────────────────────
+app.post('/ows-spaces/api/demo/seed', async (_req, res) => {
+  try {
+    await ensureOwsSpacesTables();
+
+    const demoSpaces = [
+      {
+        slug: 'ows-demo-studio',
+        name: 'Ocean & Wild Studios',
+        icon: '🎮',
+        description: 'Estudio de juegos y apps. Equipo, clientes y comunidad en un solo espacio.',
+        ownerName: 'Ocean & Wild',
+        chats: [
+          { name: 'Anuncios', icon: '📢', chatType: 'public', roles: [] },
+          { name: 'Soporte y consultas', icon: '🎮', chatType: 'public', roles: [] },
+          { name: 'Sugerencias y bugs', icon: '💡', chatType: 'public', roles: [] },
+          { name: 'Equipo interno', icon: '🗂️', chatType: 'team', roles: ['owner', 'admin', 'staff', 'member'] },
+          { name: 'Roadmap y desarrollo', icon: '🚀', chatType: 'team', roles: ['owner', 'admin', 'staff', 'member'] },
+          { name: 'Dirección y finanzas', icon: '🔒', chatType: 'team', roles: ['owner', 'admin'] }
+        ],
+        messages: {
+          'Anuncios': [
+            ['Ocean & Wild', 'owner', '¡Bienvenidos a nuestro espacio! Aquí publicamos todas las novedades del estudio. 🎉'],
+            ['Ocean & Wild', 'owner', 'Próximo lanzamiento: nueva versión de WildWave este viernes. 🚀'],
+            ['Luna', 'client', '¡Genial! ¿Dónde se puede descargar?']
+          ],
+          'Soporte y consultas': [
+            ['Tomás', 'client', 'Hola, tengo un problema con mi cuenta en Ocean Pay. ¿Me pueden ayudar?'],
+            ['Nico', 'staff', '¡Hola Tomás! Contanos qué error te aparece y lo revisamos ya mismo. 🙌']
+          ],
+          'Sugerencias y bugs': [
+            ['Valen', 'client', 'Sería genial poder elegir el idioma dentro de cada juego.'],
+            ['Nico', 'staff', 'Buenísima idea, la anotamos para el próximo roadmap. 👀']
+          ],
+          'Equipo interno': [
+            ['Nico', 'staff', 'Recordatorio: hoy a las 16:00 tenemos la sync semanal. 🗓️'],
+            ['Meli', 'member', 'Listo, dejo el estado del build actualizado en el doc.'],
+            ['Ocean & Wild', 'owner', 'El roadmap del mes queda aprobado. 🚀']
+          ],
+          'Roadmap y desarrollo': [
+            ['Meli', 'member', 'El spritesheet nuevo quedó listo para revisión.'],
+            ['Nico', 'staff', 'Perfecto, lo pruebo esta tarde y subo feedback.']
+          ],
+          'Dirección y finanzas': [
+            ['Ocean & Wild', 'owner', 'Balance del mes aprobado. Gracias equipo. 💪']
+          ]
+        }
+      },
+      {
+        slug: 'ows-demo-floret',
+        name: 'Floret Shop',
+        icon: '🌸',
+        description: 'Tienda online de flores y regalos. Pedidos, envíos y atención al cliente.',
+        ownerName: 'Floret',
+        chats: [
+          { name: 'Ofertas y promos', icon: '🏷️', chatType: 'public', roles: [] },
+          { name: 'Atención al cliente', icon: '💬', chatType: 'public', roles: [] },
+          { name: 'Pedidos y envíos', icon: '📦', chatType: 'team', roles: ['owner', 'admin', 'staff', 'member'] },
+          { name: 'Stock y proveedores', icon: '🌷', chatType: 'team', roles: ['owner', 'admin', 'staff'] }
+        ],
+        messages: {
+          'Ofertas y promos': [
+            ['Floret', 'owner', '¡Esta semana: 20% OFF en ramos de rosas! 🌹 Usá el código FLORET20.'],
+            ['Cami', 'client', '¿Aplica también para los ramos gigantes?']
+          ],
+          'Atención al cliente': [
+            ['Juli', 'client', '¿Puedo cambiar la dirección de entrega de mi pedido #4821?'],
+            ['Floret', 'staff', '¡Hola Juli! Sí, claro. Envianos el pedido y lo actualizamos al toque. ✨']
+          ],
+          'Pedidos y envíos': [
+            ['Floret', 'staff', 'El reparto de mañana sale a las 8:00. Dejar todo embalado hoy.']
+          ],
+          'Stock y proveedores': [
+            ['Floret', 'admin', 'Confirmado el nuevo proveedor de tulipanes para marzo. 🌷']
+          ]
+        }
+      }
+    ];
+
+    const seeded = [];
+    for (const spec of demoSpaces) {
+      const { rows: existing } = await pool.query('SELECT id FROM ows_spaces WHERE slug = $1', [spec.slug]);
+      let spaceId;
+      if (existing.length) {
+        spaceId = existing[0].id;
+      } else {
+        const { rows } = await pool.query(
+          `INSERT INTO ows_spaces (slug, name, icon, description, owner_name)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [spec.slug, spec.name, spec.icon, spec.description, spec.ownerName]
+        );
+        spaceId = rows[0].id;
+      }
+
+      for (const chatSpec of spec.chats) {
+        const { rows: chatRows } = await pool.query(
+          'SELECT id FROM ows_space_chats WHERE space_id = $1 AND name = $2',
+          [spaceId, chatSpec.name]
+        );
+        let chatId;
+        if (chatRows.length) {
+          chatId = chatRows[0].id;
+        } else {
+          const { rows } = await pool.query(
+            `INSERT INTO ows_space_chats (space_id, name, icon, chat_type, visible_roles)
+             VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            [spaceId, chatSpec.name, chatSpec.icon, chatSpec.chatType, chatSpec.roles]
+          );
+          chatId = rows[0].id;
+        }
+
+        const msgs = (spec.messages || {})[chatSpec.name] || [];
+        for (const [sn, sr, b] of msgs) {
+          const dup = await pool.query(
+            'SELECT 1 FROM ows_space_messages WHERE chat_id = $1 AND body = $2 AND sender_name = $3 LIMIT 1',
+            [chatId, b, sn]
+          );
+          if (dup.rowCount === 0) {
+            await pool.query(
+              `INSERT INTO ows_space_messages (chat_id, sender_name, sender_role, body)
+               VALUES ($1, $2, $3, $4)`,
+              [chatId, sn, sr, b]
+            );
+          }
+        }
+      }
+      seeded.push({ id: spaceId, slug: spec.slug, name: spec.name });
+    }
+
+    res.json({ success: true, seeded });
+  } catch (err) {
+    console.error('[OWS SPACES] Error sembrando demo:', err);
+    res.status(500).json({ error: 'Error al cargar la demo' });
+  }
+});
+
+app.post('/ows-spaces/api/demo/reset', async (_req, res) => {
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query('DELETE FROM ows_spaces');
+    res.json({ success: true, deletedSpaces: rowCount });
+  } catch (err) {
+    console.error('[OWS SPACES] Error reseteando demo:', err);
+    res.status(500).json({ error: 'Error al resetear la demo' });
+  }
+});
+

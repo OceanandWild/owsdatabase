@@ -33741,18 +33741,25 @@ app.post('/ows-store/shutdown-config', (req, res) => {
 // ═════════════════════════════════════════════════════════════════════════════
 // OWS SPACES — Espacios para tu equipo y tus clientes
 //
-// Permite crear un espacio (nombre + icono) y, dentro de él, chats públicos
-// (visibles para clientes/visitantes) y chats de equipo (visibles solo según
-// el rol). Cada rol ve ciertos chats: cliente/visitante → públicos; equipo →
-// públicos + equipo (+ restricción por rol cuando aplica).
+// Modelo de roles POR ESPACIO:
+//  - La cuenta es una cuenta normal (sin rol).
+//  - Cada espacio asigna un rol a cada persona miembro.
+//  - Quien crea un espacio es su DUEÑO (owner). Los demás se postulan
+//    (apply) y el dueño aprueba y les asigna el rol dentro de ese espacio.
+//  - Los chats públicos los ven todos los miembros; los de equipo solo
+//    los miembros con rol de equipo (y con restricción por rol cuando
+//    el dueño lo configura).
 //
 // Autenticación: /ows-spaces/api/auth/register y /auth/login devuelven un
-// token JWT que debe enviarse como "Authorization: Bearer <token>" en el resto
-// de los endpoints. El rol sale de la cuenta del usuario, nunca del cliente.
+// token JWT que debe enviarse como "Authorization: Bearer <token>" en el
+// resto de los endpoints. El rol nunca sale del cliente: sale de la membresía
+// del usuario en el espacio (tabla ows_space_members).
 // Prefijo: /ows-spaces/api/*
 // ─────────────────────────────────────────────────────────────────────────────
 const OWS_SPACES_TEAM_ROLES = ['owner', 'admin', 'staff', 'member'];
 const OWS_SPACES_ALL_ROLES = [...OWS_SPACES_TEAM_ROLES, 'client', 'guest'];
+// Roles que el dueño puede asignar (el rol owner es exclusivo del creador).
+const OWS_SPACES_ASSIGNABLE_ROLES = ['admin', 'staff', 'member', 'client', 'guest'];
 
 function owsSpacesNormalizeRole(role) {
   const r = String(role || '').trim().toLowerCase();
@@ -33780,10 +33787,13 @@ async function ensureOwsSpacesTables() {
       username TEXT NOT NULL UNIQUE,
       pwd_hash TEXT NOT NULL,
       display_name TEXT DEFAULT '',
-      role TEXT NOT NULL DEFAULT 'client',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Migración: el rol ya no vive en la cuenta, vive en la membresía por espacio.
+  await pool.query(`
+    ALTER TABLE ows_spaces_users DROP COLUMN IF EXISTS role
+  `).catch((e) => console.warn('[OWS SPACES] drop role column:', e.message));
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ows_spaces (
       id SERIAL PRIMARY KEY,
@@ -33792,8 +33802,27 @@ async function ensureOwsSpacesTables() {
       icon TEXT DEFAULT '🚀',
       description TEXT DEFAULT '',
       owner_name TEXT DEFAULT '',
+      owner_user_id INTEGER,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  await pool.query(`
+    ALTER TABLE ows_spaces ADD COLUMN IF NOT EXISTS owner_user_id INTEGER
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_members (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL REFERENCES ows_spaces(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES ows_spaces_users(id) ON DELETE CASCADE,
+      role TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (space_id, user_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_members_user
+      ON ows_space_members(user_id)
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ows_space_chats (
@@ -33830,7 +33859,7 @@ async function ensureOwsSpacesTables() {
 function owsSpacesSignToken(user) {
   const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
   return jwt.sign(
-    { owsSpacesUid: user.id, username: user.username, role: user.role },
+    { owsSpacesUid: user.id, username: user.username },
     secret,
     { expiresIn: '30d' }
   );
@@ -33863,11 +33892,47 @@ async function requireOwsSpacesAuth(req, res) {
   return true;
 }
 
-// Como requireOwsSpacesAuth, pero exige rol de equipo (dueño/admin/staff/miembro).
-async function requireOwsSpacesTeamRole(req, res) {
+// ── Membresía por espacio ────────────────────────────────────────────────────
+async function owsSpacesGetMembership(userId, spaceId) {
+  const { rows } = await pool.query(
+    'SELECT * FROM ows_space_members WHERE user_id = $1 AND space_id = $2',
+    [userId, spaceId]
+  );
+  return rows[0] || null;
+}
+
+// Exige que el usuario sea MIEMBRO del espacio (status member).
+// Deja req.owsSpacesMember con el rol del usuario en ESE espacio.
+async function requireOwsSpacesMember(req, res, spaceId) {
   if (!(await requireOwsSpacesAuth(req, res))) return false;
-  if (!owsSpacesIsTeamRole(req.owsSpacesUser.role)) {
-    res.status(403).json({ error: 'Necesitás un rol de equipo para esta acción' });
+  const mem = await owsSpacesGetMembership(req.owsSpacesUser.id, spaceId);
+  if (!mem) {
+    res.status(403).json({ error: 'No sos miembro de este espacio', code: 'NOT_MEMBER' });
+    return false;
+  }
+  if (mem.status !== 'member') {
+    res.status(403).json({ error: 'Tu solicitud está pendiente de aprobación', code: 'PENDING' });
+    return false;
+  }
+  req.owsSpacesMember = mem;
+  return true;
+}
+
+// Exige ser miembro con rol de equipo (dueño/admin/staff/miembro) en el espacio.
+async function requireOwsSpacesTeamMember(req, res, spaceId) {
+  if (!(await requireOwsSpacesMember(req, res, spaceId))) return false;
+  if (!owsSpacesIsTeamRole(req.owsSpacesMember.role)) {
+    res.status(403).json({ error: 'Necesitás un rol de equipo en este espacio para esta acción' });
+    return false;
+  }
+  return true;
+}
+
+// Exige ser el DUEÑO del espacio.
+async function requireOwsSpacesOwner(req, res, spaceId) {
+  if (!(await requireOwsSpacesMember(req, res, spaceId))) return false;
+  if (req.owsSpacesMember.role !== 'owner') {
+    res.status(403).json({ error: 'Solo el dueño del espacio puede hacer esto' });
     return false;
   }
   return true;
@@ -33877,8 +33942,7 @@ function owsSpacesUserToJson(u) {
   return {
     id: u.id,
     username: u.username,
-    displayName: u.display_name || u.username,
-    role: u.role
+    displayName: u.display_name || u.username
   };
 }
 
@@ -33941,12 +34005,22 @@ function owsSpacesMessageToJson(m) {
   };
 }
 
+function owsSpacesMemberToJson(m) {
+  return {
+    id: Number(m.user_id),
+    username: m.username || '',
+    displayName: m.display_name || m.username || '',
+    role: m.role || '',
+    membershipId: Number(m.membership_id),
+    joinedAt: m.created_at
+  };
+}
+
 // ── Auth endpoints ───────────────────────────────────────────────────────────
 app.post('/ows-spaces/api/auth/register', async (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
   const displayName = String(req.body?.displayName || '').trim().slice(0, 60) || username;
-  const role = owsSpacesNormalizeRole(req.body?.role) || 'client';
 
   if (!username || username.length < 3) {
     return res.status(400).json({ error: 'El usuario debe tener al menos 3 caracteres' });
@@ -33966,10 +34040,10 @@ app.post('/ows-spaces/api/auth/register', async (req, res) => {
     }
     const hash = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
-      `INSERT INTO ows_spaces_users (username, pwd_hash, display_name, role)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO ows_spaces_users (username, pwd_hash, display_name)
+       VALUES ($1, $2, $3)
        RETURNING *`,
-      [username, hash, displayName, role]
+      [username, hash, displayName]
     );
     const token = owsSpacesSignToken(rows[0]);
     res.json({ success: true, token, user: owsSpacesUserToJson(rows[0]) });
@@ -34028,7 +34102,21 @@ app.get('/ows-spaces/api/spaces', async (req, res) => {
       FROM ows_spaces s
       ORDER BY s.created_at ASC
     `);
-    res.json({ success: true, spaces: rows.map(owsSpacesSpaceToJson) });
+    const { rows: memberships } = await pool.query(
+      'SELECT * FROM ows_space_members WHERE user_id = $1',
+      [req.owsSpacesUser.id]
+    );
+    const mySpaces = [], others = [];
+    for (const s of rows) {
+      const base = owsSpacesSpaceToJson(s);
+      const mem = memberships.find((m) => Number(m.space_id) === Number(s.id));
+      if (mem) {
+        mySpaces.push({ ...base, myRole: mem.role || '', myStatus: mem.status });
+      } else {
+        others.push({ ...base, myStatus: 'none' });
+      }
+    }
+    res.json({ success: true, mySpaces, others });
   } catch (err) {
     console.error('[OWS SPACES] Error listando espacios:', err);
     res.status(500).json({ error: 'Error al listar espacios' });
@@ -34050,7 +34138,14 @@ app.get('/ows-spaces/api/spaces/:id', async (req, res) => {
       FROM ows_spaces s WHERE s.id = $1
     `, [id]);
     if (!rows.length) return res.status(404).json({ error: 'Espacio no encontrado' });
-    res.json({ success: true, space: owsSpacesSpaceToJson(rows[0]) });
+    const mem = await owsSpacesGetMembership(req.owsSpacesUser.id, id);
+    res.json({
+      success: true,
+      space: owsSpacesSpaceToJson(rows[0]),
+      myRole: mem && mem.status === 'member' ? mem.role : null,
+      myStatus: mem ? mem.status : 'none',
+      isOwner: !!(mem && mem.role === 'owner')
+    });
   } catch (err) {
     console.error('[OWS SPACES] Error obteniendo espacio:', err);
     res.status(500).json({ error: 'Error al obtener el espacio' });
@@ -34058,7 +34153,7 @@ app.get('/ows-spaces/api/spaces/:id', async (req, res) => {
 });
 
 app.post('/ows-spaces/api/spaces', async (req, res) => {
-  if (!(await requireOwsSpacesTeamRole(req, res))) return;
+  if (!(await requireOwsSpacesAuth(req, res))) return;
   const name = String(req.body?.name || '').trim();
   if (!name) return res.status(400).json({ error: 'El nombre del espacio es obligatorio' });
   try {
@@ -34075,13 +34170,29 @@ app.post('/ows-spaces/api/spaces', async (req, res) => {
       slug = `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
     }
 
-    const { rows } = await pool.query(
-      `INSERT INTO ows_spaces (slug, name, icon, description, owner_name)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [slug, name, icon, description, ownerName]
-    );
-    res.json({ success: true, space: owsSpacesSpaceToJson(rows[0]) });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `INSERT INTO ows_spaces (slug, name, icon, description, owner_name, owner_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [slug, name, icon, description, ownerName, req.owsSpacesUser.id]
+      );
+      // Quien crea el espacio es su DUEÑO dentro de él.
+      await client.query(
+        `INSERT INTO ows_space_members (space_id, user_id, role, status)
+         VALUES ($1, $2, 'owner', 'member')`,
+        [rows[0].id, req.owsSpacesUser.id]
+      );
+      await client.query('COMMIT');
+      res.json({ success: true, space: owsSpacesSpaceToJson(rows[0]) });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error('[OWS SPACES] Error creando espacio:', err);
     res.status(500).json({ error: 'Error al crear el espacio' });
@@ -34091,6 +34202,7 @@ app.post('/ows-spaces/api/spaces', async (req, res) => {
 app.patch('/ows-spaces/api/spaces/:id', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
   try {
     await ensureOwsSpacesTables();
     const { rows } = await pool.query('SELECT * FROM ows_spaces WHERE id = $1', [id]);
@@ -34118,6 +34230,7 @@ app.patch('/ows-spaces/api/spaces/:id', async (req, res) => {
 app.delete('/ows-spaces/api/spaces/:id', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
   try {
     await ensureOwsSpacesTables();
     const { rowCount } = await pool.query('DELETE FROM ows_spaces WHERE id = $1', [id]);
@@ -34129,12 +34242,161 @@ app.delete('/ows-spaces/api/spaces/:id', async (req, res) => {
   }
 });
 
-// ── Chats ────────────────────────────────────────────────────────────────────
-app.get('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
+// ── Postulación y membresías (el dueño asigna roles) ────────────────────────
+app.post('/ows-spaces/api/spaces/:id/apply', async (req, res) => {
   if (!(await requireOwsSpacesAuth(req, res))) return;
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
-  const role = req.owsSpacesUser.role;
+  try {
+    await ensureOwsSpacesTables();
+    const space = await pool.query('SELECT 1 FROM ows_spaces WHERE id = $1', [id]);
+    if (space.rowCount === 0) return res.status(404).json({ error: 'Espacio no encontrado' });
+    const existing = await pool.query(
+      'SELECT status FROM ows_space_members WHERE space_id = $1 AND user_id = $2',
+      [id, req.owsSpacesUser.id]
+    );
+    if (existing.rowCount > 0) {
+      return res.status(400).json({
+        error: existing.rows[0].status === 'pending'
+          ? 'Ya enviaste tu solicitud a este espacio'
+          : 'Ya sos miembro de este espacio'
+      });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_members (space_id, user_id, role, status)
+       VALUES ($1, $2, NULL, 'pending')
+       RETURNING id`,
+      [id, req.owsSpacesUser.id]
+    );
+    res.json({ success: true, membershipId: rows[0].id });
+  } catch (err) {
+    console.error('[OWS SPACES] Error al postularse:', err);
+    res.status(500).json({ error: 'Error al enviar la solicitud' });
+  }
+});
+
+app.get('/ows-spaces/api/spaces/:id/members', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(`
+      SELECT m.id AS membership_id, m.role, m.status, m.created_at,
+             u.id AS user_id, u.username, u.display_name
+      FROM ows_space_members m
+      JOIN ows_spaces_users u ON u.id = m.user_id
+      WHERE m.space_id = $1
+      ORDER BY m.status ASC, m.created_at ASC`,
+      [id]
+    );
+    res.json({
+      success: true,
+      members: rows.filter((r) => r.status === 'member').map(owsSpacesMemberToJson),
+      applicants: rows.filter((r) => r.status !== 'member').map(owsSpacesMemberToJson)
+    });
+  } catch (err) {
+    console.error('[OWS SPACES] Error listando miembros:', err);
+    res.status(500).json({ error: 'Error al listar el equipo' });
+  }
+});
+
+// Aprobar una solicitud y asignar el rol dentro del espacio.
+app.post('/ows-spaces/api/spaces/:id/members/:userId/approve', async (req, res) => {
+  const id = Number(req.params.id);
+  const userId = Number(req.params.userId);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+  const role = owsSpacesNormalizeRole(req.body?.role);
+  if (!OWS_SPACES_ASSIGNABLE_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'Elegí un rol válido para asignar' });
+  }
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query(
+      `UPDATE ows_space_members
+          SET role = $3, status = 'member'
+        WHERE space_id = $1 AND user_id = $2`,
+      [id, userId, role]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Solicitud no encontrada' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error aprobando solicitud:', err);
+    res.status(500).json({ error: 'Error al aprobar la solicitud' });
+  }
+});
+
+// Cambiar el rol de un miembro del espacio.
+app.patch('/ows-spaces/api/spaces/:id/members/:userId', async (req, res) => {
+  const id = Number(req.params.id);
+  const userId = Number(req.params.userId);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+  const role = owsSpacesNormalizeRole(req.body?.role);
+  if (!OWS_SPACES_ASSIGNABLE_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'Elegí un rol válido para asignar' });
+  }
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(
+      'SELECT * FROM ows_space_members WHERE space_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Miembro no encontrado' });
+    if (rows[0].role === 'owner') {
+      return res.status(400).json({ error: 'No podés cambiar el rol del dueño del espacio' });
+    }
+    await pool.query(
+      `UPDATE ows_space_members SET role = $3 WHERE space_id = $1 AND user_id = $2`,
+      [id, userId, role]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error cambiando rol:', err);
+    res.status(500).json({ error: 'Error al cambiar el rol' });
+  }
+});
+
+// Quitar un miembro (o rechazar una solicitud pendiente).
+app.delete('/ows-spaces/api/spaces/:id/members/:userId', async (req, res) => {
+  const id = Number(req.params.id);
+  const userId = Number(req.params.userId);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(
+      'SELECT * FROM ows_space_members WHERE space_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Miembro no encontrado' });
+    if (rows[0].role === 'owner') {
+      return res.status(400).json({ error: 'No podés quitar al dueño del espacio' });
+    }
+    await pool.query(
+      'DELETE FROM ows_space_members WHERE space_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error quitando miembro:', err);
+    res.status(500).json({ error: 'Error al quitar al miembro' });
+  }
+});
+
+// ── Chats ────────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesMember(req, res, id))) return;
+  const role = req.owsSpacesMember.role;
   try {
     await ensureOwsSpacesTables();
     const { rows } = await pool.query(
@@ -34156,16 +34418,13 @@ app.get('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
 });
 
 app.post('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
-  if (!(await requireOwsSpacesTeamRole(req, res))) return;
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID de espacio inválido' });
+  if (!(await requireOwsSpacesTeamMember(req, res, id))) return;
   const name = String(req.body?.name || '').trim();
   if (!name) return res.status(400).json({ error: 'El nombre del chat es obligatorio' });
   try {
     await ensureOwsSpacesTables();
-    const spaceCheck = await pool.query('SELECT 1 FROM ows_spaces WHERE id = $1', [id]);
-    if (spaceCheck.rowCount === 0) return res.status(404).json({ error: 'Espacio no encontrado' });
-
     const chatType = String(req.body?.chatType || 'public').toLowerCase() === 'team' ? 'team' : 'public';
     const icon = String(req.body?.icon || '💬').trim().slice(0, 8) || '💬';
     const roles = chatType === 'team' && Array.isArray(req.body?.roles)
@@ -34178,7 +34437,7 @@ app.post('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
        RETURNING *`,
       [id, name, icon, chatType, roles]
     );
-    res.json({ success: true, chat: owsSpacesChatToJson(rows[0], req.owsSpacesUser.role) });
+    res.json({ success: true, chat: owsSpacesChatToJson(rows[0], req.owsSpacesMember.role) });
   } catch (err) {
     console.error('[OWS SPACES] Error creando chat:', err);
     res.status(500).json({ error: 'Error al crear el chat' });
@@ -34186,7 +34445,6 @@ app.post('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
 });
 
 app.patch('/ows-spaces/api/chats/:chatId', async (req, res) => {
-  if (!(await requireOwsSpacesTeamRole(req, res))) return;
   const chatId = Number(req.params.chatId);
   if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
   try {
@@ -34194,6 +34452,7 @@ app.patch('/ows-spaces/api/chats/:chatId', async (req, res) => {
     const { rows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
     if (!rows.length) return res.status(404).json({ error: 'Chat no encontrado' });
     const cur = rows[0];
+    if (!(await requireOwsSpacesTeamMember(req, res, cur.space_id))) return;
 
     const name = String(req.body?.name ?? cur.name).trim();
     if (!name) return res.status(400).json({ error: 'El nombre no puede quedar vacío' });
@@ -34210,7 +34469,7 @@ app.patch('/ows-spaces/api/chats/:chatId', async (req, res) => {
         RETURNING *`,
       [chatId, name, icon, chatType, roles]
     );
-    res.json({ success: true, chat: owsSpacesChatToJson(updated.rows[0], req.owsSpacesUser.role) });
+    res.json({ success: true, chat: owsSpacesChatToJson(updated.rows[0], req.owsSpacesMember.role) });
   } catch (err) {
     console.error('[OWS SPACES] Error editando chat:', err);
     res.status(500).json({ error: 'Error al editar el chat' });
@@ -34218,13 +34477,14 @@ app.patch('/ows-spaces/api/chats/:chatId', async (req, res) => {
 });
 
 app.delete('/ows-spaces/api/chats/:chatId', async (req, res) => {
-  if (!(await requireOwsSpacesTeamRole(req, res))) return;
   const chatId = Number(req.params.chatId);
   if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
   try {
     await ensureOwsSpacesTables();
-    const { rowCount } = await pool.query('DELETE FROM ows_space_chats WHERE id = $1', [chatId]);
-    if (!rowCount) return res.status(404).json({ error: 'Chat no encontrado' });
+    const { rows } = await pool.query('SELECT space_id FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!rows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    if (!(await requireOwsSpacesTeamMember(req, res, rows[0].space_id))) return;
+    await pool.query('DELETE FROM ows_space_chats WHERE id = $1', [chatId]);
     res.json({ success: true, deleted: chatId });
   } catch (err) {
     console.error('[OWS SPACES] Error eliminando chat:', err);
@@ -34234,14 +34494,14 @@ app.delete('/ows-spaces/api/chats/:chatId', async (req, res) => {
 
 // ── Mensajes ────────────────────────────────────────────────────────────────
 app.get('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
-  if (!(await requireOwsSpacesAuth(req, res))) return;
   const chatId = Number(req.params.chatId);
   if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
-  const role = req.owsSpacesUser.role;
   try {
     await ensureOwsSpacesTables();
     const { rows: chatRows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
     if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    if (!(await requireOwsSpacesMember(req, res, chatRows[0].space_id))) return;
+    const role = req.owsSpacesMember.role;
     if (!owsSpacesChatVisibleToRole(chatRows[0], role)) {
       return res.status(403).json({ error: 'Este chat no es visible para tu rol' });
     }
@@ -34260,7 +34520,6 @@ app.get('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
 });
 
 app.post('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
-  if (!(await requireOwsSpacesAuth(req, res))) return;
   const chatId = Number(req.params.chatId);
   if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
   const body = String(req.body?.body || '').trim();
@@ -34270,14 +34529,14 @@ app.post('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
     const { rows: chatRows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
     if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
     const chat = chatRows[0];
-
-    // La identidad sale del token: no se puede suplantar al remitente.
-    const senderName = String(req.owsSpacesUser.display_name || req.owsSpacesUser.username || 'Anónimo').slice(0, 60);
-    const senderRole = req.owsSpacesUser.role;
+    if (!(await requireOwsSpacesMember(req, res, chat.space_id))) return;
+    const senderRole = req.owsSpacesMember.role;
     if (!owsSpacesCanSend(chat, senderRole)) {
       return res.status(403).json({ error: 'Tu rol no puede escribir en este chat' });
     }
 
+    // La identidad y el rol salen del servidor: no se pueden suplantar.
+    const senderName = String(req.owsSpacesUser.display_name || req.owsSpacesUser.username || 'Anónimo').slice(0, 60);
     const { rows } = await pool.query(
       `INSERT INTO ows_space_messages (chat_id, sender_name, sender_role, body)
        VALUES ($1, $2, $3, $4)
@@ -34292,10 +34551,11 @@ app.post('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
 });
 
 // ── Limpieza (vaciar todo) ───────────────────────────────────────────────────
-// Quita todos los espacios (y sus chats/mensajes en cascada). Si se envía
-// { alsoUsers: true }, además elimina todas las cuentas registradas.
+// Quita todos los espacios (y sus chats/mensajes/membresías en cascada).
+// Si se envía { alsoUsers: true }, además elimina todas las cuentas.
+// Endpoint de herramienta del prototipo: basta con una sesión iniciada.
 app.post('/ows-spaces/api/demo/reset', async (req, res) => {
-  if (!(await requireOwsSpacesTeamRole(req, res))) return;
+  if (!(await requireOwsSpacesAuth(req, res))) return;
   try {
     await ensureOwsSpacesTables();
     const { rowCount } = await pool.query('DELETE FROM ows_spaces');

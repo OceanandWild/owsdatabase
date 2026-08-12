@@ -33876,6 +33876,35 @@ async function ensureOwsSpacesTables() {
     CREATE INDEX IF NOT EXISTS idx_ows_spaces_news_active
       ON ows_spaces_news(is_active, published_at DESC)
   `).catch(() => {});
+
+  // Seed inicial si la tabla esta vacia
+  try {
+    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM ows_spaces_news');
+    if (parseInt(countRows[0]?.count || '0', 10) === 0) {
+      await pool.query(`
+        INSERT INTO ows_spaces_news
+          (title, description, content_lines, cover_url, project_tag, author_name, priority)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        "Layout Rework — A Cleaner, More Polished OWS Spaces",
+        "We've completely reworked the OWS Spaces interface with a refined dark-mode design. Every panel, card, and control has been redesigned from scratch for better clarity, premium aesthetics, and a smoother experience across all devices.",
+        [
+          "Redesigned sidebar with cleaner space cards and role badges",
+          "New Blog feed panel with slide-in animation and dark/light theme support",
+          "Improved topbar layout with a dedicated Blog button",
+          "Better contrast and typography across all UI components",
+          "Smoother hover effects and micro-animations throughout"
+        ],
+        "/ows-spaces/assets/news/layout-rework-2026.jpg",
+        "OWS Spaces",
+        "Ocean and Wild Studios",
+        10
+      ]);
+      console.log('[OWS SPACES] Seed de noticia de Layout Rework insertado con éxito.');
+    }
+  } catch (err) {
+    console.warn('[OWS SPACES] Error en seed de noticias:', err.message);
+  }
 }
 
 // ── Autenticación ────────────────────────────────────────────────────────────

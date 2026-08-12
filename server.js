@@ -33947,8 +33947,10 @@ function owsSpacesUserToJson(u) {
 }
 
 // ¿Un chat es visible para este rol?
+// El dueño siempre ve todo: las restricciones por rol aplican al resto del equipo.
 function owsSpacesChatVisibleToRole(chat, role) {
   const r = owsSpacesNormalizeRole(role) || 'guest';
+  if (r === 'owner') return true;
   if (String(chat?.chat_type || 'public') === 'team') {
     if (!owsSpacesIsTeamRole(r)) return false;
     const roles = Array.isArray(chat?.visible_roles)

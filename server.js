@@ -33877,10 +33877,10 @@ async function ensureOwsSpacesTables() {
       ON ows_spaces_news(is_active, published_at DESC)
   `).catch(() => {});
 
-  // Seed inicial si la tabla esta vacia
+  // Seed inicial si la noticia de Layout Rework no existe
   try {
-    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM ows_spaces_news');
-    if (parseInt(countRows[0]?.count || '0', 10) === 0) {
+    const { rows: existing } = await pool.query("SELECT 1 FROM ows_spaces_news WHERE title = $1", ["Layout Rework — A Cleaner, More Polished OWS Spaces"]);
+    if (existing.length === 0) {
       await pool.query(`
         INSERT INTO ows_spaces_news
           (title, description, content_lines, cover_url, project_tag, author_name, priority)

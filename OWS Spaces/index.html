@@ -972,6 +972,12 @@
   }
   .st-def-form input[type="color"] { padding: 3px; height: 38px; cursor: pointer; }
   .st-def-form input:focus, .st-def-form select:focus { border-color: var(--accent); }
+  .st-def-form textarea {
+    grid-column: 1 / -1; resize: vertical; min-height: 92px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 10px; padding: 9px 11px; font-size: 13px; line-height: 1.5; outline: none; font-family: inherit;
+  }
+  .st-def-form textarea:focus { border-color: var(--accent); }
   .pm-role-chip {
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text-soft);
     border-radius: 99px; padding: 8px 14px; font-size: 13px; font-weight: 650;
@@ -3563,6 +3569,7 @@ function openStatusSettings() {
     '<p class="sub">Configuración de la status page de <b>' + esc(S.space.name) + '</b>.</p>' +
     '<div class="field"><label>Título</label><input type="text" id="st-title" maxlength="60" value="' + esc(page.title) + '"></div>' +
     '<div class="field"><label>Descripción</label><textarea id="st-desc" rows="2" maxlength="300">' + esc(page.description) + '</textarea></div>' +
+    '<div class="field"><label>Etiqueta de la métrica</label><input type="text" id="st-metric" maxlength="30" value="' + esc(page.metricLabel || 'Severidad') + '" placeholder="Ej: Severidad, Ocupación, Prioridad…"><small style="display:block;margin-top:5px;color:var(--text-faint);font-size:11.5px;line-height:1.45">Es el nombre del nivel que muestra cada estado. Ej: para un cargo podés usar “Ocupación” con estados Disponible / Ocupado / Altamente Ocupado.</small></div>' +
     '<div class="field"><label>¿Quién puede verla?</label><div class="seg" id="st-vis">' +
       '<button type="button" data-vis="public" class="' + (page.visibility === 'public' ? 'active' : '') + '">🌍 Público (todos los miembros)</button>' +
       '<button type="button" data-vis="team" class="' + (page.visibility === 'team' ? 'active' : '') + '">🔐 Solo equipo</button>' +
@@ -3585,7 +3592,7 @@ function openStatusSettings() {
       body.querySelector('#st-save').addEventListener('click', async () => {
         const title = body.querySelector('#st-title').value.trim();
         if (!title) { toast('El título es obligatorio', 'err'); return; }
-        const payload = { title, description: body.querySelector('#st-desc').value.trim(), visibility: vis, enabled: body.querySelector('#st-enabled').checked };
+        const payload = { title, description: body.querySelector('#st-desc').value.trim(), visibility: vis, enabled: body.querySelector('#st-enabled').checked, metricLabel: body.querySelector('#st-metric').value.trim() || 'Severidad' };
         const btn = body.querySelector('#st-save');
         btn.disabled = true; btn.textContent = 'Guardando…';
         try {
@@ -3701,14 +3708,27 @@ function openStatusItemModal(itemId, groupId) {
 /* --- Estados personalizados --- */
 function openStatusesManager() {
   if (!S.status || !S.status.canEdit) return;
-  const defs = S.status.statuses || [];
+  const page = S.status.page;
+  const metricLabel = (page && page.metricLabel) || 'Severidad';
+  let defs = (S.status.statuses || []).slice();
+
+  // Refresca el array local desde la última carga de S.status sin cerrar el modal.
+  const syncDefs = () => { defs = (S.status.statuses || []).slice(); };
+
+  // Loader reutilizable dentro de un botón (mini o normal).
+  const busyBtn = (btn, busy, label) => {
+    if (busy) { btn.dataset.orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳…'; }
+    else { btn.disabled = false; btn.textContent = btn.dataset.orig || label || ''; }
+  };
+
   const renderDefs = (body) => {
+    syncDefs();
     const box = body.querySelector('#st-defs');
     box.innerHTML = defs.map((d) =>
       '<div class="st-def-row">' +
         '<span class="swatch" style="background:' + d.color + '"></span>' +
         '<span class="st-def-info"><strong>' + (d.icon ? d.icon + ' ' : '') + esc(d.label) + '</strong>' +
-        '<small>Severidad ' + d.severity + ' · ' + esc(d.color) + '</small></span>' +
+        '<small>' + esc(metricLabel) + ' ' + d.severity + ' · ' + esc(d.color) + '</small></span>' +
         '<button class="mini-btn" data-st-edit="' + d.id + '" title="Editar">✏️</button>' +
         '<button class="mini-btn danger" data-st-del="' + d.id + '" title="Eliminar">🗑️</button>' +
       '</div>'
@@ -3720,13 +3740,15 @@ function openStatusesManager() {
       confirmDialog('¿Eliminar el estado?', 'Se eliminará “' + d.label + '”. Los servicios que lo usan quedarán “Sin estado”.', 'Eliminar', async () => {
         try {
           await api('/ows-spaces/api/status-pages/statuses/' + d.id, { method: 'DELETE' });
-          closeModal();
-          await loadStatusPage();
-          openStatusesManager();
+          await loadStatusPage();          // actualiza S.status SIN cerrar el modal
+          syncDefs();
+          renderDefs(body);                // el modal queda abierto, la lista se refresca
+          toast('Estado eliminado 🗑️');
         } catch (e) { if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err'); }
       });
     }));
   };
+
   const showDefForm = (body, defId) => {
     const d = defId ? defs.find((x) => x.id === defId) : null;
     const form = document.createElement('div');
@@ -3735,8 +3757,8 @@ function openStatusesManager() {
       '<input type="text" placeholder="Emoji" maxlength="8" value="' + esc(d ? d.icon : '') + '" id="df-icon">' +
       '<input type="text" placeholder="Nombre (ej: Operacional)" maxlength="40" value="' + esc(d ? d.label : '') + '" id="df-label">' +
       '<input type="color" value="' + esc(d ? d.color : '#22c55e') + '" id="df-color" title="Color">' +
-      '<div style="display:flex;gap:6px;align-items:center"><select id="df-sev" title="Severidad (mayor = peor)">' +
-        [0, 1, 2, 3, 4, 5].map((s) => '<option value="' + s + '"' + (d && d.severity === s ? ' selected' : '') + '>Sev ' + s + '</option>').join('') +
+      '<div style="display:flex;gap:6px;align-items:center"><select id="df-sev" title="' + esc(metricLabel) + ' (mayor = peor)">' +
+        [0, 1, 2, 3, 4, 5].map((s) => '<option value="' + s + '"' + (d && d.severity === s ? ' selected' : '') + '>' + esc(metricLabel) + ' ' + s + '</option>').join('') +
       '</select>' +
       '<button class="mini-btn" id="df-cancel" title="Cancelar">✕</button>' +
       '<button class="mini-btn" id="df-save" title="Guardar">✓</button></div>';
@@ -3746,24 +3768,80 @@ function openStatusesManager() {
       const label = form.querySelector('#df-label').value.trim();
       if (!label) { toast('El nombre del estado es obligatorio', 'err'); return; }
       const payload = { label, icon: form.querySelector('#df-icon').value.trim(), color: form.querySelector('#df-color').value, severity: Number(form.querySelector('#df-sev').value) };
+      const btn = form.querySelector('#df-save');
+      busyBtn(btn, true);
       try {
         if (d) await api('/ows-spaces/api/status-pages/statuses/' + d.id, { method: 'PATCH', body: payload });
         else await api('/ows-spaces/api/status-pages/' + S.status.page.id + '/statuses', { method: 'POST', body: payload });
-        closeModal();
         await loadStatusPage();
-        openStatusesManager();
-      } catch (e) { if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err'); }
+        syncDefs();
+        renderDefs(body);   // el modal queda abierto, la lista se refresca en vivo
+        toast(d ? 'Estado actualizado ✨' : 'Estado creado ✅');
+      } catch (e) {
+        busyBtn(btn, false, '✓');
+        if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err');
+      }
     });
   };
+
+  // Formulario bulk: varios nombres (uno por línea), misma etiqueta/color/métrica.
+  const showBulkForm = (body) => {
+    const form = document.createElement('div');
+    form.className = 'st-def-form';
+    form.innerHTML =
+      '<textarea id="bf-labels" rows="5" maxlength="600" placeholder="Escribí un estado por línea, por ejemplo:&#10;Disponible&#10;En espera de asignación&#10;Ocupado&#10;Altamente Ocupado"></textarea>' +
+      '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
+        '<input type="text" placeholder="Emoji (opcional)" maxlength="8" id="bf-icon" style="width:90px">' +
+        '<input type="color" value="#22c55e" id="bf-color" title="Color">' +
+        '<select id="bf-sev" title="' + esc(metricLabel) + '">' +
+          [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((s) => '<option value="' + s + '">' + esc(metricLabel) + ' ' + s + '</option>').join('') +
+        '</select>' +
+        '<button class="mini-btn" id="bf-cancel" title="Cancelar">✕</button>' +
+        '<button class="mini-btn" id="bf-save" title="Guardar todos">✓</button>' +
+      '</div>' +
+      '<div style="margin-top:8px" id="bf-hint"></div>';
+    body.querySelector('#st-defs').prepend(form);
+    form.querySelector('#bf-cancel').addEventListener('click', () => form.remove());
+    form.querySelector('#bf-save').addEventListener('click', async () => {
+      const labels = (form.querySelector('#bf-labels').value || '')
+        .split(/[\n,]+/).map((s) => s.trim()).filter(Boolean)
+        .slice(0, 30);
+      if (!labels.length) { toast('Escribí al menos un nombre de estado', 'err'); return; }
+      const icon = form.querySelector('#bf-icon').value.trim();
+      const color = form.querySelector('#bf-color').value;
+      const severity = Number(form.querySelector('#bf-sev').value);
+      const btn = form.querySelector('#bf-save');
+      busyBtn(btn, true);
+      try {
+        const res = await api('/ows-spaces/api/status-pages/' + S.status.page.id + '/statuses/bulk', {
+          method: 'POST',
+          body: { items: labels.map((label) => ({ label, icon, color, severity })) }
+        });
+        await loadStatusPage();
+        syncDefs();
+        renderDefs(body);
+        form.remove();
+        toast('Se crearon ' + res.created + ' estados ✅');
+      } catch (e) {
+        busyBtn(btn, false, '✓');
+        if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err');
+      }
+    });
+  };
+
   openModal(
     '<h2>🏷️ Estados personalizados</h2>' +
-    '<p class="sub">Creá los estados que necesites (ej: “Operacional”, “Degradado”, “En mantenimiento”, “Caído”…). Cada servicio puede usar cualquiera de ellos.</p>' +
+    '<p class="sub">Creá los estados que necesites (ej: “Operacional”, “Degradado”, “En mantenimiento”, “Caído”… o “Disponible”, “Ocupado”, “Altamente Ocupado” para cargos). La métrica actual es <b>' + esc(metricLabel) + '</b> — podés cambiarla en ⚙️ Configuración.</p>' +
     '<div id="st-defs"></div>' +
-    '<button class="btn btn-soft btn-sm" id="st-add-def">➕ Agregar estado</button>' +
+    '<div style="display:flex;gap:8px;margin-top:14px">' +
+      '<button class="btn btn-soft btn-sm" id="st-add-def">➕ Agregar estado</button>' +
+      '<button class="btn btn-soft btn-sm" id="st-add-bulk">📚 Agregar varios</button>' +
+    '</div>' +
     '<div class="modal-actions"><button class="btn btn-ghost" data-close>Cerrar</button></div>',
     (body) => {
       renderDefs(body);
       body.querySelector('#st-add-def').addEventListener('click', () => showDefForm(body, null));
+      body.querySelector('#st-add-bulk').addEventListener('click', () => showBulkForm(body));
     }
   );
 }

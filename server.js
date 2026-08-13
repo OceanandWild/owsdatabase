@@ -33799,10 +33799,6 @@ function owsSpacesIcon(raw, fallback) {
   return s.slice(0, 400000) || fallback;
 }
 
-// Los seeds del blog corren una sola vez por proceso: si un admin borra una noticia
-// sembrada vía la API, no debe reaparecer en el próximo request.
-let owsSpacesNewsSeeded = false;
-
 async function ensureOwsSpacesTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ows_spaces_users (
@@ -33896,6 +33892,9 @@ async function ensureOwsSpacesTables() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Etiqueta configurable de la métrica: por defecto “Severidad”, pero puede ser
+  // “Ocupación”, “Prioridad”, “Carga”, etc. según lo que mida la status page.
+  await pool.query(`ALTER TABLE ows_space_status_pages ADD COLUMN IF NOT EXISTS metric_label TEXT NOT NULL DEFAULT 'Severidad'`).catch(() => {});
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ows_space_status_groups (
       id SERIAL PRIMARY KEY,
@@ -33981,100 +33980,9 @@ async function ensureOwsSpacesTables() {
     CREATE INDEX IF NOT EXISTS idx_ows_spaces_news_active
       ON ows_spaces_news(is_active, published_at DESC)
   `).catch(() => {});
-
-  // Seeds del blog (una sola vez por proceso)
-  if (!owsSpacesNewsSeeded) {
-  // Seed inicial si la noticia de Layout Rework no existe
-  try {
-    const { rows: existing } = await pool.query("SELECT 1 FROM ows_spaces_news WHERE title = $1", ["Layout Rework — A Cleaner, More Polished OWS Spaces"]);
-    if (existing.length === 0) {
-      await pool.query(`
-        INSERT INTO ows_spaces_news
-          (title, description, content_lines, cover_url, project_tag, author_name, priority)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [
-        "Layout Rework — A Cleaner, More Polished OWS Spaces",
-        "We've completely reworked the OWS Spaces interface with a refined dark-mode design. Every panel, card, and control has been redesigned from scratch for better clarity, premium aesthetics, and a smoother experience across all devices.",
-        [
-          "Redesigned sidebar with cleaner space cards and role badges",
-          "New Blog feed panel with slide-in animation and dark/light theme support",
-          "Improved topbar layout with a dedicated Blog button",
-          "Better contrast and typography across all UI components",
-          "Smoother hover effects and micro-animations throughout"
-        ],
-        "/ows-spaces/assets/news/layout-rework-2026.jpg",
-        "OWS Spaces",
-        "Ocean and Wild Studios",
-        10
-      ]);
-      console.log('[OWS SPACES] Seed de noticia de Layout Rework insertado con éxito.');
-    }
-  } catch (err) {
-    console.warn('[OWS SPACES] Error en seed de noticias:', err.message);
-  }
-
-  // Seed: lanzamiento de Status Pages
-  try {
-    const { rows: existing } = await pool.query("SELECT 1 FROM ows_spaces_news WHERE title = $1", ["Introducing Status Pages in Your Space"]);
-    if (existing.length === 0) {
-      await pool.query(`
-        INSERT INTO ows_spaces_news
-          (title, description, content_lines, cover_url, project_tag, author_name, priority)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [
-        "Introducing Status Pages in Your Space",
-        "Keep everyone in the loop: track the health of every service of your space with Status Pages — service groups, custom statuses, granular permissions and public or team-only visibility.",
-        [
-          "Multiple service groups with their own statuses (API, Web, Database, Infrastructure…)",
-          "Unlimited custom statuses: create the exact states you need, each with its own label, icon, color and severity",
-          "The owner can grant edit permissions to specific roles or people in the space",
-          "Make it public for all members or keep it team-only",
-          "A beautiful status hero, per-service status pills and live updates"
-        ],
-        "/ows-spaces/assets/news/introducing-status-pages.svg",
-        "OWS Spaces",
-        "Ocean and Wild Studios",
-        20
-      ]);
-      console.log('[OWS SPACES] Seed de noticia de Status Pages insertado con éxito.');
-    }
-  } catch (err) {
-    console.warn('[OWS SPACES] Error en seed de Status Pages:', err.message);
-  }
-
-  // Seed: tutorial paso a paso de Status Pages
-  try {
-    const { rows: existing } = await pool.query("SELECT 1 FROM ows_spaces_news WHERE title = $1", ["How to Create Your First Status Page — Step by Step"]);
-    if (existing.length === 0) {
-      await pool.query(`
-        INSERT INTO ows_spaces_news
-          (title, description, content_lines, cover_url, project_tag, author_name, priority)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [
-        "How to Create Your First Status Page — Step by Step",
-        "Ready to show the world (or just your team) how healthy your services are? Here's the complete walkthrough to get your first Status Page live in under five minutes.",
-        [
-          "1️⃣ Open your space and tap the Status tab at the top — right next to Chats",
-          "2️⃣ Press \"Create Status Page\" and give it a name and a short description",
-          "3️⃣ Add your first service group (e.g. API, Web or Database) and drop services inside it",
-          "4️⃣ Set a status for each service — pick one of the defaults or create your own custom states with any label, icon, color and severity",
-          "5️⃣ Invite your team: as owner you can grant edit permission by role or to specific people in the space",
-          "6️⃣ Choose who sees it — make it public for all members or keep it team-only",
-          "7️⃣ Watch the hero banner react live: everything turns green when all systems are operational, or highlights the critical services when something breaks",
-          "💡 Pro tip: services keep their own note and update time, so your team always knows what changed and when"
-        ],
-        "/ows-spaces/assets/news/status-pages-tutorial.svg",
-        "OWS Spaces",
-        "Ocean and Wild Studios",
-        15
-      ]);
-      console.log('[OWS SPACES] Seed de tutorial de Status Pages insertado con éxito.');
-    }
-  } catch (err) {
-    console.warn('[OWS SPACES] Error en seed de tutorial de Status Pages:', err.message);
-  }
-  owsSpacesNewsSeeded = true;
-  }
+  // Notas: el contenido del blog (noticias de Status Pages, tutorial, layout rework)
+  // se inserta a través de la API (/ows-spaces/api/news), no con seeds hardcodeados.
+  // Así, si se elimina una noticia no vuelve a aparecer en el próximo deploy.
 }
 
 // ── Autenticación ────────────────────────────────────────────────────────────
@@ -35058,6 +34966,7 @@ function owsSpacesStatusToJson(p) {
     visibility: String(p.visibility || 'team'),
     title: p.title || 'Status',
     description: p.description || '',
+    metricLabel: String(p.metric_label || 'Severidad'),
     updatedAt: p.updated_at
   };
 }
@@ -35221,13 +35130,14 @@ app.post('/ows-spaces/api/spaces/:id/status', async (req, res) => {
     const title = String(req.body?.title || 'Status').trim().slice(0, 60) || 'Status';
     const description = String(req.body?.description || '').trim().slice(0, 300);
     const visibility = String(req.body?.visibility || 'team') === 'public' ? 'public' : 'team';
+    const metricLabel = String(req.body?.metricLabel || 'Severidad').trim().slice(0, 30) || 'Severidad';
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       const { rows } = await client.query(
-        `INSERT INTO ows_space_status_pages (space_id, enabled, visibility, title, description)
-         VALUES ($1, TRUE, $2, $3, $4) RETURNING *`,
-        [id, visibility, title, description]
+        `INSERT INTO ows_space_status_pages (space_id, enabled, visibility, title, description, metric_label)
+         VALUES ($1, TRUE, $2, $3, $4, $5) RETURNING *`,
+        [id, visibility, title, description, metricLabel]
       );
       const pageId = rows[0].id;
       const defaults = [
@@ -35275,9 +35185,10 @@ app.patch('/ows-spaces/api/spaces/:id/status', async (req, res) => {
     const description = String(req.body?.description ?? page.description).trim().slice(0, 300);
     const visibility = req.body?.visibility === undefined ? String(page.visibility) : (String(req.body.visibility) === 'public' ? 'public' : 'team');
     const enabled = req.body?.enabled === undefined ? !!page.enabled : !!req.body.enabled;
+    const metricLabel = req.body?.metricLabel === undefined ? String(page.metric_label || 'Severidad') : (String(req.body.metricLabel).trim().slice(0, 30) || 'Severidad');
     await pool.query(
-      `UPDATE ows_space_status_pages SET title = $2, description = $3, visibility = $4, enabled = $5, updated_at = NOW() WHERE id = $1`,
-      [pageId, title, description, visibility, enabled]
+      `UPDATE ows_space_status_pages SET title = $2, description = $3, visibility = $4, enabled = $5, metric_label = $6, updated_at = NOW() WHERE id = $1`,
+      [pageId, title, description, visibility, enabled, metricLabel]
     );
     res.json(await owsSpacesLoadStatusPage(id, req.owsSpacesMember));
   } catch (err) {
@@ -35449,6 +35360,41 @@ app.post('/ows-spaces/api/status-pages/:pageId/statuses', async (req, res) => {
   } catch (err) {
     console.error('[OWS SPACES] Error creando estado:', err);
     res.status(500).json({ error: 'Error al crear el estado' });
+  }
+});
+
+// POST — crear varios estados de una vez (bulk). Cada entrada: {label, icon?, color?, severity?}
+app.post('/ows-spaces/api/status-pages/:pageId/statuses/bulk', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  const cleaned = items
+    .map((it) => ({
+      label: String(it?.label || '').trim().slice(0, 40),
+      color: owsSpacesStatusColor(it?.color),
+      icon: String(it?.icon || '').trim().slice(0, 8),
+      severity: Math.max(0, Math.min(9, Number(it?.severity) || 0))
+    }))
+    .filter((it) => it.label);
+  if (!cleaned.length) return res.status(400).json({ error: 'Agregá al menos un estado con nombre' });
+  if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const created = [];
+    for (const it of cleaned) {
+      const { rows } = await pool.query(
+        `INSERT INTO ows_space_status_defs (page_id, label, color, icon, severity, position)
+         VALUES ($1, $2, $3, $4, $5, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_defs WHERE page_id = $1))
+         RETURNING *`,
+        [pageId, it.label, it.color, it.icon, it.severity]
+      );
+      created.push(owsSpacesStatusDefToJson(rows[0]));
+    }
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, created: created.length, statuses: created });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando estados (bulk):', err);
+    res.status(500).json({ error: 'Error al crear los estados' });
   }
 });
 

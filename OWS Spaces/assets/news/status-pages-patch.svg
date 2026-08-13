@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0e1a"/>
+      <stop offset="0.55" stop-color="#12162b"/>
+      <stop offset="1" stop-color="#1b2a4d"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e2540"/>
+      <stop offset="1" stop-color="#171d33"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c80ff"/>
+      <stop offset="1" stop-color="#e879f9"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="460" fill="url(#bg)"/>
+  <circle cx="840" cy="50" r="170" fill="#7c80ff" opacity="0.12"/>
+  <circle cx="50" cy="440" r="160" fill="#fbbf24" opacity="0.10"/>
+
+  <rect x="40" y="36" width="216" height="40" rx="20" fill="#7c80ff" opacity="0.16" stroke="#7c80ff" stroke-opacity="0.35"/>
+  <text x="64" y="63" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700" fill="#c7cbff">🛠️ PATCH UPDATE</text>
+
+  <text x="40" y="132" font-family="Segoe UI, Arial, sans-serif" font-size="41" font-weight="800" fill="#ffffff">Status Pages Patch: Custom Metrics</text>
+  <text x="40" y="172" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="500" fill="#a8b0ca">Rename the scale, bulk-create states, smoother editing.</text>
+
+  <!-- Metric label example -->
+  <rect x="40" y="210" width="400" height="150" rx="20" fill="url(#card)" stroke="#2b3456" stroke-width="2"/>
+  <rect x="60" y="230" width="120" height="12" rx="6" fill="#3d4778"/>
+  <text x="60" y="216" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#6f7798">CUSTOM METRIC LABEL</text>
+
+  <rect x="60" y="252" width="360" height="34" rx="9" fill="#123524" stroke="#1f5c3d"/>
+  <circle cx="80" cy="269" r="5" fill="#34d399"/>
+  <text x="94" y="274" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#e9ebf5">Disponible</text>
+  <text x="330" y="274" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#6f7798" text-anchor="end">Ocupación 0</text>
+
+  <rect x="60" y="292" width="360" height="34" rx="9" fill="#1e2540"/>
+  <circle cx="80" cy="309" r="5" fill="#fbbf24"/>
+  <text x="94" y="314" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#e9ebf5">Ocupado</text>
+  <text x="330" y="314" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#6f7798" text-anchor="end">Ocupación 2</text>
+
+  <rect x="60" y="332" width="360" height="34" rx="9" fill="#3b2014" stroke="#8a4b1f"/>
+  <circle cx="80" cy="349" r="5" fill="#ff8800"/>
+  <text x="94" y="354" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#e9ebf5">Altamente Ocupado</text>
+  <text x="330" y="354" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#6f7798" text-anchor="end">Ocupación 4</text>
+
+  <!-- Right card: bulk creation -->
+  <g>
+    <rect x="470" y="58" width="390" height="344" rx="24" fill="url(#card)" stroke="#2b3456" stroke-width="2"/>
+    <rect x="492" y="82" width="150" height="12" rx="6" fill="#3d4778"/>
+    <text x="492" y="116" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#6f7798">BULK CREATE</text>
+
+    <rect x="492" y="130" width="346" height="130" rx="12" fill="#12162b" stroke="#2b3456"/>
+    <text x="512" y="156" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#a8b0ca">Disponible</text>
+    <text x="512" y="180" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#a8b0ca">En espera de asignación</text>
+    <text x="512" y="204" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#a8b0ca">Ocupado</text>
+    <text x="512" y="228" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#a8b0ca">Altamente Ocupado</text>
+    <text x="512" y="252" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#a8b0ca">Extremadamente Ocupado</text>
+
+    <rect x="492" y="276" width="346" height="46" rx="12" fill="url(#accent)" opacity="0.14" stroke="#7c80ff" stroke-opacity="0.35"/>
+    <text x="512" y="305" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#c7cbff">Create many states at once · Live modal editing</text>
+  </g>
+</svg>

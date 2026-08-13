@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0e1a"/>
+      <stop offset="0.55" stop-color="#12162b"/>
+      <stop offset="1" stop-color="#2a1b4d"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e2540"/>
+      <stop offset="1" stop-color="#171d33"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c80ff"/>
+      <stop offset="1" stop-color="#e879f9"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="460" fill="url(#bg)"/>
+  <circle cx="830" cy="50" r="170" fill="#7c80ff" opacity="0.12"/>
+  <circle cx="50" cy="430" r="160" fill="#e879f9" opacity="0.10"/>
+
+  <rect x="40" y="36" width="212" height="40" rx="20" fill="#7c80ff" opacity="0.16" stroke="#7c80ff" stroke-opacity="0.35"/>
+  <text x="64" y="63" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700" fill="#c7cbff">🆕 NEW FEATURE</text>
+
+  <text x="40" y="132" font-family="Segoe UI, Arial, sans-serif" font-size="41" font-weight="800" fill="#ffffff">Introducing Status Pages</text>
+  <text x="40" y="172" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="500" fill="#a8b0ca">Track the health of every service of your space.</text>
+
+  <g>
+    <rect x="500" y="58" width="360" height="344" rx="24" fill="url(#card)" stroke="#2b3456" stroke-width="2"/>
+    <rect x="522" y="82" width="180" height="14" rx="7" fill="#3d4778"/>
+    <rect x="522" y="104" width="120" height="10" rx="5" fill="#273052"/>
+
+    <rect x="522" y="134" width="316" height="46" rx="12" fill="#123524" stroke="#1f5c3d"/>
+    <circle cx="550" cy="157" r="8" fill="#34d399"/>
+    <text x="568" y="163" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#34d399">All Systems Operational</text>
+
+    <rect x="522" y="198" width="316" height="30" rx="8" fill="#1e2540"/>
+    <text x="536" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#a8b0ca">API</text>
+    <circle cx="690" cy="213" r="5" fill="#34d399"/>
+    <text x="706" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#e9ebf5">Operational</text>
+
+    <rect x="522" y="236" width="316" height="30" rx="8" fill="#1e2540"/>
+    <text x="536" y="256" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#a8b0ca">Web</text>
+    <circle cx="690" cy="251" r="5" fill="#fbbf24"/>
+    <text x="706" y="256" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#e9ebf5">Degraded</text>
+
+    <rect x="522" y="274" width="316" height="30" rx="8" fill="#1e2540"/>
+    <text x="536" y="294" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#a8b0ca">Database</text>
+    <circle cx="690" cy="289" r="5" fill="#34d399"/>
+    <text x="706" y="294" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#e9ebf5">Operational</text>
+
+    <rect x="522" y="322" width="316" height="46" rx="12" fill="url(#accent)" opacity="0.14" stroke="#7c80ff" stroke-opacity="0.35"/>
+    <text x="542" y="350" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#c7cbff">🌍 Public · 🔐 Team-only · 👥 Granular permissions</text>
+  </g>
+</svg>

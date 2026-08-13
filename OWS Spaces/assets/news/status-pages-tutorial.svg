@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0e1a"/>
+      <stop offset="0.55" stop-color="#12162b"/>
+      <stop offset="1" stop-color="#0e2b3d"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e2540"/>
+      <stop offset="1" stop-color="#171d33"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c80ff"/>
+      <stop offset="1" stop-color="#e879f9"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="460" fill="url(#bg)"/>
+  <circle cx="830" cy="420" r="180" fill="#7c80ff" opacity="0.12"/>
+  <circle cx="60" cy="40" r="160" fill="#34d399" opacity="0.10"/>
+
+  <rect x="40" y="36" width="236" height="40" rx="20" fill="#34d399" opacity="0.14" stroke="#34d399" stroke-opacity="0.4"/>
+  <text x="64" y="63" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700" fill="#6ee7b7">📖 STEP-BY-STEP TUTORIAL</text>
+
+  <text x="40" y="132" font-family="Segoe UI, Arial, sans-serif" font-size="41" font-weight="800" fill="#ffffff">Create Your First Status Page</text>
+  <text x="40" y="172" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="500" fill="#a8b0ca">Five simple steps, from zero to a live status page.</text>
+
+  <!-- Step 1 -->
+  <rect x="40" y="212" width="400" height="56" rx="14" fill="url(#card)" stroke="#2b3456" stroke-width="2"/>
+  <circle cx="74" cy="240" r="17" fill="url(#accent)"/>
+  <text x="74" y="247" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="104" y="235" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e9ebf5">Open your space</text>
+  <text x="104" y="254" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#a8b0ca">Switch to the Status tab</text>
+
+  <!-- Step 2 -->
+  <rect x="40" y="280" width="400" height="56" rx="14" fill="url(#card)" stroke="#2b3456" stroke-width="2"/>
+  <circle cx="74" cy="308" r="17" fill="url(#accent)"/>
+  <text x="74" y="315" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="104" y="303" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e9ebf5">Add service groups</text>
+  <text x="104" y="322" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#a8b0ca">API, Web, Database…</text>
+
+  <!-- Step 3 -->
+  <rect x="40" y="348" width="400" height="56" rx="14" fill="url(#card)" stroke="#2b3456" stroke-width="2"/>
+  <circle cx="74" cy="376" r="17" fill="url(#accent)"/>
+  <text x="74" y="383" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" fill="#ffffff" text-anchor="middle">3</text>
+  <text x="104" y="371" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e9ebf5">Set each service status</text>
+  <text x="104" y="390" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#a8b0ca">Operational, degraded, down…</text>
+
+  <!-- Preview card on the right -->
+  <g>
+    <rect x="470" y="58" width="390" height="344" rx="24" fill="url(#card)" stroke="#2b3456" stroke-width="2"/>
+    <rect x="492" y="82" width="180" height="14" rx="7" fill="#3d4778"/>
+    <rect x="492" y="104" width="120" height="10" rx="5" fill="#273052"/>
+
+    <rect x="492" y="134" width="346" height="46" rx="12" fill="#123524" stroke="#1f5c3d"/>
+    <circle cx="520" cy="157" r="8" fill="#34d399"/>
+    <text x="538" y="163" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#34d399">All Systems Operational</text>
+
+    <rect x="492" y="198" width="346" height="30" rx="8" fill="#1e2540"/>
+    <text x="506" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#a8b0ca">API</text>
+    <circle cx="660" cy="213" r="5" fill="#34d399"/>
+    <text x="676" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#e9ebf5">Operational</text>
+
+    <rect x="492" y="236" width="346" height="30" rx="8" fill="#1e2540"/>
+    <text x="506" y="256" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#a8b0ca">Web</text>
+    <circle cx="660" cy="251" r="5" fill="#34d399"/>
+    <text x="676" y="256" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#e9ebf5">Operational</text>
+
+    <rect x="492" y="274" width="346" height="30" rx="8" fill="#1e2540"/>
+    <text x="506" y="294" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#a8b0ca">Database</text>
+    <circle cx="660" cy="289" r="5" fill="#34d399"/>
+    <text x="676" y="294" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#e9ebf5">Operational</text>
+
+    <rect x="492" y="322" width="346" height="46" rx="12" fill="url(#accent)" opacity="0.14" stroke="#7c80ff" stroke-opacity="0.35"/>
+    <text x="512" y="350" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#c7cbff">Live in minutes · Share it with your team</text>
+  </g>
+</svg>

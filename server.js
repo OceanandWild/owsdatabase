@@ -7451,6 +7451,12 @@ app.get('/a-wild-question-game', (_req, res) => {
 app.use('/a-wild-question-game', express.static(join(__dirname, 'A Wild Question Game')));
 app.use('/ows-spaces/assets', express.static(join(__dirname, 'OWS Spaces', 'assets')));
 
+// OWS Spaces - SPA: sirve la página desde el propio backend para que
+// página y API compartan origen (http://<host>:<PORT>/ows-spaces).
+app.get('/ows-spaces', (_req, res) => {
+  res.sendFile(join(__dirname, 'OWS Spaces', 'index.html'));
+});
+
 
 // ===== WILD TRANSFER - COMPARTIR ARCHIVOS (MULTIPLE) =====
 const wildTransferStorage = multer.diskStorage({
@@ -33782,6 +33788,21 @@ function owsSpacesSlugify(text) {
     .slice(0, 60);
 }
 
+// Iconos: emojis cortos o imágenes (data: URL generadas por el selector de iconos).
+// Las imágenes se guardan como data URL para no depender de archivos subidos.
+function owsSpacesIcon(raw, fallback) {
+  const s = String(raw ?? '').trim();
+  if (!s) return fallback;
+  // Emoji o texto corto (comportamiento histórico)
+  if (!/^(data:image\/|https?:\/\/)/i.test(s)) return s.slice(0, 8) || fallback;
+  // Imagen embebida: permitir un tamaño razonable (~400 KB en base64)
+  return s.slice(0, 400000) || fallback;
+}
+
+// Los seeds del blog corren una sola vez por proceso: si un admin borra una noticia
+// sembrada vía la API, no debe reaparecer en el próximo request.
+let owsSpacesNewsSeeded = false;
+
 async function ensureOwsSpacesTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ows_spaces_users (
@@ -33796,6 +33817,14 @@ async function ensureOwsSpacesTables() {
   await pool.query(`
     ALTER TABLE ows_spaces_users DROP COLUMN IF EXISTS role
   `).catch((e) => console.warn('[OWS SPACES] drop role column:', e.message));
+  // Seguridad de la cuenta: bloqueo por intentos fallidos y restablecimiento de contraseña.
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS lock_count INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS reset_hash TEXT`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMPTZ`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS reset_attempts INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS reset_sent_at TIMESTAMPTZ`).catch(() => {});
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ows_spaces (
       id SERIAL PRIMARY KEY,
@@ -33855,6 +33884,82 @@ async function ensureOwsSpacesTables() {
     CREATE INDEX IF NOT EXISTS idx_ows_space_messages_chat
       ON ows_space_messages(chat_id, id ASC)
   `);
+  // ── STATUS PAGE por espacio ───────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_pages (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL UNIQUE REFERENCES ows_spaces(id) ON DELETE CASCADE,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      visibility TEXT NOT NULL DEFAULT 'team',
+      title TEXT DEFAULT 'Status',
+      description TEXT DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_groups (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_groups_page
+      ON ows_space_status_groups(page_id, position)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_items (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL REFERENCES ows_space_status_groups(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      status_def_id INTEGER,
+      note TEXT DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_items_group
+      ON ows_space_status_items(group_id, position)
+  `);
+  // Estados personalizados (el dueño puede crear los que necesite)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_defs (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      color TEXT DEFAULT '#22c55e',
+      icon TEXT DEFAULT '',
+      severity INTEGER NOT NULL DEFAULT 0,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_defs_page
+      ON ows_space_status_defs(page_id, position)
+  `);
+  // Permisos de edición: por rol y/o por persona (el dueño siempre puede)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_perms (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      role TEXT,
+      user_id INTEGER REFERENCES ows_spaces_users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ows_space_status_perms_role
+      ON ows_space_status_perms(page_id, role) WHERE role IS NOT NULL
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ows_space_status_perms_user
+      ON ows_space_status_perms(page_id, user_id) WHERE user_id IS NOT NULL
+  `);
   // ── Tabla de noticias propias de OWS Spaces ──────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ows_spaces_news (
@@ -33877,6 +33982,8 @@ async function ensureOwsSpacesTables() {
       ON ows_spaces_news(is_active, published_at DESC)
   `).catch(() => {});
 
+  // Seeds del blog (una sola vez por proceso)
+  if (!owsSpacesNewsSeeded) {
   // Seed inicial si la noticia de Layout Rework no existe
   try {
     const { rows: existing } = await pool.query("SELECT 1 FROM ows_spaces_news WHERE title = $1", ["Layout Rework — A Cleaner, More Polished OWS Spaces"]);
@@ -33904,6 +34011,69 @@ async function ensureOwsSpacesTables() {
     }
   } catch (err) {
     console.warn('[OWS SPACES] Error en seed de noticias:', err.message);
+  }
+
+  // Seed: lanzamiento de Status Pages
+  try {
+    const { rows: existing } = await pool.query("SELECT 1 FROM ows_spaces_news WHERE title = $1", ["Introducing Status Pages in Your Space"]);
+    if (existing.length === 0) {
+      await pool.query(`
+        INSERT INTO ows_spaces_news
+          (title, description, content_lines, cover_url, project_tag, author_name, priority)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        "Introducing Status Pages in Your Space",
+        "Keep everyone in the loop: track the health of every service of your space with Status Pages — service groups, custom statuses, granular permissions and public or team-only visibility.",
+        [
+          "Multiple service groups with their own statuses (API, Web, Database, Infrastructure…)",
+          "Unlimited custom statuses: create the exact states you need, each with its own label, icon, color and severity",
+          "The owner can grant edit permissions to specific roles or people in the space",
+          "Make it public for all members or keep it team-only",
+          "A beautiful status hero, per-service status pills and live updates"
+        ],
+        "/ows-spaces/assets/news/introducing-status-pages.svg",
+        "OWS Spaces",
+        "Ocean and Wild Studios",
+        20
+      ]);
+      console.log('[OWS SPACES] Seed de noticia de Status Pages insertado con éxito.');
+    }
+  } catch (err) {
+    console.warn('[OWS SPACES] Error en seed de Status Pages:', err.message);
+  }
+
+  // Seed: tutorial paso a paso de Status Pages
+  try {
+    const { rows: existing } = await pool.query("SELECT 1 FROM ows_spaces_news WHERE title = $1", ["How to Create Your First Status Page — Step by Step"]);
+    if (existing.length === 0) {
+      await pool.query(`
+        INSERT INTO ows_spaces_news
+          (title, description, content_lines, cover_url, project_tag, author_name, priority)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        "How to Create Your First Status Page — Step by Step",
+        "Ready to show the world (or just your team) how healthy your services are? Here's the complete walkthrough to get your first Status Page live in under five minutes.",
+        [
+          "1️⃣ Open your space and tap the Status tab at the top — right next to Chats",
+          "2️⃣ Press \"Create Status Page\" and give it a name and a short description",
+          "3️⃣ Add your first service group (e.g. API, Web or Database) and drop services inside it",
+          "4️⃣ Set a status for each service — pick one of the defaults or create your own custom states with any label, icon, color and severity",
+          "5️⃣ Invite your team: as owner you can grant edit permission by role or to specific people in the space",
+          "6️⃣ Choose who sees it — make it public for all members or keep it team-only",
+          "7️⃣ Watch the hero banner react live: everything turns green when all systems are operational, or highlights the critical services when something breaks",
+          "💡 Pro tip: services keep their own note and update time, so your team always knows what changed and when"
+        ],
+        "/ows-spaces/assets/news/status-pages-tutorial.svg",
+        "OWS Spaces",
+        "Ocean and Wild Studios",
+        15
+      ]);
+      console.log('[OWS SPACES] Seed de tutorial de Status Pages insertado con éxito.');
+    }
+  } catch (err) {
+    console.warn('[OWS SPACES] Error en seed de tutorial de Status Pages:', err.message);
+  }
+  owsSpacesNewsSeeded = true;
   }
 }
 
@@ -34070,6 +34240,96 @@ function owsSpacesMemberToJson(m) {
   };
 }
 
+// ── Seguridad de la cuenta: bloqueo por intentos y reset de contraseña ──────
+const OWS_AUTH_MAX_ATTEMPTS = 3;                          // intentos antes de bloquear
+const OWS_AUTH_LOCK_STEPS = [5 * 60e3, 15 * 60e3, 3600e3, 6 * 3600e3, 24 * 3600e3]; // 5m, 15m, 1h, 6h, 24h
+const OWS_RESET_CODE_TTL = 10 * 60e3;                     // el código expira a los 10 min
+const OWS_RESET_MAX_ATTEMPTS = 5;                         // máx. intentos de código incorrecto
+const OWS_RESET_COOLDOWN_MS = 60e3;                       // reenvío mínimo entre códigos
+
+// Duración del bloqueo según cuántas veces ya se bloqueó la cuenta (escala).
+function owsSpacesLockMs(lockCount) {
+  const i = Math.min(Math.max(Number(lockCount) || 0, 0), OWS_AUTH_LOCK_STEPS.length - 1);
+  return OWS_AUTH_LOCK_STEPS[i];
+}
+
+// Milisegundos restantes de bloqueo (0 = desbloqueado).
+function owsSpacesAccountLockMs(user) {
+  const until = user.locked_until ? new Date(user.locked_until).getTime() : 0;
+  if (!until || Date.now() >= until) return 0;
+  return until - Date.now();
+}
+
+// Registra un intento fallido en la base. Al llegar a MAX_ATTEMPTS bloquea la cuenta
+// con una duración que escala con lock_count, y reinicia el contador para la próxima ronda.
+async function owsSpacesRegisterLoginFailure(user) {
+  const attempts = Number(user.failed_attempts || 0) + 1;
+  const lockCount = Number(user.lock_count || 0);
+  let lockedUntil = null;
+  if (attempts >= OWS_AUTH_MAX_ATTEMPTS) {
+    lockedUntil = new Date(Date.now() + owsSpacesLockMs(lockCount));
+  }
+  await pool.query(
+    `UPDATE ows_spaces_users
+        SET failed_attempts = $2,
+            lock_count = lock_count + $3,
+            locked_until = $4
+      WHERE id = $1`,
+    [user.id, lockedUntil ? 0 : attempts, lockedUntil ? 1 : 0, lockedUntil]
+  );
+  return { attempts, lockedUntil };
+}
+
+async function owsSpacesClearLock(userId) {
+  await pool.query(
+    `UPDATE ows_spaces_users SET failed_attempts = 0, lock_count = 0, locked_until = NULL WHERE id = $1`,
+    [userId]
+  );
+}
+
+// ── Anti-fuerza bruta para usuarios inexistentes (en memoria por IP + usuario) ──
+const owsSpacesIpAttempts = new Map();
+function owsSpacesAttemptKey(req, username) {
+  const rawIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim();
+  return `${rawIp || 'unknown'}|${String(username || '').toLowerCase()}`;
+}
+function owsSpacesIpLockMs(req, username) {
+  const row = owsSpacesIpAttempts.get(owsSpacesAttemptKey(req, username));
+  if (!row || !row.lockedUntil) return 0;
+  if (Date.now() >= row.lockedUntil) { owsSpacesIpAttempts.delete(owsSpacesAttemptKey(req, username)); return 0; }
+  return row.lockedUntil - Date.now();
+}
+function owsSpacesRegisterIpFailure(req, username) {
+  const key = owsSpacesAttemptKey(req, username);
+  const now = Date.now();
+  const row = owsSpacesIpAttempts.get(key);
+  const attempts = (row ? row.attempts : 0) + 1;
+  const locks = row ? row.locks : 0;
+  let lockedUntil = 0;
+  if (attempts >= OWS_AUTH_MAX_ATTEMPTS) {
+    lockedUntil = now + owsSpacesLockMs(locks);
+  }
+  owsSpacesIpAttempts.set(key, {
+    attempts: lockedUntil ? 0 : attempts,
+    locks: locks + (lockedUntil ? 1 : 0),
+    lockedUntil,
+    firstAt: row ? row.firstAt : now
+  });
+  return lockedUntil ? lockedUntil - now : 0;
+}
+
+// ── Códigos de restablecimiento ───────────────────────────────────────────────
+function owsSpacesNewResetCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+}
+
+async function owsSpacesInvalidateReset(userId) {
+  await pool.query(
+    `UPDATE ows_spaces_users SET reset_hash = NULL, reset_expires = NULL, reset_attempts = 0, reset_sent_at = NULL WHERE id = $1`,
+    [userId]
+  );
+}
+
 // ── Auth endpoints ───────────────────────────────────────────────────────────
 app.post('/ows-spaces/api/auth/register', async (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase();
@@ -34115,20 +34375,177 @@ app.post('/ows-spaces/api/auth/login', async (req, res) => {
   }
   try {
     await ensureOwsSpacesTables();
+
+    // Bloqueo por IP+usuario (para cuentas inexistentes no hay fila en la base).
+    const ipLockMs = owsSpacesIpLockMs(req, username);
+    if (ipLockMs > 0) {
+      return res.status(423).json({
+        error: 'Demasiados intentos fallidos. Esperá un momento o restablecé tu contraseña.',
+        code: 'ACCOUNT_LOCKED',
+        lockSeconds: Math.ceil(ipLockMs / 1000),
+        lockCount: 1,
+        canReset: false
+      });
+    }
+
     const { rows } = await pool.query('SELECT * FROM ows_spaces_users WHERE username = $1', [username]);
     if (!rows.length) {
+      const lockMs = owsSpacesRegisterIpFailure(req, username);
+      if (lockMs > 0) {
+        return res.status(423).json({
+          error: 'Demasiados intentos fallidos desde esta conexión. Esperá unos minutos o restablecé tu contraseña.',
+          code: 'ACCOUNT_LOCKED',
+          lockSeconds: Math.ceil(lockMs / 1000),
+          lockCount: 1,
+          canReset: false
+        });
+      }
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
+
     const user = rows[0];
+
+    // Cuenta ya bloqueada → mensaje insistente.
+    const lockMs = owsSpacesAccountLockMs(user);
+    if (lockMs > 0) {
+      return res.status(423).json({
+        error: '🚨 Tu cuenta está bloqueada por seguridad tras varios intentos fallidos. Esperá o restablecé tu contraseña para volver a entrar.',
+        code: 'ACCOUNT_LOCKED',
+        lockSeconds: Math.ceil(lockMs / 1000),
+        lockCount: Number(user.lock_count || 0),
+        canReset: true
+      });
+    }
+
     const ok = await bcrypt.compare(password, user.pwd_hash || '');
     if (!ok) {
-      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+      const { attempts, lockedUntil } = await owsSpacesRegisterLoginFailure(user);
+      if (lockedUntil) {
+        return res.status(423).json({
+          error: '🚨 Contraseña incorrecta. Por seguridad, tu cuenta quedó bloqueada. Restablecé tu contraseña para volver a entrar.',
+          code: 'ACCOUNT_LOCKED',
+          lockSeconds: Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000)),
+          lockCount: Number(user.lock_count || 0) + 1,
+          canReset: true
+        });
+      }
+      return res.status(401).json({
+        error: `Usuario o contraseña incorrectos. Te quedan ${OWS_AUTH_MAX_ATTEMPTS - attempts} intento${OWS_AUTH_MAX_ATTEMPTS - attempts === 1 ? '' : 's'} antes de bloquear tu cuenta.`
+      });
     }
+
+    await owsSpacesClearLock(user.id);
     const token = owsSpacesSignToken(user);
     res.json({ success: true, token, user: owsSpacesUserToJson(user) });
   } catch (err) {
     console.error('[OWS SPACES] Error iniciando sesión:', err);
     res.status(500).json({ error: 'Error al iniciar sesión' });
+  }
+});
+
+// Solicita un código de restablecimiento. La respuesta es genérica para no revelar
+// si un usuario existe (evita enumeración de cuentas).
+app.post('/ows-spaces/api/auth/forgot', async (req, res) => {
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  if (!username) {
+    return res.status(400).json({ error: 'Ingresá tu usuario' });
+  }
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_spaces_users WHERE username = $1', [username]);
+    if (!rows.length) {
+      // Respuesta idéntica: no confirmamos existencia.
+      return res.json({ success: true });
+    }
+    const user = rows[0];
+    const sentAt = user.reset_sent_at ? new Date(user.reset_sent_at).getTime() : 0;
+    const cooldownLeft = sentAt ? (OWS_RESET_COOLDOWN_MS - (Date.now() - sentAt)) : 0;
+    if (cooldownLeft > 0) {
+      return res.status(429).json({
+        error: 'Ya enviamos un código recién. Esperá unos segundos antes de pedir otro.',
+        retrySeconds: Math.ceil(cooldownLeft / 1000)
+      });
+    }
+    const code = owsSpacesNewResetCode();
+    const hash = await bcrypt.hash(code, 10);
+    await pool.query(
+      `UPDATE ows_spaces_users
+          SET reset_hash = $2, reset_expires = NOW() + make_interval(secs => $3),
+              reset_attempts = 0, reset_sent_at = NOW()
+        WHERE id = $1`,
+      [user.id, hash, OWS_RESET_CODE_TTL / 1000]
+    );
+    console.log(`[OWS SPACES] Código de restablecimiento para "${user.username}": ${code} (expira en 10 min)`);
+    // En desarrollo se devuelve el código para poder usarlo sin servidor de correo.
+    if (process.env.NODE_ENV !== 'production') {
+      return res.json({ success: true, devCode: code });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error solicitando restablecimiento:', err);
+    res.status(500).json({ error: 'Error al solicitar el restablecimiento' });
+  }
+});
+
+// Confirma el código y cambia la contraseña. El código es de un solo uso, expira
+// en 10 minutos y se invalida tras 5 intentos incorrectos. Al restablecer se
+// desbloquea la cuenta automáticamente.
+app.post('/ows-spaces/api/auth/reset', async (req, res) => {
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const code = String(req.body?.code || '').trim();
+  const password = String(req.body?.password || '');
+  if (!username || !code) {
+    return res.status(400).json({ error: 'Ingresá tu usuario y el código recibido' });
+  }
+  if (password.length < 4) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 4 caracteres' });
+  }
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_spaces_users WHERE username = $1', [username]);
+    const user = rows[0];
+    if (!user || !user.reset_hash || !user.reset_expires) {
+      return res.status(400).json({ error: 'Primero solicitá un código de restablecimiento' });
+    }
+    if (new Date(user.reset_expires).getTime() < Date.now()) {
+      await owsSpacesInvalidateReset(user.id);
+      return res.status(400).json({ error: 'El código expiró. Solicitá uno nuevo.' });
+    }
+    const attempts = Number(user.reset_attempts || 0);
+    if (attempts >= OWS_RESET_MAX_ATTEMPTS) {
+      await owsSpacesInvalidateReset(user.id);
+      return res.status(400).json({ error: 'Demasiados intentos. Solicitá un código nuevo.' });
+    }
+    const ok = await bcrypt.compare(code, user.reset_hash);
+    if (!ok) {
+      const next = attempts + 1;
+      if (next >= OWS_RESET_MAX_ATTEMPTS) {
+        await owsSpacesInvalidateReset(user.id);
+      } else {
+        await pool.query('UPDATE ows_spaces_users SET reset_attempts = $2 WHERE id = $1', [user.id, next]);
+      }
+      return res.status(400).json({
+        error: next >= OWS_RESET_MAX_ATTEMPTS
+          ? 'Código incorrecto en reiteradas ocasiones. Solicitá uno nuevo.'
+          : `Código incorrecto. Te quedan ${OWS_RESET_MAX_ATTEMPTS - next} intentos.`
+      });
+    }
+    const newHash = await bcrypt.hash(password, 10);
+    await pool.query(
+      `UPDATE ows_spaces_users
+          SET pwd_hash = $2, reset_hash = NULL, reset_expires = NULL,
+              reset_attempts = 0, reset_sent_at = NULL,
+              failed_attempts = 0, lock_count = 0, locked_until = NULL
+        WHERE id = $1`,
+      [user.id, newHash]
+    );
+    const fresh = await pool.query('SELECT * FROM ows_spaces_users WHERE id = $1', [user.id]);
+    const token = owsSpacesSignToken(fresh.rows[0]);
+    console.log(`[OWS SPACES] Contraseña de "${user.username}" restablecida correctamente.`);
+    res.json({ success: true, token, user: owsSpacesUserToJson(fresh.rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error restableciendo contraseña:', err);
+    res.status(500).json({ error: 'Error al restablecer la contraseña' });
   }
 });
 
@@ -34212,7 +34629,7 @@ app.post('/ows-spaces/api/spaces', async (req, res) => {
   if (!name) return res.status(400).json({ error: 'El nombre del espacio es obligatorio' });
   try {
     await ensureOwsSpacesTables();
-    const icon = String(req.body?.icon || '🚀').trim().slice(0, 8) || '🚀';
+    const icon = owsSpacesIcon(req.body?.icon, '🚀');
     const description = String(req.body?.description || '').trim().slice(0, 500);
     const ownerName = String(req.body?.ownerName || req.owsSpacesUser.display_name || req.owsSpacesUser.username).trim().slice(0, 80);
 
@@ -34264,7 +34681,7 @@ app.patch('/ows-spaces/api/spaces/:id', async (req, res) => {
     const cur = rows[0];
     const name = String(req.body?.name ?? cur.name).trim();
     if (!name) return res.status(400).json({ error: 'El nombre no puede quedar vacío' });
-    const icon = String(req.body?.icon ?? cur.icon).trim().slice(0, 8) || cur.icon;
+    const icon = owsSpacesIcon(req.body?.icon ?? cur.icon, cur.icon);
     const description = String(req.body?.description ?? cur.description).trim().slice(0, 500);
     const ownerName = String(req.body?.ownerName ?? cur.owner_name).trim().slice(0, 80);
     const updated = await pool.query(
@@ -34480,7 +34897,7 @@ app.post('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
   try {
     await ensureOwsSpacesTables();
     const chatType = String(req.body?.chatType || 'public').toLowerCase() === 'team' ? 'team' : 'public';
-    const icon = String(req.body?.icon || '💬').trim().slice(0, 8) || '💬';
+    const icon = owsSpacesIcon(req.body?.icon, '💬');
     const roles = chatType === 'team' && Array.isArray(req.body?.roles)
       ? [...new Set(req.body.roles.map(owsSpacesNormalizeRole).filter(Boolean))]
       : [];
@@ -34511,7 +34928,7 @@ app.patch('/ows-spaces/api/chats/:chatId', async (req, res) => {
     const name = String(req.body?.name ?? cur.name).trim();
     if (!name) return res.status(400).json({ error: 'El nombre no puede quedar vacío' });
     const chatType = String(req.body?.chatType ?? cur.chat_type).toLowerCase() === 'team' ? 'team' : 'public';
-    const icon = String(req.body?.icon ?? cur.icon).trim().slice(0, 8) || cur.icon;
+    const icon = owsSpacesIcon(req.body?.icon ?? cur.icon, cur.icon);
     const roles = chatType === 'team' && Array.isArray(req.body?.roles)
       ? [...new Set(req.body.roles.map(owsSpacesNormalizeRole).filter(Boolean))]
       : [];
@@ -34622,6 +35039,547 @@ app.post('/ows-spaces/api/demo/reset', async (req, res) => {
   } catch (err) {
     console.error('[OWS SPACES] Error al vaciar:', err);
     res.status(500).json({ error: 'Error al vaciar todo' });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OWS SPACES — STATUS PAGE
+// Una status page por espacio: grupos de servicios con sus propios estados.
+//  - Estados personalizados (el dueño crea los que necesite, con color/severidad).
+//  - Visibilidad: 'public' (todos los miembros) o 'team' (solo equipo).
+//  - Edición: el dueño siempre; además quien tenga permiso por rol o por persona.
+// ═════════════════════════════════════════════════════════════════════════════
+
+function owsSpacesStatusToJson(p) {
+  return {
+    id: p.id,
+    spaceId: Number(p.space_id),
+    enabled: !!p.enabled,
+    visibility: String(p.visibility || 'team'),
+    title: p.title || 'Status',
+    description: p.description || '',
+    updatedAt: p.updated_at
+  };
+}
+function owsSpacesStatusDefToJson(d) {
+  return {
+    id: d.id,
+    label: d.label,
+    color: d.color || '#22c55e',
+    icon: d.icon || '',
+    severity: Number(d.severity || 0)
+  };
+}
+function owsSpacesStatusGroupToJson(g) {
+  return { id: g.id, name: g.name, position: Number(g.position || 0) };
+}
+function owsSpacesStatusItemToJson(i) {
+  return {
+    id: i.id,
+    name: i.name,
+    statusDefId: i.status_def_id ? Number(i.status_def_id) : null,
+    note: i.note || '',
+    position: Number(i.position || 0),
+    updatedAt: i.updated_at
+  };
+}
+function owsSpacesStatusPermToJson(p) {
+  return { id: p.id, role: p.role || null, userId: p.user_id ? Number(p.user_id) : null };
+}
+
+async function owsSpacesGetStatusPage(spaceId) {
+  const { rows } = await pool.query('SELECT * FROM ows_space_status_pages WHERE space_id = $1', [spaceId]);
+  return rows[0] || null;
+}
+async function owsSpacesPageIdOfSpace(spaceId) {
+  const { rows } = await pool.query('SELECT id FROM ows_space_status_pages WHERE space_id = $1', [spaceId]);
+  return rows.length ? Number(rows[0].id) : null;
+}
+async function owsSpacesPageIdOfGroup(groupId) {
+  const { rows } = await pool.query('SELECT page_id FROM ows_space_status_groups WHERE id = $1', [groupId]);
+  return rows.length ? Number(rows[0].page_id) : null;
+}
+async function owsSpacesPageIdOfItem(itemId) {
+  const { rows } = await pool.query(
+    'SELECT g.page_id FROM ows_space_status_items i JOIN ows_space_status_groups g ON g.id = i.group_id WHERE i.id = $1',
+    [itemId]
+  );
+  return rows.length ? Number(rows[0].page_id) : null;
+}
+async function owsSpacesPageIdOfDef(defId) {
+  const { rows } = await pool.query('SELECT page_id FROM ows_space_status_defs WHERE id = $1', [defId]);
+  return rows.length ? Number(rows[0].page_id) : null;
+}
+async function owsSpacesPageIdOfPerm(permId) {
+  const { rows } = await pool.query('SELECT page_id FROM ows_space_status_perms WHERE id = $1', [permId]);
+  return rows.length ? Number(rows[0].page_id) : null;
+}
+
+// ¿Puede editar? El dueño siempre; además quien tenga permiso por rol o por persona.
+async function owsSpacesCanEditStatusPage(pageId, member) {
+  if (!member || member.role === 'owner') return true;
+  const { rows } = await pool.query(
+    `SELECT 1 FROM ows_space_status_perms
+      WHERE page_id = $1 AND (role = $2 OR user_id = $3) LIMIT 1`,
+    [pageId, member.role, member.user_id]
+  );
+  return rows.length > 0;
+}
+
+// Exige ser miembro del espacio Y editor de la status page (devuelve spaceId o null).
+async function requireOwsSpacesStatusEditor(req, res, pageId) {
+  const spaceId = await owsSpacesPageIdOfSpace(pageId);
+  if (!spaceId) { res.status(404).json({ error: 'Status page no encontrada' }); return null; }
+  if (!(await requireOwsSpacesMember(req, res, spaceId))) return null;
+  if (!(await owsSpacesCanEditStatusPage(pageId, req.owsSpacesMember))) {
+    res.status(403).json({ error: 'No tenés permiso para editar esta status page' });
+    return null;
+  }
+  return spaceId;
+}
+
+// Exige ser el DUEÑO del espacio al que pertenece la status page.
+async function requireOwsSpacesStatusOwner(req, res, pageId) {
+  const spaceId = await owsSpacesPageIdOfSpace(pageId);
+  if (!spaceId) { res.status(404).json({ error: 'Status page no encontrada' }); return null; }
+  if (!(await requireOwsSpacesOwner(req, res, spaceId))) return null;
+  return spaceId;
+}
+
+// Carga el payload completo: página + estados + grupos (con items) + permisos.
+async function owsSpacesLoadStatusPage(spaceId, member) {
+  const page = await owsSpacesGetStatusPage(spaceId);
+  if (!page) {
+    return { page: null, statuses: [], groups: [], perms: [], canEdit: false, isOwner: member.role === 'owner' };
+  }
+  const [defs, groups, perms] = await Promise.all([
+    pool.query('SELECT * FROM ows_space_status_defs WHERE page_id = $1 ORDER BY position ASC, id ASC', [page.id]),
+    pool.query('SELECT * FROM ows_space_status_groups WHERE page_id = $1 ORDER BY position ASC, id ASC', [page.id]),
+    pool.query('SELECT * FROM ows_space_status_perms WHERE page_id = $1 ORDER BY id ASC', [page.id])
+  ]);
+  const groupRows = groups.rows;
+  const items = groupRows.length
+    ? await pool.query(
+        'SELECT * FROM ows_space_status_items WHERE group_id = ANY($1::int[]) ORDER BY position ASC, id ASC',
+        [groupRows.map((g) => g.id)]
+      )
+    : { rows: [] };
+  const byGroup = {};
+  items.rows.forEach((it) => { (byGroup[it.group_id] = byGroup[it.group_id] || []).push(it); });
+  return {
+    page: owsSpacesStatusToJson(page),
+    statuses: defs.rows.map(owsSpacesStatusDefToJson),
+    groups: groupRows.map((g) => ({
+      ...owsSpacesStatusGroupToJson(g),
+      items: (byGroup[g.id] || []).map(owsSpacesStatusItemToJson)
+    })),
+    perms: perms.rows.map(owsSpacesStatusPermToJson),
+    canEdit: await owsSpacesCanEditStatusPage(page.id, member),
+    isOwner: member.role === 'owner'
+  };
+}
+
+function owsSpacesStatusColor(raw) {
+  return /^#[0-9a-fA-F]{3,8}$/.test(String(raw || '')) ? String(raw).slice(0, 9) : '#22c55e';
+}
+
+// GET — estado completo de la status page del espacio
+app.get('/ows-spaces/api/spaces/:id/status', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesMember(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const page = await owsSpacesGetStatusPage(id);
+    if (!page) {
+      return res.json({ page: null, statuses: [], groups: [], perms: [], canEdit: false, isOwner: req.owsSpacesMember.role === 'owner' });
+    }
+    if (String(page.visibility) === 'team' && !owsSpacesIsTeamRole(req.owsSpacesMember.role)) {
+      return res.status(403).json({ error: 'La status page es solo para el equipo de este espacio' });
+    }
+    res.json(await owsSpacesLoadStatusPage(id, req.owsSpacesMember));
+  } catch (err) {
+    console.error('[OWS SPACES] Error leyendo status page:', err);
+    res.status(500).json({ error: 'Error al leer la status page' });
+  }
+});
+
+// POST — crear la status page (solo el dueño). Siembra estados por defecto y un grupo inicial.
+app.post('/ows-spaces/api/spaces/:id/status', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    if (await owsSpacesGetStatusPage(id)) {
+      return res.status(400).json({ error: 'Este espacio ya tiene una status page' });
+    }
+    const title = String(req.body?.title || 'Status').trim().slice(0, 60) || 'Status';
+    const description = String(req.body?.description || '').trim().slice(0, 300);
+    const visibility = String(req.body?.visibility || 'team') === 'public' ? 'public' : 'team';
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `INSERT INTO ows_space_status_pages (space_id, enabled, visibility, title, description)
+         VALUES ($1, TRUE, $2, $3, $4) RETURNING *`,
+        [id, visibility, title, description]
+      );
+      const pageId = rows[0].id;
+      const defaults = [
+        ['Operacional', '#22c55e', '✓', 0],
+        ['Mantenimiento', '#3b82f6', '🛠', 1],
+        ['Degradado', '#f59e0b', '⚠', 2],
+        ['Caído', '#ef4444', '✕', 3]
+      ];
+      for (let i = 0; i < defaults.length; i++) {
+        await client.query(
+          `INSERT INTO ows_space_status_defs (page_id, label, color, icon, severity, position)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [pageId, defaults[i][0], defaults[i][1], defaults[i][2], defaults[i][3], i]
+        );
+      }
+      await client.query(
+        `INSERT INTO ows_space_status_groups (page_id, name, position) VALUES ($1, $2, 0)`,
+        [pageId, 'Servicios principales']
+      );
+      await client.query('COMMIT');
+      res.json(await owsSpacesLoadStatusPage(id, req.owsSpacesMember));
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando status page:', err);
+    res.status(500).json({ error: 'Error al crear la status page' });
+  }
+});
+
+// PATCH — actualizar configuración (título, descripción, visibilidad, activo)
+app.patch('/ows-spaces/api/spaces/:id/status', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfSpace(id);
+    if (!pageId) return res.status(404).json({ error: 'Este espacio no tiene status page' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const page = await owsSpacesGetStatusPage(id);
+    const title = String(req.body?.title ?? page.title).trim().slice(0, 60) || 'Status';
+    const description = String(req.body?.description ?? page.description).trim().slice(0, 300);
+    const visibility = req.body?.visibility === undefined ? String(page.visibility) : (String(req.body.visibility) === 'public' ? 'public' : 'team');
+    const enabled = req.body?.enabled === undefined ? !!page.enabled : !!req.body.enabled;
+    await pool.query(
+      `UPDATE ows_space_status_pages SET title = $2, description = $3, visibility = $4, enabled = $5, updated_at = NOW() WHERE id = $1`,
+      [pageId, title, description, visibility, enabled]
+    );
+    res.json(await owsSpacesLoadStatusPage(id, req.owsSpacesMember));
+  } catch (err) {
+    console.error('[OWS SPACES] Error actualizando status page:', err);
+    res.status(500).json({ error: 'Error al actualizar la status page' });
+  }
+});
+
+// ── Grupos de servicios ──────────────────────────────────────────────────────
+app.post('/ows-spaces/api/status-pages/:pageId/groups', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre del grupo es obligatorio' });
+  if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_groups (page_id, name, position)
+       VALUES ($1, $2, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_groups WHERE page_id = $1))
+       RETURNING *`,
+      [pageId, name.slice(0, 80)]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, group: owsSpacesStatusGroupToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando grupo:', err);
+    res.status(500).json({ error: 'Error al crear el grupo' });
+  }
+});
+
+app.patch('/ows-spaces/api/status-pages/groups/:groupId', async (req, res) => {
+  const groupId = Number(req.params.groupId);
+  if (!Number.isInteger(groupId) || groupId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfGroup(groupId);
+    if (!pageId) return res.status(404).json({ error: 'Grupo no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const { rows: cur } = await pool.query('SELECT * FROM ows_space_status_groups WHERE id = $1', [groupId]);
+    const name = String(req.body?.name ?? cur[0].name).trim().slice(0, 80) || cur[0].name;
+    const position = Number.isInteger(Number(req.body?.position)) ? Number(req.body.position) : Number(cur[0].position || 0);
+    await pool.query(
+      'UPDATE ows_space_status_groups SET name = $2, position = $3 WHERE id = $1',
+      [groupId, name, position]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando grupo:', err);
+    res.status(500).json({ error: 'Error al editar el grupo' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/groups/:groupId', async (req, res) => {
+  const groupId = Number(req.params.groupId);
+  if (!Number.isInteger(groupId) || groupId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfGroup(groupId);
+    if (!pageId) return res.status(404).json({ error: 'Grupo no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    await pool.query('DELETE FROM ows_space_status_groups WHERE id = $1', [groupId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: groupId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando grupo:', err);
+    res.status(500).json({ error: 'Error al eliminar el grupo' });
+  }
+});
+
+// ── Servicios (items) ────────────────────────────────────────────────────────
+app.post('/ows-spaces/api/status-pages/groups/:groupId/items', async (req, res) => {
+  const groupId = Number(req.params.groupId);
+  if (!Number.isInteger(groupId) || groupId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre del servicio es obligatorio' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfGroup(groupId);
+    if (!pageId) return res.status(404).json({ error: 'Grupo no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const statusDefId = Number(req.body?.statusDefId) > 0 ? Number(req.body.statusDefId) : null;
+    if (statusDefId) {
+      const d = await pool.query('SELECT 1 FROM ows_space_status_defs WHERE id = $1 AND page_id = $2', [statusDefId, pageId]);
+      if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const note = String(req.body?.note || '').trim().slice(0, 300);
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_items (group_id, name, status_def_id, note, position)
+       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_items WHERE group_id = $1))
+       RETURNING *`,
+      [groupId, name.slice(0, 80), statusDefId, note]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, item: owsSpacesStatusItemToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando servicio:', err);
+    res.status(500).json({ error: 'Error al crear el servicio' });
+  }
+});
+
+app.patch('/ows-spaces/api/status-pages/items/:itemId', async (req, res) => {
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfItem(itemId);
+    if (!pageId) return res.status(404).json({ error: 'Servicio no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const { rows: cur } = await pool.query('SELECT * FROM ows_space_status_items WHERE id = $1', [itemId]);
+    const name = String(req.body?.name ?? cur[0].name).trim().slice(0, 80) || cur[0].name;
+    let statusDefId = req.body?.statusDefId !== undefined ? (Number(req.body.statusDefId) > 0 ? Number(req.body.statusDefId) : null) : (cur[0].status_def_id ? Number(cur[0].status_def_id) : null);
+    if (statusDefId) {
+      const d = await pool.query('SELECT 1 FROM ows_space_status_defs WHERE id = $1 AND page_id = $2', [statusDefId, pageId]);
+      if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const note = String(req.body?.note ?? cur[0].note).trim().slice(0, 300);
+    const position = Number.isInteger(Number(req.body?.position)) ? Number(req.body.position) : Number(cur[0].position || 0);
+    await pool.query(
+      'UPDATE ows_space_status_items SET name = $2, status_def_id = $3, note = $4, position = $5, updated_at = NOW() WHERE id = $1',
+      [itemId, name, statusDefId, note, position]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando servicio:', err);
+    res.status(500).json({ error: 'Error al editar el servicio' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/items/:itemId', async (req, res) => {
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfItem(itemId);
+    if (!pageId) return res.status(404).json({ error: 'Servicio no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    await pool.query('DELETE FROM ows_space_status_items WHERE id = $1', [itemId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: itemId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando servicio:', err);
+    res.status(500).json({ error: 'Error al eliminar el servicio' });
+  }
+});
+
+// ── Estados personalizados (defs) ────────────────────────────────────────────
+app.post('/ows-spaces/api/status-pages/:pageId/statuses', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const label = String(req.body?.label || '').trim();
+  if (!label) return res.status(400).json({ error: 'El nombre del estado es obligatorio' });
+  if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const color = owsSpacesStatusColor(req.body?.color);
+    const icon = String(req.body?.icon || '').trim().slice(0, 8);
+    const severity = Math.max(0, Math.min(9, Number(req.body?.severity) || 0));
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_defs (page_id, label, color, icon, severity, position)
+       VALUES ($1, $2, $3, $4, $5, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_defs WHERE page_id = $1))
+       RETURNING *`,
+      [pageId, label.slice(0, 40), color, icon, severity]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, status: owsSpacesStatusDefToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando estado:', err);
+    res.status(500).json({ error: 'Error al crear el estado' });
+  }
+});
+
+app.patch('/ows-spaces/api/status-pages/statuses/:defId', async (req, res) => {
+  const defId = Number(req.params.defId);
+  if (!Number.isInteger(defId) || defId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfDef(defId);
+    if (!pageId) return res.status(404).json({ error: 'Estado no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const { rows: cur } = await pool.query('SELECT * FROM ows_space_status_defs WHERE id = $1', [defId]);
+    const label = String(req.body?.label ?? cur[0].label).trim().slice(0, 40) || cur[0].label;
+    const color = owsSpacesStatusColor(req.body?.color ?? cur[0].color);
+    const icon = String(req.body?.icon ?? cur[0].icon).trim().slice(0, 8);
+    const severity = Math.max(0, Math.min(9, Number(req.body?.severity ?? cur[0].severity) || 0));
+    await pool.query(
+      'UPDATE ows_space_status_defs SET label = $2, color = $3, icon = $4, severity = $5 WHERE id = $1',
+      [defId, label, color, icon, severity]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando estado:', err);
+    res.status(500).json({ error: 'Error al editar el estado' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/statuses/:defId', async (req, res) => {
+  const defId = Number(req.params.defId);
+  if (!Number.isInteger(defId) || defId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfDef(defId);
+    if (!pageId) return res.status(404).json({ error: 'Estado no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    await pool.query('UPDATE ows_space_status_items SET status_def_id = NULL WHERE status_def_id = $1', [defId]);
+    await pool.query('DELETE FROM ows_space_status_defs WHERE id = $1', [defId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: defId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando estado:', err);
+    res.status(500).json({ error: 'Error al eliminar el estado' });
+  }
+});
+
+// ── Permisos de edición (solo el dueño) ──────────────────────────────────────
+app.get('/ows-spaces/api/status-pages/:pageId/permissions', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesStatusOwner(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const spaceId = await owsSpacesPageIdOfSpace(pageId);
+    const [perms, members] = await Promise.all([
+      pool.query('SELECT * FROM ows_space_status_perms WHERE page_id = $1 ORDER BY id ASC', [pageId]),
+      pool.query(
+        `SELECT m.user_id, m.role, u.username, u.display_name
+           FROM ows_space_members m
+           JOIN ows_spaces_users u ON u.id = m.user_id
+          WHERE m.space_id = $1 AND m.status = 'member'
+          ORDER BY u.display_name ASC, u.username ASC`,
+        [spaceId]
+      )
+    ]);
+    res.json({
+      perms: perms.rows.map(owsSpacesStatusPermToJson),
+      members: members.rows.map((m) => ({
+        id: Number(m.user_id),
+        username: m.username,
+        displayName: m.display_name || m.username,
+        role: m.role
+      }))
+    });
+  } catch (err) {
+    console.error('[OWS SPACES] Error leyendo permisos:', err);
+    res.status(500).json({ error: 'Error al leer los permisos' });
+  }
+});
+
+app.post('/ows-spaces/api/status-pages/:pageId/permissions', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesStatusOwner(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const spaceId = await owsSpacesPageIdOfSpace(pageId);
+    const role = String(req.body?.role || '').toLowerCase().trim();
+    const userId = Number(req.body?.userId) > 0 ? Number(req.body.userId) : null;
+    if (!role && !userId) return res.status(400).json({ error: 'Elegí un rol o una persona' });
+    if (role) {
+      if (role === 'owner' || !OWS_SPACES_ALL_ROLES.includes(role)) {
+        return res.status(400).json({ error: 'Rol inválido' });
+      }
+      const exists = await pool.query('SELECT 1 FROM ows_space_status_perms WHERE page_id = $1 AND role = $2', [pageId, role]);
+      if (exists.rows.length) return res.status(400).json({ error: 'Ese rol ya tiene permiso' });
+      const { rows } = await pool.query(
+        `INSERT INTO ows_space_status_perms (page_id, role) VALUES ($1, $2) RETURNING *`,
+        [pageId, role]
+      );
+      await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+      return res.json({ success: true, perm: owsSpacesStatusPermToJson(rows[0]) });
+    }
+    const member = await owsSpacesGetMembership(userId, spaceId);
+    if (!member || member.status !== 'member') {
+      return res.status(400).json({ error: 'Esa persona no es miembro del espacio' });
+    }
+    const exists = await pool.query('SELECT 1 FROM ows_space_status_perms WHERE page_id = $1 AND user_id = $2', [pageId, userId]);
+    if (exists.rows.length) return res.status(400).json({ error: 'Esa persona ya tiene permiso' });
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_perms (page_id, user_id) VALUES ($1, $2) RETURNING *`,
+      [pageId, userId]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, perm: owsSpacesStatusPermToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error agregando permiso:', err);
+    res.status(500).json({ error: 'Error al agregar el permiso' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/permissions/:permId', async (req, res) => {
+  const permId = Number(req.params.permId);
+  if (!Number.isInteger(permId) || permId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfPerm(permId);
+    if (!pageId) return res.status(404).json({ error: 'Permiso no encontrado' });
+    if (!(await requireOwsSpacesStatusOwner(req, res, pageId))) return;
+    await pool.query('DELETE FROM ows_space_status_perms WHERE id = $1', [permId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: permId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error quitando permiso:', err);
+    res.status(500).json({ error: 'Error al quitar el permiso' });
   }
 });
 

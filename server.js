@@ -35095,6 +35095,10 @@ async function owsSpacesPageIdOfSpace(spaceId) {
   const { rows } = await pool.query('SELECT id FROM ows_space_status_pages WHERE space_id = $1', [spaceId]);
   return rows.length ? Number(rows[0].id) : null;
 }
+async function owsSpacesSpaceIdOfPage(pageId) {
+  const { rows } = await pool.query('SELECT space_id FROM ows_space_status_pages WHERE id = $1', [pageId]);
+  return rows.length ? Number(rows[0].space_id) : null;
+}
 async function owsSpacesPageIdOfGroup(groupId) {
   const { rows } = await pool.query('SELECT page_id FROM ows_space_status_groups WHERE id = $1', [groupId]);
   return rows.length ? Number(rows[0].page_id) : null;
@@ -35128,7 +35132,7 @@ async function owsSpacesCanEditStatusPage(pageId, member) {
 
 // Exige ser miembro del espacio Y editor de la status page (devuelve spaceId o null).
 async function requireOwsSpacesStatusEditor(req, res, pageId) {
-  const spaceId = await owsSpacesPageIdOfSpace(pageId);
+  const spaceId = await owsSpacesSpaceIdOfPage(pageId);
   if (!spaceId) { res.status(404).json({ error: 'Status page no encontrada' }); return null; }
   if (!(await requireOwsSpacesMember(req, res, spaceId))) return null;
   if (!(await owsSpacesCanEditStatusPage(pageId, req.owsSpacesMember))) {
@@ -35140,7 +35144,7 @@ async function requireOwsSpacesStatusEditor(req, res, pageId) {
 
 // Exige ser el DUEÑO del espacio al que pertenece la status page.
 async function requireOwsSpacesStatusOwner(req, res, pageId) {
-  const spaceId = await owsSpacesPageIdOfSpace(pageId);
+  const spaceId = await owsSpacesSpaceIdOfPage(pageId);
   if (!spaceId) { res.status(404).json({ error: 'Status page no encontrada' }); return null; }
   if (!(await requireOwsSpacesOwner(req, res, spaceId))) return null;
   return spaceId;
@@ -35498,7 +35502,7 @@ app.get('/ows-spaces/api/status-pages/:pageId/permissions', async (req, res) => 
   if (!(await requireOwsSpacesStatusOwner(req, res, pageId))) return;
   try {
     await ensureOwsSpacesTables();
-    const spaceId = await owsSpacesPageIdOfSpace(pageId);
+    const spaceId = await owsSpacesSpaceIdOfPage(pageId);
     const [perms, members] = await Promise.all([
       pool.query('SELECT * FROM ows_space_status_perms WHERE page_id = $1 ORDER BY id ASC', [pageId]),
       pool.query(
@@ -35531,7 +35535,7 @@ app.post('/ows-spaces/api/status-pages/:pageId/permissions', async (req, res) =>
   if (!(await requireOwsSpacesStatusOwner(req, res, pageId))) return;
   try {
     await ensureOwsSpacesTables();
-    const spaceId = await owsSpacesPageIdOfSpace(pageId);
+    const spaceId = await owsSpacesSpaceIdOfPage(pageId);
     const role = String(req.body?.role || '').toLowerCase().trim();
     const userId = Number(req.body?.userId) > 0 ? Number(req.body.userId) : null;
     if (!role && !userId) return res.status(400).json({ error: 'Elegí un rol o una persona' });

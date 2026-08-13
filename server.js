@@ -33959,6 +33959,74 @@ async function ensureOwsSpacesTables() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_ows_space_status_perms_user
       ON ows_space_status_perms(page_id, user_id) WHERE user_id IS NOT NULL
   `);
+  // ── Estado de cada servicio: cuándo entró al estado actual ──────────────
+  // state_since se setea cada vez que cambia status_def_id; sirve para
+  // detectar servicios que llevan demasiado tiempo en un estado (stuck).
+  await pool.query(`ALTER TABLE ows_space_status_items ADD COLUMN IF NOT EXISTS state_since TIMESTAMPTZ`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_space_status_pages ADD COLUMN IF NOT EXISTS stuck_hours NUMERIC NOT NULL DEFAULT 6`).catch(() => {});
+
+  // ── Notas de por qué un servicio está en su estado actual ────────────────
+  // Los editores pueden explicar el motivo; se muestran en el dropdown del
+  // header de la status page (historial por servicio).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_updates (
+      id SERIAL PRIMARY KEY,
+      item_id INTEGER NOT NULL REFERENCES ows_space_status_items(id) ON DELETE CASCADE,
+      message TEXT NOT NULL,
+      created_by INTEGER REFERENCES ows_spaces_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_space_status_updates:', e.message));
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_updates_item
+      ON ows_space_status_updates(item_id, created_at DESC)
+  `).catch(() => {});
+
+  // ── Banner de estado estancado (servicio demasiado tiempo en un estado) ──
+  // Lo crean los editores; se muestra a todos una sola vez (dismiss por user).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_banners (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      item_id INTEGER REFERENCES ows_space_status_items(id) ON DELETE SET NULL,
+      message TEXT NOT NULL,
+      created_by INTEGER REFERENCES ows_spaces_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_space_status_banners:', e.message));
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_banner_dismissals (
+      id SERIAL PRIMARY KEY,
+      banner_id INTEGER NOT NULL REFERENCES ows_space_status_banners(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES ows_spaces_users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (banner_id, user_id)
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_space_status_banner_dismissals:', e.message));
+
+  // ── Anuncios de la status page ────────────────────────────────────────────
+  // Avísos anticipados: qué servicios van a pasar a qué estado, por cuánto
+  // tiempo. Los crean los editores (acceso completo).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_announcements (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      message TEXT DEFAULT '',
+      status_def_id INTEGER REFERENCES ows_space_status_defs(id) ON DELETE SET NULL,
+      service_ids INTEGER[] DEFAULT '{}',
+      starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ends_at TIMESTAMPTZ,
+      created_by INTEGER REFERENCES ows_spaces_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_space_status_announcements:', e.message));
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_announcements_page
+      ON ows_space_status_announcements(page_id, starts_at DESC)
+  `).catch(() => {});
+
   // ── Tabla de noticias propias de OWS Spaces ──────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ows_spaces_news (
@@ -34967,6 +35035,7 @@ function owsSpacesStatusToJson(p) {
     title: p.title || 'Status',
     description: p.description || '',
     metricLabel: String(p.metric_label || 'Severidad'),
+    stuckHours: Number(p.stuck_hours || 6),
     updatedAt: p.updated_at
   };
 }
@@ -34985,11 +35054,55 @@ function owsSpacesStatusGroupToJson(g) {
 function owsSpacesStatusItemToJson(i) {
   return {
     id: i.id,
+    groupId: i.group_id ? Number(i.group_id) : null,
     name: i.name,
     statusDefId: i.status_def_id ? Number(i.status_def_id) : null,
     note: i.note || '',
     position: Number(i.position || 0),
+    stateSince: i.state_since || null,
     updatedAt: i.updated_at
+  };
+}
+
+function owsSpacesStatusUpdateToJson(u) {
+  return {
+    id: u.id,
+    itemId: Number(u.item_id),
+    message: String(u.message || ''),
+    createdBy: u.created_by ? Number(u.created_by) : null,
+    authorName: u.author_name || u.author_username || '',
+    createdAt: u.created_at
+  };
+}
+
+function owsSpacesStatusBannerToJson(b) {
+  return {
+    id: b.id,
+    pageId: Number(b.page_id),
+    itemId: b.item_id ? Number(b.item_id) : null,
+    itemName: b.item_name || null,
+    groupName: b.group_name || null,
+    stateLabel: b.state_label || null,
+    stateColor: b.state_color || '#f59e0b',
+    message: String(b.message || ''),
+    createdBy: b.created_by ? Number(b.created_by) : null,
+    authorName: b.author_name || '',
+    createdAt: b.created_at
+  };
+}
+
+function owsSpacesStatusAnnToJson(a) {
+  return {
+    id: a.id,
+    pageId: Number(a.page_id),
+    title: String(a.title || ''),
+    message: String(a.message || ''),
+    statusDefId: a.status_def_id ? Number(a.status_def_id) : null,
+    serviceIds: Array.isArray(a.service_ids) ? a.service_ids.map(Number).filter((n) => Number.isInteger(n)) : [],
+    startsAt: a.starts_at || null,
+    endsAt: a.ends_at || null,
+    createdBy: a.created_by ? Number(a.created_by) : null,
+    createdAt: a.created_at
   };
 }
 function owsSpacesStatusPermToJson(p) {
@@ -35079,6 +35192,74 @@ async function owsSpacesLoadStatusPage(spaceId, member) {
     : { rows: [] };
   const byGroup = {};
   items.rows.forEach((it) => { (byGroup[it.group_id] = byGroup[it.group_id] || []).push(it); });
+
+  // Historial de notas por servicio (por qué está en su estado actual).
+  const itemIds = items.rows.map((it) => it.id);
+  let updates = [];
+  if (itemIds.length) {
+    const upd = await pool.query(
+      `SELECT u.*, uu.username AS author_username, COALESCE(uu.display_name, uu.username) AS author_name
+         FROM ows_space_status_updates u
+         LEFT JOIN ows_spaces_users uu ON uu.id = u.created_by
+        WHERE u.item_id = ANY($1::int[])
+        ORDER BY u.created_at DESC LIMIT 200`,
+      [itemIds]
+    );
+    updates = upd.rows;
+  }
+
+  // Anuncios vigentes (incluye los futuros para mostrarlos con anticipación).
+  const anns = await pool.query(
+    `SELECT a.*, COALESCE(d.label, '') AS state_label, d.color AS state_color
+       FROM ows_space_status_announcements a
+       LEFT JOIN ows_space_status_defs d ON d.id = a.status_def_id
+      WHERE a.page_id = $1 AND (a.ends_at IS NULL OR a.ends_at > NOW() - INTERVAL '1 hour')
+      ORDER BY a.starts_at ASC, a.id ASC LIMIT 30`,
+    [page.id]
+  );
+
+  // Servicios estancados: llevan demasiado tiempo en un estado con severidad > 0.
+  const stuckHours = Math.max(0.5, Number(page.stuck_hours || 6));
+  const stuck = items.rows
+    .filter((it) => it.status_def_id && it.state_since)
+    .filter((it) => {
+      const def = defs.rows.find((d) => d.id === it.status_def_id);
+      return def && Number(def.severity || 0) > 0;
+    })
+    .filter((it) => (Date.now() - new Date(it.state_since).getTime()) > stuckHours * 3600 * 1000)
+    .map((it) => ({
+      itemId: Number(it.id),
+      itemName: it.name,
+      groupId: Number(it.group_id),
+      groupName: (groupRows.find((g) => g.id === it.group_id) || {}).name || '',
+      statusDefId: Number(it.status_def_id),
+      stateSince: it.state_since,
+      hours: Math.max(1, Math.round((Date.now() - new Date(it.state_since).getTime()) / 3600000))
+    }));
+
+  // Banner activo de estado estancado, si el usuario todavía no lo descartó.
+  let banner = null;
+  const bannerRow = await pool.query(
+    `SELECT b.*, i.name AS item_name, g.name AS group_name, d.label AS state_label, d.color AS state_color,
+            COALESCE(uu.display_name, uu.username) AS author_name
+       FROM ows_space_status_banners b
+       LEFT JOIN ows_space_status_items i ON i.id = b.item_id
+       LEFT JOIN ows_space_status_groups g ON g.id = i.group_id
+       LEFT JOIN ows_space_status_defs d ON d.id = i.status_def_id
+       LEFT JOIN ows_spaces_users uu ON uu.id = b.created_by
+      WHERE b.page_id = $1 AND b.resolved_at IS NULL
+      ORDER BY b.created_at DESC LIMIT 1`,
+    [page.id]
+  );
+  if (bannerRow.rows.length) {
+    const b = bannerRow.rows[0];
+    const dismissed = await pool.query(
+      'SELECT 1 FROM ows_space_status_banner_dismissals WHERE banner_id = $1 AND user_id = $2 LIMIT 1',
+      [b.id, member.user_id]
+    );
+    if (!dismissed.rows.length) banner = owsSpacesStatusBannerToJson(b);
+  }
+
   return {
     page: owsSpacesStatusToJson(page),
     statuses: defs.rows.map(owsSpacesStatusDefToJson),
@@ -35087,6 +35268,11 @@ async function owsSpacesLoadStatusPage(spaceId, member) {
       items: (byGroup[g.id] || []).map(owsSpacesStatusItemToJson)
     })),
     perms: perms.rows.map(owsSpacesStatusPermToJson),
+    updates: updates.map(owsSpacesStatusUpdateToJson),
+    announcements: anns.rows.map(owsSpacesStatusAnnToJson),
+    stuck: stuck,
+    stuckHours: stuckHours,
+    banner: banner,
     canEdit: await owsSpacesCanEditStatusPage(page.id, member),
     isOwner: member.role === 'owner'
   };
@@ -35186,9 +35372,10 @@ app.patch('/ows-spaces/api/spaces/:id/status', async (req, res) => {
     const visibility = req.body?.visibility === undefined ? String(page.visibility) : (String(req.body.visibility) === 'public' ? 'public' : 'team');
     const enabled = req.body?.enabled === undefined ? !!page.enabled : !!req.body.enabled;
     const metricLabel = req.body?.metricLabel === undefined ? String(page.metric_label || 'Severidad') : (String(req.body.metricLabel).trim().slice(0, 30) || 'Severidad');
+    const stuckHours = req.body?.stuckHours === undefined ? Number(page.stuck_hours || 6) : (Math.max(0.5, Number(req.body.stuckHours)) || 6);
     await pool.query(
-      `UPDATE ows_space_status_pages SET title = $2, description = $3, visibility = $4, enabled = $5, metric_label = $6, updated_at = NOW() WHERE id = $1`,
-      [pageId, title, description, visibility, enabled, metricLabel]
+      `UPDATE ows_space_status_pages SET title = $2, description = $3, visibility = $4, enabled = $5, metric_label = $6, stuck_hours = $7, updated_at = NOW() WHERE id = $1`,
+      [pageId, title, description, visibility, enabled, metricLabel, stuckHours]
     );
     res.json(await owsSpacesLoadStatusPage(id, req.owsSpacesMember));
   } catch (err) {
@@ -35278,10 +35465,10 @@ app.post('/ows-spaces/api/status-pages/groups/:groupId/items', async (req, res) 
     }
     const note = String(req.body?.note || '').trim().slice(0, 300);
     const { rows } = await pool.query(
-      `INSERT INTO ows_space_status_items (group_id, name, status_def_id, note, position)
-       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_items WHERE group_id = $1))
+      `INSERT INTO ows_space_status_items (group_id, name, status_def_id, note, position, state_since)
+       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_items WHERE group_id = $1), $5)
        RETURNING *`,
-      [groupId, name.slice(0, 80), statusDefId, note]
+      [groupId, name.slice(0, 80), statusDefId, note, statusDefId ? new Date() : null]
     );
     await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
     res.json({ success: true, item: owsSpacesStatusItemToJson(rows[0]) });
@@ -35307,11 +35494,53 @@ app.patch('/ows-spaces/api/status-pages/items/:itemId', async (req, res) => {
       if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
     }
     const note = String(req.body?.note ?? cur[0].note).trim().slice(0, 300);
-    const position = Number.isInteger(Number(req.body?.position)) ? Number(req.body.position) : Number(cur[0].position || 0);
-    await pool.query(
-      'UPDATE ows_space_status_items SET name = $2, status_def_id = $3, note = $4, position = $5, updated_at = NOW() WHERE id = $1',
-      [itemId, name, statusDefId, note, position]
-    );
+    // Mover a otro grupo (drag & drop): position indica dónde insertar.
+    let targetGroupId = Number(cur[0].group_id);
+    let position = Number(cur[0].position || 0);
+    if (req.body?.groupId !== undefined) {
+      const gid = Number(req.body.groupId);
+      if (!Number.isInteger(gid) || gid <= 0) return res.status(400).json({ error: 'Grupo inválido' });
+      const gPage = await owsSpacesPageIdOfGroup(gid);
+      if (gPage !== pageId) return res.status(400).json({ error: 'El grupo no pertenece a esta status page' });
+      targetGroupId = gid;
+    }
+    position = Number.isInteger(Number(req.body?.position)) ? Number(req.body.position) : position;
+    // state_since: se reinicia SOLO si cambia el estado; si solo cambia el grupo
+    // o el nombre, se conserva para seguir midiendo cuánto lleva en ese estado.
+    let stateSince = cur[0].state_since;
+    const statusChanged = (statusDefId || null) !== (cur[0].status_def_id ? Number(cur[0].status_def_id) : null);
+    if (statusChanged) stateSince = statusDefId ? new Date() : null;
+
+    // Reordenar el grupo destino en una transacción: se reubica el item y se
+    // renumera la secuencia completa del grupo (soporta mover entre grupos y
+    // reordenar dentro del mismo).
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE ows_space_status_items
+            SET name = $2, status_def_id = $3, note = $4, group_id = $5, state_since = $6, updated_at = NOW()
+          WHERE id = $1`,
+        [itemId, name, statusDefId, note, targetGroupId, stateSince]
+      );
+      const seq = await client.query(
+        'SELECT id FROM ows_space_status_items WHERE group_id = $1 ORDER BY position ASC, id ASC',
+        [targetGroupId]
+      );
+      let ids = seq.rows.map((r) => Number(r.id));
+      ids = ids.filter((x) => x !== itemId);
+      const idx = Math.max(0, Math.min(position, ids.length));
+      ids.splice(idx, 0, itemId);
+      for (let i = 0; i < ids.length; i++) {
+        await client.query('UPDATE ows_space_status_items SET position = $1 WHERE id = $2', [i, ids[i]]);
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
     await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
     res.json({ success: true });
   } catch (err) {
@@ -35334,6 +35563,173 @@ app.delete('/ows-spaces/api/status-pages/items/:itemId', async (req, res) => {
   } catch (err) {
     console.error('[OWS SPACES] Error eliminando servicio:', err);
     res.status(500).json({ error: 'Error al eliminar el servicio' });
+  }
+});
+
+// ── Notas de estado (por qué un servicio está en su estado actual) ──────────
+// La crean los editores; quedan en el historial que se muestra en el dropdown
+// del header de la status page.
+app.post('/ows-spaces/api/status-pages/items/:itemId/updates', async (req, res) => {
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const message = String(req.body?.message || '').trim();
+  if (!message) return res.status(400).json({ error: 'Escribí el motivo' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfItem(itemId);
+    if (!pageId) return res.status(404).json({ error: 'Servicio no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const { rows } = await pool.query(
+      'INSERT INTO ows_space_status_updates (item_id, message, created_by) VALUES ($1, $2, $3) RETURNING *',
+      [itemId, message.slice(0, 500), req.owsSpacesMember.user_id]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    const u = rows[0];
+    u.author_name = req.owsSpacesUser.display_name || req.owsSpacesUser.username || '';
+    res.json({ success: true, update: owsSpacesStatusUpdateToJson(u) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando nota de estado:', err);
+    res.status(500).json({ error: 'Error al guardar la nota' });
+  }
+});
+
+// ── Banner de estado estancado ───────────────────────────────────────────────
+// Solo editores: explica por qué un servicio lleva demasiado tiempo en un
+// estado. Se muestra a todos una sola vez hasta que lo cierren manualmente.
+app.post('/ows-spaces/api/status-pages/banners', async (req, res) => {
+  const pageId = Number(req.body?.pageId);
+  const itemId = Number(req.body?.itemId);
+  const message = String(req.body?.message || '').trim();
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'Status page inválida' });
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: 'Servicio inválido' });
+  if (!message) return res.status(400).json({ error: 'Escribí el mensaje del banner' });
+  try {
+    await ensureOwsSpacesTables();
+    if (owsSpacesPageIdOfItem(itemId) !== pageId) {
+      return res.status(400).json({ error: 'El servicio no pertenece a esta status page' });
+    }
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    // Cierra los banners previos sin resolver para dejar uno solo activo.
+    await pool.query('UPDATE ows_space_status_banners SET resolved_at = NOW() WHERE page_id = $1 AND resolved_at IS NULL', [pageId]);
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_banners (page_id, item_id, message, created_by)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [pageId, itemId, message.slice(0, 600), req.owsSpacesMember.user_id]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, bannerId: Number(rows[0].id) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando banner:', err);
+    res.status(500).json({ error: 'Error al crear el banner' });
+  }
+});
+
+// Marcar el banner como visto por el usuario actual (se muestra una sola vez).
+app.post('/ows-spaces/api/status-pages/banners/:bannerId/dismiss', async (req, res) => {
+  const bannerId = Number(req.params.bannerId);
+  if (!Number.isInteger(bannerId) || bannerId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesAuth(req, res))) return;
+  try {
+    await ensureOwsSpacesTables();
+    await pool.query(
+      `INSERT INTO ows_space_status_banner_dismissals (banner_id, user_id)
+       VALUES ($1, $2) ON CONFLICT (banner_id, user_id) DO NOTHING`,
+      [bannerId, req.owsSpacesUser.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error descartando banner:', err);
+    res.status(500).json({ error: 'Error al descartar el banner' });
+  }
+});
+
+// ── Anuncios de la status page ───────────────────────────────────────────────
+app.post('/ows-spaces/api/status-pages/:pageId/announcements', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const title = String(req.body?.title || '').trim();
+  if (!title) return res.status(400).json({ error: 'El título del anuncio es obligatorio' });
+  if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const message = String(req.body?.message || '').trim().slice(0, 800);
+    const statusDefId = Number(req.body?.statusDefId) > 0 ? Number(req.body.statusDefId) : null;
+    if (statusDefId) {
+      const d = await pool.query('SELECT 1 FROM ows_space_status_defs WHERE id = $1 AND page_id = $2', [statusDefId, pageId]);
+      if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const serviceIds = Array.isArray(req.body?.serviceIds)
+      ? req.body.serviceIds.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+      : [];
+    const startsAt = req.body?.startsAt ? new Date(req.body.startsAt) : new Date();
+    const endsAt = req.body?.endsAt ? new Date(req.body.endsAt) : null;
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_announcements
+         (page_id, title, message, status_def_id, service_ids, starts_at, ends_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [pageId, title.slice(0, 120), message, statusDefId, serviceIds, startsAt, endsAt, req.owsSpacesMember.user_id]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, announcement: owsSpacesStatusAnnToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando anuncio:', err);
+    res.status(500).json({ error: 'Error al crear el anuncio' });
+  }
+});
+
+app.patch('/ows-spaces/api/status-pages/announcements/:annId', async (req, res) => {
+  const annId = Number(req.params.annId);
+  if (!Number.isInteger(annId) || annId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_space_status_announcements WHERE id = $1', [annId]);
+    if (!rows.length) return res.status(404).json({ error: 'Anuncio no encontrado' });
+    const ann = rows[0];
+    const pageId = Number(ann.page_id);
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const title = String(req.body?.title ?? ann.title).trim().slice(0, 120) || ann.title;
+    const message = String(req.body?.message ?? ann.message).trim().slice(0, 800);
+    let statusDefId = req.body?.statusDefId !== undefined
+      ? (Number(req.body.statusDefId) > 0 ? Number(req.body.statusDefId) : null)
+      : (ann.status_def_id ? Number(ann.status_def_id) : null);
+    if (statusDefId) {
+      const d = await pool.query('SELECT 1 FROM ows_space_status_defs WHERE id = $1 AND page_id = $2', [statusDefId, pageId]);
+      if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const serviceIds = req.body?.serviceIds !== undefined
+      ? req.body.serviceIds.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+      : (Array.isArray(ann.service_ids) ? ann.service_ids.map(Number) : []);
+    const startsAt = req.body?.startsAt ? new Date(req.body.startsAt) : ann.starts_at;
+    const endsAt = req.body?.endsAt ? new Date(req.body.endsAt) : ann.ends_at;
+    await pool.query(
+      `UPDATE ows_space_status_announcements
+          SET title = $2, message = $3, status_def_id = $4, service_ids = $5, starts_at = $6, ends_at = $7
+        WHERE id = $1`,
+      [annId, title, message, statusDefId, serviceIds, startsAt, endsAt]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando anuncio:', err);
+    res.status(500).json({ error: 'Error al editar el anuncio' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/announcements/:annId', async (req, res) => {
+  const annId = Number(req.params.annId);
+  if (!Number.isInteger(annId) || annId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_space_status_announcements WHERE id = $1', [annId]);
+    if (!rows.length) return res.status(404).json({ error: 'Anuncio no encontrado' });
+    const pageId = Number(rows[0].page_id);
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    await pool.query('DELETE FROM ows_space_status_announcements WHERE id = $1', [annId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: annId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando anuncio:', err);
+    res.status(500).json({ error: 'Error al eliminar el anuncio' });
   }
 });
 
@@ -35551,7 +35947,7 @@ app.get('/ows-spaces/api/news', async (_req, res) => {
              author_name, is_active, priority, published_at, created_at, updated_at
       FROM ows_spaces_news
       WHERE is_active = TRUE
-      ORDER BY priority DESC, published_at DESC
+      ORDER BY published_at DESC, id DESC
       LIMIT 50
     `);
     return res.json(rows.map((r) => ({

@@ -877,12 +877,12 @@
   .status-content { display: flex; flex-direction: column; gap: 18px; }
 
   .status-hero {
-    position: relative; overflow: hidden; border-radius: 24px;
+    position: relative; overflow: visible; border-radius: 24px;
     padding: 28px 30px; color: #fff; display: flex; align-items: center; gap: 20px;
     box-shadow: var(--shadow-lg); flex-wrap: wrap;
   }
   .status-hero::after {
-    content: ""; position: absolute; inset: 0;
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
     background: linear-gradient(120deg, rgba(255,255,255,.14), transparent 55%);
     pointer-events: none;
   }
@@ -951,6 +951,140 @@
   .status-add-item:hover { color: var(--accent); background: var(--accent-soft); }
   .status-add-group { border-style: dashed; }
 
+  /* Hero con dropdown: al tocar “Ver detalle” se despliega el resumen por estado */
+  .status-hero-details-btn {
+    position: relative; z-index: 2;
+    border: none; cursor: pointer; font-size: 13px; font-weight: 700;
+    padding: 9px 16px; border-radius: 12px;
+    background: rgba(255,255,255,.22); color: #fff;
+    backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.35);
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .status-hero-details-btn:hover { background: rgba(255,255,255,.32); transform: translateY(-1px); }
+  .status-hero-details-wrap { position: relative; z-index: 30; }
+  .status-hero-details {
+    position: absolute; top: calc(100% + 10px); left: 0; right: 0;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: 18px; box-shadow: var(--shadow-lg); padding: 16px;
+    animation: pop 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+    max-height: min(56vh, 420px); overflow-y: auto;
+  }
+  .status-hero-details h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text-faint); margin: 14px 0 6px; font-weight: 800;
+  }
+  .status-hero-details h4:first-child { margin-top: 0; }
+  .status-hd-state {
+    display: flex; align-items: flex-start; gap: 9px;
+    padding: 8px 10px; border-radius: 11px; margin-bottom: 4px;
+    background: var(--surface-2); border: 1px solid var(--border);
+  }
+  .status-hd-state .hd-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex: none; }
+  .status-hd-state .hd-main { flex: 1; min-width: 0; }
+  .status-hd-state .hd-main strong { font-size: 13px; display: block; }
+  .status-hd-state .hd-main small { font-size: 11.5px; color: var(--text-faint); display: block; margin-top: 1px; }
+  .status-hd-state .hd-count { font-size: 11px; font-weight: 750; color: var(--text-faint); flex: none; padding-top: 2px; }
+  .status-hd-note {
+    display: flex; gap: 7px; align-items: center; margin-top: 5px;
+    background: var(--surface-3); border: 1px dashed var(--border-strong);
+    border-radius: 9px; padding: 7px 9px; font-size: 12px; color: var(--text-soft);
+  }
+  .status-hd-note input {
+    flex: 1; min-width: 0; border: none; background: transparent; color: var(--text);
+    font-size: 12px; outline: none; padding: 3px 0; font-family: inherit;
+  }
+  .status-hd-empty { font-size: 12.5px; color: var(--text-faint); padding: 4px 2px 8px; }
+  .hd-item {
+    margin-top: 7px; padding: 8px 10px; border-radius: 10px;
+    background: var(--surface-3); border: 1px solid var(--border);
+  }
+  .hd-item-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .hd-note-inline { font-size: 11.5px; color: var(--text-soft); margin-top: 4px; }
+  .hd-update {
+    font-size: 11.5px; color: var(--text-soft); margin-top: 5px; line-height: 1.45;
+    background: var(--surface-2); border-radius: 8px; padding: 6px 9px;
+  }
+  .hd-update b { color: var(--accent); }
+  .status-group-empty { margin: 14px 20px; font-size: 12.5px; color: var(--text-faint); }
+
+  /* Drag & drop de servicios entre grupos */
+  .status-item { cursor: grab; }
+  .status-item:active { cursor: grabbing; }
+  .status-item.dragging { opacity: 0.4; }
+  .status-items.drag-target { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 12px; }
+  .status-item.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+  .status-items.drop-empty { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 12px; }
+
+  /* Sección de anuncios de la status page */
+  .status-announce {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    box-shadow: var(--shadow-sm); overflow: hidden;
+  }
+  .status-announce-head {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 15px 20px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--surface-2), transparent);
+  }
+  .status-announce-head h3 { margin: 0; font-size: 15.5px; font-weight: 800; }
+  .status-announce-head .spacer { flex: 1; }
+  .status-announce-list { display: flex; flex-direction: column; }
+  .status-announce-item {
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+  }
+  .status-announce-item:last-child { border-bottom: none; }
+  .status-announce-item .an-title {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-weight: 750; font-size: 14px;
+  }
+  .status-announce-item .an-msg { font-size: 13px; color: var(--text-soft); margin-top: 4px; line-height: 1.5; }
+  .status-announce-item .an-meta {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-size: 11.5px; color: var(--text-faint); margin-top: 8px;
+  }
+  .status-announce-item .an-services { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .status-announce-item .an-service-chip {
+    font-size: 11px; font-weight: 650; padding: 3px 10px; border-radius: 99px;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text-soft);
+  }
+  .status-announce-empty {
+    text-align: center; padding: 22px 18px; font-size: 12.5px; color: var(--text-faint);
+  }
+  .an-future { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 9px; border-radius: 99px; }
+  .an-future.yes { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
+  .an-future.no { background: var(--surface-2); color: var(--text-faint); border: 1px solid var(--border); }
+
+  /* Banner fijo de estado estancado (tapa parte del header principal) */
+  .status-stuck-banner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+    background: linear-gradient(90deg, #b45309, #d97706);
+    color: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.35);
+    padding: 0; animation: slideDown 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+  }
+  @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .status-stuck-banner-inner {
+    max-width: 980px; margin: 0 auto; padding: 13px 22px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .status-stuck-banner .sb-icon {
+    width: 40px; height: 40px; border-radius: 12px; flex: none;
+    display: grid; place-items: center; font-size: 20px;
+    background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3);
+  }
+  .status-stuck-banner .sb-text { flex: 1; min-width: 220px; }
+  .status-stuck-banner .sb-text strong { font-size: 14px; display: block; }
+  .status-stuck-banner .sb-text span { font-size: 12.5px; opacity: .94; display: block; margin-top: 2px; line-height: 1.45; }
+  .status-stuck-banner .sb-close {
+    border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.16); color: #fff;
+    width: 34px; height: 34px; border-radius: 11px; font-size: 13px; cursor: pointer;
+    display: grid; place-items: center; transition: background 0.15s ease; flex: none;
+  }
+  .status-stuck-banner .sb-close:hover { background: rgba(255,255,255,.3); }
+  .status-stuck-chip {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 3px;
+    font-size: 11px; font-weight: 750; padding: 3px 10px; border-radius: 99px;
+    background: rgba(239,68,68,.14); color: #ef4444; border: 1px solid rgba(239,68,68,.32);
+  }
+
   /* Filas y formularios de estados personalizados / permisos */
   .st-def-row {
     display: flex; align-items: center; gap: 10px;
@@ -961,23 +1095,35 @@
   .st-def-row .st-def-info { flex: 1; min-width: 0; }
   .st-def-row .st-def-info strong { display: block; font-size: 13.5px; }
   .st-def-row .st-def-info small { font-size: 11.5px; color: var(--text-faint); }
+  /* Formulario de estados personalizados: cómodo, con campos etiquetados */
   .st-def-form {
-    display: grid; grid-template-columns: 58px 1fr 1fr auto; gap: 8px; align-items: center;
-    background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 13px;
-    padding: 11px; margin-bottom: 10px;
+    background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 15px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .st-def-form .st-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .st-def-form .st-row:last-of-type { margin-bottom: 0; }
+  .st-def-form .st-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .st-def-form .st-cell.grow { flex: 1; min-width: 140px; }
+  .st-def-form .st-cell label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-faint);
   }
   .st-def-form input, .st-def-form select {
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
-    border-radius: 10px; padding: 8px 10px; font-size: 13px; outline: none; width: 100%;
+    border-radius: 11px; padding: 10px 12px; font-size: 13.5px; outline: none; width: 100%;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .st-def-form input[type="color"] { padding: 3px; height: 38px; cursor: pointer; }
-  .st-def-form input:focus, .st-def-form select:focus { border-color: var(--accent); }
+  .st-def-form input[type="color"] { padding: 4px; height: 40px; cursor: pointer; width: 64px; }
+  .st-def-form input:focus, .st-def-form select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .st-def-form .st-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
   .st-def-form textarea {
-    grid-column: 1 / -1; resize: vertical; min-height: 92px;
+    resize: vertical; min-height: 108px;
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
-    border-radius: 10px; padding: 9px 11px; font-size: 13px; line-height: 1.5; outline: none; font-family: inherit;
+    border-radius: 11px; padding: 11px 13px; font-size: 13.5px; line-height: 1.55; outline: none; font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .st-def-form textarea:focus { border-color: var(--accent); }
+  .st-def-form textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .st-def-form .st-sev { min-width: 150px; }
   .pm-role-chip {
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text-soft);
     border-radius: 99px; padding: 8px 14px; font-size: 13px; font-weight: 650;
@@ -1382,9 +1528,9 @@
   [data-theme="light"] .blog-retry-btn { background: #e9ecf4; border: 1px solid #cfd4e2; color: #464d61; }
   .blog-retry-btn:hover { opacity: 0.75; }
 
-  /* ARTICLE CARD */
+  /* ARTICLE CARD — diseño pulido: portada con overlay, fecha+hora, autor */
   .blog-card {
-    border-radius: 14px; overflow: hidden;
+    border-radius: 16px; overflow: hidden;
     /* No dejar que el contenedor flex (blog-panel-body) encoja las tarjetas:
        si se encogen, overflow:hidden corta todo el contenido y solo se ve la
        imagen. Con flex-shrink:0 cada card conserva su altura natural y el
@@ -1402,17 +1548,33 @@
     border: 1px solid #dde0ee;
     box-shadow: 0 2px 8px rgba(50,58,95,0.06);
   }
-  .blog-card:hover { transform: translateY(-2px); }
-  [data-theme="dark"] .blog-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.4); border-color: #3d4778; }
-  [data-theme="light"] .blog-card:hover { box-shadow: 0 8px 28px rgba(50,58,95,0.1); border-color: #b8bee0; }
+  .blog-card:hover { transform: translateY(-3px); }
+  [data-theme="dark"] .blog-card:hover { box-shadow: 0 10px 32px rgba(0,0,0,0.45); border-color: #3d4778; }
+  [data-theme="light"] .blog-card:hover { box-shadow: 0 10px 32px rgba(50,58,95,0.12); border-color: #b8bee0; }
 
-  .blog-card-banner {
-    width: 100%; height: 160px; object-fit: cover; display: block;
+  .blog-card-banner-wrap { position: relative; overflow: hidden; }
+  .blog-card-banner-wrap::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(10,13,26,0.42));
+    pointer-events: none;
   }
+  .blog-card-banner {
+    width: 100%; height: 172px; object-fit: cover; display: block;
+    transition: transform 0.35s ease;
+  }
+  .blog-card:hover .blog-card-banner { transform: scale(1.04); }
   [data-theme="dark"] .blog-card-banner { background: #273052; }
   [data-theme="light"] .blog-card-banner { background: #e9ecf4; }
+  .blog-card-banner-date {
+    position: absolute; left: 14px; bottom: 12px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; color: #fff;
+    background: rgba(10,13,26,0.55); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.22);
+    padding: 4px 11px; border-radius: 99px;
+  }
 
-  .blog-card-body { padding: 16px 18px 18px; }
+  .blog-card-body { padding: 17px 19px 19px; }
 
   .blog-card-tags {
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -1425,16 +1587,16 @@
   [data-theme="dark"] .blog-card-tag { background: rgba(124,128,255,0.18); color: #a0a4ff; border: 1px solid rgba(124,128,255,0.25); }
   [data-theme="light"] .blog-card-tag { background: rgba(106,111,217,0.10); color: #5a60c8; border: 1px solid rgba(106,111,217,0.2); }
   .blog-card-date {
-    font-size: 11px; font-weight: 500;
+    font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;
   }
-  [data-theme="dark"] .blog-card-date { color: #6f7798; }
+  [data-theme="dark"] .blog-card-date { color: #8f97b8; }
   [data-theme="light"] .blog-card-date { color: #9aa1b4; }
 
   .blog-card-title {
-    font-size: 15.5px; font-weight: 800; line-height: 1.35;
+    font-size: 16px; font-weight: 800; line-height: 1.35;
     letter-spacing: -0.02em; margin: 0 0 8px;
   }
-  [data-theme="dark"] .blog-card-title { color: #e9ebf5; }
+  [data-theme="dark"] .blog-card-title { color: #eef0fb; }
   [data-theme="light"] .blog-card-title { color: #1e2340; }
 
   .blog-card-desc {
@@ -1444,16 +1606,15 @@
   [data-theme="light"] .blog-card-desc { color: #5a6070; }
 
   .blog-card-changes {
-    list-style: none; padding: 0; margin: 0;
-    display: flex; flex-direction: column; gap: 5px;
-    padding: 12px 14px;
-    border-radius: 9px;
+    list-style: none; padding: 12px 14px; margin: 0 0 13px;
+    display: flex; flex-direction: column; gap: 6px;
+    border-radius: 10px;
   }
   [data-theme="dark"] .blog-card-changes { background: rgba(255,255,255,0.04); border: 1px solid #2b3456; }
   [data-theme="light"] .blog-card-changes { background: rgba(106,111,217,0.05); border: 1px solid rgba(106,111,217,0.15); }
   .blog-card-changes li {
     font-size: 12.5px; line-height: 1.55;
-    padding-left: 14px; position: relative;
+    padding-left: 15px; position: relative;
   }
   [data-theme="dark"] .blog-card-changes li { color: #a8b0ca; }
   [data-theme="light"] .blog-card-changes li { color: #5a6070; }
@@ -1463,6 +1624,20 @@
   }
   [data-theme="dark"] .blog-card-changes li::before { color: #7c80ff; }
   [data-theme="light"] .blog-card-changes li::before { color: #6a6fd9; }
+
+  .blog-card-author {
+    display: flex; align-items: center; gap: 8px;
+    margin: 0; padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 11.5px; font-weight: 650;
+  }
+  [data-theme="dark"] .blog-card-author { color: #8f97b8; }
+  [data-theme="light"] .blog-card-author { color: #7b829a; }
+  .blog-card-author .ba-avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-size: 13px;
+    background: linear-gradient(135deg, var(--accent-soft), var(--accent-soft-2));
+    border: 1px solid var(--border);
+  }
 
   @media (max-width: 480px) {
     .topbar-blog-btn span.blog-label { display: none; }
@@ -1689,6 +1864,7 @@
 
 <div id="toast-root" class="toast-root"></div>
 <div id="confirm-root"></div>
+<div id="stuck-banner-root"></div>
 
 <script>
 'use strict';
@@ -1919,7 +2095,8 @@ const S = {
   apiBase: '', token: localStorage.getItem('owsSpacesToken') || '',
   user: null, polling: null, lastMsgId: 0,
   status: null,
-  themeMode: localStorage.getItem('owsSpacesThemeMode') || localStorage.getItem('owsSpacesTheme') || 'auto'
+  themeMode: localStorage.getItem('owsSpacesThemeMode') || localStorage.getItem('owsSpacesTheme') || 'auto',
+  heroDetailsOpen: false
 };
 try { S.user = JSON.parse(localStorage.getItem('owsSpacesUser') || 'null'); } catch (_) { S.user = null; }
 
@@ -3012,7 +3189,11 @@ async function openSpace(id) {
       renderRoleBadge();
       renderRoleNote();
       await loadChats();
+      // Pre-carga la status page en silencio para mostrar el banner de estado
+      // estancado apenas se entra al espacio.
+      loadStatusPage().catch(() => {});
     } else {
+      renderStuckBanner();
       $('space-body').classList.add('hidden');
       $('status-view').classList.add('hidden');
       renderApplyScreen();
@@ -3500,6 +3681,10 @@ function renderStatusPage() {
       '<span>🕒 ' + esc(statusFmtTime(page.updatedAt)) + '</span>' +
       '<span>' + (page.visibility === 'public' ? '🌍 Público para todos' : '🔐 Solo equipo') + '</span>' +
     '</div>' +
+    '<div class="status-hero-details-wrap" id="hero-details-wrap">' +
+      '<button type="button" class="status-hero-details-btn" id="hero-details-btn">📊 Ver detalle</button>' +
+      '<div class="status-hero-details hidden" id="hero-details"></div>' +
+    '</div>' +
   '</div>';
 
   if (canEdit) {
@@ -3509,6 +3694,18 @@ function renderStatusPage() {
       (S.status.isOwner ? '<button class="btn btn-soft btn-sm" data-status-perms>👥 Permisos de edición</button>' : '') +
     '</div>';
   }
+
+  // ── Anuncios de la status page ──
+  const anns = S.status.announcements || [];
+  html += '<div class="status-announce">' +
+    '<div class="status-announce-head">' +
+      '<h3>📢 Anuncios</h3>' +
+      (canEdit ? '<span class="spacer"></span><button class="btn btn-soft btn-sm" data-ann-add>➕ Anunciar</button>' : '') +
+    '</div>' +
+    (anns.length
+      ? '<div class="status-announce-list">' + anns.map((a) => statusAnnouncementHtml(a, canEdit)).join('') + '</div>'
+      : '<div class="status-announce-empty">No hay anuncios todavía' + (canEdit ? ' — anunciá con anticipación qué servicios van a cambiar de estado.' : '.') + '</div>')
+  '</div>';
 
   html += '<div class="status-groups">' + S.status.groups.map((g) => {
     const gw = statusGroupWorst(g);
@@ -3524,17 +3721,19 @@ function renderStatusPage() {
           '<button class="mini-btn danger" data-gr-del="' + g.id + '" title="Eliminar grupo">🗑️</button>' +
         '</div>' : '') +
       '</div>' +
-      '<div class="status-items">';
+      '<div class="status-items" data-group-id="' + g.id + '">';
     gh += (g.items || []).map((it) => {
       const d = statusDefById(it.statusDefId);
       const dotColor = d ? d.color : '#8b93a7';
-      return '<button type="button" class="status-item"' + (canEdit ? ' data-it-edit="' + it.id + '"' : '') + '>' +
+      const stuck = (S.status.stuck || []).find((s) => s.itemId === it.id);
+      return '<button type="button" class="status-item"' + (canEdit ? ' draggable="true" data-item-id="' + it.id + '" data-it-edit="' + it.id + '" title="Arrastrá para mover de grupo"' : '') + '>' +
         '<span class="status-item-dot" style="background:' + dotColor + ';box-shadow:0 0 0 3px ' + hexToRgba(dotColor, 0.15) + '"></span>' +
         '<span class="status-item-main"><span class="status-item-name">' + esc(it.name) + '</span>' + (it.note ? '<span class="status-item-note">' + esc(it.note) + '</span>' : '') + '</span>' +
+        (stuck ? '<span class="status-stuck-chip" title="Lleva ' + stuck.hours + ' h en este estado">⏳ ' + stuck.hours + ' h</span>' : '') +
         '<span class="status-item-time">' + esc(statusFmtTime(it.updatedAt)) + '</span>' +
         statusPillHtml(d) +
       '</button>';
-    }).join('') || '<p style="margin:14px 20px;font-size:12.5px;color:var(--text-faint)">Sin servicios en este grupo.</p>';
+    }).join('') || '<p class="status-group-empty">Sin servicios en este grupo.</p>';
     if (canEdit) gh += '<button type="button" class="status-add-item" data-it-add="' + g.id + '">➕ Agregar servicio</button>';
     gh += '</div></div>';
     return gh;
@@ -3548,6 +3747,333 @@ function renderStatusPage() {
   box.querySelectorAll('[data-gr-del]').forEach((b) => b.addEventListener('click', () => deleteStatusGroup(Number(b.dataset.grDel))));
   box.querySelectorAll('[data-it-add]').forEach((b) => b.addEventListener('click', () => openStatusItemModal(null, Number(b.dataset.itAdd))));
   box.querySelectorAll('[data-it-edit]').forEach((b) => b.addEventListener('click', () => openStatusItemModal(Number(b.dataset.itEdit))));
+  box.querySelectorAll('[data-ann-add]').forEach((b) => b.addEventListener('click', () => openAnnouncementModal(null)));
+  box.querySelectorAll('[data-ann-edit]').forEach((b) => b.addEventListener('click', () => openAnnouncementModal(Number(b.dataset.annEdit))));
+  box.querySelectorAll('[data-ann-del]').forEach((b) => b.addEventListener('click', () => deleteAnnouncement(Number(b.dataset.annDel))));
+
+  // Hero: dropdown con el detalle de TODOS los estados (no solo el peor).
+  const btn = box.querySelector('#hero-details-btn');
+  const wrap = box.querySelector('#hero-details-wrap');
+  const details = box.querySelector('#hero-details');
+  const renderDetails = () => { details.innerHTML = statusHeroDetailsHtml(); };
+  const openDetails = () => { renderDetails(); details.classList.remove('hidden'); btn.textContent = '✕ Cerrar detalle'; wireHeroDetails(details); };
+  const closeDetails = () => { details.classList.add('hidden'); btn.textContent = '📊 Ver detalle'; };
+  btn.addEventListener('click', () => {
+    if (details.classList.contains('hidden')) { S.heroDetailsOpen = true; openDetails(); }
+    else { S.heroDetailsOpen = false; closeDetails(); }
+  });
+  document.addEventListener('click', (ev) => {
+    if (!wrap.contains(ev.target) && !details.classList.contains('hidden')) { S.heroDetailsOpen = false; closeDetails(); }
+  });
+  // Si el usuario lo tenía abierto al recargar (p. ej. al guardar una nota), se reabre.
+  if (S.heroDetailsOpen) openDetails();
+
+  setupDragDrop(box);
+  renderStuckBanner();
+}
+
+/* ── Dropdown del hero: info de todos los estados + notas de por qué ── */
+function statusHeroDetailsHtml() {
+  const groups = S.status.groups || [];
+  const updates = S.status.updates || [];
+  const stuck = S.status.stuck || [];
+  const canEdit = !!S.status.canEdit;
+  const defs = (S.status.statuses || []).slice().sort((a, b) => b.severity - a.severity || (a.id - b.id));
+  const itemsFor = (defId) => groups.flatMap((g) => (g.items || []).filter((it) => it.statusDefId === defId));
+
+  let html = '';
+  const hasAny = defs.some((d) => itemsFor(d.id).length);
+  html += '<h4>Estados (' + defs.length + ')</h4>';
+  if (!hasAny) {
+    html += '<p class="status-hd-empty">Ningún servicio tiene estado asignado todavía.</p>';
+  } else {
+    html += defs.map((d) => {
+      const items = itemsFor(d.id);
+      if (!items.length) return '';
+      return '<div class="status-hd-state">' +
+        '<span class="hd-dot" style="background:' + d.color + '"></span>' +
+        '<div class="hd-main"><strong>' + (d.icon ? d.icon + ' ' : '') + esc(d.label) + '</strong>' +
+        '<small>' + esc((S.status.page && S.status.page.metricLabel) || 'Severidad') + ' ' + d.severity + ' · ' + esc(d.color) + '</small></div>' +
+        '<span class="hd-count">' + items.length + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  html += '<h4>Servicios por estado</h4>';
+  const withState = defs.filter((d) => itemsFor(d.id).length);
+  if (!withState.length) {
+    html += '<p class="status-hd-empty">Todavía no hay servicios con estado.</p>';
+  } else {
+    withState.forEach((d) => {
+      const items = itemsFor(d.id);
+      html += '<div class="status-hd-state">' +
+        '<span class="hd-dot" style="background:' + d.color + '"></span>' +
+        '<div class="hd-main">' +
+          '<strong>' + (d.icon ? d.icon + ' ' : '') + esc(d.label) + '</strong>';
+      items.forEach((it) => {
+        const itsUpdates = updates.filter((u) => u.itemId === it.id).slice(0, 3);
+        const itsStuck = stuck.find((s) => s.itemId === it.id);
+        html += '<div class="hd-item">' +
+          '<div class="hd-item-row"><b>' + esc(it.name) + '</b>' +
+          (itsStuck ? '<span class="status-stuck-chip" style="margin-left:6px">⏳ ' + itsStuck.hours + ' h</span>' : '') +
+          '<span style="margin-left:auto;font-size:11px;color:var(--text-faint)">' + esc(statusFmtTime(it.stateSince || it.updatedAt)) + '</span></div>' +
+          (it.note ? '<div class="hd-note-inline">📝 ' + esc(it.note) + '</div>' : '') +
+          itsUpdates.map((u) => '<div class="hd-update"><b>' + esc(u.authorName || 'Equipo') + '</b> · ' + esc(statusFmtTime(u.createdAt)) + '<br>' + esc(u.message) + '</div>').join('') +
+          (canEdit ? '<div class="status-hd-note"><span>✍️</span><input type="text" maxlength="500" placeholder="¿Por qué está en este estado? (lo ven todos)" data-hd-note="' + it.id + '"><button class="mini-btn" data-hd-send="' + it.id + '">➤</button></div>' : '') +
+        '</div>';
+      });
+      html += '</div></div>';
+    });
+  }
+
+  // Servicios estancados: se ofrece crear el banner (solo editores).
+  if (stuck.length) {
+    html += '<h4>⏳ Servicios estancados</h4>';
+    stuck.forEach((s) => {
+      html += '<div class="status-hd-state">' +
+        '<span class="hd-dot" style="background:#f59e0b"></span>' +
+        '<div class="hd-main"><strong>' + esc(s.itemName) + '</strong>' +
+        '<small>' + esc(s.groupName) + ' · lleva ' + s.hours + ' h en este estado</small></div>' +
+        (canEdit ? '<button class="mini-btn" data-stuck-banner="' + s.itemId + '" title="Explicar por qué lleva tanto tiempo">📢 Explicar</button>' : '') +
+      '</div>';
+    });
+  }
+
+  return html;
+}
+
+function wireHeroDetails(details) {
+  details.querySelectorAll('[data-hd-send]').forEach((b) => b.addEventListener('click', async () => {
+    const itemId = Number(b.dataset.hdSend);
+    const input = details.querySelector('[data-hd-note="' + itemId + '"]');
+    const message = input.value.trim();
+    if (!message) { toast('Escribí el motivo', 'err'); return; }
+    b.disabled = true; b.textContent = '⏳';
+    try {
+      await api('/ows-spaces/api/status-pages/items/' + itemId + '/updates', { method: 'POST', body: { message } });
+      toast('Nota guardada ✨');
+      await loadStatusPage();
+      const nb = document.querySelector('#hero-details');
+      if (nb && !nb.classList.contains('hidden')) { nb.innerHTML = statusHeroDetailsHtml(); wireHeroDetails(nb); }
+    } catch (e) {
+      b.disabled = false; b.textContent = '➤';
+      if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err');
+    }
+  }));
+  details.querySelectorAll('[data-stuck-banner]').forEach((b) => b.addEventListener('click', () => openStuckBannerModal(Number(b.dataset.stuckBanner))));
+}
+
+/* ── Anuncios ── */
+function statusAnnouncementHtml(a, canEdit) {
+  const def = statusDefById(a.statusDefId);
+  const now = Date.now();
+  const future = a.startsAt && new Date(a.startsAt).getTime() > now;
+  const svcNames = (a.serviceIds || []).map((id) => {
+    const it = (S.status.groups || []).flatMap((g) => g.items || []).find((x) => x.id === id);
+    return it ? it.name : null;
+  }).filter(Boolean);
+  const st = a.startsAt ? statusFmtTime(a.startsAt) : '—';
+  const en = a.endsAt ? statusFmtTime(a.endsAt) : 'Sin fecha de fin';
+  return '<div class="status-announce-item">' +
+    '<div class="an-title">' +
+      '<span class="an-future ' + (future ? 'yes' : 'no') + '">' + (future ? '⏳ Próximo' : '🟠 En curso') + '</span>' +
+      '<span>' + esc(a.title) + '</span>' +
+      (canEdit ? '<span style="margin-left:auto;display:flex;gap:5px">' +
+        '<button class="mini-btn" data-ann-edit="' + a.id + '" title="Editar">✏️</button>' +
+        '<button class="mini-btn danger" data-ann-del="' + a.id + '" title="Eliminar">🗑️</button>' +
+      '</span>' : '') +
+    '</div>' +
+    (a.message ? '<div class="an-msg">' + esc(a.message) + '</div>' : '') +
+    '<div class="an-meta">' +
+      '<span>🗓️ ' + esc(st) + ' → ' + esc(en) + '</span>' +
+      (def ? statusPillHtml(def) : '') +
+    '</div>' +
+    (svcNames.length ? '<div class="an-services">' + svcNames.map((n) => '<span class="an-service-chip">🔧 ' + esc(n) + '</span>').join('') + '</div>' : '') +
+  '</div>';
+}
+
+function openAnnouncementModal(annId) {
+  const a = annId ? (S.status.announcements || []).find((x) => x.id === annId) : null;
+  const allItems = (S.status.groups || []).flatMap((g) => g.items || []);
+  const defs = (S.status.statuses || []);
+  const toLocal = (iso) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      const p = (n) => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch (_) { return ''; }
+  };
+  openModal(
+    '<h2>📢 ' + (a ? 'Editar anuncio' : 'Nuevo anuncio') + '</h2>' +
+    '<p class="sub">Anunciá con anticipación qué servicios van a cambiar de estado y por cuánto tiempo. Lo ve todo el equipo.</p>' +
+    '<div class="field"><label>Título *</label><input type="text" id="an-title" maxlength="120" placeholder="Ej: Mantenimiento programado de la API" value="' + esc(a ? a.title : '') + '"></div>' +
+    '<div class="field"><label>Mensaje</label><textarea id="an-msg" rows="3" maxlength="800" placeholder="Detalles del anuncio…">' + esc(a ? a.message : '') + '</textarea></div>' +
+    '<div class="field"><label>Estado previsto</label><select id="an-state"><option value="">— Sin estado específico —</option>' +
+      defs.map((d) => '<option value="' + d.id + '"' + (a && a.statusDefId === d.id ? ' selected' : '') + '>' + (d.icon ? d.icon + ' ' : '') + esc(d.label) + '</option>').join('') +
+    '</select></div>' +
+    '<div class="field"><label>Servicios afectados</label><div id="an-services" style="display:flex;flex-direction:column;gap:6px;max-height:170px;overflow-y:auto">' +
+      (allItems.length
+        ? allItems.map((it) => '<label class="check" style="font-size:13px"><input type="checkbox" value="' + it.id + '"' + ((a && (a.serviceIds || []).includes(it.id)) ? ' checked' : '') + '> ' + esc(it.name) + '</label>').join('')
+        : '<p style="font-size:12.5px;color:var(--text-faint)">Todavía no hay servicios en esta status page.</p>') +
+    '</div></div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+      '<div class="field" style="flex:1;min-width:150px"><label>Comienza</label><input type="datetime-local" id="an-start" value="' + toLocal(a ? a.startsAt : null) + '"></div>' +
+      '<div class="field" style="flex:1;min-width:150px"><label>Termina (opcional)</label><input type="datetime-local" id="an-end" value="' + toLocal(a ? a.endsAt : null) + '"></div>' +
+    '</div>' +
+    '<div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="an-save">' + (a ? 'Guardar' : 'Crear anuncio') + '</button></div>',
+    (body) => {
+      body.querySelector('#an-save').addEventListener('click', async () => {
+        const title = body.querySelector('#an-title').value.trim();
+        if (!title) { toast('El título es obligatorio', 'err'); return; }
+        const serviceIds = [...body.querySelectorAll('#an-services input:checked')].map((c) => Number(c.value));
+        const startsAt = body.querySelector('#an-start').value ? new Date(body.querySelector('#an-start').value).toISOString() : null;
+        const endsAt = body.querySelector('#an-end').value ? new Date(body.querySelector('#an-end').value).toISOString() : null;
+        const payload = {
+          title,
+          message: body.querySelector('#an-msg').value.trim(),
+          statusDefId: body.querySelector('#an-state').value ? Number(body.querySelector('#an-state').value) : null,
+          serviceIds,
+          startsAt: startsAt || new Date().toISOString(),
+          endsAt
+        };
+        const btn = body.querySelector('#an-save');
+        btn.disabled = true; btn.textContent = 'Guardando…';
+        try {
+          if (a) await api('/ows-spaces/api/status-pages/announcements/' + a.id, { method: 'PATCH', body: payload });
+          else await api('/ows-spaces/api/status-pages/' + S.status.page.id + '/announcements', { method: 'POST', body: payload });
+          toast('Anuncio guardado 📢');
+          closeModal();
+          await loadStatusPage();
+        } catch (e) {
+          btn.disabled = false; btn.textContent = a ? 'Guardar' : 'Crear anuncio';
+          if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err');
+        }
+      });
+    }
+  );
+}
+
+function deleteAnnouncement(annId) {
+  const a = (S.status.announcements || []).find((x) => x.id === annId);
+  confirmDialog('¿Eliminar el anuncio?', 'Se eliminará “' + (a ? a.title : '') + '”.', 'Eliminar', async () => {
+    try {
+      await api('/ows-spaces/api/status-pages/announcements/' + annId, { method: 'DELETE' });
+      toast('Anuncio eliminado');
+      await loadStatusPage();
+    } catch (e) { if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err'); }
+  });
+}
+
+/* ── Banner de estado estancado ── */
+function openStuckBannerModal(itemId) {
+  const it = (S.status.groups || []).flatMap((g) => g.items || []).find((x) => x.id === itemId);
+  const s = (S.status.stuck || []).find((x) => x.itemId === itemId);
+  openModal(
+    '<h2>📢 Explicar demora</h2>' +
+    '<p class="sub">“' + esc(it ? it.name : '') + '” lleva <b>' + s.hours + ' h</b> en su estado actual. Escribí por qué — se mostrará como banner a todo el equipo cuando entre al espacio (una sola vez, hasta que lo cierren).</p>' +
+    '<div class="field"><label>Mensaje *</label><textarea id="sb-msg" rows="4" maxlength="600" placeholder="Ej: estamos esperando respuesta del proveedor de infraestructura…"></textarea></div>' +
+    '<div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="sb-save">Publicar banner</button></div>',
+    (body) => {
+      body.querySelector('#sb-save').addEventListener('click', async () => {
+        const message = body.querySelector('#sb-msg').value.trim();
+        if (!message) { toast('Escribí el mensaje', 'err'); return; }
+        const btn = body.querySelector('#sb-save');
+        btn.disabled = true; btn.textContent = 'Publicando…';
+        try {
+          await api('/ows-spaces/api/status-pages/banners', { method: 'POST', body: { pageId: S.status.page.id, itemId, message } });
+          toast('Banner publicado 📢');
+          closeModal();
+          await loadStatusPage();
+        } catch (e) {
+          btn.disabled = false; btn.textContent = 'Publicar banner';
+          if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err');
+        }
+      });
+    }
+  );
+}
+
+function renderStuckBanner() {
+  const b = S.status && S.status.banner;
+  const root = $('stuck-banner-root');
+  if (!root) return;
+  root.innerHTML = '';
+  if (!b) return;
+  const el = document.createElement('div');
+  el.className = 'status-stuck-banner';
+  el.innerHTML =
+    '<div class="status-stuck-banner-inner">' +
+      '<span class="sb-icon">⏳</span>' +
+      '<div class="sb-text">' +
+        '<strong>Servicio estancado: ' + esc(b.itemName || '') + '</strong>' +
+        '<span>' + esc(b.message) + (b.authorName ? '<br><i style="opacity:.85">— ' + esc(b.authorName) + ' · ' + esc(statusFmtTime(b.createdAt)) + '</i>' : '') + '</span>' +
+      '</div>' +
+      '<button class="sb-close" title="Cerrar">✕</button>' +
+    '</div>';
+  root.appendChild(el);
+  el.querySelector('.sb-close').addEventListener('click', async () => {
+    el.style.transition = 'transform .3s ease, opacity .3s ease';
+    el.style.transform = 'translateY(-100%)';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 320);
+    try { await api('/ows-spaces/api/status-pages/banners/' + b.id + '/dismiss', { method: 'POST' }); } catch (_) { /* noop */ }
+  });
+}
+
+/* ── Drag & drop: mover servicios entre grupos ── */
+function setupDragDrop(root) {
+  if (!S.status || !S.status.canEdit) return;
+  let dragId = null;
+  root.querySelectorAll('.status-item[draggable]').forEach((it) => {
+    it.addEventListener('dragstart', (e) => {
+      dragId = Number(it.dataset.itemId);
+      it.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragId));
+      try { e.dataTransfer.setDragImage(it, 20, 20); } catch (_) { /* noop */ }
+    });
+    it.addEventListener('dragend', () => {
+      dragId = null;
+      root.querySelectorAll('.status-item').forEach((x) => x.classList.remove('dragging', 'drop-before'));
+      root.querySelectorAll('.status-items').forEach((x) => x.classList.remove('drag-target'));
+    });
+  });
+  root.querySelectorAll('.status-items').forEach((zone) => {
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      zone.classList.add('drag-target');
+      zone.querySelectorAll('.status-item.drop-before').forEach((x) => x.classList.remove('drop-before'));
+      const items = [...zone.querySelectorAll('.status-item')];
+      const after = items.find((el) => {
+        const r = el.getBoundingClientRect();
+        return e.clientY < r.top + r.height / 2;
+      });
+      if (after) after.classList.add('drop-before');
+    });
+    zone.addEventListener('dragleave', (e) => {
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-target');
+    });
+    zone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      zone.classList.remove('drag-target');
+      zone.querySelectorAll('.status-item.drop-before').forEach((x) => x.classList.remove('drop-before'));
+      const itemId = Number(e.dataTransfer.getData('text/plain'));
+      if (!itemId) return;
+      const groupId = Number(zone.dataset.groupId);
+      const items = [...zone.querySelectorAll('.status-item')];
+      const before = items.find((el) => el.classList.contains('drop-before'));
+      const position = before ? items.indexOf(before) : items.length;
+      try {
+        await api('/ows-spaces/api/status-pages/items/' + itemId, { method: 'PATCH', body: { groupId, position } });
+        toast('Servicio movido 🧲');
+        await loadStatusPage();
+      } catch (err) {
+        if (err.code !== 'AUTH_REQUIRED') toast(err.message, 'err');
+      }
+    });
+  });
 }
 
 async function createStatusPage() {
@@ -3754,14 +4280,20 @@ function openStatusesManager() {
     const form = document.createElement('div');
     form.className = 'st-def-form';
     form.innerHTML =
-      '<input type="text" placeholder="Emoji" maxlength="8" value="' + esc(d ? d.icon : '') + '" id="df-icon">' +
-      '<input type="text" placeholder="Nombre (ej: Operacional)" maxlength="40" value="' + esc(d ? d.label : '') + '" id="df-label">' +
-      '<input type="color" value="' + esc(d ? d.color : '#22c55e') + '" id="df-color" title="Color">' +
-      '<div style="display:flex;gap:6px;align-items:center"><select id="df-sev" title="' + esc(metricLabel) + ' (mayor = peor)">' +
-        [0, 1, 2, 3, 4, 5].map((s) => '<option value="' + s + '"' + (d && d.severity === s ? ' selected' : '') + '>' + esc(metricLabel) + ' ' + s + '</option>').join('') +
-      '</select>' +
-      '<button class="mini-btn" id="df-cancel" title="Cancelar">✕</button>' +
-      '<button class="mini-btn" id="df-save" title="Guardar">✓</button></div>';
+      '<div class="st-row">' +
+        '<div class="st-cell" style="width:76px"><label>Emoji</label><input type="text" placeholder="😀" maxlength="8" value="' + esc(d ? d.icon : '') + '" id="df-icon"></div>' +
+        '<div class="st-cell grow"><label>Nombre *</label><input type="text" placeholder="Ej: Operacional" maxlength="40" value="' + esc(d ? d.label : '') + '" id="df-label"></div>' +
+      '</div>' +
+      '<div class="st-row">' +
+        '<div class="st-cell"><label>Color</label><input type="color" value="' + esc(d ? d.color : '#22c55e') + '" id="df-color" title="Color"></div>' +
+        '<div class="st-cell st-sev"><label>' + esc(metricLabel) + ' (mayor = peor)</label><select id="df-sev">' +
+          [0, 1, 2, 3, 4, 5].map((s) => '<option value="' + s + '"' + (d && d.severity === s ? ' selected' : '') + '>' + esc(metricLabel) + ' ' + s + '</option>').join('') +
+        '</select></div>' +
+      '</div>' +
+      '<div class="st-actions">' +
+        '<button class="btn btn-ghost btn-sm" id="df-cancel">Cancelar</button>' +
+        '<button class="btn btn-primary btn-sm" id="df-save">' + (d ? 'Guardar' : 'Crear estado') + '</button>' +
+      '</div>';
     body.querySelector('#st-defs').prepend(form);
     form.querySelector('#df-cancel').addEventListener('click', () => form.remove());
     form.querySelector('#df-save').addEventListener('click', async () => {
@@ -3769,7 +4301,7 @@ function openStatusesManager() {
       if (!label) { toast('El nombre del estado es obligatorio', 'err'); return; }
       const payload = { label, icon: form.querySelector('#df-icon').value.trim(), color: form.querySelector('#df-color').value, severity: Number(form.querySelector('#df-sev').value) };
       const btn = form.querySelector('#df-save');
-      busyBtn(btn, true);
+      busyBtn(btn, true, d ? 'Guardar' : 'Crear estado');
       try {
         if (d) await api('/ows-spaces/api/status-pages/statuses/' + d.id, { method: 'PATCH', body: payload });
         else await api('/ows-spaces/api/status-pages/' + S.status.page.id + '/statuses', { method: 'POST', body: payload });
@@ -3778,7 +4310,7 @@ function openStatusesManager() {
         renderDefs(body);   // el modal queda abierto, la lista se refresca en vivo
         toast(d ? 'Estado actualizado ✨' : 'Estado creado ✅');
       } catch (e) {
-        busyBtn(btn, false, '✓');
+        busyBtn(btn, false, d ? 'Guardar' : 'Crear estado');
         if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err');
       }
     });
@@ -3789,17 +4321,20 @@ function openStatusesManager() {
     const form = document.createElement('div');
     form.className = 'st-def-form';
     form.innerHTML =
-      '<textarea id="bf-labels" rows="5" maxlength="600" placeholder="Escribí un estado por línea, por ejemplo:&#10;Disponible&#10;En espera de asignación&#10;Ocupado&#10;Altamente Ocupado"></textarea>' +
-      '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
-        '<input type="text" placeholder="Emoji (opcional)" maxlength="8" id="bf-icon" style="width:90px">' +
-        '<input type="color" value="#22c55e" id="bf-color" title="Color">' +
-        '<select id="bf-sev" title="' + esc(metricLabel) + '">' +
+      '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);display:block;margin-bottom:5px">Estados (uno por línea o separados por coma)</label>' +
+      '<textarea id="bf-labels" rows="5" maxlength="600" placeholder="Disponible&#10;En espera de asignación&#10;Ocupado&#10;Altamente Ocupado"></textarea></div>' +
+      '<div class="st-row">' +
+        '<div class="st-cell" style="width:96px"><label>Emoji</label><input type="text" placeholder="😀" maxlength="8" id="bf-icon"></div>' +
+        '<div class="st-cell"><label>Color</label><input type="color" value="#22c55e" id="bf-color" title="Color"></div>' +
+        '<div class="st-cell st-sev"><label>' + esc(metricLabel) + '</label><select id="bf-sev">' +
           [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((s) => '<option value="' + s + '">' + esc(metricLabel) + ' ' + s + '</option>').join('') +
-        '</select>' +
-        '<button class="mini-btn" id="bf-cancel" title="Cancelar">✕</button>' +
-        '<button class="mini-btn" id="bf-save" title="Guardar todos">✓</button>' +
+        '</select></div>' +
       '</div>' +
-      '<div style="margin-top:8px" id="bf-hint"></div>';
+      '<div class="st-actions">' +
+        '<button class="btn btn-ghost btn-sm" id="bf-cancel">Cancelar</button>' +
+        '<button class="btn btn-primary btn-sm" id="bf-save">Crear todos</button>' +
+      '</div>' +
+      '<div style="margin-top:10px" id="bf-hint"></div>';
     body.querySelector('#st-defs').prepend(form);
     form.querySelector('#bf-cancel').addEventListener('click', () => form.remove());
     form.querySelector('#bf-save').addEventListener('click', async () => {
@@ -3811,7 +4346,7 @@ function openStatusesManager() {
       const color = form.querySelector('#bf-color').value;
       const severity = Number(form.querySelector('#bf-sev').value);
       const btn = form.querySelector('#bf-save');
-      busyBtn(btn, true);
+      busyBtn(btn, true, 'Crear todos');
       try {
         const res = await api('/ows-spaces/api/status-pages/' + S.status.page.id + '/statuses/bulk', {
           method: 'POST',
@@ -3823,7 +4358,7 @@ function openStatusesManager() {
         form.remove();
         toast('Se crearon ' + res.created + ' estados ✅');
       } catch (e) {
-        busyBtn(btn, false, '✓');
+        busyBtn(btn, false, 'Crear todos');
         if (e.code !== 'AUTH_REQUIRED') toast(e.message, 'err');
       }
     });
@@ -4151,7 +4686,8 @@ $('btn-create-space').addEventListener('click', () => openSpaceModal(null));
 
   function fmtNewsDate(iso) {
     if (!iso) return '';
-    try { return new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' }); }
+    // Fecha + hora de publicación, para ordenar y mostrar lo más reciente arriba.
+    try { return new Date(iso).toLocaleString('es', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
     catch (_) { return ''; }
   }
 
@@ -4170,12 +4706,21 @@ $('btn-create-space').addEventListener('click', () => openSpaceModal(null));
     card.className = 'blog-card';
 
     if (bannerUrl) {
+      const bannerWrap = document.createElement('div');
+      bannerWrap.className = 'blog-card-banner-wrap';
       const img = document.createElement('img');
       img.className = 'blog-card-banner';
       img.src = bannerUrl;
       img.alt = '';
       img.loading = 'lazy';
-      card.appendChild(img);
+      bannerWrap.appendChild(img);
+      if (date) {
+        const dateChip = document.createElement('span');
+        dateChip.className = 'blog-card-banner-date';
+        dateChip.textContent = '🕒 ' + date;
+        bannerWrap.appendChild(dateChip);
+      }
+      card.appendChild(bannerWrap);
     }
 
     const cardBody = document.createElement('div');
@@ -4188,10 +4733,10 @@ $('btn-create-space').addEventListener('click', () => openSpaceModal(null));
     tag.className = 'blog-card-tag';
     tag.textContent = project;
     tags.appendChild(tag);
-    if (date) {
+    if (date && !bannerUrl) {
       const dateEl = document.createElement('span');
       dateEl.className = 'blog-card-date';
-      dateEl.textContent = date;
+      dateEl.textContent = '🕒 ' + date;
       tags.appendChild(dateEl);
     }
     cardBody.appendChild(tags);
@@ -4225,8 +4770,8 @@ $('btn-create-space').addEventListener('click', () => openSpaceModal(null));
     // Author footer
     if (author) {
       const foot = document.createElement('p');
-      foot.style.cssText = 'margin:10px 0 0;font-size:11px;opacity:0.5;';
-      foot.textContent = '— ' + author;
+      foot.className = 'blog-card-author';
+      foot.innerHTML = '<span class="ba-avatar">✍️</span><span>Por ' + esc(author) + '</span>';
       cardBody.appendChild(foot);
     }
 

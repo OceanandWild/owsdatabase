@@ -4418,17 +4418,28 @@
         function checkAndWarnLowQuota(force = false) {
             if (!quota) return;
             const remaining = getQuotaRemainingValue(quota);
-            const total = Number(quota.max_weekly || quota.max_daily || 30);
+            const total = getQuotaTotalValue(quota);
 
             if (!force && lastQuotaWarningShown === remaining) return;
             lastQuotaWarningShown = remaining;
 
             if (remaining === 0) {
-                showToast(`⛔ Cuota semanal agotada (0/${total}). Tu cuota se reiniciará en el próximo ciclo semanal.`, true);
+                showToast(`⛔ Cuota semanal completada (0/${total}). Tu cuota se renovará al finalizar tu ciclo.`, true);
             } else if (remaining <= 3) {
-                showToast(`🚨 ¡Alerta de cuota! Solo te quedan ${remaining} de ${total} publicaciones esta semana.`, true);
+                showToast(`🚨 ¡Alerta de cuota! Solo te quedan ${remaining} de ${total} publicaciones en este ciclo.`, true);
             } else if (remaining <= 8) {
-                showToast(`⚠️ Aviso: Te quedan ${remaining} de ${total} publicaciones disponibles esta semana.`);
+                showToast(`⚠️ Aviso: Te quedan ${remaining} de ${total} publicaciones disponibles.`);
+            }
+
+            // Recordatorio suave (máximo 1 vez cada 24 horas, no invasivo)
+            const lastTip = Number(localStorage.getItem('floret_gentle_quota_tip_ts') || 0);
+            const now = Date.now();
+            if (!force && (now - lastTip > 24 * 60 * 60 * 1000) && remaining > 0 && quota?.cycle_start_at) {
+                const cycleDays = (now - new Date(quota.cycle_start_at).getTime()) / (1000 * 60 * 60 * 24);
+                if (cycleDays >= 3) {
+                    localStorage.setItem('floret_gentle_quota_tip_ts', String(now));
+                    showToast(`💡 Recuerda agotar tus ${remaining} publicaciones restantes antes de fin de ciclo para renovar sin esperas adicionales.`);
+                }
             }
         }
 
@@ -8063,6 +8074,19 @@
                             <div style="font-size:0.72rem;color:#fda4af;text-transform:uppercase;letter-spacing:0.06em">Multiplicador activo</div>
                             <div style="font-size:1.15rem;font-weight:800;color:#fda4af;margin-top:4px">x${mult}</div>
                         </div>` : ''}
+                    </div>
+
+                    <!-- Renewal Policy Note -->
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:11px 14px;font-size:0.77rem;color:#E2E8F0;line-height:1.4">
+                        <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:#FFF;margin-bottom:3px">
+                            <i class="fas fa-info-circle" style="color:var(--pri-l)"></i>
+                            <span>Condición de Renovación de Cuota</span>
+                        </div>
+                        ${quota?.cycle_state === 'extended' ? `
+                            <span style="color:#FBBF24">⏳ <b>Semana de espera activa</b>: Tu semana anterior culminó con publicaciones sin usar (${remaining} restantes). Para acceder a los 70 nuevos productos deberás completar este período de espera o terminar de publicar los restantes.</span>
+                        ` : `
+                            <span>Para que tu cuota de <b>${total} publicaciones</b> se renueve al instante al finalizar los 7 días, debes <b>agotar toda la cuota</b> (llegar a 0). Si te sobran publicaciones al cumplirse la semana, tendrás que esperar una semana adicional para la renovación completa.</span>
+                        `}
                     </div>
 
                     <!-- Countdown and exact date/time box -->

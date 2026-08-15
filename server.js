@@ -5144,21 +5144,34 @@ async function getFloretQuota(userId) {
     }
   }
 
-  // Reset weekly cycle if 7 days have passed since cycle_start_at
+  // Reset weekly cycle rules:
+  // 1. Cycle only starts when first product is published (cycle_start_at != null).
+  // 2. When 7 days pass (diffHrs >= 168):
+  //    - If all quota was consumed (remaining === 0), it resets cleanly.
+  //    - If NOT all quota was consumed (remaining > 0), user must wait an additional week (total 14 days / 336h).
   if (quota.cycle_start_at) {
     const cycleStart = new Date(quota.cycle_start_at);
     const now = new Date();
     const diffHrs = (now - cycleStart) / (1000 * 60 * 60);
+    const baseMax = Number(quota.max_daily || 30);
+    const mult = Number(quota.bonus_multiplier || 1);
+    const bonusQuota = Number(quota.bonus_quota || 0);
+    const maxWeekly = (baseMax * mult) + bonusQuota;
+    const uploadsThisWeek = Number(quota.uploads_today || 0);
+    const remaining = Math.max(0, maxWeekly - uploadsThisWeek);
+
     if (diffHrs >= 168) {
-      await pool.query(`UPDATE floret_admin_quotas
-        SET uploads_today = 0, last_upload_time = NULL, cycle_start_at = NULL
-        WHERE user_id = $1`, [userId]);
-      quota.uploads_today = 0;
-      quota.last_upload_time = null;
-      quota.cycle_start_at = null;
+      if (remaining === 0 || diffHrs >= 336) {
+        await pool.query(`UPDATE floret_admin_quotas
+          SET uploads_today = 0, last_upload_time = NULL, cycle_start_at = NULL
+          WHERE user_id = $1`, [userId]);
+        quota.uploads_today = 0;
+        quota.last_upload_time = null;
+        quota.cycle_start_at = null;
+      }
     }
   } else if (quota.last_upload_time) {
-    // Legacy fallback: if cycle_start_at not set but last_upload_time exists, migrate it
+    // Legacy fallback: if cycle_start_at not set but last_upload_time exists
     const last = new Date(quota.last_upload_time);
     const now = new Date();
     const diffHrs = (now - last) / (1000 * 60 * 60);
@@ -5169,7 +5182,6 @@ async function getFloretQuota(userId) {
       quota.uploads_today = 0;
       quota.last_upload_time = null;
     } else {
-      // Set cycle_start_at from last_upload_time for legacy records
       await pool.query('UPDATE floret_admin_quotas SET cycle_start_at = last_upload_time WHERE user_id = $1 AND cycle_start_at IS NULL AND last_upload_time IS NOT NULL', [userId]);
       quota.cycle_start_at = quota.last_upload_time;
     }
@@ -5186,20 +5198,28 @@ function buildFloretQuotaSummary(quotaRow) {
   const uploadsThisWeek = Number(quotaRow?.uploads_today || 0);
   const remaining = Math.max(0, maxWeekly - uploadsThisWeek);
 
-  // Use persistent cycle_start_at from DB as the authoritative reset anchor
   const cycleStart = quotaRow?.cycle_start_at ? new Date(quotaRow.cycle_start_at) : null;
   let nextResetAt = null;
   let nextResetMs = 0;
+  let cycleState = 'idle'; // 'idle' | 'normal' | 'extended' | 'completed'
 
   if (cycleStart && Number.isFinite(cycleStart.getTime())) {
-    const resetTime = cycleStart.getTime() + (7 * 24 * 60 * 60 * 1000);
     const now = Date.now();
-    if (resetTime > now) {
-      nextResetAt = new Date(resetTime).toISOString();
-      nextResetMs = resetTime - now;
+    const diffHrs = (now - cycleStart.getTime()) / (1000 * 60 * 60);
+    
+    if (diffHrs < 168) {
+      const targetTime = cycleStart.getTime() + (7 * 24 * 60 * 60 * 1000);
+      nextResetAt = new Date(targetTime).toISOString();
+      nextResetMs = Math.max(0, targetTime - now);
+      cycleState = remaining === 0 ? 'completed' : 'normal';
+    } else if (diffHrs < 336) {
+      // Extended penalty week (waiting for 2nd week to finish)
+      const targetTime = cycleStart.getTime() + (14 * 24 * 60 * 60 * 1000);
+      nextResetAt = new Date(targetTime).toISOString();
+      nextResetMs = Math.max(0, targetTime - now);
+      cycleState = 'extended';
     }
   }
-  // If no cycle started yet (no uploads ever), nextResetAt = null — frontend shows 'El ciclo empieza con tu próxima publicación'
 
   return {
     period: 'semanal',
@@ -5214,10 +5234,12 @@ function buildFloretQuotaSummary(quotaRow) {
     bonus_expires_at: quotaRow?.bonus_expires_at || null,
     last_upload_time: quotaRow?.last_upload_time || null,
     cycle_start_at: quotaRow?.cycle_start_at || null,
+    cycle_state: cycleState,
     next_reset_ms: nextResetMs,
     next_reset_at: nextResetAt
   };
 }
+
 
 // Login
 app.post('/floret/login', async (req, res) => {

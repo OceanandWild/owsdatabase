@@ -5699,6 +5699,48 @@ app.get('/floret/seller/analytics', async (req, res) => {
   }
 });
 
+app.get('/floret/seller/visitors', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0) || null;
+    const email = String(req.query.email || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const filter = String(req.query.filter || 'all').toLowerCase();
+    let whereClause = '';
+    if (filter === 'interacted') {
+      whereClause = 'WHERE v.interacted = TRUE';
+    } else if (filter === 'registered') {
+      whereClause = 'WHERE v.user_id IS NOT NULL';
+    }
+
+    const { rows } = await pool.query(`
+      SELECT 
+        v.id,
+        v.visitor_id,
+        v.user_id,
+        u.username,
+        u.email,
+        v.ip,
+        v.user_agent,
+        v.interacted,
+        v.interaction_count,
+        v.first_seen,
+        v.last_seen
+      FROM floret_visitors v
+      LEFT JOIN floret_users u ON v.user_id = u.id
+      ${whereClause}
+      ORDER BY v.last_seen DESC
+      LIMIT 150
+    `);
+
+    res.json({ visitors: rows || [] });
+  } catch (e) {
+    console.error('Error en /floret/seller/visitors:', e);
+    res.status(500).json({ error: 'Error interno obteniendo visitantes' });
+  }
+});
+
 app.get('/floret/seller/dashboard', async (req, res) => {
   try {
     const userId = Number(req.query.userId || 0) || null;

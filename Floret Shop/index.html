@@ -6000,6 +6000,11 @@
           <i class="fas fa-users-viewfinder" style="color:var(--pink)"></i>
           <b>${Number(dashboard.visitors?.interactedVisitors || 0)} usuarios</b> interactuaron mínimo con productos (${Number(dashboard.visitors?.totalInteractions || 0)} interacciones en total)
         </div>
+        <div style="margin-top:10px;display:flex;justify-content:flex-end">
+          <button class="btn btn-s" style="font-size:0.78rem;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;background:rgba(144,97,249,0.2);border:1px solid rgba(144,97,249,0.4);color:#FFF" onclick="openVisitorDetailsModal()">
+            <i class="fas fa-users-viewfinder"></i> Ver usuarios y visitantes en detalle
+          </button>
+        </div>
       </div>
 
       <div class="seller-stats-grid">
@@ -6072,8 +6077,112 @@
       `).join('') : '<div class="review-comment">No hay productos cargados.</div>'}
     </div>
   `);
-            } catch (error) {
-                showToast(error.message || 'No se pudo abrir panel de ventas', true);
+        async function openVisitorDetailsModal(filter = 'all') {
+            if (!user || !isMalevoSession()) return showToast('Solo administradores autorizados', true);
+            try {
+                const query = `userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email || '')}&filter=${encodeURIComponent(filter)}`;
+                const res = await fetch(`${API}/floret/seller/visitors?${query}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo cargar visitantes');
+                const visitors = data.visitors || [];
+
+                function parseUa(ua) {
+                    if (!ua) return 'Navegador Web';
+                    if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS Safari';
+                    if (ua.includes('Android')) return 'Android Mobile';
+                    if (ua.includes('Windows')) return 'Windows PC';
+                    if (ua.includes('Macintosh')) return 'macOS';
+                    if (ua.includes('Linux')) return 'Linux';
+                    return 'Web';
+                }
+
+                openModal(`
+                    <div class="modal-hd" style="background:linear-gradient(135deg,rgba(144,97,249,0.18),rgba(236,72,153,0.18));border-bottom:1px solid rgba(144,97,249,0.3)">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <div style="width:36px;height:36px;border-radius:10px;background:rgba(144,97,249,0.25);border:1px solid rgba(144,97,249,0.4);display:flex;align-items:center;justify-content:center;color:var(--pri-l);font-size:1.1rem">
+                                <i class="fas fa-users-viewfinder"></i>
+                            </div>
+                            <div>
+                                <h3 style="font-size:1.1rem;font-weight:800;color:#FFF">Registro de Usuarios y Visitantes</h3>
+                                <div style="font-size:0.75rem;color:var(--muted)">floretshop.netlify.app · Total: ${visitors.length} registros</div>
+                            </div>
+                        </div>
+                        <button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-bd" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;max-height:75vh;overflow-y:auto">
+                        
+                        <!-- Filter Tabs -->
+                        <div style="display:flex;gap:6px;background:rgba(255,255,255,0.04);padding:4px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);flex-wrap:wrap">
+                            <button class="btn ${filter === 'all' ? 'btn-p' : 'btn-s'}" style="flex:1;min-width:90px;padding:6px 10px;font-size:0.78rem" onclick="openVisitorDetailsModal('all')">
+                                <i class="fas fa-users"></i> Todos (${visitors.length})
+                            </button>
+                            <button class="btn ${filter === 'interacted' ? 'btn-p' : 'btn-s'}" style="flex:1;min-width:130px;padding:6px 10px;font-size:0.78rem" onclick="openVisitorDetailsModal('interacted')">
+                                <i class="fas fa-hand-pointer"></i> Interactuaron
+                            </button>
+                            <button class="btn ${filter === 'registered' ? 'btn-p' : 'btn-s'}" style="flex:1;min-width:110px;padding:6px 10px;font-size:0.78rem" onclick="openVisitorDetailsModal('registered')">
+                                <i class="fas fa-user-check"></i> Registrados
+                            </button>
+                        </div>
+
+                        <!-- Visitors List -->
+                        ${visitors.length ? visitors.map((v) => {
+                            const isRegistered = Boolean(v.user_id && (v.username || v.email));
+                            const hasInteracted = Boolean(v.interacted);
+                            const deviceLabel = parseUa(v.user_agent);
+                            const shortVid = String(v.visitor_id || '').substring(0, 12);
+                            return `
+                                <div style="background:rgba(255,255,255,0.03);border:1px solid ${hasInteracted ? 'rgba(236,72,153,0.3)' : 'rgba(255,255,255,0.08)'};border-radius:12px;padding:12px 14px;transition:all 0.2s ease">
+                                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+                                        <div>
+                                            <div style="font-weight:800;color:#FFF;font-size:0.92rem;display:flex;align-items:center;gap:6px">
+                                                ${isRegistered ? `
+                                                    <i class="fas fa-circle-user" style="color:var(--pri-l)"></i>
+                                                    <span>${escapeHtml(v.username || 'Usuario')}</span>
+                                                    <span style="font-size:0.75rem;color:var(--muted);font-weight:500">(${escapeHtml(v.email || '-')})</span>
+                                                ` : `
+                                                    <i class="fas fa-user-secret" style="color:var(--muted)"></i>
+                                                    <span style="color:#E2E8F0">Visitante Anónimo</span>
+                                                    <span style="font-size:0.72rem;color:var(--muted);font-weight:400">#${escapeHtml(shortVid)}</span>
+                                                `}
+                                            </div>
+                                            <div style="font-size:0.75rem;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                                <span><i class="fas fa-globe"></i> IP: <b>${escapeHtml(v.ip || 'Oculta')}</b></span>
+                                                <span>•</span>
+                                                <span><i class="fas fa-desktop"></i> ${escapeHtml(deviceLabel)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            ${hasInteracted ? `
+                                                <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:0.74rem;font-weight:800;background:linear-gradient(135deg, rgba(236,72,153,0.25), rgba(144,97,249,0.25));border:1px solid rgba(236,72,153,0.5);color:#FDA4AF">
+                                                    <i class="fas fa-sparkles"></i> Interactuó (${v.interaction_count} ${v.interaction_count === 1 ? 'acción' : 'acciones'})
+                                                </span>
+                                            ` : `
+                                                <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:0.74rem;font-weight:600;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--muted)">
+                                                    <i class="fas fa-eye"></i> Navegación
+                                                </span>
+                                            `}
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;color:var(--muted);flex-wrap:wrap;gap:6px">
+                                        <span>Primera visita: <b>${formatDateTime(v.first_seen)}</b></span>
+                                        <span>Última actividad: <b>${formatDateTime(v.last_seen)}</b></span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('') : `
+                            <div class="empty" style="padding:24px"><i class="fas fa-users-slash"></i><p>No se encontraron registros para este filtro</p></div>
+                        `}
+
+                        <div style="display:flex;gap:8px;margin-top:6px">
+                            <button class="btn btn-s" style="flex:1" onclick="openSellerOperationsPanel()"><i class="fas fa-arrow-left"></i> Volver a Ventas</button>
+                            <button class="btn btn-p" style="flex:1" onclick="openVisitorDetailsModal('${filter}')"><i class="fas fa-rotate"></i> Actualizar</button>
+                        </div>
+                    </div>
+                `);
+            } catch (err) {
+                showToast(err.message || 'Error cargando lista de visitantes', true);
             }
         }
 

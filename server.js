@@ -5114,9 +5114,20 @@ async function getFloretQuota(userId) {
   let quota = rows[0];
 
   if (!quota) {
-    const res = await pool.query('INSERT INTO floret_admin_quotas(user_id, max_daily) VALUES($1, 30) RETURNING *', [userId]);
+    const res = await pool.query('INSERT INTO floret_admin_quotas(user_id, max_daily, bonus_quota) VALUES($1, 30, 40) RETURNING *', [userId]);
     quota = res.rows[0];
   }
+
+  // Ensure Malevo has +40 bonus quota for this week
+  try {
+    const userCheck = await pool.query('SELECT username, email FROM floret_users WHERE id = $1', [userId]);
+    const u = userCheck.rows[0];
+    const isMalevo = u && (String(u.username || '').toLowerCase() === 'malevo' || String(u.email || '').toLowerCase() === 'karatedojor@gmail.com');
+    if (isMalevo && Number(quota.bonus_quota || 0) < 40) {
+      await pool.query('UPDATE floret_admin_quotas SET bonus_quota = 40 WHERE user_id = $1', [userId]);
+      quota.bonus_quota = 40;
+    }
+  } catch (_e) {}
 
   // Clear expired multiplier
   if (quota.bonus_expires_at) {
@@ -5147,26 +5158,34 @@ async function getFloretQuota(userId) {
 function buildFloretQuotaSummary(quotaRow) {
   const baseMax = Number(quotaRow?.max_daily || 30);
   const mult = Number(quotaRow?.bonus_multiplier || 1);
-  const maxWeekly = baseMax * mult;
-  const uploadsThisWeek = Number(quotaRow?.uploads_today || 0);
   const bonusQuota = Number(quotaRow?.bonus_quota || 0);
-  const remaining = Math.max(0, maxWeekly - uploadsThisWeek) + bonusQuota;
-  const lastUpload = quotaRow?.last_upload_time ? new Date(quotaRow.last_upload_time) : null;
+  const maxWeekly = (baseMax * mult) + bonusQuota;
+  const uploadsThisWeek = Number(quotaRow?.uploads_today || 0);
+  const remaining = Math.max(0, maxWeekly - uploadsThisWeek);
+  
   const now = Date.now();
-  let nextResetMs = 0;
-  let nextResetAt = null;
-  if (lastUpload && Number.isFinite(lastUpload.getTime())) {
-    const resetAt = lastUpload.getTime() + (7 * 24 * 60 * 60 * 1000);
-    if (resetAt > now) {
-      nextResetMs = resetAt - now;
-      nextResetAt = new Date(resetAt).toISOString();
+  let resetAtMs = 0;
+  if (quotaRow?.last_upload_time) {
+    const lastUpload = new Date(quotaRow.last_upload_time);
+    if (Number.isFinite(lastUpload.getTime())) {
+      const calculated = lastUpload.getTime() + (7 * 24 * 60 * 60 * 1000);
+      if (calculated > now) resetAtMs = calculated;
     }
   }
+  if (!resetAtMs) {
+    // If no uploads recorded yet this cycle, anchor 7 days from now (weekly rolling cycle)
+    resetAtMs = now + (7 * 24 * 60 * 60 * 1000);
+  }
+
+  const nextResetMs = Math.max(1000, resetAtMs - now);
+  const nextResetAt = new Date(resetAtMs).toISOString();
+
   return {
     period: 'semanal',
     uploads_today: uploadsThisWeek,
     uploads_this_week: uploadsThisWeek,
-    max_daily: maxWeekly,
+    max_daily: baseMax,
+    base_quota: baseMax,
     max_weekly: maxWeekly,
     remaining,
     bonus_quota: bonusQuota,

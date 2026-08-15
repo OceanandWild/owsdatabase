@@ -3956,6 +3956,175 @@
             box-shadow: 0 4px 16px rgba(244,63,94,0.28);
         }
 
+        
+        /* Quota Layout Styles (Counter vs Rainbow Spectrum) */
+        .quota-layout-selector {
+            display: inline-flex;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            padding: 3px;
+            gap: 4px;
+            margin: 0 auto;
+        }
+        .quota-layout-btn {
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .quota-layout-btn.active {
+            background: linear-gradient(135deg, var(--pri), var(--pink));
+            color: #FFF;
+            box-shadow: 0 2px 10px rgba(236, 72, 153, 0.35);
+        }
+
+        /* Rainbow Bar & Dynamic Spectrum */
+        @keyframes rainbowFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes rainbowPulseGlow {
+            0%, 100% { filter: brightness(1) drop-shadow(0 0 8px rgba(244,63,94,0.4)); }
+            50% { filter: brightness(1.2) drop-shadow(0 0 16px rgba(244,63,94,0.8)); }
+        }
+        .quota-rainbow-track {
+            width: 100%;
+            height: 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 2px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .quota-rainbow-fill {
+            height: 100%;
+            border-radius: 999px;
+            background-size: 200% 200%;
+            animation: rainbowFlow 4s ease infinite;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        .quota-rainbow-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+            border-radius: 999px;
+            animation: rainbowShimmer 2.2s infinite;
+        }
+        @keyframes rainbowShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+
+        .quota-hdr-pill.layout-rainbow {
+            background: linear-gradient(90deg, rgba(16,185,129,0.18), rgba(139,92,246,0.2), rgba(236,72,153,0.22));
+            border: 1px solid rgba(236,72,153,0.45);
+            box-shadow: 0 0 12px rgba(139,92,246,0.25);
+        }
+        .quota-hdr-rainbow-bar {
+            width: 32px;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.15);
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .quota-hdr-rainbow-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background-size: 200% 200%;
+            animation: rainbowFlow 3s linear infinite;
+        }
+
+        /* Visitor Analytics styles in seller dashboard */
+        .seller-visitor-highlight {
+            background: linear-gradient(135deg, rgba(144,97,249,0.18), rgba(236,72,153,0.12));
+            border: 1px solid rgba(144,97,249,0.38);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+        }
+        .seller-visitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .seller-visitor-big {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #FFF;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+        .seller-visitor-sub {
+            font-size: 0.85rem;
+            color: #E9D5FF;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+
+        
+        /* Curved Rainbow Arch Gauge */
+        .rainbow-gauge-wrap {
+            position: relative;
+            width: 100%;
+            max-width: 320px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .rainbow-svg-arc {
+            width: 100%;
+            height: auto;
+            overflow: visible;
+            filter: drop-shadow(0 0 12px rgba(139,92,246,0.3));
+        }
+        .rainbow-arc-track {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 16;
+            stroke-linecap: round;
+        }
+        .rainbow-arc-fill {
+            fill: none;
+            stroke-width: 16;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: drop-shadow(0 0 8px rgba(236,72,153,0.5));
+        }
+        .rainbow-arc-center {
+            position: absolute;
+            top: 52%;
+            left: 50%;
+            transform: translate(-50%, -40%);
+            text-align: center;
+            width: 100%;
+            pointer-events: none;
+        }
+
         .pub-quota-card {
             background: rgba(244,63,94,0.08);
             border: 1px solid rgba(244,63,94,0.25);
@@ -4138,6 +4307,102 @@
             sort: 'recent'
         };
         let sellerDashboardCache = null;
+
+        // ========== VISITOR & INTERACTION TRACKING ==========
+        function getOrCreateFloretVisitorId() {
+            let vid = localStorage.getItem('floret_visitor_id');
+            if (!vid || vid.length < 8) {
+                vid = 'v_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+                localStorage.setItem('floret_visitor_id', vid);
+            }
+            return vid;
+        }
+
+        async function trackFloretVisit() {
+            try {
+                const visitorId = getOrCreateFloretVisitorId();
+                const userId = user?.id || null;
+                await fetch(`${API}/floret/track/visit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visitorId, userId })
+                });
+            } catch (_e) { }
+        }
+
+        let _floretInteractionSent = false;
+        async function trackFloretInteraction(action = 'product_interaction') {
+            try {
+                const visitorId = getOrCreateFloretVisitorId();
+                const userId = user?.id || null;
+                await fetch(`${API}/floret/track/interaction`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visitorId, userId, action })
+                });
+            } catch (_e) { }
+        }
+
+        // ========== QUOTA LAYOUT MODES (Counter vs Rainbow) ==========
+        function getQuotaLayout() {
+            return localStorage.getItem('floret_quota_layout') || 'rainbow';
+        }
+
+        function setQuotaLayout(mode) {
+            const nextMode = mode === 'counter' ? 'counter' : 'rainbow';
+            localStorage.setItem('floret_quota_layout', nextMode);
+            render();
+            const modalOpen = document.getElementById('quota-layout-selector-el');
+            if (modalOpen) {
+                openQuotaDetailsModal();
+            }
+        }
+
+        function getRainbowSpectrumStyle(percent) {
+            // Spectrum colors matching the exact quota percentage
+            if (percent >= 80) {
+                return {
+                    name: 'Esmeralda & Arcoíris Pleno',
+                    tag: '🌈 Óptimo (80% - 100%)',
+                    tagColor: '#34d399',
+                    gradient: 'linear-gradient(90deg, #10B981, #06B6D4, #3B82F6, #8B5CF6, #EC4899, #F59E0B)',
+                    glow: '0 0 16px rgba(16, 185, 129, 0.45)',
+                    pillBg: 'linear-gradient(135deg, rgba(16,185,129,0.22), rgba(139,92,246,0.25))',
+                    pillBorder: 'rgba(52,211,153,0.5)'
+                };
+            } else if (percent >= 50) {
+                return {
+                    name: 'Cyan & Magenta Neón',
+                    tag: '🌈 Saludable (50% - 79%)',
+                    tagColor: '#38bdf8',
+                    gradient: 'linear-gradient(90deg, #06B6D4, #6366F1, #A855F7, #EC4899)',
+                    glow: '0 0 16px rgba(168, 85, 247, 0.45)',
+                    pillBg: 'linear-gradient(135deg, rgba(6,182,212,0.22), rgba(236,72,153,0.25))',
+                    pillBorder: 'rgba(168,85,247,0.5)'
+                };
+            } else if (percent >= 25) {
+                return {
+                    name: 'Ámbar & Coral Espectral',
+                    tag: '⚠️ Moderado (25% - 49%)',
+                    tagColor: '#fbbf24',
+                    gradient: 'linear-gradient(90deg, #F59E0B, #F97316, #EC4899, #8B5CF6)',
+                    glow: '0 0 16px rgba(245, 158, 11, 0.45)',
+                    pillBg: 'linear-gradient(135deg, rgba(245,158,11,0.22), rgba(236,72,153,0.25))',
+                    pillBorder: 'rgba(251,191,36,0.5)'
+                };
+            } else {
+                return {
+                    name: 'Fuego Neón & Rojo Alerta',
+                    tag: '🚨 Crítico (<25%)',
+                    tagColor: '#f87171',
+                    gradient: 'linear-gradient(90deg, #EF4444, #F43F5E, #EC4899, #DC2626)',
+                    glow: '0 0 20px rgba(239, 68, 68, 0.65)',
+                    pillBg: 'linear-gradient(135deg, rgba(239,68,68,0.25), rgba(244,63,94,0.3))',
+                    pillBorder: 'rgba(239,68,68,0.6)'
+                };
+            }
+        }
+
         let sellerOrdersCache = [];
         let sellerOrdersStatusFilter = 'all';
         let lastQuotaWarningShown = null;
@@ -4414,6 +4679,7 @@
         }
 
         function setQuickFilter(mode, val) {
+            trackFloretInteraction('filter_catalog');
             if (mode === 'condition') {
                 catalogFilters.condition = (catalogFilters.condition === val && val !== 'all') ? 'all' : val;
             } else if (mode === 'stock') {
@@ -4442,7 +4708,7 @@
             const app = document.getElementById('app');
             const isMalevoOrLvl1 = Boolean(user && (Number(user.power_level) === 1 || isMalevoSession()));
             const quotaRemaining = quota ? getQuotaRemainingValue(quota) : 30;
-            const quotaTotal = Number(quota?.max_weekly || quota?.max_daily || 30);
+            const quotaTotal = getQuotaTotalValue(quota);
             const catalogSyncTag = getCatalogSyncLabel();
             const hasActiveFilters = Boolean(
                 catalogFilters.query ||
@@ -4471,11 +4737,23 @@
         </div>
 
         <div class="hdr-btns">
-          ${isMalevoOrLvl1 ? `
-            <button class="quota-hdr-pill fx-btn" onclick="openQuotaDetailsModal()" title="Ver cuota semanal de publicaciones">
-              <i class="fas fa-bolt" style="color:var(--pink)"></i>
-              <span><b>${quotaRemaining}/${quotaTotal}</b> sem.</span>
-            </button>` : ''}
+          ${isMalevoOrLvl1 ? (() => {
+            const layout = getQuotaLayout();
+            const percent = quotaTotal > 0 ? Math.min(100, Math.round((quotaRemaining / quotaTotal) * 100)) : 0;
+            const theme = getRainbowSpectrumStyle(percent);
+            if (layout === 'counter') {
+                return `<button class="quota-hdr-pill fx-btn" onclick="openQuotaDetailsModal()" title="Cuota: Modo Contador (Clic para ver)">
+                  <i class="fas fa-calculator" style="color:var(--pink)"></i>
+                  <span><b>${quotaRemaining}/${quotaTotal}</b> sem.</span>
+                </button>`;
+            } else {
+                return `<button class="quota-hdr-pill fx-btn layout-rainbow" onclick="openQuotaDetailsModal()" style="border-color:${theme.pillBorder};box-shadow:${theme.glow}" title="Cuota: Modo Arcoíris (${percent}% - Clic para ver)">
+                  <i class="fas fa-rainbow" style="color:${theme.tagColor}"></i>
+                  <span><b>${quotaRemaining}/${quotaTotal}</b></span>
+                  <span class="quota-hdr-rainbow-bar"><span class="quota-hdr-rainbow-bar-fill" style="display:block;width:${percent}%;background:${theme.gradient}"></span></span>
+                </button>`;
+            }
+          })() : ''}
           
           <button class="hdr-btn fx-btn hide-on-mobile" onclick="refreshCatalog()" title="Sincronizar catálogo con la base de datos">
             <i class="fas fa-rotate"></i> <span>Sync</span>
@@ -4521,11 +4799,22 @@
               <i class="fas fa-box-open"></i>
               <span id="catalog-results">${filteredProducts.length} de ${products.length} artículos</span>
             </div>
-            ${isMalevoOrLvl1 ? `
-            <div class="hero-chip" onclick="openQuotaDetailsModal()" style="cursor:pointer;border-color:rgba(244,63,94,0.45);background:rgba(244,63,94,0.14)" title="Clic para ver detalles de cuota">
-              <i class="fas fa-bolt" style="color:var(--pink)"></i>
-              <span>Cuota: <b>${quotaRemaining} de ${quotaTotal}</b> restantes esta semana</span>
-            </div>` : `
+            ${isMalevoOrLvl1 ? (() => {
+            const layout = getQuotaLayout();
+            const percent = quotaTotal > 0 ? Math.min(100, Math.round((quotaRemaining / quotaTotal) * 100)) : 0;
+            const theme = getRainbowSpectrumStyle(percent);
+            if (layout === 'counter') {
+                return `<div class="hero-chip" onclick="openQuotaDetailsModal()" style="cursor:pointer;border-color:rgba(244,63,94,0.45);background:rgba(244,63,94,0.14)" title="Clic para ver detalles de cuota (Modo Contador)">
+                  <i class="fas fa-calculator" style="color:var(--pink)"></i>
+                  <span>Cuota: <b>${quotaRemaining} de ${quotaTotal}</b> restantes esta semana</span>
+                </div>`;
+            } else {
+                return `<div class="hero-chip" onclick="openQuotaDetailsModal()" style="cursor:pointer;border-color:${theme.pillBorder};background:${theme.pillBg};box-shadow:${theme.glow}" title="Clic para ver detalles de cuota (Modo Arcoíris)">
+                  <i class="fas fa-rainbow" style="color:${theme.tagColor}"></i>
+                  <span>Cuota: <b>${quotaRemaining}/${quotaTotal}</b> <small style="color:${theme.tagColor};font-weight:700">(${percent}% · ${theme.name})</small></span>
+                </div>`;
+            }
+          })() : `
             <div class="hero-chip hide-on-mobile">
               <i class="fas fa-shield-halved"></i>
               <span>Pago con Mercado Pago</span>
@@ -5688,11 +5977,30 @@
                 openModal(`
     <div class="modal-hd"><h3><i class="fas fa-briefcase"></i> Panel de ventas</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
     <div class="modal-bd">
+      <!-- Visitor & Engagement Analytics for Malevo -->
+      <div class="seller-visitor-highlight">
+        <div class="seller-visitor-header">
+          <div>
+            <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:700">
+              <i class="fas fa-chart-line" style="color:var(--pri-l)"></i> Tráfico de Usuarios Floret Shop
+            </div>
+            <div class="seller-visitor-big">${Number(dashboard.visitors?.totalVisitors || 0)} <span style="font-size:1rem;color:var(--muted);font-weight:600">visitantes totales</span></div>
+          </div>
+          <div class="seller-visitor-badge">
+            <i class="fas fa-hand-pointer" style="color:var(--pink)"></i> ${Number(dashboard.visitors?.interactionRate || 0)}% Interacción
+          </div>
+        </div>
+        <div class="seller-visitor-sub">
+          <i class="fas fa-users-viewfinder" style="color:var(--pink)"></i>
+          <b>${Number(dashboard.visitors?.interactedVisitors || 0)} usuarios</b> interactuaron mínimo con productos (${Number(dashboard.visitors?.totalInteractions || 0)} interacciones en total)
+        </div>
+      </div>
+
       <div class="seller-stats-grid">
         <div class="seller-stat-card"><span>Pedidos</span><b>${Number(stats.totalOrders || 0)}</b></div>
         <div class="seller-stat-card"><span>Pendientes</span><b>${Number(stats.pendingOrders || 0)}</b></div>
         <div class="seller-stat-card"><span>En proceso</span><b>${Number(stats.preparingOrders || 0) + Number(stats.shippedOrders || 0)}</b></div>
-        <div class="seller-stat-card"><span>Facturacion</span><b>$${Number(stats.grossTotal || 0).toLocaleString('es-UY')}</b></div>
+        <div class="seller-stat-card"><span>Facturacion</span><b>${Number(stats.grossTotal || 0).toLocaleString('es-UY')}</b></div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
         <h4 style="margin:0">Ordenes recientes</h4>
@@ -5990,12 +6298,23 @@
             return `${minutes}m ${seconds}s`;
         }
 
+        function getQuotaTotalValue(quotaData) {
+            if (!quotaData) return 70;
+            const baseDaily = Number(quotaData.max_daily || quotaData.base_quota || 30);
+            const bonus = Number(quotaData.bonus_quota || 0);
+            const mult = Number(quotaData.bonus_multiplier || 1);
+            if (Number.isFinite(Number(quotaData.max_weekly))) {
+                return Number(quotaData.max_weekly);
+            }
+            return (baseDaily * mult) + bonus;
+        }
+
         function getQuotaRemainingValue(quotaData) {
-            if (!quotaData) return 0;
+            if (!quotaData) return 70;
             if (Number.isFinite(Number(quotaData.remaining))) return Math.max(0, Number(quotaData.remaining));
-            const maxDaily = Number(quotaData.max_daily || 0);
-            const used = Number(quotaData.uploads_today || 0);
-            return Math.max(0, maxDaily - used);
+            const total = getQuotaTotalValue(quotaData);
+            const used = Number(quotaData.uploads_this_week || quotaData.uploads_today || 0);
+            return Math.max(0, total - used);
         }
 
         async function typeLine(el, text, speed = 22) {
@@ -7589,16 +7908,30 @@
 
         function openQuotaDetailsModal() {
             if (!user || (!isMalevoSession() && Number(user.power_level) !== 1)) return;
-            const remaining = quota ? getQuotaRemainingValue(quota) : 30;
-            const total = Number(quota?.max_weekly || quota?.max_daily || 30);
-            const used = Number(quota?.uploads_this_week || quota?.uploads_today || 0);
-            const bonus = Number(quota?.bonus_quota || 0);
+            const remaining = quota ? getQuotaRemainingValue(quota) : 70;
+            const total = getQuotaTotalValue(quota);
+            const baseDaily = Number(quota?.max_daily || quota?.base_quota || 30);
+            const bonus = Number(quota?.bonus_quota || (total > baseDaily ? total - baseDaily : 0));
             const mult = Number(quota?.bonus_multiplier || 1);
+            const used = Number(quota?.uploads_this_week || quota?.uploads_today || 0);
+            const layout = getQuotaLayout();
+            const percent = total > 0 ? Math.min(100, Math.round((remaining / total) * 100)) : 0;
+            const theme = getRainbowSpectrumStyle(percent);
 
-            // Compute absolute reset timestamp from snapshot
-            const resetAt = quota?.next_reset_ms && quota.next_reset_ms > 0
-                ? Date.now() + quota.next_reset_ms
+            // Arc calculations for curved rainbow SVG (radius 100, total perimeter of semicircle = PI * 100 ~= 314.159)
+            const arcRadius = 100;
+            const arcLength = Math.PI * arcRadius; // ~314.16
+            // Offset: when percent is 100%, offset is 0. When 0%, offset is arcLength.
+            const arcOffset = arcLength * (1 - (percent / 100));
+
+            // Absolute reset timestamp (if not set or expired, default 7 days from now)
+            const now = Date.now();
+            let resetAt = quota?.next_reset_ms && quota.next_reset_ms > 0
+                ? now + Number(quota.next_reset_ms)
                 : null;
+            if (!resetAt) {
+                resetAt = now + (7 * 24 * 60 * 60 * 1000);
+            }
 
             function fmtCountdown(ms) {
                 if (ms <= 0) return '¡Cuota reiniciada!';
@@ -7607,49 +7940,117 @@
                 const h = Math.floor((s % 86400) / 3600);
                 const m = Math.floor((s % 3600) / 60);
                 const sec = s % 60;
-                if (d > 0) return `${d}d ${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`;
-                return `${h}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`;
+                return `${d}d ${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`;
             }
 
             function fmtResetDate(ts) {
-                if (!ts) return null;
+                if (!ts) return '';
                 const d = new Date(ts);
-                const days = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-                const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+                const days = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+                const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
                 const dow = days[d.getDay()];
                 const day = d.getDate();
                 const mon = months[d.getMonth()];
                 const hh = String(d.getHours()).padStart(2,'0');
                 const mm = String(d.getMinutes()).padStart(2,'0');
-                return `${dow} ${day} de ${mon} — ${hh}:${mm}hs`;
+                return `${dow} ${day} de ${mon} — ${hh}:${mm} hs (Hora exacta de reinicio)`;
             }
 
-            const initialResetText = resetAt ? fmtCountdown(resetAt - Date.now()) : null;
-            const resetDateLabel = resetAt ? fmtResetDate(resetAt) : null;
+            const initialResetText = fmtCountdown(resetAt - now);
+            const resetDateLabel = fmtResetDate(resetAt);
 
             openModal(`
                 <div class="modal-hd" style="background:linear-gradient(135deg,rgba(244,63,94,0.18),rgba(144,97,249,0.18));border-bottom:1px solid rgba(244,63,94,0.3)">
                     <div style="display:flex;align-items:center;gap:10px">
                         <div style="width:36px;height:36px;border-radius:10px;background:rgba(244,63,94,0.22);border:1px solid rgba(244,63,94,0.4);display:flex;align-items:center;justify-content:center;color:var(--pink);font-size:1.1rem">
-                            <i class="fas fa-bolt"></i>
+                            <i class="${layout === 'rainbow' ? 'fas fa-rainbow' : 'fas fa-calculator'}"></i>
                         </div>
                         <div>
-                            <h3 style="font-size:1.1rem;font-weight:800;color:#FFF">Cuota Semanal de Publicación</h3>
+                            <h3 style="font-size:1.1rem;font-weight:800;color:#FFF">Control de Cuota Semanal</h3>
                             <div style="font-size:0.75rem;color:var(--muted)">Administración Floret Shop (Malevo)</div>
                         </div>
                     </div>
                     <button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="modal-bd" style="padding:18px 20px;display:flex;flex-direction:column;gap:16px">
-                    <div style="text-align:center;padding:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px">
-                        <div style="font-size:2.4rem;font-weight:900;background:linear-gradient(135deg,#FFF,#FDA4AF);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
-                            ${remaining} <span style="font-size:1.1rem;color:var(--muted);font-weight:600">/ ${total}</span>
-                        </div>
-                        <div style="font-size:0.85rem;color:#E9D5FF;margin-top:2px;font-weight:600">Publicaciones restantes esta semana</div>
-                        <div class="pub-quota-progress" style="height:8px;margin:12px auto 0;max-width:280px">
-                            <div class="pub-quota-fill" style="width:${Math.min(100, Math.round((remaining / total) * 100))}%;background:${remaining <= 3 ? 'var(--pink)' : (remaining <= 8 ? 'var(--warn)' : 'linear-gradient(90deg, var(--pri), var(--pink))')}"></div>
+                    
+                    <!-- Layout Switcher for Malevo -->
+                    <div id="quota-layout-selector-el" style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:8px 12px;gap:8px">
+                        <span style="font-size:0.75rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em">Diseño de Cuota:</span>
+                        <div class="quota-layout-selector">
+                            <button class="quota-layout-btn ${layout === 'counter' ? 'active' : ''}" onclick="setQuotaLayout('counter')">
+                                <i class="fas fa-calculator"></i> Contador
+                            </button>
+                            <button class="quota-layout-btn ${layout === 'rainbow' ? 'active' : ''}" onclick="setQuotaLayout('rainbow')">
+                                <i class="fas fa-rainbow"></i> Arcoíris Curvo
+                            </button>
                         </div>
                     </div>
+
+                    ${layout === 'rainbow' ? `
+                    <!-- LAYOUT 1: CURVED RAINBOW ARC GAUGE -->
+                    <div style="text-align:center;padding:16px 14px 12px;background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));border:1px solid ${theme.pillBorder};box-shadow:${theme.glow};border-radius:20px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                            <span style="font-size:0.78rem;font-weight:800;color:${theme.tagColor};text-transform:uppercase;letter-spacing:0.05em">
+                                <i class="fas fa-sparkles"></i> ${theme.tag}
+                            </span>
+                            <span style="font-size:0.82rem;font-weight:900;color:#FFF;background:rgba(255,255,255,0.1);padding:3px 10px;border-radius:999px">
+                                ${percent}% Disponible
+                            </span>
+                        </div>
+                        
+                        <!-- Real Semicircular Curved Rainbow Arc -->
+                        <div class="rainbow-gauge-wrap" style="height:160px;margin-top:6px">
+                            <svg class="rainbow-svg-arc" viewBox="0 0 260 145">
+                                <defs>
+                                    <linearGradient id="rainbowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stop-color="#10B981" />
+                                        <stop offset="20%" stop-color="#06B6D4" />
+                                        <stop offset="40%" stop-color="#3B82F6" />
+                                        <stop offset="65%" stop-color="#8B5CF6" />
+                                        <stop offset="85%" stop-color="#EC4899" />
+                                        <stop offset="100%" stop-color="#F59E0B" />
+                                    </linearGradient>
+                                    <linearGradient id="rainbowActiveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stop-color="${theme.tagColor}" />
+                                        <stop offset="50%" stop-color="#EC4899" />
+                                        <stop offset="100%" stop-color="#8B5CF6" />
+                                    </linearGradient>
+                                </defs>
+                                <!-- Track Background Arc (Curved Semicircle) -->
+                                <path class="rainbow-arc-track" d="M 30 135 A 100 100 0 0 1 230 135" />
+                                <!-- Rainbow Color Filled Arc (Curved with Dashoffset) -->
+                                <path class="rainbow-arc-fill" d="M 30 135 A 100 100 0 0 1 230 135" 
+                                      stroke="url(#rainbowGrad)" 
+                                      stroke-dasharray="${arcLength}" 
+                                      stroke-dashoffset="${arcOffset}" />
+                            </svg>
+                            <div class="rainbow-arc-center">
+                                <div style="font-size:2.5rem;font-weight:900;background:linear-gradient(135deg, #FFF 30%, ${theme.tagColor});-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;letter-spacing:-0.02em">
+                                    ${remaining} <span style="font-size:1.15rem;color:var(--muted);font-weight:600;vertical-align:middle">/ ${total}</span>
+                                </div>
+                                <div style="font-size:0.8rem;color:#E9D5FF;margin-top:4px;font-weight:600">
+                                    Publicaciones disponibles
+                                </div>
+                                <div style="font-size:0.72rem;color:${theme.tagColor};margin-top:2px;font-weight:700">
+                                    Arcoíris Curvo: ${theme.name}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    ` : `
+                    <!-- LAYOUT 2: NUMERIC COUNTER -->
+                    <div style="text-align:center;padding:18px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:18px">
+                        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:700">Contador Digital de Cuota</div>
+                        <div style="font-size:2.8rem;font-weight:900;color:#FFF;margin:4px 0;letter-spacing:-0.03em">
+                            ${remaining} <span style="font-size:1.2rem;color:var(--muted);font-weight:600">/ ${total}</span>
+                        </div>
+                        <div style="font-size:0.85rem;color:#E9D5FF;font-weight:600">Publicaciones restantes esta semana</div>
+                        <div class="pub-quota-progress" style="height:8px;margin:12px auto 0;max-width:280px">
+                            <div class="pub-quota-fill" style="width:${percent}%;background:${remaining <= 3 ? 'var(--pink)' : (remaining <= 8 ? 'var(--warn)' : 'linear-gradient(90deg, var(--pri), var(--pink))')}"></div>
+                        </div>
+                    </div>
+                    `}
 
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                         <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px">
@@ -7658,11 +8059,11 @@
                         </div>
                         <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px">
                             <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Límite base semanal</div>
-                            <div style="font-size:1.15rem;font-weight:800;color:#FFF;margin-top:4px">30 productos</div>
+                            <div style="font-size:1.15rem;font-weight:800;color:#FFF;margin-top:4px">${baseDaily} productos</div>
                         </div>
                         ${bonus > 0 ? `
                         <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:12px">
-                            <div style="font-size:0.72rem;color:#6ee7b7;text-transform:uppercase;letter-spacing:0.06em">Bono extra disponible</div>
+                            <div style="font-size:0.72rem;color:#6ee7b7;text-transform:uppercase;letter-spacing:0.06em">Bono extra semanal (+40)</div>
                             <div style="font-size:1.15rem;font-weight:800;color:#6ee7b7;margin-top:4px">+${bonus} productos</div>
                         </div>` : ''}
                         ${mult > 1 ? `
@@ -7672,14 +8073,16 @@
                         </div>` : ''}
                     </div>
 
-                    <div style="background:rgba(144,97,249,0.08);border:1px solid rgba(144,97,249,0.2);border-radius:12px;padding:12px 14px;font-size:0.8rem;color:#D8B4FE;display:flex;align-items:center;gap:10px">
-                        <i class="fas fa-clock-rotate-left" style="font-size:1.1rem;color:var(--pri-l)"></i>
+                    <!-- Countdown and exact date/time box -->
+                    <div style="background:rgba(144,97,249,0.08);border:1px solid rgba(144,97,249,0.25);border-radius:14px;padding:14px 16px;font-size:0.82rem;color:#D8B4FE;display:flex;align-items:flex-start;gap:12px">
+                        <i class="fas fa-clock-rotate-left" style="font-size:1.3rem;color:var(--pri-l);margin-top:3px"></i>
                         <div style="flex:1">
-                            <div style="font-weight:700;color:#FFF;margin-bottom:4px">Próximo reinicio de ciclo:</div>
-                            ${initialResetText ? `
-                            <div id="quota-countdown" style="font-size:1rem;color:#FFF;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:0.02em">${initialResetText}</div>
-                            ${resetDateLabel ? `<div style="font-size:0.72rem;color:#C4B5FD;margin-top:3px;opacity:0.85">${resetDateLabel}</div>` : ''}
-                            ` : `<div style="font-size:0.82rem;color:#E9D5FF">7 días desde la primera publicación</div>`}
+                            <div style="font-weight:700;color:#FFF;font-size:0.85rem">Próximo reinicio de ciclo:</div>
+                            <div id="quota-countdown" style="font-size:1.25rem;color:#38BDF8;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:0.03em;margin:3px 0">${initialResetText}</div>
+                            <div style="font-size:0.78rem;color:#C4B5FD;display:flex;align-items:center;gap:5px">
+                                <i class="fas fa-calendar-alt" style="color:var(--pink)"></i>
+                                <span>${resetDateLabel}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -7690,19 +8093,20 @@
                 </div>
             `);
 
-            // Live countdown
+            // Live continuous countdown
             if (_quotaCountdownTimer) clearInterval(_quotaCountdownTimer);
-            if (resetAt) {
-                _quotaCountdownTimer = setInterval(() => {
-                    const el = document.getElementById('quota-countdown');
-                    if (!el) { clearInterval(_quotaCountdownTimer); _quotaCountdownTimer = null; return; }
-                    const msLeft = resetAt - Date.now();
-                    el.textContent = fmtCountdown(msLeft);
-                    if (msLeft <= 0) { clearInterval(_quotaCountdownTimer); _quotaCountdownTimer = null; }
-                }, 1000);
-            }
+            _quotaCountdownTimer = setInterval(() => {
+                const el = document.getElementById('quota-countdown');
+                if (!el) { clearInterval(_quotaCountdownTimer); _quotaCountdownTimer = null; return; }
+                const msLeft = resetAt - Date.now();
+                el.textContent = fmtCountdown(msLeft);
+                if (msLeft <= 0) {
+                    el.textContent = '¡Cuota reiniciada!';
+                    clearInterval(_quotaCountdownTimer);
+                    _quotaCountdownTimer = null;
+                }
+            }, 1000);
         }
-
 
         function openAddProduct() {
             if (!isAdmin && !isMalevoSession() && !(user && user.power_level > 0)) return showToast("No eres administrador", true);
@@ -8529,6 +8933,7 @@
             animateFlowers();
             window.addEventListener('resize', () => { resizeCanvas(); initFlowers(); });
 
+            trackFloretVisit();
             loadProducts({ silent: products.length > 0, showErrorToast: false });
             if (user && (Number(user.power_level) === 1 || isMalevoSession())) {
                 loadQuota(true);

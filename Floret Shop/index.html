@@ -6077,6 +6077,11 @@
       `).join('') : '<div class="review-comment">No hay productos cargados.</div>'}
     </div>
   `);
+            } catch (error) {
+                showToast(error.message || 'No se pudo abrir panel de ventas', true);
+            }
+        }
+
         async function openVisitorDetailsModal(filter = 'all') {
             if (!user || !isMalevoSession()) return showToast('Solo administradores autorizados', true);
             try {

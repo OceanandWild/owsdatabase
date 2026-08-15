@@ -30623,6 +30623,20 @@ await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus
 await pool.query(`ALTER TABLE floret_admin_quotas ALTER COLUMN max_daily SET DEFAULT 30`).catch(() => {});
 await pool.query(`UPDATE floret_admin_quotas SET max_daily = 30 WHERE max_daily < 30`).catch(() => {});
 
+// One-time fix: restore 4 uploads to Malevo that were counted before the 30-product migration
+// Guard: only apply if uploads_today >= 4 and bonus_quota = 0 (flag that fix hasn't been applied)
+await pool.query(`
+  UPDATE floret_admin_quotas
+  SET uploads_today = GREATEST(0, uploads_today - 4)
+  WHERE user_id IN (
+    SELECT id FROM floret_users
+    WHERE LOWER(COALESCE(username,'')) = 'malevo' OR LOWER(COALESCE(email,'')) = 'karatedojor@gmail.com'
+  )
+  AND uploads_today >= 4
+  AND bonus_quota = 0
+`).catch(() => {});
+
+
 // Ensure Malevo and OceanandWild are set up correctly if they exist
 try {
   await pool.query(`

@@ -5551,6 +5551,91 @@ app.post('/floret/orders', async (req, res) => {
   }
 });
 
+// ===== FLORET VISITOR TRACKING & ANALYTICS =====
+app.post('/floret/track/visit', async (req, res) => {
+  try {
+    const visitorId = normalizeFloretText(req.body?.visitorId || '', 64);
+    const userId = Number(req.body?.userId || 0) || null;
+    const rawIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim().slice(0, 60);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 255);
+
+    if (!visitorId) return res.status(400).json({ error: 'visitorId requerido' });
+
+    await pool.query(`
+      INSERT INTO floret_visitors (visitor_id, user_id, ip, user_agent, last_seen)
+      VALUES ($1, $2, $3, $4, NOW())
+      ON CONFLICT (visitor_id) DO UPDATE
+      SET user_id = COALESCE(EXCLUDED.user_id, floret_visitors.user_id),
+          ip = COALESCE(EXCLUDED.ip, floret_visitors.ip),
+          last_seen = NOW()
+    `, [visitorId, userId, rawIp, userAgent]);
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error en /floret/track/visit:', e);
+    res.status(500).json({ error: 'Error registrando visita' });
+  }
+});
+
+app.post('/floret/track/interaction', async (req, res) => {
+  try {
+    const visitorId = normalizeFloretText(req.body?.visitorId || '', 64);
+    const userId = Number(req.body?.userId || 0) || null;
+    const action = normalizeFloretText(req.body?.action || 'product_interaction', 64);
+    const rawIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim().slice(0, 60);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 255);
+
+    if (!visitorId) return res.status(400).json({ error: 'visitorId requerido' });
+
+    await pool.query(`
+      INSERT INTO floret_visitors (visitor_id, user_id, ip, user_agent, interacted, interaction_count, last_seen)
+      VALUES ($1, $2, $3, $4, TRUE, 1, NOW())
+      ON CONFLICT (visitor_id) DO UPDATE
+      SET interacted = TRUE,
+          interaction_count = floret_visitors.interaction_count + 1,
+          user_id = COALESCE(EXCLUDED.user_id, floret_visitors.user_id),
+          last_seen = NOW()
+    `, [visitorId, userId, rawIp, userAgent]);
+
+    res.json({ success: true, action });
+  } catch (e) {
+    console.error('Error en /floret/track/interaction:', e);
+    res.status(500).json({ error: 'Error registrando interaccion' });
+  }
+});
+
+app.get('/floret/seller/analytics', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0) || null;
+    const email = String(req.query.email || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total_visitors,
+        COUNT(*) FILTER (WHERE interacted = TRUE)::int AS interacted_visitors,
+        COALESCE(SUM(interaction_count), 0)::int AS total_interactions
+      FROM floret_visitors
+    `);
+    const r = rows[0] || {};
+    const totalVisitors = Number(r.total_visitors || 0);
+    const interactedVisitors = Number(r.interacted_visitors || 0);
+    const totalInteractions = Number(r.total_interactions || 0);
+    const interactionRate = totalVisitors > 0 ? Math.round((interactedVisitors / totalVisitors) * 100) : 0;
+
+    res.json({
+      totalVisitors,
+      interactedVisitors,
+      totalInteractions,
+      interactionRate
+    });
+  } catch (e) {
+    console.error('Error en /floret/seller/analytics:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 app.get('/floret/seller/dashboard', async (req, res) => {
   try {
     const userId = Number(req.query.userId || 0) || null;
@@ -5558,7 +5643,7 @@ app.get('/floret/seller/dashboard', async (req, res) => {
     const access = await assertFloretMalevoAccess({ userId, email });
     if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
 
-    const [statsRes, lowStockRes, recentOrdersRes] = await Promise.all([
+    const [statsRes, lowStockRes, recentOrdersRes, visitorsRes] = await Promise.all([
       pool.query(
         `SELECT
           COUNT(*)::int AS total_orders,
@@ -5581,10 +5666,23 @@ app.get('/floret/seller/dashboard', async (req, res) => {
          FROM floret_orders
          ORDER BY created_at DESC
          LIMIT 12`
-      )
+      ),
+      pool.query(
+        `SELECT
+          COUNT(*)::int AS total_visitors,
+          COUNT(*) FILTER (WHERE interacted = TRUE)::int AS interacted_visitors,
+          COALESCE(SUM(interaction_count), 0)::int AS total_interactions
+         FROM floret_visitors`
+      ).catch(() => ({ rows: [{ total_visitors: 0, interacted_visitors: 0, total_interactions: 0 }] }))
     ]);
 
     const stats = statsRes.rows[0] || {};
+    const vStats = visitorsRes.rows[0] || {};
+    const totalVisitors = Number(vStats.total_visitors || 0);
+    const interactedVisitors = Number(vStats.interacted_visitors || 0);
+    const totalInteractions = Number(vStats.total_interactions || 0);
+    const interactionRate = totalVisitors > 0 ? Math.round((interactedVisitors / totalVisitors) * 100) : 0;
+
     res.json({
       stats: {
         totalOrders: Number(stats.total_orders || 0),
@@ -5593,6 +5691,12 @@ app.get('/floret/seller/dashboard', async (req, res) => {
         shippedOrders: Number(stats.shipped_orders || 0),
         deliveredOrders: Number(stats.delivered_orders || 0),
         grossTotal: Number(stats.gross_total || 0)
+      },
+      visitors: {
+        totalVisitors,
+        interactedVisitors,
+        totalInteractions,
+        interactionRate
       },
       lowStock: lowStockRes.rows || [],
       recentOrders: recentOrdersRes.rows || []
@@ -30623,6 +30727,23 @@ await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus
 await pool.query(`ALTER TABLE floret_admin_quotas ALTER COLUMN max_daily SET DEFAULT 30`).catch(() => {});
 await pool.query(`UPDATE floret_admin_quotas SET max_daily = 30 WHERE max_daily < 30`).catch(() => {});
 
+// Visitors analytics table for Floret Shop
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_visitors (
+    id SERIAL PRIMARY KEY,
+    visitor_id VARCHAR(64) UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES floret_users(id) ON DELETE SET NULL,
+    ip VARCHAR(60),
+    user_agent TEXT,
+    interacted BOOLEAN DEFAULT FALSE,
+    interaction_count INTEGER DEFAULT 0,
+    first_seen TIMESTAMP DEFAULT NOW(),
+    last_seen TIMESTAMP DEFAULT NOW()
+  )
+`).catch(() => console.log('Tabla floret_visitors ya existe'));
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_visitors_interacted ON floret_visitors(interacted)`).catch(() => {});
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_visitors_last_seen ON floret_visitors(last_seen DESC)`).catch(() => {});
+
 // One-time fix: restore 4 uploads to Malevo that were counted before the 30-product migration
 // Guard: only apply if uploads_today >= 4 and bonus_quota = 0 (flag that fix hasn't been applied)
 await pool.query(`
@@ -30636,6 +30757,25 @@ await pool.query(`
   AND bonus_quota = 0
 `).catch(() => {});
 
+// Ensure Malevo has +40 extra quota bonus for this week
+try {
+  const malevoUserRes = await pool.query(`
+    SELECT id FROM floret_users
+    WHERE LOWER(COALESCE(username,'')) = 'malevo' OR LOWER(COALESCE(email,'')) = 'karatedojor@gmail.com'
+    LIMIT 1
+  `);
+  if (malevoUserRes.rows.length > 0) {
+    const malevoId = malevoUserRes.rows[0].id;
+    await getFloretQuota(malevoId);
+    await pool.query(`
+      UPDATE floret_admin_quotas
+      SET bonus_quota = GREATEST(COALESCE(bonus_quota, 0), 40)
+      WHERE user_id = $1
+    `, [malevoId]);
+  }
+} catch (e) {
+  console.log('Error applying weekly quota boost to Malevo:', e.message);
+}
 
 // Ensure Malevo and OceanandWild are set up correctly if they exist
 try {

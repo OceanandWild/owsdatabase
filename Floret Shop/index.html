@@ -7603,13 +7603,29 @@
             function fmtCountdown(ms) {
                 if (ms <= 0) return '¡Cuota reiniciada!';
                 const s = Math.floor(ms / 1000);
-                const h = Math.floor(s / 3600);
+                const d = Math.floor(s / 86400);
+                const h = Math.floor((s % 86400) / 3600);
                 const m = Math.floor((s % 3600) / 60);
                 const sec = s % 60;
+                if (d > 0) return `${d}d ${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`;
                 return `${h}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`;
             }
 
-            const initialResetText = resetAt ? fmtCountdown(resetAt - Date.now()) : '7 días desde la primera publicación';
+            function fmtResetDate(ts) {
+                if (!ts) return null;
+                const d = new Date(ts);
+                const days = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+                const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+                const dow = days[d.getDay()];
+                const day = d.getDate();
+                const mon = months[d.getMonth()];
+                const hh = String(d.getHours()).padStart(2,'0');
+                const mm = String(d.getMinutes()).padStart(2,'0');
+                return `${dow} ${day} de ${mon} — ${hh}:${mm}hs`;
+            }
+
+            const initialResetText = resetAt ? fmtCountdown(resetAt - Date.now()) : null;
+            const resetDateLabel = resetAt ? fmtResetDate(resetAt) : null;
 
             openModal(`
                 <div class="modal-hd" style="background:linear-gradient(135deg,rgba(244,63,94,0.18),rgba(144,97,249,0.18));border-bottom:1px solid rgba(244,63,94,0.3)">
@@ -7659,8 +7675,11 @@
                     <div style="background:rgba(144,97,249,0.08);border:1px solid rgba(144,97,249,0.2);border-radius:12px;padding:12px 14px;font-size:0.8rem;color:#D8B4FE;display:flex;align-items:center;gap:10px">
                         <i class="fas fa-clock-rotate-left" style="font-size:1.1rem;color:var(--pri-l)"></i>
                         <div style="flex:1">
-                            <div style="font-weight:700;color:#FFF">Próximo reinicio de ciclo:</div>
-                            <div id="quota-countdown" style="font-size:0.82rem;color:#E9D5FF;font-variant-numeric:tabular-nums;letter-spacing:0.02em">${initialResetText}</div>
+                            <div style="font-weight:700;color:#FFF;margin-bottom:4px">Próximo reinicio de ciclo:</div>
+                            ${initialResetText ? `
+                            <div id="quota-countdown" style="font-size:1rem;color:#FFF;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:0.02em">${initialResetText}</div>
+                            ${resetDateLabel ? `<div style="font-size:0.72rem;color:#C4B5FD;margin-top:3px;opacity:0.85">${resetDateLabel}</div>` : ''}
+                            ` : `<div style="font-size:0.82rem;color:#E9D5FF">7 días desde la primera publicación</div>`}
                         </div>
                     </div>
 

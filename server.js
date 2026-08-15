@@ -5108,16 +5108,15 @@ app.post('/floret/register', async (req, res) => {
 });
 
 // Login
-// Helper for Floret Quota
+// Helper for Floret Quota (30 productos por semana)
 async function getFloretQuota(userId) {
   const { rows } = await pool.query('SELECT * FROM floret_admin_quotas WHERE user_id = $1', [userId]);
   let quota = rows[0];
 
   if (!quota) {
-    const res = await pool.query('INSERT INTO floret_admin_quotas(user_id) VALUES($1) RETURNING *', [userId]);
+    const res = await pool.query('INSERT INTO floret_admin_quotas(user_id, max_daily) VALUES($1, 30) RETURNING *', [userId]);
     quota = res.rows[0];
   }
-
 
   // Clear expired multiplier
   if (quota.bonus_expires_at) {
@@ -5129,13 +5128,13 @@ async function getFloretQuota(userId) {
     }
   }
 
-  // Check reset logic (24h cooldown)
+  // Check reset logic (7 days / 168h cooldown for weekly quota cycle)
   if (quota.last_upload_time) {
     const last = new Date(quota.last_upload_time);
     const now = new Date();
     const diffHrs = (now - last) / (1000 * 60 * 60);
 
-    if (diffHrs >= 24) {
+    if (diffHrs >= 168) {
       await pool.query('UPDATE floret_admin_quotas SET uploads_today = 0, last_upload_time = NULL WHERE user_id = $1', [userId]);
       quota.uploads_today = 0;
       quota.last_upload_time = null;
@@ -5146,26 +5145,29 @@ async function getFloretQuota(userId) {
 }
 
 function buildFloretQuotaSummary(quotaRow) {
-  const baseMax = Number(quotaRow?.max_daily || 4);
+  const baseMax = Number(quotaRow?.max_daily || 30);
   const mult = Number(quotaRow?.bonus_multiplier || 1);
-  const maxDaily = baseMax * mult;
-  const uploadsToday = Number(quotaRow?.uploads_today || 0);
+  const maxWeekly = baseMax * mult;
+  const uploadsThisWeek = Number(quotaRow?.uploads_today || 0);
   const bonusQuota = Number(quotaRow?.bonus_quota || 0);
-  const remaining = Math.max(0, maxDaily - uploadsToday) + bonusQuota;
+  const remaining = Math.max(0, maxWeekly - uploadsThisWeek) + bonusQuota;
   const lastUpload = quotaRow?.last_upload_time ? new Date(quotaRow.last_upload_time) : null;
   const now = Date.now();
   let nextResetMs = 0;
   let nextResetAt = null;
   if (lastUpload && Number.isFinite(lastUpload.getTime())) {
-    const resetAt = lastUpload.getTime() + (24 * 60 * 60 * 1000);
+    const resetAt = lastUpload.getTime() + (7 * 24 * 60 * 60 * 1000);
     if (resetAt > now) {
       nextResetMs = resetAt - now;
       nextResetAt = new Date(resetAt).toISOString();
     }
   }
   return {
-    uploads_today: uploadsToday,
-    max_daily: maxDaily,
+    period: 'semanal',
+    uploads_today: uploadsThisWeek,
+    uploads_this_week: uploadsThisWeek,
+    max_daily: maxWeekly,
+    max_weekly: maxWeekly,
     remaining,
     bonus_quota: bonusQuota,
     bonus_multiplier: mult,
@@ -6869,11 +6871,12 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
     const user = userRes.rows[0];
     if (!user || !user.is_admin) return res.status(403).json({ error: 'No tienes permisos de administrador' });
 
-    // Verificar cuota para Sub-Admin (Malevo)
+    // Verificar cuota para Sub-Admin (Malevo) - 30 por semana
     if (user.power_level === 1) {
       const quota = await getFloretQuota(user.id);
-      if (quota.uploads_today >= quota.max_daily) {
-        return res.status(429).json({ error: 'Has alcanzado tu cuota diaria (4 productos). La cuota se reinicia 24hs después de tu primera publicación del ciclo.' });
+      const quotaSummary = buildFloretQuotaSummary(quota);
+      if (quotaSummary.remaining <= 0) {
+        return res.status(429).json({ error: 'Has alcanzado tu cuota semanal (30 productos). La cuota se reinicia 7 días después de tu primera publicación del ciclo.' });
       }
     }
 
@@ -30617,6 +30620,8 @@ await pool.query(`
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_multiplier INTEGER DEFAULT 1`).catch(() => {});
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_expires_at TIMESTAMP`).catch(() => {});
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_quota INTEGER DEFAULT 0`).catch(() => {});
+await pool.query(`ALTER TABLE floret_admin_quotas ALTER COLUMN max_daily SET DEFAULT 30`).catch(() => {});
+await pool.query(`UPDATE floret_admin_quotas SET max_daily = 30 WHERE max_daily < 30`).catch(() => {});
 
 // Ensure Malevo and OceanandWild are set up correctly if they exist
 try {

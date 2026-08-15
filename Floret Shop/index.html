@@ -7919,14 +7919,11 @@
             // Offset: when percent is 100%, offset is 0. When 0%, offset is arcLength.
             const arcOffset = arcLength * (1 - (percent / 100));
 
-            // Absolute reset timestamp (if not set or expired, default 7 days from now)
+            // Absolute reset timestamp — taken directly from the server's persistent cycle_start_at
+            // This survives page reloads because it comes from the DB, not computed client-side
             const now = Date.now();
-            let resetAt = quota?.next_reset_ms && quota.next_reset_ms > 0
-                ? now + Number(quota.next_reset_ms)
-                : null;
-            if (!resetAt) {
-                resetAt = now + (7 * 24 * 60 * 60 * 1000);
-            }
+            let resetAt = quota?.next_reset_at ? new Date(quota.next_reset_at).getTime() : null;
+            const cycleActive = resetAt && resetAt > now;
 
             function fmtCountdown(ms) {
                 if (ms <= 0) return '¡Cuota reiniciada!';
@@ -7951,8 +7948,8 @@
                 return `${dow} ${day} de ${mon} — ${hh}:${mm} hs (Hora exacta de reinicio)`;
             }
 
-            const initialResetText = fmtCountdown(resetAt - now);
-            const resetDateLabel = fmtResetDate(resetAt);
+            const initialResetText = cycleActive ? fmtCountdown(resetAt - now) : null;
+            const resetDateLabel = cycleActive ? fmtResetDate(resetAt) : null;
 
             openModal(`
                 <div class="modal-hd" style="background:linear-gradient(135deg,rgba(244,63,94,0.18),rgba(144,97,249,0.18));border-bottom:1px solid rgba(244,63,94,0.3)">
@@ -8073,11 +8070,13 @@
                         <i class="fas fa-clock-rotate-left" style="font-size:1.3rem;color:var(--pri-l);margin-top:3px"></i>
                         <div style="flex:1">
                             <div style="font-weight:700;color:#FFF;font-size:0.85rem">Próximo reinicio de ciclo:</div>
+                            ${cycleActive ? `
                             <div id="quota-countdown" style="font-size:1.25rem;color:#38BDF8;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:0.03em;margin:3px 0">${initialResetText}</div>
                             <div style="font-size:0.78rem;color:#C4B5FD;display:flex;align-items:center;gap:5px">
                                 <i class="fas fa-calendar-alt" style="color:var(--pink)"></i>
                                 <span>${resetDateLabel}</span>
-                            </div>
+                            </div>` : `
+                            <div style="font-size:0.88rem;color:#C4B5FD;margin-top:4px;font-style:italic">El ciclo comienza con tu próxima publicación</div>`}
                         </div>
                     </div>
 
@@ -8088,20 +8087,21 @@
                 </div>
             `);
 
-            // Live continuous countdown
+            // Live continuous countdown — only runs if cycle is active (cycleActive = server sent next_reset_at)
             if (_quotaCountdownTimer) clearInterval(_quotaCountdownTimer);
-            _quotaCountdownTimer = setInterval(() => {
-                const el = document.getElementById('quota-countdown');
-                if (!el) { clearInterval(_quotaCountdownTimer); _quotaCountdownTimer = null; return; }
-                const msLeft = resetAt - Date.now();
-                el.textContent = fmtCountdown(msLeft);
-                if (msLeft <= 0) {
-                    el.textContent = '¡Cuota reiniciada!';
-                    clearInterval(_quotaCountdownTimer);
-                    _quotaCountdownTimer = null;
-                }
-            }, 1000);
-        }
+            if (cycleActive && resetAt) {
+                _quotaCountdownTimer = setInterval(() => {
+                    const el = document.getElementById('quota-countdown');
+                    if (!el) { clearInterval(_quotaCountdownTimer); _quotaCountdownTimer = null; return; }
+                    const msLeft = resetAt - Date.now();
+                    el.textContent = fmtCountdown(msLeft);
+                    if (msLeft <= 0) {
+                        el.textContent = '¡Cuota reiniciada!';
+                        clearInterval(_quotaCountdownTimer);
+                        _quotaCountdownTimer = null;
+                    }
+                }, 1000);
+            }
 
         function openAddProduct() {
             if (!isAdmin && !isMalevoSession() && !(user && user.power_level > 0)) return showToast("No eres administrador", true);

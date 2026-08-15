@@ -5118,12 +5118,12 @@ async function getFloretQuota(userId) {
     quota = res.rows[0];
   }
 
-  // Ensure Malevo has +40 bonus quota for this week
+  // Ensure Malevo always has +40 bonus quota (unconditional)
   try {
     const userCheck = await pool.query('SELECT username, email FROM floret_users WHERE id = $1', [userId]);
     const u = userCheck.rows[0];
     const isMalevo = u && (String(u.username || '').toLowerCase() === 'malevo' || String(u.email || '').toLowerCase() === 'karatedojor@gmail.com');
-    if (isMalevo && Number(quota.bonus_quota || 0) < 40) {
+    if (isMalevo && Number(quota.bonus_quota || 0) !== 40) {
       await pool.query('UPDATE floret_admin_quotas SET bonus_quota = 40 WHERE user_id = $1', [userId]);
       quota.bonus_quota = 40;
     }
@@ -5139,16 +5139,34 @@ async function getFloretQuota(userId) {
     }
   }
 
-  // Check reset logic (7 days / 168h cooldown for weekly quota cycle)
-  if (quota.last_upload_time) {
+  // Reset weekly cycle if 7 days have passed since cycle_start_at
+  if (quota.cycle_start_at) {
+    const cycleStart = new Date(quota.cycle_start_at);
+    const now = new Date();
+    const diffHrs = (now - cycleStart) / (1000 * 60 * 60);
+    if (diffHrs >= 168) {
+      await pool.query(`UPDATE floret_admin_quotas
+        SET uploads_today = 0, last_upload_time = NULL, cycle_start_at = NULL
+        WHERE user_id = $1`, [userId]);
+      quota.uploads_today = 0;
+      quota.last_upload_time = null;
+      quota.cycle_start_at = null;
+    }
+  } else if (quota.last_upload_time) {
+    // Legacy fallback: if cycle_start_at not set but last_upload_time exists, migrate it
     const last = new Date(quota.last_upload_time);
     const now = new Date();
     const diffHrs = (now - last) / (1000 * 60 * 60);
-
     if (diffHrs >= 168) {
-      await pool.query('UPDATE floret_admin_quotas SET uploads_today = 0, last_upload_time = NULL WHERE user_id = $1', [userId]);
+      await pool.query(`UPDATE floret_admin_quotas
+        SET uploads_today = 0, last_upload_time = NULL, cycle_start_at = NULL
+        WHERE user_id = $1`, [userId]);
       quota.uploads_today = 0;
       quota.last_upload_time = null;
+    } else {
+      // Set cycle_start_at from last_upload_time for legacy records
+      await pool.query('UPDATE floret_admin_quotas SET cycle_start_at = last_upload_time WHERE user_id = $1 AND cycle_start_at IS NULL AND last_upload_time IS NOT NULL', [userId]);
+      quota.cycle_start_at = quota.last_upload_time;
     }
   }
 
@@ -5162,23 +5180,21 @@ function buildFloretQuotaSummary(quotaRow) {
   const maxWeekly = (baseMax * mult) + bonusQuota;
   const uploadsThisWeek = Number(quotaRow?.uploads_today || 0);
   const remaining = Math.max(0, maxWeekly - uploadsThisWeek);
-  
-  const now = Date.now();
-  let resetAtMs = 0;
-  if (quotaRow?.last_upload_time) {
-    const lastUpload = new Date(quotaRow.last_upload_time);
-    if (Number.isFinite(lastUpload.getTime())) {
-      const calculated = lastUpload.getTime() + (7 * 24 * 60 * 60 * 1000);
-      if (calculated > now) resetAtMs = calculated;
+
+  // Use persistent cycle_start_at from DB as the authoritative reset anchor
+  const cycleStart = quotaRow?.cycle_start_at ? new Date(quotaRow.cycle_start_at) : null;
+  let nextResetAt = null;
+  let nextResetMs = 0;
+
+  if (cycleStart && Number.isFinite(cycleStart.getTime())) {
+    const resetTime = cycleStart.getTime() + (7 * 24 * 60 * 60 * 1000);
+    const now = Date.now();
+    if (resetTime > now) {
+      nextResetAt = new Date(resetTime).toISOString();
+      nextResetMs = resetTime - now;
     }
   }
-  if (!resetAtMs) {
-    // If no uploads recorded yet this cycle, anchor 7 days from now (weekly rolling cycle)
-    resetAtMs = now + (7 * 24 * 60 * 60 * 1000);
-  }
-
-  const nextResetMs = Math.max(1000, resetAtMs - now);
-  const nextResetAt = new Date(resetAtMs).toISOString();
+  // If no cycle started yet (no uploads ever), nextResetAt = null — frontend shows 'El ciclo empieza con tu próxima publicación'
 
   return {
     period: 'semanal',
@@ -5192,6 +5208,7 @@ function buildFloretQuotaSummary(quotaRow) {
     bonus_multiplier: mult,
     bonus_expires_at: quotaRow?.bonus_expires_at || null,
     last_upload_time: quotaRow?.last_upload_time || null,
+    cycle_start_at: quotaRow?.cycle_start_at || null,
     next_reset_ms: nextResetMs,
     next_reset_at: nextResetAt
   };
@@ -7035,9 +7052,10 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
     // Actualizar cuota si es sub-admin
     if (user.power_level === 1) {
       await pool.query(`
-        UPDATE floret_admin_quotas 
+        UPDATE floret_admin_quotas
         SET uploads_today = uploads_today + 1,
             last_upload_time = COALESCE(last_upload_time, NOW()),
+            cycle_start_at = CASE WHEN (uploads_today = 0 OR cycle_start_at IS NULL) THEN NOW() ELSE cycle_start_at END,
             bonus_quota = GREATEST(0, COALESCE(bonus_quota, 0) - CASE WHEN uploads_today >= (max_daily * COALESCE(bonus_multiplier, 1)) THEN 1 ELSE 0 END)
         WHERE user_id = $1
       `, [user.id]);
@@ -30743,8 +30761,28 @@ await pool.query(`
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_multiplier INTEGER DEFAULT 1`).catch(() => {});
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_expires_at TIMESTAMP`).catch(() => {});
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_quota INTEGER DEFAULT 0`).catch(() => {});
+await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS cycle_start_at TIMESTAMP`).catch(() => {});
 await pool.query(`ALTER TABLE floret_admin_quotas ALTER COLUMN max_daily SET DEFAULT 30`).catch(() => {});
 await pool.query(`UPDATE floret_admin_quotas SET max_daily = 30 WHERE max_daily < 30`).catch(() => {});
+
+// Ensure Malevo always has bonus_quota = 40 (unconditional, idempotent)
+await pool.query(`
+  UPDATE floret_admin_quotas
+  SET bonus_quota = 40
+  WHERE user_id IN (
+    SELECT id FROM floret_users
+    WHERE LOWER(COALESCE(username,'')) = 'malevo' OR LOWER(COALESCE(email,'')) = 'karatedojor@gmail.com'
+  )
+`).catch(() => {});
+
+// Migrate legacy records: populate cycle_start_at from last_upload_time for existing users
+await pool.query(`
+  UPDATE floret_admin_quotas
+  SET cycle_start_at = last_upload_time
+  WHERE cycle_start_at IS NULL
+    AND last_upload_time IS NOT NULL
+    AND (NOW() - last_upload_time) < INTERVAL '7 days'
+`).catch(() => {});
 
 // Visitors analytics table for Floret Shop
 await pool.query(`

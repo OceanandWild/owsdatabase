@@ -4359,11 +4359,9 @@
         }
 
         function getRainbowSpectrumStyle(percent) {
-            // Spectrum colors matching the exact quota percentage
             if (percent >= 80) {
                 return {
-                    name: 'Esmeralda & Arcoíris Pleno',
-                    tag: '🌈 Óptimo (80% - 100%)',
+                    statusLabel: '✦ Cuota en óptimas condiciones',
                     tagColor: '#34d399',
                     gradient: 'linear-gradient(90deg, #10B981, #06B6D4, #3B82F6, #8B5CF6, #EC4899, #F59E0B)',
                     glow: '0 0 16px rgba(16, 185, 129, 0.45)',
@@ -4372,8 +4370,7 @@
                 };
             } else if (percent >= 50) {
                 return {
-                    name: 'Cyan & Magenta Neón',
-                    tag: '🌈 Saludable (50% - 79%)',
+                    statusLabel: '✦ Buen margen disponible',
                     tagColor: '#38bdf8',
                     gradient: 'linear-gradient(90deg, #06B6D4, #6366F1, #A855F7, #EC4899)',
                     glow: '0 0 16px rgba(168, 85, 247, 0.45)',
@@ -4382,8 +4379,7 @@
                 };
             } else if (percent >= 25) {
                 return {
-                    name: 'Ámbar & Coral Espectral',
-                    tag: '⚠️ Moderado (25% - 49%)',
+                    statusLabel: '⚠ Cuota moderada, úsala bien',
                     tagColor: '#fbbf24',
                     gradient: 'linear-gradient(90deg, #F59E0B, #F97316, #EC4899, #8B5CF6)',
                     glow: '0 0 16px rgba(245, 158, 11, 0.45)',
@@ -4392,8 +4388,7 @@
                 };
             } else {
                 return {
-                    name: 'Fuego Neón & Rojo Alerta',
-                    tag: '🚨 Crítico (<25%)',
+                    statusLabel: '🚨 Cuota crítica — quedan pocas',
                     tagColor: '#f87171',
                     gradient: 'linear-gradient(90deg, #EF4444, #F43F5E, #EC4899, #DC2626)',
                     glow: '0 0 20px rgba(239, 68, 68, 0.65)',
@@ -4747,7 +4742,7 @@
                   <span><b>${quotaRemaining}/${quotaTotal}</b> sem.</span>
                 </button>`;
             } else {
-                return `<button class="quota-hdr-pill fx-btn layout-rainbow" onclick="openQuotaDetailsModal()" style="border-color:${theme.pillBorder};box-shadow:${theme.glow}" title="Cuota: Modo Arcoíris (${percent}% - Clic para ver)">
+                return `<button class="quota-hdr-pill fx-btn layout-rainbow" onclick="openQuotaDetailsModal()" style="border-color:${theme.pillBorder};box-shadow:${theme.glow}" title="Cuota semanal: ${percent}% disponible (Clic para ver)">
                   <i class="fas fa-rainbow" style="color:${theme.tagColor}"></i>
                   <span><b>${quotaRemaining}/${quotaTotal}</b></span>
                   <span class="quota-hdr-rainbow-bar"><span class="quota-hdr-rainbow-bar-fill" style="display:block;width:${percent}%;background:${theme.gradient}"></span></span>
@@ -4809,9 +4804,9 @@
                   <span>Cuota: <b>${quotaRemaining} de ${quotaTotal}</b> restantes esta semana</span>
                 </div>`;
             } else {
-                return `<div class="hero-chip" onclick="openQuotaDetailsModal()" style="cursor:pointer;border-color:${theme.pillBorder};background:${theme.pillBg};box-shadow:${theme.glow}" title="Clic para ver detalles de cuota (Modo Arcoíris)">
-                  <i class="fas fa-rainbow" style="color:${theme.tagColor}"></i>
-                  <span>Cuota: <b>${quotaRemaining}/${quotaTotal}</b> <small style="color:${theme.tagColor};font-weight:700">(${percent}% · ${theme.name})</small></span>
+                return `<div class="hero-chip" onclick="openQuotaDetailsModal()" style="cursor:pointer;border-color:${theme.pillBorder};background:${theme.pillBg};box-shadow:${theme.glow}" title="Clic para ver detalles de cuota">
+                  <i class="fas fa-chart-pie" style="color:${theme.tagColor}"></i>
+                  <span>Cuota: <b>${quotaRemaining}/${quotaTotal}</b> <small style="color:${theme.tagColor};font-weight:700">(${percent}%)</small></span>
                 </div>`;
             }
           })() : `
@@ -7963,7 +7958,7 @@
                 <div class="modal-hd" style="background:linear-gradient(135deg,rgba(244,63,94,0.18),rgba(144,97,249,0.18));border-bottom:1px solid rgba(244,63,94,0.3)">
                     <div style="display:flex;align-items:center;gap:10px">
                         <div style="width:36px;height:36px;border-radius:10px;background:rgba(244,63,94,0.22);border:1px solid rgba(244,63,94,0.4);display:flex;align-items:center;justify-content:center;color:var(--pink);font-size:1.1rem">
-                            <i class="${layout === 'rainbow' ? 'fas fa-rainbow' : 'fas fa-calculator'}"></i>
+                            <i class="${layout === 'rainbow' ? 'fas fa-chart-pie' : 'fas fa-calculator'}"></i>
                         </div>
                         <div>
                             <h3 style="font-size:1.1rem;font-weight:800;color:#FFF">Control de Cuota Semanal</h3>
@@ -7982,7 +7977,7 @@
                                 <i class="fas fa-calculator"></i> Contador
                             </button>
                             <button class="quota-layout-btn ${layout === 'rainbow' ? 'active' : ''}" onclick="setQuotaLayout('rainbow')">
-                                <i class="fas fa-rainbow"></i> Arcoíris Curvo
+                                <i class="fas fa-chart-pie"></i> Visual
                             </button>
                         </div>
                     </div>
@@ -7992,7 +7987,7 @@
                     <div style="text-align:center;padding:16px 14px 12px;background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));border:1px solid ${theme.pillBorder};box-shadow:${theme.glow};border-radius:20px">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
                             <span style="font-size:0.78rem;font-weight:800;color:${theme.tagColor};text-transform:uppercase;letter-spacing:0.05em">
-                                <i class="fas fa-sparkles"></i> ${theme.tag}
+                                <i class="fas fa-sparkles"></i> ${theme.statusLabel}
                             </span>
                             <span style="font-size:0.82rem;font-weight:900;color:#FFF;background:rgba(255,255,255,0.1);padding:3px 10px;border-radius:999px">
                                 ${percent}% Disponible
@@ -8033,7 +8028,7 @@
                                     Publicaciones disponibles
                                 </div>
                                 <div style="font-size:0.72rem;color:${theme.tagColor};margin-top:2px;font-weight:700">
-                                    Arcoíris Curvo: ${theme.name}
+                                    ${theme.statusLabel}
                                 </div>
                             </div>
                         </div>

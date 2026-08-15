@@ -4702,7 +4702,7 @@
         function render() {
             const app = document.getElementById('app');
             const isMalevoOrLvl1 = Boolean(user && (Number(user.power_level) === 1 || isMalevoSession()));
-            const quotaRemaining = quota ? getQuotaRemainingValue(quota) : 30;
+            const quotaRemaining = quota ? getQuotaRemainingValue(quota) : 70;
             const quotaTotal = getQuotaTotalValue(quota);
             const catalogSyncTag = getCatalogSyncLabel();
             const hasActiveFilters = Boolean(
@@ -8108,7 +8108,7 @@
             if (!isAdmin && !isMalevoSession() && !(user && user.power_level > 0)) return showToast("No eres administrador", true);
             _pubFiles = [];
             const isMalevoOrLvl1 = Boolean(user && (Number(user.power_level) === 1 || isMalevoSession()));
-            const remaining = quota ? getQuotaRemainingValue(quota) : 30;
+            const remaining = quota ? getQuotaRemainingValue(quota) : 70;
             const total = Number(quota?.max_weekly || quota?.max_daily || 30);
             const quotaLine = isMalevoOrLvl1
                 ? `<div class="pub-quota-card" onclick="openQuotaDetailsModal()" title="Clic para ver detalles">
@@ -8773,10 +8773,10 @@
                         <div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.3);border-radius:12px;padding:10px 14px;margin-top:12px;cursor:pointer" onclick="openQuotaDetailsModal()">
                           <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;font-weight:700">
                             <span style="color:#FFF"><i class="fas fa-bolt" style="color:var(--pink)"></i> Cuota semanal</span>
-                            <span style="color:var(--pink)">${getQuotaRemainingValue(quota)} / ${quota.max_weekly || 30} disponibles</span>
+                            <span style="color:var(--pink)">${getQuotaRemainingValue(quota)} / ${getQuotaTotalValue(quota)} disponibles</span>
                           </div>
                           <div class="pub-quota-progress" style="margin-top:6px">
-                            <div class="pub-quota-fill" style="width:${Math.min(100, Math.round((getQuotaRemainingValue(quota)/(quota.max_weekly||30))*100))}%;background:linear-gradient(90deg,var(--pri),var(--pink))"></div>
+                            <div class="pub-quota-fill" style="width:${Math.min(100, Math.round((getQuotaRemainingValue(quota)/getQuotaTotalValue(quota))*100))}%;background:linear-gradient(90deg,var(--pri),var(--pink))"></div>
                           </div>
                         </div>` : ''}
                       </section>

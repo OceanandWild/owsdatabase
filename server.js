@@ -5118,12 +5118,17 @@ async function getFloretQuota(userId) {
     quota = res.rows[0];
   }
 
-  // Ensure Malevo always has +40 bonus quota (unconditional)
+  // Ensure Malevo / OceanandWild / Admins always have +40 bonus quota (unconditional)
   try {
-    const userCheck = await pool.query('SELECT username, email FROM floret_users WHERE id = $1', [userId]);
+    const userCheck = await pool.query('SELECT username, email, power_level FROM floret_users WHERE id = $1', [userId]);
     const u = userCheck.rows[0];
-    const isMalevo = u && (String(u.username || '').toLowerCase() === 'malevo' || String(u.email || '').toLowerCase() === 'karatedojor@gmail.com');
-    if (isMalevo && Number(quota.bonus_quota || 0) !== 40) {
+    const isAdmin = u && (
+      String(u.username || '').toLowerCase() === 'malevo' ||
+      String(u.username || '').toLowerCase() === 'oceanandwild' ||
+      String(u.email || '').toLowerCase() === 'karatedojor@gmail.com' ||
+      Number(u.power_level) > 0
+    );
+    if (isAdmin && Number(quota.bonus_quota || 0) !== 40) {
       await pool.query('UPDATE floret_admin_quotas SET bonus_quota = 40 WHERE user_id = $1', [userId]);
       quota.bonus_quota = 40;
     }
@@ -5848,16 +5853,18 @@ app.get('/floret/quota/:userId', async (req, res) => {
     const userId = Number(req.params.userId || 0);
     if (!userId) return res.status(400).json({ error: 'userId inválido' });
     const quota = await getFloretQuota(userId);
-    // Force-apply Malevo bonus directly in this endpoint as a safety net
+    // Force-apply admin bonus directly in this endpoint as a safety net
     try {
       const userCheck = await pool.query(
-        `SELECT username, email FROM floret_users WHERE id = $1 LIMIT 1`, [userId]
+        `SELECT username, email, power_level FROM floret_users WHERE id = $1 LIMIT 1`, [userId]
       );
       const u = userCheck.rows[0];
       if (u) {
-        const isMalevo = String(u.username || '').toLowerCase() === 'malevo'
-          || String(u.email || '').toLowerCase() === 'karatedojor@gmail.com';
-        if (isMalevo && Number(quota.bonus_quota || 0) !== 40) {
+        const isAdmin = String(u.username || '').toLowerCase() === 'malevo'
+          || String(u.username || '').toLowerCase() === 'oceanandwild'
+          || String(u.email || '').toLowerCase() === 'karatedojor@gmail.com'
+          || Number(u.power_level) > 0;
+        if (isAdmin && Number(quota.bonus_quota || 0) !== 40) {
           await pool.query(
             'UPDATE floret_admin_quotas SET bonus_quota = 40 WHERE user_id = $1', [userId]
           );
@@ -30784,13 +30791,15 @@ await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS cycle
 await pool.query(`ALTER TABLE floret_admin_quotas ALTER COLUMN max_daily SET DEFAULT 30`).catch(() => {});
 await pool.query(`UPDATE floret_admin_quotas SET max_daily = 30 WHERE max_daily < 30`).catch(() => {});
 
-// Ensure Malevo always has bonus_quota = 40 (unconditional, idempotent)
+// Ensure Admins (Malevo, OceanandWild, power_level > 0) always have bonus_quota = 40 (unconditional, idempotent)
 await pool.query(`
   UPDATE floret_admin_quotas
   SET bonus_quota = 40
   WHERE user_id IN (
     SELECT id FROM floret_users
-    WHERE LOWER(COALESCE(username,'')) = 'malevo' OR LOWER(COALESCE(email,'')) = 'karatedojor@gmail.com'
+    WHERE LOWER(COALESCE(username,'')) IN ('malevo', 'oceanandwild')
+       OR LOWER(COALESCE(email,'')) = 'karatedojor@gmail.com'
+       OR power_level > 0
   )
 `).catch(() => {});
 

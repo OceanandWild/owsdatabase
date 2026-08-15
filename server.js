@@ -5845,7 +5845,26 @@ app.patch('/floret/seller/orders/:id/status', async (req, res) => {
 // Obtener cuota
 app.get('/floret/quota/:userId', async (req, res) => {
   try {
-    const quota = await getFloretQuota(req.params.userId);
+    const userId = Number(req.params.userId || 0);
+    if (!userId) return res.status(400).json({ error: 'userId inválido' });
+    const quota = await getFloretQuota(userId);
+    // Force-apply Malevo bonus directly in this endpoint as a safety net
+    try {
+      const userCheck = await pool.query(
+        `SELECT username, email FROM floret_users WHERE id = $1 LIMIT 1`, [userId]
+      );
+      const u = userCheck.rows[0];
+      if (u) {
+        const isMalevo = String(u.username || '').toLowerCase() === 'malevo'
+          || String(u.email || '').toLowerCase() === 'karatedojor@gmail.com';
+        if (isMalevo && Number(quota.bonus_quota || 0) !== 40) {
+          await pool.query(
+            'UPDATE floret_admin_quotas SET bonus_quota = 40 WHERE user_id = $1', [userId]
+          );
+          quota.bonus_quota = 40;
+        }
+      }
+    } catch (_e) {}
     res.json(buildFloretQuotaSummary(quota));
   } catch (e) {
     res.status(500).json({ error: 'Error obteniendo cuota' });

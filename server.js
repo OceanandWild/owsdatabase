@@ -7099,14 +7099,17 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
   try {
     const userRes = await pool.query('SELECT * FROM floret_users WHERE id = $1', [userId]);
     const user = userRes.rows[0];
-    if (!user || !user.is_admin) return res.status(403).json({ error: 'No tienes permisos de administrador' });
+    // Accept both is_admin flag AND power_level > 0 (Malevo, OceanandWild, etc.)
+    if (!user || (!user.is_admin && Number(user.power_level || 0) === 0)) {
+      return res.status(403).json({ error: 'No tienes permisos de administrador' });
+    }
 
-    // Verificar cuota para Sub-Admin (Malevo) - 30 por semana
-    if (user.power_level === 1) {
+    // Verificar cuota para cuentas con power_level (Malevo y similares)
+    if (Number(user.power_level || 0) > 0) {
       const quota = await getFloretQuota(user.id);
       const quotaSummary = buildFloretQuotaSummary(quota);
       if (quotaSummary.remaining <= 0) {
-        return res.status(429).json({ error: 'Has alcanzado tu cuota semanal (30 productos). La cuota se reinicia 7 días después de tu primera publicación del ciclo.' });
+        return res.status(429).json({ error: `Has alcanzado tu cuota semanal (${quotaSummary.max_weekly} productos). La cuota se reinicia cuando agotes todas las publicaciones al completar el ciclo.` });
       }
     }
 
@@ -7139,14 +7142,13 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
       sellerEmail
     ]);
 
-    // Actualizar cuota si es sub-admin
-    if (user.power_level === 1) {
+    // Actualizar cuota si tiene power_level (incluye Malevo y OceanandWild)
+    if (Number(user.power_level || 0) > 0) {
       await pool.query(`
         UPDATE floret_admin_quotas
         SET uploads_today = uploads_today + 1,
-            last_upload_time = COALESCE(last_upload_time, NOW()),
-            cycle_start_at = CASE WHEN (uploads_today = 0 OR cycle_start_at IS NULL) THEN NOW() ELSE cycle_start_at END,
-            bonus_quota = GREATEST(0, COALESCE(bonus_quota, 0) - CASE WHEN uploads_today >= (max_daily * COALESCE(bonus_multiplier, 1)) THEN 1 ELSE 0 END)
+            last_upload_time = NOW(),
+            cycle_start_at = CASE WHEN cycle_start_at IS NULL THEN NOW() ELSE cycle_start_at END
         WHERE user_id = $1
       `, [user.id]);
     }
@@ -7157,6 +7159,7 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
     res.status(500).json({ error: 'Error interno de servidor' });
   }
 });
+
 
 app.patch('/floret/products/:id', async (req, res) => {
   const productId = Number(req.params.id || 0);

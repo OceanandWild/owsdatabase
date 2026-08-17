@@ -8425,6 +8425,52 @@
             };
         }
 
+        async function compressImageFile(file, maxDimension = 1400, quality = 0.82) {
+            if (!file || !file.type || !file.type.startsWith('image/')) return file;
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        try {
+                            let { width, height } = img;
+                            if (width > maxDimension || height > maxDimension) {
+                                if (width > height) {
+                                    height = Math.round((height * maxDimension) / width);
+                                    width = maxDimension;
+                                } else {
+                                    width = Math.round((width * maxDimension) / height);
+                                    height = maxDimension;
+                                }
+                            }
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            // Try webp first, fall back to jpeg
+                            canvas.toBlob((blob) => {
+                                if (!blob) { resolve(file); return; }
+                                const cleanName = (file.name || 'foto').replace(/\.[^/.]+$/, "") + ".webp";
+                                const compressedFile = new File([blob], cleanName, {
+                                    type: 'image/webp',
+                                    lastModified: Date.now()
+                                });
+                                resolve(compressedFile);
+                            }, 'image/webp', quality);
+                        } catch (_err) {
+                            resolve(file);
+                        }
+                    };
+                    img.onerror = () => resolve(file);
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => resolve(file);
+                reader.readAsDataURL(file);
+            });
+        }
+
         async function saveProduct() {
             const btn = document.getElementById('save-btn');
             if (!user) return showToast("Debes iniciar sesión", true);
@@ -8437,11 +8483,11 @@
 
             const isMalevoOrLvl1 = Boolean(user && (Number(user.power_level) === 1 || isMalevoSession()));
             if (isMalevoOrLvl1 && quota && getQuotaRemainingValue(quota) <= 0) {
-                return showToast('Has alcanzado tu cuota semanal de 30 productos. Espera al próximo ciclo.', true);
+                return showToast(`Has alcanzado tu cuota semanal (${getQuotaTotalValue(quota)} productos). Espera al próximo ciclo.`, true);
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo imágenes...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Optimizando fotos...';
 
             const formData = new FormData();
             formData.append('name', name);
@@ -8459,17 +8505,33 @@
             formData.append('specialCareNote', document.getElementById('p-fragile-note') ? document.getElementById('p-fragile-note').value : '');
             formData.append('userId', user.id);
 
-            for (const f of _pubFiles) {
-                formData.append('images', f);
+            // Compress images sequentially for mobile stability & fast network transfer
+            for (let i = 0; i < _pubFiles.length; i++) {
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Optimizando imagen ${i + 1}/${_pubFiles.length}...`;
+                const optimizedFile = await compressImageFile(_pubFiles[i]);
+                formData.append('images', optimizedFile);
             }
+
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publicando en Servidor...';
 
             try {
                 const res = await fetch(`${API}/floret/products`, {
                     method: 'POST',
                     body: formData
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Error al guardar');
+
+                const text = await res.text();
+                let data = null;
+                try {
+                    data = JSON.parse(text);
+                } catch (_jsonErr) {
+                    if (!res.ok) {
+                        throw new Error(`El servidor respondió con error (${res.status}). Intenta nuevamente.`);
+                    }
+                    throw new Error('Respuesta inválida del servidor al publicar.');
+                }
+
+                if (!res.ok) throw new Error(data?.error || 'Error al guardar el producto');
 
                 showToast('¡Producto publicado exitosamente!');
                 closeModal();
@@ -8479,7 +8541,7 @@
                 }
             } catch (e) {
                 console.error(e);
-                showToast(e.message, true);
+                showToast(e.message || 'Error al publicar', true);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-rocket"></i> Publicar en Servidor';

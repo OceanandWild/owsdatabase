@@ -1,0 +1,6 @@
+﻿# Ignore everything
+*
+
+# Except server.js
+!server.js
+!.gitignore

@@ -250,7 +250,8 @@ const UNIFIED_WALLET_CURRENCIES = [
   'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
   'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
   'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
-  'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks', 'biometokens'
+  'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks', 'biometokens',
+  'gambits'  // Wilder Gambit — exclusive in-game currency
 ];
 
 let oceanPayTwoFactorTablesReady = false;
@@ -348,7 +349,7 @@ async function getOceanPayAuthedUserFromRequest(req) {
 
 async function buildOceanPayLoginPayload(opUser) {
   const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-  const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+  const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '30d' });
 
   const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [opUser.id]);
   if (existingCards.length === 0) {
@@ -435,7 +436,7 @@ app.post('/ocean-pay/register', async (req, res) => {
       const opUser = newUser.rows[0];
 
       const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-      const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+      const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '30d' });
 
       res.json({
         success: true,
@@ -602,9 +603,9 @@ app.post('/ocean-pay/refresh-token', async (req, res) => {
     }
 
     const user = rows[0];
-    const newToken = jwt.sign({ id: user.id, uid: user.id, username: user.username }, secret, { expiresIn: '7d' });
+    const newToken = jwt.sign({ id: user.id, uid: user.id, username: user.username }, secret, { expiresIn: '30d' });
 
-    console.log(`Ã°Ã…Â¸—Â—Å¾ Token refreshed for user: ${user.username} (ID: ${user.id})`);
+    console.log(`Token refreshed for user: ${user.username} (ID: ${user.id})`);
 
     res.json({
       success: true,
@@ -656,7 +657,7 @@ app.post('/tigertasks/auth/register', async (req, res) => {
     const token = jwt.sign(
       { tid: user.id, username: user.username, source: 'tigertasks' },
       process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
     res.json({ success: true, token, user: { id: user.id, username: user.username } });
   } catch (e) {
@@ -683,7 +684,7 @@ app.post('/tigertasks/auth/login', async (req, res) => {
     const token = jwt.sign(
       { tid: user.id, username: user.username, source: 'tigertasks' },
       process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
     res.json({ success: true, token, user: { id: user.id, username: user.username } });
   } catch (e) {
@@ -729,7 +730,7 @@ app.post('/tigertasks/link/oceanpay', async (req, res) => {
     const oceanPayToken = jwt.sign(
       { id: opUser.id, uid: opUser.id, username: opUser.username },
       process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
     res.json({
@@ -4415,10 +4416,14 @@ async function runDatabaseMigrations() {
       ON ows_project_backups(is_backed_up, backup_date)
     `).catch(() => {});
 
-    if (typeof ensureOwsStoreProjectsSeedData === 'function') {
+    // ⚠️ Seed automático de ows_projects DESACTIVADO (2026-08-04).
+    // El catálogo de OWS Store quedó vacío a propósito (se borraron los proyectos
+    // de la BD) y este seed lo re-poblaba en cada reinicio de Render.
+    // Para reactivar el seed, setear ENABLE_OWS_STORE_PROJECTS_SEED=true en el entorno.
+    if (process.env.ENABLE_OWS_STORE_PROJECTS_SEED === 'true' && typeof ensureOwsStoreProjectsSeedData === 'function') {
       await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
     } else {
-      console.warn('[OWS] ensureOwsStoreProjectsSeedData no definida, se omite seed de ows_projects.');
+      console.log('[OWS] Seed automático de ows_projects DESACTIVADO (catálogo vacío). Para reactivarlo: ENABLE_OWS_STORE_PROJECTS_SEED=true');
     }
     await syncOwsProjectRestrictionsTable().catch(err => console.log('[OWS] Error syncing ows_project_restrictions:', err.message));
 
@@ -5104,16 +5109,31 @@ app.post('/floret/register', async (req, res) => {
 });
 
 // Login
-// Helper for Floret Quota
+// Helper for Floret Quota (30 productos por semana)
 async function getFloretQuota(userId) {
   const { rows } = await pool.query('SELECT * FROM floret_admin_quotas WHERE user_id = $1', [userId]);
   let quota = rows[0];
 
   if (!quota) {
-    const res = await pool.query('INSERT INTO floret_admin_quotas(user_id) VALUES($1) RETURNING *', [userId]);
+    const res = await pool.query('INSERT INTO floret_admin_quotas(user_id, max_daily, bonus_quota) VALUES($1, 30, 40) RETURNING *', [userId]);
     quota = res.rows[0];
   }
 
+  // Ensure Malevo / OceanandWild / Admins always have +40 bonus quota (unconditional)
+  try {
+    const userCheck = await pool.query('SELECT username, email, power_level FROM floret_users WHERE id = $1', [userId]);
+    const u = userCheck.rows[0];
+    const isAdmin = u && (
+      String(u.username || '').toLowerCase() === 'malevo' ||
+      String(u.username || '').toLowerCase() === 'oceanandwild' ||
+      String(u.email || '').toLowerCase() === 'karatedojor@gmail.com' ||
+      Number(u.power_level) > 0
+    );
+    if (isAdmin && Number(quota.bonus_quota || 0) !== 40) {
+      await pool.query('UPDATE floret_admin_quotas SET bonus_quota = 40 WHERE user_id = $1', [userId]);
+      quota.bonus_quota = 40;
+    }
+  } catch (_e) {}
 
   // Clear expired multiplier
   if (quota.bonus_expires_at) {
@@ -5125,16 +5145,46 @@ async function getFloretQuota(userId) {
     }
   }
 
-  // Check reset logic (24h cooldown)
-  if (quota.last_upload_time) {
+  // Reset weekly cycle rules:
+  // 1. Cycle only starts when first product is published (cycle_start_at != null).
+  // 2. When 7 days pass (diffHrs >= 168):
+  //    - If all quota was consumed (remaining === 0), it resets cleanly.
+  //    - If NOT all quota was consumed (remaining > 0), user must wait an additional week (total 14 days / 336h).
+  if (quota.cycle_start_at) {
+    const cycleStart = new Date(quota.cycle_start_at);
+    const now = new Date();
+    const diffHrs = (now - cycleStart) / (1000 * 60 * 60);
+    const baseMax = Number(quota.max_daily || 30);
+    const mult = Number(quota.bonus_multiplier || 1);
+    const bonusQuota = Number(quota.bonus_quota || 0);
+    const maxWeekly = (baseMax * mult) + bonusQuota;
+    const uploadsThisWeek = Number(quota.uploads_today || 0);
+    const remaining = Math.max(0, maxWeekly - uploadsThisWeek);
+
+    if (diffHrs >= 168) {
+      if (remaining === 0 || diffHrs >= 336) {
+        await pool.query(`UPDATE floret_admin_quotas
+          SET uploads_today = 0, last_upload_time = NULL, cycle_start_at = NULL
+          WHERE user_id = $1`, [userId]);
+        quota.uploads_today = 0;
+        quota.last_upload_time = null;
+        quota.cycle_start_at = null;
+      }
+    }
+  } else if (quota.last_upload_time) {
+    // Legacy fallback: if cycle_start_at not set but last_upload_time exists
     const last = new Date(quota.last_upload_time);
     const now = new Date();
     const diffHrs = (now - last) / (1000 * 60 * 60);
-
-    if (diffHrs >= 24) {
-      await pool.query('UPDATE floret_admin_quotas SET uploads_today = 0, last_upload_time = NULL WHERE user_id = $1', [userId]);
+    if (diffHrs >= 168) {
+      await pool.query(`UPDATE floret_admin_quotas
+        SET uploads_today = 0, last_upload_time = NULL, cycle_start_at = NULL
+        WHERE user_id = $1`, [userId]);
       quota.uploads_today = 0;
       quota.last_upload_time = null;
+    } else {
+      await pool.query('UPDATE floret_admin_quotas SET cycle_start_at = last_upload_time WHERE user_id = $1 AND cycle_start_at IS NULL AND last_upload_time IS NOT NULL', [userId]);
+      quota.cycle_start_at = quota.last_upload_time;
     }
   }
 
@@ -5142,35 +5192,55 @@ async function getFloretQuota(userId) {
 }
 
 function buildFloretQuotaSummary(quotaRow) {
-  const baseMax = Number(quotaRow?.max_daily || 4);
+  const baseMax = Number(quotaRow?.max_daily || 30);
   const mult = Number(quotaRow?.bonus_multiplier || 1);
-  const maxDaily = baseMax * mult;
-  const uploadsToday = Number(quotaRow?.uploads_today || 0);
   const bonusQuota = Number(quotaRow?.bonus_quota || 0);
-  const remaining = Math.max(0, maxDaily - uploadsToday) + bonusQuota;
-  const lastUpload = quotaRow?.last_upload_time ? new Date(quotaRow.last_upload_time) : null;
-  const now = Date.now();
-  let nextResetMs = 0;
+  const maxWeekly = (baseMax * mult) + bonusQuota;
+  const uploadsThisWeek = Number(quotaRow?.uploads_today || 0);
+  const remaining = Math.max(0, maxWeekly - uploadsThisWeek);
+
+  const cycleStart = quotaRow?.cycle_start_at ? new Date(quotaRow.cycle_start_at) : null;
   let nextResetAt = null;
-  if (lastUpload && Number.isFinite(lastUpload.getTime())) {
-    const resetAt = lastUpload.getTime() + (24 * 60 * 60 * 1000);
-    if (resetAt > now) {
-      nextResetMs = resetAt - now;
-      nextResetAt = new Date(resetAt).toISOString();
+  let nextResetMs = 0;
+  let cycleState = 'idle'; // 'idle' | 'normal' | 'extended' | 'completed'
+
+  if (cycleStart && Number.isFinite(cycleStart.getTime())) {
+    const now = Date.now();
+    const diffHrs = (now - cycleStart.getTime()) / (1000 * 60 * 60);
+    
+    if (diffHrs < 168) {
+      const targetTime = cycleStart.getTime() + (7 * 24 * 60 * 60 * 1000);
+      nextResetAt = new Date(targetTime).toISOString();
+      nextResetMs = Math.max(0, targetTime - now);
+      cycleState = remaining === 0 ? 'completed' : 'normal';
+    } else if (diffHrs < 336) {
+      // Extended penalty week (waiting for 2nd week to finish)
+      const targetTime = cycleStart.getTime() + (14 * 24 * 60 * 60 * 1000);
+      nextResetAt = new Date(targetTime).toISOString();
+      nextResetMs = Math.max(0, targetTime - now);
+      cycleState = 'extended';
     }
   }
+
   return {
-    uploads_today: uploadsToday,
-    max_daily: maxDaily,
+    period: 'semanal',
+    uploads_today: uploadsThisWeek,
+    uploads_this_week: uploadsThisWeek,
+    max_daily: baseMax,
+    base_quota: baseMax,
+    max_weekly: maxWeekly,
     remaining,
     bonus_quota: bonusQuota,
     bonus_multiplier: mult,
     bonus_expires_at: quotaRow?.bonus_expires_at || null,
     last_upload_time: quotaRow?.last_upload_time || null,
+    cycle_start_at: quotaRow?.cycle_start_at || null,
+    cycle_state: cycleState,
     next_reset_ms: nextResetMs,
     next_reset_at: nextResetAt
   };
 }
+
 
 // Login
 app.post('/floret/login', async (req, res) => {
@@ -5545,6 +5615,133 @@ app.post('/floret/orders', async (req, res) => {
   }
 });
 
+// ===== FLORET VISITOR TRACKING & ANALYTICS =====
+app.post('/floret/track/visit', async (req, res) => {
+  try {
+    const visitorId = normalizeFloretText(req.body?.visitorId || '', 64);
+    const userId = Number(req.body?.userId || 0) || null;
+    const rawIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim().slice(0, 60);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 255);
+
+    if (!visitorId) return res.status(400).json({ error: 'visitorId requerido' });
+
+    await pool.query(`
+      INSERT INTO floret_visitors (visitor_id, user_id, ip, user_agent, last_seen)
+      VALUES ($1, $2, $3, $4, NOW())
+      ON CONFLICT (visitor_id) DO UPDATE
+      SET user_id = COALESCE(EXCLUDED.user_id, floret_visitors.user_id),
+          ip = COALESCE(EXCLUDED.ip, floret_visitors.ip),
+          last_seen = NOW()
+    `, [visitorId, userId, rawIp, userAgent]);
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error en /floret/track/visit:', e);
+    res.status(500).json({ error: 'Error registrando visita' });
+  }
+});
+
+app.post('/floret/track/interaction', async (req, res) => {
+  try {
+    const visitorId = normalizeFloretText(req.body?.visitorId || '', 64);
+    const userId = Number(req.body?.userId || 0) || null;
+    const action = normalizeFloretText(req.body?.action || 'product_interaction', 64);
+    const rawIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim().slice(0, 60);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 255);
+
+    if (!visitorId) return res.status(400).json({ error: 'visitorId requerido' });
+
+    await pool.query(`
+      INSERT INTO floret_visitors (visitor_id, user_id, ip, user_agent, interacted, interaction_count, last_seen)
+      VALUES ($1, $2, $3, $4, TRUE, 1, NOW())
+      ON CONFLICT (visitor_id) DO UPDATE
+      SET interacted = TRUE,
+          interaction_count = floret_visitors.interaction_count + 1,
+          user_id = COALESCE(EXCLUDED.user_id, floret_visitors.user_id),
+          last_seen = NOW()
+    `, [visitorId, userId, rawIp, userAgent]);
+
+    res.json({ success: true, action });
+  } catch (e) {
+    console.error('Error en /floret/track/interaction:', e);
+    res.status(500).json({ error: 'Error registrando interaccion' });
+  }
+});
+
+app.get('/floret/seller/analytics', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0) || null;
+    const email = String(req.query.email || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total_visitors,
+        COUNT(*) FILTER (WHERE interacted = TRUE)::int AS interacted_visitors,
+        COALESCE(SUM(interaction_count), 0)::int AS total_interactions
+      FROM floret_visitors
+    `);
+    const r = rows[0] || {};
+    const totalVisitors = Number(r.total_visitors || 0);
+    const interactedVisitors = Number(r.interacted_visitors || 0);
+    const totalInteractions = Number(r.total_interactions || 0);
+    const interactionRate = totalVisitors > 0 ? Math.round((interactedVisitors / totalVisitors) * 100) : 0;
+
+    res.json({
+      totalVisitors,
+      interactedVisitors,
+      totalInteractions,
+      interactionRate
+    });
+  } catch (e) {
+    console.error('Error en /floret/seller/analytics:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/floret/seller/visitors', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0) || null;
+    const email = String(req.query.email || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const filter = String(req.query.filter || 'all').toLowerCase();
+    let whereClause = '';
+    if (filter === 'interacted') {
+      whereClause = 'WHERE v.interacted = TRUE';
+    } else if (filter === 'registered') {
+      whereClause = 'WHERE v.user_id IS NOT NULL';
+    }
+
+    const { rows } = await pool.query(`
+      SELECT 
+        v.id,
+        v.visitor_id,
+        v.user_id,
+        u.username,
+        u.email,
+        v.ip,
+        v.user_agent,
+        v.interacted,
+        v.interaction_count,
+        v.first_seen,
+        v.last_seen
+      FROM floret_visitors v
+      LEFT JOIN floret_users u ON v.user_id = u.id
+      ${whereClause}
+      ORDER BY v.last_seen DESC
+      LIMIT 150
+    `);
+
+    res.json({ visitors: rows || [] });
+  } catch (e) {
+    console.error('Error en /floret/seller/visitors:', e);
+    res.status(500).json({ error: 'Error interno obteniendo visitantes' });
+  }
+});
+
 app.get('/floret/seller/dashboard', async (req, res) => {
   try {
     const userId = Number(req.query.userId || 0) || null;
@@ -5552,7 +5749,7 @@ app.get('/floret/seller/dashboard', async (req, res) => {
     const access = await assertFloretMalevoAccess({ userId, email });
     if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
 
-    const [statsRes, lowStockRes, recentOrdersRes] = await Promise.all([
+    const [statsRes, lowStockRes, recentOrdersRes, visitorsRes] = await Promise.all([
       pool.query(
         `SELECT
           COUNT(*)::int AS total_orders,
@@ -5575,10 +5772,23 @@ app.get('/floret/seller/dashboard', async (req, res) => {
          FROM floret_orders
          ORDER BY created_at DESC
          LIMIT 12`
-      )
+      ),
+      pool.query(
+        `SELECT
+          COUNT(*)::int AS total_visitors,
+          COUNT(*) FILTER (WHERE interacted = TRUE)::int AS interacted_visitors,
+          COALESCE(SUM(interaction_count), 0)::int AS total_interactions
+         FROM floret_visitors`
+      ).catch(() => ({ rows: [{ total_visitors: 0, interacted_visitors: 0, total_interactions: 0 }] }))
     ]);
 
     const stats = statsRes.rows[0] || {};
+    const vStats = visitorsRes.rows[0] || {};
+    const totalVisitors = Number(vStats.total_visitors || 0);
+    const interactedVisitors = Number(vStats.interacted_visitors || 0);
+    const totalInteractions = Number(vStats.total_interactions || 0);
+    const interactionRate = totalVisitors > 0 ? Math.round((interactedVisitors / totalVisitors) * 100) : 0;
+
     res.json({
       stats: {
         totalOrders: Number(stats.total_orders || 0),
@@ -5587,6 +5797,12 @@ app.get('/floret/seller/dashboard', async (req, res) => {
         shippedOrders: Number(stats.shipped_orders || 0),
         deliveredOrders: Number(stats.delivered_orders || 0),
         grossTotal: Number(stats.gross_total || 0)
+      },
+      visitors: {
+        totalVisitors,
+        interactedVisitors,
+        totalInteractions,
+        interactionRate
       },
       lowStock: lowStockRes.rows || [],
       recentOrders: recentOrdersRes.rows || []
@@ -5699,7 +5915,28 @@ app.patch('/floret/seller/orders/:id/status', async (req, res) => {
 // Obtener cuota
 app.get('/floret/quota/:userId', async (req, res) => {
   try {
-    const quota = await getFloretQuota(req.params.userId);
+    const userId = Number(req.params.userId || 0);
+    if (!userId) return res.status(400).json({ error: 'userId inválido' });
+    const quota = await getFloretQuota(userId);
+    // Force-apply admin bonus directly in this endpoint as a safety net
+    try {
+      const userCheck = await pool.query(
+        `SELECT username, email, power_level FROM floret_users WHERE id = $1 LIMIT 1`, [userId]
+      );
+      const u = userCheck.rows[0];
+      if (u) {
+        const isAdmin = String(u.username || '').toLowerCase() === 'malevo'
+          || String(u.username || '').toLowerCase() === 'oceanandwild'
+          || String(u.email || '').toLowerCase() === 'karatedojor@gmail.com'
+          || Number(u.power_level) > 0;
+        if (isAdmin && Number(quota.bonus_quota || 0) !== 40) {
+          await pool.query(
+            'UPDATE floret_admin_quotas SET bonus_quota = 40 WHERE user_id = $1', [userId]
+          );
+          quota.bonus_quota = 40;
+        }
+      }
+    } catch (_e) {}
     res.json(buildFloretQuotaSummary(quota));
   } catch (e) {
     res.status(500).json({ error: 'Error obteniendo cuota' });
@@ -6507,6 +6744,137 @@ app.post('/ocean-cinemas/movies/exit', async (req, res) => {
   }
 });
 
+/* ===== OCEAN CINEMAS DRAFT EXPORTS (30 MIN TTL & COOLDOWN) ===== */
+const oceanCinemasDraftExports = new Map(); // key: draftId or exportId, value: { payload, expiresAt }
+
+// Cleanup expired exports every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, item] of oceanCinemasDraftExports.entries()) {
+    if (item.expiresAt && now > item.expiresAt) {
+      oceanCinemasDraftExports.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+const handleDraftExportPost = (req, res) => {
+  try {
+    const payload = req.body;
+    if (!payload || !payload.draftId) {
+      return res.status(400).json({ error: 'Falta payload o draftId invalido.' });
+    }
+
+    const draftId = String(payload.draftId);
+    const now = Date.now();
+    const existing = oceanCinemasDraftExports.get(draftId);
+    const isForce = payload.force === true || req.query.force === 'true';
+
+    // 30 minute cooldown check (skipped if force === true)
+    if (!isForce && existing && existing.expiresAt && now < existing.expiresAt) {
+      const remainingMinutes = Math.ceil((existing.expiresAt - now) / 60000);
+      return res.status(429).json({
+        error: `Cooldown activo. Este borrador ya fue exportado al servidor. Estara disponible para volver a exportar en ${remainingMinutes} minutos.`,
+        remainingMinutes,
+        export: existing.payload
+      });
+    }
+
+    const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+    const expiresAt = now + COOLDOWN_MS;
+
+    const exportData = {
+      ...payload,
+      exportedAt: new Date(now).toISOString(),
+      expiresAt: new Date(expiresAt).toISOString(),
+      ttlMinutes: 30
+    };
+
+    delete exportData.force;
+
+    oceanCinemasDraftExports.set(draftId, { payload: exportData, expiresAt });
+    if (payload.exportId) {
+      oceanCinemasDraftExports.set(String(payload.exportId), { payload: exportData, expiresAt });
+    }
+
+    return res.json({
+      success: true,
+      message: isForce ? 'Borrador actualizado/re-exportado en el servidor.' : 'Borrador exportado exitosamente al servidor por 30 minutos.',
+      export: exportData
+    });
+  } catch (err) {
+    console.error('Error en export-draft POST:', err);
+    return res.status(500).json({ error: 'Error interno guardando borrador exportado.' });
+  }
+};
+
+const handleDraftExportGet = (req, res) => {
+  try {
+    const id = req.query.id || req.query.draftId || req.query.exportId;
+    const now = Date.now();
+
+    if (id) {
+      const item = oceanCinemasDraftExports.get(String(id));
+      if (!item || (item.expiresAt && now > item.expiresAt)) {
+        if (item) oceanCinemasDraftExports.delete(String(id));
+        return res.status(404).json({ error: 'El borrador exportado expiro o no fue encontrado en el servidor (TTL: 30 min).' });
+      }
+      return res.json(item.payload);
+    }
+
+    const activeExports = [];
+    for (const [key, item] of oceanCinemasDraftExports.entries()) {
+      if (item.expiresAt && now <= item.expiresAt) {
+        if (!activeExports.some(x => String(x.draftId) === String(item.payload.draftId))) {
+          activeExports.push(item.payload);
+        }
+      }
+    }
+
+    return res.json({
+      count: activeExports.length,
+      exports: activeExports
+    });
+  } catch (err) {
+    console.error('Error en export-draft GET:', err);
+    return res.status(500).json({ error: 'Error interno obteniendo borradores exportados.' });
+  }
+};
+
+const handleDraftExportDelete = (req, res) => {
+  try {
+    const id = req.query.id || req.query.draftId || req.query.exportId || (req.body && req.body.draftId);
+    if (!id) {
+      return res.status(400).json({ error: 'Falta parametro id o draftId para eliminar.' });
+    }
+
+    const key = String(id);
+    const item = oceanCinemasDraftExports.get(key);
+    if (item && item.payload) {
+      oceanCinemasDraftExports.delete(String(item.payload.draftId));
+      if (item.payload.exportId) oceanCinemasDraftExports.delete(String(item.payload.exportId));
+    } else {
+      oceanCinemasDraftExports.delete(key);
+    }
+
+    return res.json({
+      success: true,
+      message: `Borrador ${id} eliminado del servidor exitosamente.`
+    });
+  } catch (err) {
+    console.error('Error en export-draft DELETE:', err);
+    return res.status(500).json({ error: 'Error interno al eliminar borrador del servidor.' });
+  }
+};
+
+app.post('/api/ocean-cinemas/export-draft', handleDraftExportPost);
+app.post('/ocean-cinemas/export-draft', handleDraftExportPost);
+
+app.get('/api/ocean-cinemas/export-draft', handleDraftExportGet);
+app.get('/ocean-cinemas/export-draft', handleDraftExportGet);
+
+app.delete('/api/ocean-cinemas/export-draft', handleDraftExportDelete);
+app.delete('/ocean-cinemas/export-draft', handleDraftExportDelete);
+
 // Obtener suspensiones del usuario autenticado de Ocean Pay
 app.get('/ocean-pay/suspensions', async (req, res) => {
   try {
@@ -6732,13 +7100,17 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
   try {
     const userRes = await pool.query('SELECT * FROM floret_users WHERE id = $1', [userId]);
     const user = userRes.rows[0];
-    if (!user || !user.is_admin) return res.status(403).json({ error: 'No tienes permisos de administrador' });
+    // Accept both is_admin flag AND power_level > 0 (Malevo, OceanandWild, etc.)
+    if (!user || (!user.is_admin && Number(user.power_level || 0) === 0)) {
+      return res.status(403).json({ error: 'No tienes permisos de administrador' });
+    }
 
-    // Verificar cuota para Sub-Admin (Malevo)
-    if (user.power_level === 1) {
+    // Verificar cuota para cuentas con power_level (Malevo y similares)
+    if (Number(user.power_level || 0) > 0) {
       const quota = await getFloretQuota(user.id);
-      if (quota.uploads_today >= quota.max_daily) {
-        return res.status(429).json({ error: 'Has alcanzado tu cuota diaria (4 productos). La cuota se reinicia 24hs después de tu primera publicación del ciclo.' });
+      const quotaSummary = buildFloretQuotaSummary(quota);
+      if (quotaSummary.remaining <= 0) {
+        return res.status(429).json({ error: `Has alcanzado tu cuota semanal (${quotaSummary.max_weekly} productos). La cuota se reinicia cuando agotes todas las publicaciones al completar el ciclo.` });
       }
     }
 
@@ -6771,13 +7143,13 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
       sellerEmail
     ]);
 
-    // Actualizar cuota si es sub-admin
-    if (user.power_level === 1) {
+    // Actualizar cuota si tiene power_level (incluye Malevo y OceanandWild)
+    if (Number(user.power_level || 0) > 0) {
       await pool.query(`
-        UPDATE floret_admin_quotas 
+        UPDATE floret_admin_quotas
         SET uploads_today = uploads_today + 1,
-            last_upload_time = COALESCE(last_upload_time, NOW()),
-            bonus_quota = GREATEST(0, COALESCE(bonus_quota, 0) - CASE WHEN uploads_today >= (max_daily * COALESCE(bonus_multiplier, 1)) THEN 1 ELSE 0 END)
+            last_upload_time = NOW(),
+            cycle_start_at = CASE WHEN cycle_start_at IS NULL THEN NOW() ELSE cycle_start_at END
         WHERE user_id = $1
       `, [user.id]);
     }
@@ -6788,6 +7160,7 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
     res.status(500).json({ error: 'Error interno de servidor' });
   }
 });
+
 
 app.patch('/floret/products/:id', async (req, res) => {
   const productId = Number(req.params.id || 0);
@@ -7314,6 +7687,14 @@ app.get('/a-wild-question-game', (_req, res) => {
   }
 });
 app.use('/a-wild-question-game', express.static(join(__dirname, 'A Wild Question Game')));
+app.use('/ows-spaces/assets', express.static(join(__dirname, 'OWS Spaces', 'assets')));
+
+// OWS Spaces - SPA: sirve la página desde el propio backend para que
+// página y API compartan origen (http://<host>:<PORT>/ows-spaces).
+app.get('/ows-spaces', (_req, res) => {
+  res.sendFile(join(__dirname, 'OWS Spaces', 'index.html'));
+});
+
 
 // ===== WILD TRANSFER - COMPARTIR ARCHIVOS (MULTIPLE) =====
 const wildTransferStorage = multer.diskStorage({
@@ -10112,6 +10493,84 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GAMBITS — Wilder Gambit exclusive in-game currency
+// Earned by playing: wins, brilliant moves, etc.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /ocean-pay/gambits/balance  →  { gambits: number }
+app.get('/ocean-pay/gambits/balance', async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  let userId;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = Number(decoded.id || decoded.uid || decoded.sub);
+    if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token inválido' });
+  } catch (_e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  const client = await pool.connect();
+  try {
+    const balance = await getUnifiedBalance(client, userId, 'gambits');
+    return res.json({ gambits: balance });
+  } catch (e) {
+    console.error('[Gambits] Error obteniendo saldo:', e);
+    return res.json({ gambits: 0 });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /ocean-pay/gambits/earn  →  { success, gambits: newBalance, earned: amount }
+// Body: { amount: number, reason?: string }
+// Called by Wilder Gambit when player wins, executes brilliant moves, etc.
+app.post('/ocean-pay/gambits/earn', async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  let userId;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = Number(decoded.id || decoded.uid || decoded.sub);
+    if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token inválido' });
+  } catch (_e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const amount = Number(req.body?.amount || 0);
+  const reason = String(req.body?.reason || 'wilder_gambit_reward').substring(0, 100);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ error: 'amount debe ser un número positivo' });
+  }
+  if (amount > 10000) {
+    return res.status(400).json({ error: 'amount excede el límite por solicitud (10000)' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await getUnifiedBalance(client, userId, 'gambits');
+    const newBalance = current + amount;
+    await setUnifiedBalance(client, userId, 'gambits', newBalance);
+    await client.query('COMMIT');
+    console.log(`[Gambits] Usuario ${userId} ganó ${amount} Gambits (${reason}). Nuevo saldo: ${newBalance}`);
+    return res.json({ success: true, gambits: newBalance, earned: amount, reason });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('[Gambits] Error al otorgar Gambits:', e);
+    return res.status(500).json({ error: 'Error interno al otorgar Gambits' });
+  } finally {
+    client.release();
+  }
+});
+
 // Compatibilidad legacy para clientes que aÃ¯Â¿Â½n usan este endpoint (ej. WildShorts)
 // y endpoint general usado por Ocean Pay / Velocity Surge.
 app.post(['/ocean-pay/cards/change-balance', '/ocean-pay/currency/change'], async (req, res) => {
@@ -12790,7 +13249,7 @@ app.get('/ows-store/banners', async (req, res) => {
       };
     }).filter((banner) => banner.phase !== 'ended' || includeInactive);
 
-    // If no banners from DB, provide a fallback Patreon banner
+    // If no banners from DB, provide fallback banners (Patreon + Unity announcement)
     if (!list.length && !includeInactive) {
       const patreonBanner = {
         id: 0,
@@ -12823,7 +13282,45 @@ app.get('/ows-store/banners', async (req, res) => {
         nuevo_days: 5,
         days_since_published: 0
       };
-      return res.json([patreonBanner]);
+      const unityBanner = {
+        id: -1,
+        title: 'Nuevos Proyectos en Camino con Unity',
+        description: 'Estamos desarrollando nuevos titulos con Unity. El primer proyecto podria lanzarse en Septiembre, o incluso en Agosto si todo sale bien. Seguinos para no perderte las novedades.',
+        eyebrow: 'UNITY ANNOUNCEMENT',
+        cta_label: 'Seguir novedades',
+        cta_url: 'https://oceanandwild.com',
+        layout: 'editorial',
+        accent: '#ff7b24',
+        secondary: '#1a1a2e',
+        background_url: 'https://i.ibb.co/Qjc81cB0/unity-announcementowsstore.png',
+        image_url: 'https://i.ibb.co/Qjc81cB0/unity-announcementowsstore.png',
+        style_config: {
+          editorial_density: 'balanced',
+          editorial_weight: 'bold',
+          title_color: '#ffffff',
+          text_color: 'rgba(255,255,255,0.85)',
+          title_rainbow: false,
+          text_rainbow: false
+        },
+        visual_meta: { is_permanent: true, nuevo_days: 14 },
+        project_names: ['Unity Titles'],
+        project_slugs: [],
+        platforms: ['windows', 'android'],
+        phase: 'active',
+        is_active: true,
+        priority: 998,
+        starts_at: null,
+        ends_at: null,
+        published_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        include_in_ows_store: true,
+        is_permanent: true,
+        is_nuevo: true,
+        nuevo_days: 14,
+        days_since_published: 0
+      };
+      return res.json([patreonBanner, unityBanner]);
     }
 
     return res.json(list);
@@ -13919,7 +14416,38 @@ app.get('/ows-store/github/repos/:owner/:repo/*', githubProxyHandler);
 // Perfil Ocean Pay usado por apps (cards + balances unificados)
 app.get('/ocean-pay/me', async (req, res) => {
   const token = parseStudioAuthToken(req);
-  const decoded = decodeStudioTokenOrNull(token);
+  let decoded = decodeStudioTokenOrNull(token);
+  let freshToken = null;
+
+  // Si el token está expirado, intentamos auto-refrescarlo (grace period 30 días)
+  if (!decoded && token) {
+    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    try {
+      const expiredDecoded = jwt.verify(token, secret, { ignoreExpiration: true });
+      const userId = Number(expiredDecoded.id || expiredDecoded.uid || expiredDecoded.sub || 0);
+      if (userId) {
+        const expiredAt = expiredDecoded.exp ? new Date(expiredDecoded.exp * 1000) : null;
+        const gracePeriodMs = 30 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        if (!expiredAt || (now - expiredAt.getTime() <= gracePeriodMs)) {
+          // User still has valid session within grace period — auto-refresh
+          const { rows: userRows } = await pool.query(
+            'SELECT id, username FROM ocean_pay_users WHERE id = $1 LIMIT 1',
+            [userId]
+          );
+          if (userRows.length) {
+            freshToken = jwt.sign(
+              { id: userRows[0].id, uid: userRows[0].id, username: userRows[0].username },
+              secret,
+              { expiresIn: '30d' }
+            );
+            decoded = jwt.verify(freshToken, secret);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   if (!decoded) return res.status(401).json({ error: 'Token invalido' });
 
   const userId = Number(decoded.id || decoded.uid || decoded.sub || 0);
@@ -13974,7 +14502,7 @@ app.get('/ocean-pay/me', async (req, res) => {
 
     const twoFactorEnabled = await getOceanPayTwoFactorEnabled(user.id);
 
-    return res.json({
+    const response = {
       success: true,
       id: user.id,
       uid: user.id,
@@ -13987,7 +14515,11 @@ app.get('/ocean-pay/me', async (req, res) => {
       two_factor_enabled: twoFactorEnabled,
       balances: mergedUserBalances,
       cards
-    });
+    };
+    // Si se refrescó el token automáticamente, lo devolvemos al cliente
+    if (freshToken) response.token = freshToken;
+
+    return res.json(response);
   } catch (err) {
     console.error('Error en GET /ocean-pay/me:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -17385,7 +17917,7 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '30d' });
 
     // Asegurar que existe el registro de internet_gb (inicializar si no existe)
     try {
@@ -23106,7 +23638,7 @@ async function handleWildWaveRegister(req, res) {
     );
     const userRow = rows[0];
 
-    const token = jwt.sign({ wid: userRow.id, un: userRow.username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ wid: userRow.id, un: userRow.username }, process.env.STUDIO_SECRET, { expiresIn: '30d' });
     const user = { id: userRow.id, username: userRow.username, display_name: userRow.display_name || userRow.username, avatar_url: userRow.avatar_url || null, created_at: userRow.created_at, bio: userRow.bio || null, posts_count: 0 };
     res.json({ token, user });
   } catch (err) {
@@ -23137,7 +23669,7 @@ async function handleWildWaveLogin(req, res) {
     );
     const postsCount = countRows[0]?.posts_count || 0;
 
-    const token = jwt.sign({ wid: rows[0].id, un: rows[0].username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ wid: rows[0].id, un: rows[0].username }, process.env.STUDIO_SECRET, { expiresIn: '30d' });
     const user = {
       id: rows[0].id,
       username: rows[0].username,
@@ -25064,7 +25596,7 @@ app.patch('/wildwave/api/profile/username', async (req, res) => {
       created_at: current.created_at,
       posts_count: postsCount
     };
-    const token = jwt.sign({ wid: current.id, un: uname }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ wid: current.id, un: uname }, process.env.STUDIO_SECRET, { expiresIn: '30d' });
     res.json({ success: true, user, token });
   } catch (err) {
     console.error('Error en PATCH /wildwave/api/profile/username:', err);
@@ -30401,6 +30933,80 @@ await pool.query(`
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_multiplier INTEGER DEFAULT 1`).catch(() => {});
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_expires_at TIMESTAMP`).catch(() => {});
 await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS bonus_quota INTEGER DEFAULT 0`).catch(() => {});
+await pool.query(`ALTER TABLE floret_admin_quotas ADD COLUMN IF NOT EXISTS cycle_start_at TIMESTAMP`).catch(() => {});
+await pool.query(`ALTER TABLE floret_admin_quotas ALTER COLUMN max_daily SET DEFAULT 30`).catch(() => {});
+await pool.query(`UPDATE floret_admin_quotas SET max_daily = 30 WHERE max_daily < 30`).catch(() => {});
+
+// Ensure Admins (Malevo, OceanandWild, power_level > 0) always have bonus_quota = 40 (unconditional, idempotent)
+await pool.query(`
+  UPDATE floret_admin_quotas
+  SET bonus_quota = 40
+  WHERE user_id IN (
+    SELECT id FROM floret_users
+    WHERE LOWER(COALESCE(username,'')) IN ('malevo', 'oceanandwild')
+       OR LOWER(COALESCE(email,'')) = 'karatedojor@gmail.com'
+       OR power_level > 0
+  )
+`).catch(() => {});
+
+// Migrate legacy records: populate cycle_start_at from last_upload_time for existing users
+await pool.query(`
+  UPDATE floret_admin_quotas
+  SET cycle_start_at = last_upload_time
+  WHERE cycle_start_at IS NULL
+    AND last_upload_time IS NOT NULL
+    AND (NOW() - last_upload_time) < INTERVAL '7 days'
+`).catch(() => {});
+
+// Visitors analytics table for Floret Shop
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_visitors (
+    id SERIAL PRIMARY KEY,
+    visitor_id VARCHAR(64) UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES floret_users(id) ON DELETE SET NULL,
+    ip VARCHAR(60),
+    user_agent TEXT,
+    interacted BOOLEAN DEFAULT FALSE,
+    interaction_count INTEGER DEFAULT 0,
+    first_seen TIMESTAMP DEFAULT NOW(),
+    last_seen TIMESTAMP DEFAULT NOW()
+  )
+`).catch(() => console.log('Tabla floret_visitors ya existe'));
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_visitors_interacted ON floret_visitors(interacted)`).catch(() => {});
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_visitors_last_seen ON floret_visitors(last_seen DESC)`).catch(() => {});
+
+// One-time fix: restore 4 uploads to Malevo that were counted before the 30-product migration
+// Guard: only apply if uploads_today >= 4 and bonus_quota = 0 (flag that fix hasn't been applied)
+await pool.query(`
+  UPDATE floret_admin_quotas
+  SET uploads_today = GREATEST(0, uploads_today - 4)
+  WHERE user_id IN (
+    SELECT id FROM floret_users
+    WHERE LOWER(COALESCE(username,'')) = 'malevo' OR LOWER(COALESCE(email,'')) = 'karatedojor@gmail.com'
+  )
+  AND uploads_today >= 4
+  AND bonus_quota = 0
+`).catch(() => {});
+
+// Ensure Malevo has +40 extra quota bonus for this week
+try {
+  const malevoUserRes = await pool.query(`
+    SELECT id FROM floret_users
+    WHERE LOWER(COALESCE(username,'')) = 'malevo' OR LOWER(COALESCE(email,'')) = 'karatedojor@gmail.com'
+    LIMIT 1
+  `);
+  if (malevoUserRes.rows.length > 0) {
+    const malevoId = malevoUserRes.rows[0].id;
+    await getFloretQuota(malevoId);
+    await pool.query(`
+      UPDATE floret_admin_quotas
+      SET bonus_quota = GREATEST(COALESCE(bonus_quota, 0), 40)
+      WHERE user_id = $1
+    `, [malevoId]);
+  }
+} catch (e) {
+  console.log('Error applying weekly quota boost to Malevo:', e.message);
+}
 
 // Ensure Malevo and OceanandWild are set up correctly if they exist
 try {
@@ -31228,7 +31834,89 @@ app.get('/ocean-pay/subscriptions/catalog', (_req, res) => {
   });
 });
 
+// ── Ocean Cinemas Offers ──
+// Generates occasional modest discounts to create urgency.
+// Offers are stored in memory and regenerate on a timer.
+let _ocOffersCache = [];
+let _ocOffersCacheExpiry = 0;
+// Persistent map of all unexpired offers — keys survive cache regeneration
+// so users who take longer than 5min to subscribe still get their discount
+const _ocAllOffers = new Map();
+const OC_OFFER_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+const OC_OFFER_DURATION_MS = 4 * 60 * 60 * 1000; // Each offer lasts 4 hours
+
+function _generateOceanCinemasOffers() {
+  const now = Date.now();
+
+  // Purge expired offers from the persistent map
+  for (const [code, offer] of _ocAllOffers) {
+    if (new Date(offer.expires_at).getTime() <= now) _ocAllOffers.delete(code);
+  }
+
+  // If cache is fresh, return the latest batch (frontend display)
+  if (now < _ocOffersCacheExpiry && _ocOffersCache.length) {
+    return _ocOffersCache;
+  }
+  _ocOffersCacheExpiry = now + OC_OFFER_REFRESH_MS;
+
+  // Paid plans only (skip Litoral which is free)
+  const paidPlans = [
+    { key: 'ocean_cinemas_oleaje', name: 'Oleaje', price: 60 },
+    { key: 'ocean_cinemas_marea', name: 'Marea', price: 180 },
+    { key: 'ocean_cinemas_abysal', name: 'Abisal', price: 400 },
+    { key: 'ocean_cinemas_leviatan', name: 'Leviatán', price: 850 }
+  ];
+
+  // ~40% chance any offer is active at all
+  if (Math.random() > 0.4) {
+    _ocOffersCache = [];
+    // Keep any unexpired offers in _ocAllOffers for validation
+    return Array.from(_ocAllOffers.values());
+  }
+
+  // Pick 1 or 2 plans to offer
+  const shuffled = [...paidPlans].sort(() => Math.random() - 0.5);
+  const count = Math.random() > 0.5 ? 1 : 2;
+  const selected = shuffled.slice(0, count);
+
+  const offers = selected.map(p => {
+    // Modest discount: 10-15%
+    const discountPct = 10 + Math.floor(Math.random() * 6); // 10-15%
+    const discountedPrice = Math.round(p.price * (1 - discountPct / 100));
+    const expiresAt = now + OC_OFFER_DURATION_MS;
+    // Generate a unique offer code for validation
+    const offerCode = 'oc_' + p.key.replace('ocean_cinemas_', '') + '_' + discountPct + '_' + Math.random().toString(36).substring(2, 6);
+    return {
+      offer_code: offerCode,
+      plan_key: p.key,
+      plan_name: p.name,
+      original_price: p.price,
+      discount_pct: discountPct,
+      discounted_price: discountedPrice,
+      expires_at: new Date(expiresAt).toISOString(),
+      expires_in_ms: OC_OFFER_DURATION_MS
+    };
+  });
+
+  _ocOffersCache = offers;
+  // Store all new offers in the persistent map for future validation
+  offers.forEach(o => _ocAllOffers.set(o.offer_code, o));
+  return offers;
+}
+
+app.get('/ocean-cinemas/subscriptions/offers', (_req, res) => {
+  const offers = _generateOceanCinemasOffers();
+  res.json({ offers, generated_at: new Date().toISOString() });
+});
+
+// Lightweight endpoint for client-side countdown sync — returns current server time
+// Used by _syncServerTime() to calculate clock offset and avoid drift
+app.get('/ocean-cinemas/subscriptions/server-time', (_req, res) => {
+  res.json({ now: Date.now(), iso: new Date().toISOString() });
+});
+
 app.get('/ocean-cinemas/subscriptions/plans', (_req, res) => {
+
   const plans = OCEAN_PAY_SUBSCRIPTION_CATALOG.filter((item) =>
     item.pid === 'Ocean Cinemas'
   ).map((item) => ({
@@ -31252,7 +31940,30 @@ app.post('/ocean-cinemas/subscriptions/status', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    let decoded;
+    try {
+      decoded = jwt.verify(token, secret);
+    } catch (jwtErr) {
+      // Attempt auto-refresh for expired tokens
+      if (jwtErr.name === 'TokenExpiredError') {
+        const expiredDecoded = jwt.verify(token, secret, { ignoreExpiration: true });
+        const uid = Number(expiredDecoded.id || expiredDecoded.uid || expiredDecoded.sub || 0);
+        if (uid) {
+          const expiredAt = expiredDecoded.exp ? new Date(expiredDecoded.exp * 1000) : null;
+          const graceMs = 30 * 24 * 60 * 60 * 1000;
+          if (!expiredAt || (Date.now() - expiredAt.getTime() <= graceMs)) {
+            const { rows: userRows } = await pool.query(
+              'SELECT id FROM ocean_pay_users WHERE id = $1 LIMIT 1', [uid]
+            );
+            if (userRows.length) {
+              decoded = { id: uid, uid, username: expiredDecoded.username || '' };
+            }
+          }
+        }
+      }
+      if (!decoded) return res.status(401).json({ error: 'Token invalido o expirado' });
+    }
     const userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token invalido' });
 
@@ -31302,11 +32013,33 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    let decoded;
+    try {
+      decoded = jwt.verify(token, secret);
+    } catch (jwtErr) {
+      if (jwtErr.name === 'TokenExpiredError') {
+        const expiredDecoded = jwt.verify(token, secret, { ignoreExpiration: true });
+        const uid = Number(expiredDecoded.id || expiredDecoded.uid || expiredDecoded.sub || 0);
+        if (uid) {
+          const expiredAt = expiredDecoded.exp ? new Date(expiredDecoded.exp * 1000) : null;
+          const graceMs = 30 * 24 * 60 * 60 * 1000;
+          if (!expiredAt || (Date.now() - expiredAt.getTime() <= graceMs)) {
+            const { rows: userRows } = await pool.query(
+              'SELECT id FROM ocean_pay_users WHERE id = $1 LIMIT 1', [uid]
+            );
+            if (userRows.length) {
+              decoded = { id: uid, uid, username: expiredDecoded.username || '' };
+            }
+          }
+        }
+      }
+      if (!decoded) return res.status(401).json({ error: 'Token invalido o expirado' });
+    }
     const userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token invalido' });
 
-    const { planId, cardId } = req.body || {};
+    const { planId, cardId, offerCode } = req.body || {};
     const PLANS = {
       oleaje: { name: 'Oleaje', price: 60, currency: 'tides', intervalDays: 30 },
       marea: { name: 'Marea', price: 180, currency: 'tides', intervalDays: 30 },
@@ -31315,6 +32048,29 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
     };
     const plan = PLANS[String(planId || '').toLowerCase()];
     if (!plan) return res.status(400).json({ error: 'Plan no válido. Elige Oleaje, Marea, Abisal o Leviatán.' });
+
+    // Validate offer code if provided — check against ALL unexpired offers
+    // (including previous cache batches stored in _ocAllOffers)
+    let effectivePrice = plan.price;
+    let appliedOffer = null;
+    if (offerCode) {
+      // First ensure expired offers are purged so we only validate live ones
+      const now = Date.now();
+      for (const [code, offer] of _ocAllOffers) {
+        if (new Date(offer.expires_at).getTime() <= now) _ocAllOffers.delete(code);
+      }
+      const offer = Array.from(_ocAllOffers.values()).find(o =>
+        o.offer_code === String(offerCode).trim() &&
+        o.plan_key === 'ocean_cinemas_' + String(planId || '').toLowerCase() &&
+        new Date(o.expires_at).getTime() > Date.now()
+      );
+      if (offer) {
+        effectivePrice = offer.discounted_price;
+        appliedOffer = { code: offer.offer_code, discount_pct: offer.discount_pct };
+      }
+      // If offer is invalid/expired, silently use full price —
+      // the frontend already shows the full price as fallback
+    }
 
     const safeCardId = Number(cardId);
     if (!Number.isFinite(safeCardId) || safeCardId <= 0) {
@@ -31352,27 +32108,30 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
 
       // Check Tides balance on card
       const currentBalance = await getUnifiedCardCurrencyBalance(client, safeCardId, plan.currency, true);
-      if (currentBalance < plan.price) {
+      if (currentBalance < effectivePrice) {
         await client.query('ROLLBACK');
         return res.status(400).json({
-          error: `Saldo insuficiente de Tides. Necesitas ${plan.price} Tides, tienes ${currentBalance}.`,
-          required: plan.price,
+          error: `Saldo insuficiente de Tides. Necesitas ${effectivePrice} Tides, tienes ${currentBalance}.`,
+          required: effectivePrice,
           available: currentBalance
         });
       }
 
-      // Deduct Tides
+      // Deduct Tides (use discounted price if offer was applied)
       await setUnifiedCardCurrencyBalance(client, {
         userId,
         cardId: safeCardId,
         currency: plan.currency,
-        newBalance: currentBalance - plan.price
+        newBalance: currentBalance - effectivePrice
       });
 
-      // Log transaction
+      // Log transaction (include discount info if applicable)
+      const conceptoOferta = appliedOffer
+        ? `Suscripcion: ${plan.name} (Ocean Cinemas) — OFERTA -${appliedOffer.discount_pct}% (${appliedOffer.code})`
+        : `Suscripcion: ${plan.name} (Ocean Cinemas)`;
       await client.query(
         'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-        [userId, `Suscripcion: ${plan.name} (Ocean Cinemas)`, -plan.price, 'Ocean Cinemas', plan.currency]
+        [userId, conceptoOferta, -effectivePrice, 'Ocean Cinemas', plan.currency]
       );
 
       // Create subscription
@@ -31384,7 +32143,7 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
            (user_id, card_id, project_id, plan_name, sub_name, price, currency, interval_days, next_payment, status)
          VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, 'active')
          RETURNING *`,
-        [userId, safeCardId, 'Ocean Cinemas', plan.name, plan.price, plan.currency, plan.intervalDays, nextPayment]
+        [userId, safeCardId, 'Ocean Cinemas', plan.name, effectivePrice, plan.currency, plan.intervalDays, nextPayment]
       );
 
       await client.query('COMMIT');
@@ -31393,8 +32152,9 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
         success: true,
         subscription: subRows[0],
         plan: { id: planId, ...plan },
+        appliedOffer: appliedOffer,
         nextPayment: nextPayment.toISOString(),
-        newTidesBalance: currentBalance - plan.price
+        newTidesBalance: currentBalance - effectivePrice
       });
     } catch (e) {
       await client.query('ROLLBACK');
@@ -33231,6 +33991,120 @@ app.get('/ows-store/windows/releases/wildweapon-mayhem/latest', async (req, res)
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// OWS STORE — ACTIVITY FEED
+// GET  /api/store/activity  → returns { success, activities: [...] }  (public)
+// POST /api/store/activity  → adds a new activity entry              (admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+// DB-backed activity feed. Survives Render deploys/restarts.
+// Activities are short, compact reports for the "Actividad reciente" widget.
+
+async function ensureStoreActivityTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_store_activity (
+      id          BIGSERIAL PRIMARY KEY,
+      title       TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      icon        TEXT NOT NULL DEFAULT 'fa-file',
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_store_activity_created
+      ON ows_store_activity(created_at DESC)
+  `);
+}
+
+app.get('/api/store/activity', async (_req, res) => {
+  try {
+    await ensureStoreActivityTable();
+    const { rows } = await pool.query(
+      `SELECT id, title, description, icon, created_at
+       FROM ows_store_activity
+       ORDER BY created_at DESC
+       LIMIT 10`
+    );
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.json({
+      success: true,
+      activities: rows.map(r => ({
+        id: r.id,
+        title: r.title,
+        description: r.description || '',
+        icon: r.icon || 'fa-file',
+        createdAt: r.created_at
+      }))
+    });
+  } catch (err) {
+    console.error('[OWS STORE ACTIVITY] Error fetching:', err);
+    res.status(500).json({ error: 'Error al cargar actividad' });
+  }
+});
+
+app.post('/api/store/activity', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const { title, description, icon } = req.body;
+  if (!title || !String(title).trim()) {
+    return res.status(400).json({ error: 'El título es requerido' });
+  }
+
+  try {
+    await ensureStoreActivityTable();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_store_activity (title, description, icon)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, description, icon, created_at`,
+      [
+        String(title).trim(),
+        String(description || '').trim(),
+        String(icon || 'fa-file').trim()
+      ]
+    );
+
+    const entry = rows[0];
+    console.log(`[OWS STORE ACTIVITY] Added: "${entry.title}" (ID: ${entry.id})`);
+    res.json({
+      success: true,
+      activity: {
+        id: entry.id,
+        title: entry.title,
+        description: entry.description || '',
+        icon: entry.icon || 'fa-file',
+        createdAt: entry.created_at
+      }
+    });
+  } catch (err) {
+    console.error('[OWS STORE ACTIVITY] Error adding:', err);
+    res.status(500).json({ error: 'Error al añadir actividad' });
+  }
+});
+
+app.delete('/api/store/activity/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+
+  try {
+    await ensureStoreActivityTable();
+    const { rowCount } = await pool.query(
+      'DELETE FROM ows_store_activity WHERE id = $1',
+      [id]
+    );
+    if (rowCount === 0) {
+      return res.status(404).json({ error: 'Actividad no encontrada' });
+    }
+    console.log(`[OWS STORE ACTIVITY] Deleted: ID ${id}`);
+    res.json({ success: true, deleted: id });
+  } catch (err) {
+    console.error('[OWS STORE ACTIVITY] Error deleting:', err);
+    res.status(500).json({ error: 'Error al eliminar actividad' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // OWS STORE — SHUTDOWN / ERA TRANSITION CONFIG
 // GET  /ows-store/shutdown-config  → returns { return_date, active }  (public)
 // POST /ows-store/shutdown-config  → sets   { return_date, active }   (admin only)
@@ -33260,4 +34134,2333 @@ app.post('/ows-store/shutdown-config', (req, res) => {
   owsShutdownReturnDate = newDate;
   console.log(`[OWS SHUTDOWN] return_date="${owsShutdownReturnDate}" active=${owsShutdownActiveOverride}`);
   res.json({ success: true, return_date: owsShutdownReturnDate, active: owsShutdownActiveOverride });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OWS SPACES — Espacios para tu equipo y tus clientes
+//
+// Modelo de roles POR ESPACIO:
+//  - La cuenta es una cuenta normal (sin rol).
+//  - Cada espacio asigna un rol a cada persona miembro.
+//  - Quien crea un espacio es su DUEÑO (owner). Los demás se postulan
+//    (apply) y el dueño aprueba y les asigna el rol dentro de ese espacio.
+//  - Los chats públicos los ven todos los miembros; los de equipo solo
+//    los miembros con rol de equipo (y con restricción por rol cuando
+//    el dueño lo configura).
+//
+// Autenticación: /ows-spaces/api/auth/register y /auth/login devuelven un
+// token JWT que debe enviarse como "Authorization: Bearer <token>" en el
+// resto de los endpoints. El rol nunca sale del cliente: sale de la membresía
+// del usuario en el espacio (tabla ows_space_members).
+// Prefijo: /ows-spaces/api/*
+// ─────────────────────────────────────────────────────────────────────────────
+const OWS_SPACES_TEAM_ROLES = ['owner', 'admin', 'staff', 'member'];
+const OWS_SPACES_ALL_ROLES = [...OWS_SPACES_TEAM_ROLES, 'client', 'guest'];
+// Roles que el dueño puede asignar (el rol owner es exclusivo del creador).
+const OWS_SPACES_ASSIGNABLE_ROLES = ['admin', 'staff', 'member', 'client', 'guest'];
+
+function owsSpacesNormalizeRole(role) {
+  const r = String(role || '').trim().toLowerCase();
+  return OWS_SPACES_ALL_ROLES.includes(r) ? r : '';
+}
+
+function owsSpacesIsTeamRole(role) {
+  return OWS_SPACES_TEAM_ROLES.includes(owsSpacesNormalizeRole(role));
+}
+
+function owsSpacesSlugify(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+// Iconos: emojis cortos o imágenes (data: URL generadas por el selector de iconos).
+// Las imágenes se guardan como data URL para no depender de archivos subidos.
+function owsSpacesIcon(raw, fallback) {
+  const s = String(raw ?? '').trim();
+  if (!s) return fallback;
+  // Emoji o texto corto (comportamiento histórico)
+  if (!/^(data:image\/|https?:\/\/)/i.test(s)) return s.slice(0, 8) || fallback;
+  // Imagen embebida: permitir un tamaño razonable (~400 KB en base64)
+  return s.slice(0, 400000) || fallback;
+}
+
+async function ensureOwsSpacesTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_spaces_users (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      pwd_hash TEXT NOT NULL,
+      display_name TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  // Migración: el rol ya no vive en la cuenta, vive en la membresía por espacio.
+  await pool.query(`
+    ALTER TABLE ows_spaces_users DROP COLUMN IF EXISTS role
+  `).catch((e) => console.warn('[OWS SPACES] drop role column:', e.message));
+  // Seguridad de la cuenta: bloqueo por intentos fallidos y restablecimiento de contraseña.
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS lock_count INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS reset_hash TEXT`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMPTZ`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS reset_attempts INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_spaces_users ADD COLUMN IF NOT EXISTS reset_sent_at TIMESTAMPTZ`).catch(() => {});
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_spaces (
+      id SERIAL PRIMARY KEY,
+      slug TEXT UNIQUE,
+      name TEXT NOT NULL,
+      icon TEXT DEFAULT '🚀',
+      description TEXT DEFAULT '',
+      owner_name TEXT DEFAULT '',
+      owner_user_id INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    ALTER TABLE ows_spaces ADD COLUMN IF NOT EXISTS owner_user_id INTEGER
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_members (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL REFERENCES ows_spaces(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES ows_spaces_users(id) ON DELETE CASCADE,
+      role TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (space_id, user_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_members_user
+      ON ows_space_members(user_id)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_chats (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL REFERENCES ows_spaces(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      icon TEXT DEFAULT '💬',
+      chat_type TEXT NOT NULL DEFAULT 'public',
+      visible_roles TEXT[] DEFAULT ARRAY[]::TEXT[],
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_chats_space
+      ON ows_space_chats(space_id)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_messages (
+      id SERIAL PRIMARY KEY,
+      chat_id INTEGER NOT NULL REFERENCES ows_space_chats(id) ON DELETE CASCADE,
+      sender_name TEXT NOT NULL,
+      sender_role TEXT DEFAULT 'client',
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_messages_chat
+      ON ows_space_messages(chat_id, id ASC)
+  `);
+  // ── STATUS PAGE por espacio ───────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_pages (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL UNIQUE REFERENCES ows_spaces(id) ON DELETE CASCADE,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      visibility TEXT NOT NULL DEFAULT 'team',
+      title TEXT DEFAULT 'Status',
+      description TEXT DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  // Etiqueta configurable de la métrica: por defecto “Severidad”, pero puede ser
+  // “Ocupación”, “Prioridad”, “Carga”, etc. según lo que mida la status page.
+  await pool.query(`ALTER TABLE ows_space_status_pages ADD COLUMN IF NOT EXISTS metric_label TEXT NOT NULL DEFAULT 'Severidad'`).catch(() => {});
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_groups (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_groups_page
+      ON ows_space_status_groups(page_id, position)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_items (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL REFERENCES ows_space_status_groups(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      status_def_id INTEGER,
+      note TEXT DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_items_group
+      ON ows_space_status_items(group_id, position)
+  `);
+  // Estados personalizados (el dueño puede crear los que necesite)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_defs (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      color TEXT DEFAULT '#22c55e',
+      icon TEXT DEFAULT '',
+      severity INTEGER NOT NULL DEFAULT 0,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_defs_page
+      ON ows_space_status_defs(page_id, position)
+  `);
+  // Permisos de edición: por rol y/o por persona (el dueño siempre puede)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_perms (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      role TEXT,
+      user_id INTEGER REFERENCES ows_spaces_users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ows_space_status_perms_role
+      ON ows_space_status_perms(page_id, role) WHERE role IS NOT NULL
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ows_space_status_perms_user
+      ON ows_space_status_perms(page_id, user_id) WHERE user_id IS NOT NULL
+  `);
+  // ── Estado de cada servicio: cuándo entró al estado actual ──────────────
+  // state_since se setea cada vez que cambia status_def_id; sirve para
+  // detectar servicios que llevan demasiado tiempo en un estado (stuck).
+  await pool.query(`ALTER TABLE ows_space_status_items ADD COLUMN IF NOT EXISTS state_since TIMESTAMPTZ`).catch(() => {});
+  await pool.query(`ALTER TABLE ows_space_status_pages ADD COLUMN IF NOT EXISTS stuck_hours NUMERIC NOT NULL DEFAULT 6`).catch(() => {});
+
+  // ── Notas de por qué un servicio está en su estado actual ────────────────
+  // Los editores pueden explicar el motivo; se muestran en el dropdown del
+  // header de la status page (historial por servicio).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_updates (
+      id SERIAL PRIMARY KEY,
+      item_id INTEGER NOT NULL REFERENCES ows_space_status_items(id) ON DELETE CASCADE,
+      message TEXT NOT NULL,
+      created_by INTEGER REFERENCES ows_spaces_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_space_status_updates:', e.message));
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_updates_item
+      ON ows_space_status_updates(item_id, created_at DESC)
+  `).catch(() => {});
+
+  // ── Banner de estado estancado (servicio demasiado tiempo en un estado) ──
+  // Lo crean los editores; se muestra a todos una sola vez (dismiss por user).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_banners (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      item_id INTEGER REFERENCES ows_space_status_items(id) ON DELETE SET NULL,
+      message TEXT NOT NULL,
+      created_by INTEGER REFERENCES ows_spaces_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_space_status_banners:', e.message));
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_banner_dismissals (
+      id SERIAL PRIMARY KEY,
+      banner_id INTEGER NOT NULL REFERENCES ows_space_status_banners(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES ows_spaces_users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (banner_id, user_id)
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_space_status_banner_dismissals:', e.message));
+
+  // ── Anuncios de la status page ────────────────────────────────────────────
+  // Avísos anticipados: qué servicios van a pasar a qué estado, por cuánto
+  // tiempo. Los crean los editores (acceso completo).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_space_status_announcements (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES ows_space_status_pages(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      message TEXT DEFAULT '',
+      status_def_id INTEGER REFERENCES ows_space_status_defs(id) ON DELETE SET NULL,
+      service_ids INTEGER[] DEFAULT '{}',
+      starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ends_at TIMESTAMPTZ,
+      created_by INTEGER REFERENCES ows_spaces_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_space_status_announcements:', e.message));
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_space_status_announcements_page
+      ON ows_space_status_announcements(page_id, starts_at DESC)
+  `).catch(() => {});
+
+  // ── Tabla de noticias propias de OWS Spaces ──────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_spaces_news (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      content_lines TEXT[] DEFAULT '{}',
+      cover_url TEXT DEFAULT '',
+      project_tag TEXT DEFAULT 'OWS Spaces',
+      author_name TEXT DEFAULT 'Ocean and Wild Studios',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      priority INTEGER NOT NULL DEFAULT 0,
+      published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).catch((e) => console.warn('[OWS SPACES] create ows_spaces_news:', e.message));
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_spaces_news_active
+      ON ows_spaces_news(is_active, published_at DESC)
+  `).catch(() => {});
+  // Notas: el contenido del blog (noticias de Status Pages, tutorial, layout rework)
+  // se inserta a través de la API (/ows-spaces/api/news), no con seeds hardcodeados.
+  // Así, si se elimina una noticia no vuelve a aparecer en el próximo deploy.
+}
+
+// ── Autenticación ────────────────────────────────────────────────────────────
+function owsSpacesSignToken(user) {
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  return jwt.sign(
+    { owsSpacesUid: user.id, username: user.username },
+    secret,
+    { expiresIn: '30d' }
+  );
+}
+
+async function owsSpacesUserFromToken(token) {
+  if (!token) return null;
+  try {
+    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    const decoded = jwt.verify(token, secret);
+    const uid = Number(decoded.owsSpacesUid || 0);
+    if (!uid) return null;
+    const { rows } = await pool.query('SELECT * FROM ows_spaces_users WHERE id = $1', [uid]);
+    return rows[0] || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Devuelve true si está autenticado y deja req.owsSpacesUser. Si no, responde 401.
+async function requireOwsSpacesAuth(req, res) {
+  const auth = String(req.headers.authorization || '');
+  const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+  const user = await owsSpacesUserFromToken(token);
+  if (!user) {
+    res.status(401).json({ error: 'Iniciá sesión para continuar', code: 'AUTH_REQUIRED' });
+    return false;
+  }
+  req.owsSpacesUser = user;
+  return true;
+}
+
+// ── Membresía por espacio ────────────────────────────────────────────────────
+async function owsSpacesGetMembership(userId, spaceId) {
+  const { rows } = await pool.query(
+    'SELECT * FROM ows_space_members WHERE user_id = $1 AND space_id = $2',
+    [userId, spaceId]
+  );
+  return rows[0] || null;
+}
+
+// Exige que el usuario sea MIEMBRO del espacio (status member).
+// Deja req.owsSpacesMember con el rol del usuario en ESE espacio.
+async function requireOwsSpacesMember(req, res, spaceId) {
+  if (!(await requireOwsSpacesAuth(req, res))) return false;
+  const mem = await owsSpacesGetMembership(req.owsSpacesUser.id, spaceId);
+  if (!mem) {
+    res.status(403).json({ error: 'No sos miembro de este espacio', code: 'NOT_MEMBER' });
+    return false;
+  }
+  if (mem.status !== 'member') {
+    res.status(403).json({ error: 'Tu solicitud está pendiente de aprobación', code: 'PENDING' });
+    return false;
+  }
+  req.owsSpacesMember = mem;
+  return true;
+}
+
+// Exige ser miembro con rol de equipo (dueño/admin/staff/miembro) en el espacio.
+async function requireOwsSpacesTeamMember(req, res, spaceId) {
+  if (!(await requireOwsSpacesMember(req, res, spaceId))) return false;
+  if (!owsSpacesIsTeamRole(req.owsSpacesMember.role)) {
+    res.status(403).json({ error: 'Necesitás un rol de equipo en este espacio para esta acción' });
+    return false;
+  }
+  return true;
+}
+
+// Exige ser el DUEÑO del espacio.
+async function requireOwsSpacesOwner(req, res, spaceId) {
+  if (!(await requireOwsSpacesMember(req, res, spaceId))) return false;
+  if (req.owsSpacesMember.role !== 'owner') {
+    res.status(403).json({ error: 'Solo el dueño del espacio puede hacer esto' });
+    return false;
+  }
+  return true;
+}
+
+function owsSpacesUserToJson(u) {
+  return {
+    id: u.id,
+    username: u.username,
+    displayName: u.display_name || u.username
+  };
+}
+
+// ¿Un chat es visible para este rol?
+// El dueño siempre ve todo: las restricciones por rol aplican al resto del equipo.
+function owsSpacesChatVisibleToRole(chat, role) {
+  const r = owsSpacesNormalizeRole(role) || 'guest';
+  if (r === 'owner') return true;
+  if (String(chat?.chat_type || 'public') === 'team') {
+    if (!owsSpacesIsTeamRole(r)) return false;
+    const roles = Array.isArray(chat?.visible_roles)
+      ? chat.visible_roles.map((x) => String(x).toLowerCase()).filter(Boolean)
+      : [];
+    if (roles.length && !roles.includes(r)) return false;
+    return true;
+  }
+  return true; // chat público → visible para todos
+}
+
+// ¿Este rol puede escribir en este chat?
+function owsSpacesCanSend(chat, role) {
+  const r = owsSpacesNormalizeRole(role) || 'guest';
+  if (r === 'guest') return false; // invitado: solo lectura
+  if (!owsSpacesChatVisibleToRole(chat, r)) return false;
+  return true;
+}
+
+function owsSpacesSpaceToJson(s) {
+  return {
+    id: s.id,
+    slug: s.slug || '',
+    name: s.name,
+    icon: s.icon || '🚀',
+    description: s.description || '',
+    ownerName: s.owner_name || '',
+    chatCount: Number(s.chat_count || 0),
+    messageCount: Number(s.message_count || 0),
+    createdAt: s.created_at
+  };
+}
+
+function owsSpacesChatToJson(c, role) {
+  return {
+    id: c.id,
+    name: c.name,
+    icon: c.icon || '💬',
+    chatType: String(c.chat_type || 'public'),
+    visibleRoles: Array.isArray(c.visible_roles) ? c.visible_roles : [],
+    messageCount: Number(c.message_count || 0),
+    canSend: owsSpacesCanSend(c, role),
+    createdAt: c.created_at
+  };
+}
+
+function owsSpacesMessageToJson(m) {
+  return {
+    id: m.id,
+    senderName: m.sender_name || '',
+    senderRole: m.sender_role || 'guest',
+    body: m.body || '',
+    createdAt: m.created_at
+  };
+}
+
+function owsSpacesMemberToJson(m) {
+  return {
+    id: Number(m.user_id),
+    username: m.username || '',
+    displayName: m.display_name || m.username || '',
+    role: m.role || '',
+    membershipId: Number(m.membership_id),
+    joinedAt: m.created_at
+  };
+}
+
+// ── Seguridad de la cuenta: bloqueo por intentos y reset de contraseña ──────
+const OWS_AUTH_MAX_ATTEMPTS = 3;                          // intentos antes de bloquear
+const OWS_AUTH_LOCK_STEPS = [5 * 60e3, 15 * 60e3, 3600e3, 6 * 3600e3, 24 * 3600e3]; // 5m, 15m, 1h, 6h, 24h
+const OWS_RESET_CODE_TTL = 10 * 60e3;                     // el código expira a los 10 min
+const OWS_RESET_MAX_ATTEMPTS = 5;                         // máx. intentos de código incorrecto
+const OWS_RESET_COOLDOWN_MS = 60e3;                       // reenvío mínimo entre códigos
+
+// Duración del bloqueo según cuántas veces ya se bloqueó la cuenta (escala).
+function owsSpacesLockMs(lockCount) {
+  const i = Math.min(Math.max(Number(lockCount) || 0, 0), OWS_AUTH_LOCK_STEPS.length - 1);
+  return OWS_AUTH_LOCK_STEPS[i];
+}
+
+// Milisegundos restantes de bloqueo (0 = desbloqueado).
+function owsSpacesAccountLockMs(user) {
+  const until = user.locked_until ? new Date(user.locked_until).getTime() : 0;
+  if (!until || Date.now() >= until) return 0;
+  return until - Date.now();
+}
+
+// Registra un intento fallido en la base. Al llegar a MAX_ATTEMPTS bloquea la cuenta
+// con una duración que escala con lock_count, y reinicia el contador para la próxima ronda.
+async function owsSpacesRegisterLoginFailure(user) {
+  const attempts = Number(user.failed_attempts || 0) + 1;
+  const lockCount = Number(user.lock_count || 0);
+  let lockedUntil = null;
+  if (attempts >= OWS_AUTH_MAX_ATTEMPTS) {
+    lockedUntil = new Date(Date.now() + owsSpacesLockMs(lockCount));
+  }
+  await pool.query(
+    `UPDATE ows_spaces_users
+        SET failed_attempts = $2,
+            lock_count = lock_count + $3,
+            locked_until = $4
+      WHERE id = $1`,
+    [user.id, lockedUntil ? 0 : attempts, lockedUntil ? 1 : 0, lockedUntil]
+  );
+  return { attempts, lockedUntil };
+}
+
+async function owsSpacesClearLock(userId) {
+  await pool.query(
+    `UPDATE ows_spaces_users SET failed_attempts = 0, lock_count = 0, locked_until = NULL WHERE id = $1`,
+    [userId]
+  );
+}
+
+// ── Anti-fuerza bruta para usuarios inexistentes (en memoria por IP + usuario) ──
+const owsSpacesIpAttempts = new Map();
+function owsSpacesAttemptKey(req, username) {
+  const rawIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim();
+  return `${rawIp || 'unknown'}|${String(username || '').toLowerCase()}`;
+}
+function owsSpacesIpLockMs(req, username) {
+  const row = owsSpacesIpAttempts.get(owsSpacesAttemptKey(req, username));
+  if (!row || !row.lockedUntil) return 0;
+  if (Date.now() >= row.lockedUntil) { owsSpacesIpAttempts.delete(owsSpacesAttemptKey(req, username)); return 0; }
+  return row.lockedUntil - Date.now();
+}
+function owsSpacesRegisterIpFailure(req, username) {
+  const key = owsSpacesAttemptKey(req, username);
+  const now = Date.now();
+  const row = owsSpacesIpAttempts.get(key);
+  const attempts = (row ? row.attempts : 0) + 1;
+  const locks = row ? row.locks : 0;
+  let lockedUntil = 0;
+  if (attempts >= OWS_AUTH_MAX_ATTEMPTS) {
+    lockedUntil = now + owsSpacesLockMs(locks);
+  }
+  owsSpacesIpAttempts.set(key, {
+    attempts: lockedUntil ? 0 : attempts,
+    locks: locks + (lockedUntil ? 1 : 0),
+    lockedUntil,
+    firstAt: row ? row.firstAt : now
+  });
+  return lockedUntil ? lockedUntil - now : 0;
+}
+
+// ── Códigos de restablecimiento ───────────────────────────────────────────────
+function owsSpacesNewResetCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+}
+
+async function owsSpacesInvalidateReset(userId) {
+  await pool.query(
+    `UPDATE ows_spaces_users SET reset_hash = NULL, reset_expires = NULL, reset_attempts = 0, reset_sent_at = NULL WHERE id = $1`,
+    [userId]
+  );
+}
+
+// ── Auth endpoints ───────────────────────────────────────────────────────────
+app.post('/ows-spaces/api/auth/register', async (req, res) => {
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
+  const displayName = String(req.body?.displayName || '').trim().slice(0, 60) || username;
+
+  if (!username || username.length < 3) {
+    return res.status(400).json({ error: 'El usuario debe tener al menos 3 caracteres' });
+  }
+  if (!/^[a-z0-9._-]+$/.test(username)) {
+    return res.status(400).json({ error: 'El usuario solo puede tener letras, números, puntos, guiones y guiones bajos' });
+  }
+  if (password.length < 4) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 4 caracteres' });
+  }
+
+  try {
+    await ensureOwsSpacesTables();
+    const existing = await pool.query('SELECT 1 FROM ows_spaces_users WHERE username = $1', [username]);
+    if (existing.rowCount > 0) {
+      return res.status(409).json({ error: 'Ese usuario ya está registrado' });
+    }
+    const hash = await bcrypt.hash(password, 10);
+    const { rows } = await pool.query(
+      `INSERT INTO ows_spaces_users (username, pwd_hash, display_name)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [username, hash, displayName]
+    );
+    const token = owsSpacesSignToken(rows[0]);
+    res.json({ success: true, token, user: owsSpacesUserToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error registrando usuario:', err);
+    res.status(500).json({ error: 'Error al registrar el usuario' });
+  }
+});
+
+app.post('/ows-spaces/api/auth/login', async (req, res) => {
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Ingresá usuario y contraseña' });
+  }
+  try {
+    await ensureOwsSpacesTables();
+
+    // Bloqueo por IP+usuario (para cuentas inexistentes no hay fila en la base).
+    const ipLockMs = owsSpacesIpLockMs(req, username);
+    if (ipLockMs > 0) {
+      return res.status(423).json({
+        error: 'Demasiados intentos fallidos. Esperá un momento o restablecé tu contraseña.',
+        code: 'ACCOUNT_LOCKED',
+        lockSeconds: Math.ceil(ipLockMs / 1000),
+        lockCount: 1,
+        canReset: false
+      });
+    }
+
+    const { rows } = await pool.query('SELECT * FROM ows_spaces_users WHERE username = $1', [username]);
+    if (!rows.length) {
+      const lockMs = owsSpacesRegisterIpFailure(req, username);
+      if (lockMs > 0) {
+        return res.status(423).json({
+          error: 'Demasiados intentos fallidos desde esta conexión. Esperá unos minutos o restablecé tu contraseña.',
+          code: 'ACCOUNT_LOCKED',
+          lockSeconds: Math.ceil(lockMs / 1000),
+          lockCount: 1,
+          canReset: false
+        });
+      }
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+
+    const user = rows[0];
+
+    // Cuenta ya bloqueada → mensaje insistente.
+    const lockMs = owsSpacesAccountLockMs(user);
+    if (lockMs > 0) {
+      return res.status(423).json({
+        error: '🚨 Tu cuenta está bloqueada por seguridad tras varios intentos fallidos. Esperá o restablecé tu contraseña para volver a entrar.',
+        code: 'ACCOUNT_LOCKED',
+        lockSeconds: Math.ceil(lockMs / 1000),
+        lockCount: Number(user.lock_count || 0),
+        canReset: true
+      });
+    }
+
+    const ok = await bcrypt.compare(password, user.pwd_hash || '');
+    if (!ok) {
+      const { attempts, lockedUntil } = await owsSpacesRegisterLoginFailure(user);
+      if (lockedUntil) {
+        return res.status(423).json({
+          error: '🚨 Contraseña incorrecta. Por seguridad, tu cuenta quedó bloqueada. Restablecé tu contraseña para volver a entrar.',
+          code: 'ACCOUNT_LOCKED',
+          lockSeconds: Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000)),
+          lockCount: Number(user.lock_count || 0) + 1,
+          canReset: true
+        });
+      }
+      return res.status(401).json({
+        error: `Usuario o contraseña incorrectos. Te quedan ${OWS_AUTH_MAX_ATTEMPTS - attempts} intento${OWS_AUTH_MAX_ATTEMPTS - attempts === 1 ? '' : 's'} antes de bloquear tu cuenta.`
+      });
+    }
+
+    await owsSpacesClearLock(user.id);
+    const token = owsSpacesSignToken(user);
+    res.json({ success: true, token, user: owsSpacesUserToJson(user) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error iniciando sesión:', err);
+    res.status(500).json({ error: 'Error al iniciar sesión' });
+  }
+});
+
+// Solicita un código de restablecimiento. La respuesta es genérica para no revelar
+// si un usuario existe (evita enumeración de cuentas).
+app.post('/ows-spaces/api/auth/forgot', async (req, res) => {
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  if (!username) {
+    return res.status(400).json({ error: 'Ingresá tu usuario' });
+  }
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_spaces_users WHERE username = $1', [username]);
+    if (!rows.length) {
+      // Respuesta idéntica: no confirmamos existencia.
+      return res.json({ success: true });
+    }
+    const user = rows[0];
+    const sentAt = user.reset_sent_at ? new Date(user.reset_sent_at).getTime() : 0;
+    const cooldownLeft = sentAt ? (OWS_RESET_COOLDOWN_MS - (Date.now() - sentAt)) : 0;
+    if (cooldownLeft > 0) {
+      return res.status(429).json({
+        error: 'Ya enviamos un código recién. Esperá unos segundos antes de pedir otro.',
+        retrySeconds: Math.ceil(cooldownLeft / 1000)
+      });
+    }
+    const code = owsSpacesNewResetCode();
+    const hash = await bcrypt.hash(code, 10);
+    await pool.query(
+      `UPDATE ows_spaces_users
+          SET reset_hash = $2, reset_expires = NOW() + make_interval(secs => $3),
+              reset_attempts = 0, reset_sent_at = NOW()
+        WHERE id = $1`,
+      [user.id, hash, OWS_RESET_CODE_TTL / 1000]
+    );
+    console.log(`[OWS SPACES] Código de restablecimiento para "${user.username}": ${code} (expira en 10 min)`);
+    // En desarrollo se devuelve el código para poder usarlo sin servidor de correo.
+    if (process.env.NODE_ENV !== 'production') {
+      return res.json({ success: true, devCode: code });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error solicitando restablecimiento:', err);
+    res.status(500).json({ error: 'Error al solicitar el restablecimiento' });
+  }
+});
+
+// Confirma el código y cambia la contraseña. El código es de un solo uso, expira
+// en 10 minutos y se invalida tras 5 intentos incorrectos. Al restablecer se
+// desbloquea la cuenta automáticamente.
+app.post('/ows-spaces/api/auth/reset', async (req, res) => {
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const code = String(req.body?.code || '').trim();
+  const password = String(req.body?.password || '');
+  if (!username || !code) {
+    return res.status(400).json({ error: 'Ingresá tu usuario y el código recibido' });
+  }
+  if (password.length < 4) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 4 caracteres' });
+  }
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_spaces_users WHERE username = $1', [username]);
+    const user = rows[0];
+    if (!user || !user.reset_hash || !user.reset_expires) {
+      return res.status(400).json({ error: 'Primero solicitá un código de restablecimiento' });
+    }
+    if (new Date(user.reset_expires).getTime() < Date.now()) {
+      await owsSpacesInvalidateReset(user.id);
+      return res.status(400).json({ error: 'El código expiró. Solicitá uno nuevo.' });
+    }
+    const attempts = Number(user.reset_attempts || 0);
+    if (attempts >= OWS_RESET_MAX_ATTEMPTS) {
+      await owsSpacesInvalidateReset(user.id);
+      return res.status(400).json({ error: 'Demasiados intentos. Solicitá un código nuevo.' });
+    }
+    const ok = await bcrypt.compare(code, user.reset_hash);
+    if (!ok) {
+      const next = attempts + 1;
+      if (next >= OWS_RESET_MAX_ATTEMPTS) {
+        await owsSpacesInvalidateReset(user.id);
+      } else {
+        await pool.query('UPDATE ows_spaces_users SET reset_attempts = $2 WHERE id = $1', [user.id, next]);
+      }
+      return res.status(400).json({
+        error: next >= OWS_RESET_MAX_ATTEMPTS
+          ? 'Código incorrecto en reiteradas ocasiones. Solicitá uno nuevo.'
+          : `Código incorrecto. Te quedan ${OWS_RESET_MAX_ATTEMPTS - next} intentos.`
+      });
+    }
+    const newHash = await bcrypt.hash(password, 10);
+    await pool.query(
+      `UPDATE ows_spaces_users
+          SET pwd_hash = $2, reset_hash = NULL, reset_expires = NULL,
+              reset_attempts = 0, reset_sent_at = NULL,
+              failed_attempts = 0, lock_count = 0, locked_until = NULL
+        WHERE id = $1`,
+      [user.id, newHash]
+    );
+    const fresh = await pool.query('SELECT * FROM ows_spaces_users WHERE id = $1', [user.id]);
+    const token = owsSpacesSignToken(fresh.rows[0]);
+    console.log(`[OWS SPACES] Contraseña de "${user.username}" restablecida correctamente.`);
+    res.json({ success: true, token, user: owsSpacesUserToJson(fresh.rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error restableciendo contraseña:', err);
+    res.status(500).json({ error: 'Error al restablecer la contraseña' });
+  }
+});
+
+app.get('/ows-spaces/api/auth/me', async (req, res) => {
+  if (!(await requireOwsSpacesAuth(req, res))) return;
+  res.json({ success: true, user: owsSpacesUserToJson(req.owsSpacesUser) });
+});
+
+// ── Health ───────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/health', (_req, res) => {
+  res.json({ ok: true, service: 'ows-spaces', time: new Date().toISOString() });
+});
+
+// ── Espacios ─────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/spaces', async (req, res) => {
+  if (!(await requireOwsSpacesAuth(req, res))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(`
+      SELECT s.*,
+        (SELECT COUNT(*)::int FROM ows_space_chats c WHERE c.space_id = s.id) AS chat_count,
+        (SELECT COUNT(*)::int FROM ows_space_messages m
+           JOIN ows_space_chats c ON c.id = m.chat_id
+          WHERE c.space_id = s.id) AS message_count
+      FROM ows_spaces s
+      ORDER BY s.created_at ASC
+    `);
+    const { rows: memberships } = await pool.query(
+      'SELECT * FROM ows_space_members WHERE user_id = $1',
+      [req.owsSpacesUser.id]
+    );
+    const mySpaces = [], others = [];
+    for (const s of rows) {
+      const base = owsSpacesSpaceToJson(s);
+      const mem = memberships.find((m) => Number(m.space_id) === Number(s.id));
+      if (mem) {
+        mySpaces.push({ ...base, myRole: mem.role || '', myStatus: mem.status });
+      } else {
+        others.push({ ...base, myStatus: 'none' });
+      }
+    }
+    res.json({ success: true, mySpaces, others });
+  } catch (err) {
+    console.error('[OWS SPACES] Error listando espacios:', err);
+    res.status(500).json({ error: 'Error al listar espacios' });
+  }
+});
+
+app.get('/ows-spaces/api/spaces/:id', async (req, res) => {
+  if (!(await requireOwsSpacesAuth(req, res))) return;
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(`
+      SELECT s.*,
+        (SELECT COUNT(*)::int FROM ows_space_chats c WHERE c.space_id = s.id) AS chat_count,
+        (SELECT COUNT(*)::int FROM ows_space_messages m
+           JOIN ows_space_chats c ON c.id = m.chat_id
+          WHERE c.space_id = s.id) AS message_count
+      FROM ows_spaces s WHERE s.id = $1
+    `, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Espacio no encontrado' });
+    const mem = await owsSpacesGetMembership(req.owsSpacesUser.id, id);
+    res.json({
+      success: true,
+      space: owsSpacesSpaceToJson(rows[0]),
+      myRole: mem && mem.status === 'member' ? mem.role : null,
+      myStatus: mem ? mem.status : 'none',
+      isOwner: !!(mem && mem.role === 'owner')
+    });
+  } catch (err) {
+    console.error('[OWS SPACES] Error obteniendo espacio:', err);
+    res.status(500).json({ error: 'Error al obtener el espacio' });
+  }
+});
+
+app.post('/ows-spaces/api/spaces', async (req, res) => {
+  if (!(await requireOwsSpacesAuth(req, res))) return;
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre del espacio es obligatorio' });
+  try {
+    await ensureOwsSpacesTables();
+    const icon = owsSpacesIcon(req.body?.icon, '🚀');
+    const description = String(req.body?.description || '').trim().slice(0, 500);
+    const ownerName = String(req.body?.ownerName || req.owsSpacesUser.display_name || req.owsSpacesUser.username).trim().slice(0, 80);
+
+    const baseSlug = owsSpacesSlugify(name) || 'espacio';
+    let slug = baseSlug;
+    for (let i = 0; i < 5; i++) {
+      const check = await pool.query('SELECT 1 FROM ows_spaces WHERE slug = $1', [slug]);
+      if (check.rowCount === 0) break;
+      slug = `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `INSERT INTO ows_spaces (slug, name, icon, description, owner_name, owner_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [slug, name, icon, description, ownerName, req.owsSpacesUser.id]
+      );
+      // Quien crea el espacio es su DUEÑO dentro de él.
+      await client.query(
+        `INSERT INTO ows_space_members (space_id, user_id, role, status)
+         VALUES ($1, $2, 'owner', 'member')`,
+        [rows[0].id, req.owsSpacesUser.id]
+      );
+      await client.query('COMMIT');
+      res.json({ success: true, space: owsSpacesSpaceToJson(rows[0]) });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando espacio:', err);
+    res.status(500).json({ error: 'Error al crear el espacio' });
+  }
+});
+
+app.patch('/ows-spaces/api/spaces/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_spaces WHERE id = $1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Espacio no encontrado' });
+    const cur = rows[0];
+    const name = String(req.body?.name ?? cur.name).trim();
+    if (!name) return res.status(400).json({ error: 'El nombre no puede quedar vacío' });
+    const icon = owsSpacesIcon(req.body?.icon ?? cur.icon, cur.icon);
+    const description = String(req.body?.description ?? cur.description).trim().slice(0, 500);
+    const ownerName = String(req.body?.ownerName ?? cur.owner_name).trim().slice(0, 80);
+    const updated = await pool.query(
+      `UPDATE ows_spaces
+          SET name = $2, icon = $3, description = $4, owner_name = $5
+        WHERE id = $1
+        RETURNING *`,
+      [id, name, icon, description, ownerName]
+    );
+    res.json({ success: true, space: owsSpacesSpaceToJson(updated.rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando espacio:', err);
+    res.status(500).json({ error: 'Error al editar el espacio' });
+  }
+});
+
+app.delete('/ows-spaces/api/spaces/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query('DELETE FROM ows_spaces WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Espacio no encontrado' });
+    res.json({ success: true, deleted: id });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando espacio:', err);
+    res.status(500).json({ error: 'Error al eliminar el espacio' });
+  }
+});
+
+// ── Postulación y membresías (el dueño asigna roles) ────────────────────────
+app.post('/ows-spaces/api/spaces/:id/apply', async (req, res) => {
+  if (!(await requireOwsSpacesAuth(req, res))) return;
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const space = await pool.query('SELECT 1 FROM ows_spaces WHERE id = $1', [id]);
+    if (space.rowCount === 0) return res.status(404).json({ error: 'Espacio no encontrado' });
+    const existing = await pool.query(
+      'SELECT status FROM ows_space_members WHERE space_id = $1 AND user_id = $2',
+      [id, req.owsSpacesUser.id]
+    );
+    if (existing.rowCount > 0) {
+      return res.status(400).json({
+        error: existing.rows[0].status === 'pending'
+          ? 'Ya enviaste tu solicitud a este espacio'
+          : 'Ya sos miembro de este espacio'
+      });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_members (space_id, user_id, role, status)
+       VALUES ($1, $2, NULL, 'pending')
+       RETURNING id`,
+      [id, req.owsSpacesUser.id]
+    );
+    res.json({ success: true, membershipId: rows[0].id });
+  } catch (err) {
+    console.error('[OWS SPACES] Error al postularse:', err);
+    res.status(500).json({ error: 'Error al enviar la solicitud' });
+  }
+});
+
+app.get('/ows-spaces/api/spaces/:id/members', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(`
+      SELECT m.id AS membership_id, m.role, m.status, m.created_at,
+             u.id AS user_id, u.username, u.display_name
+      FROM ows_space_members m
+      JOIN ows_spaces_users u ON u.id = m.user_id
+      WHERE m.space_id = $1
+      ORDER BY m.status ASC, m.created_at ASC`,
+      [id]
+    );
+    res.json({
+      success: true,
+      members: rows.filter((r) => r.status === 'member').map(owsSpacesMemberToJson),
+      applicants: rows.filter((r) => r.status !== 'member').map(owsSpacesMemberToJson)
+    });
+  } catch (err) {
+    console.error('[OWS SPACES] Error listando miembros:', err);
+    res.status(500).json({ error: 'Error al listar el equipo' });
+  }
+});
+
+// Aprobar una solicitud y asignar el rol dentro del espacio.
+app.post('/ows-spaces/api/spaces/:id/members/:userId/approve', async (req, res) => {
+  const id = Number(req.params.id);
+  const userId = Number(req.params.userId);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+  const role = owsSpacesNormalizeRole(req.body?.role);
+  if (!OWS_SPACES_ASSIGNABLE_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'Elegí un rol válido para asignar' });
+  }
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query(
+      `UPDATE ows_space_members
+          SET role = $3, status = 'member'
+        WHERE space_id = $1 AND user_id = $2`,
+      [id, userId, role]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Solicitud no encontrada' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error aprobando solicitud:', err);
+    res.status(500).json({ error: 'Error al aprobar la solicitud' });
+  }
+});
+
+// Cambiar el rol de un miembro del espacio.
+app.patch('/ows-spaces/api/spaces/:id/members/:userId', async (req, res) => {
+  const id = Number(req.params.id);
+  const userId = Number(req.params.userId);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+  const role = owsSpacesNormalizeRole(req.body?.role);
+  if (!OWS_SPACES_ASSIGNABLE_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'Elegí un rol válido para asignar' });
+  }
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(
+      'SELECT * FROM ows_space_members WHERE space_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Miembro no encontrado' });
+    if (rows[0].role === 'owner') {
+      return res.status(400).json({ error: 'No podés cambiar el rol del dueño del espacio' });
+    }
+    await pool.query(
+      `UPDATE ows_space_members SET role = $3 WHERE space_id = $1 AND user_id = $2`,
+      [id, userId, role]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error cambiando rol:', err);
+    res.status(500).json({ error: 'Error al cambiar el rol' });
+  }
+});
+
+// Quitar un miembro (o rechazar una solicitud pendiente).
+app.delete('/ows-spaces/api/spaces/:id/members/:userId', async (req, res) => {
+  const id = Number(req.params.id);
+  const userId = Number(req.params.userId);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(
+      'SELECT * FROM ows_space_members WHERE space_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Miembro no encontrado' });
+    if (rows[0].role === 'owner') {
+      return res.status(400).json({ error: 'No podés quitar al dueño del espacio' });
+    }
+    await pool.query(
+      'DELETE FROM ows_space_members WHERE space_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error quitando miembro:', err);
+    res.status(500).json({ error: 'Error al quitar al miembro' });
+  }
+});
+
+// ── Chats ────────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesMember(req, res, id))) return;
+  const role = req.owsSpacesMember.role;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(
+      `SELECT c.*,
+        (SELECT COUNT(*)::int FROM ows_space_messages m WHERE m.chat_id = c.id) AS message_count
+       FROM ows_space_chats c
+       WHERE c.space_id = $1
+       ORDER BY c.created_at ASC, c.id ASC`,
+      [id]
+    );
+    const chats = rows
+      .filter((c) => owsSpacesChatVisibleToRole(c, role))
+      .map((c) => owsSpacesChatToJson(c, role));
+    res.json({ success: true, role, chats });
+  } catch (err) {
+    console.error('[OWS SPACES] Error listando chats:', err);
+    res.status(500).json({ error: 'Error al listar los chats' });
+  }
+});
+
+app.post('/ows-spaces/api/spaces/:id/chats', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID de espacio inválido' });
+  if (!(await requireOwsSpacesTeamMember(req, res, id))) return;
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre del chat es obligatorio' });
+  try {
+    await ensureOwsSpacesTables();
+    const chatType = String(req.body?.chatType || 'public').toLowerCase() === 'team' ? 'team' : 'public';
+    const icon = owsSpacesIcon(req.body?.icon, '💬');
+    const roles = chatType === 'team' && Array.isArray(req.body?.roles)
+      ? [...new Set(req.body.roles.map(owsSpacesNormalizeRole).filter(Boolean))]
+      : [];
+
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_chats (space_id, name, icon, chat_type, visible_roles)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [id, name, icon, chatType, roles]
+    );
+    res.json({ success: true, chat: owsSpacesChatToJson(rows[0], req.owsSpacesMember.role) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando chat:', err);
+    res.status(500).json({ error: 'Error al crear el chat' });
+  }
+});
+
+app.patch('/ows-spaces/api/chats/:chatId', async (req, res) => {
+  const chatId = Number(req.params.chatId);
+  if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!rows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    const cur = rows[0];
+    if (!(await requireOwsSpacesTeamMember(req, res, cur.space_id))) return;
+
+    const name = String(req.body?.name ?? cur.name).trim();
+    if (!name) return res.status(400).json({ error: 'El nombre no puede quedar vacío' });
+    const chatType = String(req.body?.chatType ?? cur.chat_type).toLowerCase() === 'team' ? 'team' : 'public';
+    const icon = owsSpacesIcon(req.body?.icon ?? cur.icon, cur.icon);
+    const roles = chatType === 'team' && Array.isArray(req.body?.roles)
+      ? [...new Set(req.body.roles.map(owsSpacesNormalizeRole).filter(Boolean))]
+      : [];
+
+    const updated = await pool.query(
+      `UPDATE ows_space_chats
+          SET name = $2, icon = $3, chat_type = $4, visible_roles = $5
+        WHERE id = $1
+        RETURNING *`,
+      [chatId, name, icon, chatType, roles]
+    );
+    res.json({ success: true, chat: owsSpacesChatToJson(updated.rows[0], req.owsSpacesMember.role) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando chat:', err);
+    res.status(500).json({ error: 'Error al editar el chat' });
+  }
+});
+
+app.delete('/ows-spaces/api/chats/:chatId', async (req, res) => {
+  const chatId = Number(req.params.chatId);
+  if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT space_id FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!rows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    if (!(await requireOwsSpacesTeamMember(req, res, rows[0].space_id))) return;
+    await pool.query('DELETE FROM ows_space_chats WHERE id = $1', [chatId]);
+    res.json({ success: true, deleted: chatId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando chat:', err);
+    res.status(500).json({ error: 'Error al eliminar el chat' });
+  }
+});
+
+// ── Mensajes ────────────────────────────────────────────────────────────────
+app.get('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
+  const chatId = Number(req.params.chatId);
+  if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows: chatRows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    if (!(await requireOwsSpacesMember(req, res, chatRows[0].space_id))) return;
+    const role = req.owsSpacesMember.role;
+    if (!owsSpacesChatVisibleToRole(chatRows[0], role)) {
+      return res.status(403).json({ error: 'Este chat no es visible para tu rol' });
+    }
+    const { rows } = await pool.query(
+      `SELECT * FROM ows_space_messages
+        WHERE chat_id = $1
+        ORDER BY id ASC
+        LIMIT 300`,
+      [chatId]
+    );
+    res.json({ success: true, messages: rows.map(owsSpacesMessageToJson) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error leyendo mensajes:', err);
+    res.status(500).json({ error: 'Error al leer los mensajes' });
+  }
+});
+
+app.post('/ows-spaces/api/chats/:chatId/messages', async (req, res) => {
+  const chatId = Number(req.params.chatId);
+  if (!Number.isInteger(chatId) || chatId <= 0) return res.status(400).json({ error: 'ID de chat inválido' });
+  const body = String(req.body?.body || '').trim();
+  if (!body) return res.status(400).json({ error: 'El mensaje está vacío' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows: chatRows } = await pool.query('SELECT * FROM ows_space_chats WHERE id = $1', [chatId]);
+    if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    const chat = chatRows[0];
+    if (!(await requireOwsSpacesMember(req, res, chat.space_id))) return;
+    const senderRole = req.owsSpacesMember.role;
+    if (!owsSpacesCanSend(chat, senderRole)) {
+      return res.status(403).json({ error: 'Tu rol no puede escribir en este chat' });
+    }
+
+    // La identidad y el rol salen del servidor: no se pueden suplantar.
+    const senderName = String(req.owsSpacesUser.display_name || req.owsSpacesUser.username || 'Anónimo').slice(0, 60);
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_messages (chat_id, sender_name, sender_role, body)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [chatId, senderName, senderRole, body.slice(0, 2000)]
+    );
+    res.json({ success: true, message: owsSpacesMessageToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error enviando mensaje:', err);
+    res.status(500).json({ error: 'Error al enviar el mensaje' });
+  }
+});
+
+// ── Limpieza (vaciar todo) ───────────────────────────────────────────────────
+// Quita todos los espacios (y sus chats/mensajes/membresías en cascada).
+// Si se envía { alsoUsers: true }, además elimina todas las cuentas.
+// Endpoint de herramienta del prototipo: basta con una sesión iniciada.
+app.post('/ows-spaces/api/demo/reset', async (req, res) => {
+  if (!(await requireOwsSpacesAuth(req, res))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query('DELETE FROM ows_spaces');
+    let deletedUsers = 0;
+    if (req.body?.alsoUsers === true) {
+      const u = await pool.query('DELETE FROM ows_spaces_users');
+      deletedUsers = Number(u.rowCount || 0);
+    }
+    res.json({ success: true, deletedSpaces: Number(rowCount || 0), deletedUsers });
+  } catch (err) {
+    console.error('[OWS SPACES] Error al vaciar:', err);
+    res.status(500).json({ error: 'Error al vaciar todo' });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OWS SPACES — STATUS PAGE
+// Una status page por espacio: grupos de servicios con sus propios estados.
+//  - Estados personalizados (el dueño crea los que necesite, con color/severidad).
+//  - Visibilidad: 'public' (todos los miembros) o 'team' (solo equipo).
+//  - Edición: el dueño siempre; además quien tenga permiso por rol o por persona.
+// ═════════════════════════════════════════════════════════════════════════════
+
+function owsSpacesStatusToJson(p) {
+  return {
+    id: p.id,
+    spaceId: Number(p.space_id),
+    enabled: !!p.enabled,
+    visibility: String(p.visibility || 'team'),
+    title: p.title || 'Status',
+    description: p.description || '',
+    metricLabel: String(p.metric_label || 'Severidad'),
+    stuckHours: Number(p.stuck_hours || 6),
+    updatedAt: p.updated_at
+  };
+}
+function owsSpacesStatusDefToJson(d) {
+  return {
+    id: d.id,
+    label: d.label,
+    color: d.color || '#22c55e',
+    icon: d.icon || '',
+    severity: Number(d.severity || 0)
+  };
+}
+function owsSpacesStatusGroupToJson(g) {
+  return { id: g.id, name: g.name, position: Number(g.position || 0) };
+}
+function owsSpacesStatusItemToJson(i) {
+  return {
+    id: i.id,
+    groupId: i.group_id ? Number(i.group_id) : null,
+    name: i.name,
+    statusDefId: i.status_def_id ? Number(i.status_def_id) : null,
+    note: i.note || '',
+    position: Number(i.position || 0),
+    stateSince: i.state_since || null,
+    updatedAt: i.updated_at
+  };
+}
+
+function owsSpacesStatusUpdateToJson(u) {
+  return {
+    id: u.id,
+    itemId: Number(u.item_id),
+    message: String(u.message || ''),
+    createdBy: u.created_by ? Number(u.created_by) : null,
+    authorName: u.author_name || u.author_username || '',
+    createdAt: u.created_at
+  };
+}
+
+function owsSpacesStatusBannerToJson(b) {
+  return {
+    id: b.id,
+    pageId: Number(b.page_id),
+    itemId: b.item_id ? Number(b.item_id) : null,
+    itemName: b.item_name || null,
+    groupName: b.group_name || null,
+    stateLabel: b.state_label || null,
+    stateColor: b.state_color || '#f59e0b',
+    message: String(b.message || ''),
+    createdBy: b.created_by ? Number(b.created_by) : null,
+    authorName: b.author_name || '',
+    createdAt: b.created_at
+  };
+}
+
+function owsSpacesStatusAnnToJson(a) {
+  return {
+    id: a.id,
+    pageId: Number(a.page_id),
+    title: String(a.title || ''),
+    message: String(a.message || ''),
+    statusDefId: a.status_def_id ? Number(a.status_def_id) : null,
+    serviceIds: Array.isArray(a.service_ids) ? a.service_ids.map(Number).filter((n) => Number.isInteger(n)) : [],
+    startsAt: a.starts_at || null,
+    endsAt: a.ends_at || null,
+    createdBy: a.created_by ? Number(a.created_by) : null,
+    createdAt: a.created_at
+  };
+}
+function owsSpacesStatusPermToJson(p) {
+  return { id: p.id, role: p.role || null, userId: p.user_id ? Number(p.user_id) : null };
+}
+
+async function owsSpacesGetStatusPage(spaceId) {
+  const { rows } = await pool.query('SELECT * FROM ows_space_status_pages WHERE space_id = $1', [spaceId]);
+  return rows[0] || null;
+}
+async function owsSpacesPageIdOfSpace(spaceId) {
+  const { rows } = await pool.query('SELECT id FROM ows_space_status_pages WHERE space_id = $1', [spaceId]);
+  return rows.length ? Number(rows[0].id) : null;
+}
+async function owsSpacesSpaceIdOfPage(pageId) {
+  const { rows } = await pool.query('SELECT space_id FROM ows_space_status_pages WHERE id = $1', [pageId]);
+  return rows.length ? Number(rows[0].space_id) : null;
+}
+async function owsSpacesPageIdOfGroup(groupId) {
+  const { rows } = await pool.query('SELECT page_id FROM ows_space_status_groups WHERE id = $1', [groupId]);
+  return rows.length ? Number(rows[0].page_id) : null;
+}
+async function owsSpacesPageIdOfItem(itemId) {
+  const { rows } = await pool.query(
+    'SELECT g.page_id FROM ows_space_status_items i JOIN ows_space_status_groups g ON g.id = i.group_id WHERE i.id = $1',
+    [itemId]
+  );
+  return rows.length ? Number(rows[0].page_id) : null;
+}
+async function owsSpacesPageIdOfDef(defId) {
+  const { rows } = await pool.query('SELECT page_id FROM ows_space_status_defs WHERE id = $1', [defId]);
+  return rows.length ? Number(rows[0].page_id) : null;
+}
+async function owsSpacesPageIdOfPerm(permId) {
+  const { rows } = await pool.query('SELECT page_id FROM ows_space_status_perms WHERE id = $1', [permId]);
+  return rows.length ? Number(rows[0].page_id) : null;
+}
+
+// ¿Puede editar? El dueño siempre; además quien tenga permiso por rol o por persona.
+async function owsSpacesCanEditStatusPage(pageId, member) {
+  if (!member || member.role === 'owner') return true;
+  const { rows } = await pool.query(
+    `SELECT 1 FROM ows_space_status_perms
+      WHERE page_id = $1 AND (role = $2 OR user_id = $3) LIMIT 1`,
+    [pageId, member.role, member.user_id]
+  );
+  return rows.length > 0;
+}
+
+// Exige ser miembro del espacio Y editor de la status page (devuelve spaceId o null).
+async function requireOwsSpacesStatusEditor(req, res, pageId) {
+  const spaceId = await owsSpacesSpaceIdOfPage(pageId);
+  if (!spaceId) { res.status(404).json({ error: 'Status page no encontrada' }); return null; }
+  if (!(await requireOwsSpacesMember(req, res, spaceId))) return null;
+  if (!(await owsSpacesCanEditStatusPage(pageId, req.owsSpacesMember))) {
+    res.status(403).json({ error: 'No tenés permiso para editar esta status page' });
+    return null;
+  }
+  return spaceId;
+}
+
+// Exige ser el DUEÑO del espacio al que pertenece la status page.
+async function requireOwsSpacesStatusOwner(req, res, pageId) {
+  const spaceId = await owsSpacesSpaceIdOfPage(pageId);
+  if (!spaceId) { res.status(404).json({ error: 'Status page no encontrada' }); return null; }
+  if (!(await requireOwsSpacesOwner(req, res, spaceId))) return null;
+  return spaceId;
+}
+
+// Carga el payload completo: página + estados + grupos (con items) + permisos.
+async function owsSpacesLoadStatusPage(spaceId, member) {
+  const page = await owsSpacesGetStatusPage(spaceId);
+  if (!page) {
+    return { page: null, statuses: [], groups: [], perms: [], canEdit: false, isOwner: member.role === 'owner' };
+  }
+  const [defs, groups, perms] = await Promise.all([
+    pool.query('SELECT * FROM ows_space_status_defs WHERE page_id = $1 ORDER BY position ASC, id ASC', [page.id]),
+    pool.query('SELECT * FROM ows_space_status_groups WHERE page_id = $1 ORDER BY position ASC, id ASC', [page.id]),
+    pool.query('SELECT * FROM ows_space_status_perms WHERE page_id = $1 ORDER BY id ASC', [page.id])
+  ]);
+  const groupRows = groups.rows;
+  const items = groupRows.length
+    ? await pool.query(
+        'SELECT * FROM ows_space_status_items WHERE group_id = ANY($1::int[]) ORDER BY position ASC, id ASC',
+        [groupRows.map((g) => g.id)]
+      )
+    : { rows: [] };
+  const byGroup = {};
+  items.rows.forEach((it) => { (byGroup[it.group_id] = byGroup[it.group_id] || []).push(it); });
+
+  // Historial de notas por servicio (por qué está en su estado actual).
+  const itemIds = items.rows.map((it) => it.id);
+  let updates = [];
+  if (itemIds.length) {
+    const upd = await pool.query(
+      `SELECT u.*, uu.username AS author_username, COALESCE(uu.display_name, uu.username) AS author_name
+         FROM ows_space_status_updates u
+         LEFT JOIN ows_spaces_users uu ON uu.id = u.created_by
+        WHERE u.item_id = ANY($1::int[])
+        ORDER BY u.created_at DESC LIMIT 200`,
+      [itemIds]
+    );
+    updates = upd.rows;
+  }
+
+  // Anuncios vigentes (incluye los futuros para mostrarlos con anticipación).
+  const anns = await pool.query(
+    `SELECT a.*, COALESCE(d.label, '') AS state_label, d.color AS state_color
+       FROM ows_space_status_announcements a
+       LEFT JOIN ows_space_status_defs d ON d.id = a.status_def_id
+      WHERE a.page_id = $1 AND (a.ends_at IS NULL OR a.ends_at > NOW() - INTERVAL '1 hour')
+      ORDER BY a.starts_at ASC, a.id ASC LIMIT 30`,
+    [page.id]
+  );
+
+  // Servicios estancados: llevan demasiado tiempo en un estado con severidad > 0.
+  const stuckHours = Math.max(0.5, Number(page.stuck_hours || 6));
+  const stuck = items.rows
+    .filter((it) => it.status_def_id && it.state_since)
+    .filter((it) => {
+      const def = defs.rows.find((d) => d.id === it.status_def_id);
+      return def && Number(def.severity || 0) > 0;
+    })
+    .filter((it) => (Date.now() - new Date(it.state_since).getTime()) > stuckHours * 3600 * 1000)
+    .map((it) => ({
+      itemId: Number(it.id),
+      itemName: it.name,
+      groupId: Number(it.group_id),
+      groupName: (groupRows.find((g) => g.id === it.group_id) || {}).name || '',
+      statusDefId: Number(it.status_def_id),
+      stateSince: it.state_since,
+      hours: Math.max(1, Math.round((Date.now() - new Date(it.state_since).getTime()) / 3600000))
+    }));
+
+  // Banner activo de estado estancado, si el usuario todavía no lo descartó.
+  let banner = null;
+  const bannerRow = await pool.query(
+    `SELECT b.*, i.name AS item_name, g.name AS group_name, d.label AS state_label, d.color AS state_color,
+            COALESCE(uu.display_name, uu.username) AS author_name
+       FROM ows_space_status_banners b
+       LEFT JOIN ows_space_status_items i ON i.id = b.item_id
+       LEFT JOIN ows_space_status_groups g ON g.id = i.group_id
+       LEFT JOIN ows_space_status_defs d ON d.id = i.status_def_id
+       LEFT JOIN ows_spaces_users uu ON uu.id = b.created_by
+      WHERE b.page_id = $1 AND b.resolved_at IS NULL
+      ORDER BY b.created_at DESC LIMIT 1`,
+    [page.id]
+  );
+  if (bannerRow.rows.length) {
+    const b = bannerRow.rows[0];
+    const dismissed = await pool.query(
+      'SELECT 1 FROM ows_space_status_banner_dismissals WHERE banner_id = $1 AND user_id = $2 LIMIT 1',
+      [b.id, member.user_id]
+    );
+    if (!dismissed.rows.length) banner = owsSpacesStatusBannerToJson(b);
+  }
+
+  return {
+    page: owsSpacesStatusToJson(page),
+    statuses: defs.rows.map(owsSpacesStatusDefToJson),
+    groups: groupRows.map((g) => ({
+      ...owsSpacesStatusGroupToJson(g),
+      items: (byGroup[g.id] || []).map(owsSpacesStatusItemToJson)
+    })),
+    perms: perms.rows.map(owsSpacesStatusPermToJson),
+    updates: updates.map(owsSpacesStatusUpdateToJson),
+    announcements: anns.rows.map(owsSpacesStatusAnnToJson),
+    stuck: stuck,
+    stuckHours: stuckHours,
+    banner: banner,
+    canEdit: await owsSpacesCanEditStatusPage(page.id, member),
+    isOwner: member.role === 'owner'
+  };
+}
+
+function owsSpacesStatusColor(raw) {
+  return /^#[0-9a-fA-F]{3,8}$/.test(String(raw || '')) ? String(raw).slice(0, 9) : '#22c55e';
+}
+
+// GET — estado completo de la status page del espacio
+app.get('/ows-spaces/api/spaces/:id/status', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesMember(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const page = await owsSpacesGetStatusPage(id);
+    if (!page) {
+      return res.json({ page: null, statuses: [], groups: [], perms: [], canEdit: false, isOwner: req.owsSpacesMember.role === 'owner' });
+    }
+    if (String(page.visibility) === 'team' && !owsSpacesIsTeamRole(req.owsSpacesMember.role)) {
+      return res.status(403).json({ error: 'La status page es solo para el equipo de este espacio' });
+    }
+    res.json(await owsSpacesLoadStatusPage(id, req.owsSpacesMember));
+  } catch (err) {
+    console.error('[OWS SPACES] Error leyendo status page:', err);
+    res.status(500).json({ error: 'Error al leer la status page' });
+  }
+});
+
+// POST — crear la status page (solo el dueño). Siembra estados por defecto y un grupo inicial.
+app.post('/ows-spaces/api/spaces/:id/status', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesOwner(req, res, id))) return;
+  try {
+    await ensureOwsSpacesTables();
+    if (await owsSpacesGetStatusPage(id)) {
+      return res.status(400).json({ error: 'Este espacio ya tiene una status page' });
+    }
+    const title = String(req.body?.title || 'Status').trim().slice(0, 60) || 'Status';
+    const description = String(req.body?.description || '').trim().slice(0, 300);
+    const visibility = String(req.body?.visibility || 'team') === 'public' ? 'public' : 'team';
+    const metricLabel = String(req.body?.metricLabel || 'Severidad').trim().slice(0, 30) || 'Severidad';
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `INSERT INTO ows_space_status_pages (space_id, enabled, visibility, title, description, metric_label)
+         VALUES ($1, TRUE, $2, $3, $4, $5) RETURNING *`,
+        [id, visibility, title, description, metricLabel]
+      );
+      const pageId = rows[0].id;
+      const defaults = [
+        ['Operacional', '#22c55e', '✓', 0],
+        ['Mantenimiento', '#3b82f6', '🛠', 1],
+        ['Degradado', '#f59e0b', '⚠', 2],
+        ['Caído', '#ef4444', '✕', 3]
+      ];
+      for (let i = 0; i < defaults.length; i++) {
+        await client.query(
+          `INSERT INTO ows_space_status_defs (page_id, label, color, icon, severity, position)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [pageId, defaults[i][0], defaults[i][1], defaults[i][2], defaults[i][3], i]
+        );
+      }
+      await client.query(
+        `INSERT INTO ows_space_status_groups (page_id, name, position) VALUES ($1, $2, 0)`,
+        [pageId, 'Servicios principales']
+      );
+      await client.query('COMMIT');
+      res.json(await owsSpacesLoadStatusPage(id, req.owsSpacesMember));
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando status page:', err);
+    res.status(500).json({ error: 'Error al crear la status page' });
+  }
+});
+
+// PATCH — actualizar configuración (título, descripción, visibilidad, activo)
+app.patch('/ows-spaces/api/spaces/:id/status', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfSpace(id);
+    if (!pageId) return res.status(404).json({ error: 'Este espacio no tiene status page' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const page = await owsSpacesGetStatusPage(id);
+    const title = String(req.body?.title ?? page.title).trim().slice(0, 60) || 'Status';
+    const description = String(req.body?.description ?? page.description).trim().slice(0, 300);
+    const visibility = req.body?.visibility === undefined ? String(page.visibility) : (String(req.body.visibility) === 'public' ? 'public' : 'team');
+    const enabled = req.body?.enabled === undefined ? !!page.enabled : !!req.body.enabled;
+    const metricLabel = req.body?.metricLabel === undefined ? String(page.metric_label || 'Severidad') : (String(req.body.metricLabel).trim().slice(0, 30) || 'Severidad');
+    const stuckHours = req.body?.stuckHours === undefined ? Number(page.stuck_hours || 6) : (Math.max(0.5, Number(req.body.stuckHours)) || 6);
+    await pool.query(
+      `UPDATE ows_space_status_pages SET title = $2, description = $3, visibility = $4, enabled = $5, metric_label = $6, stuck_hours = $7, updated_at = NOW() WHERE id = $1`,
+      [pageId, title, description, visibility, enabled, metricLabel, stuckHours]
+    );
+    res.json(await owsSpacesLoadStatusPage(id, req.owsSpacesMember));
+  } catch (err) {
+    console.error('[OWS SPACES] Error actualizando status page:', err);
+    res.status(500).json({ error: 'Error al actualizar la status page' });
+  }
+});
+
+// ── Grupos de servicios ──────────────────────────────────────────────────────
+app.post('/ows-spaces/api/status-pages/:pageId/groups', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre del grupo es obligatorio' });
+  if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_groups (page_id, name, position)
+       VALUES ($1, $2, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_groups WHERE page_id = $1))
+       RETURNING *`,
+      [pageId, name.slice(0, 80)]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, group: owsSpacesStatusGroupToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando grupo:', err);
+    res.status(500).json({ error: 'Error al crear el grupo' });
+  }
+});
+
+app.patch('/ows-spaces/api/status-pages/groups/:groupId', async (req, res) => {
+  const groupId = Number(req.params.groupId);
+  if (!Number.isInteger(groupId) || groupId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfGroup(groupId);
+    if (!pageId) return res.status(404).json({ error: 'Grupo no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const { rows: cur } = await pool.query('SELECT * FROM ows_space_status_groups WHERE id = $1', [groupId]);
+    const name = String(req.body?.name ?? cur[0].name).trim().slice(0, 80) || cur[0].name;
+    const position = Number.isInteger(Number(req.body?.position)) ? Number(req.body.position) : Number(cur[0].position || 0);
+    await pool.query(
+      'UPDATE ows_space_status_groups SET name = $2, position = $3 WHERE id = $1',
+      [groupId, name, position]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando grupo:', err);
+    res.status(500).json({ error: 'Error al editar el grupo' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/groups/:groupId', async (req, res) => {
+  const groupId = Number(req.params.groupId);
+  if (!Number.isInteger(groupId) || groupId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfGroup(groupId);
+    if (!pageId) return res.status(404).json({ error: 'Grupo no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    await pool.query('DELETE FROM ows_space_status_groups WHERE id = $1', [groupId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: groupId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando grupo:', err);
+    res.status(500).json({ error: 'Error al eliminar el grupo' });
+  }
+});
+
+// ── Servicios (items) ────────────────────────────────────────────────────────
+app.post('/ows-spaces/api/status-pages/groups/:groupId/items', async (req, res) => {
+  const groupId = Number(req.params.groupId);
+  if (!Number.isInteger(groupId) || groupId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre del servicio es obligatorio' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfGroup(groupId);
+    if (!pageId) return res.status(404).json({ error: 'Grupo no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const statusDefId = Number(req.body?.statusDefId) > 0 ? Number(req.body.statusDefId) : null;
+    if (statusDefId) {
+      const d = await pool.query('SELECT 1 FROM ows_space_status_defs WHERE id = $1 AND page_id = $2', [statusDefId, pageId]);
+      if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const note = String(req.body?.note || '').trim().slice(0, 300);
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_items (group_id, name, status_def_id, note, position, state_since)
+       VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_items WHERE group_id = $1), $5)
+       RETURNING *`,
+      [groupId, name.slice(0, 80), statusDefId, note, statusDefId ? new Date() : null]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, item: owsSpacesStatusItemToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando servicio:', err);
+    res.status(500).json({ error: 'Error al crear el servicio' });
+  }
+});
+
+app.patch('/ows-spaces/api/status-pages/items/:itemId', async (req, res) => {
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfItem(itemId);
+    if (!pageId) return res.status(404).json({ error: 'Servicio no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const { rows: cur } = await pool.query('SELECT * FROM ows_space_status_items WHERE id = $1', [itemId]);
+    const name = String(req.body?.name ?? cur[0].name).trim().slice(0, 80) || cur[0].name;
+    let statusDefId = req.body?.statusDefId !== undefined ? (Number(req.body.statusDefId) > 0 ? Number(req.body.statusDefId) : null) : (cur[0].status_def_id ? Number(cur[0].status_def_id) : null);
+    if (statusDefId) {
+      const d = await pool.query('SELECT 1 FROM ows_space_status_defs WHERE id = $1 AND page_id = $2', [statusDefId, pageId]);
+      if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const note = String(req.body?.note ?? cur[0].note).trim().slice(0, 300);
+    // Mover a otro grupo (drag & drop): position indica dónde insertar.
+    let targetGroupId = Number(cur[0].group_id);
+    let position = Number(cur[0].position || 0);
+    if (req.body?.groupId !== undefined) {
+      const gid = Number(req.body.groupId);
+      if (!Number.isInteger(gid) || gid <= 0) return res.status(400).json({ error: 'Grupo inválido' });
+      const gPage = await owsSpacesPageIdOfGroup(gid);
+      if (gPage !== pageId) return res.status(400).json({ error: 'El grupo no pertenece a esta status page' });
+      targetGroupId = gid;
+    }
+    position = Number.isInteger(Number(req.body?.position)) ? Number(req.body.position) : position;
+    // state_since: se reinicia SOLO si cambia el estado; si solo cambia el grupo
+    // o el nombre, se conserva para seguir midiendo cuánto lleva en ese estado.
+    let stateSince = cur[0].state_since;
+    const statusChanged = (statusDefId || null) !== (cur[0].status_def_id ? Number(cur[0].status_def_id) : null);
+    if (statusChanged) stateSince = statusDefId ? new Date() : null;
+
+    // Reordenar el grupo destino en una transacción: se reubica el item y se
+    // renumera la secuencia completa del grupo (soporta mover entre grupos y
+    // reordenar dentro del mismo).
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE ows_space_status_items
+            SET name = $2, status_def_id = $3, note = $4, group_id = $5, state_since = $6, updated_at = NOW()
+          WHERE id = $1`,
+        [itemId, name, statusDefId, note, targetGroupId, stateSince]
+      );
+      const seq = await client.query(
+        'SELECT id FROM ows_space_status_items WHERE group_id = $1 ORDER BY position ASC, id ASC',
+        [targetGroupId]
+      );
+      let ids = seq.rows.map((r) => Number(r.id));
+      ids = ids.filter((x) => x !== itemId);
+      const idx = Math.max(0, Math.min(position, ids.length));
+      ids.splice(idx, 0, itemId);
+      for (let i = 0; i < ids.length; i++) {
+        await client.query('UPDATE ows_space_status_items SET position = $1 WHERE id = $2', [i, ids[i]]);
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando servicio:', err);
+    res.status(500).json({ error: 'Error al editar el servicio' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/items/:itemId', async (req, res) => {
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfItem(itemId);
+    if (!pageId) return res.status(404).json({ error: 'Servicio no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    await pool.query('DELETE FROM ows_space_status_items WHERE id = $1', [itemId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: itemId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando servicio:', err);
+    res.status(500).json({ error: 'Error al eliminar el servicio' });
+  }
+});
+
+// ── Notas de estado (por qué un servicio está en su estado actual) ──────────
+// La crean los editores; quedan en el historial que se muestra en el dropdown
+// del header de la status page.
+app.post('/ows-spaces/api/status-pages/items/:itemId/updates', async (req, res) => {
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const message = String(req.body?.message || '').trim();
+  if (!message) return res.status(400).json({ error: 'Escribí el motivo' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfItem(itemId);
+    if (!pageId) return res.status(404).json({ error: 'Servicio no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const { rows } = await pool.query(
+      'INSERT INTO ows_space_status_updates (item_id, message, created_by) VALUES ($1, $2, $3) RETURNING *',
+      [itemId, message.slice(0, 500), req.owsSpacesMember.user_id]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    const u = rows[0];
+    u.author_name = req.owsSpacesUser.display_name || req.owsSpacesUser.username || '';
+    res.json({ success: true, update: owsSpacesStatusUpdateToJson(u) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando nota de estado:', err);
+    res.status(500).json({ error: 'Error al guardar la nota' });
+  }
+});
+
+// ── Banner de estado estancado ───────────────────────────────────────────────
+// Solo editores: explica por qué un servicio lleva demasiado tiempo en un
+// estado. Se muestra a todos una sola vez hasta que lo cierren manualmente.
+app.post('/ows-spaces/api/status-pages/banners', async (req, res) => {
+  const pageId = Number(req.body?.pageId);
+  const itemId = Number(req.body?.itemId);
+  const message = String(req.body?.message || '').trim();
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'Status page inválida' });
+  if (!Number.isInteger(itemId) || itemId <= 0) return res.status(400).json({ error: 'Servicio inválido' });
+  if (!message) return res.status(400).json({ error: 'Escribí el mensaje del banner' });
+  try {
+    await ensureOwsSpacesTables();
+    if (owsSpacesPageIdOfItem(itemId) !== pageId) {
+      return res.status(400).json({ error: 'El servicio no pertenece a esta status page' });
+    }
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    // Cierra los banners previos sin resolver para dejar uno solo activo.
+    await pool.query('UPDATE ows_space_status_banners SET resolved_at = NOW() WHERE page_id = $1 AND resolved_at IS NULL', [pageId]);
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_banners (page_id, item_id, message, created_by)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [pageId, itemId, message.slice(0, 600), req.owsSpacesMember.user_id]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, bannerId: Number(rows[0].id) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando banner:', err);
+    res.status(500).json({ error: 'Error al crear el banner' });
+  }
+});
+
+// Marcar el banner como visto por el usuario actual (se muestra una sola vez).
+app.post('/ows-spaces/api/status-pages/banners/:bannerId/dismiss', async (req, res) => {
+  const bannerId = Number(req.params.bannerId);
+  if (!Number.isInteger(bannerId) || bannerId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesAuth(req, res))) return;
+  try {
+    await ensureOwsSpacesTables();
+    await pool.query(
+      `INSERT INTO ows_space_status_banner_dismissals (banner_id, user_id)
+       VALUES ($1, $2) ON CONFLICT (banner_id, user_id) DO NOTHING`,
+      [bannerId, req.owsSpacesUser.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error descartando banner:', err);
+    res.status(500).json({ error: 'Error al descartar el banner' });
+  }
+});
+
+// ── Anuncios de la status page ───────────────────────────────────────────────
+app.post('/ows-spaces/api/status-pages/:pageId/announcements', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const title = String(req.body?.title || '').trim();
+  if (!title) return res.status(400).json({ error: 'El título del anuncio es obligatorio' });
+  if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const message = String(req.body?.message || '').trim().slice(0, 800);
+    const statusDefId = Number(req.body?.statusDefId) > 0 ? Number(req.body.statusDefId) : null;
+    if (statusDefId) {
+      const d = await pool.query('SELECT 1 FROM ows_space_status_defs WHERE id = $1 AND page_id = $2', [statusDefId, pageId]);
+      if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const serviceIds = Array.isArray(req.body?.serviceIds)
+      ? req.body.serviceIds.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+      : [];
+    const startsAt = req.body?.startsAt ? new Date(req.body.startsAt) : new Date();
+    const endsAt = req.body?.endsAt ? new Date(req.body.endsAt) : null;
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_announcements
+         (page_id, title, message, status_def_id, service_ids, starts_at, ends_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [pageId, title.slice(0, 120), message, statusDefId, serviceIds, startsAt, endsAt, req.owsSpacesMember.user_id]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, announcement: owsSpacesStatusAnnToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando anuncio:', err);
+    res.status(500).json({ error: 'Error al crear el anuncio' });
+  }
+});
+
+app.patch('/ows-spaces/api/status-pages/announcements/:annId', async (req, res) => {
+  const annId = Number(req.params.annId);
+  if (!Number.isInteger(annId) || annId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_space_status_announcements WHERE id = $1', [annId]);
+    if (!rows.length) return res.status(404).json({ error: 'Anuncio no encontrado' });
+    const ann = rows[0];
+    const pageId = Number(ann.page_id);
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const title = String(req.body?.title ?? ann.title).trim().slice(0, 120) || ann.title;
+    const message = String(req.body?.message ?? ann.message).trim().slice(0, 800);
+    let statusDefId = req.body?.statusDefId !== undefined
+      ? (Number(req.body.statusDefId) > 0 ? Number(req.body.statusDefId) : null)
+      : (ann.status_def_id ? Number(ann.status_def_id) : null);
+    if (statusDefId) {
+      const d = await pool.query('SELECT 1 FROM ows_space_status_defs WHERE id = $1 AND page_id = $2', [statusDefId, pageId]);
+      if (!d.rows.length) return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const serviceIds = req.body?.serviceIds !== undefined
+      ? req.body.serviceIds.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+      : (Array.isArray(ann.service_ids) ? ann.service_ids.map(Number) : []);
+    const startsAt = req.body?.startsAt ? new Date(req.body.startsAt) : ann.starts_at;
+    const endsAt = req.body?.endsAt ? new Date(req.body.endsAt) : ann.ends_at;
+    await pool.query(
+      `UPDATE ows_space_status_announcements
+          SET title = $2, message = $3, status_def_id = $4, service_ids = $5, starts_at = $6, ends_at = $7
+        WHERE id = $1`,
+      [annId, title, message, statusDefId, serviceIds, startsAt, endsAt]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando anuncio:', err);
+    res.status(500).json({ error: 'Error al editar el anuncio' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/announcements/:annId', async (req, res) => {
+  const annId = Number(req.params.annId);
+  if (!Number.isInteger(annId) || annId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query('SELECT * FROM ows_space_status_announcements WHERE id = $1', [annId]);
+    if (!rows.length) return res.status(404).json({ error: 'Anuncio no encontrado' });
+    const pageId = Number(rows[0].page_id);
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    await pool.query('DELETE FROM ows_space_status_announcements WHERE id = $1', [annId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: annId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando anuncio:', err);
+    res.status(500).json({ error: 'Error al eliminar el anuncio' });
+  }
+});
+
+// ── Estados personalizados (defs) ────────────────────────────────────────────
+app.post('/ows-spaces/api/status-pages/:pageId/statuses', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const label = String(req.body?.label || '').trim();
+  if (!label) return res.status(400).json({ error: 'El nombre del estado es obligatorio' });
+  if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const color = owsSpacesStatusColor(req.body?.color);
+    const icon = String(req.body?.icon || '').trim().slice(0, 8);
+    const severity = Math.max(0, Math.min(9, Number(req.body?.severity) || 0));
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_defs (page_id, label, color, icon, severity, position)
+       VALUES ($1, $2, $3, $4, $5, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_defs WHERE page_id = $1))
+       RETURNING *`,
+      [pageId, label.slice(0, 40), color, icon, severity]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, status: owsSpacesStatusDefToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando estado:', err);
+    res.status(500).json({ error: 'Error al crear el estado' });
+  }
+});
+
+// POST — crear varios estados de una vez (bulk). Cada entrada: {label, icon?, color?, severity?}
+app.post('/ows-spaces/api/status-pages/:pageId/statuses/bulk', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  const cleaned = items
+    .map((it) => ({
+      label: String(it?.label || '').trim().slice(0, 40),
+      color: owsSpacesStatusColor(it?.color),
+      icon: String(it?.icon || '').trim().slice(0, 8),
+      severity: Math.max(0, Math.min(9, Number(it?.severity) || 0))
+    }))
+    .filter((it) => it.label);
+  if (!cleaned.length) return res.status(400).json({ error: 'Agregá al menos un estado con nombre' });
+  if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const created = [];
+    for (const it of cleaned) {
+      const { rows } = await pool.query(
+        `INSERT INTO ows_space_status_defs (page_id, label, color, icon, severity, position)
+         VALUES ($1, $2, $3, $4, $5, (SELECT COALESCE(MAX(position), -1) + 1 FROM ows_space_status_defs WHERE page_id = $1))
+         RETURNING *`,
+        [pageId, it.label, it.color, it.icon, it.severity]
+      );
+      created.push(owsSpacesStatusDefToJson(rows[0]));
+    }
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, created: created.length, statuses: created });
+  } catch (err) {
+    console.error('[OWS SPACES] Error creando estados (bulk):', err);
+    res.status(500).json({ error: 'Error al crear los estados' });
+  }
+});
+
+app.patch('/ows-spaces/api/status-pages/statuses/:defId', async (req, res) => {
+  const defId = Number(req.params.defId);
+  if (!Number.isInteger(defId) || defId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfDef(defId);
+    if (!pageId) return res.status(404).json({ error: 'Estado no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    const { rows: cur } = await pool.query('SELECT * FROM ows_space_status_defs WHERE id = $1', [defId]);
+    const label = String(req.body?.label ?? cur[0].label).trim().slice(0, 40) || cur[0].label;
+    const color = owsSpacesStatusColor(req.body?.color ?? cur[0].color);
+    const icon = String(req.body?.icon ?? cur[0].icon).trim().slice(0, 8);
+    const severity = Math.max(0, Math.min(9, Number(req.body?.severity ?? cur[0].severity) || 0));
+    await pool.query(
+      'UPDATE ows_space_status_defs SET label = $2, color = $3, icon = $4, severity = $5 WHERE id = $1',
+      [defId, label, color, icon, severity]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] Error editando estado:', err);
+    res.status(500).json({ error: 'Error al editar el estado' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/statuses/:defId', async (req, res) => {
+  const defId = Number(req.params.defId);
+  if (!Number.isInteger(defId) || defId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfDef(defId);
+    if (!pageId) return res.status(404).json({ error: 'Estado no encontrado' });
+    if (!(await requireOwsSpacesStatusEditor(req, res, pageId))) return;
+    await pool.query('UPDATE ows_space_status_items SET status_def_id = NULL WHERE status_def_id = $1', [defId]);
+    await pool.query('DELETE FROM ows_space_status_defs WHERE id = $1', [defId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: defId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error eliminando estado:', err);
+    res.status(500).json({ error: 'Error al eliminar el estado' });
+  }
+});
+
+// ── Permisos de edición (solo el dueño) ──────────────────────────────────────
+app.get('/ows-spaces/api/status-pages/:pageId/permissions', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesStatusOwner(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const spaceId = await owsSpacesSpaceIdOfPage(pageId);
+    const [perms, members] = await Promise.all([
+      pool.query('SELECT * FROM ows_space_status_perms WHERE page_id = $1 ORDER BY id ASC', [pageId]),
+      pool.query(
+        `SELECT m.user_id, m.role, u.username, u.display_name
+           FROM ows_space_members m
+           JOIN ows_spaces_users u ON u.id = m.user_id
+          WHERE m.space_id = $1 AND m.status = 'member'
+          ORDER BY u.display_name ASC, u.username ASC`,
+        [spaceId]
+      )
+    ]);
+    res.json({
+      perms: perms.rows.map(owsSpacesStatusPermToJson),
+      members: members.rows.map((m) => ({
+        id: Number(m.user_id),
+        username: m.username,
+        displayName: m.display_name || m.username,
+        role: m.role
+      }))
+    });
+  } catch (err) {
+    console.error('[OWS SPACES] Error leyendo permisos:', err);
+    res.status(500).json({ error: 'Error al leer los permisos' });
+  }
+});
+
+app.post('/ows-spaces/api/status-pages/:pageId/permissions', async (req, res) => {
+  const pageId = Number(req.params.pageId);
+  if (!Number.isInteger(pageId) || pageId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  if (!(await requireOwsSpacesStatusOwner(req, res, pageId))) return;
+  try {
+    await ensureOwsSpacesTables();
+    const spaceId = await owsSpacesSpaceIdOfPage(pageId);
+    const role = String(req.body?.role || '').toLowerCase().trim();
+    const userId = Number(req.body?.userId) > 0 ? Number(req.body.userId) : null;
+    if (!role && !userId) return res.status(400).json({ error: 'Elegí un rol o una persona' });
+    if (role) {
+      if (role === 'owner' || !OWS_SPACES_ALL_ROLES.includes(role)) {
+        return res.status(400).json({ error: 'Rol inválido' });
+      }
+      const exists = await pool.query('SELECT 1 FROM ows_space_status_perms WHERE page_id = $1 AND role = $2', [pageId, role]);
+      if (exists.rows.length) return res.status(400).json({ error: 'Ese rol ya tiene permiso' });
+      const { rows } = await pool.query(
+        `INSERT INTO ows_space_status_perms (page_id, role) VALUES ($1, $2) RETURNING *`,
+        [pageId, role]
+      );
+      await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+      return res.json({ success: true, perm: owsSpacesStatusPermToJson(rows[0]) });
+    }
+    const member = await owsSpacesGetMembership(userId, spaceId);
+    if (!member || member.status !== 'member') {
+      return res.status(400).json({ error: 'Esa persona no es miembro del espacio' });
+    }
+    const exists = await pool.query('SELECT 1 FROM ows_space_status_perms WHERE page_id = $1 AND user_id = $2', [pageId, userId]);
+    if (exists.rows.length) return res.status(400).json({ error: 'Esa persona ya tiene permiso' });
+    const { rows } = await pool.query(
+      `INSERT INTO ows_space_status_perms (page_id, user_id) VALUES ($1, $2) RETURNING *`,
+      [pageId, userId]
+    );
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, perm: owsSpacesStatusPermToJson(rows[0]) });
+  } catch (err) {
+    console.error('[OWS SPACES] Error agregando permiso:', err);
+    res.status(500).json({ error: 'Error al agregar el permiso' });
+  }
+});
+
+app.delete('/ows-spaces/api/status-pages/permissions/:permId', async (req, res) => {
+  const permId = Number(req.params.permId);
+  if (!Number.isInteger(permId) || permId <= 0) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const pageId = await owsSpacesPageIdOfPerm(permId);
+    if (!pageId) return res.status(404).json({ error: 'Permiso no encontrado' });
+    if (!(await requireOwsSpacesStatusOwner(req, res, pageId))) return;
+    await pool.query('DELETE FROM ows_space_status_perms WHERE id = $1', [permId]);
+    await pool.query('UPDATE ows_space_status_pages SET updated_at = NOW() WHERE id = $1', [pageId]);
+    res.json({ success: true, deleted: permId });
+  } catch (err) {
+    console.error('[OWS SPACES] Error quitando permiso:', err);
+    res.status(500).json({ error: 'Error al quitar el permiso' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OWS SPACES — NOTICIAS / BLOG
+// Tabla propia: ows_spaces_news (desacoplada de ows_store_news)
+// GET  /ows-spaces/api/news          → público, lista activas ordenadas
+// POST /ows-spaces/api/news          → requiere auth (cualquier usuario logueado)
+// PATCH  /ows-spaces/api/news/:id    → requiere auth
+// DELETE /ows-spaces/api/news/:id    → requiere auth
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET — lista pública
+app.get('/ows-spaces/api/news', async (_req, res) => {
+  try {
+    await ensureOwsSpacesTables();
+    const { rows } = await pool.query(`
+      SELECT id, title, description, content_lines, cover_url, project_tag,
+             author_name, is_active, priority, published_at, created_at, updated_at
+      FROM ows_spaces_news
+      WHERE is_active = TRUE
+      ORDER BY published_at DESC, id DESC
+      LIMIT 50
+    `);
+    return res.json(rows.map((r) => ({
+      id: Number(r.id),
+      title: String(r.title || '').trim(),
+      description: String(r.description || '').trim(),
+      content_lines: Array.isArray(r.content_lines) ? r.content_lines.filter(Boolean) : [],
+      cover_url: String(r.cover_url || '').trim(),
+      project_tag: String(r.project_tag || 'OWS Spaces').trim(),
+      author_name: String(r.author_name || 'Ocean and Wild Studios').trim(),
+      is_active: r.is_active !== false,
+      priority: Number(r.priority || 0),
+      published_at: r.published_at || r.created_at || null,
+    })));
+  } catch (err) {
+    console.error('[OWS SPACES] GET /news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST — crear noticia
+app.post('/ows-spaces/api/news', async (req, res) => {
+  const user = await requireOwsSpacesAuth(req, res);
+  if (!user) return;
+  try {
+    await ensureOwsSpacesTables();
+    const {
+      title, description = '', content_lines = [], cover_url = '',
+      project_tag = 'OWS Spaces', author_name = '', priority = 0,
+      published_at
+    } = req.body || {};
+    if (!title || !String(title).trim()) return res.status(400).json({ error: 'El título es requerido' });
+    const lines = Array.isArray(content_lines) ? content_lines.map(String).filter(Boolean) : [];
+    const pubAt = published_at ? new Date(published_at) : new Date();
+    const { rows } = await pool.query(`
+      INSERT INTO ows_spaces_news
+        (title, description, content_lines, cover_url, project_tag, author_name, priority, published_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      RETURNING *
+    `, [
+      String(title).trim(),
+      String(description || '').trim(),
+      lines,
+      String(cover_url || '').trim(),
+      String(project_tag || 'OWS Spaces').trim(),
+      String(author_name || user.display_name || user.username || 'OWS').trim(),
+      Number(priority) || 0,
+      pubAt,
+    ]);
+    return res.status(201).json({ success: true, news: rows[0] });
+  } catch (err) {
+    console.error('[OWS SPACES] POST /news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// PATCH — editar noticia
+app.patch('/ows-spaces/api/news/:id', async (req, res) => {
+  const user = await requireOwsSpacesAuth(req, res);
+  if (!user) return;
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const allowed = ['title','description','content_lines','cover_url','project_tag','author_name','priority','published_at','is_active'];
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    for (const key of allowed) {
+      if (!(key in (req.body || {}))) continue;
+      let val = req.body[key];
+      if (key === 'content_lines') val = Array.isArray(val) ? val.map(String).filter(Boolean) : [];
+      else if (key === 'published_at') val = val ? new Date(val) : new Date();
+      else if (key === 'is_active') val = Boolean(val);
+      else if (key === 'priority') val = Number(val) || 0;
+      else val = String(val || '').trim();
+      updates.push(`${key} = $${idx++}`);
+      values.push(val);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'Sin campos a actualizar' });
+    values.push(id);
+    const { rows } = await pool.query(
+      `UPDATE ows_spaces_news SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`,
+      values
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Noticia no encontrada' });
+    return res.json({ success: true, news: rows[0] });
+  } catch (err) {
+    console.error('[OWS SPACES] PATCH /news/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE — eliminar noticia
+app.delete('/ows-spaces/api/news/:id', async (req, res) => {
+  const user = await requireOwsSpacesAuth(req, res);
+  if (!user) return;
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    await ensureOwsSpacesTables();
+    const { rowCount } = await pool.query('DELETE FROM ows_spaces_news WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Noticia no encontrada' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[OWS SPACES] DELETE /news/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+
+// POST /ows-spaces/api/news/seed - insercion protegida por STUDIO_SECRET
+app.post('/ows-spaces/api/news/seed', async (req, res) => {
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || '';
+  const provided = String(req.headers['x-studio-secret'] || '').trim();
+  if (!secret || provided !== secret) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    await ensureOwsSpacesTables();
+    const { title, description='', content_lines=[], cover_url='', project_tag='OWS Spaces', author_name='Ocean and Wild Studios', priority=0, published_at } = req.body || {};
+    if (!title || !String(title).trim()) return res.status(400).json({ error: 'Titulo requerido' });
+    const lines = Array.isArray(content_lines) ? content_lines.map(String).filter(Boolean) : [];
+    const pubAt = published_at ? new Date(published_at) : new Date();
+    const { rows } = await pool.query(`INSERT INTO ows_spaces_news (title,description,content_lines,cover_url,project_tag,author_name,priority,published_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [String(title).trim(),String(description||'').trim(),lines,String(cover_url||'').trim(),String(project_tag||'OWS Spaces').trim(),String(author_name||'Ocean and Wild Studios').trim(),Number(priority)||0,pubAt]);
+    return res.status(201).json({ success: true, news: rows[0] });
+  } catch (err) { console.error('[OWS SPACES] POST /news/seed:', err); return res.status(500).json({ error: 'Error interno' }); }
 });

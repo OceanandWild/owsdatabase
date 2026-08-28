@@ -10525,6 +10525,33 @@ app.get('/ocean-pay/gambits/balance', async (req, res) => {
   }
 });
 
+// GET /ocean-pay/tides/balance  →  { tides: number }
+app.get('/ocean-pay/tides/balance', async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  let userId;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = Number(decoded.id || decoded.uid || decoded.sub);
+    if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token inválido' });
+  } catch (_e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  const client = await pool.connect();
+  try {
+    const balance = await getUnifiedBalance(client, userId, 'tides');
+    return res.json({ tides: balance });
+  } catch (e) {
+    console.error('[Tides] Error obteniendo saldo:', e);
+    return res.json({ tides: 0 });
+  } finally {
+    client.release();
+  }
+});
+
 // POST /ocean-pay/gambits/earn  →  { success, gambits: newBalance, earned: amount }
 // Body: { amount: number, reason?: string }
 // Called by Wilder Gambit when player wins, executes brilliant moves, etc.
@@ -14512,6 +14539,8 @@ app.get('/ocean-pay/me', async (req, res) => {
       aquabux: toFiniteNumber(mergedUserBalances.aquabux, 0),
       ecoxionums: toFiniteNumber(mergedUserBalances.ecoxionums, 0),
       appbux: toFiniteNumber(mergedUserBalances.appbux, 0),
+      tides: toFiniteNumber(mergedUserBalances.tides, 0),
+      gambits: toFiniteNumber(mergedUserBalances.gambits, 0),
       two_factor_enabled: twoFactorEnabled,
       balances: mergedUserBalances,
       cards
@@ -33516,6 +33545,41 @@ app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
     await client.query('ROLLBACK');
     console.error('[Migration] Error:', err);
     res.status(500).json({ error: 'Error en migracion: ' + (err.message || err) });
+  } finally {
+    client.release();
+// Endpoint público autenticado para verificar si un destinatario existe
+app.get('/ocean-pay/api/users/check', async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ exists: false, error: 'Token requerido' });
+  }
+
+  const username = String(req.query.username || '').trim();
+  if (!username) {
+    return res.status(400).json({ exists: false, error: 'Usuario requerido' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query(
+      'SELECT id, username FROM ocean_pay_users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+      [username]
+    );
+
+    if (rows.length === 0) {
+      return res.json({ exists: false, message: 'Usuario no encontrado' });
+    }
+
+    return res.json({
+      exists: true,
+      user: {
+        id: rows[0].id,
+        username: rows[0].username
+      }
+    });
+  } catch (err) {
+    console.error('Error en /ocean-pay/api/users/check:', err);
+    return res.status(500).json({ exists: false, error: 'Error del servidor' });
   } finally {
     client.release();
   }

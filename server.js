@@ -247,11 +247,8 @@ const ENABLE_LEGACY_BALANCE_RESCUE = process.env.OP_LEGACY_BALANCE_RESCUE === '1
 const DISABLE_OWS_REWORK_RESTRICTION = process.env.DISABLE_OWS_REWORK_RESTRICTION === '1';
 const USER_WALLET_TABLE = 'ocean_pay_user_balances';
 const UNIFIED_WALLET_CURRENCIES = [
-  'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
-  'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
-  'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
-  'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks', 'biometokens',
-  'gambits'  // Wilder Gambit — exclusive in-game currency
+  'tides',   // Divisa Premium OWS
+  'gambits'  // Wilder Gambit — divisa exclusiva del juego
 ];
 
 let oceanPayTwoFactorTablesReady = false;
@@ -10630,19 +10627,8 @@ app.post(['/ocean-pay/cards/change-balance', '/ocean-pay/currency/change'], asyn
   if (!Number.isFinite(delta) || delta === 0) return res.status(400).json({ error: 'amount invÃ¯Â¿Â½lido' });
 
   const txCurrencyCodeByType = {
-    aquabux: 'ABX',
-    ecoxionums: 'EX',
-    wildcredits: 'WC',
-    wildgems: 'WG',
-    appbux: 'ABX',
-    ecobooks: 'EB',
-    ecotokens: 'ET',
-    amber: 'AM',
-    nxb: 'NXB',
-    voltbit: 'VB',
-    mayhemcoins: 'MC',
-    cosmicdust: 'CD',
-    wildwavetokens: 'WXT'
+    tides: 'TIDES',
+    gambits: 'GAMBITS'
   };
 
   const client = await pool.connect();
@@ -33547,6 +33533,108 @@ app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
     res.status(500).json({ error: 'Error en migracion: ' + (err.message || err) });
   } finally {
     client.release();
+// ── Admin: Verificación estricta y panel de saldo para OceanandWild ──
+app.post('/ocean-pay/api/admin/set-balance', async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  let callerId = null;
+  let callerUsername = '';
+
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    callerId = Number(decoded.id || decoded.uid);
+    callerUsername = String(decoded.username || decoded.un || '').trim();
+  } catch (_e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const client = await pool.connect();
+  try {
+    // Verificación estricta en base de datos: el usuario debe ser OceanandWild
+    let isAuthorized = false;
+    let targetUserId = callerId;
+
+    if (callerUsername.toLowerCase() === 'oceanandwild') {
+      isAuthorized = true;
+    } else if (callerId) {
+      const { rows: uRows } = await client.query('SELECT username FROM ocean_pay_users WHERE id = $1', [callerId]);
+      if (uRows.length && uRows[0].username.toLowerCase() === 'oceanandwild') {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Acceso denegado: solo el administrador OceanandWild tiene permisos.' });
+    }
+
+    const { targetUsername, currency, amount, mode } = req.body;
+    const normCurrency = String(currency || '').trim().toLowerCase();
+    const numAmount = Number(amount);
+
+    if (!normCurrency || isNaN(numAmount)) {
+      return res.status(400).json({ error: 'Moneda y monto válidos requeridos.' });
+    }
+
+    // Resolver usuario objetivo si se especifica otro username
+    let finalUserId = callerId;
+    if (targetUsername && targetUsername.trim().toLowerCase() !== 'oceanandwild') {
+      const { rows: tRows } = await client.query('SELECT id, username FROM ocean_pay_users WHERE LOWER(username) = LOWER($1)', [targetUsername.trim()]);
+      if (!tRows.length) {
+        return res.status(404).json({ error: 'Usuario objetivo no encontrado.' });
+      }
+      finalUserId = tRows[0].id;
+    }
+
+    await client.query('BEGIN');
+
+    let currentBal = await getUnifiedBalance(client, finalUserId, normCurrency);
+    let newBalance = numAmount;
+
+    if (mode === 'add') {
+      newBalance = Math.max(0, currentBal + numAmount);
+    } else {
+      newBalance = Math.max(0, numAmount);
+    }
+
+    await client.query(`
+      INSERT INTO ocean_pay_wallet (user_id, currency, amount, source, updated_at)
+      VALUES ($1, $2, $3, 'admin_panel', NOW())
+      ON CONFLICT (user_id, currency) DO UPDATE
+        SET amount = EXCLUDED.amount,
+            source = 'admin_panel',
+            updated_at = NOW()
+    `, [finalUserId, normCurrency, newBalance]);
+
+    await setUnifiedBalance(client, finalUserId, normCurrency, newBalance);
+
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+      [finalUserId, `Ajuste Admin OWS (${mode === 'add' ? '+' : '='}${numAmount})`, mode === 'add' ? numAmount : (newBalance - currentBal), 'Admin Panel', normCurrency]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      success: true,
+      userId: finalUserId,
+      currency: normCurrency,
+      previousBalance: currentBal,
+      newBalance,
+      message: `Saldo de ${normCurrency.toUpperCase()} actualizado exitosamente a ${newBalance.toLocaleString()}.`
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-pay/api/admin/set-balance:', err);
+    return res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // Endpoint público autenticado para verificar si un destinatario existe
 app.get('/ocean-pay/api/users/check', async (req, res) => {
   const authHeader = String(req.headers.authorization || '');

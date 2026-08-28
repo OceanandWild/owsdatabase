@@ -33673,6 +33673,44 @@ app.get('/ocean-pay/api/users/check', async (req, res) => {
   }
 });
 
+// Endpoint para limpiar/eliminar el historial de transacciones del usuario autenticado
+app.delete(['/ocean-pay/api/txs/clear', '/ocean-pay/txs/:userId/clear'], async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  let userId = null;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = Number(decoded.id || decoded.uid || decoded.sub);
+  } catch (_e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  if (!userId) return res.status(401).json({ error: 'Usuario no autenticado' });
+
+  const client = await pool.connect();
+  try {
+    const { rowCount } = await client.query(
+      'DELETE FROM ocean_pay_txs WHERE user_id = $1',
+      [userId]
+    );
+
+    return res.json({
+      success: true,
+      deletedCount: rowCount || 0,
+      message: 'Historial de movimientos eliminado correctamente.'
+    });
+  } catch (err) {
+    console.error('Error en DELETE /ocean-pay/api/txs/clear:', err);
+    return res.status(500).json({ error: 'Error al limpiar historial de transacciones' });
+  } finally {
+    client.release();
+  }
+});
+
 // â”€â”€ Admin: consultar saldos unificados de un usuario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // ── Admin: buscar usuario por ID o por Username ────────────────────
 app.get('/ocean-pay/admin/users/lookup', async (req, res) => {

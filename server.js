@@ -33533,6 +33533,9 @@ app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
     res.status(500).json({ error: 'Error en migracion: ' + (err.message || err) });
   } finally {
     client.release();
+  }
+});
+
 // ── Admin: Verificación estricta y panel de saldo para OceanandWild ──
 app.post('/ocean-pay/api/admin/set-balance', async (req, res) => {
   const authHeader = String(req.headers.authorization || '');

@@ -36654,3 +36654,262 @@ app.post('/ows-spaces/api/news/seed', async (req, res) => {
     return res.status(201).json({ success: true, news: rows[0] });
   } catch (err) { console.error('[OWS SPACES] POST /news/seed:', err); return res.status(500).json({ error: 'Error interno' }); }
 });
+
+// ============================================================
+// WILDMIND — WILDERS (QUIZZES) API & PERSISTENCE
+// ============================================================
+let wildmindTablesReady = false;
+
+async function ensureWildMindTables() {
+  if (wildmindTablesReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildmind_wilders (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      category TEXT DEFAULT 'Fauna',
+      icon_key TEXT DEFAULT 'aguila',
+      creator_username TEXT NOT NULL,
+      default_time_limit INTEGER DEFAULT 15,
+      visibility TEXT DEFAULT 'public',
+      questions JSONB DEFAULT '[]'::jsonb,
+      play_count INTEGER DEFAULT 0,
+      likes_count INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_wildmind_wilders_creator ON wildmind_wilders(creator_username);
+    CREATE INDEX IF NOT EXISTS idx_wildmind_wilders_category ON wildmind_wilders(category);
+    CREATE INDEX IF NOT EXISTS idx_wildmind_wilders_created_at ON wildmind_wilders(created_at DESC);
+  `);
+
+  try {
+    const { rows } = await pool.query('SELECT COUNT(*) as count FROM wildmind_wilders');
+    if (Number(rows[0]?.count || 0) === 0) {
+      const demoQuestions = JSON.stringify([
+        {
+          id: "q-demo-1",
+          questionText: "¿Cuál es el felino más grande de América?",
+          options: ["Puma", "Jaguar", "Ocelote", "Yaguarundí"],
+          correctOptionIndex: 1,
+          timeLimitSeconds: 15,
+          points: 100,
+          explanation: "El jaguar (Panthera onca) es el mayor felino del continente americano."
+        },
+        {
+          id: "q-demo-2",
+          questionText: "¿Qué animal es conocido como el rey de las aguas dulces amazónicas?",
+          options: ["Cocodrilo del Orinoco", "Delfín Rosado", "Piraña Roja", "Caimán Negro"],
+          correctOptionIndex: 3,
+          timeLimitSeconds: 15,
+          points: 100,
+          explanation: "El caimán negro es uno de los mayores depredadores acuáticos del Amazonas."
+        },
+        {
+          id: "q-demo-3",
+          questionText: "¿Cuál es el ave rapaz con mayor envergadura de América del Sur?",
+          options: ["Halcón Peregrino", "Águila Harpía", "Cóndor Andino", "Aguilucho Común"],
+          correctOptionIndex: 2,
+          timeLimitSeconds: 15,
+          points: 100,
+          explanation: "El Cóndor Andino posee una envergadura de más de 3 metros."
+        }
+      ]);
+
+      await pool.query(`
+        INSERT INTO wildmind_wilders 
+          (id, title, description, category, icon_key, creator_username, default_time_limit, visibility, questions, created_at, updated_at)
+        VALUES 
+          ('wilder-demo-amazonia', 'Depredadores del Amazonas', 'Descubre qué tanto sabes sobre los cazadores más sigilosos de la selva tropical.', 'Fauna', 'jaguar', 'Guardián Salvaje', 15, 'public', $1::jsonb, NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING
+      `, [demoQuestions]);
+    }
+  } catch (seedErr) {
+    console.warn('[WILDMIND] Warning seeding demo wilder:', seedErr.message);
+  }
+
+  wildmindTablesReady = true;
+}
+
+// GET /wildmind/api/wilders
+app.get('/wildmind/api/wilders', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const { creator_username, category, visibility } = req.query || {};
+
+    let query = 'SELECT * FROM wildmind_wilders WHERE 1=1';
+    const params = [];
+    let idx = 1;
+
+    if (creator_username) {
+      query += ` AND LOWER(creator_username) = LOWER($${idx++})`;
+      params.push(String(creator_username).trim());
+    }
+
+    if (category && category !== 'Todos') {
+      query += ` AND LOWER(category) = LOWER($${idx++})`;
+      params.push(String(category).trim());
+    }
+
+    if (visibility) {
+      query += ` AND visibility = $${idx++}`;
+      params.push(String(visibility).trim());
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const { rows } = await pool.query(query, params);
+
+    const wilders = rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      description: r.description || '',
+      category: r.category || 'Fauna',
+      iconKey: r.icon_key || 'aguila',
+      creatorUsername: r.creator_username,
+      defaultTimeLimit: r.default_time_limit || 15,
+      visibility: r.visibility || 'public',
+      questions: Array.isArray(r.questions) ? r.questions : (typeof r.questions === 'string' ? JSON.parse(r.questions) : []),
+      playCount: r.play_count || 0,
+      likesCount: r.likes_count || 0,
+      createdAtTimestamp: Math.floor(new Date(r.created_at).getTime() / 1000)
+    }));
+
+    return res.json({ success: true, count: wilders.length, wilders });
+  } catch (err) {
+    console.error('[WILDMIND] GET /wildmind/api/wilders:', err);
+    return res.status(500).json({ error: 'Error al obtener Wilders' });
+  }
+});
+
+// GET /wildmind/api/wilders/:id
+app.get('/wildmind/api/wilders/:id', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const { id } = req.params;
+    const { rows } = await pool.query('SELECT * FROM wildmind_wilders WHERE id = $1', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Wilder no encontrado' });
+    }
+    const r = rows[0];
+    const wilder = {
+      id: r.id,
+      title: r.title,
+      description: r.description || '',
+      category: r.category || 'Fauna',
+      iconKey: r.icon_key || 'aguila',
+      creatorUsername: r.creator_username,
+      defaultTimeLimit: r.default_time_limit || 15,
+      visibility: r.visibility || 'public',
+      questions: Array.isArray(r.questions) ? r.questions : (typeof r.questions === 'string' ? JSON.parse(r.questions) : []),
+      playCount: r.play_count || 0,
+      likesCount: r.likes_count || 0,
+      createdAtTimestamp: Math.floor(new Date(r.created_at).getTime() / 1000)
+    };
+    return res.json({ success: true, wilder });
+  } catch (err) {
+    console.error('[WILDMIND] GET /wildmind/api/wilders/:id:', err);
+    return res.status(500).json({ error: 'Error al obtener Wilder' });
+  }
+});
+
+// POST /wildmind/api/wilders (Create or Update)
+app.post('/wildmind/api/wilders', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const {
+      id,
+      title,
+      description = '',
+      category = 'Fauna',
+      iconKey = 'aguila',
+      creatorUsername = 'Explorador',
+      defaultTimeLimit = 15,
+      visibility = 'public',
+      questions = []
+    } = req.body || {};
+
+    if (!title || !String(title).trim()) {
+      return res.status(400).json({ error: 'El título del Wilder es obligatorio' });
+    }
+
+    const wilderId = (id && String(id).trim()) || crypto.randomUUID();
+    const questionsJson = JSON.stringify(Array.isArray(questions) ? questions : []);
+
+    const { rows } = await pool.query(`
+      INSERT INTO wildmind_wilders 
+        (id, title, description, category, icon_key, creator_username, default_time_limit, visibility, questions, updated_at)
+      VALUES 
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        category = EXCLUDED.category,
+        icon_key = EXCLUDED.icon_key,
+        default_time_limit = EXCLUDED.default_time_limit,
+        visibility = EXCLUDED.visibility,
+        questions = EXCLUDED.questions,
+        updated_at = NOW()
+      RETURNING *
+    `, [
+      wilderId,
+      String(title).trim(),
+      String(description || '').trim(),
+      String(category || 'Fauna').trim(),
+      String(iconKey || 'aguila').trim(),
+      String(creatorUsername || 'Explorador').trim(),
+      Number(defaultTimeLimit) || 15,
+      String(visibility || 'public').trim(),
+      questionsJson
+    ]);
+
+    const r = rows[0];
+    const savedWilder = {
+      id: r.id,
+      title: r.title,
+      description: r.description || '',
+      category: r.category || 'Fauna',
+      iconKey: r.icon_key || 'aguila',
+      creatorUsername: r.creator_username,
+      defaultTimeLimit: r.default_time_limit || 15,
+      visibility: r.visibility || 'public',
+      questions: Array.isArray(r.questions) ? r.questions : (typeof r.questions === 'string' ? JSON.parse(r.questions) : []),
+      playCount: r.play_count || 0,
+      likesCount: r.likes_count || 0,
+      createdAtTimestamp: Math.floor(new Date(r.created_at).getTime() / 1000)
+    };
+
+    return res.status(201).json({ success: true, wilder: savedWilder });
+  } catch (err) {
+    console.error('[WILDMIND] POST /wildmind/api/wilders:', err);
+    return res.status(500).json({ error: 'Error al guardar Wilder' });
+  }
+});
+
+// DELETE /wildmind/api/wilders/:id
+app.delete('/wildmind/api/wilders/:id', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const { id } = req.params;
+    const { creator_username } = req.query || req.body || {};
+
+    let query = 'DELETE FROM wildmind_wilders WHERE id = $1';
+    const params = [id];
+
+    if (creator_username) {
+      query += ' AND LOWER(creator_username) = LOWER($2)';
+      params.push(String(creator_username).trim());
+    }
+
+    const { rowCount } = await pool.query(query, params);
+    if (!rowCount) {
+      return res.status(404).json({ error: 'Wilder no encontrado o no autorizado' });
+    }
+
+    return res.json({ success: true, message: 'Wilder eliminado' });
+  } catch (err) {
+    console.error('[WILDMIND] DELETE /wildmind/api/wilders/:id:', err);
+    return res.status(500).json({ error: 'Error al eliminar Wilder' });
+  }
+});
+

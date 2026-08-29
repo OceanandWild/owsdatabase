@@ -36686,50 +36686,6 @@ async function ensureWildMindTables() {
     CREATE INDEX IF NOT EXISTS idx_wildmind_wilders_created_at ON wildmind_wilders(created_at DESC);
   `);
 
-  try {
-    const { rows } = await pool.query('SELECT COUNT(*) as count FROM wildmind_wilders');
-    if (Number(rows[0]?.count || 0) === 0) {
-      const demoQuestions = JSON.stringify([
-        {
-          id: "q-demo-1",
-          questionText: "¿Cuál es el felino más grande de América?",
-          options: ["Puma", "Jaguar", "Ocelote", "Yaguarundí"],
-          correctOptionIndex: 1,
-          timeLimitSeconds: 15,
-          points: 100,
-          explanation: "El jaguar (Panthera onca) es el mayor felino del continente americano."
-        },
-        {
-          id: "q-demo-2",
-          questionText: "¿Qué animal es conocido como el rey de las aguas dulces amazónicas?",
-          options: ["Cocodrilo del Orinoco", "Delfín Rosado", "Piraña Roja", "Caimán Negro"],
-          correctOptionIndex: 3,
-          timeLimitSeconds: 15,
-          points: 100,
-          explanation: "El caimán negro es uno de los mayores depredadores acuáticos del Amazonas."
-        },
-        {
-          id: "q-demo-3",
-          questionText: "¿Cuál es el ave rapaz con mayor envergadura de América del Sur?",
-          options: ["Halcón Peregrino", "Águila Harpía", "Cóndor Andino", "Aguilucho Común"],
-          correctOptionIndex: 2,
-          timeLimitSeconds: 15,
-          points: 100,
-          explanation: "El Cóndor Andino posee una envergadura de más de 3 metros."
-        }
-      ]);
-
-      await pool.query(`
-        INSERT INTO wildmind_wilders 
-          (id, title, description, category, icon_key, creator_username, default_time_limit, visibility, questions, created_at, updated_at)
-        VALUES 
-          ('wilder-demo-amazonia', 'Depredadores del Amazonas', 'Descubre qué tanto sabes sobre los cazadores más sigilosos de la selva tropical.', 'Fauna', 'jaguar', 'Guardián Salvaje', 15, 'public', $1::jsonb, NOW(), NOW())
-        ON CONFLICT (id) DO NOTHING
-      `, [demoQuestions]);
-    }
-  } catch (seedErr) {
-    console.warn('[WILDMIND] Warning seeding demo wilder:', seedErr.message);
-  }
 
   wildmindTablesReady = true;
 }

@@ -36756,6 +36756,18 @@ async function ensureWildMindTables() {
     CREATE INDEX IF NOT EXISTS idx_wildmind_wilders_creator ON wildmind_wilders(creator_username);
     CREATE INDEX IF NOT EXISTS idx_wildmind_wilders_category ON wildmind_wilders(category);
     CREATE INDEX IF NOT EXISTS idx_wildmind_wilders_created_at ON wildmind_wilders(created_at DESC);
+    CREATE TABLE IF NOT EXISTS wildmind_sessions (
+      id SERIAL PRIMARY KEY,
+      wilder_id TEXT NOT NULL REFERENCES wildmind_wilders(id) ON DELETE CASCADE,
+      room_pin VARCHAR(6) UNIQUE NOT NULL,
+      host_id TEXT,
+      state TEXT NOT NULL DEFAULT 'waiting',
+      current_question INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      started_at TIMESTAMPTZ,
+      ended_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS idx_wildmind_sessions_wilder ON wildmind_sessions(wilder_id);
   `);
 
 
@@ -36989,12 +37001,12 @@ app.post('/wildmind/api/wilders/:id/start-session', async (req, res) => {
     let roomPin;
     do {
       roomPin = String(Math.floor(100000 + Math.random() * 900000));
-      const exists = await pool.query('SELECT 1 FROM quiz_sessions WHERE room_pin = $1', [roomPin]);
+      const exists = await pool.query('SELECT 1 FROM wildmind_sessions WHERE room_pin = $1', [roomPin]);
       if (!exists.rows.length && !activeRooms.has(roomPin)) break;
     } while (true);
 
     const session = await pool.query(
-      `INSERT INTO quiz_sessions (quiz_id, room_pin, host_id, state, created_at)
+      `INSERT INTO wildmind_sessions (wilder_id, room_pin, host_id, state, created_at)
        VALUES ($1, $2, $3, 'waiting', NOW()) RETURNING id`,
       [String(wilder.id), roomPin, req.body?.hostId || null]
     );

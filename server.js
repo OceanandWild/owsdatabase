@@ -36714,12 +36714,12 @@ app.get('/wildmind/api/wilders', async (req, res) => {
       query += ` OR LOWER(creator_username) = LOWER($${idx++})`;
       params.push(user.username);
     }
-    query += ')';
 
     if (creator_username) {
-      query += ` AND LOWER(creator_username) = LOWER($${idx++})`;
+      query += ` OR LOWER(creator_username) = LOWER($${idx++})`;
       params.push(String(creator_username).trim());
     }
+    query += ')';
 
     if (category && category !== 'Todos') {
       query += ` AND LOWER(category) = LOWER($${idx++})`;
@@ -36763,9 +36763,11 @@ app.get('/wildmind/api/wilders/:id', async (req, res) => {
     await ensureWildMindTables();
     const { id } = req.params;
     const user = getWildMindUser(req);
+    const { creator_username } = req.query || {};
     const params = [id];
     let query = 'SELECT * FROM wildmind_wilders WHERE id = $1 AND (visibility = \'public\'';
-    if (user) { query += ' OR LOWER(creator_username) = LOWER($2)'; params.push(user.username); }
+    if (user) { query += ` OR LOWER(creator_username) = LOWER($${params.length + 1})`; params.push(user.username); }
+    if (creator_username) { query += ` OR LOWER(creator_username) = LOWER($${params.length + 1})`; params.push(String(creator_username).trim()); }
     query += ')';
     const { rows } = await pool.query(query, params);
     if (rows.length === 0) {
@@ -36798,7 +36800,6 @@ app.post('/wildmind/api/wilders', async (req, res) => {
   try {
     await ensureWildMindTables();
     const user = getWildMindUser(req);
-    if (!user) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
     const {
       id,
       title,
@@ -36811,14 +36812,18 @@ app.post('/wildmind/api/wilders', async (req, res) => {
       questions = []
     } = req.body || {};
 
+    const effectiveCreator = user ? user.username : (String(creatorUsername || 'Explorador').trim() || 'Explorador');
+
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'El título del Wilder es obligatorio' });
     }
 
     const wilderId = (id && String(id).trim()) || crypto.randomUUID();
     const ownerCheck = await pool.query('SELECT creator_username FROM wildmind_wilders WHERE id = $1', [wilderId]);
-    if (ownerCheck.rows.length && ownerCheck.rows[0].creator_username.toLowerCase() !== user.username.toLowerCase()) {
-      return res.status(403).json({ error: 'No autorizado para modificar este Wilder' });
+    if (ownerCheck.rows.length && user && ownerCheck.rows[0].creator_username.toLowerCase() !== user.username.toLowerCase()) {
+      if (ownerCheck.rows[0].creator_username.toLowerCase() !== 'explorador') {
+        return res.status(403).json({ error: 'No autorizado para modificar este Wilder' });
+      }
     }
     const questionsJson = JSON.stringify(Array.isArray(questions) ? questions : []);
 
@@ -36843,7 +36848,7 @@ app.post('/wildmind/api/wilders', async (req, res) => {
       String(description || '').trim(),
       String(category || 'Fauna').trim(),
       String(iconKey || 'aguila').trim(),
-      user.username,
+      effectiveCreator,
       Number(defaultTimeLimit) || 15,
       String(visibility || 'public').trim(),
       questionsJson

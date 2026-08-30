@@ -36691,14 +36691,30 @@ async function ensureWildMindTables() {
 }
 
 // GET /wildmind/api/wilders
+function getWildMindUser(req) {
+  const token = getOceanPayTokenFromRequest(req);
+  const payload = decodeOceanPayTokenOrNull(token);
+  if (!payload) return null;
+  const id = Number(payload.id || payload.uid || payload.sub);
+  const username = String(payload.username || '').trim();
+  return Number.isFinite(id) && id > 0 && username ? { id, username } : null;
+}
+
 app.get('/wildmind/api/wilders', async (req, res) => {
   try {
     await ensureWildMindTables();
+    const user = getWildMindUser(req);
     const { creator_username, category, visibility } = req.query || {};
 
-    let query = 'SELECT * FROM wildmind_wilders WHERE 1=1';
+    let query = 'SELECT * FROM wildmind_wilders WHERE (visibility = \'public\'';
     const params = [];
     let idx = 1;
+
+    if (user) {
+      query += ` OR LOWER(creator_username) = LOWER($${idx++})`;
+      params.push(user.username);
+    }
+    query += ')';
 
     if (creator_username) {
       query += ` AND LOWER(creator_username) = LOWER($${idx++})`;
@@ -36746,7 +36762,12 @@ app.get('/wildmind/api/wilders/:id', async (req, res) => {
   try {
     await ensureWildMindTables();
     const { id } = req.params;
-    const { rows } = await pool.query('SELECT * FROM wildmind_wilders WHERE id = $1', [id]);
+    const user = getWildMindUser(req);
+    const params = [id];
+    let query = 'SELECT * FROM wildmind_wilders WHERE id = $1 AND (visibility = \'public\'';
+    if (user) { query += ' OR LOWER(creator_username) = LOWER($2)'; params.push(user.username); }
+    query += ')';
+    const { rows } = await pool.query(query, params);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Wilder no encontrado' });
     }
@@ -36776,13 +36797,15 @@ app.get('/wildmind/api/wilders/:id', async (req, res) => {
 app.post('/wildmind/api/wilders', async (req, res) => {
   try {
     await ensureWildMindTables();
+    const user = getWildMindUser(req);
+    if (!user) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
     const {
       id,
       title,
       description = '',
       category = 'Fauna',
       iconKey = 'aguila',
-      creatorUsername = 'Explorador',
+      creatorUsername,
       defaultTimeLimit = 15,
       visibility = 'public',
       questions = []
@@ -36793,6 +36816,10 @@ app.post('/wildmind/api/wilders', async (req, res) => {
     }
 
     const wilderId = (id && String(id).trim()) || crypto.randomUUID();
+    const ownerCheck = await pool.query('SELECT creator_username FROM wildmind_wilders WHERE id = $1', [wilderId]);
+    if (ownerCheck.rows.length && ownerCheck.rows[0].creator_username.toLowerCase() !== user.username.toLowerCase()) {
+      return res.status(403).json({ error: 'No autorizado para modificar este Wilder' });
+    }
     const questionsJson = JSON.stringify(Array.isArray(questions) ? questions : []);
 
     const { rows } = await pool.query(`
@@ -36816,7 +36843,7 @@ app.post('/wildmind/api/wilders', async (req, res) => {
       String(description || '').trim(),
       String(category || 'Fauna').trim(),
       String(iconKey || 'aguila').trim(),
-      String(creatorUsername || 'Explorador').trim(),
+      user.username,
       Number(defaultTimeLimit) || 15,
       String(visibility || 'public').trim(),
       questionsJson
@@ -36849,16 +36876,12 @@ app.post('/wildmind/api/wilders', async (req, res) => {
 app.delete('/wildmind/api/wilders/:id', async (req, res) => {
   try {
     await ensureWildMindTables();
+    const user = getWildMindUser(req);
+    if (!user) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
     const { id } = req.params;
-    const { creator_username } = req.query || req.body || {};
 
-    let query = 'DELETE FROM wildmind_wilders WHERE id = $1';
-    const params = [id];
-
-    if (creator_username) {
-      query += ' AND LOWER(creator_username) = LOWER($2)';
-      params.push(String(creator_username).trim());
-    }
+    const query = 'DELETE FROM wildmind_wilders WHERE id = $1 AND LOWER(creator_username) = LOWER($2)';
+    const params = [id, user.username];
 
     const { rowCount } = await pool.query(query, params);
     if (!rowCount) {
@@ -36871,4 +36894,3 @@ app.delete('/wildmind/api/wilders/:id', async (req, res) => {
     return res.status(500).json({ error: 'Error al eliminar Wilder' });
   }
 });
-

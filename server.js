@@ -21885,6 +21885,78 @@ io.on('connection', (socket) => {
   });
 
   // =============================
+  // WILDMIND native multiplayer flow
+  // =============================
+  const wildMindPublicQuestion = (q) => {
+    if (!q) return null;
+    const copy = { ...q };
+    delete copy.correctOptionIndex;
+    delete copy.correctTextAnswer;
+    delete copy.correctAnswer;
+    return copy;
+  };
+  const wildMindLeaderboard = (room) => room.players
+    .map(p => ({ id: p.id, name: p.name, score: p.score }))
+    .sort((a, b) => b.score - a.score);
+
+  socket.on('wildmind:host-join', ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    room.hostSocketId = socket.id;
+    socket.join(`room-${roomPin}`); socket.join(`host-${roomPin}`);
+    socket.emit('wildmind:host-ready', { roomPin, title: room.quiz.title, players: wildMindLeaderboard(room), state: room.state });
+  });
+
+  socket.on('wildmind:player-join', ({ roomPin, playerName, playerId }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    if (room.state !== 'waiting') return socket.emit('wildmind:error', { message: 'La partida ya comenzó' });
+    const id = String(playerId || socket.id);
+    room.players = room.players.filter(p => p.id !== id);
+    room.players.push({ id, name: String(playerName || 'Explorador').slice(0, 30), socketId: socket.id, score: 0, answers: [] });
+    socket.join(`room-${roomPin}`); socket.join(`players-${roomPin}`);
+    io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+    socket.emit('wildmind:joined', { playerId: id, roomPin });
+  });
+
+  socket.on('wildmind:start', ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    if (socket.id !== room.hostSocketId) return socket.emit('wildmind:error', { message: 'Solo el anfitrión puede iniciar' });
+    room.state = 'playing'; room.currentQuestion = 0;
+    const q = room.quiz.questions[0];
+    io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: 0, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+  });
+
+  socket.on('wildmind:answer', ({ roomPin, playerId, answer, timeTaken = 0 }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind || room.state !== 'playing') return;
+    const player = room.players.find(p => p.id === String(playerId) && p.socketId === socket.id);
+    const q = room.quiz.questions[room.currentQuestion];
+    if (!player || !q || player.answers.some(a => a.questionIndex === room.currentQuestion)) return;
+    const type = q.questionType || q.type;
+    const expected = q.correctOptionIndex ?? q.correctIndex;
+    const correct = type === 'type_answer' || type === 'short-answer'
+      ? String(answer || '').trim().toLowerCase() === String(q.correctTextAnswer ?? q.correctAnswer ?? '').trim().toLowerCase()
+      : Number(answer) === Number(expected);
+    const limit = Number(q.timeLimitSeconds || q.timeLimit || 15);
+    const points = correct ? Math.max(100, Math.round(Number(q.points || 1000) * Math.max(0.25, 1 - Math.max(0, Number(timeTaken)) / limit * 0.75))) : 0;
+    player.score += points; player.answers.push({ questionIndex: room.currentQuestion, correct, points });
+    socket.emit('wildmind:answer-result', { correct, points, totalScore: player.score });
+    io.to(`room-${roomPin}`).emit('wildmind:leaderboard', { leaderboard: wildMindLeaderboard(room) });
+  });
+
+  socket.on('wildmind:next', ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind || socket.id !== room.hostSocketId) return;
+    room.currentQuestion++;
+    if (room.currentQuestion >= room.quiz.questions.length) {
+      room.state = 'results'; return io.to(`room-${roomPin}`).emit('wildmind:end', { leaderboard: wildMindLeaderboard(room) });
+    }
+    io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(room.quiz.questions[room.currentQuestion]) });
+  });
+
+  // =============================
   // AWQG multiplayer socket flow
   // =============================
   socket.on('awqg:host-connect', ({ code, hostName }) => {
@@ -36897,5 +36969,45 @@ app.delete('/wildmind/api/wilders/:id', async (req, res) => {
   } catch (err) {
     console.error('[WILDMIND] DELETE /wildmind/api/wilders/:id:', err);
     return res.status(500).json({ error: 'Error al eliminar Wilder' });
+  }
+});
+
+// POST /wildmind/api/wilders/:id/start-session
+// Crea una sala Kahoot-compatible usando el modelo nativo de WildMind.
+app.post('/wildmind/api/wilders/:id/start-session', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const { rows } = await pool.query(
+      `SELECT * FROM wildmind_wilders WHERE id = $1 AND visibility IN ('public', 'unlisted')`,
+      [String(req.params.id)]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Wilder no encontrado o no disponible' });
+    const wilder = rows[0];
+    const questions = Array.isArray(wilder.questions) ? wilder.questions : [];
+    if (!questions.length) return res.status(400).json({ error: 'El Wilder no tiene preguntas' });
+
+    let roomPin;
+    do {
+      roomPin = String(Math.floor(100000 + Math.random() * 900000));
+      const exists = await pool.query('SELECT 1 FROM quiz_sessions WHERE room_pin = $1', [roomPin]);
+      if (!exists.rows.length && !activeRooms.has(roomPin)) break;
+    } while (true);
+
+    const session = await pool.query(
+      `INSERT INTO quiz_sessions (quiz_id, room_pin, host_id, state, created_at)
+       VALUES ($1, $2, $3, 'waiting', NOW()) RETURNING id`,
+      [String(wilder.id), roomPin, req.body?.hostId || null]
+    );
+    activeRooms.set(roomPin, {
+      sessionId: session.rows[0].id, quizId: wilder.id,
+      quiz: { id: wilder.id, title: wilder.title, questions },
+      hostId: req.body?.hostId || null, players: [], currentQuestion: 0,
+      scores: {}, state: 'waiting', startTime: null, wildmind: true
+    });
+    await pool.query('UPDATE wildmind_wilders SET play_count = play_count + 1, updated_at = NOW() WHERE id = $1', [wilder.id]);
+    return res.status(201).json({ success: true, roomPin, sessionId: session.rows[0].id, title: wilder.title, playerCount: 0 });
+  } catch (err) {
+    console.error('[WILDMIND] start-session:', err);
+    return res.status(500).json({ error: 'Error al crear la sala' });
   }
 });

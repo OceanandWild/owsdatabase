@@ -21896,7 +21896,7 @@ io.on('connection', (socket) => {
     return copy;
   };
   const wildMindLeaderboard = (room) => room.players
-    .map(p => ({ id: p.id, name: p.name, score: p.score }))
+    .map(p => ({ id: p.id, name: p.name, score: p.score, avatarKey: p.avatarKey || 'aguila' }))
     .sort((a, b) => b.score - a.score);
 
   socket.on('wildmind:host-join', ({ roomPin }) => {
@@ -21907,16 +21907,27 @@ io.on('connection', (socket) => {
     socket.emit('wildmind:host-ready', { roomPin, title: room.quiz.title, players: wildMindLeaderboard(room), state: room.state });
   });
 
-  socket.on('wildmind:player-join', ({ roomPin, playerName, playerId }) => {
+  socket.on('wildmind:player-join', ({ roomPin, playerName, playerId, avatarKey }) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
     if (room.state !== 'waiting') return socket.emit('wildmind:error', { message: 'La partida ya comenzó' });
     const id = String(playerId || socket.id);
+    const chosenAvatar = String(avatarKey || 'aguila');
     room.players = room.players.filter(p => p.id !== id);
-    room.players.push({ id, name: String(playerName || 'Explorador').slice(0, 30), socketId: socket.id, score: 0, answers: [] });
+    room.players.push({ id, name: String(playerName || 'Explorador').slice(0, 30), avatarKey: chosenAvatar, socketId: socket.id, score: 0, answers: [] });
     socket.join(`room-${roomPin}`); socket.join(`players-${roomPin}`);
     io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
     socket.emit('wildmind:joined', { playerId: id, roomPin });
+  });
+
+  socket.on('wildmind:change-avatar', ({ roomPin, playerId, avatarKey }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    const player = room.players.find(p => p.id === String(playerId));
+    if (player) {
+      player.avatarKey = String(avatarKey || 'aguila');
+      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+    }
   });
 
   socket.on('wildmind:start', ({ roomPin }) => {

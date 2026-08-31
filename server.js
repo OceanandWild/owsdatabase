@@ -21944,6 +21944,9 @@ io.on('connection', (socket) => {
     player.score += points; player.answers.push({ questionIndex: room.currentQuestion, correct, points });
     socket.emit('wildmind:answer-result', { correct, points, totalScore: player.score });
     io.to(`room-${roomPin}`).emit('wildmind:leaderboard', { leaderboard: wildMindLeaderboard(room) });
+    // Notificar al anfitrión cuántos jugadores han respondido esta pregunta
+    const answeredCount = room.players.filter(p => p.answers.some(a => a.questionIndex === room.currentQuestion)).length;
+    io.to(`host-${roomPin}`).emit('wildmind:player-answered', { answeredCount, totalPlayers: room.players.length });
   });
 
   socket.on('wildmind:next', ({ roomPin }) => {
@@ -36990,10 +36993,10 @@ app.post('/wildmind/api/wilders/:id/start-session', async (req, res) => {
   try {
     await ensureWildMindTables();
     const { rows } = await pool.query(
-      `SELECT * FROM wildmind_wilders WHERE id = $1 AND visibility IN ('public', 'unlisted')`,
+      `SELECT * FROM wildmind_wilders WHERE id = $1`,
       [String(req.params.id)]
     );
-    if (!rows.length) return res.status(404).json({ error: 'Wilder no encontrado o no disponible' });
+    if (!rows.length) return res.status(404).json({ error: 'Wilder no encontrado' });
     const wilder = rows[0];
     const questions = Array.isArray(wilder.questions) ? wilder.questions : [];
     if (!questions.length) return res.status(400).json({ error: 'El Wilder no tiene preguntas' });

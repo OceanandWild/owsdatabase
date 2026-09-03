@@ -21899,17 +21899,24 @@ io.on('connection', (socket) => {
     .map(p => ({ id: p.id, name: p.name, score: p.score, avatarKey: p.avatarKey || 'aguila' }))
     .sort((a, b) => b.score - a.score);
 
-  socket.on('wildmind:host-join', ({ roomPin }) => {
+  socket.on('wildmind:host-join', ({ roomPin, accountName }) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
     room.hostSocketId = socket.id;
+    const hostAcc = String(accountName || '').trim();
+    if (hostAcc) room.hostAccount = hostAcc;
     socket.join(`room-${roomPin}`); socket.join(`host-${roomPin}`);
     socket.emit('wildmind:host-ready', { roomPin, title: room.quiz.title, players: wildMindLeaderboard(room), state: room.state });
   });
 
-  socket.on('wildmind:player-join', ({ roomPin, playerName, playerId, avatarKey }) => {
+  socket.on('wildmind:player-join', ({ roomPin, playerName, playerId, avatarKey, accountName }) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    // La misma cuenta no puede dirigir la sala y jugar en ella a la vez
+    const joinAcc = String(accountName || '').trim().toLowerCase();
+    const hostAcc = String(room.hostAccount || room.hostId || '').trim().toLowerCase();
+    if (joinAcc && hostAcc && joinAcc === hostAcc)
+      return socket.emit('wildmind:error', { message: 'No puedes unirte a tu propia sala con la misma cuenta.' });
     const id = String(playerId || socket.id);
     const existing = room.players.find(p => p.id === id);
     // Si la partida ya comenzó, solo permitir re-conexión de jugadores ya registrados

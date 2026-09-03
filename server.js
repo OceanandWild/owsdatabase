@@ -21910,14 +21910,56 @@ io.on('connection', (socket) => {
   socket.on('wildmind:player-join', ({ roomPin, playerName, playerId, avatarKey }) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
-    if (room.state !== 'waiting') return socket.emit('wildmind:error', { message: 'La partida ya comenzó' });
     const id = String(playerId || socket.id);
+    const existing = room.players.find(p => p.id === id);
+    // Si la partida ya comenzó, solo permitir re-conexión de jugadores ya registrados
+    if (room.state !== 'waiting' && !existing) return socket.emit('wildmind:error', { message: 'La partida ya comenzo' });
     const chosenAvatar = String(avatarKey || 'aguila');
+    if (existing) {
+      // Re-conexión durante partida en curso: actualizar socket y reenviar estado actual
+      existing.socketId = socket.id;
+      existing.avatarKey = chosenAvatar;
+      if (playerName) existing.name = String(playerName).slice(0,30);
+      socket.join(`room-${roomPin}`); socket.join(`players-${roomPin}`);
+      socket.emit('wildmind:joined', { playerId: id, roomPin });
+      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+      if (room.state === 'playing') {
+        const q = room.quiz.questions[room.currentQuestion];
+        socket.emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+      } else if (room.state === 'results') {
+        socket.emit('wildmind:end', { leaderboard: wildMindLeaderboard(room) });
+      }
+      return;
+    }
     room.players = room.players.filter(p => p.id !== id);
     room.players.push({ id, name: String(playerName || 'Explorador').slice(0, 30), avatarKey: chosenAvatar, socketId: socket.id, score: 0, answers: [] });
     socket.join(`room-${roomPin}`); socket.join(`players-${roomPin}`);
     io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
     socket.emit('wildmind:joined', { playerId: id, roomPin });
+  });
+
+  // Sincronizacion bajo demanda: cliente pide estado actual si cree haberse desfasado
+  socket.on('wildmind:request-state', ({ roomPin, playerId }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    socket.emit('wildmind:state', { state: room.state, currentQuestion: room.currentQuestion, totalQuestions: room.quiz.questions.length, players: wildMindLeaderboard(room) });
+    if (room.state === 'playing') {
+      const q = room.quiz.questions[room.currentQuestion];
+      socket.emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+    } else if (room.state === 'results') {
+      socket.emit('wildmind:end', { leaderboard: wildMindLeaderboard(room) });
+    }
+  });
+
+  // Heartbeat de sincronizacion: host puede forzar re-broadcast de la pregunta actual si detecta desfase
+  socket.on('wildmind:sync-question', ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    if (socket.id !== room.hostSocketId) return;
+    if (room.state === 'playing') {
+      const q = room.quiz.questions[room.currentQuestion];
+      io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+    }
   });
 
   socket.on('wildmind:change-avatar', ({ roomPin, playerId, avatarKey }) => {

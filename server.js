@@ -21250,6 +21250,18 @@ app.get('/api/awqg/rooms/:code', (req, res) => {
 
 // Almacenamiento en memoria para salas activas (se puede migrar a Redis en producción)
 const activeRooms = new Map(); // roomPin -> { hostId, quizId, players: [], currentQuestion: 0, scores: {}, state: 'waiting'|'playing'|'results' }
+// Presencia WildMind: username (minúsculas) -> socket.id, para amigos e invitaciones
+const wildmindPresence = new Map();
+const wildMindTrackPresence = (accountName, socketId) => {
+  const acc = String(accountName || '').trim().toLowerCase();
+  if (!acc || !socketId) return;
+  wildmindPresence.set(acc, socketId);
+};
+const wildMindDropPresence = (socketId) => {
+  for (const [acc, sid] of wildmindPresence) {
+    if (sid === socketId) wildmindPresence.delete(acc);
+  }
+};
 const playerSockets = new Map(); // socketId -> { playerId, roomPin, playerName }
 
 // Inicializar tablas de quizzes
@@ -21955,6 +21967,7 @@ io.on('connection', (socket) => {
     room.hostSocketId = socket.id;
     const hostAcc = String(accountName || '').trim();
     if (hostAcc) room.hostAccount = hostAcc;
+    wildMindTrackPresence(hostAcc, socket.id);
     // Si la sala se había cerrado, el nuevo anfitrión la reabre en espera
     if (room.state === 'closed') { room.state = 'waiting'; room.locked = false; }
     socket.join(`room-${roomPin}`); socket.join(`host-${roomPin}`);
@@ -21970,6 +21983,7 @@ io.on('connection', (socket) => {
     if (joinAcc && hostAcc && joinAcc === hostAcc)
       return socket.emit('wildmind:error', { message: 'No puedes unirte a tu propia sala con la misma cuenta.' });
     const id = String(playerId || socket.id);
+    wildMindTrackPresence(accountName, socket.id);
     const existing = room.players.find(p => p.id === id);
     // Si la partida ya comenzó, solo permitir re-conexión de jugadores ya registrados
     if (room.state !== 'waiting' && !existing) return socket.emit('wildmind:error', { message: 'La partida ya comenzo' });
@@ -22011,6 +22025,33 @@ io.on('connection', (socket) => {
     } else if (room.state === 'results') {
       socket.emit('wildmind:end', { leaderboard: wildMindLeaderboard(room) });
     }
+  });
+
+  // Presencia para amigos: canal personal donde llegan invitaciones y avisos
+  socket.on('wildmind:presence', ({ accountName }) => {
+    const acc = String(accountName || '').trim();
+    if (!acc) return;
+    wildMindTrackPresence(acc, socket.id);
+    socket.join(`user-${acc.toLowerCase()}`);
+    socket.emit('wildmind:friends-changed', {});
+  });
+
+  // Invitar a un amigo a la sala (solo el anfitrión puede invitar)
+  socket.on('wildmind:invite', ({ roomPin, from, to }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:invite-result', { sent: false, to, reason: 'Sala no encontrada' });
+    if (socket.id !== room.hostSocketId) return socket.emit('wildmind:invite-result', { sent: false, to, reason: 'Solo el anfitrión puede invitar' });
+    const target = String(to || '').trim().toLowerCase();
+    if (!target || target === String(from || '').trim().toLowerCase())
+      return socket.emit('wildmind:invite-result', { sent: false, to, reason: 'Invitación inválida' });
+    if (!wildmindPresence.has(target))
+      return socket.emit('wildmind:invite-result', { sent: false, to, reason: 'Tu amigo no está conectado' });
+    io.to(`user-${target}`).emit('wildmind:invited', {
+      roomPin: String(roomPin),
+      from: String(from || 'Un anfitrión'),
+      title: room.quiz?.title || 'Wilder'
+    });
+    socket.emit('wildmind:invite-result', { sent: true, to });
   });
 
   // Heartbeat de sincronizacion: host puede forzar re-broadcast de la pregunta actual si detecta desfase
@@ -22352,6 +22393,7 @@ io.on('connection', (socket) => {
 
   // Desconexión
   socket.on('disconnect', () => {
+    wildMindDropPresence(socket.id);
     // WildMind: si el anfitrión se va a media partida, avisar a los jugadores
     // para que regresen al menú con un mensaje en vez de quedar colgados.
     for (const [pin, room] of activeRooms) {
@@ -36914,6 +36956,17 @@ async function ensureWildMindTables() {
       ended_at TIMESTAMPTZ
     );
     CREATE INDEX IF NOT EXISTS idx_wildmind_sessions_wilder ON wildmind_sessions(wilder_id);
+    CREATE TABLE IF NOT EXISTS wildmind_friends (
+      id SERIAL PRIMARY KEY,
+      user_a TEXT NOT NULL,
+      user_b TEXT NOT NULL,
+      requested_by TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(user_a, user_b)
+    );
+    CREATE INDEX IF NOT EXISTS idx_wildmind_friends_a ON wildmind_friends(user_a);
+    CREATE INDEX IF NOT EXISTS idx_wildmind_friends_b ON wildmind_friends(user_b);
   `);
 
 
@@ -37127,6 +37180,125 @@ app.delete('/wildmind/api/wilders/:id', async (req, res) => {
   } catch (err) {
     console.error('[WILDMIND] DELETE /wildmind/api/wilders/:id:', err);
     return res.status(500).json({ error: 'Error al eliminar Wilder' });
+  }
+});
+
+// ===== WildMind Friends: solicitudes, lista, presencia e invitaciones =====
+const wildMindFriendPair = (u1, u2) => {
+  const a = String(u1 || '').trim().toLowerCase();
+  const b = String(u2 || '').trim().toLowerCase();
+  return a < b ? [a, b] : [b, a];
+};
+const wildMindDisplayName = async (lower) => {
+  try {
+    const { rows } = await pool.query('SELECT username FROM ocean_pay_users WHERE LOWER(username) = $1 LIMIT 1', [lower]);
+    if (rows.length) return rows[0].username;
+  } catch (e) {}
+  return lower;
+};
+
+// GET /wildmind/api/friends?user=X -> amigos, solicitudes entrantes/salientes y online
+app.get('/wildmind/api/friends', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const me = String(req.query?.user || '').trim().toLowerCase();
+    if (!me) return res.status(400).json({ error: 'Falta el usuario' });
+    const { rows } = await pool.query(
+      'SELECT user_a, user_b, requested_by, status FROM wildmind_friends WHERE user_a = $1 OR user_b = $2',
+      [me, me]
+    );
+    const friends = [];
+    const pendingIn = [];
+    const pendingOut = [];
+    for (const r of rows) {
+      const other = r.user_a === me ? r.user_b : r.user_a;
+      const name = await wildMindDisplayName(other);
+      const online = wildmindPresence.has(other);
+      if (r.status === 'accepted') friends.push({ username: name, online });
+      else if (r.requested_by === me) pendingOut.push({ username: name });
+      else pendingIn.push({ username: name });
+    }
+    friends.sort((a, b) => (b.online - a.online) || a.username.localeCompare(b.username));
+    return res.json({ success: true, friends, pendingIn, pendingOut });
+  } catch (err) {
+    console.error('[WILDMIND] friends list:', err);
+    return res.status(500).json({ error: 'No se pudo cargar la lista de amigos' });
+  }
+});
+
+// POST /wildmind/api/friends/request {from, to}
+app.post('/wildmind/api/friends/request', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const from = String(req.body?.from || '').trim();
+    const to = String(req.body?.to || '').trim();
+    if (!from || !to) return res.status(400).json({ error: 'Faltan usuarios' });
+    if (from.toLowerCase() === to.toLowerCase()) return res.status(400).json({ error: 'No puedes agregarte a vos mismo' });
+    const target = await pool.query('SELECT username FROM ocean_pay_users WHERE LOWER(username) = LOWER($1) LIMIT 1', [to]);
+    if (!target.rows.length) return res.status(404).json({ error: 'Ese jugador no existe' });
+    const [a, b] = wildMindFriendPair(from, to);
+    const existing = await pool.query('SELECT status, requested_by FROM wildmind_friends WHERE user_a = $1 AND user_b = $2', [a, b]);
+    if (existing.rows.length) {
+      const r = existing.rows[0];
+      if (r.status === 'accepted') return res.status(400).json({ error: 'Ya son amigos' });
+      return res.status(400).json({ error: 'Ya hay una solicitud pendiente' });
+    }
+    await pool.query(
+      'INSERT INTO wildmind_friends (user_a, user_b, requested_by, status) VALUES ($1, $2, $3, \'pending\')',
+      [a, b, from.toLowerCase()]
+    );
+    io.to(`user-${to.toLowerCase()}`).emit('wildmind:friends-changed', {});
+    return res.json({ success: true, to: target.rows[0].username });
+  } catch (err) {
+    console.error('[WILDMIND] friends request:', err);
+    return res.status(500).json({ error: 'No se pudo enviar la solicitud' });
+  }
+});
+
+// POST /wildmind/api/friends/respond {user, friend, accept}
+app.post('/wildmind/api/friends/respond', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const user = String(req.body?.user || '').trim().toLowerCase();
+    const friend = String(req.body?.friend || '').trim().toLowerCase();
+    const accept = !!req.body?.accept;
+    if (!user || !friend) return res.status(400).json({ error: 'Faltan usuarios' });
+    const [a, b] = wildMindFriendPair(user, friend);
+    const existing = await pool.query(
+      'SELECT status, requested_by FROM wildmind_friends WHERE user_a = $1 AND user_b = $2',
+      [a, b]
+    );
+    if (!existing.rows.length || existing.rows[0].status !== 'pending' || existing.rows[0].requested_by !== friend)
+      return res.status(404).json({ error: 'No hay solicitud pendiente' });
+    if (accept) {
+      await pool.query('UPDATE wildmind_friends SET status = \'accepted\' WHERE user_a = $1 AND user_b = $2', [a, b]);
+    } else {
+      await pool.query('DELETE FROM wildmind_friends WHERE user_a = $1 AND user_b = $2', [a, b]);
+    }
+    io.to(`user-${user}`).emit('wildmind:friends-changed', {});
+    io.to(`user-${friend}`).emit('wildmind:friends-changed', {});
+    return res.json({ success: true, accepted: accept });
+  } catch (err) {
+    console.error('[WILDMIND] friends respond:', err);
+    return res.status(500).json({ error: 'No se pudo responder la solicitud' });
+  }
+});
+
+// DELETE /wildmind/api/friends {user, friend} — eliminar amigo o cancelar solicitud
+app.delete('/wildmind/api/friends', async (req, res) => {
+  try {
+    await ensureWildMindTables();
+    const user = String(req.body?.user || req.query?.user || '').trim().toLowerCase();
+    const friend = String(req.body?.friend || req.query?.friend || '').trim().toLowerCase();
+    if (!user || !friend) return res.status(400).json({ error: 'Faltan usuarios' });
+    const [a, b] = wildMindFriendPair(user, friend);
+    await pool.query('DELETE FROM wildmind_friends WHERE user_a = $1 AND user_b = $2', [a, b]);
+    io.to(`user-${user}`).emit('wildmind:friends-changed', {});
+    io.to(`user-${friend}`).emit('wildmind:friends-changed', {});
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[WILDMIND] friends delete:', err);
+    return res.status(500).json({ error: 'No se pudo eliminar' });
   }
 });
 

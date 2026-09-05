@@ -22107,7 +22107,11 @@ io.on('connection', (socket) => {
       ? String(answer || '').trim().toLowerCase() === String(q.correctTextAnswer ?? q.correctAnswer ?? '').trim().toLowerCase()
       : Number(answer) === Number(expected);
     const limit = Number(q.timeLimitSeconds || q.timeLimit || 15);
-    const points = correct ? Math.max(100, Math.round(Number(q.points || 1000) * Math.max(0.25, 1 - Math.max(0, Number(timeTaken)) / limit * 0.75))) : 0;
+    const basePts = Number(q.points || 0);
+    // Sin bonificación por velocidad: puntaje plano. Con ella: decae con el tiempo (comportamiento clásico).
+    const points = !correct ? 0
+      : (q.speedBonus === false ? basePts
+        : Math.max(100, Math.round(Number(q.points || 1000) * Math.max(0.25, 1 - Math.max(0, Number(timeTaken)) / limit * 0.75))));
     player.score += points; player.answers.push({ questionIndex: room.currentQuestion, answer: String(answer ?? ''), correct, points });
     socket.emit('wildmind:answer-result', { correct, points, totalScore: player.score });
     io.to(`room-${roomPin}`).emit('wildmind:leaderboard', { leaderboard: wildMindLeaderboard(room) });

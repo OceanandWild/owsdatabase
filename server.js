@@ -21899,6 +21899,56 @@ io.on('connection', (socket) => {
     .map(p => ({ id: p.id, name: p.name, score: p.score, avatarKey: p.avatarKey || 'aguila' }))
     .sort((a, b) => b.score - a.score);
 
+  // Desglose por opción para la gráfica en vivo del anfitrión (estilo Kahoot).
+  // Solo se emite a `host-${roomPin}`: incluye la respuesta correcta.
+  const wildMindResultsForHost = (room) => {
+    const q = room.quiz.questions[room.currentQuestion];
+    const type = (q && (q.questionType || q.type)) || 'multiple_choice';
+    const players = room.players || [];
+    const answerOf = (p) => (p.answers || []).find(a => a.questionIndex === room.currentQuestion);
+    const answeredPlayers = players.filter(p => !!answerOf(p));
+    const nonVoters = players.filter(p => !answerOf(p)).map(p => p.name);
+    const base = {
+      answeredCount: answeredPlayers.length,
+      totalPlayers: players.length,
+      type,
+      nonVoters,
+      correctOptionIndex: (q.correctOptionIndex ?? q.correctIndex ?? 0),
+      correctTextAnswer: String(q.correctTextAnswer ?? q.correctAnswer ?? '')
+    };
+    if (type === 'type_answer' || type === 'short-answer') {
+      const groups = new Map();
+      const invalidVoters = [];
+      answeredPlayers.forEach(p => {
+        const raw = String((answerOf(p) || {}).answer ?? '');
+        const norm = raw.trim().toLowerCase();
+        if (!norm || norm === '__timeout__') { invalidVoters.push(p.name); return; }
+        if (!groups.has(norm)) groups.set(norm, { text: raw.trim().slice(0, 40), count: 0, voters: [], correct: norm === String(base.correctTextAnswer).trim().toLowerCase() });
+        const g = groups.get(norm); g.count++; g.voters.push(p.name);
+      });
+      return { ...base, textAnswers: [...groups.values()].sort((a, b) => b.count - a.count).slice(0, 6), invalidCount: invalidVoters.length, invalidVoters };
+    }
+    const n = Array.isArray(q.options) && q.options.length ? q.options.length : (type === 'true_false' ? 2 : 4);
+    const distribution = new Array(n).fill(0);
+    const voters = Array.from({ length: n }, () => []);
+    const invalidVoters = [];
+    answeredPlayers.forEach(p => {
+      const v = Number((answerOf(p) || {}).answer);
+      if (Number.isInteger(v) && v >= 0 && v < n) { distribution[v]++; voters[v].push(p.name); }
+      else invalidVoters.push(p.name);
+    });
+    return { ...base, distribution, voters, invalidCount: invalidVoters.length, invalidVoters };
+  };
+
+  // Pregunta COMPLETA solo para el anfitrión (incluye la respuesta correcta,
+  // que se oculta a los jugadores en wildMindPublicQuestion).
+  const wildMindEmitHostQuestion = (roomPin) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind || room.state !== 'playing') return;
+    const q = room.quiz.questions[room.currentQuestion];
+    io.to(`host-${roomPin}`).emit('wildmind:host-question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: q });
+  };
+
   socket.on('wildmind:host-join', ({ roomPin, accountName }) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
@@ -21966,6 +22016,7 @@ io.on('connection', (socket) => {
     if (room.state === 'playing') {
       const q = room.quiz.questions[room.currentQuestion];
       io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+      wildMindEmitHostQuestion(roomPin);
     }
   });
 
@@ -21986,6 +22037,7 @@ io.on('connection', (socket) => {
     room.state = 'playing'; room.currentQuestion = 0;
     const q = room.quiz.questions[0];
     io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: 0, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+    wildMindEmitHostQuestion(roomPin);
   });
 
   socket.on('wildmind:answer', ({ roomPin, playerId, answer, timeTaken = 0 }) => {
@@ -22001,12 +22053,11 @@ io.on('connection', (socket) => {
       : Number(answer) === Number(expected);
     const limit = Number(q.timeLimitSeconds || q.timeLimit || 15);
     const points = correct ? Math.max(100, Math.round(Number(q.points || 1000) * Math.max(0.25, 1 - Math.max(0, Number(timeTaken)) / limit * 0.75))) : 0;
-    player.score += points; player.answers.push({ questionIndex: room.currentQuestion, correct, points });
+    player.score += points; player.answers.push({ questionIndex: room.currentQuestion, answer: String(answer ?? ''), correct, points });
     socket.emit('wildmind:answer-result', { correct, points, totalScore: player.score });
     io.to(`room-${roomPin}`).emit('wildmind:leaderboard', { leaderboard: wildMindLeaderboard(room) });
-    // Notificar al anfitrión cuántos jugadores han respondido esta pregunta
-    const answeredCount = room.players.filter(p => p.answers.some(a => a.questionIndex === room.currentQuestion)).length;
-    io.to(`host-${roomPin}`).emit('wildmind:player-answered', { answeredCount, totalPlayers: room.players.length });
+    // Notificar al anfitrión con el desglose por opción (gráfica en vivo)
+    io.to(`host-${roomPin}`).emit('wildmind:player-answered', wildMindResultsForHost(room));
   });
 
   socket.on('wildmind:next', ({ roomPin }) => {
@@ -22017,6 +22068,7 @@ io.on('connection', (socket) => {
       room.state = 'results'; return io.to(`room-${roomPin}`).emit('wildmind:end', { leaderboard: wildMindLeaderboard(room) });
     }
     io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(room.quiz.questions[room.currentQuestion]) });
+    wildMindEmitHostQuestion(roomPin);
   });
 
   // =============================

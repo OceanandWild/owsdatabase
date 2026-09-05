@@ -21955,6 +21955,8 @@ io.on('connection', (socket) => {
     room.hostSocketId = socket.id;
     const hostAcc = String(accountName || '').trim();
     if (hostAcc) room.hostAccount = hostAcc;
+    // Si la sala se había cerrado, el nuevo anfitrión la reabre en espera
+    if (room.state === 'closed') { room.state = 'waiting'; room.locked = false; }
     socket.join(`room-${roomPin}`); socket.join(`host-${roomPin}`);
     socket.emit('wildmind:host-ready', { roomPin, title: room.quiz.title, players: wildMindLeaderboard(room), state: room.state });
   });
@@ -21971,6 +21973,9 @@ io.on('connection', (socket) => {
     const existing = room.players.find(p => p.id === id);
     // Si la partida ya comenzó, solo permitir re-conexión de jugadores ya registrados
     if (room.state !== 'waiting' && !existing) return socket.emit('wildmind:error', { message: 'La partida ya comenzo' });
+    // Sala bloqueada por el anfitrión: solo re-conexiones de jugadores ya registrados
+    if (room.locked && room.state === 'waiting' && !existing)
+      return socket.emit('wildmind:error', { message: 'La sala está bloqueada por el anfitrión.' });
     const chosenAvatar = String(avatarKey || 'aguila');
     if (existing) {
       // Re-conexión durante partida en curso: actualizar socket y reenviar estado actual
@@ -22028,6 +22033,15 @@ io.on('connection', (socket) => {
       player.avatarKey = String(avatarKey || 'aguila');
       io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
     }
+  });
+
+  // Bloqueo de entrada: solo el anfitrión puede abrir/cerrar la puerta de la sala
+  socket.on('wildmind:lock', ({ roomPin, locked }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    if (socket.id !== room.hostSocketId) return socket.emit('wildmind:error', { message: 'Solo el anfitrión puede bloquear la sala.' });
+    room.locked = !!locked;
+    io.to(`room-${roomPin}`).emit('wildmind:lock-state', { locked: room.locked });
   });
 
   socket.on('wildmind:start', ({ roomPin }) => {
@@ -22338,6 +22352,23 @@ io.on('connection', (socket) => {
 
   // Desconexión
   socket.on('disconnect', () => {
+    // WildMind: si el anfitrión se va a media partida, avisar a los jugadores
+    // para que regresen al menú con un mensaje en vez de quedar colgados.
+    for (const [pin, room] of activeRooms) {
+      if (!room || !room.wildmind) continue;
+      if (room.hostSocketId === socket.id) {
+        room.hostSocketId = null;
+        room.state = 'closed';
+        io.to(`room-${pin}`).emit('wildmind:host-left', { message: 'El anfitrión cerró la sala. Regresando al menú...' });
+        continue;
+      }
+      const before = room.players.length;
+      room.players = room.players.filter(p => p.socketId !== socket.id);
+      if (room.players.length !== before) {
+        io.to(`room-${pin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+      }
+    }
+
     const playerData = playerSockets.get(socket.id);
     if (playerData) {
       const room = activeRooms.get(playerData.roomPin);
@@ -37129,7 +37160,7 @@ app.post('/wildmind/api/wilders/:id/start-session', async (req, res) => {
       sessionId: session.rows[0].id, quizId: wilder.id,
       quiz: { id: wilder.id, title: wilder.title, questions },
       hostId: req.body?.hostId || null, players: [], currentQuestion: 0,
-      scores: {}, state: 'waiting', startTime: null, wildmind: true
+      scores: {}, state: 'waiting', startTime: null, wildmind: true, locked: false
     });
     await pool.query('UPDATE wildmind_wilders SET play_count = play_count + 1, updated_at = NOW() WHERE id = $1', [wilder.id]);
     return res.status(201).json({ success: true, roomPin, sessionId: session.rows[0].id, title: wilder.title, playerCount: 0 });

@@ -21909,6 +21909,7 @@ io.on('connection', (socket) => {
   };
   const wildMindLeaderboard = (room) => room.players
     .map(p => ({ id: p.id, name: p.name, score: p.score, avatarKey: p.avatarKey || 'aguila',
+      ...(p.biome ? { biome: p.biome } : {}),
       ...(p.lives !== undefined ? { lives: p.lives, eliminated: !!p.eliminated } : {}),
       ...(p.ejected ? { ejected: true } : {}) }))
     .sort((a, b) => b.score - a.score);
@@ -22011,7 +22012,8 @@ io.on('connection', (socket) => {
     // Si la sala se había cerrado, el nuevo anfitrión la reabre en espera
     if (room.state === 'closed') { room.state = 'waiting'; room.locked = false; }
     socket.join(`room-${roomPin}`); socket.join(`host-${roomPin}`);
-    socket.emit('wildmind:host-ready', { roomPin, title: room.quiz.title, players: wildMindLeaderboard(room), state: room.state, gameMode: wildMindModeOf(room) });
+    socket.emit('wildmind:host-ready', { roomPin, title: room.quiz.title, players: wildMindLeaderboard(room), state: room.state, gameMode: wildMindModeOf(room),
+      ...(room.camufladoPick ? { camufladoPickId: room.camufladoPick } : {}) });
   });
 
   socket.on('wildmind:player-join', ({ roomPin, playerName, playerId, avatarKey, accountName }) => {
@@ -22041,7 +22043,7 @@ io.on('connection', (socket) => {
       if (playerName) existing.name = String(playerName).slice(0,30);
       socket.join(`room-${roomPin}`); socket.join(`players-${roomPin}`);
       socket.emit('wildmind:joined', { playerId: id, roomPin });
-      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room), gameMode: wildMindModeOf(room) });
       if (room.state === 'playing') {
         const q = room.quiz.questions[room.currentQuestion];
         socket.emit('wildmind:question', wildMindQuestionPayload(room, q));
@@ -22055,7 +22057,7 @@ io.on('connection', (socket) => {
     room.players.push({ id, name: String(playerName || 'Explorador').slice(0, 30), avatarKey: chosenAvatar, socketId: socket.id, score: 0, answers: [],
       ...(wmMode === 'supervivencia' ? { lives: 3, eliminated: false } : {}) });
     socket.join(`room-${roomPin}`); socket.join(`players-${roomPin}`);
-    io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+    io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room), gameMode: wildMindModeOf(room) });
     socket.emit('wildmind:joined', { playerId: id, roomPin });
   });
 
@@ -22127,8 +22129,19 @@ io.on('connection', (socket) => {
     const player = room.players.find(p => p.id === String(playerId));
     if (player) {
       player.avatarKey = String(avatarKey || 'aguila');
-      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room), gameMode: wildMindModeOf(room) });
     }
+  });
+
+  // Expedición: el participante elige su bioma/equipo antes de iniciar (persistente y rebroadcast)
+  socket.on('wildmind:choose-team', ({ roomPin, playerId, biome }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    const pid = String(playerId || socket.id);
+    const player = room.players.find(p => p.id === pid);
+    if (!player) return socket.emit('wildmind:error', { message: 'Jugador no encontrado' });
+    player.biome = ['selva', 'oceano', 'desierto', 'montana'].includes(String(biome)) ? String(biome) : 'selva';
+    io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room), gameMode: wildMindModeOf(room) });
   });
 
   // Bloqueo de entrada: solo el anfitrión puede abrir/cerrar la puerta de la sala
@@ -22138,6 +22151,46 @@ io.on('connection', (socket) => {
     if (socket.id !== room.hostSocketId) return socket.emit('wildmind:error', { message: 'Solo el anfitrión puede bloquear la sala.' });
     room.locked = !!locked;
     io.to(`room-${roomPin}`).emit('wildmind:lock-state', { locked: room.locked });
+  });
+
+  // Expulsar participante: solo el anfitrión, desde la gestión de su sala
+  socket.on('wildmind:kick', ({ roomPin, playerId }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    if (socket.id !== room.hostSocketId) return socket.emit('wildmind:error', { message: 'Solo el anfitrión puede expulsar jugadores.' });
+    const pid = String(playerId || '');
+    const player = room.players.find(p => p.id === pid);
+    if (!player) return socket.emit('wildmind:error', { message: 'Jugador no encontrado' });
+    room.players = room.players.filter(p => p.id !== pid);
+    if (room.camuflado) {
+      if (room.camuflado.camufladoId === pid) room.camuflado = null;
+      else if (room.camuflado.voting) delete room.camuflado.voting.votes[pid];
+    }
+    // Camuflado: si el expulsado era la elección del anfitrión, volver al sorteo aleatorio
+    if (room.camufladoPick === pid) delete room.camufladoPick;
+    io.to(player.socketId).emit('wildmind:kicked', { message: 'El anfitrión te expulsó de la sala.' });
+    io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room), gameMode: wildMindModeOf(room) });
+  });
+
+  // Camuflado: el anfitrión puede preseleccionar al infiltrado (opcional).
+  // Si nadie es elegido, el sorteo aleatorio de 'wildmind:start' decide (comportamiento por defecto).
+  // Enviar playerId vacío limpia la elección y devuelve la sala al azar.
+  socket.on('wildmind:pick-camuflado', ({ roomPin, playerId }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    if (socket.id !== room.hostSocketId) return socket.emit('wildmind:error', { message: 'Solo el anfitrión puede elegir al Camuflado' });
+    if (room.state !== 'waiting') return socket.emit('wildmind:error', { message: 'La partida ya comenzo' });
+    if (wildMindModeOf(room) !== 'camuflado') return;
+    const pid = String(playerId || '');
+    if (!pid) {
+      delete room.camufladoPick;
+      io.to(`host-${roomPin}`).emit('wildmind:camuflado-pick', { playerId: '', name: '' });
+      return;
+    }
+    const target = room.players.find(p => p.id === pid);
+    if (!target) return socket.emit('wildmind:error', { message: 'Jugador no encontrado' });
+    room.camufladoPick = pid;
+    io.to(`host-${roomPin}`).emit('wildmind:camuflado-pick', { playerId: pid, name: target.name });
   });
 
   socket.on('wildmind:start', ({ roomPin }) => {
@@ -22159,12 +22212,17 @@ io.on('connection', (socket) => {
       io.to(`room-${roomPin}`).emit('wildmind:betting', wildMindBettingPayload(room));
       wildMindEmitHostQuestion(roomPin);
       io.to(`host-${roomPin}`).emit('wildmind:bets-update', { betsPlaced: 0, totalPlayers: room.players.length });
-      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room), gameMode: wildMindModeOf(room) });
       return;
     }
     if (mode === 'camuflado') {
-      const ids = room.players.map(p => p.id);
-      const camufladoId = ids[Math.floor(Math.random() * ids.length)];
+      // Elección del anfitrión si preseleccionó a alguien en la sala; si no, sorteo aleatorio (comportamiento por defecto)
+      let camufladoId = room.camufladoPick && room.players.some(p => p.id === room.camufladoPick) ? room.camufladoPick : null;
+      if (!camufladoId) {
+        const ids = room.players.map(p => p.id);
+        camufladoId = ids[Math.floor(Math.random() * ids.length)];
+      }
+      delete room.camufladoPick; // la elección es de un solo uso, por partida
       const total = room.quiz.questions.length;
       const missionIndex = Math.min(total - 1, 2 + Math.floor(Math.random() * Math.max(1, total - 2)));
       room.camuflado = { camufladoId, mission: { type: 'fail_question', questionIndex: missionIndex }, sabotages: 0, completed: false, votingRound: 0, voting: null, ejected: [] };
@@ -22294,7 +22352,7 @@ io.on('connection', (socket) => {
       round: voting.round, tie: false, ejectedId, ejectedName: ejected ? ejected.name : '',
       wasCamuflado, tally
     });
-    io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+    io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room), gameMode: wildMindModeOf(room) });
     if (wasCamuflado) {
       room.state = 'results';
       return io.to(`room-${roomPin}`).emit('wildmind:end', wildMindFinishPayload(room, {
@@ -22686,7 +22744,7 @@ io.on('connection', (socket) => {
       const before = room.players.length;
       room.players = room.players.filter(p => p.socketId !== socket.id);
       if (room.players.length !== before) {
-        io.to(`room-${pin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+        io.to(`room-${pin}`).emit('wildmind:players', { players: wildMindLeaderboard(room), gameMode: wildMindModeOf(room) });
       }
     }
 

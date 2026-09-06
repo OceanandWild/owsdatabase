@@ -21908,7 +21908,9 @@ io.on('connection', (socket) => {
     return copy;
   };
   const wildMindLeaderboard = (room) => room.players
-    .map(p => ({ id: p.id, name: p.name, score: p.score, avatarKey: p.avatarKey || 'aguila' }))
+    .map(p => ({ id: p.id, name: p.name, score: p.score, avatarKey: p.avatarKey || 'aguila',
+      ...(p.lives !== undefined ? { lives: p.lives, eliminated: !!p.eliminated } : {}),
+      ...(p.ejected ? { ejected: true } : {}) }))
     .sort((a, b) => b.score - a.score);
 
   // Desglose por opción para la gráfica en vivo del anfitrión (estilo Kahoot).
@@ -21952,13 +21954,51 @@ io.on('connection', (socket) => {
     return { ...base, distribution, voters, invalidCount: invalidVoters.length, invalidVoters };
   };
 
+  // Modos de juego WildMind. 'classic' = comportamiento original intacto.
+  const WILD_MODES = ['classic', 'expedicion', 'supervivencia', 'apuesta', 'camuflado'];
+  const wildMindModeOf = (room) => (room && WILD_MODES.includes(room.gameMode) ? room.gameMode : 'classic');
+  const WILD_BIOMES = ['Jungla', 'Desierto', 'Océano', 'Tundra'];
+  const wildMindBiomeOf = (room) => {
+    const total = (room.quiz.questions || []).length || 1;
+    const per = Math.max(1, Math.ceil(total / 4));
+    const index = Math.min(3, Math.floor(room.currentQuestion / per));
+    return { index, name: WILD_BIOMES[index] };
+  };
+  const wildMindExpeditionOf = (room) => {
+    const b = wildMindBiomeOf(room);
+    return { energy: room.expedition ? room.expedition.energy : 100, biomeIndex: b.index, biome: b.name };
+  };
+  // Payload de pregunta con modo + extras (compatible: solo agrega campos).
+  const wildMindQuestionPayload = (room, q, { forHost = false } = {}) => {
+    const base = { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, gameMode: wildMindModeOf(room) };
+    if (forHost) { base.question = q; }
+    else {
+      const pub = wildMindPublicQuestion(q);
+      if (room.timeCut) pub.timeLimitSeconds = 8;
+      base.question = pub;
+    }
+    if (wildMindModeOf(room) === 'expedicion') base.expedition = wildMindExpeditionOf(room);
+    if (room.timeCut) base.timeCut = true;
+    return base;
+  };
+  const wildMindFinishPayload = (room, extra = {}) => ({ leaderboard: wildMindLeaderboard(room), gameMode: wildMindModeOf(room), ...extra });
+  const wildMindAlive = (room) => (room.players || []).filter(p => !p.eliminated && !p.ejected);
+  const wildMindBettingPayload = (room) => {
+    const q = room.quiz.questions[room.currentQuestion] || {};
+    return {
+      questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, gameMode: 'apuesta',
+      questionText: String(q.questionText || q.text || ''), category: String(q.category || room.quiz.category || ''),
+      timeLimit: 20
+    };
+  };
+
   // Pregunta COMPLETA solo para el anfitrión (incluye la respuesta correcta,
   // que se oculta a los jugadores en wildMindPublicQuestion).
   const wildMindEmitHostQuestion = (roomPin) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind || room.state !== 'playing') return;
     const q = room.quiz.questions[room.currentQuestion];
-    io.to(`host-${roomPin}`).emit('wildmind:host-question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: q });
+    io.to(`host-${roomPin}`).emit('wildmind:host-question', wildMindQuestionPayload(room, q, { forHost: true }));
   };
 
   socket.on('wildmind:host-join', ({ roomPin, accountName }) => {
@@ -21971,7 +22011,7 @@ io.on('connection', (socket) => {
     // Si la sala se había cerrado, el nuevo anfitrión la reabre en espera
     if (room.state === 'closed') { room.state = 'waiting'; room.locked = false; }
     socket.join(`room-${roomPin}`); socket.join(`host-${roomPin}`);
-    socket.emit('wildmind:host-ready', { roomPin, title: room.quiz.title, players: wildMindLeaderboard(room), state: room.state });
+    socket.emit('wildmind:host-ready', { roomPin, title: room.quiz.title, players: wildMindLeaderboard(room), state: room.state, gameMode: wildMindModeOf(room) });
   });
 
   socket.on('wildmind:player-join', ({ roomPin, playerName, playerId, avatarKey, accountName }) => {
@@ -21991,6 +22031,9 @@ io.on('connection', (socket) => {
     if (room.locked && room.state === 'waiting' && !existing)
       return socket.emit('wildmind:error', { message: 'La sala está bloqueada por el anfitrión.' });
     const chosenAvatar = String(avatarKey || 'aguila');
+    // Camuflado: cupo máximo de 12 exploradores por sala
+    if (!existing && wildMindModeOf(room) === 'camuflado' && room.players.length >= 12)
+      return socket.emit('wildmind:error', { message: 'Sala llena (12 exploradores).' });
     if (existing) {
       // Re-conexión durante partida en curso: actualizar socket y reenviar estado actual
       existing.socketId = socket.id;
@@ -22001,14 +22044,16 @@ io.on('connection', (socket) => {
       io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
       if (room.state === 'playing') {
         const q = room.quiz.questions[room.currentQuestion];
-        socket.emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+        socket.emit('wildmind:question', wildMindQuestionPayload(room, q));
       } else if (room.state === 'results') {
         socket.emit('wildmind:end', { leaderboard: wildMindLeaderboard(room) });
       }
       return;
     }
     room.players = room.players.filter(p => p.id !== id);
-    room.players.push({ id, name: String(playerName || 'Explorador').slice(0, 30), avatarKey: chosenAvatar, socketId: socket.id, score: 0, answers: [] });
+    const wmMode = wildMindModeOf(room);
+    room.players.push({ id, name: String(playerName || 'Explorador').slice(0, 30), avatarKey: chosenAvatar, socketId: socket.id, score: 0, answers: [],
+      ...(wmMode === 'supervivencia' ? { lives: 3, eliminated: false } : {}) });
     socket.join(`room-${roomPin}`); socket.join(`players-${roomPin}`);
     io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
     socket.emit('wildmind:joined', { playerId: id, roomPin });
@@ -22018,10 +22063,20 @@ io.on('connection', (socket) => {
   socket.on('wildmind:request-state', ({ roomPin, playerId }) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
-    socket.emit('wildmind:state', { state: room.state, currentQuestion: room.currentQuestion, totalQuestions: room.quiz.questions.length, players: wildMindLeaderboard(room) });
+    socket.emit('wildmind:state', { state: room.state, currentQuestion: room.currentQuestion, totalQuestions: room.quiz.questions.length, players: wildMindLeaderboard(room),
+      gameMode: wildMindModeOf(room),
+      ...(wildMindModeOf(room) === 'expedicion' ? { expedition: wildMindExpeditionOf(room) } : {}) });
     if (room.state === 'playing') {
-      const q = room.quiz.questions[room.currentQuestion];
-      socket.emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+      if (wildMindModeOf(room) === 'apuesta' && room.phase === 'betting') {
+        socket.emit('wildmind:betting', wildMindBettingPayload(room));
+      } else {
+        const q = room.quiz.questions[room.currentQuestion];
+        socket.emit('wildmind:question', wildMindQuestionPayload(room, q));
+      }
+      if (room.camuflado && room.camuflado.voting) {
+        socket.emit('wildmind:voting', { round: room.camuflado.voting.round,
+          candidates: wildMindAlive(room).map(p => ({ id: p.id, name: p.name, avatarKey: p.avatarKey || 'aguila' })) });
+      }
     } else if (room.state === 'results') {
       socket.emit('wildmind:end', { leaderboard: wildMindLeaderboard(room) });
     }
@@ -22061,7 +22116,7 @@ io.on('connection', (socket) => {
     if (socket.id !== room.hostSocketId) return;
     if (room.state === 'playing') {
       const q = room.quiz.questions[room.currentQuestion];
-      io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+      io.to(`room-${roomPin}`).emit('wildmind:question', wildMindQuestionPayload(room, q));
       wildMindEmitHostQuestion(roomPin);
     }
   });
@@ -22089,9 +22144,66 @@ io.on('connection', (socket) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
     if (socket.id !== room.hostSocketId) return socket.emit('wildmind:error', { message: 'Solo el anfitrión puede iniciar' });
-    room.state = 'playing'; room.currentQuestion = 0;
+    const mode = wildMindModeOf(room);
+    const minPlayers = { supervivencia: 2, apuesta: 2, camuflado: 5, expedicion: 2, classic: 1 };
+    if (mode === 'camuflado' && room.quiz.questions.length < 6)
+      return socket.emit('wildmind:error', { message: 'El Camuflado necesita al menos 6 preguntas.' });
+    if (room.players.length < (minPlayers[mode] || 1))
+      return socket.emit('wildmind:error', { message: `Este modo necesita al menos ${minPlayers[mode] || 1} exploradores.` });
+    room.state = 'playing'; room.currentQuestion = 0; room.timeCut = false;
+    if (mode === 'supervivencia') room.players.forEach(p => { p.lives = 3; p.eliminated = false; });
+    if (mode === 'expedicion') room.expedition = { energy: 100 };
+    if (mode === 'apuesta') {
+      room.phase = 'betting';
+      room.players.forEach(p => { p.score = 500; p.bet = null; });
+      io.to(`room-${roomPin}`).emit('wildmind:betting', wildMindBettingPayload(room));
+      wildMindEmitHostQuestion(roomPin);
+      io.to(`host-${roomPin}`).emit('wildmind:bets-update', { betsPlaced: 0, totalPlayers: room.players.length });
+      io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+      return;
+    }
+    if (mode === 'camuflado') {
+      const ids = room.players.map(p => p.id);
+      const camufladoId = ids[Math.floor(Math.random() * ids.length)];
+      const total = room.quiz.questions.length;
+      const missionIndex = Math.min(total - 1, 2 + Math.floor(Math.random() * Math.max(1, total - 2)));
+      room.camuflado = { camufladoId, mission: { type: 'fail_question', questionIndex: missionIndex }, sabotages: 0, completed: false, votingRound: 0, voting: null, ejected: [] };
+      room.players.forEach(p => {
+        p.ejected = false;
+        const isC = p.id === camufladoId;
+        io.to(p.socketId).emit('wildmind:role', isC
+          ? { role: 'camuflado', mission: { ...room.camuflado.mission, text: `Falla a propósito la pregunta #${missionIndex + 1} sin que te descubran` } }
+          : { role: 'explorador' });
+      });
+    }
     const q = room.quiz.questions[0];
-    io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: 0, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(q) });
+    io.to(`room-${roomPin}`).emit('wildmind:question', wildMindQuestionPayload(room, q));
+    wildMindEmitHostQuestion(roomPin);
+  });
+
+  // Apuesta Salvaje: fase de apuestas antes de revelar las opciones
+  socket.on('wildmind:bet', ({ roomPin, playerId, percent }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind || room.state !== 'playing') return;
+    if (wildMindModeOf(room) !== 'apuesta' || room.phase !== 'betting') return;
+    const player = room.players.find(p => p.id === String(playerId) && p.socketId === socket.id);
+    if (!player) return;
+    const pct = [10, 25, 50, 100].includes(Number(percent)) ? Number(percent) : 10;
+    player.bet = pct;
+    socket.emit('wildmind:bet-placed', { percent: pct });
+    io.to(`host-${roomPin}`).emit('wildmind:bets-update', {
+      betsPlaced: room.players.filter(p => p.bet != null).length, totalPlayers: room.players.length
+    });
+  });
+
+  socket.on('wildmind:reveal', ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    if (socket.id !== room.hostSocketId) return socket.emit('wildmind:error', { message: 'Solo el anfitrión puede revelar' });
+    if (wildMindModeOf(room) !== 'apuesta' || room.state !== 'playing' || room.phase !== 'betting') return;
+    room.phase = 'answering';
+    const q = room.quiz.questions[room.currentQuestion];
+    io.to(`room-${roomPin}`).emit('wildmind:question', wildMindQuestionPayload(room, q));
     wildMindEmitHostQuestion(roomPin);
   });
 
@@ -22101,6 +22213,15 @@ io.on('connection', (socket) => {
     const player = room.players.find(p => p.id === String(playerId) && p.socketId === socket.id);
     const q = room.quiz.questions[room.currentQuestion];
     if (!player || !q || player.answers.some(a => a.questionIndex === room.currentQuestion)) return;
+    const mode = wildMindModeOf(room);
+    // Supervivencia: los eliminados miran pero ya no responden
+    if (mode === 'supervivencia' && player.eliminated)
+      return socket.emit('wildmind:answer-result', { correct: false, points: 0, totalScore: player.score, lives: 0, eliminated: true });
+    // Camuflado: los expulsados por votación ya no responden
+    if (mode === 'camuflado' && player.ejected)
+      return socket.emit('wildmind:answer-result', { correct: false, points: 0, totalScore: player.score, ejected: true });
+    // Apuesta: solo se responde tras el reveal del anfitrión
+    if (mode === 'apuesta' && room.phase !== 'answering') return;
     const type = q.questionType || q.type;
     const expected = q.correctOptionIndex ?? q.correctIndex;
     const correct = type === 'type_answer' || type === 'short-answer'
@@ -22109,24 +22230,178 @@ io.on('connection', (socket) => {
     const limit = Number(q.timeLimitSeconds || q.timeLimit || 15);
     const basePts = Number(q.points || 0);
     // Sin bonificación por velocidad: puntaje plano. Con ella: decae con el tiempo (comportamiento clásico).
-    const points = !correct ? 0
+    let points = !correct ? 0
       : (q.speedBonus === false ? basePts
         : Math.max(100, Math.round(Number(q.points || 1000) * Math.max(0.25, 1 - Math.max(0, Number(timeTaken)) / limit * 0.75))));
-    player.score += points; player.answers.push({ questionIndex: room.currentQuestion, answer: String(answer ?? ''), correct, points });
-    socket.emit('wildmind:answer-result', { correct, points, totalScore: player.score });
-    io.to(`room-${roomPin}`).emit('wildmind:leaderboard', { leaderboard: wildMindLeaderboard(room) });
+    const resultExtra = {};
+    if (mode === 'apuesta') {
+      const bet = player.bet != null ? player.bet : 10;
+      if (correct) points = player.score > 0 ? Math.max(50, Math.round(player.score * bet / 100)) : 100;
+      else points = -Math.round(player.score * bet / 100);
+      resultExtra.betPercent = bet; resultExtra.betDelta = points;
+    }
+    player.score = Math.max(0, player.score + points);
+    player.answers.push({ questionIndex: room.currentQuestion, answer: String(answer ?? ''), correct, points });
+    if (mode === 'supervivencia' && !correct) {
+      player.lives = Math.max(0, (player.lives ?? 3) - 1);
+      if (player.lives <= 0) player.eliminated = true;
+      resultExtra.lives = player.lives; resultExtra.eliminated = player.eliminated;
+    }
+    // Camuflado: sabotaje secreto si el infiltrado falla su pregunta misión
+    if (mode === 'camuflado' && room.camuflado && player.id === room.camuflado.camufladoId
+        && room.currentQuestion === room.camuflado.mission.questionIndex && !correct) {
+      room.camuflado.sabotages++; room.camuflado.completed = true; room.timeCut = true;
+      io.to(`room-${roomPin}`).emit('wildmind:sabotage', {
+        message: '🐆 ¡Sabotaje! Alguien alteró la selva: la próxima pregunta tendrá solo 8 segundos.',
+        effect: 'time_cut', sabotages: room.camuflado.sabotages
+      });
+    }
+    socket.emit('wildmind:answer-result', { correct, points, totalScore: player.score, ...resultExtra });
+    io.to(`room-${roomPin}`).emit('wildmind:leaderboard', { leaderboard: wildMindLeaderboard(room), gameMode: mode });
     // Notificar al anfitrión con el desglose por opción (gráfica en vivo)
     io.to(`host-${roomPin}`).emit('wildmind:player-answered', wildMindResultsForHost(room));
+    // Supervivencia: si queda un solo explorador en pie, termina la cacería
+    if (mode === 'supervivencia') {
+      const alive = wildMindAlive(room);
+      if (alive.length <= 1) {
+        room.state = 'results';
+        const winner = alive[0] || wildMindLeaderboard(room)[0];
+        return io.to(`room-${roomPin}`).emit('wildmind:end', wildMindFinishPayload(room, {
+          reason: 'survival', winner: winner ? { id: winner.id, name: winner.name } : null
+        }));
+      }
+    }
+  });
+
+  // Cierre de votación del Camuflado (auto al votar todos, o manual del anfitrión)
+  const wildMindCloseVoting = (roomPin) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind || !room.camuflado || !room.camuflado.voting) return;
+    const voting = room.camuflado.voting;
+    room.camuflado.voting = null;
+    const tally = {};
+    Object.values(voting.votes).forEach(id => { tally[id] = (tally[id] || 0) + 1; });
+    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+    // Empate en la cima: nadie es expulsado, la selva sigue en silencio
+    if (sorted.length > 1 && sorted[0][1] === sorted[1][1]) {
+      return io.to(`room-${roomPin}`).emit('wildmind:vote-result', { round: voting.round, tie: true, tally });
+    }
+    const ejectedId = sorted.length ? sorted[0][0] : null;
+    const ejected = (room.players || []).find(p => p.id === ejectedId);
+    const wasCamuflado = !!ejectedId && ejectedId === room.camuflado.camufladoId;
+    if (ejected) { ejected.ejected = true; room.camuflado.ejected.push(ejectedId); }
+    io.to(`room-${roomPin}`).emit('wildmind:vote-result', {
+      round: voting.round, tie: false, ejectedId, ejectedName: ejected ? ejected.name : '',
+      wasCamuflado, tally
+    });
+    io.to(`room-${roomPin}`).emit('wildmind:players', { players: wildMindLeaderboard(room) });
+    if (wasCamuflado) {
+      room.state = 'results';
+      return io.to(`room-${roomPin}`).emit('wildmind:end', wildMindFinishPayload(room, {
+        reason: 'camuflado-caught', winner: 'exploradores',
+        camufladoId: room.camuflado.camufladoId,
+        camufladoName: (room.players.find(p => p.id === room.camuflado.camufladoId) || {}).name || 'El Camuflado'
+      }));
+    }
+    // La partida sigue: refrescar la pregunta actual
+    const q = room.quiz.questions[room.currentQuestion];
+    io.to(`room-${roomPin}`).emit('wildmind:question', wildMindQuestionPayload(room, q));
+    wildMindEmitHostQuestion(roomPin);
+  };
+
+  socket.on('wildmind:start-voting', ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
+    if (socket.id !== room.hostSocketId) return socket.emit('wildmind:error', { message: 'Solo el anfitrión puede abrir la votación.' });
+    if (wildMindModeOf(room) !== 'camuflado' || room.state !== 'playing' || (room.camuflado && room.camuflado.voting)) return;
+    room.camuflado.votingRound++;
+    room.camuflado.voting = { round: room.camuflado.votingRound, votes: {} };
+    const candidates = wildMindAlive(room).map(p => ({ id: p.id, name: p.name, avatarKey: p.avatarKey || 'aguila' }));
+    io.to(`room-${roomPin}`).emit('wildmind:voting', { round: room.camuflado.votingRound, candidates });
+  });
+
+  socket.on('wildmind:vote', ({ roomPin, playerId, suspectId }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind || room.state !== 'playing') return;
+    if (wildMindModeOf(room) !== 'camuflado' || !room.camuflado || !room.camuflado.voting) return;
+    const voter = room.players.find(p => p.id === String(playerId) && p.socketId === socket.id);
+    if (!voter || voter.ejected) return;
+    const voting = room.camuflado.voting;
+    if (voting.votes[voter.id]) return;
+    if (!room.players.some(p => p.id === String(suspectId) && !p.ejected)) return;
+    voting.votes[voter.id] = String(suspectId);
+    socket.emit('wildmind:vote-placed', { suspectId: String(suspectId) });
+    const eligible = wildMindAlive(room).length;
+    io.to(`host-${roomPin}`).emit('wildmind:votes-update', { votesCount: Object.keys(voting.votes).length, totalVoters: eligible });
+    if (Object.keys(voting.votes).length >= eligible) wildMindCloseVoting(roomPin);
+  });
+
+  socket.on('wildmind:close-voting', ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    if (socket.id !== room.hostSocketId) return;
+    wildMindCloseVoting(roomPin);
   });
 
   socket.on('wildmind:next', ({ roomPin }) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind || socket.id !== room.hostSocketId) return;
+    if (room.state !== 'playing' || (room.camuflado && room.camuflado.voting)) return;
+    const mode = wildMindModeOf(room);
+    // Expedición: la energía se mueve según la mayoría de la pregunta actual
+    if (mode === 'expedicion' && room.expedition) {
+      const total = room.players.length || 1;
+      const correct = room.players.filter(p => (p.answers || []).some(a => a.questionIndex === room.currentQuestion && a.correct)).length;
+      room.expedition.energy = Math.max(0, Math.min(100, room.expedition.energy + (correct * 2 > total ? 12 : -15)));
+      if (room.expedition.energy <= 0) {
+        room.state = 'results';
+        return io.to(`room-${roomPin}`).emit('wildmind:end', wildMindFinishPayload(room, {
+          reason: 'expedition-fail', victory: false, expedition: wildMindExpeditionOf(room)
+        }));
+      }
+    }
+    // Camuflado: registro público de la ronda para deducir al infiltrado
+    if (mode === 'camuflado') {
+      io.to(`room-${roomPin}`).emit('wildmind:round-register', {
+        questionIndex: room.currentQuestion,
+        entries: room.players.map(p => {
+          const a = (p.answers || []).find(x => x.questionIndex === room.currentQuestion);
+          return { id: p.id, name: p.name, answered: !!a, correct: !!(a && a.correct), points: (a && a.points) || 0 };
+        })
+      });
+    }
     room.currentQuestion++;
     if (room.currentQuestion >= room.quiz.questions.length) {
-      room.state = 'results'; return io.to(`room-${roomPin}`).emit('wildmind:end', { leaderboard: wildMindLeaderboard(room) });
+      room.state = 'results';
+      const extra = {};
+      if (mode === 'expedicion') { extra.reason = 'expedition-end'; extra.victory = room.expedition.energy > 0; extra.expedition = wildMindExpeditionOf(room); }
+      if (mode === 'supervivencia') {
+        const alive = wildMindAlive(room);
+        const winner = alive[0] || wildMindLeaderboard(room)[0];
+        extra.reason = 'survival'; extra.winner = winner ? { id: winner.id, name: winner.name } : null;
+      }
+      if (mode === 'camuflado' && room.camuflado) {
+        const c = room.camuflado;
+        const camu = room.players.find(p => p.id === c.camufladoId);
+        const camuAlive = camu && !camu.ejected;
+        extra.reason = 'camuflado-end';
+        extra.winner = (c.completed && camuAlive) ? 'camuflado' : 'exploradores';
+        extra.camufladoId = c.camufladoId; extra.camufladoName = (camu || {}).name || 'El Camuflado';
+      }
+      return io.to(`room-${roomPin}`).emit('wildmind:end', wildMindFinishPayload(room, extra));
     }
-    io.to(`room-${roomPin}`).emit('wildmind:question', { questionIndex: room.currentQuestion, totalQuestions: room.quiz.questions.length, question: wildMindPublicQuestion(room.quiz.questions[room.currentQuestion]) });
+    // Apuesta: cada pregunta empieza en fase de apuestas (sin opciones)
+    if (mode === 'apuesta') {
+      room.phase = 'betting';
+      room.players.forEach(p => { p.bet = null; });
+      io.to(`room-${roomPin}`).emit('wildmind:betting', wildMindBettingPayload(room));
+      wildMindEmitHostQuestion(roomPin);
+      io.to(`host-${roomPin}`).emit('wildmind:bets-update', { betsPlaced: 0, totalPlayers: room.players.length });
+      return;
+    }
+    const nq = room.quiz.questions[room.currentQuestion];
+    io.to(`room-${roomPin}`).emit('wildmind:question', wildMindQuestionPayload(room, nq));
+    room.timeCut = false; // el recorte de tiempo se consume en esta pregunta
     wildMindEmitHostQuestion(roomPin);
   });
 
@@ -37332,14 +37607,17 @@ app.post('/wildmind/api/wilders/:id/start-session', async (req, res) => {
        VALUES ($1, $2, $3, 'waiting', NOW()) RETURNING id`,
       [String(wilder.id), roomPin, req.body?.hostId || null]
     );
+    const gameMode = ['classic', 'expedicion', 'supervivencia', 'apuesta', 'camuflado'].includes(req.body?.gameMode)
+      ? req.body.gameMode : 'classic';
     activeRooms.set(roomPin, {
       sessionId: session.rows[0].id, quizId: wilder.id,
       quiz: { id: wilder.id, title: wilder.title, questions },
       hostId: req.body?.hostId || null, players: [], currentQuestion: 0,
-      scores: {}, state: 'waiting', startTime: null, wildmind: true, locked: false
+      scores: {}, state: 'waiting', startTime: null, wildmind: true, locked: false,
+      gameMode
     });
     await pool.query('UPDATE wildmind_wilders SET play_count = play_count + 1, updated_at = NOW() WHERE id = $1', [wilder.id]);
-    return res.status(201).json({ success: true, roomPin, sessionId: session.rows[0].id, title: wilder.title, playerCount: 0 });
+    return res.status(201).json({ success: true, roomPin, sessionId: session.rows[0].id, title: wilder.title, playerCount: 0, gameMode });
   } catch (err) {
     console.error('[WILDMIND] start-session:', err);
     return res.status(500).json({ error: 'Error al crear la sala' });

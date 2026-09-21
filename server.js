@@ -13,6 +13,7 @@ import crypto from "crypto";
 import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
+import { spawn } from 'child_process';
 
 // ===== BREVO (ex-Sendinblue) EMAIL — Floret Shop phone verification =====
 // Uses HTTPS REST API — works on Render free tier (no SMTP port restrictions)
@@ -149,6 +150,20 @@ const wildwaveChannelStorage = new CloudinaryStorage({
   },
 });
 const wildwaveChannelUpload = multer({ storage: wildwaveChannelStorage });
+
+// OWS Dashboard event banner uploads (Cloudinary) — seccion Eventos del dashboard
+const dashboardEventStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'ows-dashboard/events',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif'],
+    transformation: [{ width: 1280, crop: 'limit', quality: 'auto' }]
+  },
+});
+const dashboardEventUpload = multer({
+  storage: dashboardEventStorage,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15 MB maximo por imagen
+});
 
 // Función para generar ID único de usuario (100 caracteres)
 function generateUserUniqueId() {
@@ -7734,6 +7749,21 @@ setInterval(cleanOldWildTransferFiles, 6 * 60 * 60 * 1000);
 
 app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer')));
 
+// ===== WEB/OWS FRONTEND (desarrollo local) =====
+// Sirve web/OWS en http://localhost:3000/ows para no usar file:// (que causa
+// CORS "file:///ocean-pay/login" y "file: URLs are treated as unique origins").
+// En Render (owsdatabase) esa carpeta no existe y el bloque se omite sin error.
+try {
+  const owsWebDir = join(__dirname, 'web', 'OWS');
+  if (fs.existsSync(owsWebDir)) {
+    app.use('/ows', express.static(owsWebDir));
+    app.get('/ows', (_req, res) => res.sendFile(join(owsWebDir, 'index.html')));
+    console.log('[OWS] Sirviendo frontend local en /ows ->', owsWebDir);
+  }
+} catch (e) {
+  console.warn('[OWS] No se pudo montar /ows:', e?.message || e);
+}
+
 app.post('/api/wild-transfer/upload', wildTransferUpload.array('files', 10), async (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No se subieron archivos' });
   const totalBytes = req.files.reduce((sum, f) => sum + Number(f.size || 0), 0);
@@ -13003,6 +13033,536 @@ app.post('/ows-store/push/inbox/:id/ack', async (req, res) => {
   } catch (err) {
     console.error('Error en POST /ows-store/push/inbox/:id/ack:', err);
     return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ============================================================
+   OWS DASHBOARD — ULTIMAS NOTICIAS (tabla dedicada)
+   Fuente de la seccion "Ultimas Noticias" del dashboard OWS
+   (web/OWS/index.html). La tabla se crea vacia: sin seed, sin
+   filas precargadas. Se alimenta via POST con token de admin.
+   ============================================================ */
+
+let owsDashboardNewsTableReady = false;
+
+async function ensureOwsDashboardNewsTable() {
+  if (owsDashboardNewsTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_dashboard_news (
+      id           BIGSERIAL PRIMARY KEY,
+      title        TEXT NOT NULL,
+      description  TEXT NOT NULL DEFAULT '',
+      project_name TEXT NOT NULL DEFAULT 'OWS',
+      is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+      priority     INTEGER NOT NULL DEFAULT 0,
+      published_at TIMESTAMPTZ,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_dashboard_news_order
+      ON ows_dashboard_news (is_active, published_at DESC)
+  `);
+  owsDashboardNewsTableReady = true;
+}
+
+function mapOwsDashboardNewsRow(row) {
+  return {
+    id: Number(row.id || 0),
+    title: String(row.title || ''),
+    description: String(row.description || ''),
+    project_name: String(row.project_name || 'OWS'),
+    is_active: row.is_active !== false,
+    priority: Number(row.priority || 0),
+    published_at: row.published_at || row.created_at || null,
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null
+  };
+}
+
+// Feed de la seccion "Ultimas Noticias" del dashboard (publico, vacio por defecto)
+app.get('/ows-dashboard/news', async (req, res) => {
+  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const limit = Math.max(1, Math.min(100, normalizeNewsNumber(req.query.limit, 20)));
+  try {
+    await ensureOwsDashboardNewsTable();
+    const values = [limit];
+    const where = [];
+    if (!includeInactive) where.push('is_active = TRUE');
+    const { rows } = await pool.query(
+      `SELECT id, title, description, project_name, is_active, priority, published_at, created_at, updated_at
+         FROM ows_dashboard_news
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY COALESCE(published_at, created_at) DESC, id DESC
+        LIMIT $1`,
+      values
+    );
+    return res.json({ success: true, news: rows.map(mapOwsDashboardNewsRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear noticia del dashboard (requiere token/secret de admin OWS)
+app.post('/ows-dashboard/news', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const title = String(req.body?.title || '').trim();
+  const description = String(req.body?.description || '').trim();
+  const projectName = String(req.body?.project_name || req.body?.projectName || 'OWS').trim() || 'OWS';
+  const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
+  const rawPublishedAt = req.body?.published_at;
+  const publishedAt = rawPublishedAt ? new Date(rawPublishedAt) : null;
+
+  if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
+  if (publishedAt && Number.isNaN(publishedAt.getTime())) {
+    return res.status(400).json({ error: 'published_at invalido' });
+  }
+
+  try {
+    await ensureOwsDashboardNewsTable();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_dashboard_news (title, description, project_name, priority, published_at)
+       VALUES ($1, $2, $3, $4, COALESCE($5, NOW()))
+       RETURNING id, title, description, project_name, is_active, priority, published_at, created_at, updated_at`,
+      [title, description, projectName, priority, publishedAt]
+    );
+    return res.status(201).json({ success: true, news: mapOwsDashboardNewsRow(rows[0] || {}) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar noticia del dashboard (admin). Si no se envian campos, alterna
+// el estado activo/inactivo (comportamiento original del toggle).
+app.patch('/ows-dashboard/news/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsDashboardNewsTable();
+    const updates = {};
+    if (req.body?.title !== undefined) {
+      const title = String(req.body.title).trim();
+      if (!title) return res.status(400).json({ error: 'El titulo no puede estar vacio' });
+      updates.title = title;
+    }
+    if (req.body?.description !== undefined) updates.description = String(req.body.description).trim();
+    if (req.body?.project_name !== undefined) updates.project_name = String(req.body.project_name).trim() || 'OWS';
+    if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
+    if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+
+    if (!Object.keys(updates).length) {
+      // Toggle original cuando no hay campos explicitos
+      updates.is_active = undefined; // marcador: toggle
+      const { rows } = await pool.query(
+        `UPDATE ows_dashboard_news
+            SET is_active = NOT is_active,
+                updated_at = NOW()
+          WHERE id = $1
+          RETURNING id, title, description, project_name, is_active, priority, published_at, created_at, updated_at`,
+        [id]
+      );
+      if (!rows.length) return res.status(404).json({ error: 'Noticia no encontrada' });
+      return res.json({ success: true, news: mapOwsDashboardNewsRow(rows[0]) });
+    }
+
+    const keys = Object.keys(updates);
+    const setSql = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const { rows } = await pool.query(
+      `UPDATE ows_dashboard_news
+          SET ${setSql}, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, title, description, project_name, is_active, priority, published_at, created_at, updated_at`,
+      [id, ...keys.map((k) => updates[k])]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Noticia no encontrada' });
+    return res.json({ success: true, news: mapOwsDashboardNewsRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-dashboard/news/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar una noticia (admin)
+app.delete('/ows-dashboard/news/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsDashboardNewsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_dashboard_news WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Noticia no encontrada' });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-dashboard/news/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Vaciar todas las noticias del dashboard (admin)
+app.delete('/ows-dashboard/news', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsDashboardNewsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_dashboard_news');
+    return res.json({ success: true, deleted: Number(rowCount || 0) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-dashboard/news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ============================================================
+   OWS DASHBOARD — SECCION DE EVENTOS (estilo Roblox / Steam)
+   Eventos con fecha de inicio y fin, imagen/banner, categoria
+   (update/launch/release/etc.) y proyecto asociado. Alimenta la
+   seccion "Eventos" de web/OWS/index.html.
+   ============================================================ */
+
+let owsDashboardEventsTableReady = false;
+
+async function ensureOwsDashboardEventsTable() {
+  if (owsDashboardEventsTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_dashboard_events (
+      id            BIGSERIAL PRIMARY KEY,
+      title         TEXT NOT NULL,
+      description   TEXT NOT NULL DEFAULT '',
+      category      VARCHAR(30) NOT NULL DEFAULT 'update',
+      project_name  TEXT NOT NULL DEFAULT 'OWS',
+      image_url     TEXT NOT NULL DEFAULT '',
+      link_url      TEXT NOT NULL DEFAULT '',
+      starts_at     TIMESTAMPTZ NOT NULL,
+      ends_at       TIMESTAMPTZ,
+      is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+      priority      INTEGER NOT NULL DEFAULT 0,
+      created_by    TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_dashboard_events_order
+      ON ows_dashboard_events (is_active, starts_at DESC)
+  `);
+  owsDashboardEventsTableReady = true;
+}
+
+const DASHBOARD_EVENT_CATEGORIES = new Set(['update', 'launch', 'release', 'event', 'announcement', 'maintenance']);
+
+function normalizeDashboardEventCategory(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return DASHBOARD_EVENT_CATEGORIES.has(raw) ? raw : 'update';
+}
+
+function mapOwsDashboardEventRow(row) {
+  const startsAt = row.starts_at ? new Date(row.starts_at).toISOString() : null;
+  const endsAt = row.ends_at ? new Date(row.ends_at).toISOString() : null;
+  const now = Date.now();
+  const startTs = startsAt ? Date.parse(startsAt) : 0;
+  const endTs = endsAt ? Date.parse(endsAt) : 0;
+  let phase = 'upcoming';
+  if (startTs && now >= startTs && (!endTs || now <= endTs)) phase = 'active';
+  else if (endTs && now > endTs) phase = 'ended';
+  return {
+    id: Number(row.id || 0),
+    title: String(row.title || ''),
+    description: String(row.description || ''),
+    category: normalizeDashboardEventCategory(row.category),
+    project_name: String(row.project_name || 'OWS'),
+    image_url: String(row.image_url || ''),
+    imageUrl: String(row.image_url || ''),
+    link_url: String(row.link_url || ''),
+    linkUrl: String(row.link_url || ''),
+    starts_at: startsAt,
+    ends_at: endsAt,
+    startsAt,
+    endsAt,
+    phase,
+    is_active: row.is_active !== false,
+    priority: Number(row.priority || 0),
+    created_by: String(row.created_by || 'OceanandWild'),
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null
+  };
+}
+
+function resolveDashboardEventDates(body = {}) {
+  const rawStart = body.starts_at || body.startsAt || body.event_start || body.eventStart || body.start_date || body.startDate;
+  const rawEnd = body.ends_at || body.endsAt || body.event_end || body.eventEnd || body.end_date || body.endDate;
+  if (!rawStart) return { error: 'La fecha de inicio del evento es obligatoria (starts_at)' };
+  const start = new Date(rawStart);
+  if (Number.isNaN(start.getTime())) return { error: 'starts_at invalido' };
+  let end = null;
+  if (rawEnd) {
+    end = new Date(rawEnd);
+    if (Number.isNaN(end.getTime())) return { error: 'ends_at invalido' };
+    if (end < start) return { error: 'La fecha de fin no puede ser anterior a la de inicio' };
+  }
+  return { start, end };
+}
+
+// Feed publico de la seccion "Eventos" del dashboard OWS
+app.get('/ows-dashboard/events', async (req, res) => {
+  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const includeEnded = normalizeNewsBoolean(req.query.include_ended, true);
+  const limit = Math.max(1, Math.min(100, normalizeNewsNumber(req.query.limit, 30)));
+  try {
+    await ensureOwsDashboardEventsTable();
+    const values = [limit];
+    const where = [];
+    if (!includeInactive) where.push('is_active = TRUE');
+    if (!includeEnded) where.push("(ends_at IS NULL OR ends_at >= NOW() - INTERVAL '2 days')");
+    const { rows } = await pool.query(
+      `SELECT id, title, description, category, project_name, image_url, link_url,
+              starts_at, ends_at, is_active, priority, created_by, created_at, updated_at
+         FROM ows_dashboard_events
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY COALESCE(starts_at, created_at) DESC, id DESC
+        LIMIT $1`,
+      values
+    );
+    return res.json({ success: true, events: rows.map(mapOwsDashboardEventRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/events:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear evento del dashboard (admin)
+app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const title = String(req.body?.title || '').trim();
+  const description = String(req.body?.description || '').trim();
+  const category = normalizeDashboardEventCategory(req.body?.category);
+  const projectName = String(req.body?.project_name || req.body?.projectName || 'OWS').trim() || 'OWS';
+  const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
+  const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
+  const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
+  const dates = resolveDashboardEventDates(req.body || {});
+  if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
+  if (dates.error) return res.status(400).json({ error: dates.error });
+  const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
+  const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
+
+  try {
+    await ensureOwsDashboardEventsTable();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_dashboard_events
+         (title, description, category, project_name, image_url, link_url, starts_at, ends_at, priority, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, title, description, category, project_name, image_url, link_url,
+                 starts_at, ends_at, is_active, priority, created_by, created_at, updated_at`,
+      [title, description, category, projectName, finalImageUrl, linkUrl, dates.start, dates.end, priority, adminName]
+    );
+    logAdminActivity({
+      action: 'create', entityType: 'dashboard_event', entityId: String(rows[0]?.id || ''),
+      entityName: title, adminName, meta: { category, project_name: projectName }
+    });
+    return res.status(201).json({ success: true, event: mapOwsDashboardEventRow(rows[0] || {}) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/events:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar evento del dashboard (admin)
+app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsDashboardEventsTable();
+    const updates = {};
+    if (req.body?.title !== undefined) {
+      const title = String(req.body.title).trim();
+      if (!title) return res.status(400).json({ error: 'El titulo no puede estar vacio' });
+      updates.title = title;
+    }
+    if (req.body?.description !== undefined) updates.description = String(req.body.description).trim();
+    if (req.body?.category !== undefined) updates.category = normalizeDashboardEventCategory(req.body.category);
+    if (req.body?.project_name !== undefined) updates.project_name = String(req.body.project_name).trim() || 'OWS';
+    if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
+    if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
+    if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    if (req.body?.starts_at !== undefined || req.body?.ends_at !== undefined) {
+      const { rows: currentRows } = await pool.query('SELECT starts_at, ends_at FROM ows_dashboard_events WHERE id = $1', [id]);
+      if (!currentRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
+      const rawStart = req.body?.starts_at !== undefined ? req.body.starts_at : currentRows[0].starts_at;
+      const rawEnd = req.body?.ends_at !== undefined ? req.body.ends_at : currentRows[0].ends_at;
+      const merged = resolveDashboardEventDates({ starts_at: rawStart, ends_at: rawEnd || undefined });
+      if (merged.error) return res.status(400).json({ error: merged.error });
+      updates.starts_at = merged.start;
+      updates.ends_at = merged.end;
+    }
+    if (req.file && req.file.path) updates.image_url = String(req.file.path);
+    else if (req.body?.image_url !== undefined) updates.image_url = String(req.body.image_url).trim();
+
+    const keys = Object.keys(updates);
+    if (!keys.length) return res.status(400).json({ error: 'No hay campos validos para actualizar' });
+    const setSql = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const { rows } = await pool.query(
+      `UPDATE ows_dashboard_events
+          SET ${setSql}, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, title, description, category, project_name, image_url, link_url,
+                  starts_at, ends_at, is_active, priority, created_by, created_at, updated_at`,
+      [id, ...keys.map((k) => updates[k])]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Evento no encontrado' });
+    logAdminActivity({
+      action: 'edit', entityType: 'dashboard_event', entityId: String(id),
+      entityName: String(rows[0]?.title || ''), adminName: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim(),
+      meta: { fields: keys }
+    });
+    return res.json({ success: true, event: mapOwsDashboardEventRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-dashboard/events/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar evento del dashboard (admin)
+app.delete('/ows-dashboard/events/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsDashboardEventsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_dashboard_events WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Evento no encontrado' });
+    logAdminActivity({
+      action: 'delete', entityType: 'dashboard_event', entityId: String(id),
+      adminName: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim()
+    });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-dashboard/events/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ============================================================
+   OWS AUTO-PUSH DEPLOY (solo server.js)
+   Cuando este archivo cambia en produccion (Render), este endpoint
+   hace commit + push de UNICAMENTE server.js hacia el repositorio
+   remoto, para que la version desplegada quede guardada en git.
+   En local usa el credential helper configurado (Git Credential
+   Manager). En Render configura GITHUB_TOKEN (repo scope) para
+   autenticar el push.
+   ============================================================ */
+const OWS_DB_REPO_URL = 'https://github.com/OceanandWild/owsdatabase.git';
+const OWS_DB_REPO_BRANCH = 'main';
+
+function runGit(args, timeoutMs = 60000) {
+  return new Promise((resolve) => {
+    const child = spawn('git', args, {
+      cwd: __dirname,
+      windowsHide: true,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true' }
+    });
+    let stdout = '';
+    let stderr = '';
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) { done = true; try { child.kill(); } catch (_) {} resolve({ code: -1, stdout, stderr: stderr + '\n[timeout]' }); }
+    }, timeoutMs);
+    child.stdout.on('data', (d) => { stdout += String(d); });
+    child.stderr.on('data', (d) => { stderr += String(d); });
+    child.on('error', (err) => {
+      if (done) return; done = true; clearTimeout(timer);
+      resolve({ code: -1, stdout, stderr: stderr + String(err?.message || err) });
+    });
+    child.on('close', (code) => {
+      if (done) return; done = true; clearTimeout(timer);
+      resolve({ code, stdout, stderr });
+    });
+  });
+}
+
+app.post('/ows-admin/git-push-server', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
+  const steps = [];
+  try {
+    const ghToken = String(process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '').trim();
+    const pushUrl = ghToken
+      ? `https://x-access-token:${encodeURIComponent(ghToken)}@github.com/OceanandWild/owsdatabase.git`
+      : OWS_DB_REPO_URL;
+    const gitArgs = (extra) => [
+      '-c', 'user.name=OceanandWild',
+      '-c', 'user.email=oceanandwildstudios@gmail.com',
+      ...extra
+    ];
+
+    // 0) Estado previo
+    const status = await runGit(gitArgs(['status', '--porcelain', '--', 'server.js']));
+    steps.push({ step: 'status', code: status.code, out: status.stdout.trim() });
+    if (status.code !== 0) {
+      return res.status(500).json({ success: false, error: 'git status fallo (¿no es un repo?)', steps });
+    }
+    const serverDirty = status.stdout.trim().length > 0;
+
+    // 1) Otros archivos modificados NO se tocan: solo se sincroniza server.js
+    if (serverDirty) {
+      steps.push({ step: 'note', msg: 'server.js tiene cambios locales: se confirma solo este archivo.' });
+    } else {
+      // Sincronizar el resto del repo con origin/main para poder pushear sin conflictos.
+      // Se preserva server.js actual: se respalda, se hace reset a origin/main y se restaura.
+      const fetch = await runGit(['fetch', 'origin', OWS_DB_REPO_BRANCH], 90000);
+      steps.push({ step: 'fetch', code: fetch.code });
+      if (fetch.code !== 0) {
+        return res.status(500).json({ success: false, error: 'git fetch fallo', details: fetch.stderr, steps });
+      }
+      const fullStatus = await runGit(gitArgs(['status', '--porcelain']));
+      const otherDirty = fullStatus.stdout.split('\n').filter((l) => l.trim() && !l.includes('server.js')).length > 0;
+      if (!otherDirty) {
+        const backup = await fs.promises.readFile(path.join(__dirname, 'server.js'), 'utf8');
+        const reset = await runGit(['reset', '--hard', `origin/${OWS_DB_REPO_BRANCH}`], 90000);
+        steps.push({ step: 'reset', code: reset.code });
+        if (reset.code !== 0) {
+          return res.status(500).json({ success: false, error: 'git reset fallo', details: reset.stderr, steps });
+        }
+        await fs.promises.writeFile(path.join(__dirname, 'server.js'), backup);
+        steps.push({ step: 'server.js restaurado', msg: 'El resto del repo quedo en estado origin/main; server.js se preservo.' });
+      } else {
+        steps.push({ step: 'note', msg: 'Hay otros archivos locales modificados: no se toca el worktree.' });
+      }
+    }
+
+    // 2) Stage + commit SOLO de server.js
+    const add = await runGit(gitArgs(['add', '--', 'server.js']));
+    steps.push({ step: 'add', code: add.code });
+    if (add.code !== 0) {
+      return res.status(500).json({ success: false, error: 'git add fallo', details: add.stderr, steps });
+    }
+    const staged = await runGit(['diff', '--cached', '--name-only']);
+    if (!staged.stdout.includes('server.js')) {
+      return res.json({ success: true, pushed: false, message: 'server.js ya esta sincronizado con el repositorio.', steps });
+    }
+    const stamp = new Date().toISOString();
+    const commit = await runGit(gitArgs(['commit', '-m', `Auto-deploy: server.js actualizado (${stamp})`, '-m', `Sincronizado automaticamente desde produccion por ${adminName}.\n\n🤖 Generated with Codebuff\nCo-Authored-By: Codebuff <noreply@codebuff.com>`]));
+    steps.push({ step: 'commit', code: commit.code, out: commit.stdout.trim() });
+    if (commit.code !== 0) {
+      return res.status(500).json({ success: false, error: 'git commit fallo', details: commit.stderr, steps });
+    }
+
+    // 3) Push SOLO de main (solo server.js cambia en el commit)
+    const push = await runGit(gitArgs(['push', pushUrl, `HEAD:${OWS_DB_REPO_BRANCH}`]), 120000);
+    steps.push({ step: 'push', code: push.code, out: (push.stdout + push.stderr).trim() });
+    if (push.code !== 0) {
+      return res.status(500).json({ success: false, error: 'git push fallo', details: push.stderr, steps });
+    }
+
+    logAdminActivity({ action: 'git-push', entityType: 'server_js', entityName: 'server.js', adminName, meta: { stamp } });
+    return res.json({ success: true, pushed: true, message: 'server.js confirmado y pusheado a origin/main.', steps });
+  } catch (err) {
+    console.error('Error en POST /ows-admin/git-push-server:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Error interno', steps });
   }
 });
 
@@ -22193,6 +22753,59 @@ io.on('connection', (socket) => {
     io.to(`host-${roomPin}`).emit('wildmind:camuflado-pick', { playerId: pid, name: target.name });
   });
 
+
+  // ── Rumble de la Selva (Fase 1): relay de la arena (host-autoritativo) ──
+  socket.on("wildmind:brawl-open", ({ roomPin, mapId }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return socket.emit("wildmind:error", { message: "Sala no encontrada" });
+    if (socket.id !== room.hostSocketId) return socket.emit("wildmind:error", { message: "Solo el anfitrión puede abrir la arena" });
+    room.brawlMap = String(mapId || "arena-aurora-helada");
+    room.brawlOpen = true;
+    io.to("room-" + roomPin).emit("wildmind:brawl-open", { open: true, mapId: room.brawlMap });
+  });
+
+  socket.on("wildmind:brawl-join", ({ roomPin, playerId, avatarKey, name, charId }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    io.to("room-" + roomPin).emit("wildmind:brawl-join", { playerId: String(playerId || ""), avatarKey: String(avatarKey || "aguila"), name: String(name || ""), charId: String(charId || "") });
+  });
+
+  socket.on("wildmind:brawl-input", ({ roomPin, playerId, seq, mx, jump, dash, down }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    io.to("host-" + roomPin).emit("wildmind:brawl-input", { playerId: String(playerId || ""), seq: Number(seq) || 0, mx: Number(mx) || 0, jump: !!jump, dash: !!dash, down: !!down });
+  });
+
+  socket.on("wildmind:brawl-snapshot", ({ roomPin, mapId, snap }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    if (socket.id !== room.hostSocketId) return; // solo el host simula
+    io.to("room-" + roomPin).emit("wildmind:brawl-snapshot", { mapId: String(mapId || room.brawlMap || ""), snap: String(snap || "") });
+  });
+
+  socket.on("wildmind:brawl-event", ({ roomPin, type, src, dst, dmg }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    if (socket.id !== room.hostSocketId) return;
+    io.to("room-" + roomPin).emit("wildmind:brawl-event", { type: String(type || ""), src: String(src || ""), dst: String(dst || ""), dmg: Number(dmg) || 0 });
+  });
+
+  socket.on("wildmind:brawl-reset", ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    if (socket.id !== room.hostSocketId) return;
+    io.to("room-" + roomPin).emit("wildmind:brawl-reset", {});
+  });
+
+  socket.on("wildmind:brawl-close", ({ roomPin }) => {
+    const room = activeRooms.get(String(roomPin));
+    if (!room || !room.wildmind) return;
+    if (socket.id !== room.hostSocketId) return;
+    room.brawlOpen = false;
+    io.to("room-" + roomPin).emit("wildmind:brawl-close", {});
+  });
+
+
   socket.on('wildmind:start', ({ roomPin }) => {
     const room = activeRooms.get(String(roomPin));
     if (!room || !room.wildmind) return socket.emit('wildmind:error', { message: 'Sala no encontrada' });
@@ -22203,7 +22816,11 @@ io.on('connection', (socket) => {
       return socket.emit('wildmind:error', { message: 'El Camuflado necesita al menos 6 preguntas.' });
     if (room.players.length < (minPlayers[mode] || 1))
       return socket.emit('wildmind:error', { message: `Este modo necesita al menos ${minPlayers[mode] || 1} exploradores.` });
-    room.state = 'playing'; room.currentQuestion = 0; room.timeCut = false;
+    room.state = "playing"; room.currentQuestion = 0; room.timeCut = false;
+    if (room.brawlOpen || room.brawlMap) {
+      room.brawlOpen = false; delete room.brawlMap;
+      io.to("room-" + roomPin).emit("wildmind:brawl-close", {});
+    }
     if (mode === 'supervivencia') room.players.forEach(p => { p.lives = 3; p.eliminated = false; });
     if (mode === 'expedicion') room.expedition = { energy: 100 };
     if (mode === 'apuesta') {

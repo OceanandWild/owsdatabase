@@ -13447,6 +13447,213 @@ app.delete('/ows-dashboard/events/:id', async (req, res) => {
 });
 
 /* ============================================================
+   OWS LAUNCH PROJECTS — proyectos creados para OWS especificamente
+   (los titulos que se van a lanzar en el ecosistema, ej: Wilder
+   Gambit). Separado del catalogo general de OWS Store
+   (ows_admin_projects), que lista todos los productos existentes.
+   ============================================================ */
+
+let owsLaunchProjectsTableReady = false;
+
+const OWS_LAUNCH_PROJECT_STATUSES = new Set(['development', 'soon', 'launched', 'cancelled']);
+const OWS_LAUNCH_PLATFORMS = new Set(['windows', 'android', 'web', 'mac', 'linux']);
+
+function normalizeLaunchProjectStatus(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return OWS_LAUNCH_PROJECT_STATUSES.has(raw) ? raw : 'development';
+}
+
+function normalizeLaunchPlatforms(value) {
+  const list = toNewsArray(value)
+    .map((p) => String(p || '').trim().toLowerCase())
+    .filter((p) => OWS_LAUNCH_PLATFORMS.has(p));
+  return list.length ? list : ['windows'];
+}
+
+async function ensureOwsLaunchProjectsTable() {
+  if (owsLaunchProjectsTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_launch_projects (
+      id             BIGSERIAL PRIMARY KEY,
+      slug           TEXT NOT NULL UNIQUE,
+      name           TEXT NOT NULL,
+      description    TEXT NOT NULL DEFAULT '',
+      status         VARCHAR(20) NOT NULL DEFAULT 'development',
+      icon_url       TEXT NOT NULL DEFAULT '',
+      genre          TEXT NOT NULL DEFAULT '',
+      platforms      TEXT[] NOT NULL DEFAULT '{windows}',
+      expected_date  DATE,
+      confirmed_date DATE,
+      link_url       TEXT NOT NULL DEFAULT '',
+      priority       INTEGER NOT NULL DEFAULT 0,
+      is_active      BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  // Seed del unico proyecto OWS confirmado hasta ahora
+  await pool.query(`
+    INSERT INTO ows_launch_projects (slug, name, description, status, genre, platforms, priority)
+    VALUES ('wilder-gambit', 'Wilder Gambit',
+            'Ajedrez de alto riesgo. Cada movimiento cuenta.',
+            'development', 'Ajedrez · Estrategia por turnos', ARRAY['windows']::TEXT[], 100)
+    ON CONFLICT (slug) DO NOTHING
+  `);
+  owsLaunchProjectsTableReady = true;
+}
+
+function mapOwsLaunchProjectRow(row) {
+  return {
+    id: Number(row.id || 0),
+    slug: String(row.slug || ''),
+    name: String(row.name || ''),
+    description: String(row.description || ''),
+    status: normalizeLaunchProjectStatus(row.status),
+    icon_url: String(row.icon_url || ''),
+    iconUrl: String(row.icon_url || ''),
+    genre: String(row.genre || ''),
+    platforms: Array.isArray(row.platforms) ? row.platforms.map((p) => String(p || '').toLowerCase()) : ['windows'],
+    expected_date: row.expected_date || null,
+    expectedDate: row.expected_date || null,
+    confirmed_date: row.confirmed_date || null,
+    confirmedDate: row.confirmed_date || null,
+    link_url: String(row.link_url || ''),
+    linkUrl: String(row.link_url || ''),
+    priority: Number(row.priority || 0),
+    is_active: row.is_active !== false,
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null
+  };
+}
+
+// Listado publico de proyectos OWS (devuelve is_active para que cada
+// cliente decida si muestra los ocultos; los datos no son sensibles)
+app.get('/ows-launch-projects', async (req, res) => {
+  try {
+    await ensureOwsLaunchProjectsTable();
+    const { rows } = await pool.query(
+      `SELECT id, slug, name, description, status, icon_url, genre, platforms,
+              expected_date, confirmed_date, link_url, priority, is_active,
+              created_at, updated_at
+         FROM ows_launch_projects
+        ORDER BY is_active DESC, priority DESC, name ASC`
+    );
+    return res.json({ success: true, projects: rows.map(mapOwsLaunchProjectRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-launch-projects:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear proyecto OWS (admin)
+app.post('/ows-launch-projects', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const slug = normalizeProjectSlug(req.body?.slug);
+  const name = String(req.body?.name || '').trim();
+  if (!slug || !name) return res.status(400).json({ error: 'slug y name son obligatorios' });
+  const description = String(req.body?.description || '').trim();
+  const status = normalizeLaunchProjectStatus(req.body?.status);
+  const iconUrl = String(req.body?.icon_url || req.body?.iconUrl || '').trim();
+  const genre = String(req.body?.genre || '').trim();
+  const platforms = normalizeLaunchPlatforms(req.body?.platforms);
+  const expectedDate = req.body?.expected_date ? String(req.body.expected_date).slice(0, 10) : null;
+  const confirmedDate = req.body?.confirmed_date ? String(req.body.confirmed_date).slice(0, 10) : null;
+  const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
+  const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
+  const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
+  try {
+    await ensureOwsLaunchProjectsTable();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_launch_projects
+         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, slug, name, description, status, icon_url, genre, platforms,
+                 expected_date, confirmed_date, link_url, priority, is_active, created_at, updated_at`,
+      [slug, name, description, status, iconUrl, genre, platforms, expectedDate, confirmedDate, linkUrl, priority]
+    );
+    logAdminActivity({
+      action: 'create', entityType: 'launch_project', entityId: slug,
+      entityName: name, adminName, meta: { status, platforms }
+    });
+    return res.status(201).json({ success: true, project: mapOwsLaunchProjectRow(rows[0] || {}) });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ya existe un proyecto OWS con ese slug' });
+    }
+    console.error('Error en POST /ows-launch-projects:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar proyecto OWS (admin)
+app.patch('/ows-launch-projects/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    const updates = {};
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name).trim();
+      if (!name) return res.status(400).json({ error: 'name no puede estar vacio' });
+      updates.name = name;
+    }
+    if (req.body?.description !== undefined) updates.description = String(req.body.description).trim();
+    if (req.body?.status !== undefined) updates.status = normalizeLaunchProjectStatus(req.body.status);
+    if (req.body?.icon_url !== undefined) updates.icon_url = String(req.body.icon_url).trim();
+    if (req.body?.genre !== undefined) updates.genre = String(req.body.genre).trim();
+    if (req.body?.platforms !== undefined) updates.platforms = normalizeLaunchPlatforms(req.body.platforms);
+    if (req.body?.expected_date !== undefined) updates.expected_date = req.body.expected_date ? String(req.body.expected_date).slice(0, 10) : null;
+    if (req.body?.confirmed_date !== undefined) updates.confirmed_date = req.body.confirmed_date ? String(req.body.confirmed_date).slice(0, 10) : null;
+    if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
+    if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
+    if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+
+    const keys = Object.keys(updates);
+    if (!keys.length) return res.status(400).json({ error: 'No hay campos validos para actualizar' });
+    const setSql = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const { rows } = await pool.query(
+      `UPDATE ows_launch_projects
+          SET ${setSql}, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, slug, name, description, status, icon_url, genre, platforms,
+                  expected_date, confirmed_date, link_url, priority, is_active, created_at, updated_at`,
+      [id, ...keys.map((k) => updates[k])]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    logAdminActivity({
+      action: 'edit', entityType: 'launch_project', entityId: String(rows[0]?.slug || id),
+      entityName: String(rows[0]?.name || ''), adminName: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim(),
+      meta: { fields: keys }
+    });
+    return res.json({ success: true, project: mapOwsLaunchProjectRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-launch-projects/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar proyecto OWS (admin)
+app.delete('/ows-launch-projects/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_launch_projects WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    logAdminActivity({
+      action: 'delete', entityType: 'launch_project', entityId: String(id),
+      adminName: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim()
+    });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-launch-projects/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ============================================================
    OWS AUTO-PUSH DEPLOY (solo server.js)
    Cuando este archivo cambia en produccion (Render), este endpoint
    hace commit + push de UNICAMENTE server.js hacia el repositorio

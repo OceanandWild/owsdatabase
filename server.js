@@ -7637,6 +7637,141 @@ app.post('/ows-admin-panel/extend-session', async (req, res) => {
   }
 });
 
+// ===== OWS ADMIN PANEL: TRUSTED DEVICES (recordar dispositivo 30 dias) =====
+// El JWT del panel dura 2h por diseño, pero pedir los 3 pasos en cada
+// visita es inviable para el Owner. Con un dispositivo de confianza
+// (token aleatorio de 256 bits guardado SOLO como hash en la DB y en
+// localStorage del navegador del Owner) la sesion se restaura sola.
+let owsAdminTrustedDevicesReady = false;
+
+async function ensureOwsAdminTrustedDevicesTable() {
+  if (owsAdminTrustedDevicesReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_admin_trusted_devices (
+      id           BIGSERIAL PRIMARY KEY,
+      device_id    TEXT NOT NULL UNIQUE,
+      token_hash   TEXT NOT NULL,
+      user_agent   TEXT NOT NULL DEFAULT '',
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at   TIMESTAMPTZ NOT NULL
+    )
+  `);
+  owsAdminTrustedDevicesReady = true;
+}
+
+function sha256Hex(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
+function getValidAdminJwtPayload(req) {
+  const token = String(
+    req.headers['x-ows-admin-token']
+    || (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+    || req.body?.token
+    || ''
+  ).trim();
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    if (payload.scope !== 'ows-admin-panel' || payload.role !== 'superadmin') return null;
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Registrar/renovar dispositivo de confianza (requiere sesion admin valida recien creada)
+app.post('/ows-admin-panel/trust-device', checkAdminLockout, async (req, res) => {
+  const payload = getValidAdminJwtPayload(req);
+  if (!payload) return res.status(401).json({ error: 'Sesion admin invalida o expirada. Inicia sesion de nuevo.' });
+  const deviceId = String(req.body?.device_id || '').trim();
+  if (!deviceId || deviceId.length < 8 || deviceId.length > 120) {
+    return res.status(400).json({ error: 'device_id invalido' });
+  }
+  const trustToken = crypto.randomBytes(32).toString('hex');
+  try {
+    await ensureOwsAdminTrustedDevicesTable();
+    await pool.query(`
+      INSERT INTO ows_admin_trusted_devices (device_id, token_hash, user_agent, expires_at)
+      VALUES ($1, $2, $3, NOW() + INTERVAL '30 days')
+      ON CONFLICT (device_id)
+      DO UPDATE SET token_hash = EXCLUDED.token_hash,
+                    user_agent = EXCLUDED.user_agent,
+                    last_used_at = NOW(),
+                    expires_at = NOW() + INTERVAL '30 days'
+    `, [deviceId, sha256Hex(trustToken), String(req.headers['user-agent'] || '').slice(0, 250)]);
+    console.log(`[OWS ADMIN] Dispositivo de confianza registrado (${deviceId.slice(0, 8)}...) desde IP ${getClientIp(req)}. Vence en 30 dias.`);
+    return res.json({
+      success: true,
+      trust_token: trustToken,
+      expires_in_days: 30,
+      message: 'Dispositivo registrado. No pedira credenciales durante 30 dias.'
+    });
+  } catch (err) {
+    console.error('Error en POST /ows-admin-panel/trust-device:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Login sin credenciales usando dispositivo de confianza
+app.post('/ows-admin-panel/login-with-device', checkAdminLockout, async (req, res) => {
+  const deviceId = String(req.body?.device_id || '').trim();
+  const trustToken = String(req.body?.trust_token || '').trim();
+  if (!deviceId || !trustToken) return res.status(400).json({ error: 'device_id y trust_token requeridos' });
+  try {
+    await ensureOwsAdminTrustedDevicesTable();
+    // Limpieza periodica de dispositivos vencidos
+    await pool.query('DELETE FROM ows_admin_trusted_devices WHERE expires_at < NOW()');
+    const { rows } = await pool.query(
+      'SELECT id, token_hash, expires_at FROM ows_admin_trusted_devices WHERE device_id = $1 LIMIT 1',
+      [deviceId]
+    );
+    const row = rows[0];
+    if (!row || row.token_hash !== sha256Hex(trustToken)) {
+      return res.status(401).json({ error: 'Dispositivo no confiable. Inicia sesion manualmente.' });
+    }
+    if (new Date(row.expires_at).getTime() < Date.now()) {
+      await pool.query('DELETE FROM ows_admin_trusted_devices WHERE id = $1', [row.id]);
+      return res.status(401).json({ error: 'La confianza del dispositivo expiro. Inicia sesion manualmente.' });
+    }
+    // Ventana deslizante: cada uso exitoso renueva otros 30 dias
+    await pool.query(
+      `UPDATE ows_admin_trusted_devices SET last_used_at = NOW(), expires_at = NOW() + INTERVAL '30 days' WHERE id = $1`,
+      [row.id]
+    );
+    const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    const adminToken = jwt.sign({
+      id: 0,
+      username: 'oceanandwild',
+      role: 'superadmin',
+      scope: 'ows-admin-panel'
+    }, jwtSecret, { expiresIn: '2h' });
+    return res.json({ success: true, token: adminToken, message: 'Sesion restaurada via dispositivo de confianza.' });
+  } catch (err) {
+    console.error('Error en POST /ows-admin-panel/login-with-device:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Olvidar dispositivo (revocar la confianza de este navegador)
+app.post('/ows-admin-panel/revoke-trust', async (req, res) => {
+  const deviceId = String(req.body?.device_id || '').trim();
+  const trustToken = String(req.body?.trust_token || '').trim();
+  if (!deviceId || !trustToken) return res.status(400).json({ error: 'device_id y trust_token requeridos' });
+  try {
+    await ensureOwsAdminTrustedDevicesTable();
+    const { rowCount } = await pool.query(
+      'DELETE FROM ows_admin_trusted_devices WHERE device_id = $1 AND token_hash = $2',
+      [deviceId, sha256Hex(trustToken)]
+    );
+    return res.json({ success: true, revoked: Number(rowCount || 0) });
+  } catch (err) {
+    console.error('Error en POST /ows-admin-panel/revoke-trust:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Eliminar producto
 app.delete('/floret/products/:id', async (req, res) => {
   const id = Number(req.params.id || 0);

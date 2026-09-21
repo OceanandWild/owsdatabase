@@ -13622,16 +13622,25 @@ async function ensureOwsLaunchProjectsTable() {
       link_url       TEXT NOT NULL DEFAULT '',
       priority       INTEGER NOT NULL DEFAULT 0,
       is_active      BOOLEAN NOT NULL DEFAULT TRUE,
+      metadata       JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  // Seed del unico proyecto OWS confirmado hasta ahora
   await pool.query(`
-    INSERT INTO ows_launch_projects (slug, name, description, status, genre, platforms, priority)
+    ALTER TABLE ows_launch_projects
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+  `);
+  // Seed del unico proyecto OWS confirmado hasta ahora (icono y banner
+  // subidos a Cloudinary para que sirvan publicos en cualquier cliente).
+  await pool.query(`
+    INSERT INTO ows_launch_projects (slug, name, description, status, icon_url, genre, platforms, expected_date, priority, metadata)
     VALUES ('wilder-gambit', 'Wilder Gambit',
             'Ajedrez de alto riesgo. Cada movimiento cuenta.',
-            'development', 'Ajedrez · Estrategia por turnos', ARRAY['windows']::TEXT[], 100)
+            'development',
+            'https://res.cloudinary.com/dwoxdneqa/image/upload/v1789957621/ows-launch-projects/wilder-gambit-icon.jpg',
+            'Ajedrez · Estrategia por turnos', ARRAY['windows']::TEXT[], '2026-12-01', 100,
+            '{"banner_url":"https://res.cloudinary.com/dwoxdneqa/image/upload/v1789957623/ows-launch-projects/wilder-gambit-banner.jpg"}'::jsonb)
     ON CONFLICT (slug) DO NOTHING
   `);
   owsLaunchProjectsTableReady = true;
@@ -13654,6 +13663,8 @@ function mapOwsLaunchProjectRow(row) {
     confirmedDate: row.confirmed_date || null,
     link_url: String(row.link_url || ''),
     linkUrl: String(row.link_url || ''),
+    banner_url: String((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
+    bannerUrl: String((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
     priority: Number(row.priority || 0),
     is_active: row.is_active !== false,
     created_at: row.created_at || null,
@@ -13661,16 +13672,20 @@ function mapOwsLaunchProjectRow(row) {
   };
 }
 
-// Listado publico de proyectos OWS (devuelve is_active para que cada
-// cliente decida si muestra los ocultos; los datos no son sensibles)
+// Listado publico de proyectos OWS: por defecto SOLO los visibles
+// (is_active). Los ocultos se sirven unicamente con ?include_hidden=1
+// (uso interno del Admin Panel; los datos no son sensibles pero los
+// proyectos ocultos no deben aparecer en OWS).
 app.get('/ows-launch-projects', async (req, res) => {
+  const includeHidden = normalizeNewsBoolean(req.query.include_hidden, false);
   try {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
       `SELECT id, slug, name, description, status, icon_url, genre, platforms,
-              expected_date, confirmed_date, link_url, priority, is_active,
+              expected_date, confirmed_date, link_url, priority, is_active, metadata,
               created_at, updated_at
          FROM ows_launch_projects
+        ${includeHidden ? '' : 'WHERE is_active = TRUE'}
         ORDER BY is_active DESC, priority DESC, name ASC`
     );
     return res.json({ success: true, projects: rows.map(mapOwsLaunchProjectRow) });
@@ -13700,11 +13715,12 @@ app.post('/ows-launch-projects', async (req, res) => {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
       `INSERT INTO ows_launch_projects
-         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb)
        RETURNING id, slug, name, description, status, icon_url, genre, platforms,
-                 expected_date, confirmed_date, link_url, priority, is_active, created_at, updated_at`,
-      [slug, name, description, status, iconUrl, genre, platforms, expectedDate, confirmedDate, linkUrl, priority]
+                 expected_date, confirmed_date, link_url, priority, is_active, metadata, created_at, updated_at`,
+      [slug, name, description, status, iconUrl, genre, platforms, expectedDate, confirmedDate, linkUrl, priority,
+       (req.body?.metadata && typeof req.body.metadata === 'object') ? req.body.metadata : {}]
     );
     logAdminActivity({
       action: 'create', entityType: 'launch_project', entityId: slug,
@@ -13743,6 +13759,12 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
     if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    if (req.body?.metadata !== undefined && typeof req.body.metadata === 'object' && req.body.metadata !== null) {
+      // merge sobre el metadata existente (permite setear banner_url sin pisar lo demas)
+      const { rows: curRows } = await pool.query('SELECT metadata FROM ows_launch_projects WHERE id = $1', [id]);
+      if (!curRows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+      updates.metadata = { ...(curRows[0]?.metadata || {}), ...req.body.metadata };
+    }
 
     const keys = Object.keys(updates);
     if (!keys.length) return res.status(400).json({ error: 'No hay campos validos para actualizar' });
@@ -13752,7 +13774,7 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
           SET ${setSql}, updated_at = NOW()
         WHERE id = $1
         RETURNING id, slug, name, description, status, icon_url, genre, platforms,
-                  expected_date, confirmed_date, link_url, priority, is_active, created_at, updated_at`,
+                  expected_date, confirmed_date, link_url, priority, is_active, metadata, created_at, updated_at`,
       [id, ...keys.map((k) => updates[k])]
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });

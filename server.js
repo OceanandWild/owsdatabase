@@ -14160,6 +14160,184 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
   }
 });
 
+// DEVLOG — registro de desarrollo (sub-sección de Gestión)
+// Tabla: ows_devlogs. Cada entrada indica por qué se hizo (reason),
+// si afecta a un proyecto (project_id + snapshot project_name) y
+// quién/cuándo la creó (created_by/created_at, multi-admin ready).
+// Solo-admin: lectura y escritura requieren token admin.
+// ═══════════════════════════════════════════════
+let owsDevlogsReady = false;
+
+async function ensureOwsDevlogsTable() {
+  if (owsDevlogsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_devlogs (
+      id              BIGSERIAL PRIMARY KEY,
+      title           TEXT NOT NULL,
+      reason          TEXT NOT NULL DEFAULT '',
+      details         TEXT NOT NULL DEFAULT '',
+      affects_project BOOLEAN NOT NULL DEFAULT FALSE,
+      project_id      BIGINT REFERENCES ows_launch_projects(id) ON DELETE SET NULL,
+      project_name    TEXT NOT NULL DEFAULT '',
+      created_by      TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_devlogs_created ON ows_devlogs(created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_devlogs_project ON ows_devlogs(project_id)');
+  owsDevlogsReady = true;
+}
+
+function sanitizeDevlogRow(r) {
+  return {
+    id: Number(r?.id || 0),
+    title: String(r?.title || 'Sin título'),
+    reason: String(r?.reason || ''),
+    details: String(r?.details || ''),
+    affects_project: r?.affects_project === true,
+    project_id: r?.project_id != null ? Number(r.project_id) : null,
+    project_name: String(r?.project_name || r?.live_project_name || ''),
+    project_slug: String(r?.project_slug || ''),
+    created_by: String(r?.created_by || 'OceanandWild'),
+    created_at: r?.created_at ? new Date(r.created_at).toISOString() : null,
+    updated_at: r?.updated_at ? new Date(r.updated_at).toISOString() : null
+  };
+}
+
+// Listar devlogs (solo-admin), más nuevos primero.
+app.get('/ows-devlogs', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsDevlogsTable();
+    const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 100) || 100));
+    const { rows } = await pool.query(
+      `SELECT d.*, p.name AS live_project_name, p.slug AS project_slug
+         FROM ows_devlogs d
+         LEFT JOIN ows_launch_projects p ON p.id = d.project_id
+        ORDER BY d.created_at DESC, d.id DESC
+        LIMIT $1`,
+      [limit]
+    );
+    return res.json({ success: true, devlogs: rows.map(sanitizeDevlogRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-devlogs:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear devlog (solo-admin).
+// Body: { title*, reason*, details?, affects_project?, project_id?, created_by? }
+app.post('/ows-devlogs', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const title = String(req.body?.title || '').trim().slice(0, 160);
+  const reason = String(req.body?.reason || '').trim().slice(0, 2000);
+  const details = String(req.body?.details || '').trim().slice(0, 5000);
+  const affectsProject = req.body?.affects_project === true || req.body?.affectsProject === true;
+  const projectId = req.body?.project_id != null && req.body?.project_id !== ''
+    ? Number(req.body.project_id) : null;
+  const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
+  const createdBy = String(req.body?.created_by || req.body?.createdBy || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+  if (!title) return res.status(400).json({ error: 'El título es obligatorio.' });
+  if (!reason) return res.status(400).json({ error: 'Indicá por qué este devlog (motivo).' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsDevlogsTable();
+    let projectName = '';
+    let pid = null;
+    if (affectsProject) {
+      if (!Number.isFinite(projectId) || projectId <= 0) {
+        return res.status(400).json({ error: 'Si afecta a un proyecto, elegí cuál.' });
+      }
+      const { rows: projRows } = await pool.query('SELECT id, name FROM ows_launch_projects WHERE id = $1', [projectId]);
+      if (!projRows.length) return res.status(404).json({ error: 'Proyecto no encontrado.' });
+      pid = projRows[0].id;
+      projectName = String(projRows[0].name || '');
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO ows_devlogs (title, reason, details, affects_project, project_id, project_name, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [title, reason, details, affectsProject, pid, projectName, createdBy]
+    );
+    logAdminActivity({
+      action: 'create-devlog', entityType: 'devlog', entityId: String(rows[0]?.id || ''),
+      entityName: title, adminName: createdBy,
+      meta: { affects_project: affectsProject, project_name: projectName }
+    });
+    return res.json({ success: true, devlog: sanitizeDevlogRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /ows-devlogs:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar devlog (solo-admin).
+app.patch('/ows-devlogs/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsDevlogsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_devlogs WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Devlog no encontrado.' });
+    const title = req.body?.title !== undefined ? String(req.body.title || '').trim().slice(0, 160) : cur[0].title;
+    const reason = req.body?.reason !== undefined ? String(req.body.reason || '').trim().slice(0, 2000) : cur[0].reason;
+    const details = req.body?.details !== undefined ? String(req.body.details || '').trim().slice(0, 5000) : cur[0].details;
+    if (!title) return res.status(400).json({ error: 'El título no puede quedar vacío.' });
+    if (!reason) return res.status(400).json({ error: 'El motivo no puede quedar vacío.' });
+    let affectsProject = cur[0].affects_project;
+    if (req.body?.affects_project !== undefined || req.body?.affectsProject !== undefined) {
+      affectsProject = req.body.affects_project === true || req.body.affectsProject === true;
+    }
+    let pid = cur[0].project_id;
+    let projectName = cur[0].project_name || '';
+    if (affectsProject) {
+      const incoming = req.body?.project_id !== undefined && req.body?.project_id !== '' ? Number(req.body.project_id) : pid;
+      if (!Number.isFinite(incoming) || incoming <= 0) {
+        return res.status(400).json({ error: 'Si afecta a un proyecto, elegí cuál.' });
+      }
+      const { rows: projRows } = await pool.query('SELECT id, name FROM ows_launch_projects WHERE id = $1', [incoming]);
+      if (!projRows.length) return res.status(404).json({ error: 'Proyecto no encontrado.' });
+      pid = projRows[0].id;
+      projectName = String(projRows[0].name || '');
+    } else {
+      pid = null;
+      projectName = '';
+    }
+    const { rows } = await pool.query(
+      `UPDATE ows_devlogs
+          SET title = $1, reason = $2, details = $3, affects_project = $4,
+              project_id = $5, project_name = $6, updated_at = NOW()
+        WHERE id = $7
+        RETURNING *`,
+      [title, reason, details, affectsProject, pid, projectName, id]
+    );
+    return res.json({ success: true, devlog: sanitizeDevlogRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-devlogs/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar devlog (solo-admin).
+app.delete('/ows-devlogs/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  try {
+    await ensureOwsDevlogsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_devlogs WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Devlog no encontrado.' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-devlogs/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 /* OWS AUTO-PUSH DEPLOY — ELIMINADO.
    La capacidad de hacer git push desde el Admin fue removida.
    Este endpoint queda deshabilitado a propósito. */

@@ -14092,8 +14092,18 @@ app.delete('/ows-launch-projects/:id', async (req, res) => {
 // Tabla: ows_project_development (1 fila por proyecto).
 // Guarda porcentaje, qué admin lo actualizó (multi-admin ready) y cuándo.
 // Solo-admin: lectura y escritura requieren token admin.
+//
+// El % se cambia de dos formas, y queda registrado de cuál:
+//   mode 'day'   → "avance de hoy": se REGISTRA el incremento del día y el
+//                   total se acumula día a día hasta llegar a 100%.
+//   mode 'total' → "ajuste total": se fija el % global de una sola vez.
+// Ambos modos quedan en el historial, así que siempre se puede auditar
+// "cuánto subió hoy y quién lo subió".
+// Cada avance 'day' deja una fila en ows_project_progress_log (con el % antes,
+// el delta y el % final) para poder auditar "hoy subió 10%".
 // ═══════════════════════════════════════════════
 let owsProjectDevelopmentReady = false;
+let owsProjectProgressLogReady = false;
 
 async function ensureOwsProjectDevelopmentTable() {
   if (owsProjectDevelopmentReady) return;
@@ -14109,6 +14119,50 @@ async function ensureOwsProjectDevelopmentTable() {
   `);
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_project_dev_project ON ows_project_development(project_id)');
   owsProjectDevelopmentReady = true;
+}
+
+// Historial de avances: una fila por cambio de % (modo 'day' o 'total').
+async function ensureOwsProjectProgressLogTable() {
+  if (owsProjectProgressLogReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_project_progress_log (
+      id            BIGSERIAL PRIMARY KEY,
+      project_id    BIGINT NOT NULL REFERENCES ows_launch_projects(id) ON DELETE CASCADE,
+      percent_before INTEGER NOT NULL DEFAULT 0,
+      percent_after  INTEGER NOT NULL DEFAULT 0,
+      delta          INTEGER NOT NULL DEFAULT 0,
+      mode           TEXT NOT NULL DEFAULT 'day',
+      note           TEXT NOT NULL DEFAULT '',
+      created_by     TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  // Migración: proyectos ya registrados antes del historial.
+  await pool.query(`
+    ALTER TABLE ows_project_progress_log
+      ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''
+  `).catch((err) => console.log(' Aviso: migración ows_project_progress_log (note):', err.message));
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_progress_log_project ON ows_project_progress_log(project_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_progress_log_created ON ows_project_progress_log(created_at DESC)');
+  owsProjectProgressLogReady = true;
+}
+
+function sanitizeProgressLogRow(r) {
+  const mode = String(r?.mode || 'day').toLowerCase() === 'total' ? 'total' : 'day';
+  return {
+    id: Number(r?.id || 0),
+    project_id: Number(r?.project_id || 0),
+    project_name: String(r?.project_name || ''),
+    project_icon_url: String(r?.project_icon_url || ''),
+    admin_only: r?.admin_only === true,
+    percent_before: clampPercent(r?.percent_before) ?? 0,
+    percent_after: clampPercent(r?.percent_after) ?? 0,
+    delta: Number(r?.delta || 0),
+    mode,
+    note: String(r?.note || ''),
+    created_by: String(r?.created_by || 'OceanandWild'),
+    created_at: r?.created_at ? new Date(r.created_at).toISOString() : null
+  };
 }
 
 // Listar progreso de desarrollo (solo-admin). Devuelve una entrada por
@@ -14146,10 +14200,43 @@ app.get('/ows-project-development', async (req, res) => {
   }
 });
 
+// Historial de avances por proyecto (solo-admin). Más recientes primero.
+// ?project_id=N acota a un proyecto; ?mode=day filtra solo avances de hoy/día.
+app.get('/ows-project-development/history', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const projectId = Number(req.query?.project_id || 0);
+  const mode = String(req.query?.mode || '').trim().toLowerCase();
+  const limit = Math.max(1, Math.min(300, Number(req.query?.limit || 60) || 60));
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsProjectProgressLogTable();
+    const where = [];
+    const params = [];
+    if (Number.isFinite(projectId) && projectId > 0) { params.push(projectId); where.push(`l.project_id = $${params.length}`); }
+    if (mode === 'day' || mode === 'total') { params.push(mode); where.push(`l.mode = $${params.length}`); }
+    params.push(limit);
+    const { rows } = await pool.query(
+      `SELECT l.*, p.name AS project_name, p.icon_url AS project_icon_url, p.admin_only
+         FROM ows_project_progress_log l
+         JOIN ows_launch_projects p ON p.id = l.project_id
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY l.created_at DESC, l.id DESC
+        LIMIT $${params.length}`,
+      params
+    );
+    return res.json({ success: true, history: rows.map(sanitizeProgressLogRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-project-development/history:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Actualizar progreso de desarrollo (solo-admin, upsert).
-// Body: { percent: 0-100, updated_by?: "NombreAdmin" }
-// updated_by es libre para soportar múltiples admins a futuro;
-// si no viene, se usa el header x-ows-admin-name.
+// Body: { percent: 0-100, updated_by?, mode?: 'day'|'total', note? }
+// mode 'day'   → registra el avance del día (delta = percent - actual) y lo
+//                 acumula; queda en el historial.
+// mode 'total' → ajuste global del % de una sola vez (no es un avance del día).
+//                 Por defecto es 'day' porque es el flujo recomendado.
 app.put('/ows-project-development/:projectId', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const projectId = Number(req.params.projectId || 0);
@@ -14160,11 +14247,20 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
   }
   const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
   const updatedBy = String(req.body?.updated_by || req.body?.updatedBy || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+  const mode = String(req.body?.mode || req.body?.Mode || 'day').trim().toLowerCase() === 'total' ? 'total' : 'day';
+  const note = String(req.body?.note || req.body?.Note || '').trim().slice(0, 500);
   try {
     await ensureOwsLaunchProjectsTable();
     await ensureOwsProjectDevelopmentTable();
+    await ensureOwsProjectProgressLogTable();
     const { rows: projRows } = await pool.query('SELECT id, slug, name FROM ows_launch_projects WHERE id = $1', [projectId]);
     if (!projRows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    // % previo: el actual si ya había fila, 0 si el proyecto es nuevo.
+    const { rows: prevRows } = await pool.query(
+      'SELECT percent FROM ows_project_development WHERE project_id = $1',
+      [projectId]
+    );
+    const percentBefore = prevRows.length ? clampPercent(prevRows[0].percent) ?? 0 : 0;
     const { rows } = await pool.query(
       `INSERT INTO ows_project_development (project_id, percent, updated_by, updated_at)
        VALUES ($1, $2, $3, NOW())
@@ -14174,9 +14270,22 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
       [projectId, percent, updatedBy]
     );
     const row = rows[0] || {};
+    // Todo cambio queda registrado: sirve de historial aunque sea un ajuste total.
+    const { rows: logRows } = await pool.query(
+      `INSERT INTO ows_project_progress_log (project_id, percent_before, percent_after, delta, mode, note, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, project_id, percent_before, percent_after, delta, mode, note, created_by, created_at`,
+      [projectId, percentBefore, percent, percent - percentBefore, mode, note, updatedBy]
+    );
+    const historyEntry = logRows[0] ? sanitizeProgressLogRow({
+      ...logRows[0],
+      project_name: String(projRows[0].name || ''),
+      admin_only: true
+    }) : null;
     logAdminActivity({
       action: 'update-development', entityType: 'launch_project', entityId: String(projRows[0].slug || projectId),
-      entityName: String(projRows[0].name || ''), adminName: updatedBy, meta: { percent }
+      entityName: String(projRows[0].name || ''), adminName: updatedBy,
+      meta: { percent, mode, delta: percent - percentBefore, note }
     });
     return res.json({
       success: true,
@@ -14185,7 +14294,11 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
         percent: Number(row.percent ?? percent),
         updated_by: String(row.updated_by || updatedBy),
         updated_at: row.updated_at || new Date().toISOString()
-      }
+      },
+      mode,
+      percent_before: percentBefore,
+      delta: percent - percentBefore,
+      history: historyEntry
     });
   } catch (err) {
     console.error('Error en PUT /ows-project-development/:projectId:', err);

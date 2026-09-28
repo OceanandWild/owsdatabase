@@ -13821,7 +13821,7 @@ app.delete('/ows-dashboard/events/:id', async (req, res) => {
 
 let owsLaunchProjectsTableReady = false;
 
-const OWS_LAUNCH_PROJECT_STATUSES = new Set(['development', 'soon', 'launched', 'cancelled']);
+const OWS_LAUNCH_PROJECT_STATUSES = new Set(['development', 'soon', 'launched', 'cancelled', 'discontinued']);
 const OWS_LAUNCH_PLATFORMS = new Set(['windows', 'android', 'web', 'mac', 'linux']);
 
 function normalizeLaunchProjectStatus(value) {
@@ -13853,6 +13853,8 @@ async function ensureOwsLaunchProjectsTable() {
       link_url       TEXT NOT NULL DEFAULT '',
       priority       INTEGER NOT NULL DEFAULT 0,
       is_active      BOOLEAN NOT NULL DEFAULT TRUE,
+      status_feedback TEXT NOT NULL DEFAULT '',
+      status_permanent BOOLEAN DEFAULT NULL,
       metadata       JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -13865,6 +13867,14 @@ async function ensureOwsLaunchProjectsTable() {
   await pool.query(`
     ALTER TABLE ows_launch_projects
     ADD COLUMN IF NOT EXISTS admin_only BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  await pool.query(`
+    ALTER TABLE ows_launch_projects
+    ADD COLUMN IF NOT EXISTS status_feedback TEXT NOT NULL DEFAULT ''
+  `);
+  await pool.query(`
+    ALTER TABLE ows_launch_projects
+    ADD COLUMN IF NOT EXISTS status_permanent BOOLEAN DEFAULT NULL
   `);
   // Seed del unico proyecto OWS confirmado hasta ahora (icono y banner
   // subidos a Cloudinary para que sirvan publicos en cualquier cliente).
@@ -13883,6 +13893,12 @@ async function ensureOwsLaunchProjectsTable() {
 
 function mapOwsLaunchProjectRow(row) {
   const adminOnly = row.admin_only === true || String(row.admin_only || '').toLowerCase() === 'true' || Number(row.admin_only) === 1;
+  // Permanencia del estado: true = permanente, false = temporal, null = no aplica
+  // (solo tiene sentido en estados terminales: cancelado / descontinuado).
+  const _sp = row.status_permanent;
+  const statusPermanent = (_sp === true || String(_sp || '').toLowerCase() === 'true')
+    ? true
+    : ((_sp === false || String(_sp || '').toLowerCase() === 'false') ? false : null);
   return {
     id: Number(row.id || 0),
     slug: String(row.slug || ''),
@@ -13903,6 +13919,10 @@ function mapOwsLaunchProjectRow(row) {
     bannerUrl: String((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
     priority: Number(row.priority || 0),
     is_active: row.is_active !== false,
+    status_feedback: String(row.status_feedback || ''),
+    statusFeedback: String(row.status_feedback || ''),
+    status_permanent: statusPermanent,
+    statusPermanent,
     admin_only: adminOnly,
     adminOnly,
     visibility: adminOnly ? 'admin_only' : 'public',
@@ -13922,7 +13942,7 @@ app.get('/ows-launch-projects', async (req, res) => {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
       `SELECT id, slug, name, description, status, icon_url, genre, platforms,
-              expected_date, confirmed_date, link_url, priority, is_active, admin_only, metadata,
+              expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
               created_at, updated_at
          FROM ows_launch_projects
         ${includeHidden ? '' : 'WHERE is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE'}
@@ -13951,16 +13971,22 @@ app.post('/ows-launch-projects', async (req, res) => {
   const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
   const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
   const adminOnly = normalizeNewsBoolean(req.body?.admin_only ?? req.body?.adminOnly ?? req.body?.is_admin_only, false);
+  // Feedback del estado (obligatorio en Gestión/solo-admin, opcional en el resto)
+  const statusFeedback = String(req.body?.status_feedback ?? req.body?.statusFeedback ?? '').trim().slice(0, 500);
+  // Permanencia del estado: true/false, o null cuando el estado no lo requiere
+  // (solo aplica a estados terminales: cancelado / descontinuado).
+  const _spRaw = req.body?.status_permanent ?? req.body?.statusPermanent ?? req.body?.is_permanent ?? null;
+  const statusPermanent = (_spRaw === undefined || _spRaw === null || _spRaw === '') ? null : normalizeNewsBoolean(_spRaw, false);
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
   try {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
       `INSERT INTO ows_launch_projects
-         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority, admin_only, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
+         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority, admin_only, status_feedback, status_permanent, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
        RETURNING id, slug, name, description, status, icon_url, genre, platforms,
-                 expected_date, confirmed_date, link_url, priority, is_active, admin_only, metadata, created_at, updated_at`,
-      [slug, name, description, status, iconUrl, genre, platforms, expectedDate, confirmedDate, linkUrl, priority, adminOnly,
+                 expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata, created_at, updated_at`,
+      [slug, name, description, status, iconUrl, genre, platforms, expectedDate, confirmedDate, linkUrl, priority, adminOnly, statusFeedback, statusPermanent,
        (req.body?.metadata && typeof req.body.metadata === 'object') ? req.body.metadata : {}]
     );
     logAdminActivity({
@@ -14003,6 +14029,13 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
     if (req.body?.admin_only !== undefined || req.body?.adminOnly !== undefined || req.body?.is_admin_only !== undefined) {
       updates.admin_only = normalizeNewsBoolean(req.body.admin_only ?? req.body.adminOnly ?? req.body.is_admin_only, false);
     }
+    if (req.body?.status_feedback !== undefined || req.body?.statusFeedback !== undefined) {
+      updates.status_feedback = String(req.body.status_feedback ?? req.body.statusFeedback ?? '').trim().slice(0, 500);
+    }
+    if (req.body?.status_permanent !== undefined || req.body?.statusPermanent !== undefined || req.body?.is_permanent !== undefined) {
+      const _v = req.body.status_permanent ?? req.body.statusPermanent ?? req.body.is_permanent;
+      updates.status_permanent = (_v === null || _v === undefined || _v === '') ? null : normalizeNewsBoolean(_v, false);
+    }
     if (req.body?.metadata !== undefined && typeof req.body.metadata === 'object' && req.body.metadata !== null) {
       // merge sobre el metadata existente (permite setear banner_url sin pisar lo demas)
       const { rows: curRows } = await pool.query('SELECT metadata FROM ows_launch_projects WHERE id = $1', [id]);
@@ -14018,7 +14051,7 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
           SET ${setSql}, updated_at = NOW()
         WHERE id = $1
         RETURNING id, slug, name, description, status, icon_url, genre, platforms,
-                  expected_date, confirmed_date, link_url, priority, is_active, admin_only, metadata, created_at, updated_at`,
+                  expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata, created_at, updated_at`,
       [id, ...keys.map((k) => updates[k])]
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
@@ -14160,6 +14193,7 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════
 // DEVLOG — registro de desarrollo (sub-sección de Gestión)
 // Tabla: ows_devlogs. Cada entrada indica por qué se hizo (reason),
 // si afecta a un proyecto (project_id + snapshot project_name) y
@@ -14179,14 +14213,58 @@ async function ensureOwsDevlogsTable() {
       affects_project BOOLEAN NOT NULL DEFAULT FALSE,
       project_id      BIGINT REFERENCES ows_launch_projects(id) ON DELETE SET NULL,
       project_name    TEXT NOT NULL DEFAULT '',
+      progress_before INTEGER,
+      progress_after  INTEGER,
+      progress_delta  INTEGER,
+      progress_applied BOOLEAN NOT NULL DEFAULT FALSE,
       created_by      TEXT NOT NULL DEFAULT 'OceanandWild',
       created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Migración: registrar el % del proyecto ANTES y DESPUÉS del devlog.
+  // Es lo que permite mostrar la mini-gráfica y auditar el avance.
+  await pool.query(`
+    ALTER TABLE ows_devlogs
+      ADD COLUMN IF NOT EXISTS progress_before INTEGER,
+      ADD COLUMN IF NOT EXISTS progress_after  INTEGER,
+      ADD COLUMN IF NOT EXISTS progress_delta  INTEGER,
+      ADD COLUMN IF NOT EXISTS progress_applied BOOLEAN NOT NULL DEFAULT FALSE
+  `).catch((err) => console.log(' Aviso: migración ows_devlogs (progreso):', err.message));
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_devlogs_created ON ows_devlogs(created_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_devlogs_project ON ows_devlogs(project_id)');
   owsDevlogsReady = true;
+}
+
+function clampPercent(v) {
+  const n = Math.trunc(Number(v));
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, n));
+}
+
+// Aplica (o re-aplica) el % final de un devlog sobre ows_project_development.
+// Así el Devlog y el % de Gestión quedan siempre sincronizados: el devlog
+// guarda el antes/después y Gestión muestra el valor final ya aplicado.
+async function applyDevlogProgress({ projectId, after, updatedBy }) {
+  const pid = Number(projectId || 0);
+  const percent = clampPercent(after);
+  if (!Number.isFinite(pid) || pid <= 0 || percent === null) return null;
+  await ensureOwsProjectDevelopmentTable();
+  const { rows } = await pool.query(
+    `INSERT INTO ows_project_development (project_id, percent, updated_by, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (project_id)
+     DO UPDATE SET percent = EXCLUDED.percent, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+     RETURNING project_id, percent, updated_by, updated_at`,
+    [pid, percent, updatedBy || 'OceanandWild']
+  );
+  const row = rows[0] || {};
+  return {
+    project_id: Number(row.project_id || pid),
+    percent: Number(row.percent ?? percent),
+    updated_by: String(row.updated_by || updatedBy || 'OceanandWild'),
+    updated_at: row.updated_at || new Date().toISOString()
+  };
 }
 
 function sanitizeDevlogRow(r) {
@@ -14199,6 +14277,10 @@ function sanitizeDevlogRow(r) {
     project_id: r?.project_id != null ? Number(r.project_id) : null,
     project_name: String(r?.project_name || r?.live_project_name || ''),
     project_slug: String(r?.project_slug || ''),
+    progress_before: r?.progress_before != null ? Number(r.progress_before) : null,
+    progress_after: r?.progress_after != null ? Number(r.progress_after) : null,
+    progress_delta: r?.progress_delta != null ? Number(r.progress_delta) : null,
+    progress_applied: r?.progress_applied === true,
     created_by: String(r?.created_by || 'OceanandWild'),
     created_at: r?.created_at ? new Date(r.created_at).toISOString() : null,
     updated_at: r?.updated_at ? new Date(r.updated_at).toISOString() : null
@@ -14228,7 +14310,10 @@ app.get('/ows-devlogs', async (req, res) => {
 });
 
 // Crear devlog (solo-admin).
-// Body: { title*, reason*, details?, affects_project?, project_id?, created_by? }
+// Body: { title*, reason*, details?, affects_project?, project_id?, created_by?,
+//         progress_before?, progress_after?, progress_delta? }
+// Si viene progress_after, el % final se aplica a ows_project_development
+// (Gestión) para que ambos paneles queden sincronizados.
 app.post('/ows-devlogs', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const title = String(req.body?.title || '').trim().slice(0, 160);
@@ -14239,6 +14324,10 @@ app.post('/ows-devlogs', async (req, res) => {
     ? Number(req.body.project_id) : null;
   const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
   const createdBy = String(req.body?.created_by || req.body?.createdBy || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+  const progressBefore = clampPercent(req.body?.progress_before);
+  const progressAfter = clampPercent(req.body?.progress_after);
+  let progressDelta = clampPercent(req.body?.progress_delta);
+  if (progressDelta === null) progressDelta = null;
   if (!title) return res.status(400).json({ error: 'El título es obligatorio.' });
   if (!reason) return res.status(400).json({ error: 'Indicá por qué este devlog (motivo).' });
   try {
@@ -14255,18 +14344,37 @@ app.post('/ows-devlogs', async (req, res) => {
       pid = projRows[0].id;
       projectName = String(projRows[0].name || '');
     }
+    // El % final solo tiene sentido si el devlog afecta a un proyecto.
+    const hasProgress = affectsProject && progressAfter !== null;
+    const storedBefore = hasProgress ? (progressBefore !== null ? progressBefore : progressAfter) : null;
+    const storedDelta = hasProgress ? (progressDelta !== null ? progressDelta : (progressAfter - storedBefore)) : null;
     const { rows } = await pool.query(
-      `INSERT INTO ows_devlogs (title, reason, details, affects_project, project_id, project_name, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO ows_devlogs (title, reason, details, affects_project, project_id, project_name,
+                                progress_before, progress_after, progress_delta, progress_applied, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [title, reason, details, affectsProject, pid, projectName, createdBy]
+      [title, reason, details, affectsProject, pid, projectName,
+       storedBefore, hasProgress ? progressAfter : null, storedDelta, hasProgress, createdBy]
     );
+    // Compartir el dato con Gestión: aplicar el % final al proyecto.
+    let development = null;
+    if (hasProgress) {
+      try {
+        development = await applyDevlogProgress({ projectId: pid, after: progressAfter, updatedBy: createdBy });
+      } catch (perr) {
+        console.error('Aviso: no se pudo aplicar el % del devlog al proyecto:', perr.message);
+      }
+    }
     logAdminActivity({
       action: 'create-devlog', entityType: 'devlog', entityId: String(rows[0]?.id || ''),
       entityName: title, adminName: createdBy,
-      meta: { affects_project: affectsProject, project_name: projectName }
+      meta: {
+        affects_project: affectsProject, project_name: projectName,
+        progress_before: storedBefore, progress_after: hasProgress ? progressAfter : null,
+        progress_delta: storedDelta
+      }
     });
-    return res.json({ success: true, devlog: sanitizeDevlogRow(rows[0]) });
+    return res.json({ success: true, devlog: sanitizeDevlogRow(rows[0]), development });
   } catch (err) {
     console.error('Error en POST /ows-devlogs:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -14307,15 +14415,42 @@ app.patch('/ows-devlogs/:id', async (req, res) => {
       pid = null;
       projectName = '';
     }
+    // El % se re-sincroniza con Gestión si el devlog lo trae.
+    const hasProgress = affectsProject && (req.body?.progress_after !== undefined || req.body?.progressAfter !== undefined);
+    const progressBefore = hasProgress
+      ? clampPercent(req.body?.progress_before)
+      : (cur[0].progress_before != null ? Number(cur[0].progress_before) : null);
+    const progressAfter = hasProgress
+      ? clampPercent(req.body?.progress_after ?? req.body?.progressAfter)
+      : (cur[0].progress_after != null ? Number(cur[0].progress_after) : null);
+    const applied = hasProgress || (affectsProject && cur[0].progress_applied === true && progressAfter !== null);
+    const finalBefore = hasProgress
+      ? (progressBefore !== null ? progressBefore : progressAfter)
+      : progressBefore;
+    const finalDelta = (applied && finalBefore !== null && progressAfter !== null)
+      ? (progressAfter - finalBefore)
+      : (cur[0].progress_delta != null ? Number(cur[0].progress_delta) : null);
     const { rows } = await pool.query(
       `UPDATE ows_devlogs
           SET title = $1, reason = $2, details = $3, affects_project = $4,
-              project_id = $5, project_name = $6, updated_at = NOW()
-        WHERE id = $7
+              project_id = $5, project_name = $6,
+              progress_before = $7, progress_after = $8, progress_delta = $9,
+              progress_applied = $10, updated_at = NOW()
+        WHERE id = $11
         RETURNING *`,
-      [title, reason, details, affectsProject, pid, projectName, id]
+      [title, reason, details, affectsProject, pid, projectName,
+       applied ? finalBefore : null, applied ? progressAfter : null, applied ? finalDelta : null,
+       applied, id]
     );
-    return res.json({ success: true, devlog: sanitizeDevlogRow(rows[0]) });
+    let development = null;
+    if (applied && progressAfter !== null) {
+      try {
+        development = await applyDevlogProgress({ projectId: pid, after: progressAfter, updatedBy: String(cur[0].created_by || 'OceanandWild') });
+      } catch (perr) {
+        console.error('Aviso: no se pudo re-aplicar el % del devlog al proyecto:', perr.message);
+      }
+    }
+    return res.json({ success: true, devlog: sanitizeDevlogRow(rows[0]), development });
   } catch (err) {
     console.error('Error en PATCH /ows-devlogs/:id:', err);
     return res.status(500).json({ error: 'Error interno' });

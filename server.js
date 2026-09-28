@@ -14119,6 +14119,7 @@ async function ensureOwsProjectDevelopmentTable() {
   `);
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_project_dev_project ON ows_project_development(project_id)');
   owsProjectDevelopmentReady = true;
+  await ensureOwsPercentColumns();
 }
 
 // Historial de avances: una fila por cambio de % (modo 'day' o 'total').
@@ -14145,6 +14146,7 @@ async function ensureOwsProjectProgressLogTable() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_progress_log_project ON ows_project_progress_log(project_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_progress_log_created ON ows_project_progress_log(created_at DESC)');
   owsProjectProgressLogReady = true;
+  await ensureOwsPercentColumns();
 }
 
 function sanitizeProgressLogRow(r) {
@@ -14157,7 +14159,7 @@ function sanitizeProgressLogRow(r) {
     admin_only: r?.admin_only === true,
     percent_before: clampPercent(r?.percent_before) ?? 0,
     percent_after: clampPercent(r?.percent_after) ?? 0,
-    delta: Number(r?.delta || 0),
+    delta: Math.round(Number(r?.delta || 0) * 100) / 100,
     mode,
     note: String(r?.note || ''),
     created_by: String(r?.created_by || 'OceanandWild'),
@@ -14189,7 +14191,7 @@ app.get('/ows-project-development', async (req, res) => {
         name: String(r.name || ''),
         icon_url: String(r.icon_url || ''),
         admin_only: r.admin_only === true,
-        percent: Math.max(0, Math.min(100, Number(r.percent || 0))),
+        percent: clampPercent(r.percent) ?? 0,
         updated_by: r.updated_by ? String(r.updated_by) : null,
         updated_at: r.updated_at || null
       }))
@@ -14241,8 +14243,9 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const projectId = Number(req.params.projectId || 0);
   if (!Number.isFinite(projectId) || projectId <= 0) return res.status(400).json({ error: 'projectId invalido' });
-  const percent = Math.trunc(Number(req.body?.percent));
-  if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+  // Acepta decimales (máx 2). clampPercent devuelve null si no es número.
+  const percent = clampPercent(req.body?.percent);
+  if (percent === null) {
     return res.status(400).json({ error: 'percent debe ser un número entre 0 y 100' });
   }
   const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
@@ -14291,13 +14294,13 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
       success: true,
       development: {
         project_id: Number(row.project_id || projectId),
-        percent: Number(row.percent ?? percent),
+        percent: clampPercent(row.percent ?? percent),
         updated_by: String(row.updated_by || updatedBy),
         updated_at: row.updated_at || new Date().toISOString()
       },
       mode,
       percent_before: percentBefore,
-      delta: percent - percentBefore,
+      delta: Math.round((percent - percentBefore) * 100) / 100,
       history: historyEntry
     });
   } catch (err) {
@@ -14347,12 +14350,49 @@ async function ensureOwsDevlogsTable() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_devlogs_created ON ows_devlogs(created_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_devlogs_project ON ows_devlogs(project_id)');
   owsDevlogsReady = true;
+  await ensureOwsPercentColumns();
 }
 
+// Porcentajes con hasta 2 decimales (0.01 de precisión), acotados a 0–100.
+// Devuelve null si el valor no es numérico, para poder distinguir
+// "no vino" de "vino 0".
 function clampPercent(v) {
-  const n = Math.trunc(Number(v));
+  const n = Number(v);
   if (!Number.isFinite(n)) return null;
-  return Math.max(0, Math.min(100, n));
+  return Math.max(0, Math.min(100, Math.round(n * 100) / 100));
+}
+
+// Los % pasaron de INTEGER a NUMERIC(5,2) para admitir decimales.
+// Se convierte con ROUND(...) para no perder precisión y se re-crea el CHECK.
+let owsPercentDecimalsReady = false;
+async function ensureOwsPercentColumns() {
+  if (owsPercentDecimalsReady) return;
+  const targets = [
+    { table: 'ows_project_development', cols: ['percent'] },
+    { table: 'ows_project_progress_log', cols: ['percent_before', 'percent_after', 'delta'] },
+    { table: 'ows_devlogs', cols: ['progress_before', 'progress_after', 'progress_delta'] }
+  ];
+  for (const { table, cols } of targets) {
+    try {
+      await pool.query(`ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${table}_percent_check`);
+    } catch (_) { /* puede no existir */ }
+    for (const col of cols) {
+      await pool.query(
+        `ALTER TABLE ${table} ALTER COLUMN ${col} TYPE NUMERIC(5,2) USING ROUND(${col}::numeric, 2)`
+      ).catch((err) => console.log(` Aviso: ${table}.${col} a NUMERIC(5,2):`, err.message));
+    }
+  }
+  // CHECK recreado sobre la columna ya numérica.
+  await pool.query(`
+    ALTER TABLE ows_project_development
+      DROP CONSTRAINT IF EXISTS ows_project_development_percent_check
+  `).catch(() => {});
+  await pool.query(`
+    ALTER TABLE ows_project_development
+      ADD CONSTRAINT ows_project_development_percent_check
+      CHECK (percent >= 0 AND percent <= 100)
+  `).catch((err) => console.log(' Aviso: CHECK de percent:', err.message));
+  owsPercentDecimalsReady = true;
 }
 
 // Aplica (o re-aplica) el % final de un devlog sobre ows_project_development.
@@ -14374,7 +14414,7 @@ async function applyDevlogProgress({ projectId, after, updatedBy }) {
   const row = rows[0] || {};
   return {
     project_id: Number(row.project_id || pid),
-    percent: Number(row.percent ?? percent),
+    percent: clampPercent(row.percent ?? percent),
     updated_by: String(row.updated_by || updatedBy || 'OceanandWild'),
     updated_at: row.updated_at || new Date().toISOString()
   };
@@ -14390,9 +14430,9 @@ function sanitizeDevlogRow(r) {
     project_id: r?.project_id != null ? Number(r.project_id) : null,
     project_name: String(r?.project_name || r?.live_project_name || ''),
     project_slug: String(r?.project_slug || ''),
-    progress_before: r?.progress_before != null ? Number(r.progress_before) : null,
-    progress_after: r?.progress_after != null ? Number(r.progress_after) : null,
-    progress_delta: r?.progress_delta != null ? Number(r.progress_delta) : null,
+    progress_before: r?.progress_before != null ? (clampPercent(r.progress_before)) : null,
+    progress_after: r?.progress_after != null ? (clampPercent(r.progress_after)) : null,
+    progress_delta: r?.progress_delta != null ? (Math.round(Number(r.progress_delta) * 100) / 100) : null,
     progress_applied: r?.progress_applied === true,
     created_by: String(r?.created_by || 'OceanandWild'),
     created_at: r?.created_at ? new Date(r.created_at).toISOString() : null,

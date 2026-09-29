@@ -14676,6 +14676,9 @@ async function ensureOwsWorkSessionsTable() {
       incomplete_reason TEXT NOT NULL DEFAULT '',
       started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       ended_at         TIMESTAMPTZ,
+      -- Tramos trabajados: [{from, to, reason}]. El último con "to": null es
+      -- el que se está trabajando. Permite interrumpir y seguir más tarde.
+      parts            JSONB NOT NULL DEFAULT '[]'::jsonb,
       published_devlog_id BIGINT,
       created_by       TEXT NOT NULL DEFAULT 'OceanandWild',
       created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -14694,11 +14697,13 @@ async function ensureOwsWorkSessionsTable() {
       ADD COLUMN IF NOT EXISTS incomplete_reason TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       ADD COLUMN IF NOT EXISTS ended_at         TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS parts            JSONB NOT NULL DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS published_devlog_id BIGINT
   `).catch((err) => console.log(' Aviso: migración ows_work_sessions:', err.message));
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_started ON ows_work_sessions(started_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_project ON ows_work_sessions(project_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_ended ON ows_work_sessions(ended_at)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_status ON ows_work_sessions(status)').catch(() => {});
 
   // El devlog guarda de qué sesiones salió y qué día cubría, para no
   // publicar dos veces lo mismo y para poder auditar el reparto.
@@ -14733,70 +14738,256 @@ function roundWorkNum(v) {
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
 }
 
-// ── El corte por medianoche ──
-// Devuelve 1 tramo si la sesión cae en un solo día, o 2 si cruzó las 00:00.
-// Los minutos se reparten exacto (suma = duración total) y el % se reparte
-// con 2 decimales dando el resto al segundo tramo, para que la suma también
-// sea exacta.
-function splitWorkSession(session, tzOffset) {
-  const offset = normalizeTzOffsetMinutes(tzOffset);
-  const start = new Date(session?.started_at || 0);
-  if (Number.isNaN(start.getTime())) return [];
-  // Una sesión abierta sigue corriendo: se mide hasta ahora.
-  const end = session?.ended_at ? new Date(session.ended_at) : new Date();
-  const delta = roundWorkNum(session?.progress_delta || 0);
+// ── Tramos de una sesión ────────────────────────────────────────────────
+// Una sesión no siempre es un bloque corrido: se puede interrumpir y seguir
+// más tarde. Cada rato trabajado es un TRAMO, guardado como JSONB en la
+// columna `parts`:
+//   [{ "from": "…", "to": "…", "reason": "por qué se cortó" }, …]
+// El ÚLTIMO tramo con "to": null es el que se está trabajando ahora. Entre
+// dos tramos hay una PAUSA: ese tiempo NO cuenta como trabajo, y es lo que
+// el panel y el devlog usan para contar la historia (se interrumpió a las
+// X, se continuó a las Y, se finalizó con éxito).
+//
+// El % sigue siendo UNO por sesión y se aplica una sola vez al cerrarla
+// (applySessionProgress). Los tramos solo sirven para medir y para narrar.
 
-  const mk = (day, minutes, part, from, to) => ({
-    day,
-    minutes: Math.max(0, Math.round(minutes)),
-    delta,
-    part,                                  // 'whole' | 'start' | 'end'
-    from: new Date(from).toISOString(),
-    to: new Date(to).toISOString()
+// Lee una lista de tramos cruda (array o JSON) y la deja prolija: ordenada
+// por inicio, con fechas válidas, y con SOLO el último abierto.
+function parseWorkParts(raw) {
+  let list = raw;
+  if (typeof list === 'string') { try { list = JSON.parse(list); } catch { list = []; } }
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  list.forEach((p) => {
+    const from = new Date(p?.from);
+    if (Number.isNaN(from.getTime())) return;
+    const to = p?.to ? new Date(p.to) : null;
+    if (to && Number.isNaN(to.getTime())) return;
+    out.push({
+      from: from.toISOString(),
+      to: to ? to.toISOString() : null,
+      reason: String(p?.reason || '').trim().replace(/\s+/g, ' ').slice(0, 300)
+    });
   });
-
-  const day0 = localDayOf(start, offset);
-  const day1 = localDayOf(end, offset);
-  const totalMin = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-
-  if (day0 === day1) return [mk(day0, totalMin, 'whole', start, end)];
-
-  // Instante exacto de las 00:00 locales del segundo día: el "start" del
-  // día 1 en UTC es (medianoche local - offset).
-  const [y, m, d] = day1.split('-').map(Number);
-  const boundary = Date.UTC(y, m - 1, d) - offset * 60000;
-  const minBefore = Math.max(0, Math.min(totalMin, Math.round((boundary - start.getTime()) / 60000)));
-  const minAfter = Math.max(0, totalMin - minBefore);
-
-  const shareA = totalMin > 0 ? roundWorkNum(delta * (minBefore / totalMin)) : 0;
-  const shareB = roundWorkNum(delta - shareA);
-
-  return [
-    { ...mk(day0, minBefore, 'start', start, new Date(Math.min(end.getTime(), boundary))), delta: shareA },
-    { ...mk(day1, minAfter, 'end', new Date(Math.max(start.getTime(), boundary)), end), delta: shareB }
-  ];
+  out.sort((a, b) => a.from.localeCompare(b.from));
+  // Solo el último puede quedar abierto. Uno abierto en el medio se cierra
+  // cuando arranca el siguiente, así la lista de pausas siempre es coherente.
+  for (let i = 0; i < out.length - 1; i++) {
+    const nextFrom = out[i + 1].from;
+    if (!out[i].to || new Date(out[i].to) > new Date(nextFrom)) out[i].to = nextFrom;
+  }
+  // Un tramo cerrado de 0 minutos no aporta nada: se descarta.
+  return out.filter((p, i) => i === out.length - 1 || new Date(p.to) > new Date(p.from));
 }
 
-// Una sesión puede quedar a medias: se corta y se anota por qué. La causa la
-// elige el admin (hay motivos predefinidos en el panel, pero el texto es
-// libre). Marcar "incomplete" SIN motivo no tiene sentido, así que aquí se
-// fuerza a que venga uno.
-// Acepta las dos formas de mandarlo: texto ('complete' | 'incomplete') o
-// booleano (true = completa, false = a medias). Cualquier otra cosa cae en
-// "completa", que es el estado por defecto y el que nunca miente.
+// Los tramos de la sesión tal como se usan: si no hay ninguno (sesiones
+// viejas), se arma uno solo del inicio al fin y todo lo de abajo funciona
+// igual, sin necesidad de migrar datos.
+function workParts(session) {
+  const list = parseWorkParts(session?.parts);
+  if (list.length) return list;
+  const from = session?.started_at ? new Date(session.started_at) : null;
+  if (!from || Number.isNaN(from.getTime())) return [];
+  // Sin hora de fin la sesión sigue abierta: el tramo queda abierto.
+  if (!session?.ended_at) return [{ from: from.toISOString(), to: null, reason: '' }];
+  const to = new Date(session.ended_at);
+  return [{ from: from.toISOString(), to: to > from ? to.toISOString() : null, reason: '' }];
+}
+
+// Cada corte entre dos tramos: cuándo se interrumpió, por qué, cuánto duró la
+// pausa y cuándo se volvió. Es el corazón del relato de la sesión.
+function workInterrupts(parts) {
+  const out = [];
+  for (let i = 0; i < parts.length - 1; i++) {
+    const cur = parts[i];
+    const next = parts[i + 1];
+    if (!cur.to) continue;
+    const at = new Date(cur.to);
+    const back = new Date(next.from);
+    if (Number.isNaN(at.getTime()) || Number.isNaN(back.getTime())) continue;
+    out.push({
+      at: at.toISOString(),                       // se interrumpió a las…
+      resumed_at: back.toISOString(),             // …se continuó a las…
+      minutes: Math.max(0, Math.round((back - at) / 60000)),
+      reason: cur.reason || ''
+    });
+  }
+  return out;
+}
+
+// Si la sesión queda cerrada o pausada, su último tramo tiene que tener hora
+// de fin: si venía abierto (estaba en curso) se cierra en "ahora".
+function closeOpenWorkPart(parts, at) {
+  const list = parseWorkParts(parts);
+  if (!list.length || list[list.length - 1].to) return list;
+  const stamp = (at && !Number.isNaN(new Date(at).getTime()) ? new Date(at) : new Date()).toISOString();
+  return parseWorkParts([...list.slice(0, -1), { ...list[list.length - 1], to: stamp }]);
+}
+
+// Arma los tramos desde el body. Si viene `parts` gana lo que manda el panel
+// (el formulario manual puede escribir varios tramos con pausas en el medio);
+// si no, se arma uno solo con started_at/ended_at, como antes.
+// realtime → un tramo abierto que arranca ahora (la hora la pone el servidor).
+function workPartsFromBody(body, { realtime = false } = {}) {
+  if (realtime) {
+    const from = new Date();
+    return { parts: [{ from: from.toISOString(), to: null, reason: '' }], started: from, ended: null };
+  }
+  if (Array.isArray(body?.parts)) {
+    const list = parseWorkParts(body.parts);
+    if (!list.length) return { error: 'Los tramos de la sesión no son válidos.' };
+    const started = new Date(list[0].from);
+    const ended = list[list.length - 1].to ? new Date(list[list.length - 1].to) : null;
+    return { parts: list, started, ended };
+  }
+  const started = body?.started_at ? new Date(body.started_at) : new Date();
+  if (Number.isNaN(started.getTime())) return { error: 'started_at inválido.' };
+  const ended = body?.ended_at ? new Date(body.ended_at) : null;
+  if (ended && Number.isNaN(ended.getTime())) return { error: 'ended_at inválido.' };
+  if (ended && ended.getTime() < started.getTime()) {
+    return { error: 'La sesión no puede terminar antes de empezar.' };
+  }
+  return {
+    parts: [{ from: started.toISOString(), to: ended ? ended.toISOString() : null, reason: '' }],
+    started,
+    ended
+  };
+}
+
+// ── El corte por día y por tramo ──
+// Cada tramo se parte por día local (un tramo puede cruzar las 00:00) y el
+// resultado es una lista plana de "segmentos": uno por tramo y por día. Los
+// minutos se reparten exacto (suman el tiempo trabajado, sin las pausas) y
+// el % se reparte en la misma proporción dando el resto al último, para que
+// también sume exacto.
+function splitWorkSession(session, tzOffset) {
+  const offset = normalizeTzOffsetMinutes(tzOffset);
+  const parts = workParts(session);
+  if (!parts.length) return [];
+  const now = new Date();
+  const delta = roundWorkNum(session?.progress_delta || 0);
+  const slices = [];
+
+  parts.forEach((p, idx) => {
+    const from = new Date(p.from);
+    if (Number.isNaN(from.getTime())) return;
+    const to = p.to ? new Date(p.to) : now;
+    if (Number.isNaN(to.getTime()) || to.getTime() <= from.getTime()) {
+      if (p.to) return;                     // tramo cerrado de 0 min: nada que repartir
+      return;                               // abierto y recién arrancado
+    }
+    const mk = (day, minutes, part, a, b) => ({
+      day,
+      minutes: Math.max(0, Math.round(minutes)),
+      part,                                  // 'whole' | 'start' | 'end'
+      from: new Date(a).toISOString(),
+      to: new Date(b).toISOString(),
+      chunk: idx,                            // qué tramo es (0 = el primero)
+      chunks: parts.length
+    });
+    const day0 = localDayOf(from, offset);
+    const day1 = localDayOf(to, offset);
+    const totalMin = Math.max(0, Math.round((to.getTime() - from.getTime()) / 60000));
+    if (day0 === day1) { slices.push(mk(day0, totalMin, 'whole', from, to)); return; }
+    // Instante exacto de las 00:00 locales del segundo día: el "start" del
+    // día 1 en UTC es (medianoche local - offset).
+    const [y, m, d] = day1.split('-').map(Number);
+    const boundary = Date.UTC(y, m - 1, d) - offset * 60000;
+    const minBefore = Math.max(0, Math.min(totalMin, Math.round((boundary - from.getTime()) / 60000)));
+    slices.push(mk(day0, minBefore, 'start', from, new Date(Math.min(to.getTime(), boundary))));
+    slices.push(mk(day1, totalMin - minBefore, 'end', new Date(Math.max(from.getTime(), boundary)), to));
+  });
+  if (!slices.length) return [];
+
+  // El % de la sesión se reparte entre los segmentos por minutos trabajados.
+  const totalSliceMin = slices.reduce((sum, x) => sum + x.minutes, 0);
+  let acc = 0;
+  slices.forEach((sl, i) => {
+    const share = i === slices.length - 1
+      ? roundWorkNum(delta - acc)
+      : (totalSliceMin > 0 ? roundWorkNum(delta * (sl.minutes / totalSliceMin)) : 0);
+    acc = roundWorkNum(acc + share);
+    sl.delta = share;
+  });
+
+  // Y el estado de la historia: si este tramo se retomó, y si después vinieron
+  // otros (o sea, si acá fue justo donde se interrumpió el trabajo).
+  const interrupts = workInterrupts(parts);
+  slices.forEach((sl) => {
+    sl.resumed = sl.chunk > 0;
+    const cut = interrupts[sl.chunk] || null;
+    sl.paused_after = sl.chunk < parts.length - 1 ? (cut ? cut.minutes : 0) : null;
+    sl.pause_reason = cut ? cut.reason : '';
+  });
+  return slices;
+}
+
+
+// Una sesión puede terminar de tres maneras, y las tres se anotan:
+//   'complete'   → se hizo y se terminó bien
+//   'paused'     → se interrumpió para seguir más tarde (queda pendiente)
+//   'incomplete' → quedó a medias y no se va a retomar
+// En los dos últimos el motivo es obligatorio: hay motivos predefinidos en
+// el panel, pero el texto es libre. Marcar "a medias" o "pausada" SIN
+// motivo no tiene sentido, así que aquí se fuerza a que venga uno.
+// Acepta las dos formas de mandarlo: texto ('complete' | 'paused' |
+// 'incomplete') o booleano (true = completa, false = a medias). Cualquier
+// otra cosa cae en "completa", que es el estado por defecto.
 function normalizeWorkCompletion(input, reasonInput) {
   const raw = input;
   const text = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
-  const incomplete = text === 'incomplete' || raw === false;
+  const kind = text === 'paused' ? 'paused'
+    : (text === 'incomplete' || raw === false) ? 'incomplete' : '';
   const reason = String(reasonInput || '').trim().replace(/\s+/g, ' ').slice(0, 300);
-  if (!incomplete) return { completion: 'complete', incomplete_reason: '' };
-  return { completion: 'incomplete', incomplete_reason: reason };
+  if (!kind) return { completion: 'complete', incomplete_reason: '' };
+  return { completion: kind, incomplete_reason: reason };
+}
+
+// Aviso de motivo faltante, con el tono de cada caso.
+function workCompletionError(completion) {
+  if (completion.completion === 'paused') return 'Si la sesión queda pausada, contá por qué la interrumpiste.';
+  return 'Si la sesión quedó incompleta, contá por qué.';
 }
 
 function sanitizeWorkSessionRow(r, tzOffset) {
-  const segments = splitWorkSession(r, tzOffset);
+  const offset = normalizeTzOffsetMinutes(tzOffset);
+  const parts = workParts(r);
+  const segments = splitWorkSession(r, offset);
   const totalMin = segments.reduce((s, x) => s + x.minutes, 0);
   const days = [...new Set(segments.map((x) => x.day))];
+  const interrupts = workInterrupts(parts);
+  const rawStatus = String(r?.status || 'done');
+  // 'paused' = interrumpida a la espera de retomarla. Abierta = 'active'.
+  const status = rawStatus === 'active' || rawStatus === 'paused' ? rawStatus : 'done';
+  const completion = String(r?.completion || 'complete');
+  const normCompletion = completion === 'incomplete' || completion === 'paused' ? completion : 'complete';
+  // Cómo terminó, para el panel y el devlog. 'resumed_done' es el caso
+  // interesante: se interrumpió, se continuó y se terminó con éxito.
+  const outcome = status === 'paused' ? 'paused'
+    : normCompletion === 'incomplete' ? 'incomplete'
+      : status === 'active' ? (parts.length > 1 ? 'active_resumed' : 'active')
+        : parts.length > 1 ? 'resumed_done' : 'complete';
+  // Tramos con sus minutos, para pintar la historia de la sesión.
+  const partRows = parts.map((p, i) => {
+    const from = new Date(p.from);
+    const to = p.to ? new Date(p.to) : new Date();
+    return {
+      index: i,
+      from: p.from,
+      to: p.to,
+      open: !p.to,
+      minutes: Math.max(0, Math.round((to - from) / 60000)),
+      day: localDayOf(from, offset),
+      reason: p.reason || '',
+      resumed: i > 0
+    };
+  });
+  // Del primer comienzo al último final: el tiempo de pared, que es más largo
+  // que el trabajado en cuanto hubo una pausa.
+  const wallMin = partRows.length
+    ? Math.max(0, Math.round(
+      (new Date(partRows[partRows.length - 1].to || Date.now()) - new Date(partRows[0].from)) / 60000))
+    : 0;
   return {
     id: Number(r?.id || 0),
     project_id: r?.project_id != null ? Number(r.project_id) : null,
@@ -14807,11 +14998,12 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     details: String(r?.details || ''),
     progress_delta: roundWorkNum(r?.progress_delta || 0),
     progress_applied: r?.progress_applied === true,
-    status: String(r?.status || 'done') === 'active' ? 'active' : 'done',
+    status,
     // Sesión en vivo: arrancó con el cronómetro y la hora la puso el servidor.
     realtime: r?.realtime === true,
-    // ¿Quedó a medias? Si sí, `incomplete_reason` explica por qué.
-    completion: String(r?.completion || 'complete') === 'incomplete' ? 'incomplete' : 'complete',
+    // Cómo terminó el bloque. 'incomplete_reason' explica el 'paused' o el
+    // 'incomplete' (y el motivo de cada corte, si se reanudó, va en `parts`).
+    completion: normCompletion,
     incomplete_reason: String(r?.incomplete_reason || ''),
     started_at: r?.started_at ? new Date(r.started_at).toISOString() : null,
     ended_at: r?.ended_at ? new Date(r.ended_at).toISOString() : null,
@@ -14819,11 +15011,20 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     created_at: r?.created_at ? new Date(r.created_at).toISOString() : null,
     updated_at: r?.updated_at ? new Date(r.updated_at).toISOString() : null,
     published_devlog_id: r?.published_devlog_id != null ? Number(r.published_devlog_id) : null,
+    // La historia: qué tramos se trabajaron, dónde se cortó y dónde se volvió.
+    parts: partRows,
+    parts_count: partRows.length,
+    interrupts,
+    interrupt_count: interrupts.length,
+    paused_minutes: interrupts.reduce((sum, x) => sum + x.minutes, 0),
+    resumed: partRows.length > 1,
+    outcome,
     // Derivados del corte:
     segments,
     local_day: days[0] || '',
     end_local_day: days[days.length - 1] || '',
     duration_minutes: totalMin,
+    wall_minutes: wallMin,
     crosses_midnight: days.length > 1
   };
 }
@@ -14954,15 +15155,20 @@ app.get('/ows-work-sessions', async (req, res) => {
 
 // Crear una sesión de trabajo (el "minidevlog del momento").
 // Body: { project_id, title, details?, started_at?, ended_at?, status?,
-//         progress_delta?, created_by? }
+//         parts?, progress_delta?, completion?, incomplete_reason?, created_by? }
 // status 'active' = sigue abierta (no aplica % todavía). Al cerrarla
 // (status 'done' + ended_at) se aplica el avance al % del proyecto.
+// completion 'paused' la deja pausada: interrumpida a la espera de retomarla.
+//
+// Si viene `parts` (una lista de tramos) manda eso y se ignoran
+// started_at/ended_at: así el formulario manual puede escribir varios bloques
+// separados por pausas. Ver workPartsFromBody.
 //
 // realtime: true → sesión en vivo. El cliente ya pidió los datos y ahora
 // arranca el cronómetro, así que:
 //   · la hora de inicio la pone el SERVIDOR (NOW()), no el navegador, para
 //     no arrastrar la hora del dispositivo;
-//   · se ignora cualquier started_at/ended_at que venga en el body;
+//   · se ignora cualquier started_at/ended_at/parts que venga en el body;
 //   · queda abierta y se cierra con POST /ows-work-sessions/:id/stop, que
 //     pone la hora de fin también desde el servidor.
 app.post('/ows-work-sessions', async (req, res) => {
@@ -14976,25 +15182,25 @@ app.post('/ows-work-sessions', async (req, res) => {
     ? Number(req.body.project_id) : null;
   const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
   const createdBy = String(req.body?.created_by || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
-  const status = realtime ? 'active'
-    : (String(req.body?.status || '').trim().toLowerCase() === 'active' ? 'active' : 'done');
-  const startedRaw = realtime ? null : req.body?.started_at;
-  const started = startedRaw ? new Date(startedRaw) : new Date();
-  if (Number.isNaN(started.getTime())) return res.status(400).json({ error: 'started_at inválido.' });
-  const endedRaw = realtime ? null : req.body?.ended_at;
-  const ended = endedRaw ? new Date(endedRaw) : (status === 'done' ? new Date() : null);
-  if (ended && Number.isNaN(ended.getTime())) return res.status(400).json({ error: 'ended_at inválido.' });
-  if (ended && ended.getTime() < started.getTime()) {
-    return res.status(400).json({ error: 'La sesión no puede terminar antes de empezar.' });
-  }
+  const built = workPartsFromBody(req.body, { realtime });
+  if (built.error) return res.status(400).json({ error: built.error });
   const delta = roundWorkNum(clampPercent(req.body?.progress_delta ?? 0) ?? 0);
   const completion = normalizeWorkCompletion(
     req.body?.completion ?? req.body?.Completion,
     req.body?.incomplete_reason ?? req.body?.incompleteReason
   );
-  if (completion.completion === 'incomplete' && !completion.incomplete_reason) {
-    return res.status(400).json({ error: 'Si la sesión quedó incompleta, contá por qué.' });
+  if (completion.completion !== 'complete' && !completion.incomplete_reason) {
+    return res.status(400).json({ error: workCompletionError(completion) });
   }
+  // 'paused' es un estado en sí mismo: la sesión queda a la espera de que la
+  // retomen. Si no viene 'active', el último tramo tiene que quedar cerrado.
+  let status = realtime ? 'active'
+    : (String(req.body?.status || '').trim().toLowerCase() === 'active' ? 'active' : 'done');
+  if (completion.completion === 'paused') status = 'paused';
+  let parts = built.parts;
+  if (status !== 'active') parts = closeOpenWorkPart(parts);
+  const started = new Date(parts[0].from);
+  const ended = parts[parts.length - 1].to ? new Date(parts[parts.length - 1].to) : null;
   try {
     await ensureOwsLaunchProjectsTable();
     await ensureOwsWorkSessionsTable();
@@ -15006,7 +15212,8 @@ app.post('/ows-work-sessions', async (req, res) => {
       pid = projRows[0].id;
       projectName = String(projRows[0].name || '');
     }
-    // El avance solo se aplica al cerrar; una sesión abierta no toca el %.
+    // El avance solo se aplica al cerrar; una sesión abierta o pausada no
+    // toca el %. Si se reanuda y se cierra, se aplica todo junto.
     let applied = null;
     if (status === 'done' && delta && pid) {
       applied = await applySessionProgress({
@@ -15018,14 +15225,15 @@ app.post('/ows-work-sessions', async (req, res) => {
       `INSERT INTO ows_work_sessions
          (project_id, project_name, title, details, progress_before, progress_after,
           progress_delta, progress_applied, status, realtime, completion,
-          incomplete_reason, started_at, ended_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          incomplete_reason, started_at, ended_at, parts, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16)
        RETURNING *`,
       [pid, projectName, title, details,
        applied ? applied.before : null, applied ? applied.after : null,
        delta, !!(applied && pid), status, realtime,
        completion.completion, completion.incomplete_reason,
-       started.toISOString(), ended ? ended.toISOString() : null, createdBy]
+       started.toISOString(), ended ? ended.toISOString() : null,
+       JSON.stringify(parts), createdBy]
     );
     logAdminActivity({
       action: 'create-work-session', entityType: 'work_session', entityId: String(rows[0]?.id || ''),
@@ -15033,7 +15241,7 @@ app.post('/ows-work-sessions', async (req, res) => {
       meta: {
         project_id: pid, project_name: projectName, delta, status, realtime,
         completion: completion.completion, incomplete_reason: completion.incomplete_reason,
-        started_at: started.toISOString()
+        parts: parts.length, started_at: started.toISOString()
       }
     });
     return res.json({
@@ -15051,7 +15259,9 @@ app.post('/ows-work-sessions', async (req, res) => {
 });
 
 // Editar / cerrar una sesión. Cerrar una sesión abierta aplica su avance al
-// % del proyecto (si aún no se había aplicado).
+// % del proyecto (si aún no se había aplicado). Si el panel manda `parts`,
+// esos tramos reemplazan a started_at/ended_at: es lo que usa el formulario
+// manual para escribir varios bloques separados por pausas.
 app.patch('/ows-work-sessions/:id', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const id = Number(req.params.id || 0);
@@ -15075,13 +15285,23 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
         ? (req.body?.incomplete_reason ?? req.body?.incompleteReason)
         : row.incomplete_reason
     );
-    if (completion.completion === 'incomplete' && !completion.incomplete_reason) {
-      return res.status(400).json({ error: 'Si la sesión quedó incompleta, contá por qué.' });
+    if (completion.completion !== 'complete' && !completion.incomplete_reason) {
+      return res.status(400).json({ error: workCompletionError(completion) });
     }
-    const status = req.body?.status !== undefined
+    let status = req.body?.status !== undefined
       ? (String(req.body.status).trim().toLowerCase() === 'active' ? 'active' : 'done')
-      : (row.status === 'active' ? 'active' : 'done');
-    const started = req.body?.started_at !== undefined
+      : (row.status === 'active' ? 'active' : row.status === 'paused' ? 'paused' : 'done');
+    if (completion.completion === 'paused') status = 'paused';
+    else if (status === 'paused' && completion.completion === 'complete'
+      && req.body?.status === undefined && req.body?.completion !== undefined) status = 'done';
+
+    // Tramos: si vienen, mandan sobre started_at/ended_at.
+    let parts = null;
+    if (Array.isArray(req.body?.parts)) {
+      parts = parseWorkParts(req.body.parts);
+      if (!parts.length) return res.status(400).json({ error: 'Los tramos de la sesión no son válidos.' });
+    }
+    let started = req.body?.started_at !== undefined
       ? new Date(req.body.started_at) : new Date(row.started_at);
     if (Number.isNaN(started.getTime())) return res.status(400).json({ error: 'started_at inválido.' });
     let ended = row.ended_at ? new Date(row.ended_at) : null;
@@ -15094,10 +15314,23 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
     if (ended && ended.getTime() < started.getTime()) {
       return res.status(400).json({ error: 'La sesión no puede terminar antes de empezar.' });
     }
+    if (parts) {
+      // Cerrada o pausada ⇒ el último tramo tiene que estar cerrado.
+      if (status !== 'active') parts = closeOpenWorkPart(parts);
+      started = new Date(parts[0].from);
+      ended = parts[parts.length - 1].to ? new Date(parts[parts.length - 1].to) : null;
+    } else if (status !== 'active') {
+      // Sin tramos nuevos, el que estaba en curso se cierra con la hora de fin.
+      parts = closeOpenWorkPart(workParts(row), ended);
+      started = new Date(parts[0].from);
+      ended = parts[parts.length - 1].to ? new Date(parts[parts.length - 1].to) : null;
+    } else {
+      parts = workParts(row);
+    }
     // El % se aplica una sola vez: solo si recién se cierra y el avance
     // todavía no estaba aplicado.
     let applied = null;
-    const justClosed = status === 'done' && row.status === 'active' && row.progress_applied !== true;
+    const justClosed = status === 'done' && row.status !== 'done' && row.progress_applied !== true;
     if (justClosed && delta && row.project_id) {
       applied = await applySessionProgress({
         projectId: row.project_id, delta,
@@ -15108,15 +15341,15 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
     const { rows: upd } = await pool.query(
       `UPDATE ows_work_sessions
           SET title = $1, details = $2, progress_delta = $3, status = $4,
-              started_at = $5, ended_at = $6, updated_at = NOW(),
-              completion = $7, incomplete_reason = $8,
-              progress_before = COALESCE($9, progress_before),
-              progress_after  = COALESCE($10, progress_after),
-              progress_applied = progress_applied OR $11
-        WHERE id = $12
+              started_at = $5, ended_at = $6, parts = $7::jsonb, updated_at = NOW(),
+              completion = $8, incomplete_reason = $9,
+              progress_before = COALESCE($10, progress_before),
+              progress_after  = COALESCE($11, progress_after),
+              progress_applied = progress_applied OR $12
+        WHERE id = $13
         RETURNING *`,
       [title, details, delta, status, started.toISOString(),
-       ended ? ended.toISOString() : null,
+       ended ? ended.toISOString() : null, JSON.stringify(parts),
        completion.completion, completion.incomplete_reason,
        applied ? applied.before : null, applied ? applied.after : null,
        !!(applied && row.project_id), id]
@@ -15124,7 +15357,10 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
     logAdminActivity({
       action: 'update-work-session', entityType: 'work_session', entityId: String(id),
       entityName: title, adminName: String(row.created_by || 'OceanandWild'),
-      meta: { delta, status, just_closed: justClosed, completion: completion.completion, incomplete_reason: completion.incomplete_reason }
+      meta: {
+        delta, status, just_closed: justClosed, completion: completion.completion,
+        incomplete_reason: completion.incomplete_reason, parts: parts.length
+      }
     });
     return res.json({
       success: true,
@@ -15144,7 +15380,17 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
 // el navegador no manda la hora, así que el tiempo medido es el real y no
 // depende de la hora del dispositivo. También aplica el avance al % del
 // proyecto (una sola vez) y acepta corregir título/detalle antes de cerrar.
-// Body: { progress_delta?, title?, details?, tz_offset? }
+//
+// Body: { progress_delta?, title?, details?, completion?, incomplete_reason?,
+//         tz_offset? }
+//
+// completion decide qué pasa con la sesión:
+//   'complete'   → se cierra y queda terminada. Si antes estuvo pausada, el
+//                  devlog cuenta que se interrumpió, se continuó y se
+//                  finalized con éxito.
+//   'incomplete' → se cierra pero quedó a medias.
+//   'paused'     → NO se cierra: se corta acá, queda pausada esperando que la
+//                  retomen (POST /:id/resume) y el % todavía NO se aplica.
 app.post('/ows-work-sessions/:id/stop', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const id = Number(req.params.id || 0);
@@ -15175,22 +15421,39 @@ app.post('/ows-work-sessions/:id/stop', async (req, res) => {
     const delta = req.body?.progress_delta !== undefined
       ? roundWorkNum(clampPercent(req.body.progress_delta) ?? 0)
       : roundWorkNum(row.progress_delta || 0);
-    // ¿Quedó a medias? Si el panel no lo manda, se respeta lo que ya tuviera.
-    // Sin motivo no se acepta.
+    // ¿Cómo terminó este tramo? Si el panel no lo manda, se respeta lo que
+    // ya tuviera. Sin motivo no se acepta.
     const completion = normalizeWorkCompletion(
       req.body?.completion ?? row.completion,
       req.body?.incomplete_reason !== undefined || req.body?.incompleteReason !== undefined
         ? (req.body?.incomplete_reason ?? req.body?.incompleteReason)
         : row.incomplete_reason
     );
-    if (completion.completion === 'incomplete' && !completion.incomplete_reason) {
-      return res.status(400).json({ error: 'Marcá por qué quedó incompleta (elegí un motivo o escribí uno).' });
+    if (completion.completion !== 'complete' && !completion.incomplete_reason) {
+      return res.status(400).json({ error: workCompletionError(completion) });
     }
+    const paused = completion.completion === 'paused';
+    const status = paused ? 'paused' : 'done';
+    // El tramo que se estaba trabajando se cierra acá. El motivo de la pausa
+    // queda en ese tramo, que es lo que después cuenta la historia.
+    const base = workParts(row);
+    const last = base.length
+      ? base[base.length - 1]
+      : { from: started.toISOString(), to: null, reason: '' };
+    const parts = parseWorkParts([
+      ...base.slice(0, -1),
+      {
+        ...last,
+        to: last.to || ended.toISOString(),
+        reason: paused ? completion.incomplete_reason : last.reason
+      }
+    ]);
     const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
     const updatedBy = String(req.body?.created_by || headerAdmin || row.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
-    // El % se aplica una sola vez: solo si esta sesión aún no lo tenía.
+    // El % se aplica una sola vez y solo al cerrar de verdad: una sesión
+    // pausada todavía no terminó, así que su avance queda pendiente.
     let applied = null;
-    if (delta && row.project_id && row.progress_applied !== true) {
+    if (!paused && delta && row.project_id && row.progress_applied !== true) {
       applied = await applySessionProgress({
         projectId: row.project_id, delta, updatedBy,
         note: `Sesión: ${title}`
@@ -15198,26 +15461,28 @@ app.post('/ows-work-sessions/:id/stop', async (req, res) => {
     }
     const { rows: upd } = await pool.query(
       `UPDATE ows_work_sessions
-          SET status = 'done', ended_at = $1, updated_at = NOW(),
-              title = $2, details = $3, progress_delta = $4,
-              completion = $5, incomplete_reason = $6,
-              progress_before = COALESCE($7, progress_before),
-              progress_after  = COALESCE($8, progress_after),
-              progress_applied = progress_applied OR $9
-        WHERE id = $10
+          SET status = $1, ended_at = $2, parts = $3::jsonb, updated_at = NOW(),
+              title = $4, details = $5, progress_delta = $6,
+              completion = $7, incomplete_reason = $8,
+              progress_before = COALESCE($9, progress_before),
+              progress_after  = COALESCE($10, progress_after),
+              progress_applied = progress_applied OR $11
+        WHERE id = $12
         RETURNING *`,
-      [ended.toISOString(), title, details, delta,
+      [status, ended.toISOString(), JSON.stringify(parts),
+       title, details, delta,
        completion.completion, completion.incomplete_reason,
        applied ? applied.before : null, applied ? applied.after : null,
        !!(applied && row.project_id), id]
     );
     logAdminActivity({
-      action: 'stop-work-session', entityType: 'work_session', entityId: String(id),
+      action: paused ? 'pause-work-session' : 'stop-work-session',
+      entityType: 'work_session', entityId: String(id),
       entityName: title, adminName: updatedBy,
       meta: {
         delta, minutes: Math.round((ended.getTime() - started.getTime()) / 60000),
         completion: completion.completion, incomplete_reason: completion.incomplete_reason,
-        project_id: row.project_id, project_name: String(row.project_name || '')
+        parts: parts.length, project_id: row.project_id, project_name: String(row.project_name || '')
       }
     });
     const session = sanitizeWorkSessionRow(upd[0], tzOffset);
@@ -15225,6 +15490,7 @@ app.post('/ows-work-sessions/:id/stop', async (req, res) => {
       success: true,
       session,
       duration_minutes: session.duration_minutes,
+      paused,
       // Si cruzó la medianoche, el frontend salta al día donde terminó.
       crossed_midnight: session.crosses_midnight,
       development: applied ? applied.development : null,
@@ -15234,6 +15500,63 @@ app.post('/ows-work-sessions/:id/stop', async (req, res) => {
     });
   } catch (err) {
     console.error('Error en POST /ows-work-sessions/:id/stop:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Retomar una sesión pausada. El cronómetro arranca de nuevo: se abre un
+// tramo más y la sesión vuelve a estar activa. El % se sigue aplicando
+// una sola vez, recién cuando se cierre de verdad.
+app.post('/ows-work-sessions/:id/resume', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_work_sessions WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
+    const row = cur[0];
+    if (row.status !== 'paused') {
+      return res.status(409).json({ error: 'Esa sesión no está pausada.' });
+    }
+    const now = new Date();
+    const pausedAt = row.ended_at ? new Date(row.ended_at) : null;
+    if (pausedAt && (Number.isNaN(pausedAt.getTime()) || pausedAt.getTime() > now.getTime())) {
+      return res.status(400).json({ error: 'La pausa quedó con una hora inválida.' });
+    }
+    const title = req.body?.title !== undefined
+      ? String(req.body.title || '').trim().slice(0, 160) : row.title;
+    if (!title) return res.status(400).json({ error: 'El título no puede quedar vacío.' });
+    const details = req.body?.details !== undefined
+      ? String(req.body.details || '').trim().slice(0, 4000) : row.details;
+    // Se cierra el tramo pausado y se abre uno nuevo desde ahora.
+    const parts = parseWorkParts([...workParts(row), { from: now.toISOString(), to: null, reason: '' }]);
+    if (!parts.length) return res.status(400).json({ error: 'No se pudo retomar la sesión.' });
+    const { rows: upd } = await pool.query(
+      `UPDATE ows_work_sessions
+          SET status = 'active', ended_at = NULL, parts = $1::jsonb, realtime = TRUE,
+              completion = 'complete', incomplete_reason = '',
+              title = $2, details = $3, updated_at = NOW()
+        WHERE id = $4
+        RETURNING *`,
+      [JSON.stringify(parts), title, details, id]
+    );
+    const updatedBy = String(req.body?.created_by || row.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+    logAdminActivity({
+      action: 'resume-work-session', entityType: 'work_session', entityId: String(id),
+      entityName: title, adminName: updatedBy,
+      meta: {
+        project_id: row.project_id, project_name: String(row.project_name || ''),
+        parts: parts.length, paused_at: pausedAt ? pausedAt.toISOString() : null,
+        paused_minutes: pausedAt ? Math.round((now - pausedAt) / 60000) : 0
+      }
+    });
+    const session = sanitizeWorkSessionRow(upd[0], tzOffset);
+    return res.json({ success: true, session, duration_minutes: session.duration_minutes });
+  } catch (err) {
+    console.error('Error en POST /ows-work-sessions/:id/resume:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -15288,7 +15611,10 @@ function buildDailyDevlog(sessions, date, tzOffset) {
         });
       }
       const g0 = byProject.get(key);
-      g0.items.push({ session: s, seg: g });
+      // `is_last` marca el segmento donde la sesión realmente termina: es
+      // donde se puede decir "se retomó y se finalizó con éxito".
+      const isLast = !!(s.ended_at && g.to === new Date(s.ended_at).toISOString());
+      g0.items.push({ session: s, seg: g, is_last: isLast });
       g0.minutes += g.minutes;
       g0.sessions.add(s.id);
       if (g.part === 'end') g0.delta += g.delta;
@@ -15310,20 +15636,40 @@ function buildDailyDevlog(sessions, date, tzOffset) {
     g.gained = roundWorkNum(g.gained);
     g.lost = roundWorkNum(g.lost);
     g.session_count = g.sessions.size;
-    g.pending = g.items.filter((it) => !it.session.published_devlog_id).length;
+    // Se cuenta por SESIÓN, no por segmento: una sesión que cruzó la medianoche
+    // (o que se interrumpió y se retomó) tiene varios segmentos y contarlos
+    // multiplicaría el número de sesiones pendientes de publicar.
+    g.pending = new Set(
+      g.items.filter((it) => !it.session.published_devlog_id).map((it) => it.session.id)
+    ).size;
     // Sesiones que quedaron a medias: el devlog del día lo tiene que decir,
     // porque explica por qué el avance fue menor de lo esperado.
     const inc = g.items.filter((it) => it.session.completion === 'incomplete');
     g.incomplete = inc.length;
     g.incomplete_reasons = [...new Set(inc.map((it) => String(it.session.incomplete_reason || '')).filter(Boolean))];
+    // Sesiones pausadas: se cortaron y quedaron esperando ser retomadas.
+    const paused = g.items.filter((it) => it.session.status === 'paused');
+    g.paused = paused.length;
+    g.paused_reasons = [...new Set(paused.map((it) => String(it.session.incomplete_reason || '')).filter(Boolean))];
+    // Sesiones interrumpidas que se retomaron en este día, y las que además
+    // cerraron con éxito: es el relato que pide el panel.
+    const resumedIds = new Set(g.items.filter((it) => it.seg.chunk > 0).map((it) => it.session.id));
+    g.resumes = resumedIds.size;
+    const resumedOk = new Set(
+      g.items.filter((it) => it.seg.chunk > 0 && it.session.outcome === 'resumed_done').map((it) => it.session.id)
+    );
+    g.resumes_done = resumedOk.size;
+    g.interrupt_count = [...new Set(
+      g.items.filter((it) => it.seg.chunk > 0 || it.seg.paused_after != null).map((it) => it.session.id)
+    )].length;
     g.before = g.before == null ? null : roundWorkNum(g.before);
     g.after = g.after == null ? null : roundWorkNum(g.after);
     g.continues = g.items.filter((it) => it.seg.part === 'end').length;
     g.rolls = g.items.filter((it) => it.seg.part === 'start' && it.session.crosses_midnight).length;
-    // Sesiones a publicar: las de hoy que aún no/devlog.
-    g.publish_ids = g.items
-      .filter((it) => !it.session.published_devlog_id)
-      .map((it) => it.session.id);
+    // Sesiones a publicar: las de hoy que aún no/devlog, una sola vez cada una.
+    g.publish_ids = [...new Set(
+      g.items.filter((it) => !it.session.published_devlog_id).map((it) => it.session.id)
+    )];
     g.payload = buildDailyDevlogPayload(g, day, tzOffset);
     return g;
   });
@@ -15347,8 +15693,20 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
   // Las sesiones a medias se anotan en el motivo: es la explicación de por
   // qué el día se cierra con menos avance del esperado.
   const incNote = g.incomplete
-    ? ` ${g.incomplete} de ${g.session_count} sesión${g.session_count === 1 ? '' : 'es'} quedó a medias`
+    ? ` ${plural(g.incomplete, 'sesión de las ' + g.session_count + ' quedó a medias',
+      'sesiones de las ' + g.session_count + ' quedaron a medias')}`
       + (g.incomplete_reasons.length ? ` (${g.incomplete_reasons.join('; ')}).` : '.')
+    : '';
+  // Y las que se cortaron para seguir después: o quedaron esperando, o se
+  // retomaron y cerraron con éxito.
+  const pauseNote = g.paused
+    ? ` ${plural(g.paused, 'sesión quedó pausada', 'sesiones quedaron pausadas')}`
+      + (g.paused_reasons.length ? ` (${g.paused_reasons.join('; ')}).` : '.')
+    : '';
+  const resumeNote = g.resumes
+    ? ` ${plural(g.resumes, 'sesión interrumpida se retomó y se completó',
+      'sesiones interrumpidas se retomaron y se completaron')}`
+      + (g.resumes_done ? '.' : ' y siguen en curso.')
     : '';
   const reason = [
     `Trabajo registrado en ${plural(g.session_count, 'sesión de trabajo', 'sesiones de trabajo')} (${formatWorkMinutes(g.minutes)}).`,
@@ -15356,13 +15714,15 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
     g.lost ? `${Math.abs(g.lost)}% de retroceso.` : '',
     openSessions ? `${plural(openSessions, 'sesión todavía abierta', 'sesiones todavía abiertas')}.` : '',
     incNote.trim(),
+    pauseNote.trim(),
+    resumeNote.trim(),
     rollNote.trim(),
     contNote.trim()
   ].filter(Boolean).join(' ');
   const details = g.items
     .slice()
     .sort((a, b) => String(a.seg.from).localeCompare(String(b.seg.from)))
-    .map(({ session: s, seg }) => {
+    .map(({ session: s, seg, is_last: isLast }) => {
       const head = `· ${formatWorkClock(seg.from, tzOffset)}–${formatWorkClock(seg.to, tzOffset)} (${formatWorkMinutes(seg.minutes)}) — ${s.title}`;
       const notes = [];
       if (seg.part === 'end') {
@@ -15371,9 +15731,25 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
         notes.push(`continuación de una sesión empezada el ${formatWorkDay(prev)}`);
       }
       if (s.crosses_midnight && seg.part === 'start') notes.push('continúa al día siguiente');
+      if (seg.chunk > 0) {
+        notes.push(`se continuó a las ${formatWorkClock(seg.from, tzOffset)} tras la pausa`);
+      }
+      if (seg.paused_after != null) {
+        const bits = [];
+        if (seg.pause_reason) bits.push(seg.pause_reason);
+        bits.push(seg.paused_after ? `pausa de ${formatWorkMinutes(seg.paused_after)}` : 'pausa');
+        notes.push(`se interrumpió a las ${formatWorkClock(seg.to, tzOffset)} (${bits.join('; ')})`);
+      }
       if (s.status === 'active') notes.push('sigue abierta');
+      if (s.status === 'paused') {
+        notes.push(`quedó pausada, se puede continuar más tarde`
+          + (s.incomplete_reason ? `: ${s.incomplete_reason}` : ''));
+      }
       if (s.completion === 'incomplete') {
         notes.push(`quedó incompleta${s.incomplete_reason ? `: ${s.incomplete_reason}` : ''}`);
+      }
+      if (isLast && s.outcome === 'resumed_done') {
+        notes.push('se retomó y se finalizó con éxito');
       }
       if (s.details) notes.push(s.details.replace(/\s+/g, ' ').trim());
       return notes.length ? `${head}\n    (${notes.join(' · ')})` : head;

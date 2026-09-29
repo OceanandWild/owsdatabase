@@ -14672,6 +14672,8 @@ async function ensureOwsWorkSessionsTable() {
       progress_applied BOOLEAN NOT NULL DEFAULT FALSE,
       status           VARCHAR(12) NOT NULL DEFAULT 'done',
       realtime         BOOLEAN NOT NULL DEFAULT FALSE,
+      completion       VARCHAR(12) NOT NULL DEFAULT 'complete',
+      incomplete_reason TEXT NOT NULL DEFAULT '',
       started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       ended_at         TIMESTAMPTZ,
       published_devlog_id BIGINT,
@@ -14688,6 +14690,8 @@ async function ensureOwsWorkSessionsTable() {
       ADD COLUMN IF NOT EXISTS progress_applied BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS status           VARCHAR(12) NOT NULL DEFAULT 'done',
       ADD COLUMN IF NOT EXISTS realtime         BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS completion       VARCHAR(12) NOT NULL DEFAULT 'complete',
+      ADD COLUMN IF NOT EXISTS incomplete_reason TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       ADD COLUMN IF NOT EXISTS ended_at         TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS published_devlog_id BIGINT
@@ -14773,6 +14777,22 @@ function splitWorkSession(session, tzOffset) {
   ];
 }
 
+// Una sesión puede quedar a medias: se corta y se anota por qué. La causa la
+// elige el admin (hay motivos predefinidos en el panel, pero el texto es
+// libre). Marcar "incomplete" SIN motivo no tiene sentido, así que aquí se
+// fuerza a que venga uno.
+// Acepta las dos formas de mandarlo: texto ('complete' | 'incomplete') o
+// booleano (true = completa, false = a medias). Cualquier otra cosa cae en
+// "completa", que es el estado por defecto y el que nunca miente.
+function normalizeWorkCompletion(input, reasonInput) {
+  const raw = input;
+  const text = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  const incomplete = text === 'incomplete' || raw === false;
+  const reason = String(reasonInput || '').trim().replace(/\s+/g, ' ').slice(0, 300);
+  if (!incomplete) return { completion: 'complete', incomplete_reason: '' };
+  return { completion: 'incomplete', incomplete_reason: reason };
+}
+
 function sanitizeWorkSessionRow(r, tzOffset) {
   const segments = splitWorkSession(r, tzOffset);
   const totalMin = segments.reduce((s, x) => s + x.minutes, 0);
@@ -14790,6 +14810,9 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     status: String(r?.status || 'done') === 'active' ? 'active' : 'done',
     // Sesión en vivo: arrancó con el cronómetro y la hora la puso el servidor.
     realtime: r?.realtime === true,
+    // ¿Quedó a medias? Si sí, `incomplete_reason` explica por qué.
+    completion: String(r?.completion || 'complete') === 'incomplete' ? 'incomplete' : 'complete',
+    incomplete_reason: String(r?.incomplete_reason || ''),
     started_at: r?.started_at ? new Date(r.started_at).toISOString() : null,
     ended_at: r?.ended_at ? new Date(r.ended_at).toISOString() : null,
     created_by: String(r?.created_by || 'OceanandWild'),
@@ -14965,6 +14988,13 @@ app.post('/ows-work-sessions', async (req, res) => {
     return res.status(400).json({ error: 'La sesión no puede terminar antes de empezar.' });
   }
   const delta = roundWorkNum(clampPercent(req.body?.progress_delta ?? 0) ?? 0);
+  const completion = normalizeWorkCompletion(
+    req.body?.completion ?? req.body?.Completion,
+    req.body?.incomplete_reason ?? req.body?.incompleteReason
+  );
+  if (completion.completion === 'incomplete' && !completion.incomplete_reason) {
+    return res.status(400).json({ error: 'Si la sesión quedó incompleta, contá por qué.' });
+  }
   try {
     await ensureOwsLaunchProjectsTable();
     await ensureOwsWorkSessionsTable();
@@ -14987,19 +15017,22 @@ app.post('/ows-work-sessions', async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO ows_work_sessions
          (project_id, project_name, title, details, progress_before, progress_after,
-          progress_delta, progress_applied, status, realtime, started_at, ended_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          progress_delta, progress_applied, status, realtime, completion,
+          incomplete_reason, started_at, ended_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
       [pid, projectName, title, details,
        applied ? applied.before : null, applied ? applied.after : null,
-       delta, !!(applied && pid), status, realtime, started.toISOString(),
-       ended ? ended.toISOString() : null, createdBy]
+       delta, !!(applied && pid), status, realtime,
+       completion.completion, completion.incomplete_reason,
+       started.toISOString(), ended ? ended.toISOString() : null, createdBy]
     );
     logAdminActivity({
       action: 'create-work-session', entityType: 'work_session', entityId: String(rows[0]?.id || ''),
       entityName: title, adminName: createdBy,
       meta: {
         project_id: pid, project_name: projectName, delta, status, realtime,
+        completion: completion.completion, incomplete_reason: completion.incomplete_reason,
         started_at: started.toISOString()
       }
     });
@@ -15036,6 +15069,15 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
     const delta = req.body?.progress_delta !== undefined
       ? (roundWorkNum(clampPercent(req.body.progress_delta) ?? 0))
       : roundWorkNum(row.progress_delta || 0);
+    const completion = normalizeWorkCompletion(
+      req.body?.completion ?? row.completion,
+      req.body?.incomplete_reason !== undefined || req.body?.incompleteReason !== undefined
+        ? (req.body?.incomplete_reason ?? req.body?.incompleteReason)
+        : row.incomplete_reason
+    );
+    if (completion.completion === 'incomplete' && !completion.incomplete_reason) {
+      return res.status(400).json({ error: 'Si la sesión quedó incompleta, contá por qué.' });
+    }
     const status = req.body?.status !== undefined
       ? (String(req.body.status).trim().toLowerCase() === 'active' ? 'active' : 'done')
       : (row.status === 'active' ? 'active' : 'done');
@@ -15067,20 +15109,22 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
       `UPDATE ows_work_sessions
           SET title = $1, details = $2, progress_delta = $3, status = $4,
               started_at = $5, ended_at = $6, updated_at = NOW(),
-              progress_before = COALESCE($7, progress_before),
-              progress_after  = COALESCE($8, progress_after),
-              progress_applied = progress_applied OR $9
-        WHERE id = $10
+              completion = $7, incomplete_reason = $8,
+              progress_before = COALESCE($9, progress_before),
+              progress_after  = COALESCE($10, progress_after),
+              progress_applied = progress_applied OR $11
+        WHERE id = $12
         RETURNING *`,
       [title, details, delta, status, started.toISOString(),
        ended ? ended.toISOString() : null,
+       completion.completion, completion.incomplete_reason,
        applied ? applied.before : null, applied ? applied.after : null,
        !!(applied && row.project_id), id]
     );
     logAdminActivity({
       action: 'update-work-session', entityType: 'work_session', entityId: String(id),
       entityName: title, adminName: String(row.created_by || 'OceanandWild'),
-      meta: { delta, status, just_closed: justClosed }
+      meta: { delta, status, just_closed: justClosed, completion: completion.completion, incomplete_reason: completion.incomplete_reason }
     });
     return res.json({
       success: true,
@@ -15131,6 +15175,17 @@ app.post('/ows-work-sessions/:id/stop', async (req, res) => {
     const delta = req.body?.progress_delta !== undefined
       ? roundWorkNum(clampPercent(req.body.progress_delta) ?? 0)
       : roundWorkNum(row.progress_delta || 0);
+    // ¿Quedó a medias? Si el panel no lo manda, se respeta lo que ya tuviera.
+    // Sin motivo no se acepta.
+    const completion = normalizeWorkCompletion(
+      req.body?.completion ?? row.completion,
+      req.body?.incomplete_reason !== undefined || req.body?.incompleteReason !== undefined
+        ? (req.body?.incomplete_reason ?? req.body?.incompleteReason)
+        : row.incomplete_reason
+    );
+    if (completion.completion === 'incomplete' && !completion.incomplete_reason) {
+      return res.status(400).json({ error: 'Marcá por qué quedó incompleta (elegí un motivo o escribí uno).' });
+    }
     const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
     const updatedBy = String(req.body?.created_by || headerAdmin || row.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
     // El % se aplica una sola vez: solo si esta sesión aún no lo tenía.
@@ -15145,12 +15200,14 @@ app.post('/ows-work-sessions/:id/stop', async (req, res) => {
       `UPDATE ows_work_sessions
           SET status = 'done', ended_at = $1, updated_at = NOW(),
               title = $2, details = $3, progress_delta = $4,
-              progress_before = COALESCE($5, progress_before),
-              progress_after  = COALESCE($6, progress_after),
-              progress_applied = progress_applied OR $7
-        WHERE id = $8
+              completion = $5, incomplete_reason = $6,
+              progress_before = COALESCE($7, progress_before),
+              progress_after  = COALESCE($8, progress_after),
+              progress_applied = progress_applied OR $9
+        WHERE id = $10
         RETURNING *`,
       [ended.toISOString(), title, details, delta,
+       completion.completion, completion.incomplete_reason,
        applied ? applied.before : null, applied ? applied.after : null,
        !!(applied && row.project_id), id]
     );
@@ -15159,6 +15216,7 @@ app.post('/ows-work-sessions/:id/stop', async (req, res) => {
       entityName: title, adminName: updatedBy,
       meta: {
         delta, minutes: Math.round((ended.getTime() - started.getTime()) / 60000),
+        completion: completion.completion, incomplete_reason: completion.incomplete_reason,
         project_id: row.project_id, project_name: String(row.project_name || '')
       }
     });
@@ -15253,6 +15311,11 @@ function buildDailyDevlog(sessions, date, tzOffset) {
     g.lost = roundWorkNum(g.lost);
     g.session_count = g.sessions.size;
     g.pending = g.items.filter((it) => !it.session.published_devlog_id).length;
+    // Sesiones que quedaron a medias: el devlog del día lo tiene que decir,
+    // porque explica por qué el avance fue menor de lo esperado.
+    const inc = g.items.filter((it) => it.session.completion === 'incomplete');
+    g.incomplete = inc.length;
+    g.incomplete_reasons = [...new Set(inc.map((it) => String(it.session.incomplete_reason || '')).filter(Boolean))];
     g.before = g.before == null ? null : roundWorkNum(g.before);
     g.after = g.after == null ? null : roundWorkNum(g.after);
     g.continues = g.items.filter((it) => it.seg.part === 'end').length;
@@ -15281,11 +15344,18 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
     ? ` Incluye ${plural(g.continues, 'continuación', 'continuaciones')} de una sesión empezada el día anterior.`
     : '';
   const title = `Devlog del ${label}${contNote ? ' · con continuación' : ''}`;
+  // Las sesiones a medias se anotan en el motivo: es la explicación de por
+  // qué el día se cierra con menos avance del esperado.
+  const incNote = g.incomplete
+    ? ` ${g.incomplete} de ${g.session_count} sesión${g.session_count === 1 ? '' : 'es'} quedó a medias`
+      + (g.incomplete_reasons.length ? ` (${g.incomplete_reasons.join('; ')}).` : '.')
+    : '';
   const reason = [
     `Trabajo registrado en ${plural(g.session_count, 'sesión de trabajo', 'sesiones de trabajo')} (${formatWorkMinutes(g.minutes)}).`,
     g.gained ? `${g.gained}% de avance.` : '',
     g.lost ? `${Math.abs(g.lost)}% de retroceso.` : '',
     openSessions ? `${plural(openSessions, 'sesión todavía abierta', 'sesiones todavía abiertas')}.` : '',
+    incNote.trim(),
     rollNote.trim(),
     contNote.trim()
   ].filter(Boolean).join(' ');
@@ -15302,6 +15372,9 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
       }
       if (s.crosses_midnight && seg.part === 'start') notes.push('continúa al día siguiente');
       if (s.status === 'active') notes.push('sigue abierta');
+      if (s.completion === 'incomplete') {
+        notes.push(`quedó incompleta${s.incomplete_reason ? `: ${s.incomplete_reason}` : ''}`);
+      }
       if (s.details) notes.push(s.details.replace(/\s+/g, ' ').trim());
       return notes.length ? `${head}\n    (${notes.join(' · ')})` : head;
     })

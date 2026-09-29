@@ -15387,7 +15387,7 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
 // completion decide qué pasa con la sesión:
 //   'complete'   → se cierra y queda terminada. Si antes estuvo pausada, el
 //                  devlog cuenta que se interrumpió, se continuó y se
-//                  finalized con éxito.
+//                  finalizó con éxito.
 //   'incomplete' → se cierra pero quedó a medias.
 //   'paused'     → NO se cierra: se corta acá, queda pausada esperando que la
 //                  retomen (POST /:id/resume) y el % todavía NO se aplica.
@@ -15662,6 +15662,14 @@ function buildDailyDevlog(sessions, date, tzOffset) {
     g.interrupt_count = [...new Set(
       g.items.filter((it) => it.seg.chunk > 0 || it.seg.paused_after != null).map((it) => it.session.id)
     )].length;
+    // Tramos trabajados HOY y cuánto se estuvo en pausa hoy: es lo que
+    // diferencia "1 h 12 min de trabajo" de "6 h 28 min entre las 12:15 y
+    // las 18:36". Se cuenta por (sesión, tramo) para que una sesión partida
+    // por la medianoche no se sume dos veces.
+    g.tramos = new Set(g.items.map((it) => `${it.session.id}#${it.seg.chunk}`)).size;
+    g.paused_minutes = roundWorkNum(
+      g.items.reduce((sum, it) => sum + (it.seg.paused_after || 0), 0)
+    );
     g.before = g.before == null ? null : roundWorkNum(g.before);
     g.after = g.after == null ? null : roundWorkNum(g.after);
     g.continues = g.items.filter((it) => it.seg.part === 'end').length;
@@ -15682,7 +15690,11 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
   const label = formatWorkDay(day);
   // En español el plural de "sesión" es "sesiones" (pierde la tilde).
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-  const openSessions = g.items.filter((it) => it.session.status === 'active').length;
+  // Las sesiones abiertas se cuentan por sesión, no por línea: una sesión
+  // partida en varios tramos (o cruzada a medianoche) aparecería duplicada.
+  const openSessions = new Set(
+    g.items.filter((it) => it.session.status === 'active').map((it) => it.session.id)
+  ).size;
   const rollNote = g.rolls
     ? ` Incluye ${plural(g.rolls, 'sesión abierta antes de medianoche', 'sesiones abiertas antes de medianoche')} que continúa${g.rolls === 1 ? '' : 'n'} al día siguiente.`
     : '';
@@ -15703,10 +15715,23 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
     ? ` ${plural(g.paused, 'sesión quedó pausada', 'sesiones quedaron pausadas')}`
       + (g.paused_reasons.length ? ` (${g.paused_reasons.join('; ')}).` : '.')
     : '';
-  const resumeNote = g.resumes
-    ? ` ${plural(g.resumes, 'sesión interrumpida se retomó y se completó',
-      'sesiones interrumpidas se retomaron y se completaron')}`
-      + (g.resumes_done ? '.' : ' y siguen en curso.')
+  // Se.retomó y se completó, se retomó y sigue en curso, o una cosa y otra:
+  // la frase se arma según cuántas llegaron a cerrarse, para no decir
+  // "se completó y siguen en curso" en la misma oración.
+  const resumeNote = !g.resumes ? ''
+    : g.resumes_done === g.resumes
+      ? ` ${plural(g.resumes, 'sesión interrumpida se retomó y se completó',
+        'sesiones interrumpidas se retomaron y se completaron')}.`
+      : g.resumes_done
+        ? ` ${plural(g.resumes, 'sesión interrumpida se retomó', 'sesiones interrumpidas se retomaron')}: `
+          + `${g.resumes_done} ${g.resumes_done === 1 ? 'se completó' : 'se completaron'}`
+          + ` y ${g.resumes - g.resumes_done} ${g.resumes - g.resumes_done === 1 ? 'sigue' : 'siguen'} en curso.`
+        : ` ${plural(g.resumes, 'sesión interrumpida se retomó', 'sesiones interrumpidas se retomaron')} `
+          + `y ${g.resumes === 1 ? 'sigue' : 'siguen'} en curso.`;
+  // Si hoy se trabajó en varios tramos, se aclara: el tiempo de la sesión es
+  // menor que el que pasó en el reloj, y la diferencia fue la pausa.
+  const partsNote = g.tramos > 1
+    ? ` El trabajo se repartió en ${g.tramos} tramos, con ${formatWorkMinutes(g.paused_minutes)} de pausa en el medio.`
     : '';
   const reason = [
     `Trabajo registrado en ${plural(g.session_count, 'sesión de trabajo', 'sesiones de trabajo')} (${formatWorkMinutes(g.minutes)}).`,
@@ -15716,6 +15741,7 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
     incNote.trim(),
     pauseNote.trim(),
     resumeNote.trim(),
+    partsNote.trim(),
     rollNote.trim(),
     contNote.trim()
   ].filter(Boolean).join(' ');
@@ -15723,7 +15749,13 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
     .slice()
     .sort((a, b) => String(a.seg.from).localeCompare(String(b.seg.from)))
     .map(({ session: s, seg, is_last: isLast }) => {
-      const head = `· ${formatWorkClock(seg.from, tzOffset)}–${formatWorkClock(seg.to, tzOffset)} (${formatWorkMinutes(seg.minutes)}) — ${s.title}`;
+      // Cuando la sesión se trabajó en varios tramos, cada línea lo repite:
+      // así se entiende de un vistazo que hubo una pausa en el medio, aunque
+      // se lea una sola línea suelta.
+      const multi = s.parts_count > 1
+        ? ` [${s.parts_count} tramos · ${formatWorkMinutes(s.paused_minutes)} en pausa]`
+        : '';
+      const head = `· ${formatWorkClock(seg.from, tzOffset)}–${formatWorkClock(seg.to, tzOffset)} (${formatWorkMinutes(seg.minutes)}) — ${s.title}${multi}`;
       const notes = [];
       if (seg.part === 'end') {
         const prev = new Date(new Date(seg.from).getTime() + normalizeTzOffsetMinutes(tzOffset) * 60000)

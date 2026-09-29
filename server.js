@@ -14671,6 +14671,7 @@ async function ensureOwsWorkSessionsTable() {
       progress_delta   NUMERIC(6,2) NOT NULL DEFAULT 0,
       progress_applied BOOLEAN NOT NULL DEFAULT FALSE,
       status           VARCHAR(12) NOT NULL DEFAULT 'done',
+      realtime         BOOLEAN NOT NULL DEFAULT FALSE,
       started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       ended_at         TIMESTAMPTZ,
       published_devlog_id BIGINT,
@@ -14686,6 +14687,7 @@ async function ensureOwsWorkSessionsTable() {
       ADD COLUMN IF NOT EXISTS progress_delta   NUMERIC(6,2) NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS progress_applied BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS status           VARCHAR(12) NOT NULL DEFAULT 'done',
+      ADD COLUMN IF NOT EXISTS realtime         BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       ADD COLUMN IF NOT EXISTS ended_at         TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS published_devlog_id BIGINT
@@ -14786,6 +14788,8 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     progress_delta: roundWorkNum(r?.progress_delta || 0),
     progress_applied: r?.progress_applied === true,
     status: String(r?.status || 'done') === 'active' ? 'active' : 'done',
+    // Sesión en vivo: arrancó con el cronómetro y la hora la puso el servidor.
+    realtime: r?.realtime === true,
     started_at: r?.started_at ? new Date(r.started_at).toISOString() : null,
     ended_at: r?.ended_at ? new Date(r.ended_at).toISOString() : null,
     created_by: String(r?.created_by || 'OceanandWild'),
@@ -14930,21 +14934,31 @@ app.get('/ows-work-sessions', async (req, res) => {
 //         progress_delta?, created_by? }
 // status 'active' = sigue abierta (no aplica % todavía). Al cerrarla
 // (status 'done' + ended_at) se aplica el avance al % del proyecto.
+//
+// realtime: true → sesión en vivo. El cliente ya pidió los datos y ahora
+// arranca el cronómetro, así que:
+//   · la hora de inicio la pone el SERVIDOR (NOW()), no el navegador, para
+//     no arrastrar la hora del dispositivo;
+//   · se ignora cualquier started_at/ended_at que venga en el body;
+//   · queda abierta y se cierra con POST /ows-work-sessions/:id/stop, que
+//     pone la hora de fin también desde el servidor.
 app.post('/ows-work-sessions', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
   const title = String(req.body?.title || '').trim().slice(0, 160);
   const details = String(req.body?.details || '').trim().slice(0, 4000);
   if (!title) return res.status(400).json({ error: 'El título de la sesión es obligatorio.' });
+  const realtime = req.body?.realtime === true;
   const projectId = req.body?.project_id != null && req.body.project_id !== ''
     ? Number(req.body.project_id) : null;
   const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
   const createdBy = String(req.body?.created_by || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
-  const status = String(req.body?.status || '').trim().toLowerCase() === 'active' ? 'active' : 'done';
-  const startedRaw = req.body?.started_at;
+  const status = realtime ? 'active'
+    : (String(req.body?.status || '').trim().toLowerCase() === 'active' ? 'active' : 'done');
+  const startedRaw = realtime ? null : req.body?.started_at;
   const started = startedRaw ? new Date(startedRaw) : new Date();
   if (Number.isNaN(started.getTime())) return res.status(400).json({ error: 'started_at inválido.' });
-  const endedRaw = req.body?.ended_at;
+  const endedRaw = realtime ? null : req.body?.ended_at;
   const ended = endedRaw ? new Date(endedRaw) : (status === 'done' ? new Date() : null);
   if (ended && Number.isNaN(ended.getTime())) return res.status(400).json({ error: 'ended_at inválido.' });
   if (ended && ended.getTime() < started.getTime()) {
@@ -14973,20 +14987,22 @@ app.post('/ows-work-sessions', async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO ows_work_sessions
          (project_id, project_name, title, details, progress_before, progress_after,
-          progress_delta, progress_applied, status, started_at, ended_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          progress_delta, progress_applied, status, realtime, started_at, ended_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [pid, projectName, title, details,
        applied ? applied.before : null, applied ? applied.after : null,
-       delta, !!(applied && pid), status, started.toISOString(),
+       delta, !!(applied && pid), status, realtime, started.toISOString(),
        ended ? ended.toISOString() : null, createdBy]
     );
     logAdminActivity({
       action: 'create-work-session', entityType: 'work_session', entityId: String(rows[0]?.id || ''),
       entityName: title, adminName: createdBy,
-      meta: { project_id: pid, project_name: projectName, delta, status, started_at: started.toISOString() }
+      meta: {
+        project_id: pid, project_name: projectName, delta, status, realtime,
+        started_at: started.toISOString()
+      }
     });
-    const [session] = await fetchWorkSessions({ tzOffset, limit: 1, sinceDay: '' });
     return res.json({
       success: true,
       session: sanitizeWorkSessionRow(rows[0], tzOffset),
@@ -15076,6 +15092,90 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('Error en PATCH /ows-work-sessions/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Detener una sesión en vivo. La hora de fin la pone el SERVIDOR (NOW()):
+// el navegador no manda la hora, así que el tiempo medido es el real y no
+// depende de la hora del dispositivo. También aplica el avance al % del
+// proyecto (una sola vez) y acepta corregir título/detalle antes de cerrar.
+// Body: { progress_delta?, title?, details?, tz_offset? }
+app.post('/ows-work-sessions/:id/stop', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_work_sessions WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
+    const row = cur[0];
+    if (row.status !== 'active') {
+      return res.status(409).json({ error: 'Esa sesión ya estaba cerrada.' });
+    }
+    // Hora de fin exacta del servidor. Si la sesión venía abierta desde hace
+    // días, el corte por medianoche la reparte igual (splitWorkSession).
+    const ended = new Date();
+    const started = new Date(row.started_at);
+    if (Number.isNaN(started.getTime())) return res.status(400).json({ error: 'La sesión no tiene inicio válido.' });
+    if (ended.getTime() < started.getTime()) {
+      return res.status(400).json({ error: 'La sesión no puede terminar antes de empezar.' });
+    }
+    const title = req.body?.title !== undefined
+      ? String(req.body.title || '').trim().slice(0, 160) : row.title;
+    if (!title) return res.status(400).json({ error: 'El título no puede quedar vacío.' });
+    const details = req.body?.details !== undefined
+      ? String(req.body.details || '').trim().slice(0, 4000) : row.details;
+    const delta = req.body?.progress_delta !== undefined
+      ? roundWorkNum(clampPercent(req.body.progress_delta) ?? 0)
+      : roundWorkNum(row.progress_delta || 0);
+    const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
+    const updatedBy = String(req.body?.created_by || headerAdmin || row.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+    // El % se aplica una sola vez: solo si esta sesión aún no lo tenía.
+    let applied = null;
+    if (delta && row.project_id && row.progress_applied !== true) {
+      applied = await applySessionProgress({
+        projectId: row.project_id, delta, updatedBy,
+        note: `Sesión: ${title}`
+      });
+    }
+    const { rows: upd } = await pool.query(
+      `UPDATE ows_work_sessions
+          SET status = 'done', ended_at = $1, updated_at = NOW(),
+              title = $2, details = $3, progress_delta = $4,
+              progress_before = COALESCE($5, progress_before),
+              progress_after  = COALESCE($6, progress_after),
+              progress_applied = progress_applied OR $7
+        WHERE id = $8
+        RETURNING *`,
+      [ended.toISOString(), title, details, delta,
+       applied ? applied.before : null, applied ? applied.after : null,
+       !!(applied && row.project_id), id]
+    );
+    logAdminActivity({
+      action: 'stop-work-session', entityType: 'work_session', entityId: String(id),
+      entityName: title, adminName: updatedBy,
+      meta: {
+        delta, minutes: Math.round((ended.getTime() - started.getTime()) / 60000),
+        project_id: row.project_id, project_name: String(row.project_name || '')
+      }
+    });
+    const session = sanitizeWorkSessionRow(upd[0], tzOffset);
+    return res.json({
+      success: true,
+      session,
+      duration_minutes: session.duration_minutes,
+      // Si cruzó la medianoche, el frontend salta al día donde terminó.
+      crossed_midnight: session.crosses_midnight,
+      development: applied ? applied.development : null,
+      history: applied && applied.history ? sanitizeProgressLogRow({
+        ...applied.history, project_name: String(row.project_name || ''), admin_only: true
+      }) : null
+    });
+  } catch (err) {
+    console.error('Error en POST /ows-work-sessions/:id/stop:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

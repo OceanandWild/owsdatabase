@@ -14434,6 +14434,12 @@ function sanitizeDevlogRow(r) {
     progress_after: r?.progress_after != null ? (clampPercent(r.progress_after)) : null,
     progress_delta: r?.progress_delta != null ? (Math.round(Number(r.progress_delta) * 100) / 100) : null,
     progress_applied: r?.progress_applied === true,
+    // Sesiones de trabajo: un devlog "del día" se arma combinando los
+    // minidevlogs del momento. session_ids permite no publicar dos veces.
+    entry_type: String(r?.entry_type || 'manual') === 'daily' ? 'daily' : 'manual',
+    work_date: r?.work_date ? String(r.work_date).slice(0, 10) : null,
+    session_ids: String(r?.session_ids || '').split(',').map((x) => Number(x.trim())).filter((x) => Number.isFinite(x) && x > 0),
+    day_minutes: Math.max(0, Math.round(Number(r?.day_minutes || 0))),
     created_by: String(r?.created_by || 'OceanandWild'),
     created_at: r?.created_at ? new Date(r.created_at).toISOString() : null,
     updated_at: r?.updated_at ? new Date(r.updated_at).toISOString() : null
@@ -14617,11 +14623,669 @@ app.delete('/ows-devlogs/:id', async (req, res) => {
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
   try {
     await ensureOwsDevlogsTable();
+    // Si el devlog se armó con sesiones de trabajo, se liberan para que el
+    // día se pueda volver a publicar.
+    await pool.query('UPDATE ows_work_sessions SET published_devlog_id = NULL WHERE published_devlog_id = $1', [id])
+      .catch(() => {});
     const { rowCount } = await pool.query('DELETE FROM ows_devlogs WHERE id = $1', [id]);
     if (!rowCount) return res.status(404).json({ error: 'Devlog no encontrado.' });
     return res.json({ success: true });
   } catch (err) {
     console.error('Error en DELETE /ows-devlogs/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ═══════════════════════════════════════════════
+   SESIONES DE TRABAJO — mini-devlogs del momento
+   ═══════════════════════════════════════════════
+   El devlog sigue siendo el registro diario que se publica. Las sesiones son
+   el "minidevlog del momento": mientras se trabaja se van abriendo y cerrando
+   varias por día, cada una con la hora aproximada de inicio y de fin. Todas
+   las sesiones de un mismo día (más lo que arrastra de la midnight) se
+   combinan en un único devlog del día.
+
+   El caso difícil es una sesión que cae JUSTO en las 00:00: si empezó el día
+   28 a las 23:40 y terminó el 29 a las 00:20, ese trabajo NO pertenece a un
+   solo día. Por eso cada sesión se parte en "tramos" (segments) cortados en
+   la medianoche local del admin, y cada tramo se atribuye a su día con los
+   minutos que le corresponden. El reparto del % entre los dos días es
+   informativo: el % se aplica una sola vez, cuando la sesión se cierra.
+
+   El día local se calcula con el desplazamiento que manda el navegador
+   (tz_offset, en minutos respecto a UTC). Así el corte cae en la medianoche
+   del admin y no en la del servidor. */
+let owsWorkSessionsReady = false;
+
+async function ensureOwsWorkSessionsTable() {
+  if (owsWorkSessionsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_work_sessions (
+      id               BIGSERIAL PRIMARY KEY,
+      project_id       BIGINT REFERENCES ows_launch_projects(id) ON DELETE SET NULL,
+      project_name     TEXT NOT NULL DEFAULT '',
+      title            TEXT NOT NULL,
+      details          TEXT NOT NULL DEFAULT '',
+      progress_before  NUMERIC(5,2),
+      progress_after   NUMERIC(5,2),
+      progress_delta   NUMERIC(6,2) NOT NULL DEFAULT 0,
+      progress_applied BOOLEAN NOT NULL DEFAULT FALSE,
+      status           VARCHAR(12) NOT NULL DEFAULT 'done',
+      started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ended_at         TIMESTAMPTZ,
+      published_devlog_id BIGINT,
+      created_by       TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    ALTER TABLE ows_work_sessions
+      ADD COLUMN IF NOT EXISTS progress_before  NUMERIC(5,2),
+      ADD COLUMN IF NOT EXISTS progress_after   NUMERIC(5,2),
+      ADD COLUMN IF NOT EXISTS progress_delta   NUMERIC(6,2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS progress_applied BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS status           VARCHAR(12) NOT NULL DEFAULT 'done',
+      ADD COLUMN IF NOT EXISTS started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS ended_at         TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS published_devlog_id BIGINT
+  `).catch((err) => console.log(' Aviso: migración ows_work_sessions:', err.message));
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_started ON ows_work_sessions(started_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_project ON ows_work_sessions(project_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_ended ON ows_work_sessions(ended_at)');
+
+  // El devlog guarda de qué sesiones salió y qué día cubría, para no
+  // publicar dos veces lo mismo y para poder auditar el reparto.
+  await pool.query(`
+    ALTER TABLE ows_devlogs
+      ADD COLUMN IF NOT EXISTS entry_type   VARCHAR(12) NOT NULL DEFAULT 'manual',
+      ADD COLUMN IF NOT EXISTS work_date    DATE,
+      ADD COLUMN IF NOT EXISTS session_ids  TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS day_minutes  INTEGER NOT NULL DEFAULT 0
+  `).catch((err) => console.log(' Aviso: migración ows_devlogs (sesiones):', err.message));
+  owsWorkSessionsReady = true;
+}
+
+// Desplazamiento del navegador respecto a UTC, en minutos. El admin puede
+// estar en UTC-3: entonces sumar el offset convierte UTC en hora local.
+function normalizeTzOffsetMinutes(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-840, Math.min(840, Math.round(n))); // ±14 h
+}
+
+// "YYYY-MM-DD" del instante, ya en la hora local del admin.
+function localDayOf(date, tzOffset) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Date(d.getTime() + normalizeTzOffsetMinutes(tzOffset) * 60000)
+    .toISOString().slice(0, 10);
+}
+
+function roundWorkNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
+// ── El corte por medianoche ──
+// Devuelve 1 tramo si la sesión cae en un solo día, o 2 si cruzó las 00:00.
+// Los minutos se reparten exacto (suma = duración total) y el % se reparte
+// con 2 decimales dando el resto al segundo tramo, para que la suma también
+// sea exacta.
+function splitWorkSession(session, tzOffset) {
+  const offset = normalizeTzOffsetMinutes(tzOffset);
+  const start = new Date(session?.started_at || 0);
+  if (Number.isNaN(start.getTime())) return [];
+  // Una sesión abierta sigue corriendo: se mide hasta ahora.
+  const end = session?.ended_at ? new Date(session.ended_at) : new Date();
+  const delta = roundWorkNum(session?.progress_delta || 0);
+
+  const mk = (day, minutes, part, from, to) => ({
+    day,
+    minutes: Math.max(0, Math.round(minutes)),
+    delta,
+    part,                                  // 'whole' | 'start' | 'end'
+    from: new Date(from).toISOString(),
+    to: new Date(to).toISOString()
+  });
+
+  const day0 = localDayOf(start, offset);
+  const day1 = localDayOf(end, offset);
+  const totalMin = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+
+  if (day0 === day1) return [mk(day0, totalMin, 'whole', start, end)];
+
+  // Instante exacto de las 00:00 locales del segundo día: el "start" del
+  // día 1 en UTC es (medianoche local - offset).
+  const [y, m, d] = day1.split('-').map(Number);
+  const boundary = Date.UTC(y, m - 1, d) - offset * 60000;
+  const minBefore = Math.max(0, Math.min(totalMin, Math.round((boundary - start.getTime()) / 60000)));
+  const minAfter = Math.max(0, totalMin - minBefore);
+
+  const shareA = totalMin > 0 ? roundWorkNum(delta * (minBefore / totalMin)) : 0;
+  const shareB = roundWorkNum(delta - shareA);
+
+  return [
+    { ...mk(day0, minBefore, 'start', start, new Date(Math.min(end.getTime(), boundary))), delta: shareA },
+    { ...mk(day1, minAfter, 'end', new Date(Math.max(start.getTime(), boundary)), end), delta: shareB }
+  ];
+}
+
+function sanitizeWorkSessionRow(r, tzOffset) {
+  const segments = splitWorkSession(r, tzOffset);
+  const totalMin = segments.reduce((s, x) => s + x.minutes, 0);
+  const days = [...new Set(segments.map((x) => x.day))];
+  return {
+    id: Number(r?.id || 0),
+    project_id: r?.project_id != null ? Number(r.project_id) : null,
+    project_name: String(r?.project_name || ''),
+    project_icon_url: String(r?.project_icon_url || ''),
+    admin_only: r?.admin_only === true,
+    title: String(r?.title || 'Sesión sin título'),
+    details: String(r?.details || ''),
+    progress_delta: roundWorkNum(r?.progress_delta || 0),
+    progress_applied: r?.progress_applied === true,
+    status: String(r?.status || 'done') === 'active' ? 'active' : 'done',
+    started_at: r?.started_at ? new Date(r.started_at).toISOString() : null,
+    ended_at: r?.ended_at ? new Date(r.ended_at).toISOString() : null,
+    created_by: String(r?.created_by || 'OceanandWild'),
+    created_at: r?.created_at ? new Date(r.created_at).toISOString() : null,
+    updated_at: r?.updated_at ? new Date(r.updated_at).toISOString() : null,
+    published_devlog_id: r?.published_devlog_id != null ? Number(r.published_devlog_id) : null,
+    // Derivados del corte:
+    segments,
+    local_day: days[0] || '',
+    end_local_day: days[days.length - 1] || '',
+    duration_minutes: totalMin,
+    crosses_midnight: days.length > 1
+  };
+}
+
+// "1 h 25 min" / "45 min" — se usa en devlogs, sesiones y tabla.
+function formatWorkMinutes(min) {
+  const m = Math.max(0, Math.round(Number(min) || 0));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}
+
+// ═══════════════════════════════════════════════
+// SESIONES DE TRABAJO — endpoints (solo-admin)
+// ═══════════════════════════════════════════════
+
+// "09:40" en hora local del admin.
+function formatWorkClock(iso, tzOffset) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '--:--';
+  return new Date(d.getTime() + normalizeTzOffsetMinutes(tzOffset) * 60000)
+    .toISOString().slice(11, 16);
+}
+
+// "28/09/2026"
+function formatWorkDay(dateKey) {
+  const [y, m, d] = String(dateKey || '').split('-');
+  return (y && m && d) ? `${d}/${m}/${y}` : '';
+}
+
+// "YYYY-MM-DD" (o el día local de hoy) desde el query/body.
+function normalizeWorkDay(v, tzOffset) {
+  const s = String(v || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : localDayOf(new Date(), tzOffset);
+}
+
+// Sesiones de trabajo del equipo, con sus tramos por día ya calculados.
+async function fetchWorkSessions({ tzOffset, limit = 200, sinceDay = '', projectId = 0 } = {}) {
+  const where = [];
+  const params = [];
+  if (sinceDay) { params.push(sinceDay); where.push(`COALESCE(w.ended_at, w.started_at) >= $${params.length}::date`); }
+  if (Number(projectId) > 0) { params.push(Number(projectId)); where.push(`w.project_id = $${params.length}`); }
+  params.push(Math.max(1, Math.min(500, Number(limit) || 200)));
+  const { rows } = await pool.query(
+    `SELECT w.*, p.name AS live_project_name, p.icon_url AS project_icon_url, p.admin_only
+       FROM ows_work_sessions w
+       LEFT JOIN ows_launch_projects p ON p.id = w.project_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY w.started_at DESC, w.id DESC
+      LIMIT $${params.length}`,
+    params
+  );
+  return rows.map((r) => sanitizeWorkSessionRow({
+    ...r,
+    project_name: String(r.project_name || r.live_project_name || '')
+  }, tzOffset));
+}
+
+// Aplica un avance (delta, no % absoluto) al % del proyecto y lo deja en el
+// historial. Se usa al CERRAR una sesión: el % se mueve mientras se trabaja y
+// el devlog del día solo lo agrupa después, sin volver a aplicarlo.
+async function applySessionProgress({ projectId, delta, updatedBy, note }) {
+  const pid = Number(projectId || 0);
+  const add = roundWorkNum(delta);
+  if (!Number.isFinite(pid) || pid <= 0 || !add) return null;
+  await ensureOwsProjectDevelopmentTable();
+  await ensureOwsProjectProgressLogTable();
+  const { rows: prevRows } = await pool.query(
+    'SELECT percent FROM ows_project_development WHERE project_id = $1', [pid]
+  );
+  const before = prevRows.length ? (clampPercent(prevRows[0].percent) ?? 0) : 0;
+  const after = clampPercent(before + add);
+  if (after === null) return null;
+  const { rows } = await pool.query(
+    `INSERT INTO ows_project_development (project_id, percent, updated_by, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (project_id) DO UPDATE
+       SET percent = EXCLUDED.percent, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+     RETURNING project_id, percent, updated_by, updated_at`,
+    [pid, after, updatedBy || 'OceanandWild']
+  );
+  const { rows: logRows } = await pool.query(
+    `INSERT INTO ows_project_progress_log (project_id, percent_before, percent_after, delta, mode, note, created_by)
+     VALUES ($1, $2, $3, $4, 'day', $5, $6)
+     RETURNING id, project_id, percent_before, percent_after, delta, mode, note, created_by, created_at`,
+    [pid, before, after, add, String(note || '').slice(0, 500), updatedBy || 'OceanandWild']
+  );
+  const row = rows[0] || {};
+  return {
+    before,
+    after,
+    development: {
+      project_id: Number(row.project_id || pid),
+      percent: clampPercent(row.percent ?? after),
+      updated_by: String(row.updated_by || updatedBy || 'OceanandWild'),
+      updated_at: row.updated_at || new Date().toISOString()
+    },
+    history: logRows[0] || null
+  };
+}
+
+// Listar sesiones (solo-admin). ?limit, ?project_id, ?since=YYYY-MM-DD y
+// ?tz_offset= (minutos respecto a UTC) para cortar el día donde el admin.
+app.get('/ows-work-sessions', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const tzOffset = normalizeTzOffsetMinutes(req.query?.tz_offset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const sessions = await fetchWorkSessions({
+      tzOffset,
+      limit: req.query?.limit,
+      projectId: req.query?.project_id,
+      sinceDay: req.query?.since ? normalizeWorkDay(req.query.since, tzOffset) : ''
+    });
+    return res.json({
+      success: true,
+      sessions,
+      today: localDayOf(new Date(), tzOffset),
+      tz_offset: tzOffset
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-work-sessions:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear una sesión de trabajo (el "minidevlog del momento").
+// Body: { project_id, title, details?, started_at?, ended_at?, status?,
+//         progress_delta?, created_by? }
+// status 'active' = sigue abierta (no aplica % todavía). Al cerrarla
+// (status 'done' + ended_at) se aplica el avance al % del proyecto.
+app.post('/ows-work-sessions', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
+  const title = String(req.body?.title || '').trim().slice(0, 160);
+  const details = String(req.body?.details || '').trim().slice(0, 4000);
+  if (!title) return res.status(400).json({ error: 'El título de la sesión es obligatorio.' });
+  const projectId = req.body?.project_id != null && req.body.project_id !== ''
+    ? Number(req.body.project_id) : null;
+  const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
+  const createdBy = String(req.body?.created_by || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+  const status = String(req.body?.status || '').trim().toLowerCase() === 'active' ? 'active' : 'done';
+  const startedRaw = req.body?.started_at;
+  const started = startedRaw ? new Date(startedRaw) : new Date();
+  if (Number.isNaN(started.getTime())) return res.status(400).json({ error: 'started_at inválido.' });
+  const endedRaw = req.body?.ended_at;
+  const ended = endedRaw ? new Date(endedRaw) : (status === 'done' ? new Date() : null);
+  if (ended && Number.isNaN(ended.getTime())) return res.status(400).json({ error: 'ended_at inválido.' });
+  if (ended && ended.getTime() < started.getTime()) {
+    return res.status(400).json({ error: 'La sesión no puede terminar antes de empezar.' });
+  }
+  const delta = roundWorkNum(clampPercent(req.body?.progress_delta ?? 0) ?? 0);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    let projectName = '';
+    let pid = null;
+    if (Number.isFinite(projectId) && projectId > 0) {
+      const { rows: projRows } = await pool.query('SELECT id, name FROM ows_launch_projects WHERE id = $1', [projectId]);
+      if (!projRows.length) return res.status(404).json({ error: 'Proyecto no encontrado.' });
+      pid = projRows[0].id;
+      projectName = String(projRows[0].name || '');
+    }
+    // El avance solo se aplica al cerrar; una sesión abierta no toca el %.
+    let applied = null;
+    if (status === 'done' && delta && pid) {
+      applied = await applySessionProgress({
+        projectId: pid, delta, updatedBy: createdBy,
+        note: `Sesión: ${title}`
+      });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO ows_work_sessions
+         (project_id, project_name, title, details, progress_before, progress_after,
+          progress_delta, progress_applied, status, started_at, ended_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [pid, projectName, title, details,
+       applied ? applied.before : null, applied ? applied.after : null,
+       delta, !!(applied && pid), status, started.toISOString(),
+       ended ? ended.toISOString() : null, createdBy]
+    );
+    logAdminActivity({
+      action: 'create-work-session', entityType: 'work_session', entityId: String(rows[0]?.id || ''),
+      entityName: title, adminName: createdBy,
+      meta: { project_id: pid, project_name: projectName, delta, status, started_at: started.toISOString() }
+    });
+    const [session] = await fetchWorkSessions({ tzOffset, limit: 1, sinceDay: '' });
+    return res.json({
+      success: true,
+      session: sanitizeWorkSessionRow(rows[0], tzOffset),
+      development: applied ? applied.development : null,
+      history: applied && applied.history ? sanitizeProgressLogRow({
+        ...applied.history, project_name: projectName, admin_only: true
+      }) : null
+    });
+  } catch (err) {
+    console.error('Error en POST /ows-work-sessions:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar / cerrar una sesión. Cerrar una sesión abierta aplica su avance al
+// % del proyecto (si aún no se había aplicado).
+app.patch('/ows-work-sessions/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_work_sessions WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
+    const row = cur[0];
+    const title = req.body?.title !== undefined ? String(req.body.title || '').trim().slice(0, 160) : row.title;
+    if (!title) return res.status(400).json({ error: 'El título no puede quedar vacío.' });
+    const details = req.body?.details !== undefined ? String(req.body.details || '').trim().slice(0, 4000) : row.details;
+    const delta = req.body?.progress_delta !== undefined
+      ? (roundWorkNum(clampPercent(req.body.progress_delta) ?? 0))
+      : roundWorkNum(row.progress_delta || 0);
+    const status = req.body?.status !== undefined
+      ? (String(req.body.status).trim().toLowerCase() === 'active' ? 'active' : 'done')
+      : (row.status === 'active' ? 'active' : 'done');
+    const started = req.body?.started_at !== undefined
+      ? new Date(req.body.started_at) : new Date(row.started_at);
+    if (Number.isNaN(started.getTime())) return res.status(400).json({ error: 'started_at inválido.' });
+    let ended = row.ended_at ? new Date(row.ended_at) : null;
+    if (req.body?.ended_at !== undefined) {
+      ended = req.body.ended_at ? new Date(req.body.ended_at) : null;
+    } else if (status === 'done' && !ended) {
+      ended = new Date();
+    }
+    if (ended && Number.isNaN(ended.getTime())) return res.status(400).json({ error: 'ended_at inválido.' });
+    if (ended && ended.getTime() < started.getTime()) {
+      return res.status(400).json({ error: 'La sesión no puede terminar antes de empezar.' });
+    }
+    // El % se aplica una sola vez: solo si recién se cierra y el avance
+    // todavía no estaba aplicado.
+    let applied = null;
+    const justClosed = status === 'done' && row.status === 'active' && row.progress_applied !== true;
+    if (justClosed && delta && row.project_id) {
+      applied = await applySessionProgress({
+        projectId: row.project_id, delta,
+        updatedBy: String(req.body?.created_by || row.created_by || 'OceanandWild'),
+        note: `Sesión: ${title}`
+      });
+    }
+    const { rows: upd } = await pool.query(
+      `UPDATE ows_work_sessions
+          SET title = $1, details = $2, progress_delta = $3, status = $4,
+              started_at = $5, ended_at = $6, updated_at = NOW(),
+              progress_before = COALESCE($7, progress_before),
+              progress_after  = COALESCE($8, progress_after),
+              progress_applied = progress_applied OR $9
+        WHERE id = $10
+        RETURNING *`,
+      [title, details, delta, status, started.toISOString(),
+       ended ? ended.toISOString() : null,
+       applied ? applied.before : null, applied ? applied.after : null,
+       !!(applied && row.project_id), id]
+    );
+    logAdminActivity({
+      action: 'update-work-session', entityType: 'work_session', entityId: String(id),
+      entityName: title, adminName: String(row.created_by || 'OceanandWild'),
+      meta: { delta, status, just_closed: justClosed }
+    });
+    return res.json({
+      success: true,
+      session: sanitizeWorkSessionRow(upd[0], tzOffset),
+      development: applied ? applied.development : null,
+      history: applied && applied.history ? sanitizeProgressLogRow({
+        ...applied.history, project_name: String(row.project_name || ''), admin_only: true
+      }) : null
+    });
+  } catch (err) {
+    console.error('Error en PATCH /ows-work-sessions/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Borrar una sesión. Si su avance ya estaba aplicado al % del proyecto se
+// avisa en la respuesta para que el frontend ofrezca revertirlo.
+app.delete('/ows-work-sessions/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  try {
+    await ensureOwsWorkSessionsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_work_sessions WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
+    await pool.query('DELETE FROM ows_work_sessions WHERE id = $1', [id]);
+    return res.json({
+      success: true,
+      was_applied: cur[0].progress_applied === true,
+      delta: roundWorkNum(cur[0].progress_delta || 0)
+    });
+  } catch (err) {
+    console.error('Error en DELETE /ows-work-sessions/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Devlog del día ──
+// Agrupa por proyecto las sesiones que tocan una fecha. Cada sesión entra
+// con SU tramo de ese día: si empezó el día anterior, aparece como
+// "continuación"; si termina al día siguiente, como "continúa".
+function buildDailyDevlog(sessions, date, tzOffset) {
+  const day = normalizeWorkDay(date, tzOffset);
+  const byProject = new Map();
+  sessions.forEach((s) => {
+    s.segments.filter((g) => g.day === day).forEach((g) => {
+      const key = s.project_id != null ? String(s.project_id) : '0';
+      if (!byProject.has(key)) {
+        byProject.set(key, {
+          project_id: s.project_id != null ? Number(s.project_id) : null,
+          project_name: String(s.project_name || 'Sin proyecto'),
+          admin_only: s.admin_only === true,
+          items: [],
+          minutes: 0,
+          // % informativo del día: el avance de las sesiones que TERMINAN
+          // hoy. El % real ya se aplicó al cerrar cada sesión.
+          delta: 0,
+          gained: 0,
+          lost: 0,
+          sessions: new Set(),
+          before: null,
+          after: null
+        });
+      }
+      const g0 = byProject.get(key);
+      g0.items.push({ session: s, seg: g });
+      g0.minutes += g.minutes;
+      g0.sessions.add(s.id);
+      if (g.part === 'end') g0.delta += g.delta;
+      // % del día: el % con el que arrancó la primera sesión y el % con el
+      // que terminó la última. Sirve para la mini-gráfica del devlog.
+      if (s.progress_before != null && (g0.before == null || Number(s.progress_before) < g0.before)) {
+        g0.before = clampPercent(s.progress_before);
+      }
+      if (s.progress_after != null && (g0.after == null || Number(s.progress_after) > g0.after)) {
+        g0.after = clampPercent(s.progress_after);
+      }
+      if (g.delta > 0) g0.gained += g.delta;
+      else if (g.delta < 0) g0.lost += g.delta;
+    });
+  });
+  const out = [...byProject.values()].map((g) => {
+    g.minutes = roundWorkNum(g.minutes);
+    g.delta = roundWorkNum(g.delta);
+    g.gained = roundWorkNum(g.gained);
+    g.lost = roundWorkNum(g.lost);
+    g.session_count = g.sessions.size;
+    g.pending = g.items.filter((it) => !it.session.published_devlog_id).length;
+    g.before = g.before == null ? null : roundWorkNum(g.before);
+    g.after = g.after == null ? null : roundWorkNum(g.after);
+    g.continues = g.items.filter((it) => it.seg.part === 'end').length;
+    g.rolls = g.items.filter((it) => it.seg.part === 'start' && it.session.crosses_midnight).length;
+    // Sesiones a publicar: las de hoy que aún no/devlog.
+    g.publish_ids = g.items
+      .filter((it) => !it.session.published_devlog_id)
+      .map((it) => it.session.id);
+    g.payload = buildDailyDevlogPayload(g, day, tzOffset);
+    return g;
+  });
+  return { date: day, label: formatWorkDay(day), groups: out, tz_offset: normalizeTzOffsetMinutes(tzOffset) };
+}
+
+// Arma el texto del devlog combinado: título, motivo y detalle con la lista
+// de sesiones del día y los avisos de las que cruzan la medianoche.
+function buildDailyDevlogPayload(g, day, tzOffset) {
+  const label = formatWorkDay(day);
+  // En español el plural de "sesión" es "sesiones" (pierde la tilde).
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const openSessions = g.items.filter((it) => it.session.status === 'active').length;
+  const rollNote = g.rolls
+    ? ` Incluye ${plural(g.rolls, 'sesión abierta antes de medianoche', 'sesiones abiertas antes de medianoche')} que continúa${g.rolls === 1 ? '' : 'n'} al día siguiente.`
+    : '';
+  const contNote = g.continues
+    ? ` Incluye ${plural(g.continues, 'continuación', 'continuaciones')} de una sesión empezada el día anterior.`
+    : '';
+  const title = `Devlog del ${label}${contNote ? ' · con continuación' : ''}`;
+  const reason = [
+    `Trabajo registrado en ${plural(g.session_count, 'sesión de trabajo', 'sesiones de trabajo')} (${formatWorkMinutes(g.minutes)}).`,
+    g.gained ? `${g.gained}% de avance.` : '',
+    g.lost ? `${Math.abs(g.lost)}% de retroceso.` : '',
+    openSessions ? `${plural(openSessions, 'sesión todavía abierta', 'sesiones todavía abiertas')}.` : '',
+    rollNote.trim(),
+    contNote.trim()
+  ].filter(Boolean).join(' ');
+  const details = g.items
+    .slice()
+    .sort((a, b) => String(a.seg.from).localeCompare(String(b.seg.from)))
+    .map(({ session: s, seg }) => {
+      const head = `· ${formatWorkClock(seg.from, tzOffset)}–${formatWorkClock(seg.to, tzOffset)} (${formatWorkMinutes(seg.minutes)}) — ${s.title}`;
+      const notes = [];
+      if (seg.part === 'end') {
+        const prev = new Date(new Date(seg.from).getTime() + normalizeTzOffsetMinutes(tzOffset) * 60000)
+          .toISOString().slice(0, 10);
+        notes.push(`continuación de una sesión empezada el ${formatWorkDay(prev)}`);
+      }
+      if (s.crosses_midnight && seg.part === 'start') notes.push('continúa al día siguiente');
+      if (s.status === 'active') notes.push('sigue abierta');
+      if (s.details) notes.push(s.details.replace(/\s+/g, ' ').trim());
+      return notes.length ? `${head}\n    (${notes.join(' · ')})` : head;
+    })
+    .join('\n');
+  return { title, reason: reason.slice(0, 2000), details: details.slice(0, 5000) };
+}
+
+// Vista previa del devlog del día (lo que se publicaría).
+app.get('/ows-work-sessions/daily', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const tzOffset = normalizeTzOffsetMinutes(req.query?.tz_offset);
+  const day = normalizeWorkDay(req.query?.date, tzOffset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const sessions = await fetchWorkSessions({ tzOffset, limit: 300, sinceDay: day });
+    return res.json({ success: true, ...buildDailyDevlog(sessions, day, tzOffset) });
+  } catch (err) {
+    console.error('Error en GET /ows-work-sessions/daily:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Publicar el devlog del día: las sesiones del día se combinan en un devlog
+// por proyecto. NO se vuelve a aplicar el % (ya se movió al cerrar cada
+// sesión): el devlog queda como el registro narrativo del día.
+// Body: { date, tz_offset, project_id? }
+//   sin project_id  → todos los proyectos
+//   project_id = -1 → solo los que no tienen proyecto
+app.post('/ows-work-sessions/daily', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
+  const day = normalizeWorkDay(req.body?.date, tzOffset);
+  const only = Number(req.body?.project_id ?? 0);
+  const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
+  const createdBy = String(req.body?.created_by || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    await ensureOwsDevlogsTable();
+    const sessions = await fetchWorkSessions({ tzOffset, limit: 300, sinceDay: day });
+    const preview = buildDailyDevlog(sessions, day, tzOffset);
+    const targets = preview.groups.filter((g) => {
+      if (!g.publish_ids.length) return false;
+      if (!only) return true;
+      return only === -1 ? g.project_id == null : Number(g.project_id) === only;
+    });
+    if (!targets.length) {
+      return res.json({
+        success: true, created: [], daily: preview,
+        message: preview.groups.length
+          ? 'Todo lo de ese día ya está publicado en un devlog.'
+          : 'No hay sesiones de trabajo ese día.'
+      });
+    }
+    const created = [];
+    for (const g of targets) {
+      const { title, reason, details } = g.payload;
+      const { rows } = await pool.query(
+        `INSERT INTO ows_devlogs
+           (title, reason, details, affects_project, project_id, project_name,
+            progress_before, progress_after, progress_delta, progress_applied,
+            entry_type, work_date, session_ids, day_minutes, created_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, 'daily', $10, $11, $12, $13, NOW())
+         RETURNING *`,
+        [title, reason, details, g.project_id != null, g.project_id, g.project_name,
+         g.before, g.after, g.delta, day, g.publish_ids.join(','), Math.round(g.minutes), createdBy]
+      );
+      const devlogId = Number(rows[0]?.id || 0);
+      await pool.query(
+        'UPDATE ows_work_sessions SET published_devlog_id = $1, updated_at = NOW() WHERE id = ANY($2::bigint[])',
+        [devlogId, g.publish_ids]
+      );
+      logAdminActivity({
+        action: 'publish-daily-devlog', entityType: 'devlog', entityId: String(devlogId),
+        entityName: title, adminName: createdBy,
+        meta: { work_date: day, project_id: g.project_id, sessions: g.publish_ids, minutes: g.minutes, delta: g.delta }
+      });
+      created.push({ ...sanitizeDevlogRow(rows[0]), session_count: g.session_count, minutes: g.minutes });
+    }
+    const after = buildDailyDevlog(await fetchWorkSessions({ tzOffset, limit: 300, sinceDay: day }), day, tzOffset);
+    return res.json({ success: true, created, daily: after });
+  } catch (err) {
+    console.error('Error en POST /ows-work-sessions/daily:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

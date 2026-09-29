@@ -15062,11 +15062,21 @@ function normalizeWorkDay(v, tzOffset) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : localDayOf(new Date(), tzOffset);
 }
 
-// Sesiones de trabajo del equipo, con sus tramos por día ya calculados.
-async function fetchWorkSessions({ tzOffset, limit = 200, sinceDay = '', projectId = 0 } = {}) {
-  const where = [];
-  const params = [];
-  if (sinceDay) { params.push(sinceDay); where.push(`COALESCE(w.ended_at, w.started_at) >= $${params.length}::date`); }
+  // Sesiones de trabajo del equipo, con sus tramos por día ya calculados.
+  async function fetchWorkSessions({ tzOffset, limit = 200, sinceDay = '', projectId = 0 } = {}) {
+    const where = [];
+    const params = [];
+    if (sinceDay) {
+      // Trae todo lo que TOCÓ ese día, no lo que empezó ese día: una sesión
+      // abierta (ended_at NULL) o larga se cae en started_at y se perdía del
+      // devlog del día aunque estuviera trabajando en ese momento. Ahora se
+      // pide solapamiento: empezó antes de que terminara el día y terminó
+      // después de que empezara (o sigue abierta).
+      params.push(sinceDay);
+      where.push(`w.started_at < ($${params.length}::date + INTERVAL '1 day')`);
+      params.push(sinceDay);
+      where.push(`COALESCE(w.ended_at, NOW()) >= $${params.length}::date`);
+    }
   if (Number(projectId) > 0) { params.push(Number(projectId)); where.push(`w.project_id = $${params.length}`); }
   params.push(Math.max(1, Math.min(500, Number(limit) || 200)));
   const { rows } = await pool.query(

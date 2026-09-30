@@ -14672,8 +14672,8 @@ async function ensureOwsIncidentsTable() {
       id            BIGSERIAL PRIMARY KEY,
       title         TEXT NOT NULL,
       category      VARCHAR(24) NOT NULL DEFAULT 'development',
-      severity      VARCHAR(12) NOT NULL DEFAULT 'major',
-      status        VARCHAR(12) NOT NULL DEFAULT 'investigating',
+      severity      VARCHAR(20) NOT NULL DEFAULT 'major',
+      status        VARCHAR(20) NOT NULL DEFAULT 'investigating',
       details       TEXT NOT NULL DEFAULT '',
       impact        TEXT NOT NULL DEFAULT '',
       resolution    TEXT NOT NULL DEFAULT '',
@@ -14689,11 +14689,15 @@ async function ensureOwsIncidentsTable() {
     )
   `);
   // Migración: por si la tabla ya existía de una versión anterior.
+  // NOTA: 'investigating' tiene 13 caracteres y no entraba en VARCHAR(12),
+  // lo que rompía POST /ows-incidents con "value too long for type
+  // character varying(12)". Se ensancha a VARCHAR(20) para tablas nuevas y
+  // ya existentes.
   await pool.query(`
     ALTER TABLE ows_incidents
       ADD COLUMN IF NOT EXISTS category     VARCHAR(24) NOT NULL DEFAULT 'development',
-      ADD COLUMN IF NOT EXISTS severity     VARCHAR(12) NOT NULL DEFAULT 'major',
-      ADD COLUMN IF NOT EXISTS status       VARCHAR(12) NOT NULL DEFAULT 'investigating',
+      ADD COLUMN IF NOT EXISTS severity     VARCHAR(20) NOT NULL DEFAULT 'major',
+      ADD COLUMN IF NOT EXISTS status       VARCHAR(20) NOT NULL DEFAULT 'investigating',
       ADD COLUMN IF NOT EXISTS impact       TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS resolution   TEXT NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS project_name TEXT NOT NULL DEFAULT '',
@@ -14702,6 +14706,10 @@ async function ensureOwsIncidentsTable() {
       ADD COLUMN IF NOT EXISTS updates      JSONB NOT NULL DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS updated_by   TEXT NOT NULL DEFAULT 'OceanandWild'
   `).catch((err) => console.log(' Aviso: migración ows_incidents:', err.message));
+  // Ensancha columnas en tablas ya creadas con VARCHAR(12) (no lo cubre el
+  // ADD COLUMN IF NOT EXISTS de arriba).
+  await pool.query('ALTER TABLE ows_incidents ALTER COLUMN severity TYPE VARCHAR(20)').catch(() => {});
+  await pool.query('ALTER TABLE ows_incidents ALTER COLUMN status TYPE VARCHAR(20)').catch(() => {});
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_incidents_started ON ows_incidents(started_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_incidents_status ON ows_incidents(status)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_incidents_resolved ON ows_incidents(resolved_at DESC)');

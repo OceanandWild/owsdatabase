@@ -15427,7 +15427,12 @@ function parseWorkChanges(raw) {
       author: String(c?.author || c?.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild',
       kind,
       custom_label: kind === 'custom' ? String(c?.custom_label || '').trim().replace(/\s+/g, ' ').slice(0, 40) : '',
-      color: normalizeWorkChangeColor(c?.color, kind)
+      color: normalizeWorkChangeColor(c?.color, kind),
+      // Aporte al % del proyecto: se aplica al registrarlo (no al cerrar).
+      delta: roundWorkNum(clampPercent(c?.delta ?? c?.progress_delta) ?? 0),
+      applied: c?.applied === true,
+      progress_before: c?.progress_before != null ? roundWorkNum(c.progress_before) : null,
+      progress_after: c?.progress_after != null ? roundWorkNum(c.progress_after) : null
     });
   });
   out.sort((a, b) => a.at.localeCompare(b.at));
@@ -15632,6 +15637,8 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     // Cambios anotados en vivo (qué se hizo y a qué hora, en orden).
     changes: parseWorkChanges(r?.changes),
     changes_count: parseWorkChanges(r?.changes).length,
+    // % ya aportado por los cambios (se aplicó al registrarlos, no al cerrar).
+    changes_delta: roundWorkNum(parseWorkChanges(r?.changes).reduce((sum, c) => sum + (c.applied ? (Number(c.delta) || 0) : 0), 0)),
     // Derivados del corte:
     segments,
     local_day: days[0] || '',
@@ -16188,7 +16195,7 @@ app.post('/ows-work-sessions/:id/resume', async (req, res) => {
 // cuenta qué hizo ("nuevo objeto", "bug crítico corregido") y la hora la
 // pone el SERVIDOR (NOW()), así queda qué se hizo y a qué hora sin depender
 // del reloj del dispositivo. La sesión conserva todo lo anotado.
-// Body: { text*, kind?, custom_label?, color?, created_by? } — en una sesión ya cerrada devuelve 409.
+// Body: { text*, kind?, custom_label?, color?, progress_delta?, created_by? } — en una sesión ya cerrada devuelve 409.
 app.post('/ows-work-sessions/:id/changes', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const id = Number(req.params.id || 0);
@@ -16200,6 +16207,8 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     ? String(req.body?.custom_label ?? req.body?.customLabel ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)
     : '';
   const color = normalizeWorkChangeColor(req.body?.color, kind);
+  // Aporte al %: se aplica AHORA al proyecto (no espera al cierre).
+  const delta = roundWorkNum(clampPercent(req.body?.progress_delta ?? req.body?.delta) ?? 0);
   const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
   try {
     await ensureOwsLaunchProjectsTable();
@@ -16212,8 +16221,25 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     }
     const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
     const author = String(req.body?.created_by || headerAdmin || row.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+    if (delta && !row.project_id) {
+      return res.status(400).json({ error: 'Sin proyecto no hay % que mover: registrá el cambio con 0.' });
+    }
+    // El aporte se aplica al instante y queda en el historial del proyecto.
+    // Lo que se ponga al cerrar la sesión se suma encima (no se duplica).
+    let applied = null;
+    if (delta && row.project_id) {
+      applied = await applySessionProgress({
+        projectId: row.project_id, delta, updatedBy: author,
+        note: `Cambio: ${text}`
+      });
+    }
     const changes = parseWorkChanges(row.changes);
-    changes.push({ at: new Date().toISOString(), text, author, kind, custom_label: customLabel, color });
+    changes.push({
+      at: new Date().toISOString(), text, author, kind, custom_label: customLabel, color,
+      delta, applied: !!applied,
+      progress_before: applied ? applied.before : null,
+      progress_after: applied ? applied.after : null
+    });
     const finalChanges = changes.slice(-WS_CHANGES_MAX);
     const { rows: upd } = await pool.query(
       `UPDATE ows_work_sessions
@@ -16225,9 +16251,17 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     logAdminActivity({
       action: 'add-session-change', entityType: 'work_session', entityId: String(id),
       entityName: String(row.title || ''), adminName: author,
-      meta: { text, kind, custom_label: customLabel, color, changes_count: finalChanges.length }
+      meta: { text, kind, custom_label: customLabel, color, delta, applied: !!applied, changes_count: finalChanges.length }
     });
-    return res.json({ success: true, session: sanitizeWorkSessionRow(upd[0], tzOffset) });
+    const session = sanitizeWorkSessionRow(upd[0], tzOffset);
+    return res.json({
+      success: true,
+      session,
+      development: applied ? applied.development : null,
+      history: applied && applied.history ? sanitizeProgressLogRow({
+        ...applied.history, project_name: String(row.project_name || ''), admin_only: true
+      }) : null
+    });
   } catch (err) {
     console.error('Error en POST /ows-work-sessions/:id/changes:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -16309,6 +16343,20 @@ function buildDailyDevlog(sessions, date, tzOffset) {
     g.gained = roundWorkNum(g.gained);
     g.lost = roundWorkNum(g.lost);
     g.session_count = g.sessions.size;
+    // Aportes de los cambios registrados en vivo ese día: se aplicaron al
+    // registrarlos (no al cerrar), así que también suman al avance del día.
+    // Una sesión partida aparece varias veces en items: se cuenta una sola vez.
+    const seenChangeSessions = new Set();
+    g.items.forEach(({ session: s }) => {
+      if (seenChangeSessions.has(s.id)) return;
+      seenChangeSessions.add(s.id);
+      (Array.isArray(s.changes) ? s.changes : []).forEach((c) => {
+        const d = Number(c?.delta) || 0;
+        if (!c?.applied || !(d > 0)) return;
+        if (localDayOf(c.at, tzOffset) !== day) return;
+        g.gained = roundWorkNum(g.gained + d);
+      });
+    });
     // Se cuenta por SESIÓN, no por segmento: una sesión que cruzó la medianoche
     // (o que se interrumpió y se retomó) tiene varios segmentos y contarlos
     // multiplicaría el número de sesiones pendientes de publicar.
@@ -16472,7 +16520,11 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
       const changes = Array.isArray(s.changes) ? s.changes : [];
       if (!isLatestSeg || !changes.length) return base;
       const changeLines = changes
-        .map((c) => `      ⏺ ${formatWorkClock(c.at, tzOffset)} [${workChangeLabel(c)}] — ${String(c.text || '').replace(/\s+/g, ' ').trim()}`)
+        .map((c) => {
+          const d = Number(c.delta) || 0;
+          const pct = d ? ` (+${roundWorkNum(d)}%)` : '';
+          return `      ⏺ ${formatWorkClock(c.at, tzOffset)} [${workChangeLabel(c)}]${pct} — ${String(c.text || '').replace(/\s+/g, ' ').trim()}`;
+        })
         .join('\n');
       return `${base}\n${changeLines}`;
     })

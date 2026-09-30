@@ -14637,6 +14637,546 @@ app.delete('/ows-devlogs/:id', async (req, res) => {
 });
 
 /* ═══════════════════════════════════════════════
+   INCIDENTES — status page + registro de incidencias
+   ═══════════════════════════════════════════════
+   Un incidente es un problema reportado por un admin (desarrollo atascado,
+   desarrollo demasiado lento, caída del server, red, builds, etc). Nace
+   "en curso" y el admin lo deja activo el tiempo que quiera: mientras tanto
+   puede ir dejando actualizaciones en la línea de tiempo (investigando →
+   identificado → en observación) y cuando lo resuelve lo finaliza. Al
+   finalizarse pasa al REGISTRO de incidentes con su hora de inicio y de fin.
+   Cada fila guarda la duración real, así el histórico dice cuánto duró cada
+   problema y cuándo pasó.
+   Endpoints (solo-admin): GET/POST /ows-incidents, PATCH/DELETE
+   /ows-incidents/:id, POST /ows-incidents/:id/updates, /resolve, /reopen.
+   ═══════════════════════════════════════════════ */
+
+// Categoría = de qué subsystema habla el problema. Se usa como columna del
+// status page: cada categoría es un "componente" con su propia luz.
+const OWS_INCIDENT_CATEGORIES = ['development', 'performance', 'server', 'network', 'build', 'other'];
+// Gravedad = cuán roto está. De ella depende el color del incidente y de la
+// banner general del status page (crítico > mayor > menor).
+const OWS_INCIDENT_SEVERITIES = ['minor', 'major', 'critical'];
+// Estados por los que pasa un incidente antes de finalizarse.
+const OWS_INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved'];
+// Cuántas actualizaciones se guardan en la línea de tiempo por incidente
+// (suficiente para un seguimiento largo sin inflar la fila).
+const OWS_INCIDENT_MAX_UPDATES = 120;
+
+let owsIncidentsReady = false;
+
+async function ensureOwsIncidentsTable() {
+  if (owsIncidentsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_incidents (
+      id            BIGSERIAL PRIMARY KEY,
+      title         TEXT NOT NULL,
+      category      VARCHAR(24) NOT NULL DEFAULT 'development',
+      severity      VARCHAR(12) NOT NULL DEFAULT 'major',
+      status        VARCHAR(12) NOT NULL DEFAULT 'investigating',
+      details       TEXT NOT NULL DEFAULT '',
+      impact        TEXT NOT NULL DEFAULT '',
+      resolution    TEXT NOT NULL DEFAULT '',
+      project_id    BIGINT REFERENCES ows_launch_projects(id) ON DELETE SET NULL,
+      project_name  TEXT NOT NULL DEFAULT '',
+      started_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resolved_at   TIMESTAMPTZ,
+      updates       JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_by    TEXT NOT NULL DEFAULT 'OceanandWild',
+      updated_by    TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  // Migración: por si la tabla ya existía de una versión anterior.
+  await pool.query(`
+    ALTER TABLE ows_incidents
+      ADD COLUMN IF NOT EXISTS category     VARCHAR(24) NOT NULL DEFAULT 'development',
+      ADD COLUMN IF NOT EXISTS severity     VARCHAR(12) NOT NULL DEFAULT 'major',
+      ADD COLUMN IF NOT EXISTS status       VARCHAR(12) NOT NULL DEFAULT 'investigating',
+      ADD COLUMN IF NOT EXISTS impact       TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS resolution   TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS project_name TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS resolved_at  TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS updates      JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS updated_by   TEXT NOT NULL DEFAULT 'OceanandWild'
+  `).catch((err) => console.log(' Aviso: migración ows_incidents:', err.message));
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_incidents_started ON ows_incidents(started_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_incidents_status ON ows_incidents(status)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_incidents_resolved ON ows_incidents(resolved_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_incidents_category ON ows_incidents(category)').catch(() => {});
+  owsIncidentsReady = true;
+}
+
+// Devuelve 'fallback' si el valor no está en la lista permitida. Así un dato
+// raro (o antiguo) nunca rompe el status page: se degrada al valor por defecto.
+function pickOwsIncidentEnum(value, list, fallback) {
+  const v = String(value ?? '').trim().toLowerCase();
+  return list.includes(v) ? v : fallback;
+}
+
+function toIsoOrNull(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+// Línea de tiempo del incidente: [{at, status, body, author}}. Se normaliza
+// para tolerar un JSONB guardado como texto o con entradas incompletas.
+function normalizeOwsIncidentUpdates(raw, fallbackAuthor = 'OceanandWild') {
+  let list = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === 'string' && raw.trim()) {
+    try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) list = parsed; } catch (_) { list = []; }
+  } else if (raw && typeof raw === 'object') list = [raw];
+  return list
+    .map((it) => {
+      const body = String(it?.body ?? '').trim().slice(0, 2000);
+      const author = String(it?.author || fallbackAuthor || 'OceanandWild').trim().slice(0, 80) || 'OceanandWild';
+      return {
+        at: toIsoOrNull(it?.at) || new Date().toISOString(),
+        status: pickOwsIncidentEnum(it?.status, OWS_INCIDENT_STATUSES, 'investigating'),
+        body,
+        author
+      };
+    })
+    .filter((it) => it.body)
+    .slice(-OWS_INCIDENT_MAX_UPDATES);
+}
+
+function sanitizeIncidentRow(r) {
+  const startedAt = toIsoOrNull(r?.started_at);
+  const resolvedAt = toIsoOrNull(r?.resolved_at);
+  const updates = normalizeOwsIncidentUpdates(r?.updates, r?.updated_by || r?.created_by);
+  const rawStatus = pickOwsIncidentEnum(r?.status, OWS_INCIDENT_STATUSES, 'investigating');
+  // "En curso" se define SOLO por la ausencia de hora de fin: es lo que el
+  // status page y el registro necesitan para no contradecirse. Si por datos
+  // viejos una fila dice "resolved" sin fecha de fin, se la da por abierta
+  // (y su status baja a "investigando") en vez de esconder un problema que
+  // en realidad sigue sin resolverse.
+  const isOpen = !resolvedAt;
+  const startMs = startedAt ? new Date(startedAt).getTime() : null;
+  const endMs = resolvedAt ? new Date(resolvedAt).getTime() : null;
+  const lastUpdate = updates.length ? updates[updates.length - 1].at : null;
+  return {
+    id: Number(r?.id || 0),
+    title: String(r?.title || 'Sin título').slice(0, 160),
+    category: pickOwsIncidentEnum(r?.category, OWS_INCIDENT_CATEGORIES, 'development'),
+    severity: pickOwsIncidentEnum(r?.severity, OWS_INCIDENT_SEVERITIES, 'major'),
+    status: isOpen ? (rawStatus === 'resolved' ? 'investigating' : rawStatus) : 'resolved',
+    details: String(r?.details || '').slice(0, 5000),
+    impact: String(r?.impact || '').slice(0, 2000),
+    resolution: String(r?.resolution || '').slice(0, 2000),
+    project_id: r?.project_id != null ? Number(r.project_id) : null,
+    project_name: String(r?.project_name || r?.live_project_name || '').slice(0, 160),
+    is_open: isOpen,
+    started_at: startedAt,
+    resolved_at: resolvedAt,
+    // Duración hasta ahora si sigue abierto, o hasta su fin si ya se cerró.
+    duration_ms: startMs != null
+      ? Math.max(0, ((endMs != null ? endMs : Date.now()) - startMs))
+      : null,
+    updates,
+    update_count: updates.length,
+    last_update_at: toIsoOrNull(lastUpdate || r?.updated_at),
+    created_by: String(r?.created_by || 'OceanandWild').slice(0, 120),
+    updated_by: String(r?.updated_by || r?.created_by || 'OceanandWild').slice(0, 120),
+    created_at: toIsoOrNull(r?.created_at),
+    updated_at: toIsoOrNull(r?.updated_at)
+  };
+}
+
+// Estado global del status page + una luz por componente (categoría).
+// La banner toma el peor caso: si hay un crítico, todo está en rojo.
+function buildOwsIncidentSummary(incidents) {
+  const open = incidents.filter((i) => i.is_open);
+  const bySeverity = { critical: 0, major: 0, minor: 0 };
+  open.forEach((i) => { bySeverity[i.severity] = (bySeverity[i.severity] || 0) + 1; });
+  const components = OWS_INCIDENT_CATEGORIES.map((category) => {
+    const own = open.filter((i) => i.category === category);
+    const worst = own.find((i) => i.severity === 'critical')?.severity
+      || own.find((i) => i.severity === 'major')?.severity
+      || own.find((i) => i.severity === 'minor')?.severity
+      || null;
+    return { category, state: worst || 'operational', worst_severity: worst, open_count: own.length };
+  });
+  const state = bySeverity.critical ? 'critical'
+    : bySeverity.major ? 'major'
+    : bySeverity.minor ? 'minor'
+    : 'operational';
+  // "Actualizado hace X" = el último movimiento (actualización o fin) de lo
+  // que hay abierto, o del incidente más reciente si no hay nada abierto.
+  let lastUpdateAt = null;
+  open.forEach((i) => {
+    const t = toIsoOrNull(i.last_update_at || i.started_at);
+    if (t && (!lastUpdateAt || new Date(t) > new Date(lastUpdateAt))) lastUpdateAt = t;
+  });
+  if (!lastUpdateAt) {
+    incidents.forEach((i) => {
+      const t = toIsoOrNull(i.resolved_at || i.last_update_at || i.started_at);
+      if (t && (!lastUpdateAt || new Date(t) > new Date(lastUpdateAt))) lastUpdateAt = t;
+    });
+  }
+  const resolvedTotal = incidents.filter((i) => !i.is_open).length;
+  const durations = incidents.filter((i) => !i.is_open && i.duration_ms != null).map((i) => i.duration_ms);
+  return {
+    state,
+    open_count: open.length,
+    total_count: incidents.length,
+    resolved_count: resolvedTotal,
+    by_severity: bySeverity,
+    components,
+    last_update_at: lastUpdateAt,
+    // Discrepancia histórica (cuánto se pasó de la media).
+    total_outage_ms: durations.reduce((a, b) => a + b, 0),
+    avg_outage_ms: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null
+  };
+}
+
+// Resuelve el proyecto opcional (FK a ows_launch_projects) y devuelve su nombre
+// ya congelado, para que el incidente siga siendo legible aunque el proyecto
+// se renombre o se borre después.
+async function resolveOwsIncidentProject(projectIdRaw) {
+  const projectId = projectIdRaw != null && projectIdRaw !== '' ? Number(projectIdRaw) : null;
+  if (!Number.isFinite(projectId) || projectId <= 0) return { pid: null, name: '' };
+  const { rows } = await pool.query('SELECT id, name FROM ows_launch_projects WHERE id = $1', [projectId]);
+  if (!rows.length) return { notFound: true };
+  return { pid: rows[0].id, name: String(rows[0].name || '') };
+}
+
+function owsIncidentActor(req, body, fallback = 'OceanandWild') {
+  const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
+  return String(
+    body?.updated_by || body?.created_by || body?.createdBy || headerAdmin || fallback || 'OceanandWild'
+  ).trim().slice(0, 120) || 'OceanandWild';
+}
+
+// GET /ows-incidents — lista + resumen del status page (solo-admin).
+// ?scope=all|open|resolved   ?limit=N
+app.get('/ows-incidents', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsIncidentsTable();
+    const limit = Math.max(1, Math.min(300, Number(req.query?.limit || 200) || 200));
+    const scope = String(req.query?.scope || 'all').trim().toLowerCase();
+    let where = '';
+    if (scope === 'open') where = 'WHERE i.resolved_at IS NULL';
+    else if (scope === 'resolved') where = 'WHERE i.resolved_at IS NOT NULL';
+    const { rows } = await pool.query(
+      `SELECT i.*, p.name AS live_project_name
+         FROM ows_incidents i
+         LEFT JOIN ows_launch_projects p ON p.id = i.project_id
+         ${where}
+        ORDER BY (i.resolved_at IS NULL) DESC, i.started_at DESC, i.id DESC
+        LIMIT $1`,
+      [limit]
+    );
+    const incidents = rows.map(sanitizeIncidentRow);
+    return res.json({ success: true, incidents, summary: buildOwsIncidentSummary(incidents) });
+  } catch (err) {
+    console.error('Error en GET /ows-incidents:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-incidents — reportar un problema (nace EN CURSO).
+// Body: { title*, details*, category?, severity?, status?, impact?,
+//         project_id?, started_at? }
+app.post('/ows-incidents', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const title = String(req.body?.title || '').trim().slice(0, 160);
+  const details = String(req.body?.details || '').trim().slice(0, 5000);
+  const impact = String(req.body?.impact || '').trim().slice(0, 2000);
+  if (!title) return res.status(400).json({ error: 'El título es obligatorio.' });
+  if (!details) return res.status(400).json({ error: 'Contá qué está pasando (detalle del problema).' });
+  const category = pickOwsIncidentEnum(req.body?.category, OWS_INCIDENT_CATEGORIES, 'development');
+  const severity = pickOwsIncidentEnum(req.body?.severity, OWS_INCIDENT_SEVERITIES, 'major');
+  // Un reporte nuevo nunca nace "resuelto": si se manda resolved se ignora.
+  const status = pickOwsIncidentEnum(req.body?.status, OWS_INCIDENT_STATUSES.filter((s) => s !== 'resolved'), 'investigating');
+  const actor = owsIncidentActor(req, req.body, 'OceanandWild');
+  // El admin puede back-datar el inicio (el problema venía desde antes).
+  const startedAt = toIsoOrNull(req.body?.started_at) || new Date().toISOString();
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsIncidentsTable();
+    const proj = await resolveOwsIncidentProject(req.body?.project_id);
+    if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado.' });
+    // La primera línea de tiempo deja constancia de quién lo reportó.
+    const updates = [{
+      at: startedAt,
+      status,
+      body: `Incidente reportado por ${actor}.`,
+      author: actor
+    }];
+    const { rows } = await pool.query(
+      `INSERT INTO ows_incidents (title, category, severity, status, details, impact,
+                                  project_id, project_name, started_at, updates,
+                                  created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $11)
+       RETURNING *`,
+      [title, category, severity, status, details, impact,
+       proj.pid, proj.name, startedAt, JSON.stringify(updates), actor]
+    );
+    logAdminActivity({
+      action: 'create-incident', entityType: 'incident', entityId: String(rows[0]?.id || ''),
+      entityName: title, adminName: actor,
+      meta: { category, severity, status, project_name: proj.name, started_at: startedAt }
+    });
+    return res.json({ success: true, incident: sanitizeIncidentRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /ows-incidents:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// PATCH /ows-incidents/:id — editar el reporte.
+// Solo se tocan los campos que vienen; el resto se conserva.
+// `update_note` agrega una línea a la línea de tiempo (sin nota, un cambio de
+// estado se registra solo para que la bitácora no tenga huecos).
+app.patch('/ows-incidents/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsIncidentsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_incidents WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Incidente no encontrado.' });
+    const row = cur[0];
+    const wasOpen = !row.resolved_at && row.status !== 'resolved';
+    const actor = owsIncidentActor(req, req.body, row.updated_by || row.created_by || 'OceanandWild');
+
+    const title = req.body?.title !== undefined ? String(req.body.title || '').trim().slice(0, 160) : row.title;
+    if (!title) return res.status(400).json({ error: 'El título no puede quedar vacío.' });
+    const details = req.body?.details !== undefined ? String(req.body.details || '').trim().slice(0, 5000) : row.details;
+    const impact = req.body?.impact !== undefined ? String(req.body.impact || '').trim().slice(0, 2000) : row.impact;
+    const resolution = req.body?.resolution !== undefined ? String(req.body.resolution || '').trim().slice(0, 2000) : row.resolution;
+    const category = req.body?.category !== undefined
+      ? pickOwsIncidentEnum(req.body.category, OWS_INCIDENT_CATEGORIES, row.category)
+      : row.category;
+    const severity = req.body?.severity !== undefined
+      ? pickOwsIncidentEnum(req.body.severity, OWS_INCIDENT_SEVERITIES, row.severity)
+      : row.severity;
+    const status = req.body?.status !== undefined
+      ? pickOwsIncidentEnum(req.body.status, OWS_INCIDENT_STATUSES, row.status)
+      : row.status;
+
+    // Proyecto: '' lo deja sin proyecto; un id lo valida.
+    let pid = row.project_id;
+    let projectName = row.project_name || '';
+    if (req.body?.project_id !== undefined) {
+      const proj = await resolveOwsIncidentProject(req.body.project_id);
+      if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado.' });
+      pid = proj.pid;
+      projectName = proj.name;
+    }
+
+    const startedAt = req.body?.started_at !== undefined
+      ? (toIsoOrNull(req.body.started_at) || row.started_at)
+      : row.started_at;
+
+    // Hora de fin: se deriva del estado salvo que el admin la fije a mano
+    // (así se puede corregir cuándo se terminó de verdad).
+    let resolvedAt = row.resolved_at;
+    if (status === 'resolved') {
+      resolvedAt = req.body?.resolved_at !== undefined
+        ? (toIsoOrNull(req.body.resolved_at) || new Date().toISOString())
+        : (resolvedAt || new Date().toISOString());
+    } else {
+      resolvedAt = req.body?.resolved_at !== undefined
+        ? toIsoOrNull(req.body.resolved_at)
+        : null;
+    }
+
+    const updates = normalizeOwsIncidentUpdates(row.updates, row.updated_by || row.created_by);
+    const rawNote = req.body?.update_note ?? req.body?.note;
+    const note = (rawNote === undefined || rawNote === null) ? null : String(rawNote).trim().slice(0, 2000);
+    if (note !== null) {
+      if (note) updates.push({ at: new Date().toISOString(), status, body: note, author: actor });
+    } else if (status !== row.status) {
+      updates.push({
+        at: new Date().toISOString(), status,
+        body: `Estado cambiado a "${status}".`, author: actor
+      });
+    }
+    const finalUpdates = updates.slice(-OWS_INCIDENT_MAX_UPDATES);
+
+    const { rows } = await pool.query(
+      `UPDATE ows_incidents
+          SET title = $1, category = $2, severity = $3, status = $4, details = $5,
+              impact = $6, resolution = $7, project_id = $8, project_name = $9,
+              started_at = $10, resolved_at = $11, updates = $12::jsonb,
+              updated_by = $13, updated_at = NOW()
+        WHERE id = $14
+        RETURNING *`,
+      [title, category, severity, status, details, impact, resolution,
+       pid, projectName, startedAt, resolvedAt, JSON.stringify(finalUpdates), actor, id]
+    );
+    const incident = sanitizeIncidentRow(rows[0]);
+    logAdminActivity({
+      action: wasOpen && !incident.is_open ? 'resolve-incident' : 'edit-incident',
+      entityType: 'incident', entityId: String(id),
+      entityName: title, adminName: actor,
+      meta: { category, severity, status: incident.status, note: note || null, update_count: incident.update_count }
+    });
+    return res.json({ success: true, incident });
+  } catch (err) {
+    console.error('Error en PATCH /ows-incidents/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-incidents/:id/updates — agregar una actualización al reporte sin
+// tocar el resto de los datos. Es el "ir actualizando poco a poco": el admin
+// escribe qué está pasando ahora y el incidente sigue en curso.
+// Si se manda un estado distinto de "resolved", el incidente vuelve a abrirse
+// (por si se había cerrado y el problema regresó).
+app.post('/ows-incidents/:id/updates', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const body = String(req.body?.body || req.body?.update_note || req.body?.note || '').trim().slice(0, 2000);
+  if (!body) return res.status(400).json({ error: 'Escribí la actualización del incidente.' });
+  try {
+    await ensureOwsIncidentsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_incidents WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Incidente no encontrado.' });
+    const row = cur[0];
+    const actor = owsIncidentActor(req, req.body, row.updated_by || row.created_by || 'OceanandWild');
+    // "resolved" no se acepta acá: para cerrar el incidente está /resolve.
+    const fallbackStatus = row.status === 'resolved' ? 'monitoring' : row.status;
+    const status = pickOwsIncidentEnum(req.body?.status, OWS_INCIDENT_STATUSES.filter((s) => s !== 'resolved'), fallbackStatus);
+    const updates = normalizeOwsIncidentUpdates(row.updates, row.updated_by || row.created_by);
+    updates.push({ at: new Date().toISOString(), status, body, author: actor });
+    const finalUpdates = updates.slice(-OWS_INCIDENT_MAX_UPDATES);
+    const reopened = !!row.resolved_at && status !== 'resolved';
+    const { rows } = await pool.query(
+      `UPDATE ows_incidents
+          SET status = $1, updates = $2::jsonb, updated_by = $3,
+              resolved_at = CASE WHEN $4::boolean THEN NULL ELSE resolved_at END,
+              updated_at = NOW()
+        WHERE id = $5
+        RETURNING *`,
+      [status, JSON.stringify(finalUpdates), actor, reopened, id]
+    );
+    const incident = sanitizeIncidentRow(rows[0]);
+    logAdminActivity({
+      action: reopened ? 'reopen-incident' : 'update-incident',
+      entityType: 'incident', entityId: String(id),
+      entityName: incident.title, adminName: actor,
+      meta: { status, update_count: incident.update_count }
+    });
+    return res.json({ success: true, incident });
+  } catch (err) {
+    console.error('Error en POST /ows-incidents/:id/updates:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-incidents/:id/resolve — finalizar el incidente.
+// Pasa al REGISTRO con su hora de fin; el texto es la causa/resolución final.
+app.post('/ows-incidents/:id/resolve', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const note = String(req.body?.resolution || req.body?.note || req.body?.body || '').trim().slice(0, 2000);
+  try {
+    await ensureOwsIncidentsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_incidents WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Incidente no encontrado.' });
+    const row = cur[0];
+    const actor = owsIncidentActor(req, req.body, row.updated_by || row.created_by || 'OceanandWild');
+    const alreadyClosed = !!row.resolved_at;
+    // Se puede corregir a mano cuándo terminó de verdad el problema.
+    const resolvedAt = toIsoOrNull(req.body?.resolved_at) || row.resolved_at || new Date().toISOString();
+    const updates = normalizeOwsIncidentUpdates(row.updates, row.updated_by || row.created_by);
+    updates.push({
+      at: resolvedAt, status: 'resolved',
+      body: note || (alreadyClosed ? 'Cierre actualizado.' : 'Incidente finalizado.'),
+      author: actor
+    });
+    const finalUpdates = updates.slice(-OWS_INCIDENT_MAX_UPDATES);
+    const { rows } = await pool.query(
+      `UPDATE ows_incidents
+          SET status = 'resolved', resolved_at = $1, resolution = $2,
+              updates = $3::jsonb, updated_by = $4, updated_at = NOW()
+        WHERE id = $5
+        RETURNING *`,
+      [resolvedAt, note || row.resolution || '', JSON.stringify(finalUpdates), actor, id]
+    );
+    const incident = sanitizeIncidentRow(rows[0]);
+    logAdminActivity({
+      action: 'resolve-incident', entityType: 'incident', entityId: String(id),
+      entityName: incident.title, adminName: actor,
+      meta: { duration_ms: incident.duration_ms, update_count: incident.update_count }
+    });
+    return res.json({ success: true, incident });
+  } catch (err) {
+    console.error('Error en POST /ows-incidents/:id/resolve:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-incidents/:id/reopen — reabrir un incidente del registro.
+app.post('/ows-incidents/:id/reopen', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const reason = String(req.body?.reason || req.body?.note || '').trim().slice(0, 2000);
+  try {
+    await ensureOwsIncidentsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_incidents WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Incidente no encontrado.' });
+    const row = cur[0];
+    const actor = owsIncidentActor(req, req.body, row.updated_by || row.created_by || 'OceanandWild');
+    const status = pickOwsIncidentEnum(req.body?.status, OWS_INCIDENT_STATUSES.filter((s) => s !== 'resolved'), 'investigating');
+    const updates = normalizeOwsIncidentUpdates(row.updates, row.updated_by || row.created_by);
+    updates.push({
+      at: new Date().toISOString(), status,
+      body: `Incidente reabierto${reason ? `: ${reason}` : '.'}`, author: actor
+    });
+    const finalUpdates = updates.slice(-OWS_INCIDENT_MAX_UPDATES);
+    const { rows } = await pool.query(
+      `UPDATE ows_incidents
+          SET status = $1, resolved_at = NULL, resolution = '',
+              updates = $2::jsonb, updated_by = $3, updated_at = NOW()
+        WHERE id = $4
+        RETURNING *`,
+      [status, JSON.stringify(finalUpdates), actor, id]
+    );
+    const incident = sanitizeIncidentRow(rows[0]);
+    logAdminActivity({
+      action: 'reopen-incident', entityType: 'incident', entityId: String(id),
+      entityName: incident.title, adminName: actor,
+      meta: { status, reason: reason || null }
+    });
+    return res.json({ success: true, incident });
+  } catch (err) {
+    console.error('Error en POST /ows-incidents/:id/reopen:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE /ows-incidents/:id (solo-admin).
+app.delete('/ows-incidents/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  try {
+    await ensureOwsIncidentsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_incidents WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Incidente no encontrado.' });
+    logAdminActivity({ action: 'delete', entityType: 'incident', entityId: String(id), adminName: 'OceanandWild', meta: {} });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-incidents/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ═══════════════════════════════════════════════
    SESIONES DE TRABAJO — mini-devlogs del momento
    ═══════════════════════════════════════════════
    El devlog sigue siendo el registro diario que se publica. Las sesiones son

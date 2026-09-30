@@ -15379,10 +15379,37 @@ function closeOpenWorkPart(parts, at) {
 
 // ── Cambios registrados en vivo ──────────────────────────────────────────
 // Dentro de una misma sesión el admin va anotando qué hizo y la hora la pone
-// el servidor: [{ "at": "…", "text": "…", "author": "…" }]. Ej: a las 17:00
-// "nuevo objeto en el juego", a las 18:30 "bug crítico corregido".
-// Máximo 200 por sesión y 500 caracteres cada uno.
+// el servidor: [{ "at": "…", "text": "…", "author": "…", "kind": "…",
+// "custom_label": "…", "color": "#…" }]. Ej: a las 17:00 "nuevo objeto"
+// (mediano), a las 18:30 "bug crítico corregido" (crítico).
+// kind: chico | mediano | grande | critico | custom (etiqueta libre +
+// color libre). Máximo 200 por sesión y 500 caracteres cada uno.
 const WS_CHANGES_MAX = 200;
+const WS_CHANGE_KIND_COLORS = {
+  chico: '#34d399',
+  mediano: '#fbbf24',
+  grande: '#f97316',
+  critico: '#ef4444',
+  custom: '#a855f7'
+};
+function normalizeWorkChangeKind(v) {
+  const k = String(v || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return Object.prototype.hasOwnProperty.call(WS_CHANGE_KIND_COLORS, k) ? k : 'mediano';
+}
+function normalizeWorkChangeColor(v, kind) {
+  const s = String(v || '').trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  const short = /^#[0-9a-fA-F]{3}$/.test(s)
+    ? `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`.toLowerCase()
+    : null;
+  if (short) return short;
+  return WS_CHANGE_KIND_COLORS[kind] || WS_CHANGE_KIND_COLORS.mediano;
+}
+function workChangeLabel(c) {
+  if (c?.kind === 'custom') return String(c?.custom_label || '').trim().slice(0, 40) || 'Personalizado';
+  return { chico: 'Chico', mediano: 'Mediano', grande: 'Grande', critico: 'Crítico' }[c?.kind] || 'Mediano';
+}
 function parseWorkChanges(raw) {
   let list = raw;
   if (typeof list === 'string') { try { list = JSON.parse(list); } catch { list = []; } }
@@ -15393,10 +15420,14 @@ function parseWorkChanges(raw) {
     if (!text) return;
     const at = c?.at ? new Date(c.at) : null;
     if (!at || Number.isNaN(at.getTime())) return;
+    const kind = normalizeWorkChangeKind(c?.kind);
     out.push({
       at: at.toISOString(),
       text,
-      author: String(c?.author || c?.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild'
+      author: String(c?.author || c?.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild',
+      kind,
+      custom_label: kind === 'custom' ? String(c?.custom_label || '').trim().replace(/\s+/g, ' ').slice(0, 40) : '',
+      color: normalizeWorkChangeColor(c?.color, kind)
     });
   });
   out.sort((a, b) => a.at.localeCompare(b.at));
@@ -16157,13 +16188,18 @@ app.post('/ows-work-sessions/:id/resume', async (req, res) => {
 // cuenta qué hizo ("nuevo objeto", "bug crítico corregido") y la hora la
 // pone el SERVIDOR (NOW()), así queda qué se hizo y a qué hora sin depender
 // del reloj del dispositivo. La sesión conserva todo lo anotado.
-// Body: { text*, created_by? } — en una sesión ya cerrada devuelve 409.
+// Body: { text*, kind?, custom_label?, color?, created_by? } — en una sesión ya cerrada devuelve 409.
 app.post('/ows-work-sessions/:id/changes', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const id = Number(req.params.id || 0);
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
   const text = String(req.body?.text ?? req.body?.body ?? '').trim().replace(/\s+/g, ' ').slice(0, 500);
   if (!text) return res.status(400).json({ error: 'Contá qué hiciste en este cambio.' });
+  const kind = normalizeWorkChangeKind(req.body?.kind);
+  const customLabel = kind === 'custom'
+    ? String(req.body?.custom_label ?? req.body?.customLabel ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)
+    : '';
+  const color = normalizeWorkChangeColor(req.body?.color, kind);
   const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
   try {
     await ensureOwsLaunchProjectsTable();
@@ -16177,7 +16213,7 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
     const author = String(req.body?.created_by || headerAdmin || row.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
     const changes = parseWorkChanges(row.changes);
-    changes.push({ at: new Date().toISOString(), text, author });
+    changes.push({ at: new Date().toISOString(), text, author, kind, custom_label: customLabel, color });
     const finalChanges = changes.slice(-WS_CHANGES_MAX);
     const { rows: upd } = await pool.query(
       `UPDATE ows_work_sessions
@@ -16189,7 +16225,7 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     logAdminActivity({
       action: 'add-session-change', entityType: 'work_session', entityId: String(id),
       entityName: String(row.title || ''), adminName: author,
-      meta: { text, changes_count: finalChanges.length }
+      meta: { text, kind, custom_label: customLabel, color, changes_count: finalChanges.length }
     });
     return res.json({ success: true, session: sanitizeWorkSessionRow(upd[0], tzOffset) });
   } catch (err) {
@@ -16436,7 +16472,7 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
       const changes = Array.isArray(s.changes) ? s.changes : [];
       if (!isLatestSeg || !changes.length) return base;
       const changeLines = changes
-        .map((c) => `      ⏺ ${formatWorkClock(c.at, tzOffset)} — ${String(c.text || '').replace(/\s+/g, ' ').trim()}`)
+        .map((c) => `      ⏺ ${formatWorkClock(c.at, tzOffset)} [${workChangeLabel(c)}] — ${String(c.text || '').replace(/\s+/g, ' ').trim()}`)
         .join('\n');
       return `${base}\n${changeLines}`;
     })

@@ -15227,6 +15227,10 @@ async function ensureOwsWorkSessionsTable() {
       -- Tramos trabajados: [{from, to, reason}]. El último con "to": null es
       -- el que se está trabajando. Permite interrumpir y seguir más tarde.
       parts            JSONB NOT NULL DEFAULT '[]'::jsonb,
+      -- Cambios registrados en vivo: [{at, text, author}]. Qué se hizo y a
+      -- qué hora, dentro de la misma sesión (ej: 17:00 nuevo objeto, 18:30
+      -- bug crítico). La hora la pone el servidor al registrarlo.
+      changes          JSONB NOT NULL DEFAULT '[]'::jsonb,
       published_devlog_id BIGINT,
       created_by       TEXT NOT NULL DEFAULT 'OceanandWild',
       created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -15246,6 +15250,7 @@ async function ensureOwsWorkSessionsTable() {
       ADD COLUMN IF NOT EXISTS started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       ADD COLUMN IF NOT EXISTS ended_at         TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS parts            JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS changes          JSONB NOT NULL DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS published_devlog_id BIGINT
   `).catch((err) => console.log(' Aviso: migración ows_work_sessions:', err.message));
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_started ON ows_work_sessions(started_at DESC)');
@@ -15370,6 +15375,32 @@ function closeOpenWorkPart(parts, at) {
   if (!list.length || list[list.length - 1].to) return list;
   const stamp = (at && !Number.isNaN(new Date(at).getTime()) ? new Date(at) : new Date()).toISOString();
   return parseWorkParts([...list.slice(0, -1), { ...list[list.length - 1], to: stamp }]);
+}
+
+// ── Cambios registrados en vivo ──────────────────────────────────────────
+// Dentro de una misma sesión el admin va anotando qué hizo y la hora la pone
+// el servidor: [{ "at": "…", "text": "…", "author": "…" }]. Ej: a las 17:00
+// "nuevo objeto en el juego", a las 18:30 "bug crítico corregido".
+// Máximo 200 por sesión y 500 caracteres cada uno.
+const WS_CHANGES_MAX = 200;
+function parseWorkChanges(raw) {
+  let list = raw;
+  if (typeof list === 'string') { try { list = JSON.parse(list); } catch { list = []; } }
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  list.forEach((c) => {
+    const text = String(c?.text ?? c?.body ?? '').trim().replace(/\s+/g, ' ').slice(0, 500);
+    if (!text) return;
+    const at = c?.at ? new Date(c.at) : null;
+    if (!at || Number.isNaN(at.getTime())) return;
+    out.push({
+      at: at.toISOString(),
+      text,
+      author: String(c?.author || c?.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild'
+    });
+  });
+  out.sort((a, b) => a.at.localeCompare(b.at));
+  return out.slice(-WS_CHANGES_MAX);
 }
 
 // Arma los tramos desde el body. Si viene `parts` gana lo que manda el panel
@@ -15567,6 +15598,9 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     paused_minutes: interrupts.reduce((sum, x) => sum + x.minutes, 0),
     resumed: partRows.length > 1,
     outcome,
+    // Cambios anotados en vivo (qué se hizo y a qué hora, en orden).
+    changes: parseWorkChanges(r?.changes),
+    changes_count: parseWorkChanges(r?.changes).length,
     // Derivados del corte:
     segments,
     local_day: days[0] || '',
@@ -16119,6 +16153,51 @@ app.post('/ows-work-sessions/:id/resume', async (req, res) => {
   }
 });
 
+// Registrar un cambio dentro de una sesión en vivo (o pausada). El admin
+// cuenta qué hizo ("nuevo objeto", "bug crítico corregido") y la hora la
+// pone el SERVIDOR (NOW()), así queda qué se hizo y a qué hora sin depender
+// del reloj del dispositivo. La sesión conserva todo lo anotado.
+// Body: { text*, created_by? } — en una sesión ya cerrada devuelve 409.
+app.post('/ows-work-sessions/:id/changes', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const text = String(req.body?.text ?? req.body?.body ?? '').trim().replace(/\s+/g, ' ').slice(0, 500);
+  if (!text) return res.status(400).json({ error: 'Contá qué hiciste en este cambio.' });
+  const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_work_sessions WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
+    const row = cur[0];
+    if (row.status === 'done') {
+      return res.status(409).json({ error: 'Esa sesión ya está cerrada: no se pueden agregar cambios.' });
+    }
+    const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
+    const author = String(req.body?.created_by || headerAdmin || row.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+    const changes = parseWorkChanges(row.changes);
+    changes.push({ at: new Date().toISOString(), text, author });
+    const finalChanges = changes.slice(-WS_CHANGES_MAX);
+    const { rows: upd } = await pool.query(
+      `UPDATE ows_work_sessions
+          SET changes = $1::jsonb, updated_at = NOW()
+        WHERE id = $2
+        RETURNING *`,
+      [JSON.stringify(finalChanges), id]
+    );
+    logAdminActivity({
+      action: 'add-session-change', entityType: 'work_session', entityId: String(id),
+      entityName: String(row.title || ''), adminName: author,
+      meta: { text, changes_count: finalChanges.length }
+    });
+    return res.json({ success: true, session: sanitizeWorkSessionRow(upd[0], tzOffset) });
+  } catch (err) {
+    console.error('Error en POST /ows-work-sessions/:id/changes:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Borrar una sesión. Si su avance ya estaba aplicado al % del proyecto se
 // avisa en la respuesta para que el frontend ofrezca revertirlo.
 app.delete('/ows-work-sessions/:id', async (req, res) => {
@@ -16303,6 +16382,14 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
     rollNote.trim(),
     contNote.trim()
   ].filter(Boolean).join(' ');
+  // Cambios anotados en vivo: se listan una sola vez por sesión, en su
+  // ÚLTIMO segmento del día (si la sesión está partida, no se repiten).
+  const latestSegToBySession = {};
+  g.items.forEach(({ session: s, seg }) => {
+    const k = String(s.id);
+    const t = String(seg.to || seg.from || '');
+    if (!latestSegToBySession[k] || t > latestSegToBySession[k]) latestSegToBySession[k] = t;
+  });
   const details = g.items
     .slice()
     .sort((a, b) => String(a.seg.from).localeCompare(String(b.seg.from)))
@@ -16342,7 +16429,16 @@ function buildDailyDevlogPayload(g, day, tzOffset) {
         notes.push('se retomó y se finalizó con éxito');
       }
       if (s.details) notes.push(s.details.replace(/\s+/g, ' ').trim());
-      return notes.length ? `${head}\n    (${notes.join(' · ')})` : head;
+      const base = notes.length ? `${head}\n    (${notes.join(' · ')})` : head;
+      // Cambios de la sesión (qué se hizo y a qué hora), solo en su última
+      // línea del día para no duplicarlos entre segmentos.
+      const isLatestSeg = String(seg.to || seg.from || '') === String(latestSegToBySession[String(s.id)] || '');
+      const changes = Array.isArray(s.changes) ? s.changes : [];
+      if (!isLatestSeg || !changes.length) return base;
+      const changeLines = changes
+        .map((c) => `      ⏺ ${formatWorkClock(c.at, tzOffset)} — ${String(c.text || '').replace(/\s+/g, ' ').trim()}`)
+        .join('\n');
+      return `${base}\n${changeLines}`;
     })
     .join('\n');
   return { title, reason: reason.slice(0, 2000), details: details.slice(0, 5000) };

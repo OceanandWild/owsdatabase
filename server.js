@@ -13891,6 +13891,27 @@ async function ensureOwsLaunchProjectsTable() {
   owsLaunchProjectsTableReady = true;
 }
 
+// Fecha real de creación de un proyecto. Acepta 'YYYY-MM-DD' (día exacto,
+// se guarda al mediodía UTC para que no se corra de día en ningún huso
+// común) o un ISO completo. Vacío = ahora (NOW() en el INSERT).
+// Devuelve { empty: true } | { value: iso } | { error }.
+function normalizeProjectCreatedAt(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return { empty: true };
+  let d = null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    d = new Date(s + 'T12:00:00.000Z');
+    if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) {
+      return { error: 'Fecha de creación inválida.' };
+    }
+  } else {
+    d = new Date(s);
+    if (Number.isNaN(d.getTime())) return { error: 'Fecha de creación inválida.' };
+  }
+  if (d.getTime() > Date.now() + 60000) return { error: 'La fecha de creación no puede ser futura.' };
+  return { value: d.toISOString() };
+}
+
 function mapOwsLaunchProjectRow(row) {
   const adminOnly = row.admin_only === true || String(row.admin_only || '').toLowerCase() === 'true' || Number(row.admin_only) === 1;
   // Permanencia del estado: true = permanente, false = temporal, null = no aplica
@@ -13977,21 +13998,26 @@ app.post('/ows-launch-projects', async (req, res) => {
   // (solo aplica a estados terminales: cancelado / descontinuado).
   const _spRaw = req.body?.status_permanent ?? req.body?.statusPermanent ?? req.body?.is_permanent ?? null;
   const statusPermanent = (_spRaw === undefined || _spRaw === null || _spRaw === '') ? null : normalizeNewsBoolean(_spRaw, false);
+  // Fecha real de creación: si el proyecto nació antes de cargarlo acá, se
+  // marca ese día; vacío = ahora.
+  const createdAtNorm = normalizeProjectCreatedAt(req.body?.created_at ?? req.body?.createdAt ?? '');
+  if (createdAtNorm.error) return res.status(400).json({ error: createdAtNorm.error });
+  const createdAt = createdAtNorm.empty ? null : createdAtNorm.value;
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
   try {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
       `INSERT INTO ows_launch_projects
-         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority, admin_only, status_feedback, status_permanent, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
+         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority, admin_only, status_feedback, status_permanent, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, COALESCE($16::timestamptz, NOW()))
        RETURNING id, slug, name, description, status, icon_url, genre, platforms,
                  expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata, created_at, updated_at`,
       [slug, name, description, status, iconUrl, genre, platforms, expectedDate, confirmedDate, linkUrl, priority, adminOnly, statusFeedback, statusPermanent,
-       (req.body?.metadata && typeof req.body.metadata === 'object') ? req.body.metadata : {}]
+       (req.body?.metadata && typeof req.body.metadata === 'object') ? req.body.metadata : {}, createdAt]
     );
     logAdminActivity({
       action: 'create', entityType: 'launch_project', entityId: slug,
-      entityName: name, adminName, meta: { status, platforms, admin_only: adminOnly }
+      entityName: name, adminName, meta: { status, platforms, admin_only: adminOnly, created_at: rows[0]?.created_at || null }
     });
     return res.status(201).json({ success: true, project: mapOwsLaunchProjectRow(rows[0] || {}) });
   } catch (err) {
@@ -14035,6 +14061,12 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
     if (req.body?.status_permanent !== undefined || req.body?.statusPermanent !== undefined || req.body?.is_permanent !== undefined) {
       const _v = req.body.status_permanent ?? req.body.statusPermanent ?? req.body.is_permanent;
       updates.status_permanent = (_v === null || _v === undefined || _v === '') ? null : normalizeNewsBoolean(_v, false);
+    }
+    // Corrección de la fecha real de creación (vacío = no se toca).
+    if (req.body?.created_at !== undefined || req.body?.createdAt !== undefined) {
+      const norm = normalizeProjectCreatedAt(req.body.created_at ?? req.body.createdAt ?? '');
+      if (norm.error) return res.status(400).json({ error: norm.error });
+      if (!norm.empty) updates.created_at = norm.value;
     }
     if (req.body?.metadata !== undefined && typeof req.body.metadata === 'object' && req.body.metadata !== null) {
       // merge sobre el metadata existente (permite setear banner_url sin pisar lo demas)

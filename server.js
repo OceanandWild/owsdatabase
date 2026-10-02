@@ -15263,6 +15263,10 @@ async function ensureOwsWorkSessionsTable() {
       -- qué hora, dentro de la misma sesión (ej: 17:00 nuevo objeto, 18:30
       -- bug crítico). La hora la pone el servidor al registrarlo.
       changes          JSONB NOT NULL DEFAULT '[]'::jsonb,
+      -- Reworks (cambios masivos) de la sesión: [{key, name, color, status}].
+      -- Agrupan los cambios que son parte del mismo trabajo grande, así se
+      -- identifican de un vistazo y se sabe si están pausados.
+      reworks          JSONB NOT NULL DEFAULT '[]'::jsonb,
       published_devlog_id BIGINT,
       created_by       TEXT NOT NULL DEFAULT 'OceanandWild',
       created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -15283,6 +15287,7 @@ async function ensureOwsWorkSessionsTable() {
       ADD COLUMN IF NOT EXISTS ended_at         TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS parts            JSONB NOT NULL DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS changes          JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS reworks          JSONB NOT NULL DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS published_devlog_id BIGINT
   `).catch((err) => console.log(' Aviso: migración ows_work_sessions:', err.message));
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_started ON ows_work_sessions(started_at DESC)');
@@ -15464,11 +15469,130 @@ function parseWorkChanges(raw) {
       delta: roundWorkNum(clampPercent(c?.delta ?? c?.progress_delta) ?? 0),
       applied: c?.applied === true,
       progress_before: c?.progress_before != null ? roundWorkNum(c.progress_before) : null,
-      progress_after: c?.progress_after != null ? roundWorkNum(c.progress_after) : null
+      progress_after: c?.progress_after != null ? roundWorkNum(c.progress_after) : null,
+      // A qué rework pertenece: vacío = cambio suelto. La clave es la misma en
+      // todas las sesiones, así un rework se reconoce aunque siga en otra.
+      rework_key: workReworkKey(c?.rework_key || c?.rework)
     });
   });
   out.sort((a, b) => a.at.localeCompare(b.at));
   return out.slice(-WS_CHANGES_MAX);
+}
+
+// ── Reworks (cambios masivos) ────────────────────────────────────────────
+// Un rework agrupa los cambios que son parte del MISMO trabajo grande: en vez
+// de "arreglé 7 cosas" queda "Arranque del juego" con sus 7 cambioscolgados
+// abajo, con el total de % que ya aportó y con el estado del trabajo.
+//
+// Se guarda como JSONB en la columna `reworks` de la sesión:
+//   [{ "key": "arranque-del-juego", "name": "Arranque del juego",
+//      "color": "#a855f7", "status": "open"|"done", "note": "…" }]
+// La `key` es el nombre normalizado (sin tildes, minúsculas): es la que
+// enlaza los cambios y la que permite que el mismo rework aparezca en varias
+// sesiones (si el rework se corta y se sigue más adelante, sigue siendo el).
+//
+// El ESTADO no se guarda: se deriva de la sesión que lo contiene, así una
+// pausa de la sesión en vivo pausa el rework automáticamente (y al retomar,
+// el rework vuelve a estar en curso). Nada que sincronizar.
+const WS_REWORKS_MAX = 40;
+const WS_REWORK_STATUSES = ['open', 'done'];
+const WS_REWORK_DEFAULT_COLOR = '#a855f7';
+
+// Nombre → clave: sin tildes, en minúsculas, solo letras/números/guiones.
+function workReworkKey(name) {
+  const s = String(name || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return s;
+}
+
+// Nombre a mostrar, limpio y acotado (máx 80 caracteres).
+function workReworkName(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+}
+
+function workReworkColor(v, fallback) {
+  const s = String(v || '').trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  const short = /^#[0-9a-fA-F]{3}$/.test(s)
+    ? `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`.toLowerCase()
+    : null;
+  if (short) return short;
+  return WS_REWORK_DEFAULT_COLOR;
+}
+
+function parseWorkReworks(raw) {
+  let list = raw;
+  if (typeof list === 'string') { try { list = JSON.parse(list); } catch { list = []; } }
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  const seen = new Set();
+  list.forEach((r) => {
+    const name = workReworkName(r?.name);
+    const key = workReworkKey(r?.key || name);
+    if (!name || !key || seen.has(key)) return;
+    seen.add(key);
+    const created = r?.created_at ? new Date(r.created_at) : null;
+    const updated = r?.updated_at ? new Date(r.updated_at) : null;
+    out.push({
+      key,
+      name,
+      color: workReworkColor(r?.color),
+      status: WS_REWORK_STATUSES.includes(String(r?.status)) ? String(r.status) : 'open',
+      note: String(r?.note || '').trim().replace(/\s+/g, ' ').slice(0, 300),
+      created_at: created && !Number.isNaN(created.getTime()) ? created.toISOString() : null,
+      created_by: String(r?.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild',
+      updated_at: updated && !Number.isNaN(updated.getTime()) ? updated.toISOString() : null
+    });
+  });
+  return out.slice(-WS_REWORKS_MAX);
+}
+
+// Estado del rework DERIVADO de la sesión:
+//   active  → la sesión está corriendo: el rework se está trabajando ahora.
+//   paused  → la sesión quedó pausada: el rework también, hasta que se retome.
+//   pending → la sesión se cerró pero el rework sigue abierto (falta otra sesión).
+//   done    → el admin lo marcó como terminado.
+function workReworkState(rework, sessionStatus) {
+  const status = String(sessionStatus || 'done');
+  if (rework?.status === 'done') return 'done';
+  if (status === 'active') return 'active';
+  if (status === 'paused') return 'paused';
+  return 'pending';
+}
+
+// Reworks de la sesión ya con los números de sus cambios y el % que aportaron,
+// para pintar el resumen sin volver a recorrerlos en el panel.
+function workReworkRows(session) {
+  const reworks = parseWorkReworks(session?.reworks);
+  const changes = parseWorkChanges(session?.changes);
+  const status = String(session?.status || 'done');
+  return reworks.map((r) => {
+    const own = changes.filter((c) => c.rework_key === r.key);
+    const firstAt = own.length ? own[0].at : null;
+    const lastAt = own.length ? own[own.length - 1].at : null;
+    return {
+      ...r,
+      state: workReworkState(r, status),
+      changes_count: own.length,
+      changes_delta: roundWorkNum(own.reduce((sum, c) => sum + (c.applied ? (Number(c.delta) || 0) : 0), 0)),
+      first_at: firstAt,
+      last_at: lastAt
+    };
+  });
+}
+
+// Junta los cambios sueltos (los que no son parte de ningún rework) con sus
+// números y aportes. Sirve para el resumen "3 cambios sueltos · +2%".
+function workLooseChangeStats(changes) {
+  const list = parseWorkChanges(changes).filter((c) => !c.rework_key);
+  return {
+    count: list.length,
+    delta: roundWorkNum(list.reduce((sum, c) => sum + (c.applied ? (Number(c.delta) || 0) : 0), 0)),
+    last_at: list.length ? list[list.length - 1].at : null
+  };
 }
 
 // Arma los tramos desde el body. Si viene `parts` gana lo que manda el panel
@@ -15603,6 +15727,10 @@ function sanitizeWorkSessionRow(r, tzOffset) {
   const totalMin = segments.reduce((s, x) => s + x.minutes, 0);
   const days = [...new Set(segments.map((x) => x.day))];
   const interrupts = workInterrupts(parts);
+  const rawChanges = parseWorkChanges(r?.changes);
+  // Se calculan una sola vez: los reworks se pintan varias veces (resumen,
+  // barra en vivo, timeline) y no tiene sentido recorrerlos cada vez.
+  const reworkRows = workReworkRows(r);
   const rawStatus = String(r?.status || 'done');
   // 'paused' = interrumpida a la espera de retomarla. Abierta = 'active'.
   const status = rawStatus === 'active' || rawStatus === 'paused' ? rawStatus : 'done';
@@ -15667,10 +15795,21 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     resumed: partRows.length > 1,
     outcome,
     // Cambios anotados en vivo (qué se hizo y a qué hora, en orden).
-    changes: parseWorkChanges(r?.changes),
-    changes_count: parseWorkChanges(r?.changes).length,
+    changes: rawChanges,
+    changes_count: rawChanges.length,
     // % ya aportado por los cambios (se aplicó al registrarlos, no al cerrar).
-    changes_delta: roundWorkNum(parseWorkChanges(r?.changes).reduce((sum, c) => sum + (c.applied ? (Number(c.delta) || 0) : 0), 0)),
+    changes_delta: roundWorkNum(rawChanges.reduce((sum, c) => sum + (c.applied ? (Number(c.delta) || 0) : 0), 0)),
+    // Reworks (cambios masivos) de la sesión, con sus cambios y su estado.
+    // El estado sale de la sesión: si la sesión está pausada, el rework también.
+    reworks: reworkRows,
+    reworks_count: reworkRows.length,
+    // Cuántos reworks quedan en curso, pausados y esperando otra sesión.
+    reworks_active: reworkRows.filter((x) => x.state === 'active').length,
+    reworks_paused: reworkRows.filter((x) => x.state === 'paused').length,
+    reworks_pending: reworkRows.filter((x) => x.state === 'pending').length,
+    reworks_done: reworkRows.filter((x) => x.state === 'done').length,
+    // Cambios que no son parte de ningún rework.
+    loose_changes: workLooseChangeStats(r?.changes),
     // Derivados del corte:
     segments,
     local_day: days[0] || '',
@@ -16223,11 +16362,80 @@ app.post('/ows-work-sessions/:id/resume', async (req, res) => {
   }
 });
 
+// ── Reworks (cambios masivos) ────────────────────────────────────────────
+// Crear o actualizar el rework de una sesión. Si el rework ya existe con esa
+// clave solo se le pisan los campos que vengan (los vacíos no borran nada), así
+// el panel puede mandar siempre el formulario completo sin miedo.
+// Si es NUEVO y la misma clave ya vive en otra sesión del proyecto, se heredan
+// el nombre y el color de allá: el rework sigue siendo el mismo aunque el
+// trabajo se corte y se siga en otra sesión.
+async function upsertWorkRework({ session, key, name, color, note, status, admin, at }) {
+  const cleanKey = workReworkKey(key);
+  const cleanName = workReworkName(name);
+  if (!cleanKey) return { error: 'El rework necesita un nombre.' };
+  const now = (at ? new Date(at) : new Date());
+  const stamp = Number.isNaN(now.getTime()) ? new Date().toISOString() : now.toISOString();
+  const list = parseWorkReworks(session?.reworks);
+  const idx = list.findIndex((r) => r.key === cleanKey);
+  const who = String(admin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+  if (idx >= 0) {
+    const prev = list[idx];
+    list[idx] = {
+      ...prev,
+      name: cleanName || prev.name,
+      color: String(color || '').trim() ? workReworkColor(color, prev.color) : prev.color,
+      note: note !== undefined ? String(note || '').trim().replace(/\s+/g, ' ').slice(0, 300) : prev.note,
+      status: status ? (WS_REWORK_STATUSES.includes(String(status)) ? String(status) : prev.status) : prev.status,
+      updated_at: stamp
+    };
+    return { reworks: list, rework: list[idx], created: false };
+  }
+  // Nuevo en esta sesión: si ya existe en otra del proyecto, se hereda lo suyo.
+  const twin = await findWorkReworkTwin(cleanKey, session);
+  const created = {
+    key: cleanKey,
+    name: cleanName || (twin ? twin.name : ''),
+    color: String(color || '').trim() ? workReworkColor(color)
+      : (twin && twin.color ? workReworkColor(twin.color) : WS_REWORK_DEFAULT_COLOR),
+    status: WS_REWORK_STATUSES.includes(String(status)) ? String(status) : 'open',
+    note: String(note !== undefined ? note : (twin ? twin.note : '')).trim().replace(/\s+/g, ' ').slice(0, 300),
+    created_at: stamp,
+    created_by: who,
+    updated_at: stamp
+  };
+  return { reworks: [...list, created], rework: created, created: true };
+}
+
+// ¿El mismo rework ya existe en otra sesión? Se busca en las sesiones del mismo
+// proyecto (y en las generales si esta no tiene proyecto). Sirve para que un
+// rework que se corta y se siga más tarde conserve su nombre y su color.
+async function findWorkReworkTwin(key, session) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT reworks FROM ows_work_sessions
+        WHERE ($1::bigint IS NULL OR project_id = $1::bigint)
+        ORDER BY started_at DESC
+        LIMIT 200`,
+      [session?.project_id != null ? Number(session.project_id) : null]
+    );
+    for (const row of rows || []) {
+      const hit = parseWorkReworks(row.reworks).find((r) => r.key === key);
+      if (hit) return hit;
+    }
+  } catch { /* si la búsqueda falla, se crea el rework con los valores por defecto */ }
+  return null;
+}
 // Registrar un cambio dentro de una sesión en vivo (o pausada). El admin
 // cuenta qué hizo ("nuevo objeto", "bug crítico corregido") y la hora la
 // pone el SERVIDOR (NOW()), así queda qué se hizo y a qué hora sin depender
 // del reloj del dispositivo. La sesión conserva todo lo anotado.
-// Body: { text*, kind?, custom_label?, color?, progress_delta?, created_by? } — en una sesión ya cerrada devuelve 409.
+//
+// Body: { text*, kind?, custom_label?, color?, progress_delta?, created_by?,
+//         rework_key? | rework_name?, rework_color?, rework_note? }
+//   rework_key  → el cambio se cuelga de un rework que YA está en la sesión.
+//   rework_name → se crea (o se reutiliza) el rework con ese nombre en esta
+//                 sesión y el cambio queda colgado de él.
+// En una sesión ya cerrada devuelve 409.
 app.post('/ows-work-sessions/:id/changes', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const id = Number(req.params.id || 0);
@@ -16256,6 +16464,38 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     if (delta && !row.project_id) {
       return res.status(400).json({ error: 'Sin proyecto no hay % que mover: registrá el cambio con 0.' });
     }
+    // ── A qué rework pertenece el cambio ──
+    // O se pasa la clave de un rework que ya está en esta sesión, o se manda
+    // el nombre y se crea/reutiliza acá. Un cambio sin rework queda suelto.
+    const at = new Date().toISOString();
+    let reworks = parseWorkReworks(row.reworks);
+    const reworksBefore = reworks;
+    let reworkUsed = null;
+    const wantKey = workReworkKey(req.body?.rework_key ?? req.body?.reworkKey);
+    const wantName = workReworkName(req.body?.rework_name ?? req.body?.reworkName);
+    if (wantKey || wantName) {
+      const linkKey = wantKey || workReworkKey(wantName);
+      // Si viene solo la clave, el rework tiene que existir: si está en otra
+      // sesión se trae, si no existe en ninguna se avisa en vez de inventarlo.
+      if (!reworks.some((r) => r.key === linkKey)) {
+        const twin = await findWorkReworkTwin(linkKey, row);
+        if (!twin && wantKey && !wantName) {
+          return res.status(400).json({ error: 'Ese rework no existe. Creá el rework con su nombre.' });
+        }
+      }
+      const linked = await upsertWorkRework({
+        session: row,
+        key: linkKey,
+        name: wantName,
+        color: req.body?.rework_color ?? req.body?.reworkColor,
+        note: req.body?.rework_note ?? req.body?.reworkNote,
+        admin: author,
+        at
+      });
+      if (linked.error) return res.status(400).json({ error: linked.error });
+      reworks = linked.reworks;
+      reworkUsed = linked.rework;
+    }
     // El aporte se aplica al instante y queda en el historial del proyecto.
     // Lo que se ponga al cerrar la sesión se suma encima (no se duplica).
     let applied = null;
@@ -16267,28 +16507,38 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     }
     const changes = parseWorkChanges(row.changes);
     changes.push({
-      at: new Date().toISOString(), text, author, kind, custom_label: customLabel, color,
+      at, text, author, kind, custom_label: customLabel, color,
       delta, applied: !!applied,
       progress_before: applied ? applied.before : null,
-      progress_after: applied ? applied.after : null
+      progress_after: applied ? applied.after : null,
+      rework_key: reworkUsed ? reworkUsed.key : ''
     });
     const finalChanges = changes.slice(-WS_CHANGES_MAX);
     const { rows: upd } = await pool.query(
       `UPDATE ows_work_sessions
-          SET changes = $1::jsonb, updated_at = NOW()
-        WHERE id = $2
+          SET changes = $1::jsonb, reworks = $2::jsonb, updated_at = NOW()
+        WHERE id = $3
         RETURNING *`,
-      [JSON.stringify(finalChanges), id]
+      [JSON.stringify(finalChanges), JSON.stringify(reworks), id]
     );
     logAdminActivity({
       action: 'add-session-change', entityType: 'work_session', entityId: String(id),
       entityName: String(row.title || ''), adminName: author,
-      meta: { text, kind, custom_label: customLabel, color, delta, applied: !!applied, changes_count: finalChanges.length }
+      meta: {
+        text, kind, custom_label: customLabel, color, delta, applied: !!applied,
+        changes_count: finalChanges.length,
+        rework: reworkUsed ? reworkUsed.key : null,
+        rework_name: reworkUsed ? reworkUsed.name : null
+      }
     });
     const session = sanitizeWorkSessionRow(upd[0], tzOffset);
     return res.json({
       success: true,
       session,
+      // El rework ya con sus números (los cambios recién registrados van
+      // dentro), para que el panel lo pueda pintar sin volver a pedir la sesión.
+      rework: reworkUsed ? (session.reworks.find((x) => x.key === reworkUsed.key) || reworkUsed) : null,
+      rework_created: !!(reworkUsed && !reworksBefore.some((r) => r.key === reworkUsed.key)),
       development: applied ? applied.development : null,
       history: applied && applied.history ? sanitizeProgressLogRow({
         ...applied.history, project_name: String(row.project_name || ''), admin_only: true
@@ -16296,6 +16546,256 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     });
   } catch (err) {
     console.error('Error en POST /ows-work-sessions/:id/changes:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Reworks de una sesión ───────────────────────────────────────────────
+// Un rework es un cambio masivo: agrupa los cambios que son parte del mismo
+// trabajo grande para identificarlos de un vistazo y saber si están pausados.
+// El estado NO se guarda: sale de la sesión (si la sesión está pausada, el
+// rework también; si se cierra, el rework queda esperando otra sesión).
+
+// Crear un rework suelto (todavía sin cambios colgados) o renombrar uno que ya
+// está. Body: { name*, color?, note?, status? ('open'|'done'), created_by? }
+app.post('/ows-work-sessions/:id/reworks', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const name = workReworkName(req.body?.name);
+  const key = workReworkKey(req.body?.key || name);
+  if (!key) return res.status(400).json({ error: 'Ponéle un nombre al rework.' });
+  const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_work_sessions WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
+    const row = cur[0];
+    if (row.status === 'done') {
+      return res.status(409).json({ error: 'Esa sesión ya está cerrada: no se pueden agregar reworks.' });
+    }
+    const admin = String(req.body?.created_by || req.headers['x-ows-admin-name'] || row.created_by || 'OceanandWild')
+      .trim().slice(0, 120) || 'OceanandWild';
+    const result = await upsertWorkRework({
+      session: row, key, name: name || key,
+      color: req.body?.color,
+      note: req.body?.note,
+      status: req.body?.status,
+      admin,
+      at: new Date().toISOString()
+    });
+    if (result.error) return res.status(400).json({ error: result.error });
+    const { rows: upd } = await pool.query(
+      `UPDATE ows_work_sessions SET reworks = $1::jsonb, updated_at = NOW()
+        WHERE id = $2 RETURNING *`,
+      [JSON.stringify(result.reworks), id]
+    );
+    logAdminActivity({
+      action: result.created ? 'add-session-rework' : 'update-session-rework',
+      entityType: 'work_session', entityId: String(id),
+      entityName: String(row.title || ''), adminName: admin,
+      meta: { rework: key, name: result.rework.name, color: result.rework.color, status: result.rework.status }
+    });
+    const session = sanitizeWorkSessionRow(upd[0], tzOffset);
+    return res.json({
+      success: true,
+      rework: session.reworks.find((x) => x.key === key) || result.rework,
+      rework_created: result.created,
+      session
+    });
+  } catch (err) {
+    console.error('Error en POST /ows-work-sessions/:id/reworks:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar el rework de una sesión: nombre, color, nota y si ya terminó.
+// El estado 'paused' NO se puede poner a mano: sale de la pausa de la sesión.
+// Body: { name?, color?, note?, status? ('open'|'done'), created_by? }
+app.patch('/ows-work-sessions/:id/reworks/:key', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const key = workReworkKey(req.params.key);
+  if (!key) return res.status(400).json({ error: 'Rework inválido.' });
+  const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_work_sessions WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
+    const row = cur[0];
+    const list = parseWorkReworks(row.reworks);
+    if (!list.some((r) => r.key === key)) {
+      return res.status(404).json({ error: 'Ese rework no está en esta sesión.' });
+    }
+    const statusRaw = String(req.body?.status ?? '').trim().toLowerCase();
+    if (statusRaw && !WS_REWORK_STATUSES.includes(statusRaw)) {
+      return res.status(400).json({ error: 'Un rework solo puede estar abierto o terminado.' });
+    }
+    // 'paused' lo decide la sesión, no el admin: se ignora en vez de fallar.
+    const admin = String(req.body?.created_by || req.headers['x-ows-admin-name'] || row.created_by || 'OceanandWild')
+      .trim().slice(0, 120) || 'OceanandWild';
+    const result = await upsertWorkRework({
+      session: row,
+      key,
+      name: workReworkName(req.body?.name),
+      color: req.body?.color,
+      note: req.body?.note !== undefined ? req.body?.note : undefined,
+      status: statusRaw || undefined,
+      admin,
+      at: new Date().toISOString()
+    });
+    if (result.error) return res.status(400).json({ error: result.error });
+    const { rows: upd } = await pool.query(
+      `UPDATE ows_work_sessions SET reworks = $1::jsonb, updated_at = NOW()
+        WHERE id = $2 RETURNING *`,
+      [JSON.stringify(result.reworks), id]
+    );
+    logAdminActivity({
+      action: 'update-session-rework', entityType: 'work_session', entityId: String(id),
+      entityName: String(row.title || ''), adminName: admin,
+      meta: { rework: key, name: result.rework.name, color: result.rework.color, status: result.rework.status }
+    });
+    const session = sanitizeWorkSessionRow(upd[0], tzOffset);
+    return res.json({
+      success: true,
+      rework: session.reworks.find((x) => x.key === key) || result.rework,
+      session
+    });
+  } catch (err) {
+    console.error('Error en PATCH /ows-work-sessions/:id/reworks/:key:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Deshacer un rework: los cambios NO se borran, quedan sueltos. Sirve para
+// separar cosas que se.groupby juntos por error.
+app.delete('/ows-work-sessions/:id/reworks/:key', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const key = workReworkKey(req.params.key);
+  if (!key) return res.status(400).json({ error: 'Rework inválido.' });
+  const tzOffset = normalizeTzOffsetMinutes(req.query?.tz_offset);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_work_sessions WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
+    const row = cur[0];
+    const list = parseWorkReworks(row.reworks);
+    if (!list.some((r) => r.key === key)) {
+      return res.status(404).json({ error: 'Ese rework no está en esta sesión.' });
+    }
+    // Los % ya aplicados no se tocan: solo se rompe el vínculo con el rework.
+    const before = parseWorkChanges(row.changes);
+    const freed = before.filter((c) => c.rework_key === key).length;
+    const changes = before.map((c) => (c.rework_key === key ? { ...c, rework_key: '' } : c));
+    const { rows: upd } = await pool.query(
+      `UPDATE ows_work_sessions SET reworks = $1::jsonb, changes = $2::jsonb, updated_at = NOW()
+        WHERE id = $3 RETURNING *`,
+      [JSON.stringify(list.filter((r) => r.key !== key)), JSON.stringify(changes), id]
+    );
+    logAdminActivity({
+      action: 'delete-session-rework', entityType: 'work_session', entityId: String(id),
+      entityName: String(row.title || ''),
+      adminName: String(req.headers['x-ows-admin-name'] || row.created_by || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild',
+      meta: { rework: key, freed_changes: freed }
+    });
+    return res.json({ success: true, freed_changes: freed, session: sanitizeWorkSessionRow(upd[0], tzOffset) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-work-sessions/:id/reworks/:key:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Todos los reworks del panel, unidos entre sí: el mismo rework se muestra uno
+// solo con todas las sesiones en las que aparece y todos sus cambios. Así se
+// ve de un vistazo cuál sigue en curso, cuál está pausado y cuál quedó
+// esperando otra sesión.
+app.get('/ows-work-reworks', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const tzOffset = normalizeTzOffsetMinutes(req.query?.tz_offset);
+  const limit = Math.max(20, Math.min(600, Number(req.query?.limit) || 300));
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const { rows } = await pool.query(
+      `SELECT id, project_id, project_name, title, status, realtime,
+              started_at, ended_at, parts, changes, reworks
+         FROM ows_work_sessions
+        WHERE jsonb_array_length(COALESCE(reworks, '[]'::jsonb)) > 0
+        ORDER BY started_at DESC
+        LIMIT $1`,
+      [limit]
+    );
+    const byKey = new Map();
+    (rows || []).forEach((row) => {
+      const changes = parseWorkChanges(row.changes);
+      const status = String(row.status || 'done');
+      workReworkRows(row).forEach((r) => {
+        if (!byKey.has(r.key)) {
+          byKey.set(r.key, {
+            key: r.key, name: r.name, color: r.color, status: r.status, note: r.note,
+            created_at: r.created_at, created_by: r.created_by,
+            changes_count: 0, changes_delta: 0, sessions_count: 0,
+            first_at: null, last_at: null, states: [], sessions: []
+          });
+        }
+        const agg = byKey.get(r.key);
+        const own = changes.filter((c) => c.rework_key === r.key);
+        // Un rework puede estar en varias sesiones: se suman sus cambios y se
+        // recuerda en cuál estaba (para poder seguirlo desde ahí).
+        agg.changes_count += own.length;
+        agg.changes_delta = roundWorkNum(agg.changes_delta + own.reduce((sum, c) => sum + (c.applied ? (Number(c.delta) || 0) : 0), 0));
+        agg.sessions_count += 1;
+        agg.states.push(r.state);
+        agg.sessions.push({
+          id: Number(row.id),
+          session_title: String(row.title || ''),
+          session_status: status,
+          project_id: row.project_id != null ? Number(row.project_id) : null,
+          project_name: String(row.project_name || ''),
+          local_day: localDayOf(row.started_at, tzOffset),
+          started_at: row.started_at ? new Date(row.started_at).toISOString() : null,
+          ended_at: row.ended_at ? new Date(row.ended_at).toISOString() : null,
+          changes_count: own.length,
+          changes_delta: roundWorkNum(own.reduce((sum, c) => sum + (c.applied ? (Number(c.delta) || 0) : 0), 0)),
+          state: r.state
+        });
+        // Estado global: si alguna sesión lo tiene corriendo, está en curso; si
+        // alguna está pausada y ninguna corre, está pausado.
+        const order = { active: 0, paused: 1, pending: 2, done: 3 };
+        agg.state = agg.states.reduce((best, st) => (order[st] < order[best] ? st : best), 'done');
+        const ats = own.map((c) => c.at).filter(Boolean);
+        if (ats.length) {
+          const first = ats[0];
+          const last = ats[ats.length - 1];
+          if (!agg.first_at || first < agg.first_at) agg.first_at = first;
+          if (!agg.last_at || last > agg.last_at) agg.last_at = last;
+        }
+      });
+    });
+    const list = [...byKey.values()].sort((a, b) => {
+      const order = { active: 0, paused: 1, pending: 2, done: 3 };
+      if (order[a.state] !== order[b.state]) return order[a.state] - order[b.state];
+      return String(b.last_at || '').localeCompare(String(a.last_at || ''));
+    });
+    return res.json({
+      success: true,
+      reworks: list,
+      counts: {
+        total: list.length,
+        active: list.filter((x) => x.state === 'active').length,
+        paused: list.filter((x) => x.state === 'paused').length,
+        pending: list.filter((x) => x.state === 'pending').length,
+        done: list.filter((x) => x.state === 'done').length
+      }
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-work-reworks:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

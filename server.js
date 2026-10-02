@@ -16475,12 +16475,20 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     const wantName = workReworkName(req.body?.rework_name ?? req.body?.reworkName);
     if (wantKey || wantName) {
       const linkKey = wantKey || workReworkKey(wantName);
+      // Un rework terminado queda cerrado: no se le pueden colgar más cambios.
+      const here = reworks.find((r) => r.key === linkKey);
+      if (here && here.status === 'done') {
+        return res.status(409).json({ error: `El rework "${here.name}" ya está terminado: no se le pueden agregar más cambios. Reabrilo si querés continuar.` });
+      }
       // Si viene solo la clave, el rework tiene que existir: si está en otra
       // sesión se trae, si no existe en ninguna se avisa en vez de inventarlo.
       if (!reworks.some((r) => r.key === linkKey)) {
         const twin = await findWorkReworkTwin(linkKey, row);
         if (!twin && wantKey && !wantName) {
           return res.status(400).json({ error: 'Ese rework no existe. Creá el rework con su nombre.' });
+        }
+        if (twin && twin.status === 'done') {
+          return res.status(409).json({ error: `El rework "${twin.name}" ya está terminado: no se le pueden agregar más cambios. Reabrilo si querés continuar.` });
         }
       }
       const linked = await upsertWorkRework({

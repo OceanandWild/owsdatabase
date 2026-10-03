@@ -13834,6 +13834,10 @@ async function ensureOwsEventPopupsTable() {
       image_url     TEXT NOT NULL DEFAULT '',
       link_url      TEXT NOT NULL DEFAULT '',
       link_label    TEXT NOT NULL DEFAULT '',
+      kind          TEXT NOT NULL DEFAULT 'modal',
+      toast_color   TEXT NOT NULL DEFAULT '#f59e0b',
+      toast_position TEXT NOT NULL DEFAULT 'top',
+      duration_ms   INTEGER NOT NULL DEFAULT 6000,
       is_active     BOOLEAN NOT NULL DEFAULT TRUE,
       is_sent       BOOLEAN NOT NULL DEFAULT FALSE,
       sent_at       TIMESTAMPTZ,
@@ -13847,7 +13851,31 @@ async function ensureOwsEventPopupsTable() {
     CREATE INDEX IF NOT EXISTS idx_ows_event_popups_feed
       ON ows_event_popups (is_sent, is_active, sent_at DESC)
   `);
+  // Migración: tablas creadas antes de los toasts
+  await pool.query(`ALTER TABLE ows_event_popups ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'modal'`);
+  await pool.query(`ALTER TABLE ows_event_popups ADD COLUMN IF NOT EXISTS toast_color TEXT NOT NULL DEFAULT '#f59e0b'`);
+  await pool.query(`ALTER TABLE ows_event_popups ADD COLUMN IF NOT EXISTS toast_position TEXT NOT NULL DEFAULT 'top'`);
+  await pool.query(`ALTER TABLE ows_event_popups ADD COLUMN IF NOT EXISTS duration_ms INTEGER NOT NULL DEFAULT 6000`);
   owsEventPopupsTableReady = true;
+}
+
+function normalizePopupKind(value) {
+  return String(value || '').trim().toLowerCase() === 'toast' ? 'toast' : 'modal';
+}
+
+function normalizePopupColor(value) {
+  const c = String(value || '').trim().slice(0, 24);
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c) ? c : '#f59e0b';
+}
+
+function normalizePopupPosition(value) {
+  return String(value || '').trim().toLowerCase() === 'bottom' ? 'bottom' : 'top';
+}
+
+function normalizePopupDuration(value) {
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n)) return 6000;
+  return Math.max(2000, Math.min(30000, n));
 }
 
 async function ensureOwsPopupPresetsTable() {
@@ -13861,10 +13889,19 @@ async function ensureOwsPopupPresetsTable() {
       image_url     TEXT NOT NULL DEFAULT '',
       link_url      TEXT NOT NULL DEFAULT '',
       link_label    TEXT NOT NULL DEFAULT '',
+      kind          TEXT NOT NULL DEFAULT 'modal',
+      toast_color   TEXT NOT NULL DEFAULT '#f59e0b',
+      toast_position TEXT NOT NULL DEFAULT 'top',
+      duration_ms   INTEGER NOT NULL DEFAULT 6000,
       created_by    TEXT NOT NULL DEFAULT 'OceanandWild',
       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Migración: presets creados antes de los toasts
+  await pool.query(`ALTER TABLE ows_popup_presets ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'modal'`);
+  await pool.query(`ALTER TABLE ows_popup_presets ADD COLUMN IF NOT EXISTS toast_color TEXT NOT NULL DEFAULT '#f59e0b'`);
+  await pool.query(`ALTER TABLE ows_popup_presets ADD COLUMN IF NOT EXISTS toast_position TEXT NOT NULL DEFAULT 'top'`);
+  await pool.query(`ALTER TABLE ows_popup_presets ADD COLUMN IF NOT EXISTS duration_ms INTEGER NOT NULL DEFAULT 6000`);
   owsPopupPresetsTableReady = true;
 }
 
@@ -13879,6 +13916,13 @@ function mapOwsEventPopupRow(row) {
     linkUrl: String(row.link_url || ''),
     link_label: String(row.link_label || ''),
     linkLabel: String(row.link_label || ''),
+    kind: normalizePopupKind(row.kind),
+    toast_color: normalizePopupColor(row.toast_color),
+    toastColor: normalizePopupColor(row.toast_color),
+    toast_position: normalizePopupPosition(row.toast_position),
+    toastPosition: normalizePopupPosition(row.toast_position),
+    duration_ms: normalizePopupDuration(row.duration_ms),
+    durationMs: normalizePopupDuration(row.duration_ms),
     is_active: row.is_active !== false,
     is_sent: row.is_sent === true,
     sent_at: row.sent_at ? new Date(row.sent_at).toISOString() : null,
@@ -13903,6 +13947,13 @@ function mapOwsPopupPresetRow(row) {
     linkUrl: String(row.link_url || ''),
     link_label: String(row.link_label || ''),
     linkLabel: String(row.link_label || ''),
+    kind: normalizePopupKind(row.kind),
+    toast_color: normalizePopupColor(row.toast_color),
+    toastColor: normalizePopupColor(row.toast_color),
+    toast_position: normalizePopupPosition(row.toast_position),
+    toastPosition: normalizePopupPosition(row.toast_position),
+    duration_ms: normalizePopupDuration(row.duration_ms),
+    durationMs: normalizePopupDuration(row.duration_ms),
     created_by: String(row.created_by || 'OceanandWild'),
     created_at: row.created_at || null
   };
@@ -13918,7 +13969,8 @@ app.get('/ows-dashboard/popups/active', async (req, res) => {
   try {
     await ensureOwsEventPopupsTable();
     const { rows } = await pool.query(
-      `SELECT id, title, body, image_url, link_url, link_label,
+      `SELECT id, title, body, image_url, link_url, link_label, kind, toast_color,
+              toast_position, duration_ms,
               is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at
          FROM ows_event_popups
         WHERE is_sent = TRUE AND is_active = TRUE
@@ -13939,7 +13991,8 @@ app.get('/ows-dashboard/popups', async (req, res) => {
   try {
     await ensureOwsEventPopupsTable();
     const { rows } = await pool.query(
-      `SELECT id, title, body, image_url, link_url, link_label,
+      `SELECT id, title, body, image_url, link_url, link_label, kind, toast_color,
+              toast_position, duration_ms,
               is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at
          FROM ows_event_popups
         ORDER BY updated_at DESC, id DESC
@@ -13960,16 +14013,21 @@ app.post('/ows-dashboard/popups', dashboardEventUpload.single('image'), async (r
   const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
   const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
   const linkLabel = String(req.body?.link_label || req.body?.linkLabel || '').trim().slice(0, 60);
+  const kind = normalizePopupKind(req.body?.kind);
+  const toastColor = normalizePopupColor(req.body?.toast_color ?? req.body?.toastColor);
+  const toastPosition = normalizePopupPosition(req.body?.toast_position ?? req.body?.toastPosition);
+  const durationMs = normalizePopupDuration(req.body?.duration_ms ?? req.body?.durationMs);
   if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
   const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
   try {
     await ensureOwsEventPopupsTable();
     const { rows } = await pool.query(
-      `INSERT INTO ows_event_popups (title, body, image_url, link_url, link_label, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, title, body, image_url, link_url, link_label,
+      `INSERT INTO ows_event_popups (title, body, image_url, link_url, link_label, kind, toast_color, toast_position, duration_ms, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, title, body, image_url, link_url, link_label, kind, toast_color,
+                 toast_position, duration_ms,
                  is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at`,
-      [title, body, finalImageUrl, linkUrl, linkLabel, popupAdminName(req)]
+      [title, body, finalImageUrl, linkUrl, linkLabel, kind, toastColor, toastPosition, durationMs, popupAdminName(req)]
     );
     logAdminActivity({
       action: 'create', entityType: 'event_popup', entityId: String(rows[0]?.id || ''),
@@ -14000,6 +14058,16 @@ app.patch('/ows-dashboard/popups/:id', dashboardEventUpload.single('image'), asy
     }
     if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
     if (req.body?.link_label !== undefined) updates.link_label = String(req.body.link_label).trim().slice(0, 60);
+    if (req.body?.kind !== undefined) updates.kind = normalizePopupKind(req.body.kind);
+    if (req.body?.toast_color !== undefined || req.body?.toastColor !== undefined) {
+      updates.toast_color = normalizePopupColor(req.body.toast_color ?? req.body.toastColor);
+    }
+    if (req.body?.toast_position !== undefined || req.body?.toastPosition !== undefined) {
+      updates.toast_position = normalizePopupPosition(req.body.toast_position ?? req.body.toastPosition);
+    }
+    if (req.body?.duration_ms !== undefined || req.body?.durationMs !== undefined) {
+      updates.duration_ms = normalizePopupDuration(req.body.duration_ms ?? req.body.durationMs);
+    }
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
     if (req.file && req.file.path) updates.image_url = String(req.file.path);
     else if (req.body?.image_url !== undefined) updates.image_url = String(req.body.image_url).trim();
@@ -14009,7 +14077,8 @@ app.patch('/ows-dashboard/popups/:id', dashboardEventUpload.single('image'), asy
     const { rows } = await pool.query(
       `UPDATE ows_event_popups SET ${setSql}, updated_at = NOW()
         WHERE id = $1
-        RETURNING id, title, body, image_url, link_url, link_label,
+        RETURNING id, title, body, image_url, link_url, link_label, kind, toast_color,
+                  toast_position, duration_ms,
                   is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at`,
       [id, ...keys.map((k) => updates[k])]
     );
@@ -14055,7 +14124,8 @@ app.post('/ows-dashboard/popups/:id/send', async (req, res) => {
       `UPDATE ows_event_popups
           SET is_sent = TRUE, sent_at = NOW(), is_active = TRUE, updated_at = NOW()
         WHERE id = $1
-        RETURNING id, title, body, image_url, link_url, link_label,
+        RETURNING id, title, body, image_url, link_url, link_label, kind, toast_color,
+                  toast_position, duration_ms,
                   is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at`,
       [id]
     );
@@ -14082,7 +14152,8 @@ app.post('/ows-dashboard/popups/:id/reshow', async (req, res) => {
       `UPDATE ows_event_popups
           SET show_token = show_token + 1, is_sent = TRUE, sent_at = NOW(), is_active = TRUE, updated_at = NOW()
         WHERE id = $1
-        RETURNING id, title, body, image_url, link_url, link_label,
+        RETURNING id, title, body, image_url, link_url, link_label, kind, toast_color,
+                  toast_position, duration_ms,
                   is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at`,
       [id]
     );
@@ -14105,7 +14176,8 @@ app.get('/ows-dashboard/popup-presets', async (req, res) => {
   try {
     await ensureOwsPopupPresetsTable();
     const { rows } = await pool.query(
-      `SELECT id, name, title, body, image_url, link_url, link_label, created_by, created_at
+      `SELECT id, name, title, body, image_url, link_url, link_label, kind, toast_color,
+              toast_position, duration_ms, created_by, created_at
          FROM ows_popup_presets ORDER BY id DESC LIMIT 100`
     );
     return res.json({ success: true, presets: rows.map(mapOwsPopupPresetRow) });
@@ -14124,14 +14196,19 @@ app.post('/ows-dashboard/popup-presets', dashboardEventUpload.single('image'), a
   const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
   const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
   const linkLabel = String(req.body?.link_label || req.body?.linkLabel || '').trim().slice(0, 60);
+  const kind = normalizePopupKind(req.body?.kind);
+  const toastColor = normalizePopupColor(req.body?.toast_color ?? req.body?.toastColor);
+  const toastPosition = normalizePopupPosition(req.body?.toast_position ?? req.body?.toastPosition);
+  const durationMs = normalizePopupDuration(req.body?.duration_ms ?? req.body?.durationMs);
   const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
   try {
     await ensureOwsPopupPresetsTable();
     const { rows } = await pool.query(
-      `INSERT INTO ows_popup_presets (name, title, body, image_url, link_url, link_label, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, name, title, body, image_url, link_url, link_label, created_by, created_at`,
-      [name, title, body, finalImageUrl, linkUrl, linkLabel, popupAdminName(req)]
+      `INSERT INTO ows_popup_presets (name, title, body, image_url, link_url, link_label, kind, toast_color, toast_position, duration_ms, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, name, title, body, image_url, link_url, link_label, kind, toast_color,
+                 toast_position, duration_ms, created_by, created_at`,
+      [name, title, body, finalImageUrl, linkUrl, linkLabel, kind, toastColor, toastPosition, durationMs, popupAdminName(req)]
     );
     logAdminActivity({
       action: 'create', entityType: 'popup_preset', entityId: String(rows[0]?.id || ''),

@@ -13902,6 +13902,33 @@ async function ensureOwsLaunchProjectsTable() {
            updated_at = NOW()
      WHERE LOWER(slug) = 'wilder-gambit'
   `);
+  // Defaults visibles de tu upload actual (Wilder Gambit.exe · 652 kB):
+  // solo rellenan claves vacías, nunca pisan una versión manual del admin.
+  try {
+    const { rows: wbRows } = await pool.query(
+      `SELECT id, metadata FROM ows_launch_projects WHERE LOWER(slug) = 'wilder-gambit' LIMIT 1`
+    );
+    if (wbRows.length) {
+      const m = (wbRows[0].metadata && typeof wbRows[0].metadata === 'object') ? wbRows[0].metadata : {};
+      const it = (m.itch && typeof m.itch === 'object') ? m.itch : {};
+      const patch = {};
+      if (!String(it.version || '').trim()) patch.version = '0.1.0';
+      if (!String(it.file || '').trim()) patch.file = 'Wilder Gambit.exe';
+      if (!String(it.size || '').trim()) patch.size = '652 kB';
+      if (!it.updated_at) patch.updated_at = new Date().toISOString();
+      if (Object.keys(patch).length) {
+        await pool.query(
+          `UPDATE ows_launch_projects
+              SET metadata = metadata || jsonb_build_object('itch', COALESCE(metadata->'itch', '{}'::jsonb) || $2::jsonb),
+                  updated_at = NOW()
+            WHERE id = $1`,
+          [wbRows[0].id, patch]
+        );
+      }
+    }
+  } catch (e) {
+    console.error('[itch] backfill de defaults falló:', e?.message || e);
+  }
   owsLaunchProjectsTableReady = true;
 }
 

@@ -14541,7 +14541,9 @@ app.get('/ows-devlogs', async (req, res) => {
           const sess = String(r.session_ids).split(',')
             .map((x) => byId.get(Number(String(x).trim()))).filter(Boolean);
           const fix = devlogProgressFromSessions(sess);
-          if (fix.after == null) continue;
+          // Sin antes/después igual se guarda el delta si hubo movimiento:
+          // la tabla lo muestra como "+x %" aunque no haya barra.
+          if (fix.after == null && fix.delta == null) continue;
           // eslint-disable-next-line no-await-in-loop
           await pool.query(
             'UPDATE ows_devlogs SET progress_before = $1, progress_after = $2, progress_delta = $3, updated_at = NOW() WHERE id = $4',

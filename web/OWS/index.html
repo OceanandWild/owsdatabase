@@ -77,8 +77,9 @@
         <div class="field-group">
           <label for="setup-download-dir">📁 ¿Dónde van tus descargas? <span class="setup-env-badge" id="setup-env-badge"></span></label>
           <div class="setup-dir-row">
-            <input type="text" id="setup-download-dir" placeholder="Detectando…" autocomplete="off" spellcheck="false" readonly />
-            <button id="btn-setup-browse" class="btn btn-ghost btn-sm" type="button" title="Volver a detectar">📂</button>
+            <input type="text" id="setup-download-dir" placeholder="Detectando…" autocomplete="off" spellcheck="false" />
+            <button id="btn-setup-browse" class="btn btn-ghost btn-sm" type="button" title="Elegir carpeta con el explorador">📂</button>
+            <button id="btn-setup-dir-reset" class="btn btn-ghost btn-sm hidden" type="button" title="Volver a la carpeta por defecto">↺</button>
           </div>
           <p class="setup-dir-status" id="setup-dir-status"></p>
           <p class="setup-hint" id="setup-dir-hint">Detectando tu entorno…</p>
@@ -302,7 +303,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.1.2</span>
+          <span class="nav-version">OWS Hub · v3.1.3</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>

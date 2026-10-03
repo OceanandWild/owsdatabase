@@ -14007,7 +14007,10 @@ function mapOwsLaunchProjectRow(row) {
     itch_restricted: _itch.restricted === true,
     itchRestricted: _itch.restricted === true,
     itch_last_checked: _itch.last_checked || null,
-    itchLastChecked: _itch.last_checked || null
+    itchLastChecked: _itch.last_checked || null,
+    // ── Instalador directo (OWS Hub): descarga sin salir del Hub ──
+    installer_url: String(_itch.installer_url || '').trim(),
+    installerUrl: String(_itch.installer_url || '').trim()
   };
 }
 
@@ -14187,6 +14190,7 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
     version: String(manual.version ?? auto?.version ?? current.itch?.version ?? '').trim(),
     file: String(manual.file ?? auto?.file ?? current.itch?.file ?? '').trim(),
     size: String(manual.size ?? auto?.size ?? current.itch?.size ?? '').trim(),
+    installer_url: normalizeItchUrl(manual.installer_url ?? current.itch?.installer_url ?? ''),
     updated_at: manual.updated_at || (auto && !auto.restricted ? now : (current.itch?.updated_at || null)),
     cover: String(auto?.cover || current.itch?.cover || '').trim(),
     title: String(auto?.title || current.itch?.title || '').trim(),
@@ -14209,6 +14213,56 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
     [row.id, nextMeta, nextLinkUrl]
   );
   return { project: mapOwsLaunchProjectRow(updated[0]), itch: nextItch };
+}
+
+// ── Descarga directa del instalador vía servidor (OWS Hub) ──
+// Orden: (1) installer_url manual (redirect), (2) itch API con
+// ITCH_API_KEY (stream autenticado, la key nunca sale del servidor),
+// (3) fallback: redirect a la página de itch.io.
+async function resolveItchUploadDownload({ gameId, fileName, apiKey }) {
+  const key = String(apiKey || process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
+  if (!key || !gameId) return null;
+  const headers = { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' };
+  let uploads = [];
+  try {
+    const res = await fetch(`https://api.itch.io/games/${encodeURIComponent(gameId)}/uploads`, { headers });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      uploads = Array.isArray(data?.uploads) ? data.uploads : [];
+    }
+  } catch (_) { /* intenta legacy */ }
+  if (!uploads.length) {
+    try {
+      const res = await fetch(`https://itch.io/api/1/${encodeURIComponent(key)}/game/${encodeURIComponent(gameId)}/uploads`, { headers: { Accept: 'application/json' } });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        uploads = Array.isArray(data?.uploads) ? data.uploads : [];
+      }
+    } catch (_) { /* no-op */ }
+  }
+  if (!uploads.length) return null;
+  const want = String(fileName || '').trim().toLowerCase();
+  const pick = (want && uploads.find((u) => String(u?.filename || '').toLowerCase() === want))
+    || uploads.find((u) => /\.exe$/i.test(String(u?.filename || '')))
+    || uploads[0];
+  if (!pick?.id) return null;
+  return { uploadId: pick.id, filename: String(pick.filename || 'installer'), size: pick.size || null };
+}
+
+async function streamItchUploadToResponse(uploadId, filename, res) {
+  const key = String(process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
+  if (!key) throw new Error('ITCH_API_KEY no configurada');
+  const up = await fetch(`https://api.itch.io/uploads/${encodeURIComponent(uploadId)}/download`, {
+    headers: { 'Authorization': `Bearer ${key}` }
+  });
+  if (!up.ok) throw new Error(`itch download HTTP ${up.status}`);
+  const safeName = String(filename || 'installer').replace(/[^A-Za-z0-9 _.-]+/g, '_');
+  res.set('Content-Type', up.headers.get('content-type') || 'application/octet-stream');
+  res.set('Content-Disposition', `attachment; filename="${safeName}"`);
+  const len = up.headers.get('content-length');
+  if (len) res.set('Content-Length', len);
+  const buf = Buffer.from(await up.arrayBuffer());
+  return res.send(buf);
 }
 
 // Listado publico de proyectos OWS: por defecto SOLO los visibles
@@ -14264,6 +14318,8 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
       updated_at: mapped.itch_updated_at,
       file: mapped.itch_file || null,
       size: mapped.itch_size || null,
+      installer_url: mapped.installer_url || null,
+      download_url: `/ows-launch-projects/${encodeURIComponent(mapped.slug)}/download`,
       restricted: mapped.itch_restricted,
       stale: !fresh,
       last_checked: mapped.itch_last_checked
@@ -14274,8 +14330,53 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
   }
 });
 
+// ── Descarga directa del instalador (público, estilo launcher) ──
+// GET /ows-launch-projects/:slug/download
+// (1) installer_url manual → redirect 302
+// (2) itch API con ITCH_API_KEY → stream autenticado del .exe
+// (3) fallback → redirect a la página de itch.io
+app.get('/ows-launch-projects/:slug/download', async (req, res) => {
+  const slug = normalizeProjectSlug(req.params.slug);
+  if (!slug) return res.status(400).json({ error: 'slug inválido' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    const { rows } = await pool.query(
+      `SELECT id, slug, name, link_url, metadata FROM ows_launch_projects
+        WHERE LOWER(slug) = LOWER($1) AND is_active = TRUE LIMIT 1`,
+      [slug]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    const mapped = mapOwsLaunchProjectRow(rows[0]);
+    if (mapped.installer_url) return res.redirect(302, mapped.installer_url);
+
+    // Intento itch API: game_id → uploads → .exe
+    try {
+      const apiKey = String(process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
+      const viaApi = apiKey
+        ? await fetchItchApiInfo({ apiKey, matchUrl: mapped.itch_url, matchSlug: mapped.slug })
+        : null;
+      if (viaApi?.raw_id) {
+        const dl = await resolveItchUploadDownload({
+          gameId: viaApi.raw_id,
+          fileName: mapped.itch_file,
+          apiKey
+        });
+        if (dl?.uploadId) return await streamItchUploadToResponse(dl.uploadId, dl.filename, res);
+      }
+    } catch (e) {
+      console.error('[itch] download vía API falló:', e?.message || e);
+    }
+
+    if (mapped.itch_url) return res.redirect(302, mapped.itch_url);
+    return res.status(404).json({ error: 'Este proyecto aún no tiene instalador disponible' });
+  } catch (err) {
+    console.error('Error en GET /ows-launch-projects/:slug/download:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // ── Sincronizar itch.io (admin) ──
-// Body: { itch_url?, version?, file?, size?, updated_at? }
+// Body: { itch_url?, version?, file?, size?, installer_url?, updated_at? }
 // Si mandas version manual, esa gana. Si no, intenta scrape + API.
 app.post('/ows-launch-projects/:id/sync-itch', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
@@ -14289,6 +14390,7 @@ app.post('/ows-launch-projects/:id/sync-itch', async (req, res) => {
         version: String(req.body?.version ?? req.body?.itch_version ?? '').trim(),
         file: String(req.body?.file ?? req.body?.itch_file ?? '').trim(),
         size: String(req.body?.size ?? req.body?.itch_size ?? '').trim(),
+        installer_url: normalizeItchUrl(req.body?.installer_url ?? req.body?.installerUrl ?? ''),
         updated_at: req.body?.updated_at || req.body?.itch_updated_at || null
       }
     });

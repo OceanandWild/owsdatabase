@@ -15574,8 +15574,16 @@ function workReworkName(name) {
   return String(name || '').trim().replace(/\s+/g, ' ').slice(0, 80);
 }
 
-function workReworkColor(v, fallback) {
-  const s = String(v || '').trim();
+// Tipo de grupo: 'rework' = revamp/rediseño de algo que ya existe,
+// 'major' = trabajo grande nuevo (suele aportar mucho %). Lo viejo sin tipo
+// cuenta como rework, que era lo único que había.
+function workReworkKind(v, fallback) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (s === 'major' || s === 'rework') return s;
+  return fallback === 'major' ? 'major' : 'rework';
+}
+
+function workReworkColor(v, fallback) {  const s = String(v || '').trim();
   if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
   const short = /^#[0-9a-fA-F]{3}$/.test(s)
     ? `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`.toLowerCase()
@@ -15601,6 +15609,7 @@ function parseWorkReworks(raw) {
       key,
       name,
       color: workReworkColor(r?.color),
+      kind: workReworkKind(r?.kind),
       status: WS_REWORK_STATUSES.includes(String(r?.status)) ? String(r.status) : 'open',
       note: String(r?.note || '').trim().replace(/\s+/g, ' ').slice(0, 300),
       created_at: created && !Number.isNaN(created.getTime()) ? created.toISOString() : null,
@@ -16430,10 +16439,10 @@ app.post('/ows-work-sessions/:id/resume', async (req, res) => {
 // Si es NUEVO y la misma clave ya vive en otra sesión del proyecto, se heredan
 // el nombre y el color de allá: el rework sigue siendo el mismo aunque el
 // trabajo se corte y se siga en otra sesión.
-async function upsertWorkRework({ session, key, name, color, note, status, admin, at }) {
+async function upsertWorkRework({ session, key, name, color, note, status, kind, admin, at }) {
   const cleanKey = workReworkKey(key);
   const cleanName = workReworkName(name);
-  if (!cleanKey) return { error: 'El rework necesita un nombre.' };
+  if (!cleanKey) return { error: 'El grupo necesita un nombre.' };
   const now = (at ? new Date(at) : new Date());
   const stamp = Number.isNaN(now.getTime()) ? new Date().toISOString() : now.toISOString();
   const list = parseWorkReworks(session?.reworks);
@@ -16447,6 +16456,7 @@ async function upsertWorkRework({ session, key, name, color, note, status, admin
       color: String(color || '').trim() ? workReworkColor(color, prev.color) : prev.color,
       note: note !== undefined ? String(note || '').trim().replace(/\s+/g, ' ').slice(0, 300) : prev.note,
       status: status ? (WS_REWORK_STATUSES.includes(String(status)) ? String(status) : prev.status) : prev.status,
+      kind: kind !== undefined ? workReworkKind(kind, prev.kind) : prev.kind,
       updated_at: stamp
     };
     return { reworks: list, rework: list[idx], created: false };
@@ -16458,6 +16468,7 @@ async function upsertWorkRework({ session, key, name, color, note, status, admin
     name: cleanName || (twin ? twin.name : ''),
     color: String(color || '').trim() ? workReworkColor(color)
       : (twin && twin.color ? workReworkColor(twin.color) : WS_REWORK_DEFAULT_COLOR),
+    kind: kind !== undefined ? workReworkKind(kind) : workReworkKind(twin ? twin.kind : undefined),
     status: WS_REWORK_STATUSES.includes(String(status)) ? String(status) : 'open',
     note: String(note !== undefined ? note : (twin ? twin.note : '')).trim().replace(/\s+/g, ' ').slice(0, 300),
     created_at: stamp,
@@ -16539,17 +16550,17 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
       // Un rework terminado queda cerrado: no se le pueden colgar más cambios.
       const here = reworks.find((r) => r.key === linkKey);
       if (here && here.status === 'done') {
-        return res.status(409).json({ error: `El rework "${here.name}" ya está terminado: no se le pueden agregar más cambios. Reabrilo si querés continuar.` });
+        return res.status(409).json({ error: `El grupo "${here.name}" ya está terminado: no se le pueden agregar más cambios. Reabrilo si querés continuar.` });
       }
       // Si viene solo la clave, el rework tiene que existir: si está en otra
       // sesión se trae, si no existe en ninguna se avisa en vez de inventarlo.
       if (!reworks.some((r) => r.key === linkKey)) {
         const twin = await findWorkReworkTwin(linkKey, row);
         if (!twin && wantKey && !wantName) {
-          return res.status(400).json({ error: 'Ese rework no existe. Creá el rework con su nombre.' });
+          return res.status(400).json({ error: 'Ese grupo no existe. Creá el grupo con su nombre.' });
         }
         if (twin && twin.status === 'done') {
-          return res.status(409).json({ error: `El rework "${twin.name}" ya está terminado: no se le pueden agregar más cambios. Reabrilo si querés continuar.` });
+          return res.status(409).json({ error: `El grupo "${twin.name}" ya está terminado: no se le pueden agregar más cambios. Reabrilo si querés continuar.` });
         }
       }
       const linked = await upsertWorkRework({
@@ -16636,7 +16647,7 @@ app.post('/ows-work-sessions/:id/reworks', async (req, res) => {
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
   const name = workReworkName(req.body?.name);
   const key = workReworkKey(req.body?.key || name);
-  if (!key) return res.status(400).json({ error: 'Ponéle un nombre al rework.' });
+  if (!key) return res.status(400).json({ error: 'Ponéle un nombre al grupo.' });
   const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
   try {
     await ensureOwsLaunchProjectsTable();
@@ -16645,7 +16656,7 @@ app.post('/ows-work-sessions/:id/reworks', async (req, res) => {
     if (!cur.length) return res.status(404).json({ error: 'Sesión no encontrada.' });
     const row = cur[0];
     if (row.status === 'done') {
-      return res.status(409).json({ error: 'Esa sesión ya está cerrada: no se pueden agregar reworks.' });
+      return res.status(409).json({ error: 'Esa sesión ya está cerrada: no se pueden agregar grupos.' });
     }
     const admin = String(req.body?.created_by || req.headers['x-ows-admin-name'] || row.created_by || 'OceanandWild')
       .trim().slice(0, 120) || 'OceanandWild';
@@ -16654,6 +16665,7 @@ app.post('/ows-work-sessions/:id/reworks', async (req, res) => {
       color: req.body?.color,
       note: req.body?.note,
       status: req.body?.status,
+      kind: req.body?.kind !== undefined ? req.body.kind : undefined,
       admin,
       at: new Date().toISOString()
     });
@@ -16690,7 +16702,7 @@ app.patch('/ows-work-sessions/:id/reworks/:key', async (req, res) => {
   const id = Number(req.params.id || 0);
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
   const key = workReworkKey(req.params.key);
-  if (!key) return res.status(400).json({ error: 'Rework inválido.' });
+  if (!key) return res.status(400).json({ error: 'Grupo inválido.' });
   const tzOffset = normalizeTzOffsetMinutes(req.body?.tz_offset);
   try {
     await ensureOwsLaunchProjectsTable();
@@ -16700,11 +16712,11 @@ app.patch('/ows-work-sessions/:id/reworks/:key', async (req, res) => {
     const row = cur[0];
     const list = parseWorkReworks(row.reworks);
     if (!list.some((r) => r.key === key)) {
-      return res.status(404).json({ error: 'Ese rework no está en esta sesión.' });
+      return res.status(404).json({ error: 'Ese grupo no está en esta sesión.' });
     }
     const statusRaw = String(req.body?.status ?? '').trim().toLowerCase();
     if (statusRaw && !WS_REWORK_STATUSES.includes(statusRaw)) {
-      return res.status(400).json({ error: 'Un rework solo puede estar abierto o terminado.' });
+      return res.status(400).json({ error: 'Un grupo solo puede estar abierto o terminado.' });
     }
     // 'paused' lo decide la sesión, no el admin: se ignora en vez de fallar.
     const admin = String(req.body?.created_by || req.headers['x-ows-admin-name'] || row.created_by || 'OceanandWild')
@@ -16716,6 +16728,7 @@ app.patch('/ows-work-sessions/:id/reworks/:key', async (req, res) => {
       color: req.body?.color,
       note: req.body?.note !== undefined ? req.body?.note : undefined,
       status: statusRaw || undefined,
+      kind: req.body?.kind !== undefined ? req.body.kind : undefined,
       admin,
       at: new Date().toISOString()
     });
@@ -16749,7 +16762,7 @@ app.delete('/ows-work-sessions/:id/reworks/:key', async (req, res) => {
   const id = Number(req.params.id || 0);
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
   const key = workReworkKey(req.params.key);
-  if (!key) return res.status(400).json({ error: 'Rework inválido.' });
+  if (!key) return res.status(400).json({ error: 'Grupo inválido.' });
   const tzOffset = normalizeTzOffsetMinutes(req.query?.tz_offset);
   try {
     await ensureOwsLaunchProjectsTable();
@@ -16759,7 +16772,7 @@ app.delete('/ows-work-sessions/:id/reworks/:key', async (req, res) => {
     const row = cur[0];
     const list = parseWorkReworks(row.reworks);
     if (!list.some((r) => r.key === key)) {
-      return res.status(404).json({ error: 'Ese rework no está en esta sesión.' });
+      return res.status(404).json({ error: 'Ese grupo no está en esta sesión.' });
     }
     // Los % ya aplicados no se tocan: solo se rompe el vínculo con el rework.
     const before = parseWorkChanges(row.changes);
@@ -16810,7 +16823,7 @@ app.get('/ows-work-reworks', async (req, res) => {
       workReworkRows(row).forEach((r) => {
         if (!byKey.has(r.key)) {
           byKey.set(r.key, {
-            key: r.key, name: r.name, color: r.color, status: r.status, note: r.note,
+            key: r.key, name: r.name, color: r.color, kind: r.kind, status: r.status, note: r.note,
             created_at: r.created_at, created_by: r.created_by,
             changes_count: 0, changes_delta: 0, sessions_count: 0,
             first_at: null, last_at: null, states: [], sessions: []

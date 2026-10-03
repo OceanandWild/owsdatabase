@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OWS — Ecosistema Ocean &amp; Wild</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- GSAP para intro cinemática + animaciones de auth -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+</head>
+<body>
+
+  <!-- Star field canvas -->
+  <canvas id="stars-canvas"></canvas>
+
+  <!-- Ambient glows -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-glow bg-glow-3"></div>
+
+  <!-- ═══════════════════════════════════════════
+       INTRO CINEMÁTICA (GSAP)
+  ═══════════════════════════════════════════ -->
+  <section id="intro-screen" class="intro-screen" aria-label="Introducción OWS">
+    <div class="intro-inner">
+      <p class="intro-kicker" id="intro-kicker">Ocean &amp; Wild Studios presenta</p>
+      <h1 class="intro-title">
+        <span class="intro-line intro-line-1" id="intro-line-1">Bienvenido al</span>
+        <span class="intro-line intro-line-big" id="intro-line-2">ECOSISTEMA OWS</span>
+      </h1>
+      <p class="intro-sub" id="intro-sub">Juegos · Ocean Pay · Noticias · Eventos — <b>todo en un solo universo</b>.</p>
+      <div class="intro-features" id="intro-features">
+        <span class="intro-chip">🌊 Ocean Pay</span>
+        <span class="intro-chip">🎮 Lanzamientos</span>
+        <span class="intro-chip">📰 Noticias</span>
+        <span class="intro-chip">⬇ Descargas</span>
+      </div>
+      <div class="intro-progress-wrap" id="intro-progress-wrap">
+        <div class="intro-progress-track"><div class="intro-progress-fill" id="intro-progress-fill"></div></div>
+        <span class="intro-progress-pct" id="intro-progress-pct">0%</span>
+      </div>
+      <div class="intro-cta hidden" id="intro-cta">
+        <p class="intro-ready">✨ La intro terminó — tu universo está listo</p>
+        <div class="intro-cta-row">
+          <button id="btn-intro-setup" class="btn btn-primary intro-cta-main" type="button">⚙ Empezar setup →</button>
+          <button id="btn-intro-login" class="btn btn-ghost" type="button">Ya tengo cuenta</button>
+        </div>
+        <button id="btn-intro-replay" class="intro-replay" type="button">↻ Ver intro de nuevo</button>
+      </div>
+    </div>
+    <button id="btn-intro-skip" class="intro-skip" type="button">Saltar intro ⏩</button>
+    <div class="intro-vignette"></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SETUP WIZARD (primer arranque)
+  ═══════════════════════════════════════════ -->
+  <section id="setup-screen" class="screen-center hidden" aria-label="Configuración inicial">
+    <div class="setup-card glass-card">
+      <div class="setup-head">
+        <span class="setup-step-pill" id="setup-step-pill">Paso 1 de 3</span>
+        <h2 class="setup-title" id="setup-title">Configuremos tu Hub 🚀</h2>
+        <p class="setup-sub" id="setup-sub">Tres pasos rapiditos y entras al ecosistema.</p>
+        <div class="setup-dots" id="setup-dots">
+          <span class="setup-dot is-active" data-dot="1"></span>
+          <span class="setup-dot" data-dot="2"></span>
+          <span class="setup-dot" data-dot="3"></span>
+        </div>
+      </div>
+
+      <!-- Paso 1: carpeta de descargas -->
+      <div class="setup-pane" data-pane="1">
+        <div class="field-group">
+          <label for="setup-download-dir">📁 ¿Dónde van tus descargas?</label>
+          <div class="setup-dir-row">
+            <input type="text" id="setup-download-dir" placeholder="Ej: C:\Juegos\OWS o ~/Juegos/OWS" autocomplete="off" spellcheck="false" />
+            <button id="btn-setup-browse" class="btn btn-ghost btn-sm" type="button" title="Elegir carpeta">📂</button>
+          </div>
+          <p class="setup-hint">En la app de escritorio se usa esta carpeta como biblioteca. En navegador, el ZIP se guarda donde diga tu navegador, pero guardamos tu preferencia.</p>
+        </div>
+        <div class="field-group">
+          <label for="setup-nick">🎮 ¿Cómo te llamamos? <span class="opt">(opcional)</span></label>
+          <input type="text" id="setup-nick" placeholder="Tu nick de jugador" autocomplete="nickname" maxlength="24" />
+        </div>
+      </div>
+
+      <!-- Paso 2: preferencias -->
+      <div class="setup-pane hidden" data-pane="2">
+        <p class="setup-pane-title">Personaliza tu experiencia ✨</p>
+        <label class="setup-toggle">
+          <input type="checkbox" id="setup-opt-notifs" checked />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text"><b>Notificaciones del ecosistema</b><small>Noticias, eventos y descargas completadas.</small></span>
+        </label>
+        <label class="setup-toggle">
+          <input type="checkbox" id="setup-opt-autolaunch" checked />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text"><b>Abrir juegos automáticamente</b><small>Al terminar de instalar, se ejecutan solos.</small></span>
+        </label>
+        <label class="setup-toggle">
+          <input type="checkbox" id="setup-opt-news" checked />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text"><b>Mostrar noticias en el inicio</b><small>Las novedades aparecen primero en tu panel.</small></span>
+        </label>
+      </div>
+
+      <!-- Paso 3: resumen -->
+      <div class="setup-pane hidden" data-pane="3">
+        <p class="setup-pane-title">Todo listo, revisemos 🎯</p>
+        <div class="setup-summary" id="setup-summary"></div>
+        <p class="setup-hint">Podrás cambiar esto cuando quieras desde tu perfil.</p>
+      </div>
+
+      <div id="setup-alert" class="alert-box hidden"></div>
+
+      <div class="setup-foot">
+        <button id="btn-setup-back" class="btn btn-ghost" type="button">← Atrás</button>
+        <button id="btn-setup-next" class="btn btn-primary" type="button">Continuar →</button>
+      </div>
+      <button id="btn-setup-skipall" class="setup-skipall" type="button">Omitir setup e ir al login</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       AUTH SECTION
+  ═══════════════════════════════════════════ -->
+  <section id="auth-section" class="screen-center hidden">
+    <div class="auth-decors" aria-hidden="true"><span class="auth-orb auth-orb-a"></span><span class="auth-orb auth-orb-b"></span></div>
+    <div class="auth-layout glass-card" id="auth-card">
+
+      <!-- Brand panel -->
+      <aside class="auth-brand">
+        <div class="brand-logo">
+          <span class="logo-text">OWS</span>
+          <div class="logo-ring"></div>
+        </div>
+        <h1 class="brand-name">Ocean &amp; Wild Studios</h1>
+        <p class="brand-sub">Plataforma del Ecosistema OWS</p>
+        <ul class="brand-points">
+          <li><span>🌊</span> Ocean Pay — tu billetera del ecosistema</li>
+          <li><span>📰</span> Noticias, lanzamientos y eventos</li>
+        </ul>
+      </aside>
+
+      <!-- Form panel -->
+      <div class="auth-forms">
+        <div class="tab-row">
+          <button id="tab-login-btn" class="tab-btn active" type="button" data-tab="login">Iniciar Sesión</button>
+          <button id="tab-register-btn" class="tab-btn" type="button" data-tab="register">Registrarse</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form">
+          <div class="field-group">
+            <label for="login-user">Usuario OWS</label>
+            <input type="text" id="login-user" placeholder="Ingresa tu usuario" required autocomplete="username" />
+          </div>
+          <div class="field-group">
+            <label for="login-pass">Contraseña</label>
+            <input type="password" id="login-pass" placeholder="••••••••" required autocomplete="current-password" />
+          </div>
+          <button type="submit" id="btn-login" class="btn btn-primary btn-block">
+            <span class="btn-icon">🚀</span> Acceder al Ecosistema
+          </button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="hidden">
+          <div class="field-group">
+            <label for="reg-user">Nombre de Usuario</label>
+            <input type="text" id="reg-user" placeholder="Crea tu usuario" required autocomplete="username" />
+          </div>
+          <div class="field-group">
+            <label for="reg-pass">Contraseña</label>
+            <input type="password" id="reg-pass" placeholder="Mínimo 6 caracteres" required autocomplete="new-password" />
+          </div>
+          <button type="submit" id="btn-register" class="btn btn-primary btn-block">
+            <span class="btn-icon">✨</span> Crear Cuenta OWS
+          </button>
+        </form>
+
+        <div id="auth-alert" class="alert-box hidden"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       DASHBOARD SECTION
+  ═══════════════════════════════════════════ -->
+  <section id="dashboard-section" class="dashboard-wrap hidden">
+
+    <!-- ═══ Nuevo menú lateral OWS v2 ═══ -->
+    <div id="nav-overlay" class="nav-overlay hidden"></div>
+    <aside class="side-nav glass-card" id="side-nav" aria-label="Menú lateral">
+      <!-- Marca + colapsar -->
+      <div class="nav-top">
+        <div class="nav-brand">
+          <div class="nav-logo-mark" aria-hidden="true"><span>OWS</span></div>
+          <div class="nav-titles">
+            <span class="nav-ecosystem">Ocean &amp; Wild</span>
+            <span class="nav-badge"><i class="pulse-dot"></i>Ecosistema · Hub</span>
+          </div>
+          <button id="btn-collapse" class="nav-collapse" type="button" aria-label="Contraer / expandir menú" title="Contraer menú">‹</button>
+        </div>
+        <label class="nav-search" for="nav-search-input">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="nav-search-input" type="search" placeholder="Buscar sección…" autocomplete="off" />
+          <kbd>/</kbd>
+        </label>
+      </div>
+
+      <!-- Links agrupados: cada uno ABRE su vista (no scroll) -->
+      <div class="nav-scroll">
+        <p class="nav-group-label">Principal</p>
+        <nav class="nav-links" aria-label="Principal">
+          <a href="#/inicio" class="nav-link is-active" data-view="view-inicio" data-keys="inicio home panel resumen">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg></span>
+            <span class="nav-txt">Inicio</span>
+          </a>
+          <a href="#/modulos" class="nav-link" data-view="sec-modulos" data-keys="modulos apps juegos ocean pay admin">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></span>
+            <span class="nav-txt">Módulos</span>
+            <span class="nav-count" id="nav-mod-count">1</span>
+          </a>
+        </nav>
+
+        <p class="nav-group-label">Explorar</p>
+        <nav class="nav-links" aria-label="Explorar">
+          <a href="#/noticias" class="nav-link" data-view="sec-noticias" data-keys="noticias novedades prensa">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h13v12H4z"/><path d="M17 8h3v11H6"/><path d="M7 10h8M7 13h6"/></svg></span>
+            <span class="nav-txt">Noticias</span>
+            <span class="nav-count hidden" id="nav-news-count">0</span>
+          </a>
+          <a href="#/lanzamientos" class="nav-link" data-view="sec-lanzamientos" data-keys="lanzamientos juegos releases wilder gambit">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 2 5 6 5 10l3 3-4 1c-1 2-2 3-4 4-2-1-3-2-4-4l-4-1 3-3c0-4 2-8 5-10Z"/><circle cx="12" cy="10" r="2"/></svg></span>
+            <span class="nav-txt">Lanzamientos</span>
+          </a>
+          <a href="#/eventos" class="nav-link" data-view="sec-eventos" data-keys="eventos calendario fechas torneos">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+            <span class="nav-txt">Eventos</span>
+            <span class="nav-dot hidden" id="nav-ev-dot"></span>
+          </a>
+          <a href="#/descargas" class="nav-link nav-link-downloads" data-view="sec-descargas" data-keys="descargas downloads biblioteca juegos instalados">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg></span>
+            <span class="nav-txt">Descargas</span>
+            <span id="nav-dl-badge" class="nav-dl-badge hidden">0</span>
+          </a>
+        </nav>
+
+        <p class="nav-group-label">Ecosistema</p>
+        <nav class="nav-links" aria-label="Ecosistema">
+          <a href="./Ocean Pay/index.html" class="nav-link nav-link-external" data-keys="ocean pay billetera dinero wallet pagos">
+            <span class="nav-ico nav-ico-wallet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2"/><rect x="3" y="7" width="18" height="11" rx="2"/><circle cx="16.5" cy="12.5" r="1.2" fill="currentColor"/></svg></span>
+            <span class="nav-txt">Ocean Pay</span>
+            <span class="nav-ext">↗</span>
+          </a>
+          <a href="./admin/index.html" id="nav-admin-link" class="nav-link nav-link-admin hidden" data-keys="admin panel control gestion">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z"/><path d="m9.5 12 2 2 3.5-4"/></svg></span>
+            <span class="nav-txt">Admin Panel</span>
+            <span class="nav-tag">Owner</span>
+          </a>
+        </nav>
+
+        <!-- Promo Ocean Pay -->
+        <div class="nav-promo">
+          <div class="nav-promo-glow"></div>
+          <p class="nav-promo-title">🌊 Ocean Pay</p>
+          <p class="nav-promo-sub">Tu billetera del ecosistema. Envía y recibe al instante.</p>
+          <a href="./Ocean Pay/index.html" class="btn btn-primary btn-sm btn-block nav-promo-btn">Abrir billetera →</a>
+        </div>
+      </div>
+
+      <!-- Perfil + acciones -->
+      <div class="nav-footer">
+        <div class="user-card">
+          <div class="user-avatar" id="nav-avatar" aria-hidden="true">J</div>
+          <div class="user-meta">
+            <span class="user-name" id="nav-username">Jugador</span>
+            <span class="user-status"><i class="pulse-dot green"></i><span id="nav-role">Explorador</span></span>
+          </div>
+          <button id="btn-logout-icon" class="icon-btn" type="button" title="Cerrar sesión" aria-label="Cerrar sesión">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+          </button>
+        </div>
+        <div class="nav-foot-row nav-foot-row-single">
+          <span class="nav-version">OWS Hub · v3.0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Barra superior móvil -->
+    <div class="mobile-topbar">
+      <button id="btn-menu-mobile" class="icon-btn" type="button" aria-label="Abrir menú">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="mobile-brand"><span class="mobile-logo">OWS</span><span class="mobile-sub" id="mobile-view-title">Inicio</span></div>
+      <span class="mobile-dl-wrap"><span id="nav-dl-badge-m" class="nav-dl-badge hidden">0</span></span>
+    </div>
+
+    <div class="main-col" id="top">
+    <div class="page-container">
+
+      <!-- Vista: Inicio -->
+      <div id="view-inicio" class="ows-view is-active" aria-label="Inicio">
+        <div class="hero">
+          <p class="hero-kicker">Panel principal</p>
+          <h2 class="hero-title">Bienvenido al Ecosistema, <span id="welcome-name" class="highlight-name">Jugador</span></h2>
+          <p class="hero-sub">Elige una sección del menú — cada una tiene su propio espacio</p>
+          <div class="hero-stats">
+            <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-modulos">🧩 <b id="stat-modules">1</b>&nbsp;módulos</button>
+            <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-noticias">📰 <b id="stat-news">0</b>&nbsp;noticias</button>
+            <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-eventos">🗓️ <b id="stat-events">0</b>&nbsp;eventos</button>
+            <button class="hero-chip hero-chip-dl hero-chip-btn" type="button" data-goto-view="sec-descargas">⬇ <b id="stat-downloads">0</b>&nbsp;descargas</button>
+          </div>
+        </div>
+
+        <div class="quick-grid">
+          <button class="quick-card glass-card" type="button" data-goto-view="sec-modulos">
+            <span class="quick-ico">🧩</span>
+            <span class="quick-txt"><b>Módulos</b><small>Ocean Pay y Admin</small></span>
+            <span class="quick-arrow">→</span>
+          </button>
+          <button class="quick-card glass-card" type="button" data-goto-view="sec-noticias">
+            <span class="quick-ico">📰</span>
+            <span class="quick-txt"><b>Noticias</b><small>Novedades oficiales</small></span>
+            <span class="quick-arrow">→</span>
+          </button>
+          <button class="quick-card glass-card" type="button" data-goto-view="sec-lanzamientos">
+            <span class="quick-ico">🚀</span>
+            <span class="quick-txt"><b>Lanzamientos</b><small>Juegos del ecosistema</small></span>
+            <span class="quick-arrow">→</span>
+          </button>
+          <button class="quick-card glass-card" type="button" data-goto-view="sec-eventos">
+            <span class="quick-ico">🗓️</span>
+            <span class="quick-txt"><b>Eventos</b><small>Fechas y avisos</small></span>
+            <span class="quick-arrow">→</span>
+          </button>
+          <button class="quick-card glass-card quick-card-dl" type="button" data-goto-view="sec-descargas">
+            <span class="quick-ico">⬇</span>
+            <span class="quick-txt"><b>Descargas</b><small>Gestor e instalados</small></span>
+            <span class="quick-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 01 · Módulos -->
+      <section id="sec-modulos" class="page-section ows-view" aria-label="Módulos">
+        <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Módulos</span></div>
+        <div class="section-head">
+          <span class="section-index">01</span>
+          <div class="section-titles">
+            <h3 class="section-title">Módulos</h3>
+            <p class="section-sub">Selecciona un módulo para comenzar</p>
+          </div>
+        </div>
+        <div class="modules-grid">
+
+          <div class="module-card glass-card module-active" data-module="ocean-pay" role="button" tabindex="0">
+            <div class="module-glow ocean-pay-glow"></div>
+            <div class="module-top">
+              <div class="module-icon-wrap ocean-pay-icon"><span class="module-emoji">🌊</span></div>
+              <span class="module-arrow">→</span>
+            </div>
+            <h4 class="module-name">Ocean Pay</h4>
+            <p class="module-desc">Billetera del ecosistema. Gestiona tus divisas, transferencias P2P y tarjetas virtuales.</p>
+            <div class="module-footer"><span class="module-status status-active">● Disponible</span></div>
+          </div>
+
+          <!-- Admin Panel — SOLO visible para OceanandWild -->
+          <div id="admin-module-card" class="module-card glass-card module-active admin-module hidden" data-module="admin-panel" role="button" tabindex="0">
+            <div class="module-glow admin-glow"></div>
+            <div class="module-top">
+              <div class="module-icon-wrap admin-icon"><span class="module-emoji">🛡️</span></div>
+              <span class="module-arrow">→</span>
+            </div>
+            <h4 class="module-name admin-name">Admin Panel</h4>
+            <p class="module-desc">Gestión exclusiva: noticias, eventos, proyectos y control del ecosistema.</p>
+            <div class="module-footer"><span class="module-status status-owner">● Reservado</span></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 02 · Noticias -->
+      <section id="sec-noticias" class="page-section ows-view" aria-label="Últimas Noticias">
+        <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Noticias</span></div>
+        <div class="section-head">
+          <span class="section-index">02</span>
+          <div class="section-titles">
+            <h3 class="section-title">Últimas Noticias</h3>
+            <p class="section-sub">Novedades oficiales del ecosistema</p>
+          </div>
+          <span class="section-meta" id="news-count">Sin noticias</span>
+        </div>
+        <div class="news-panel glass-card">
+          <div id="news-table-body" class="news-list"></div>
+          <div id="news-empty" class="news-empty">
+            <span class="news-empty-icon">📰</span>
+            <p class="news-empty-title">Aún no hay noticias</p>
+            <p class="news-empty-sub">Las últimas novedades del ecosistema aparecerán aquí.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 · Lanzamientos -->
+      <section id="sec-lanzamientos" class="page-section ows-view" aria-label="Lanzamientos">
+        <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Lanzamientos</span></div>
+        <div class="section-head">
+          <span class="section-index">03</span>
+          <div class="section-titles">
+            <h3 class="section-title">Lanzamientos</h3>
+            <p class="section-sub">Lo nuevo que se viene al ecosistema</p>
+          </div>
+        </div>
+        <div id="releases-grid" class="releases-grid"></div>
+      </section>
+
+      <!-- 04 · Eventos -->
+      <section id="sec-eventos" class="page-section ows-view" aria-label="Eventos">
+        <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Eventos</span></div>
+        <div class="section-head">
+          <span class="section-index">04</span>
+          <div class="section-titles">
+            <h3 class="section-title">Eventos</h3>
+            <p class="section-sub">Actualizaciones, lanzamientos y novedades con fecha</p>
+          </div>
+        </div>
+        <div id="events-grid" class="events-grid"></div>
+        <div id="events-empty" class="events-empty hidden">
+          <span class="events-empty-icon">🗓️</span>
+          <p class="events-empty-title">No hay eventos programados</p>
+          <p class="events-empty-sub">Cuando haya actualizaciones, lanzamientos o eventos, aparecerán aquí.</p>
+        </div>
+      </section>
+
+      <!-- 05 · Gestor de Descargas -->
+      <section id="sec-descargas" class="page-section ows-view" aria-label="Gestor de Descargas">
+        <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Descargas</span></div>
+        <div class="section-head">
+          <span class="section-index">05</span>
+          <div class="section-titles">
+            <h3 class="section-title">Gestor de Descargas</h3>
+            <p class="section-sub">Tus juegos descargándose y listos para jugar</p>
+          </div>
+          <span class="section-meta" id="downloads-count">Sin descargas</span>
+          <button id="btn-clear-downloads" class="btn btn-ghost btn-sm downloads-clear hidden" type="button">Limpiar</button>
+        </div>
+        <div class="downloads-panel glass-card">
+          <div id="downloads-list" class="downloads-list"></div>
+          <div id="downloads-empty" class="downloads-empty">
+            <span class="downloads-empty-icon">📥</span>
+            <p class="downloads-empty-title">No hay descargas todavía</p>
+            <p class="downloads-empty-sub">Presiona <b>⬇ Descargar</b> en Wilder Gambit y aparecerá aquí con su progreso en vivo.</p>
+            <button id="btn-goto-releases" class="btn btn-primary btn-sm" type="button" data-goto-view="sec-lanzamientos">Ver lanzamientos 🚀</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <footer class="dashboard-footer">
+      <span>OWS Ecosystem © 2026 — Ocean &amp; Wild Studios</span>
+    </footer>
+    </div>
+  </section>
+
+  <!-- Event details modal -->
+  <div id="event-modal" class="modal-overlay hidden">
+    <div class="modal-card glass-card event-modal-card">
+      <button class="modal-close" data-close="event-modal" aria-label="Cerrar">&times;</button>
+      <div id="event-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Release details modal (contenido dinamico) -->
+  <div id="release-modal" class="modal-overlay hidden">
+    <div class="modal-card glass-card">
+      <button class="modal-close" data-close="release-modal" aria-label="Cerrar">&times;</button>
+      <div id="release-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toasts (click en toast de descarga → va al Gestor) -->
+  <div id="toast" class="toast hidden"></div>
+  <div id="toast-dl" class="toast toast-download hidden" role="status"></div>
+
+  <script src="library.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

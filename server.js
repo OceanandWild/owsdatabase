@@ -14689,7 +14689,97 @@ async function resolveItchUploadDownload({ gameId, fileName, apiKey }) {
     || uploads.find((u) => /\.exe$/i.test(String(u?.filename || '')))
     || uploads[0];
   if (!pick?.id) return null;
-  return { uploadId: pick.id, filename: String(pick.filename || 'installer'), size: pick.size || null };
+  const filename = String(pick.filename || 'installer');
+  return {
+    uploadId: pick.id,
+    filename,
+    size: pick.size || null,
+    // Qué se sirve realmente: el ZIP (juego completo, el .exe va dentro).
+    kind: /\.zip$/i.test(filename) ? 'zip' : (/\.exe$/i.test(filename) ? 'exe' : 'file')
+  };
+}
+
+// ── Artefacto real de descarga (lo que el Hub sirve de verdad) ──
+// El launcher prioriza el ZIP de itch.io porque es el que trae el juego
+// completo (exe + _Data). La UI debe hablar de ZIP, no del .exe suelto
+// que aparece en metadata.itch.file.
+const DOWNLOAD_ARTIFACT_CACHE_MS = 6 * 60 * 60 * 1000;
+const downloadArtifactCache = new Map(); // slug -> { at, artifact }
+
+function humanizeBytes(bytes) {
+  const n = Number(bytes || 0);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  const units = ['B', 'kB', 'MB', 'GB'];
+  let v = n;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
+  return `${(i === 0 || v >= 100) ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+}
+
+// Resuelve (con cache 6h en memoria) el archivo + tamaño que el endpoint
+// /download realmente sirve para este slug. Best-effort: si itch no
+// responde devuelve null y la UI usa los datos cacheados de metadata.itch.
+async function getDownloadArtifact(mapped) {
+  const slug = String(mapped?.slug || '').trim();
+  if (!slug) return null;
+  const hit = downloadArtifactCache.get(slug);
+  if (hit && (Date.now() - hit.at) < DOWNLOAD_ARTIFACT_CACHE_MS) return hit.artifact;
+
+  let artifact = null;
+  try {
+    const installer = String(mapped?.installer_url || '').trim();
+    const itchFile = String(mapped?.itch_file || '').trim();
+    if (installer) {
+      artifact = {
+        type: 'installer',
+        file: installer.split('/').pop() || '',
+        size: '',
+        size_bytes: 0,
+        exe: /\.exe$/i.test(itchFile) ? itchFile : '',
+        source: 'installer_url'
+      };
+    } else {
+      const apiKey = String(process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
+      const itchUrl = String(mapped?.itch_url || '').trim();
+      if (apiKey && itchUrl) {
+        const viaApi = await fetchItchApiInfo({ apiKey, matchUrl: itchUrl, matchSlug: slug });
+        if (viaApi?.raw_id) {
+          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: itchFile, apiKey });
+          if (dl?.uploadId) {
+            const sizeBytes = Number(dl.size || 0) || 0;
+            artifact = {
+              type: dl.kind || 'file',
+              file: dl.filename || '',
+              size: humanizeBytes(sizeBytes),
+              size_bytes: sizeBytes,
+              // El ejecutable jugable vive DENTRO del ZIP.
+              exe: dl.kind === 'zip' ? (/\.exe$/i.test(itchFile) ? itchFile : '') : (dl.kind === 'exe' ? (dl.filename || '') : ''),
+              source: 'itch-api'
+            };
+          }
+        }
+      }
+    }
+  } catch (_) { artifact = null; }
+
+  // Fallback sin red: metadata.itch (el scrape pilla lo primero que ve).
+  if (!artifact) {
+    const itchFile = String(mapped?.itch_file || '').trim();
+    const itchSize = String(mapped?.itch_size || '').trim();
+    if (itchFile) {
+      const isZip = /\.zip$/i.test(itchFile);
+      artifact = {
+        type: isZip ? 'zip' : (/\.exe$/i.test(itchFile) ? 'exe' : 'file'),
+        file: itchFile,
+        size: isZip ? itchSize : '',
+        size_bytes: 0,
+        exe: isZip && /\.exe$/i.test(itchFile) ? itchFile : '',
+        source: 'itch-cache'
+      };
+    }
+  }
+  if (artifact) downloadArtifactCache.set(slug, { at: Date.now(), artifact });
+  return artifact;
 }
 
 async function streamItchUploadToResponse(uploadId, filename, res) {
@@ -14769,6 +14859,9 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
       // Background refresh: no bloquea la respuesta
       syncItchForProject({ slug }).catch((e) => console.error('[itch] background sync falló:', e?.message || e));
     }
+    // Qué archivo se baja de verdad (ZIP con el juego completo, no el .exe suelto)
+    let download = null;
+    try { download = await getDownloadArtifact(mapped); } catch (_) { download = null; }
     return res.json({
       success: true,
       slug: mapped.slug,
@@ -14778,6 +14871,13 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
       updated_at: (latestRelease && latestRelease.released_at) || mapped.itch_updated_at,
       file: (latestRelease && latestRelease.file_label) || mapped.itch_file || null,
       size: (latestRelease && latestRelease.size_label) || mapped.itch_size || null,
+      // ── Artefacto real de descarga (ZIP) ──
+      download: download || null,
+      download_type: (download && download.type) || null,
+      download_file: (download && download.file) || null,
+      download_size: (download && download.size) || null,
+      download_size_bytes: (download && download.size_bytes) || 0,
+      exe_file: (download && download.exe) || null,
       installer_url: (latestRelease && latestRelease.installer_url) || mapped.installer_url || null,
       has_release: !!(latestRelease && latestRelease.id),
       latest_release: latestRelease,
@@ -14850,9 +14950,9 @@ app.get('/ows-launch-projects/:slug/download', async (req, res) => {
           fileName: mapped.itch_file,
           apiKey
         });
-        trace.push({ step: 'itch-api-uploads', upload_id: dl?.uploadId || null, filename: dl?.filename || null });
+        trace.push({ step: 'itch-api-uploads', upload_id: dl?.uploadId || null, filename: dl?.filename || null, kind: dl?.kind || null, size: dl?.size || null });
         if (dl?.uploadId) {
-          if (debug) return finishTrace('itch-api-stream', { upload_id: dl.uploadId, filename: dl.filename });
+          if (debug) return finishTrace('itch-api-stream', { upload_id: dl.uploadId, filename: dl.filename, kind: dl.kind, size: dl.size, size_bytes: dl.size });
           return await streamItchUploadToResponse(dl.uploadId, dl.filename, res);
         }
       }

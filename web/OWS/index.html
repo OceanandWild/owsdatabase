@@ -75,12 +75,13 @@
       <!-- Paso 1: carpeta de descargas -->
       <div class="setup-pane" data-pane="1">
         <div class="field-group">
-          <label for="setup-download-dir">📁 ¿Dónde van tus descargas?</label>
+          <label for="setup-download-dir">📁 ¿Dónde van tus descargas? <span class="setup-env-badge" id="setup-env-badge"></span></label>
           <div class="setup-dir-row">
-            <input type="text" id="setup-download-dir" placeholder="Ej: C:\Juegos\OWS o ~/Juegos/OWS" autocomplete="off" spellcheck="false" />
-            <button id="btn-setup-browse" class="btn btn-ghost btn-sm" type="button" title="Elegir carpeta">📂</button>
+            <input type="text" id="setup-download-dir" placeholder="Detectando…" autocomplete="off" spellcheck="false" readonly />
+            <button id="btn-setup-browse" class="btn btn-ghost btn-sm" type="button" title="Volver a detectar">📂</button>
           </div>
-          <p class="setup-hint">En la app de escritorio se usa esta carpeta como biblioteca. En navegador, el ZIP se guarda donde diga tu navegador, pero guardamos tu preferencia.</p>
+          <p class="setup-dir-status" id="setup-dir-status"></p>
+          <p class="setup-hint" id="setup-dir-hint">Detectando tu entorno…</p>
         </div>
         <div class="field-group">
           <label for="setup-nick">🎮 ¿Cómo te llamamos? <span class="opt">(opcional)</span></label>
@@ -301,7 +302,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.1</span>
+          <span class="nav-version">OWS Hub · v3.1.1</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>

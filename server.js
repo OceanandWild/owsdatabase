@@ -13888,6 +13888,20 @@ async function ensureOwsLaunchProjectsTable() {
             '{"banner_url":"https://res.cloudinary.com/dwoxdneqa/image/upload/v1789957623/ows-launch-projects/wilder-gambit-banner.jpg"}'::jsonb)
     ON CONFLICT (slug) DO NOTHING
   `);
+  // Backfill idempotente: vincula Wilder Gambit con su itch.io oficial.
+  // No pisa link_url ni metadata.itch existentes (solo rellena vacíos).
+  await pool.query(`
+    UPDATE ows_launch_projects
+       SET link_url = CASE WHEN COALESCE(link_url, '') = '' THEN 'https://oceanandwildstudios.itch.io/wilder-gambit' ELSE link_url END,
+           metadata = CASE
+             WHEN (metadata->'itch' IS NULL OR COALESCE(metadata->'itch'->>'url', '') = '')
+             THEN jsonb_set(COALESCE(metadata, '{}'::jsonb), '{itch}',
+                    COALESCE(metadata->'itch', '{}'::jsonb) || '{"url":"https://oceanandwildstudios.itch.io/wilder-gambit","source":"seed"}'::jsonb)
+             ELSE metadata
+           END,
+           updated_at = NOW()
+     WHERE LOWER(slug) = 'wilder-gambit'
+  `);
   owsLaunchProjectsTableReady = true;
 }
 
@@ -13920,6 +13934,9 @@ function mapOwsLaunchProjectRow(row) {
   const statusPermanent = (_sp === true || String(_sp || '').toLowerCase() === 'true')
     ? true
     : ((_sp === false || String(_sp || '').toLowerCase() === 'false') ? false : null);
+  const _meta = (row.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+  const _itch = (_meta.itch && typeof _meta.itch === 'object') ? _meta.itch : {};
+  const _itchUrl = String(_itch.url || row.link_url || '').trim();
   return {
     id: Number(row.id || 0),
     slug: String(row.slug || ''),
@@ -13948,8 +13965,223 @@ function mapOwsLaunchProjectRow(row) {
     adminOnly,
     visibility: adminOnly ? 'admin_only' : 'public',
     created_at: row.created_at || null,
-    updated_at: row.updated_at || null
+    updated_at: row.updated_at || null,
+    // ── itch.io (OWS Hub): version/cache viven en metadata.itch ──
+    itch_url: _itchUrl,
+    itchUrl: _itchUrl,
+    itch_version: String(_itch.version || '').trim(),
+    itchVersion: String(_itch.version || '').trim(),
+    itch_updated_at: _itch.updated_at || null,
+    itchUpdatedAt: _itch.updated_at || null,
+    itch_file: String(_itch.file || '').trim(),
+    itchFile: String(_itch.file || '').trim(),
+    itch_size: String(_itch.size || '').trim(),
+    itchSize: String(_itch.size || '').trim(),
+    itch_restricted: _itch.restricted === true,
+    itchRestricted: _itch.restricted === true,
+    itch_last_checked: _itch.last_checked || null,
+    itchLastChecked: _itch.last_checked || null
   };
+}
+
+// ══════════════════════════════════════════════════════════════
+// ITCH.IO INTEGRATION — OWS Hub (versiones reales del juego)
+// Fuente: https://oceanandwildstudios.itch.io/wilder-gambit
+// La página puede estar RESTRICTED (404 público) → por eso hay
+// 3 capas: (1) scrape público, (2) API itch con ITCH_API_KEY,
+// (3) versión manual desde Admin. Todo se cachea 6h en
+// metadata.itch para no golpear itch.io en cada request.
+// Docs API: https://itch.io/docs/api/serverside
+// ══════════════════════════════════════════════════════════════
+const ITCH_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const ITCH_DEFAULT_URL = 'https://oceanandwildstudios.itch.io/wilder-gambit';
+
+function normalizeItchUrl(value) {
+  const s = String(value || '').trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s.replace(/\/+$/, '');
+  return '';
+}
+
+function getItchMetaFromRow(row) {
+  const meta = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+  const itch = (meta.itch && typeof meta.itch === 'object') ? meta.itch : {};
+  const url = normalizeItchUrl(itch.url || row?.link_url || '');
+  return { meta, itch, url };
+}
+
+function isItchCacheFresh(itch) {
+  if (!itch || typeof itch !== 'object') return false;
+  if (!itch.last_checked) return false;
+  const ts = Date.parse(itch.last_checked);
+  if (Number.isNaN(ts)) return false;
+  return (Date.now() - ts) < ITCH_CACHE_TTL_MS;
+}
+
+function parseItchPublicHtml(html, url) {
+  const text = String(html || '');
+  const pick = (re) => {
+    const m = text.match(re);
+    return m ? m[1].trim() : '';
+  };
+  const title = pick(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
+    || pick(/<title>([^<]+)<\/title>/i);
+  const cover = pick(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  // Archivo subido: "Wilder Gambit.exe  652 kB" (como en tu captura)
+  const fileMatch = text.match(/([A-Za-z0-9 _.-]+\.(?:exe|zip|apk|aab|x86_64|msi))\s*([\d.,]+\s*(?:B|KB|MB|GB))?/i);
+  const versionMatch = text.match(/(?:version|vers[ií]on|v)\s*[:#]?\s*(\d+\.\d+(?:\.\d+)?)/i);
+  return {
+    url,
+    title,
+    cover,
+    version: versionMatch ? versionMatch[1] : '',
+    file: fileMatch ? fileMatch[1].trim() : '',
+    size: fileMatch && fileMatch[2] ? fileMatch[2].trim() : '',
+    restricted: false,
+    source: 'scrape'
+  };
+}
+
+async function fetchItchPublicInfo(itchUrl) {
+  const url = normalizeItchUrl(itchUrl);
+  if (!url) throw new Error('itch_url vacía');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: {
+        'User-Agent': 'OWS-Hub-Server/1.0 (+https://owsdatabase.onrender.com)',
+        'Accept': 'text/html,application/xhtml+xml'
+      }
+    });
+    if (res.status === 404) {
+      // Página RESTRICTED/borrador: itch devuelve 404 a anónimos
+      return { url, restricted: true, source: 'scrape-404' };
+    }
+    if (!res.ok) throw new Error(`itch HTTP ${res.status}`);
+    const html = await res.text();
+    return parseItchPublicHtml(html, url);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchItchApiInfo({ apiKey, matchUrl, matchSlug }) {
+  const key = String(apiKey || process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
+  if (!key) return null;
+  const headers = { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' };
+  // 1) API moderna
+  try {
+    const res = await fetch('https://api.itch.io/profile/games', { headers });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const games = Array.isArray(data?.games) ? data.games : [];
+      const found = games.find((g) => {
+        const u = String(g?.url || '').toLowerCase();
+        return (matchUrl && u && matchUrl.toLowerCase().includes(u.replace(/^https?:\/\//, '').split('/')[0]))
+          || (matchSlug && u.includes(String(matchSlug).toLowerCase()));
+      });
+      if (found) {
+        return {
+          url: String(found.url || matchUrl || ''),
+          title: String(found.title || ''),
+          cover: String(found.cover_url || found.cover || ''),
+          version: String(found.user_version || found.version || ''),
+          restricted: false,
+          source: 'itch-api',
+          raw_id: found.id || null
+        };
+      }
+    }
+  } catch (_) { /* fallback legacy */ }
+  // 2) API legacy my-games
+  try {
+    const res = await fetch(`https://itch.io/api/1/${encodeURIComponent(key)}/my-games`, { headers: { Accept: 'application/json' } });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const games = Array.isArray(data?.games) ? data.games : [];
+      const found = games.find((g) => {
+        const u = String(g?.url || '').toLowerCase();
+        return (matchUrl && u === String(matchUrl).toLowerCase())
+          || (matchSlug && u.includes(String(matchSlug).toLowerCase()));
+      });
+      if (found) {
+        return {
+          url: String(found.url || matchUrl || ''),
+          title: String(found.title || ''),
+          cover: String(found.cover_url || ''),
+          version: '',
+          restricted: false,
+          source: 'itch-api-legacy',
+          raw_id: found.id || null
+        };
+      }
+    }
+  } catch (_) { /* no-op */ }
+  return null;
+}
+
+async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual = {}, apiKey = '' }) {
+  await ensureOwsLaunchProjectsTable();
+  const { rows } = id
+    ? await pool.query('SELECT * FROM ows_launch_projects WHERE id = $1 LIMIT 1', [Number(id)])
+    : await pool.query('SELECT * FROM ows_launch_projects WHERE LOWER(slug) = LOWER($1) LIMIT 1', [String(slug)]);
+  if (!rows.length) {
+    const e = new Error('Proyecto no encontrado');
+    e.status = 404;
+    throw e;
+  }
+  const row = rows[0];
+  const current = getItchMetaFromRow(row);
+  const targetUrl = normalizeItchUrl(itchUrl || current.url || (String(row.slug).toLowerCase() === 'wilder-gambit' ? ITCH_DEFAULT_URL : ''));
+
+  let auto = null;
+  let autoError = '';
+  if (targetUrl && !manual.version) {
+    // Solo auto si no viene versión manual (la manual tiene prioridad)
+    try {
+      auto = await fetchItchPublicInfo(targetUrl);
+      if (!auto.restricted && process.env.ITCH_API_KEY) {
+        const viaApi = await fetchItchApiInfo({ apiKey: apiKey || process.env.ITCH_API_KEY, matchUrl: targetUrl, matchSlug: row.slug });
+        if (viaApi?.version && !auto.version) auto.version = viaApi.version;
+        if (viaApi?.cover && !auto.cover) auto.cover = viaApi.cover;
+        if (viaApi?.title && !auto.title) auto.title = viaApi.title;
+      }
+    } catch (err) {
+      autoError = String(err?.message || err);
+    }
+  }
+
+  const now = new Date().toISOString();
+  const nextItch = {
+    ...(current.itch || {}),
+    url: targetUrl || current.itch?.url || '',
+    version: String(manual.version ?? auto?.version ?? current.itch?.version ?? '').trim(),
+    file: String(manual.file ?? auto?.file ?? current.itch?.file ?? '').trim(),
+    size: String(manual.size ?? auto?.size ?? current.itch?.size ?? '').trim(),
+    updated_at: manual.updated_at || (auto && !auto.restricted ? now : (current.itch?.updated_at || null)),
+    cover: String(auto?.cover || current.itch?.cover || '').trim(),
+    title: String(auto?.title || current.itch?.title || '').trim(),
+    restricted: auto ? !!auto.restricted : !!current.itch?.restricted,
+    source: manual.version ? 'manual' : (auto?.source || current.itch?.source || 'manual'),
+    last_checked: now,
+    error: autoError || null
+  };
+
+  const nextMeta = { ...(current.meta || {}), itch: nextItch };
+  // Si link_url está vacío y tenemos URL itch, la adoptamos como link oficial
+  const nextLinkUrl = String(row.link_url || '').trim() || nextItch.url || '';
+
+  const { rows: updated } = await pool.query(
+    `UPDATE ows_launch_projects
+        SET metadata = $2::jsonb, link_url = $3, updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, slug, name, description, status, icon_url, genre, platforms,
+                expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata, created_at, updated_at`,
+    [row.id, nextMeta, nextLinkUrl]
+  );
+  return { project: mapOwsLaunchProjectRow(updated[0]), itch: nextItch };
 }
 
 // Listado publico de proyectos OWS: por defecto SOLO los visibles
@@ -13972,6 +14204,116 @@ app.get('/ows-launch-projects', async (req, res) => {
     return res.json({ success: true, projects: rows.map(mapOwsLaunchProjectRow) });
   } catch (err) {
     console.error('Error en GET /ows-launch-projects:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Versión itch.io de un proyecto (público, cache 6h) ──
+// Devuelve lo cacheado al instante; si está stale dispara sync en
+// background sin bloquear. Si la página está RESTRICTED devuelve
+// restricted:true + versión manual si existe.
+app.get('/ows-launch-projects/:slug/version', async (req, res) => {
+  const slug = normalizeProjectSlug(req.params.slug);
+  if (!slug) return res.status(400).json({ error: 'slug inválido' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    const { rows } = await pool.query(
+      `SELECT id, slug, name, link_url, metadata FROM ows_launch_projects WHERE LOWER(slug) = LOWER($1) LIMIT 1`,
+      [slug]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    const mapped = mapOwsLaunchProjectRow(rows[0]);
+    const fresh = isItchCacheFresh((rows[0].metadata || {}).itch);
+    if (!fresh) {
+      // Background refresh: no bloquea la respuesta
+      syncItchForProject({ slug }).catch((e) => console.error('[itch] background sync falló:', e?.message || e));
+    }
+    return res.json({
+      success: true,
+      slug: mapped.slug,
+      name: mapped.name,
+      itch_url: mapped.itch_url,
+      version: mapped.itch_version || null,
+      updated_at: mapped.itch_updated_at,
+      file: mapped.itch_file || null,
+      size: mapped.itch_size || null,
+      restricted: mapped.itch_restricted,
+      stale: !fresh,
+      last_checked: mapped.itch_last_checked
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-launch-projects/:slug/version:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Sincronizar itch.io (admin) ──
+// Body: { itch_url?, version?, file?, size?, updated_at? }
+// Si mandas version manual, esa gana. Si no, intenta scrape + API.
+app.post('/ows-launch-projects/:id/sync-itch', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id inválido' });
+  try {
+    const result = await syncItchForProject({
+      id,
+      itchUrl: normalizeItchUrl(req.body?.itch_url ?? req.body?.itchUrl ?? req.body?.link_url ?? ''),
+      manual: {
+        version: String(req.body?.version ?? req.body?.itch_version ?? '').trim(),
+        file: String(req.body?.file ?? req.body?.itch_file ?? '').trim(),
+        size: String(req.body?.size ?? req.body?.itch_size ?? '').trim(),
+        updated_at: req.body?.updated_at || req.body?.itch_updated_at || null
+      }
+    });
+    return res.json({ success: true, project: result.project, itch: result.itch });
+  } catch (err) {
+    if (err?.status === 404) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    console.error('Error en POST /ows-launch-projects/:id/sync-itch:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Hub summary (1 request para todo el Hub estilo Epic) ──
+// Agrega proyectos + noticias + eventos + contadores. El frontend
+// pasa de 3 fetches a 1.
+app.get('/ows-hub/summary', async (req, res) => {
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsDashboardNewsTable();
+    await ensureOwsDashboardEventsTable();
+    const [projRes, newsRes, evRes] = await Promise.all([
+      pool.query(
+        `SELECT id, slug, name, description, status, icon_url, genre, platforms,
+                expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
+                created_at, updated_at
+           FROM ows_launch_projects
+          WHERE is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE
+          ORDER BY priority DESC, name ASC`
+      ),
+      pool.query(
+        `SELECT id, title, description, project_name, is_active, priority, published_at, created_at, updated_at
+           FROM ows_dashboard_news WHERE is_active = TRUE
+          ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT 5`
+      ),
+      pool.query(
+        `SELECT id, title, description, category, project_name, image_url, link_url,
+                starts_at, ends_at, priority, created_by, created_at, updated_at
+           FROM ows_dashboard_events WHERE is_active = TRUE
+          ORDER BY starts_at DESC LIMIT 10`
+      )
+    ]);
+    const projects = projRes.rows.map(mapOwsLaunchProjectRow);
+    const featured = projects[0] || null;
+    return res.json({
+      success: true,
+      featured,
+      projects,
+      news: newsRes.rows.map(mapOwsDashboardNewsRow),
+      events: evRes.rows.map(mapOwsDashboardEventRow),
+      counts: { projects: projects.length, news: newsRes.rows.length, events: evRes.rows.length }
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-hub/summary:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

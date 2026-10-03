@@ -14386,7 +14386,7 @@ function normalizeProjectCreatedAt(v) {
   return { value: d.toISOString() };
 }
 
-function mapOwsLaunchProjectRow(row) {
+function mapOwsLaunchProjectRow(row, latestRelease) {
   const adminOnly = row.admin_only === true || String(row.admin_only || '').toLowerCase() === 'true' || Number(row.admin_only) === 1;
   // Permanencia del estado: true = permanente, false = temporal, null = no aplica
   // (solo tiene sentido en estados terminales: cancelado / descontinuado).
@@ -14443,7 +14443,14 @@ function mapOwsLaunchProjectRow(row) {
     itchLastChecked: _itch.last_checked || null,
     // ── Instalador directo (OWS Hub): descarga sin salir del Hub ──
     installer_url: String(_itch.installer_url || '').trim(),
-    installerUrl: String(_itch.installer_url || '').trim()
+    installerUrl: String(_itch.installer_url || '').trim(),
+    // ── Release oficial (tabla ows_project_releases): manda sobre itch ──
+    // has_release = hay build descargable; sin release el Hub NO ofrece
+    // descarga y el modal muestra el estado del proyecto en su lugar.
+    has_release: !!(latestRelease && latestRelease.id),
+    hasRelease: !!(latestRelease && latestRelease.id),
+    latest_release: latestRelease || null,
+    latestRelease: latestRelease || null
   };
 }
 
@@ -14731,7 +14738,9 @@ app.get('/ows-launch-projects', async (req, res) => {
         ${includeHidden ? '' : 'WHERE is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE'}
         ORDER BY is_active DESC, priority DESC, name ASC`
     );
-    return res.json({ success: true, projects: rows.map(mapOwsLaunchProjectRow) });
+    let relMap = {};
+    try { relMap = await getLatestReleasesMapByProjectIds(rows.map((r) => Number(r.id))); } catch (_) { relMap = {}; }
+    return res.json({ success: true, projects: rows.map((r) => mapOwsLaunchProjectRow(r, relMap[Number(r.id)] || null)) });
   } catch (err) {
     console.error('Error en GET /ows-launch-projects:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -14753,6 +14762,8 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const mapped = mapOwsLaunchProjectRow(rows[0]);
+    let latestRelease = null;
+    try { latestRelease = await getLatestReleaseBySlug(slug); } catch (_) { latestRelease = null; }
     const fresh = isItchCacheFresh((rows[0].metadata || {}).itch);
     if (!fresh) {
       // Background refresh: no bloquea la respuesta
@@ -14763,11 +14774,13 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
       slug: mapped.slug,
       name: mapped.name,
       itch_url: mapped.itch_url,
-      version: mapped.itch_version || null,
-      updated_at: mapped.itch_updated_at,
-      file: mapped.itch_file || null,
-      size: mapped.itch_size || null,
-      installer_url: mapped.installer_url || null,
+      version: (latestRelease && latestRelease.version) || mapped.itch_version || null,
+      updated_at: (latestRelease && latestRelease.released_at) || mapped.itch_updated_at,
+      file: (latestRelease && latestRelease.file_label) || mapped.itch_file || null,
+      size: (latestRelease && latestRelease.size_label) || mapped.itch_size || null,
+      installer_url: (latestRelease && latestRelease.installer_url) || mapped.installer_url || null,
+      has_release: !!(latestRelease && latestRelease.id),
+      latest_release: latestRelease,
       download_url: `/ows-launch-projects/${encodeURIComponent(mapped.slug)}/download`,
       download_debug_url: `/ows-launch-projects/${encodeURIComponent(mapped.slug)}/download?debug=1`,
       itch_api_key_present: Boolean(String(process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim()),
@@ -14805,6 +14818,17 @@ app.get('/ows-launch-projects/:slug/download', async (req, res) => {
     }
     const mapped = mapOwsLaunchProjectRow(rows[0]);
     trace.push({ step: 'db', installer_url: !!mapped.installer_url, itch_url: mapped.itch_url || null, file: mapped.itch_file || null });
+    // Release oficial (tabla ows_project_releases): si trae installer_url
+    // propio, gana sobre todo lo demás.
+    try {
+      const rel = await getLatestReleaseBySlug(slug);
+      trace.push({ step: 'release', has_release: !!(rel && rel.id), version: (rel && rel.version) || null });
+      if (rel && rel.installer_url) {
+        trace.push({ step: 'release-installer', action: 'redirect-302' });
+        if (debug) return finishTrace('release-installer', { version: rel.version });
+        return res.redirect(302, rel.installer_url);
+      }
+    } catch (_) { /* sigue el flujo itch heredado */ }
     if (mapped.installer_url) {
       trace.push({ step: 'installer_url', action: 'redirect-302', to: mapped.installer_url });
       if (debug) return finishTrace('installer_url');
@@ -14907,7 +14931,9 @@ app.get('/ows-hub/summary', async (req, res) => {
           ORDER BY starts_at DESC LIMIT 10`
       )
     ]);
-    const projects = projRes.rows.map(mapOwsLaunchProjectRow);
+    let relMap = {};
+    try { relMap = await getLatestReleasesMapByProjectIds(projRes.rows.map((r) => Number(r.id))); } catch (_) { relMap = {}; }
+    const projects = projRes.rows.map((r) => mapOwsLaunchProjectRow(r, relMap[Number(r.id)] || null));
     const featured = projects[0] || null;
     return res.json({
       success: true,
@@ -15062,6 +15088,303 @@ app.delete('/ows-launch-projects/:id', async (req, res) => {
     return res.json({ success: true, deleted: Number(rowCount) });
   } catch (err) {
     console.error('Error en DELETE /ows-launch-projects/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ═══════════════════════════════════════════════
+// VERSIONES DESCARGABLES POR PROYECTO (builds del Hub)
+// Tabla: ows_project_releases (N filas por proyecto).
+// Referencia ows_launch_projects, que es la ÚNICA fuente de proyectos:
+// los de la sección Proyectos (admin_only = FALSE) y los de Gestión
+// (solo-admin, admin_only = TRUE) viven ahí. El Hub muestra descarga
+// SOLO si hay release activa (o datos itch heredados); si no, el modal
+// explica el estado (ej: Abyss Wake en desarrollo → sin build todavía).
+// ═══════════════════════════════════════════════
+let owsProjectReleasesTableReady = false;
+
+const OWS_RELEASE_CHANNELS = new Set(['stable', 'beta', 'alpha', 'demo']);
+
+function normalizeReleaseChannel(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return OWS_RELEASE_CHANNELS.has(raw) ? raw : 'stable';
+}
+
+function normalizeReleaseDate(value, allowEmpty) {
+  const s = String(value ?? '').trim();
+  if (!s) return allowEmpty ? { empty: true } : { value: new Date().toISOString() };
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T12:00:00.000Z' : s);
+  if (Number.isNaN(d.getTime())) return { error: 'Fecha de release inválida.' };
+  return { value: d.toISOString() };
+}
+
+async function ensureOwsProjectReleasesTable() {
+  if (owsProjectReleasesTableReady) return;
+  await ensureOwsLaunchProjectsTable();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_project_releases (
+      id            BIGSERIAL PRIMARY KEY,
+      project_id    BIGINT NOT NULL REFERENCES ows_launch_projects(id) ON DELETE CASCADE,
+      version       TEXT NOT NULL DEFAULT '',
+      file_label    TEXT NOT NULL DEFAULT '',
+      size_label    TEXT NOT NULL DEFAULT '',
+      installer_url TEXT NOT NULL DEFAULT '',
+      itch_url      TEXT NOT NULL DEFAULT '',
+      channel       VARCHAR(20) NOT NULL DEFAULT 'stable',
+      notes         TEXT NOT NULL DEFAULT '',
+      is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+      released_at   TIMESTAMPTZ,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_releases_project ON ows_project_releases(project_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_releases_active ON ows_project_releases(is_active)');
+  // Seed: Wilder Gambit v0.1.0 (build pública de itch.io). Solo si el
+  // proyecto no tiene ninguna release activa (nunca pisa nada del admin).
+  // Abyss Wake NO se seeddea: está en desarrollo y aún no tiene build.
+  await pool.query(`
+    INSERT INTO ows_project_releases (project_id, version, file_label, size_label, channel, notes, is_active, released_at)
+    SELECT id, '0.1.0', 'Wilder Gambit.exe', '652 kB', 'stable', 'Primera build pública vía itch.io', TRUE, NOW()
+      FROM ows_launch_projects
+     WHERE LOWER(slug) = 'wilder-gambit'
+       AND NOT EXISTS (
+         SELECT 1 FROM ows_project_releases r
+           JOIN ows_launch_projects p ON p.id = r.project_id
+          WHERE LOWER(p.slug) = 'wilder-gambit' AND r.is_active = TRUE
+       )
+  `);
+  owsProjectReleasesTableReady = true;
+}
+
+function mapOwsProjectReleaseRow(row) {
+  const r = row || {};
+  return {
+    id: Number(r.id || 0),
+    project_id: Number(r.project_id || 0),
+    project_slug: String(r.project_slug || r.slug || ''),
+    version: String(r.version || '').trim(),
+    file_label: String(r.file_label || '').trim(),
+    fileLabel: String(r.file_label || '').trim(),
+    size_label: String(r.size_label || '').trim(),
+    sizeLabel: String(r.size_label || '').trim(),
+    installer_url: String(r.installer_url || '').trim(),
+    installerUrl: String(r.installer_url || '').trim(),
+    itch_url: String(r.itch_url || '').trim(),
+    itchUrl: String(r.itch_url || '').trim(),
+    channel: normalizeReleaseChannel(r.channel),
+    notes: String(r.notes || '').trim(),
+    is_active: r.is_active !== false,
+    released_at: r.released_at || null,
+    releasedAt: r.released_at || null,
+    created_at: r.created_at || null,
+    updated_at: r.updated_at || null
+  };
+}
+
+// Última release ACTIVA por proyecto (1 sola query para N proyectos).
+async function getLatestReleasesMapByProjectIds(ids) {
+  const list = (Array.isArray(ids) ? ids : []).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+  if (!list.length) return {};
+  await ensureOwsProjectReleasesTable();
+  const { rows } = await pool.query(
+    `SELECT r.*, p.slug AS project_slug
+       FROM ows_project_releases r
+       JOIN ows_launch_projects p ON p.id = r.project_id
+      WHERE r.is_active = TRUE AND r.project_id = ANY($1::bigint[])
+      ORDER BY r.project_id, r.released_at DESC NULLS LAST, r.id DESC`,
+    [list]
+  );
+  // DISTINCT ON no se usa para no depender de orden exacto; nos quedamos
+  // con la primera (más reciente) por proyecto.
+  const map = {};
+  rows.forEach((row) => {
+    const pid = Number(row.project_id);
+    if (!map[pid]) map[pid] = mapOwsProjectReleaseRow(row);
+  });
+  return map;
+}
+
+async function getLatestReleaseBySlug(slug) {
+  const s = normalizeProjectSlug(slug);
+  if (!s) return null;
+  await ensureOwsProjectReleasesTable();
+  const { rows } = await pool.query(
+    `SELECT r.*, p.slug AS project_slug
+       FROM ows_project_releases r
+       JOIN ows_launch_projects p ON p.id = r.project_id
+      WHERE r.is_active = TRUE AND LOWER(p.slug) = LOWER($1)
+      ORDER BY r.released_at DESC NULLS LAST, r.id DESC
+      LIMIT 1`,
+    [s]
+  );
+  return rows.length ? mapOwsProjectReleaseRow(rows[0]) : null;
+}
+
+async function resolveLaunchProjectIdBySlug(slug) {
+  const s = normalizeProjectSlug(slug);
+  if (!s) return null;
+  await ensureOwsLaunchProjectsTable();
+  const { rows } = await pool.query(
+    'SELECT id FROM ows_launch_projects WHERE LOWER(slug) = LOWER($1) LIMIT 1',
+    [s]
+  );
+  return rows.length ? Number(rows[0].id) : null;
+}
+
+// Listar releases (público: solo activas; con ?slug= filtra por proyecto).
+// ?include_inactive=1 requiere admin (para el panel).
+app.get('/ows-project-releases', async (req, res) => {
+  const slug = normalizeProjectSlug(req.query.slug || req.query.project || '');
+  const wantInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  try {
+    await ensureOwsProjectReleasesTable();
+    if (wantInactive && !requireOwsStoreAdmin(req, res)) return;
+    const { rows } = await pool.query(
+      `SELECT r.*, p.slug AS project_slug
+         FROM ows_project_releases r
+         JOIN ows_launch_projects p ON p.id = r.project_id
+        WHERE ($1 = '' OR LOWER(p.slug) = LOWER($1))
+          AND ($2 = TRUE OR r.is_active = TRUE)
+        ORDER BY r.released_at DESC NULLS LAST, r.id DESC
+        LIMIT 100`,
+      [slug, wantInactive]
+    );
+    return res.json({ success: true, slug: slug || null, releases: rows.map(mapOwsProjectReleaseRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-project-releases:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear release (admin). Body: { project_id | slug, version*, file_label,
+// size_label, installer_url, itch_url, channel, notes, is_active, released_at }
+app.post('/ows-project-releases', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsProjectReleasesTable();
+    let projectId = Number(req.body?.project_id ?? req.body?.projectId ?? 0);
+    if ((!Number.isFinite(projectId) || projectId <= 0) && req.body?.slug) {
+      projectId = await resolveLaunchProjectIdBySlug(req.body.slug);
+    }
+    if (!Number.isFinite(projectId) || projectId <= 0) {
+      return res.status(400).json({ error: 'Proyecto inválido: mandá project_id o slug existente' });
+    }
+    const version = String(req.body?.version ?? '').trim().slice(0, 40);
+    if (!version) return res.status(400).json({ error: 'version es obligatoria (ej: 0.1.0)' });
+    const relDate = normalizeReleaseDate(req.body?.released_at ?? req.body?.releasedAt ?? '', false);
+    if (relDate.error) return res.status(400).json({ error: relDate.error });
+    const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
+    const { rows } = await pool.query(
+      `INSERT INTO ows_project_releases
+         (project_id, version, file_label, size_label, installer_url, itch_url, channel, notes, is_active, released_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING *`,
+      [
+        projectId,
+        version,
+        String(req.body?.file_label ?? req.body?.fileLabel ?? req.body?.file ?? '').trim().slice(0, 200),
+        String(req.body?.size_label ?? req.body?.sizeLabel ?? req.body?.size ?? '').trim().slice(0, 40),
+        normalizeItchUrl(req.body?.installer_url ?? req.body?.installerUrl ?? ''),
+        normalizeItchUrl(req.body?.itch_url ?? req.body?.itchUrl ?? ''),
+        normalizeReleaseChannel(req.body?.channel),
+        String(req.body?.notes ?? '').trim().slice(0, 1000),
+        req.body?.is_active === undefined ? true : normalizeNewsBoolean(req.body.is_active, true),
+        relDate.value
+      ]
+    );
+    const { rows: withSlug } = await pool.query(
+      `SELECT r.*, p.slug AS project_slug FROM ows_project_releases r
+         JOIN ows_launch_projects p ON p.id = r.project_id WHERE r.id = $1 LIMIT 1`,
+      [rows[0].id]
+    );
+    logAdminActivity({
+      action: 'create', entityType: 'project_release', entityId: String(rows[0].id),
+      entityName: `${withSlug[0]?.project_slug || projectId} v${version}`,
+      adminName, meta: { project_id: projectId, version }
+    });
+    return res.status(201).json({ success: true, release: mapOwsProjectReleaseRow(withSlug[0] || rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /ows-project-releases:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar release (admin)
+app.patch('/ows-project-releases/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id inválido' });
+  try {
+    await ensureOwsProjectReleasesTable();
+    const updates = {};
+    if (req.body?.version !== undefined) {
+      const v = String(req.body.version).trim().slice(0, 40);
+      if (!v) return res.status(400).json({ error: 'version no puede estar vacía' });
+      updates.version = v;
+    }
+    if (req.body?.file_label !== undefined || req.body?.fileLabel !== undefined || req.body?.file !== undefined) {
+      updates.file_label = String(req.body.file_label ?? req.body.fileLabel ?? req.body.file ?? '').trim().slice(0, 200);
+    }
+    if (req.body?.size_label !== undefined || req.body?.sizeLabel !== undefined || req.body?.size !== undefined) {
+      updates.size_label = String(req.body.size_label ?? req.body.sizeLabel ?? req.body.size ?? '').trim().slice(0, 40);
+    }
+    if (req.body?.installer_url !== undefined || req.body?.installerUrl !== undefined) {
+      updates.installer_url = normalizeItchUrl(req.body.installer_url ?? req.body.installerUrl ?? '');
+    }
+    if (req.body?.itch_url !== undefined || req.body?.itchUrl !== undefined) {
+      updates.itch_url = normalizeItchUrl(req.body.itch_url ?? req.body.itchUrl ?? '');
+    }
+    if (req.body?.channel !== undefined) updates.channel = normalizeReleaseChannel(req.body.channel);
+    if (req.body?.notes !== undefined) updates.notes = String(req.body.notes).trim().slice(0, 1000);
+    if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    if (req.body?.released_at !== undefined || req.body?.releasedAt !== undefined) {
+      const norm = normalizeReleaseDate(req.body.released_at ?? req.body.releasedAt ?? '', true);
+      if (norm.error) return res.status(400).json({ error: norm.error });
+      if (!norm.empty) updates.released_at = norm.value;
+    }
+    const keys = Object.keys(updates);
+    if (!keys.length) return res.status(400).json({ error: 'No hay campos válidos para actualizar' });
+    const setSql = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const { rows } = await pool.query(
+      `UPDATE ows_project_releases SET ${setSql}, updated_at = NOW()
+        WHERE id = $1 RETURNING *`,
+      [id, ...keys.map((k) => updates[k])]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Release no encontrada' });
+    logAdminActivity({
+      action: 'edit', entityType: 'project_release', entityId: String(id),
+      adminName: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim(),
+      meta: { fields: keys }
+    });
+    const { rows: withSlug } = await pool.query(
+      `SELECT r.*, p.slug AS project_slug FROM ows_project_releases r
+         JOIN ows_launch_projects p ON p.id = r.project_id WHERE r.id = $1 LIMIT 1`,
+      [id]
+    );
+    return res.json({ success: true, release: mapOwsProjectReleaseRow(withSlug[0] || rows[0]) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-project-releases/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar release (admin)
+app.delete('/ows-project-releases/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id inválido' });
+  try {
+    await ensureOwsProjectReleasesTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_project_releases WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Release no encontrada' });
+    logAdminActivity({
+      action: 'delete', entityType: 'project_release', entityId: String(id),
+      adminName: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim()
+    });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-project-releases/:id:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

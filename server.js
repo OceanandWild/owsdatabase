@@ -15782,6 +15782,455 @@ app.delete('/ows-incidents/:id', async (req, res) => {
 });
 
 /* ═══════════════════════════════════════════════
+   INFORMES ACTIVOS — avisos internos del estudio
+   ═══════════════════════════════════════════════
+   NO es un incidente: es un informe/estado que queda ACTIVO hasta que se
+   termina. Ejemplos: el desarrollo se pausa por un rato, problemas internos
+   del equipo, avisos de disponibilidad, cambios de ritmo, etc.
+   Ciclo de vida: se publica → queda ACTIVO en el panel → se va actualizando
+   con notas en la línea de tiempo → se finaliza → pasa al HISTORIAL con su
+   hora de inicio y de fin.
+   Tipos (kind): pause (pausa del desarrollo), internal (problema interno),
+   info (aviso general), progress (avance/ritmo), other (otro).
+   Endpoints (solo-admin): GET/POST /ows-reports, PATCH/DELETE
+   /ows-reports/:id, POST /ows-reports/:id/updates, /resolve, /reopen. */
+
+const OWS_REPORT_KINDS = ['pause', 'internal', 'info', 'progress', 'other'];
+const OWS_REPORT_STATUSES = ['active', 'monitoring', 'resolved'];
+const OWS_REPORT_MAX_UPDATES = 120;
+
+let owsReportsReady = false;
+
+async function ensureOwsReportsTable() {
+  if (owsReportsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_reports (
+      id            BIGSERIAL PRIMARY KEY,
+      title         TEXT NOT NULL,
+      kind          VARCHAR(24) NOT NULL DEFAULT 'info',
+      status        VARCHAR(20) NOT NULL DEFAULT 'active',
+      details       TEXT NOT NULL DEFAULT '',
+      project_id    BIGINT REFERENCES ows_launch_projects(id) ON DELETE SET NULL,
+      project_name  TEXT NOT NULL DEFAULT '',
+      started_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resolved_at   TIMESTAMPTZ,
+      updates       JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_by    TEXT NOT NULL DEFAULT 'OceanandWild',
+      updated_by    TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    ALTER TABLE ows_reports
+      ADD COLUMN IF NOT EXISTS kind         VARCHAR(24) NOT NULL DEFAULT 'info',
+      ADD COLUMN IF NOT EXISTS status       VARCHAR(20) NOT NULL DEFAULT 'active',
+      ADD COLUMN IF NOT EXISTS project_name TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS resolved_at  TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS updates      JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS updated_by   TEXT NOT NULL DEFAULT 'OceanandWild'
+  `).catch((err) => console.log(' Aviso: migración ows_reports:', err.message));
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_reports_started ON ows_reports(started_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_reports_resolved ON ows_reports(resolved_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_reports_kind ON ows_reports(kind)').catch(() => {});
+  owsReportsReady = true;
+}
+
+function pickOwsReportEnum(value, list, fallback) {
+  const v = String(value ?? '').trim().toLowerCase();
+  return list.includes(v) ? v : fallback;
+}
+
+function normalizeOwsReportUpdates(raw, fallbackAuthor = 'OceanandWild') {
+  let list = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === 'string' && raw.trim()) {
+    try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) list = parsed; } catch (_) { list = []; }
+  } else if (raw && typeof raw === 'object') list = [raw];
+  return list
+    .map((it) => {
+      const body = String(it?.body ?? '').trim().slice(0, 2000);
+      const author = String(it?.author || fallbackAuthor || 'OceanandWild').trim().slice(0, 80) || 'OceanandWild';
+      return {
+        at: toIsoOrNull(it?.at) || new Date().toISOString(),
+        status: pickOwsReportEnum(it?.status, OWS_REPORT_STATUSES, 'active'),
+        body,
+        author
+      };
+    })
+    .filter((it) => it.body)
+    .slice(-OWS_REPORT_MAX_UPDATES);
+}
+
+function sanitizeReportRow(r) {
+  const startedAt = toIsoOrNull(r?.started_at);
+  const resolvedAt = toIsoOrNull(r?.resolved_at);
+  const updates = normalizeOwsReportUpdates(r?.updates, r?.updated_by || r?.created_by);
+  const rawStatus = pickOwsReportEnum(r?.status, OWS_REPORT_STATUSES, 'active');
+  const isOpen = !resolvedAt;
+  const startMs = startedAt ? new Date(startedAt).getTime() : null;
+  const endMs = resolvedAt ? new Date(resolvedAt).getTime() : null;
+  const lastUpdate = updates.length ? updates[updates.length - 1].at : null;
+  return {
+    id: Number(r?.id || 0),
+    title: String(r?.title || 'Sin título').slice(0, 160),
+    kind: pickOwsReportEnum(r?.kind, OWS_REPORT_KINDS, 'info'),
+    status: isOpen ? (rawStatus === 'resolved' ? 'active' : rawStatus) : 'resolved',
+    details: String(r?.details || '').slice(0, 5000),
+    project_id: r?.project_id != null ? Number(r.project_id) : null,
+    project_name: String(r?.project_name || r?.live_project_name || '').slice(0, 160),
+    is_open: isOpen,
+    started_at: startedAt,
+    resolved_at: resolvedAt,
+    duration_ms: startMs != null
+      ? Math.max(0, ((endMs != null ? endMs : Date.now()) - startMs))
+      : null,
+    updates,
+    update_count: updates.length,
+    last_update_at: toIsoOrNull(lastUpdate || r?.updated_at),
+    created_by: String(r?.created_by || 'OceanandWild').slice(0, 120),
+    updated_by: String(r?.updated_by || r?.created_by || 'OceanandWild').slice(0, 120),
+    created_at: toIsoOrNull(r?.created_at),
+    updated_at: toIsoOrNull(r?.updated_at)
+  };
+}
+
+function buildOwsReportSummary(reports) {
+  const open = reports.filter((r) => r.is_open);
+  const byKind = {};
+  OWS_REPORT_KINDS.forEach((k) => { byKind[k] = 0; });
+  open.forEach((r) => { byKind[r.kind] = (byKind[r.kind] || 0) + 1; });
+  let lastUpdateAt = null;
+  open.forEach((r) => {
+    const t = toIsoOrNull(r.last_update_at || r.started_at);
+    if (t && (!lastUpdateAt || new Date(t) > new Date(lastUpdateAt))) lastUpdateAt = t;
+  });
+  if (!lastUpdateAt) {
+    reports.forEach((r) => {
+      const t = toIsoOrNull(r.resolved_at || r.last_update_at || r.started_at);
+      if (t && (!lastUpdateAt || new Date(t) > new Date(lastUpdateAt))) lastUpdateAt = t;
+    });
+  }
+  const resolvedTotal = reports.filter((r) => !r.is_open).length;
+  const durations = reports.filter((r) => !r.is_open && r.duration_ms != null).map((r) => r.duration_ms);
+  return {
+    open_count: open.length,
+    total_count: reports.length,
+    resolved_count: resolvedTotal,
+    by_kind: byKind,
+    last_update_at: lastUpdateAt,
+    total_active_ms: durations.reduce((a, b) => a + b, 0),
+    avg_active_ms: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null
+  };
+}
+
+function owsReportActor(req, body, fallback = 'OceanandWild') {
+  const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
+  return String(
+    body?.updated_by || body?.created_by || body?.createdBy || headerAdmin || fallback || 'OceanandWild'
+  ).trim().slice(0, 120) || 'OceanandWild';
+}
+
+// GET /ows-reports — lista + resumen (solo-admin). ?scope=all|open|resolved ?limit=N
+app.get('/ows-reports', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsReportsTable();
+    const limit = Math.max(1, Math.min(300, Number(req.query?.limit || 200) || 200));
+    const scope = String(req.query?.scope || 'all').trim().toLowerCase();
+    let where = '';
+    if (scope === 'open') where = 'WHERE r.resolved_at IS NULL';
+    else if (scope === 'resolved') where = 'WHERE r.resolved_at IS NOT NULL';
+    const { rows } = await pool.query(
+      `SELECT r.*, p.name AS live_project_name
+         FROM ows_reports r
+         LEFT JOIN ows_launch_projects p ON p.id = r.project_id
+         ${where}
+        ORDER BY (r.resolved_at IS NULL) DESC, r.started_at DESC, r.id DESC
+        LIMIT $1`,
+      [limit]
+    );
+    const reports = rows.map(sanitizeReportRow);
+    return res.json({ success: true, reports, summary: buildOwsReportSummary(reports) });
+  } catch (err) {
+    console.error('Error en GET /ows-reports:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-reports — publicar un informe (nace ACTIVO).
+// Body: { title*, details*, kind?, project_id?, started_at? }
+app.post('/ows-reports', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const title = String(req.body?.title || '').trim().slice(0, 160);
+  const details = String(req.body?.details || '').trim().slice(0, 5000);
+  if (!title) return res.status(400).json({ error: 'El título es obligatorio.' });
+  if (!details) return res.status(400).json({ error: 'Contá de qué trata el informe.' });
+  const kind = pickOwsReportEnum(req.body?.kind, OWS_REPORT_KINDS, 'info');
+  const actor = owsReportActor(req, req.body, 'OceanandWild');
+  const startedAt = toIsoOrNull(req.body?.started_at) || new Date().toISOString();
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsReportsTable();
+    const proj = await resolveOwsIncidentProject(req.body?.project_id);
+    if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado.' });
+    const updates = [{
+      at: startedAt,
+      status: 'active',
+      body: `Informe publicado por ${actor}.`,
+      author: actor
+    }];
+    const { rows } = await pool.query(
+      `INSERT INTO ows_reports (title, kind, status, details,
+                                project_id, project_name, started_at, updates,
+                                created_by, updated_by)
+       VALUES ($1, $2, 'active', $3, $4, $5, $6, $7::jsonb, $8, $8)
+       RETURNING *`,
+      [title, kind, details, proj.pid, proj.name, startedAt, JSON.stringify(updates), actor]
+    );
+    logAdminActivity({
+      action: 'create-report', entityType: 'report', entityId: String(rows[0]?.id || ''),
+      entityName: title, adminName: actor,
+      meta: { kind, project_name: proj.name, started_at: startedAt }
+    });
+    return res.json({ success: true, report: sanitizeReportRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /ows-reports:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// PATCH /ows-reports/:id — editar el informe (solo campos enviados).
+app.patch('/ows-reports/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsReportsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_reports WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Informe no encontrado.' });
+    const row = cur[0];
+    const wasOpen = !row.resolved_at;
+    const actor = owsReportActor(req, req.body, row.updated_by || row.created_by || 'OceanandWild');
+
+    const title = req.body?.title !== undefined ? String(req.body.title || '').trim().slice(0, 160) : row.title;
+    if (!title) return res.status(400).json({ error: 'El título no puede quedar vacío.' });
+    const details = req.body?.details !== undefined ? String(req.body.details || '').trim().slice(0, 5000) : row.details;
+    const kind = req.body?.kind !== undefined
+      ? pickOwsReportEnum(req.body.kind, OWS_REPORT_KINDS, row.kind)
+      : row.kind;
+    const status = req.body?.status !== undefined
+      ? pickOwsReportEnum(req.body.status, OWS_REPORT_STATUSES, row.status)
+      : row.status;
+
+    let pid = row.project_id;
+    let projectName = row.project_name || '';
+    if (req.body?.project_id !== undefined) {
+      const proj = await resolveOwsIncidentProject(req.body.project_id);
+      if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado.' });
+      pid = proj.pid;
+      projectName = proj.name;
+    }
+
+    const startedAt = req.body?.started_at !== undefined
+      ? (toIsoOrNull(req.body.started_at) || row.started_at)
+      : row.started_at;
+
+    let resolvedAt = row.resolved_at;
+    if (status === 'resolved') {
+      resolvedAt = req.body?.resolved_at !== undefined
+        ? (toIsoOrNull(req.body.resolved_at) || new Date().toISOString())
+        : (resolvedAt || new Date().toISOString());
+    } else {
+      resolvedAt = req.body?.resolved_at !== undefined
+        ? toIsoOrNull(req.body.resolved_at)
+        : null;
+    }
+
+    const updates = normalizeOwsReportUpdates(row.updates, row.updated_by || row.created_by);
+    const rawNote = req.body?.update_note ?? req.body?.note;
+    const note = (rawNote === undefined || rawNote === null) ? null : String(rawNote).trim().slice(0, 2000);
+    if (note !== null) {
+      if (note) updates.push({ at: new Date().toISOString(), status, body: note, author: actor });
+    } else if (status !== row.status) {
+      updates.push({
+        at: new Date().toISOString(), status,
+        body: `Estado cambiado a "${status}".`, author: actor
+      });
+    }
+    const finalUpdates = updates.slice(-OWS_REPORT_MAX_UPDATES);
+
+    const { rows } = await pool.query(
+      `UPDATE ows_reports
+          SET title = $1, kind = $2, status = $3, details = $4,
+              project_id = $5, project_name = $6,
+              started_at = $7, resolved_at = $8, updates = $9::jsonb,
+              updated_by = $10, updated_at = NOW()
+        WHERE id = $11
+        RETURNING *`,
+      [title, kind, status, details, pid, projectName,
+       startedAt, resolvedAt, JSON.stringify(finalUpdates), actor, id]
+    );
+    const report = sanitizeReportRow(rows[0]);
+    logAdminActivity({
+      action: wasOpen && !report.is_open ? 'resolve-report' : 'edit-report',
+      entityType: 'report', entityId: String(id),
+      entityName: title, adminName: actor,
+      meta: { kind, status: report.status, note: note || null, update_count: report.update_count }
+    });
+    return res.json({ success: true, report });
+  } catch (err) {
+    console.error('Error en PATCH /ows-reports/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-reports/:id/updates — agregar una nota sin tocar el resto.
+// El informe sigue ACTIVO; solo se suma la nota a la línea de tiempo.
+app.post('/ows-reports/:id/updates', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const body = String(req.body?.body || req.body?.update_note || req.body?.note || '').trim().slice(0, 2000);
+  if (!body) return res.status(400).json({ error: 'Escribí la actualización del informe.' });
+  try {
+    await ensureOwsReportsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_reports WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Informe no encontrado.' });
+    const row = cur[0];
+    const actor = owsReportActor(req, req.body, row.updated_by || row.created_by || 'OceanandWild');
+    const fallbackStatus = row.status === 'resolved' ? 'monitoring' : row.status;
+    const status = pickOwsReportEnum(req.body?.status, OWS_REPORT_STATUSES.filter((s) => s !== 'resolved'), fallbackStatus);
+    const updates = normalizeOwsReportUpdates(row.updates, row.updated_by || row.created_by);
+    updates.push({ at: new Date().toISOString(), status, body, author: actor });
+    const finalUpdates = updates.slice(-OWS_REPORT_MAX_UPDATES);
+    const reopened = !!row.resolved_at && status !== 'resolved';
+    const { rows } = await pool.query(
+      `UPDATE ows_reports
+          SET status = $1, updates = $2::jsonb, updated_by = $3,
+              resolved_at = CASE WHEN $4::boolean THEN NULL ELSE resolved_at END,
+              updated_at = NOW()
+        WHERE id = $5
+        RETURNING *`,
+      [status, JSON.stringify(finalUpdates), actor, reopened, id]
+    );
+    const report = sanitizeReportRow(rows[0]);
+    logAdminActivity({
+      action: reopened ? 'reopen-report' : 'update-report',
+      entityType: 'report', entityId: String(id),
+      entityName: report.title, adminName: actor,
+      meta: { status, update_count: report.update_count }
+    });
+    return res.json({ success: true, report });
+  } catch (err) {
+    console.error('Error en POST /ows-reports/:id/updates:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-reports/:id/resolve — terminar el informe. Pasa al HISTORIAL.
+app.post('/ows-reports/:id/resolve', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const note = String(req.body?.resolution || req.body?.note || req.body?.body || '').trim().slice(0, 2000);
+  try {
+    await ensureOwsReportsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_reports WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Informe no encontrado.' });
+    const row = cur[0];
+    const actor = owsReportActor(req, req.body, row.updated_by || row.created_by || 'OceanandWild');
+    const alreadyClosed = !!row.resolved_at;
+    const resolvedAt = toIsoOrNull(req.body?.resolved_at) || row.resolved_at || new Date().toISOString();
+    const updates = normalizeOwsReportUpdates(row.updates, row.updated_by || row.created_by);
+    updates.push({
+      at: resolvedAt, status: 'resolved',
+      body: note || (alreadyClosed ? 'Cierre actualizado.' : 'Informe terminado.'),
+      author: actor
+    });
+    const finalUpdates = updates.slice(-OWS_REPORT_MAX_UPDATES);
+    const { rows } = await pool.query(
+      `UPDATE ows_reports
+          SET status = 'resolved', resolved_at = $1,
+              updates = $2::jsonb, updated_by = $3, updated_at = NOW()
+        WHERE id = $4
+        RETURNING *`,
+      [resolvedAt, JSON.stringify(finalUpdates), actor, id]
+    );
+    const report = sanitizeReportRow(rows[0]);
+    logAdminActivity({
+      action: 'resolve-report', entityType: 'report', entityId: String(id),
+      entityName: report.title, adminName: actor,
+      meta: { duration_ms: report.duration_ms, update_count: report.update_count }
+    });
+    return res.json({ success: true, report });
+  } catch (err) {
+    console.error('Error en POST /ows-reports/:id/resolve:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST /ows-reports/:id/reopen — reactivar un informe del historial.
+app.post('/ows-reports/:id/reopen', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  const reason = String(req.body?.reason || req.body?.note || '').trim().slice(0, 2000);
+  try {
+    await ensureOwsReportsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_reports WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Informe no encontrado.' });
+    const row = cur[0];
+    const actor = owsReportActor(req, req.body, row.updated_by || row.created_by || 'OceanandWild');
+    const status = pickOwsReportEnum(req.body?.status, OWS_REPORT_STATUSES.filter((s) => s !== 'resolved'), 'active');
+    const updates = normalizeOwsReportUpdates(row.updates, row.updated_by || row.created_by);
+    updates.push({
+      at: new Date().toISOString(), status,
+      body: `Informe reactivado${reason ? `: ${reason}` : '.'}`, author: actor
+    });
+    const finalUpdates = updates.slice(-OWS_REPORT_MAX_UPDATES);
+    const { rows } = await pool.query(
+      `UPDATE ows_reports
+          SET status = $1, resolved_at = NULL,
+              updates = $2::jsonb, updated_by = $3, updated_at = NOW()
+        WHERE id = $4
+        RETURNING *`,
+      [status, JSON.stringify(finalUpdates), actor, id]
+    );
+    const report = sanitizeReportRow(rows[0]);
+    logAdminActivity({
+      action: 'reopen-report', entityType: 'report', entityId: String(id),
+      entityName: report.title, adminName: actor,
+      meta: { status, reason: reason || null }
+    });
+    return res.json({ success: true, report });
+  } catch (err) {
+    console.error('Error en POST /ows-reports/:id/reopen:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE /ows-reports/:id (solo-admin).
+app.delete('/ows-reports/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'ID inválido.' });
+  try {
+    await ensureOwsReportsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_reports WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Informe no encontrado.' });
+    logAdminActivity({ action: 'delete', entityType: 'report', entityId: String(id), adminName: 'OceanandWild', meta: {} });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-reports/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ═══════════════════════════════════════════════
    SESIONES DE TRABAJO — mini-devlogs del momento
    ═══════════════════════════════════════════════
    El devlog sigue siendo el registro diario que se publica. Las sesiones son

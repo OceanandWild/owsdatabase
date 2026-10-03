@@ -29,8 +29,9 @@
       <p class="intro-kicker" id="intro-kicker">Ocean &amp; Wild Studios presenta</p>
       <h1 class="intro-title">
         <span class="intro-line intro-line-1" id="intro-line-1">Bienvenido al</span>
-        <span class="intro-line intro-line-big" id="intro-line-2">ECOSISTEMA OWS</span>
+        <span class="intro-line intro-line-big" id="intro-line-2"><span class="il-ows" id="intro-il-ows">OWS</span> <span class="il-hub" id="intro-il-hub">Hub</span></span>
       </h1>
+      <div class="intro-hub-bar" id="intro-hub-bar" aria-hidden="true"></div>
       <p class="intro-sub" id="intro-sub">Juegos · Ocean Pay · Noticias · Eventos — <b>todo en un solo universo</b>.</p>
       <div class="intro-features" id="intro-features">
         <span class="intro-chip">🌊 Ocean Pay</span>
@@ -129,6 +130,19 @@
   ═══════════════════════════════════════════ -->
   <section id="auth-section" class="screen-center hidden">
     <div class="auth-decors" aria-hidden="true"><span class="auth-orb auth-orb-a"></span><span class="auth-orb auth-orb-b"></span></div>
+    <!-- Preloader de bienvenida: Bienvenido → OWS Hub → panel login -->
+    <div id="auth-welcome" class="auth-welcome hidden" aria-hidden="true">
+      <div class="aw-stage">
+        <div class="aw-glow" aria-hidden="true"></div>
+        <p class="aw-kicker" id="aw-kicker">Ocean &amp; Wild Studios</p>
+        <h1 class="aw-bienvenido" id="aw-bienvenido">Bienvenido</h1>
+        <h1 class="aw-hub" id="aw-hub" aria-label="OWS Hub"><span class="aw-hub-ows">OWS</span> <span class="aw-hub-hub">Hub</span></h1>
+        <p class="aw-sub" id="aw-sub">Tu universo · Juegos · Ocean Pay · Eventos</p>
+        <div class="aw-ring" id="aw-ring" aria-hidden="true"></div>
+        <div class="aw-bar" aria-hidden="true"><div class="aw-bar-fill" id="aw-bar-fill"></div></div>
+        <p class="aw-skip-hint">clic para saltar</p>
+      </div>
+    </div>
     <div class="auth-layout glass-card" id="auth-card">
 
       <!-- Brand panel -->
@@ -221,7 +235,7 @@
             <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg></span>
             <span class="nav-txt">Inicio</span>
           </a>
-          <a href="#/modulos" class="nav-link" data-view="sec-modulos" data-keys="modulos apps juegos ocean pay admin">
+          <a href="#/modulos" id="nav-modulos-link" class="nav-link" data-view="sec-modulos" data-keys="modulos apps juegos ocean pay">
             <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></span>
             <span class="nav-txt">Módulos</span>
             <span class="nav-count" id="nav-mod-count">1</span>
@@ -286,8 +300,9 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
           </button>
         </div>
-        <div class="nav-foot-row nav-foot-row-single">
-          <span class="nav-version">OWS Hub · v3.0</span>
+        <div class="nav-foot-row">
+          <span class="nav-version">OWS Hub · v3.1</span>
+          <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>
     </aside>
@@ -321,7 +336,7 @@
         <div class="quick-grid">
           <button class="quick-card glass-card" type="button" data-goto-view="sec-modulos">
             <span class="quick-ico">🧩</span>
-            <span class="quick-txt"><b>Módulos</b><small>Ocean Pay y Admin</small></span>
+            <span class="quick-txt"><b>Módulos</b><small id="quick-modulos-sub">Ocean Pay</small></span>
             <span class="quick-arrow">→</span>
           </button>
           <button class="quick-card glass-card" type="button" data-goto-view="sec-noticias">
@@ -463,7 +478,7 @@
     </div>
 
     <footer class="dashboard-footer">
-      <span>OWS Ecosystem © 2026 — Ocean &amp; Wild Studios</span>
+      <span>OWS Ecosystem © <span id="ows-year">2026</span> — Ocean &amp; Wild Studios</span>
     </footer>
     </div>
   </section>
@@ -484,9 +499,20 @@
     </div>
   </div>
 
+  <!-- Anuncio emergente de Eventos (aparece una sola vez por usuario) -->
+  <div id="announce-modal" class="modal-overlay hidden">
+    <div class="modal-card glass-card announce-card">
+      <button class="modal-close" data-close="announce-modal" aria-label="Cerrar">&times;</button>
+      <div id="announce-modal-body"></div>
+    </div>
+  </div>
+
   <!-- Toasts (click en toast de descarga → va al Gestor) -->
   <div id="toast" class="toast hidden"></div>
   <div id="toast-dl" class="toast toast-download hidden" role="status"></div>
+
+  <!-- Toasts de anuncios de Eventos (arriba por defecto, una sola vez) -->
+  <div id="announce-toasts" class="announce-toasts" aria-live="polite"></div>
 
   <script src="library.js"></script>
   <script src="app.js"></script>

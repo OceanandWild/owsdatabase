@@ -14248,7 +14248,10 @@ async function resolveItchUploadDownload({ gameId, fileName, apiKey }) {
   }
   if (!uploads.length) return null;
   const want = String(fileName || '').trim().toLowerCase();
+  // Prioridad launcher: (1) match exacto, (2) ZIP completo (juego real con _Data),
+  // (3) EXE suelto, (4) primer upload. El ZIP es el que contiene Wilder Gambit.exe + _Data.
   const pick = (want && uploads.find((u) => String(u?.filename || '').toLowerCase() === want))
+    || uploads.find((u) => /\.zip$/i.test(String(u?.filename || '')))
     || uploads.find((u) => /\.exe$/i.test(String(u?.filename || '')))
     || uploads[0];
   if (!pick?.id) return null;
@@ -14261,14 +14264,27 @@ async function streamItchUploadToResponse(uploadId, filename, res) {
   const up = await fetch(`https://api.itch.io/uploads/${encodeURIComponent(uploadId)}/download`, {
     headers: { 'Authorization': `Bearer ${key}` }
   });
-  if (!up.ok) throw new Error(`itch download HTTP ${up.status}`);
+  if (!up.ok || !up.body) throw new Error(`itch download HTTP ${up.status}`);
   const safeName = String(filename || 'installer').replace(/[^A-Za-z0-9 _.-]+/g, '_');
   res.set('Content-Type', up.headers.get('content-type') || 'application/octet-stream');
   res.set('Content-Disposition', `attachment; filename="${safeName}"`);
+  // No fijamos Content-Length a ciegas: itch puede responder chunked o con
+  // redirect a CDN. Si viene, se propaga para que el launcher muestre % real.
   const len = up.headers.get('content-length');
   if (len) res.set('Content-Length', len);
-  const buf = Buffer.from(await up.arrayBuffer());
-  return res.send(buf);
+  // Streaming real (402 MB Wilder Gambit): no buffer en RAM, pipe por chunks.
+  // up.body es Web ReadableStream → iterador async compatible con Node.
+  try {
+    for await (const chunk of up.body) {
+      if (!res.write(chunk)) {
+        await new Promise((resolve) => res.once('drain', resolve));
+      }
+    }
+    return res.end();
+  } catch (e) {
+    try { res.destroy(e); } catch (_) {}
+    throw e;
+  }
 }
 
 // Listado publico de proyectos OWS: por defecto SOLO los visibles

@@ -14452,8 +14452,38 @@ async function applyDevlogProgress({ projectId, after, updatedBy }) {
   };
 }
 
-function sanitizeDevlogRow(r) {
-  return {
+// Recalcula el % de un devlog del día desde sus sesiones: el % que entró por
+// cambios en vivo vive en los cambios (las sesiones viejas no lo tienen
+// estampado a nivel sesión). Devuelve { before, after, delta }; after null
+// significa que realmente no hubo movimiento de %.
+function devlogProgressFromSessions(sessions) {
+  let before = null, after = null, delta = 0, moved = false;
+  (Array.isArray(sessions) ? sessions : []).forEach((s) => {
+    let cb = null, ca = null, csum = 0;
+    (Array.isArray(s?.changes) ? s.changes : []).forEach((c) => {
+      if (!c?.applied) return;
+      csum = roundWorkNum(csum + (Number(c?.delta) || 0));
+      if (c.progress_before != null && Number.isFinite(Number(c.progress_before))) {
+        const v = Number(c.progress_before);
+        cb = cb == null ? v : Math.min(cb, v);
+      }
+      if (c.progress_after != null && Number.isFinite(Number(c.progress_after))) {
+        const v = Number(c.progress_after);
+        ca = ca == null ? v : Math.max(ca, v);
+      }
+    });
+    const sb = (s?.progress_before != null && Number.isFinite(Number(s.progress_before))) ? Number(s.progress_before) : null;
+    const sa = (s?.progress_after != null && Number.isFinite(Number(s.progress_after))) ? Number(s.progress_after) : null;
+    const b = sb ?? cb, a = sa ?? ca;
+    if (b != null) before = before == null ? b : Math.min(before, b);
+    if (a != null) after = after == null ? a : Math.max(after, a);
+    const sd = Number(s?.progress_delta) || 0;
+    if (sd || csum) { delta = roundWorkNum(delta + sd + csum); moved = true; }
+  });
+  return { before, after, delta: moved ? delta : null };
+}
+
+function sanitizeDevlogRow(r) {  return {
     id: Number(r?.id || 0),
     title: String(r?.title || 'Sin título'),
     reason: String(r?.reason || ''),
@@ -14493,6 +14523,35 @@ app.get('/ows-devlogs', async (req, res) => {
         LIMIT $1`,
       [limit]
     );
+    // Autorreparación: devlogs del día creados cuando el % de los cambios en
+    // vivo no se estampaba (quedaron "sin %"): se recalcula desde sus
+    // sesiones y se guarda, una sola vez.
+    const broken = rows.filter((r) => String(r.entry_type) === 'daily'
+      && r.progress_after == null && String(r.session_ids || '').trim());
+    if (broken.length) {
+      const allIds = [...new Set(broken.flatMap((r) =>
+        String(r.session_ids).split(',').map((x) => Number(String(x).trim()))
+          .filter((x) => Number.isFinite(x) && x > 0)))];
+      if (allIds.length) {
+        const { rows: srows } = await pool.query(
+          'SELECT * FROM ows_work_sessions WHERE id = ANY($1::bigint[])', [allIds]);
+        const byId = new Map();
+        srows.forEach((s) => byId.set(Number(s.id), sanitizeWorkSessionRow(s, 0)));
+        for (const r of broken) {
+          const sess = String(r.session_ids).split(',')
+            .map((x) => byId.get(Number(String(x).trim()))).filter(Boolean);
+          const fix = devlogProgressFromSessions(sess);
+          if (fix.after == null) continue;
+          // eslint-disable-next-line no-await-in-loop
+          await pool.query(
+            'UPDATE ows_devlogs SET progress_before = $1, progress_after = $2, progress_delta = $3, updated_at = NOW() WHERE id = $4',
+            [fix.before, fix.after, fix.delta, r.id]);
+          r.progress_before = fix.before;
+          r.progress_after = fix.after;
+          r.progress_delta = fix.delta;
+        }
+      }
+    }
     return res.json({ success: true, devlogs: rows.map(sanitizeDevlogRow) });
   } catch (err) {
     console.error('Error en GET /ows-devlogs:', err);
@@ -16524,10 +16583,13 @@ app.post('/ows-work-sessions/:id/changes', async (req, res) => {
     const finalChanges = changes.slice(-WS_CHANGES_MAX);
     const { rows: upd } = await pool.query(
       `UPDATE ows_work_sessions
-          SET changes = $1::jsonb, reworks = $2::jsonb, updated_at = NOW()
+          SET changes = $1::jsonb, reworks = $2::jsonb, updated_at = NOW(),
+              progress_before = COALESCE(progress_before, $4),
+              progress_after = COALESCE($5, progress_after)
         WHERE id = $3
         RETURNING *`,
-      [JSON.stringify(finalChanges), JSON.stringify(reworks), id]
+      [JSON.stringify(finalChanges), JSON.stringify(reworks), id,
+        applied ? applied.before : null, applied ? applied.after : null]
     );
     logAdminActivity({
       action: 'add-session-change', entityType: 'work_session', entityId: String(id),
@@ -16864,7 +16926,10 @@ function buildDailyDevlog(sessions, date, tzOffset) {
       g0.items.push({ session: s, seg: g, is_last: isLast });
       g0.minutes += g.minutes;
       g0.sessions.add(s.id);
-      if (g.part === 'end') g0.delta += g.delta;
+      // El % de la sesión cuenta en el día donde termina su parte: 'end'
+      // (cruzó la medianoche) o 'whole' (todo el mismo día). El 'start'
+      // pertenece al día siguiente.
+      if (g.part === 'end' || g.part === 'whole') g0.delta += g.delta;
       // % del día: el % con el que arrancó la primera sesión y el % con el
       // que terminó la última. Sirve para la mini-gráfica del devlog.
       if (s.progress_before != null && (g0.before == null || Number(s.progress_before) < g0.before)) {
@@ -16939,6 +17004,40 @@ function buildDailyDevlog(sessions, date, tzOffset) {
     g.publish_ids = [...new Set(
       g.items.filter((it) => !it.session.published_devlog_id).map((it) => it.session.id)
     )];
+    // El % que entró por cambios en vivo vive en los cambios, no en la
+    // sesión: se suma al delta del día y completa el antes/después cuando la
+    // sesión no los tiene estampados (si no, el devlog queda "sin %").
+    {
+      const seen = new Set();
+      let changeSum = 0;
+      g.items.forEach(({ session: s }) => {
+        if (seen.has(s.id)) return;
+        seen.add(s.id);
+        let cb = null, ca = null;
+        (Array.isArray(s.changes) ? s.changes : []).forEach((c) => {
+          if (!c?.applied) return;
+          if (localDayOf(c.at, tzOffset) !== day) return;
+          changeSum = roundWorkNum(changeSum + (Number(c?.delta) || 0));
+          if (c.progress_before != null && Number.isFinite(Number(c.progress_before))) {
+            const v = Number(c.progress_before);
+            cb = cb == null ? v : Math.min(cb, v);
+          }
+          if (c.progress_after != null && Number.isFinite(Number(c.progress_after))) {
+            const v = Number(c.progress_after);
+            ca = ca == null ? v : Math.max(ca, v);
+          }
+        });
+        if (cb != null) {
+          const v = clampPercent(cb);
+          if (v != null) g.before = g.before == null ? v : Math.min(g.before, v);
+        }
+        if (ca != null) {
+          const v = clampPercent(ca);
+          if (v != null) g.after = g.after == null ? v : Math.max(g.after, v);
+        }
+      });
+      g.delta = roundWorkNum(g.delta + changeSum);
+    }
     g.payload = buildDailyDevlogPayload(g, day, tzOffset);
     return g;
   });

@@ -13813,6 +13813,356 @@ app.delete('/ows-dashboard/events/:id', async (req, res) => {
 });
 
 /* ============================================================
+   OWS EVENT POPUPS — modales informativos de la sección Eventos
+   El admin crea modales (título + info + imagen). La tabla indica
+   si se envió y cuándo. Cada usuario lo ve UNA sola vez (el cliente
+   guarda qué show_token ya vio); "Re-mostrar" sube el show_token y
+   el modal vuelve a aparecer sin recrearlo. Los presets son
+   plantillas reutilizables para no reescribir lo mismo.
+   ============================================================ */
+
+let owsEventPopupsTableReady = false;
+let owsPopupPresetsTableReady = false;
+
+async function ensureOwsEventPopupsTable() {
+  if (owsEventPopupsTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_event_popups (
+      id            BIGSERIAL PRIMARY KEY,
+      title         TEXT NOT NULL,
+      body          TEXT NOT NULL DEFAULT '',
+      image_url     TEXT NOT NULL DEFAULT '',
+      link_url      TEXT NOT NULL DEFAULT '',
+      link_label    TEXT NOT NULL DEFAULT '',
+      is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+      is_sent       BOOLEAN NOT NULL DEFAULT FALSE,
+      sent_at       TIMESTAMPTZ,
+      show_token    INTEGER NOT NULL DEFAULT 1,
+      created_by    TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_event_popups_feed
+      ON ows_event_popups (is_sent, is_active, sent_at DESC)
+  `);
+  owsEventPopupsTableReady = true;
+}
+
+async function ensureOwsPopupPresetsTable() {
+  if (owsPopupPresetsTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_popup_presets (
+      id            BIGSERIAL PRIMARY KEY,
+      name          TEXT NOT NULL,
+      title         TEXT NOT NULL DEFAULT '',
+      body          TEXT NOT NULL DEFAULT '',
+      image_url     TEXT NOT NULL DEFAULT '',
+      link_url      TEXT NOT NULL DEFAULT '',
+      link_label    TEXT NOT NULL DEFAULT '',
+      created_by    TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  owsPopupPresetsTableReady = true;
+}
+
+function mapOwsEventPopupRow(row) {
+  return {
+    id: Number(row.id || 0),
+    title: String(row.title || ''),
+    body: String(row.body || ''),
+    image_url: String(row.image_url || ''),
+    imageUrl: String(row.image_url || ''),
+    link_url: String(row.link_url || ''),
+    linkUrl: String(row.link_url || ''),
+    link_label: String(row.link_label || ''),
+    linkLabel: String(row.link_label || ''),
+    is_active: row.is_active !== false,
+    is_sent: row.is_sent === true,
+    sent_at: row.sent_at ? new Date(row.sent_at).toISOString() : null,
+    sentAt: row.sent_at ? new Date(row.sent_at).toISOString() : null,
+    show_token: Number(row.show_token || 1),
+    showToken: Number(row.show_token || 1),
+    created_by: String(row.created_by || 'OceanandWild'),
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null
+  };
+}
+
+function mapOwsPopupPresetRow(row) {
+  return {
+    id: Number(row.id || 0),
+    name: String(row.name || ''),
+    title: String(row.title || ''),
+    body: String(row.body || ''),
+    image_url: String(row.image_url || ''),
+    imageUrl: String(row.image_url || ''),
+    link_url: String(row.link_url || ''),
+    linkUrl: String(row.link_url || ''),
+    link_label: String(row.link_label || ''),
+    linkLabel: String(row.link_label || ''),
+    created_by: String(row.created_by || 'OceanandWild'),
+    created_at: row.created_at || null
+  };
+}
+
+function popupAdminName(req) {
+  return String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
+}
+
+// Feed público: solo enviados + visibles (el cliente muestra cada uno 1 sola vez)
+app.get('/ows-dashboard/popups/active', async (req, res) => {
+  const limit = Math.max(1, Math.min(20, normalizeNewsNumber(req.query.limit, 10)));
+  try {
+    await ensureOwsEventPopupsTable();
+    const { rows } = await pool.query(
+      `SELECT id, title, body, image_url, link_url, link_label,
+              is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at
+         FROM ows_event_popups
+        WHERE is_sent = TRUE AND is_active = TRUE
+        ORDER BY sent_at DESC, id DESC
+        LIMIT $1`,
+      [limit]
+    );
+    return res.json({ success: true, popups: rows.map(mapOwsEventPopupRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/popups/active:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Lista admin (incluye borradores y ocultos)
+app.get('/ows-dashboard/popups', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsEventPopupsTable();
+    const { rows } = await pool.query(
+      `SELECT id, title, body, image_url, link_url, link_label,
+              is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at
+         FROM ows_event_popups
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 100`
+    );
+    return res.json({ success: true, popups: rows.map(mapOwsEventPopupRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/popups:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear modal (borrador: is_sent = FALSE hasta que se envía)
+app.post('/ows-dashboard/popups', dashboardEventUpload.single('image'), async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const title = String(req.body?.title || '').trim();
+  const body = String(req.body?.body || req.body?.description || '').trim();
+  const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
+  const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
+  const linkLabel = String(req.body?.link_label || req.body?.linkLabel || '').trim().slice(0, 60);
+  if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
+  const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
+  try {
+    await ensureOwsEventPopupsTable();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_event_popups (title, body, image_url, link_url, link_label, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, title, body, image_url, link_url, link_label,
+                 is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at`,
+      [title, body, finalImageUrl, linkUrl, linkLabel, popupAdminName(req)]
+    );
+    logAdminActivity({
+      action: 'create', entityType: 'event_popup', entityId: String(rows[0]?.id || ''),
+      entityName: title, adminName: popupAdminName(req)
+    });
+    return res.status(201).json({ success: true, popup: mapOwsEventPopupRow(rows[0] || {}) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/popups:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar modal
+app.patch('/ows-dashboard/popups/:id', dashboardEventUpload.single('image'), async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsEventPopupsTable();
+    const updates = {};
+    if (req.body?.title !== undefined) {
+      const title = String(req.body.title).trim();
+      if (!title) return res.status(400).json({ error: 'El titulo no puede estar vacio' });
+      updates.title = title;
+    }
+    if (req.body?.body !== undefined || req.body?.description !== undefined) {
+      updates.body = String(req.body.body ?? req.body.description ?? '').trim();
+    }
+    if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
+    if (req.body?.link_label !== undefined) updates.link_label = String(req.body.link_label).trim().slice(0, 60);
+    if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    if (req.file && req.file.path) updates.image_url = String(req.file.path);
+    else if (req.body?.image_url !== undefined) updates.image_url = String(req.body.image_url).trim();
+    const keys = Object.keys(updates);
+    if (!keys.length) return res.status(400).json({ error: 'No hay campos validos para actualizar' });
+    const setSql = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const { rows } = await pool.query(
+      `UPDATE ows_event_popups SET ${setSql}, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, title, body, image_url, link_url, link_label,
+                  is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at`,
+      [id, ...keys.map((k) => updates[k])]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Modal no encontrado' });
+    logAdminActivity({
+      action: 'edit', entityType: 'event_popup', entityId: String(id),
+      entityName: String(rows[0]?.title || ''), adminName: popupAdminName(req), meta: { fields: keys }
+    });
+    return res.json({ success: true, popup: mapOwsEventPopupRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-dashboard/popups/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar modal
+app.delete('/ows-dashboard/popups/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsEventPopupsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_event_popups WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Modal no encontrado' });
+    logAdminActivity({
+      action: 'delete', entityType: 'event_popup', entityId: String(id), adminName: popupAdminName(req)
+    });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-dashboard/popups/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Enviar: marca is_sent + sent_at y lo activa (los usuarios lo ven 1 vez)
+app.post('/ows-dashboard/popups/:id/send', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsEventPopupsTable();
+    const { rows } = await pool.query(
+      `UPDATE ows_event_popups
+          SET is_sent = TRUE, sent_at = NOW(), is_active = TRUE, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, title, body, image_url, link_url, link_label,
+                  is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Modal no encontrado' });
+    logAdminActivity({
+      action: 'send', entityType: 'event_popup', entityId: String(id),
+      entityName: String(rows[0]?.title || ''), adminName: popupAdminName(req)
+    });
+    return res.json({ success: true, popup: mapOwsEventPopupRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/popups/:id/send:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Re-mostrar: sube show_token SIN recrear (todos lo vuelven a ver 1 vez)
+app.post('/ows-dashboard/popups/:id/reshow', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsEventPopupsTable();
+    const { rows } = await pool.query(
+      `UPDATE ows_event_popups
+          SET show_token = show_token + 1, is_sent = TRUE, sent_at = NOW(), is_active = TRUE, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, title, body, image_url, link_url, link_label,
+                  is_active, is_sent, sent_at, show_token, created_by, created_at, updated_at`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Modal no encontrado' });
+    logAdminActivity({
+      action: 'reshow', entityType: 'event_popup', entityId: String(id),
+      entityName: String(rows[0]?.title || ''), adminName: popupAdminName(req),
+      meta: { show_token: Number(rows[0]?.show_token || 1) }
+    });
+    return res.json({ success: true, popup: mapOwsEventPopupRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/popups/:id/reshow:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Presets de modales (admin) ──
+app.get('/ows-dashboard/popup-presets', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsPopupPresetsTable();
+    const { rows } = await pool.query(
+      `SELECT id, name, title, body, image_url, link_url, link_label, created_by, created_at
+         FROM ows_popup_presets ORDER BY id DESC LIMIT 100`
+    );
+    return res.json({ success: true, presets: rows.map(mapOwsPopupPresetRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/popup-presets:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ows-dashboard/popup-presets', dashboardEventUpload.single('image'), async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const name = String(req.body?.name || '').trim().slice(0, 80);
+  if (!name) return res.status(400).json({ error: 'El nombre del preset es obligatorio' });
+  const title = String(req.body?.title || '').trim();
+  const body = String(req.body?.body || req.body?.description || '').trim();
+  const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
+  const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
+  const linkLabel = String(req.body?.link_label || req.body?.linkLabel || '').trim().slice(0, 60);
+  const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
+  try {
+    await ensureOwsPopupPresetsTable();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_popup_presets (name, title, body, image_url, link_url, link_label, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, name, title, body, image_url, link_url, link_label, created_by, created_at`,
+      [name, title, body, finalImageUrl, linkUrl, linkLabel, popupAdminName(req)]
+    );
+    logAdminActivity({
+      action: 'create', entityType: 'popup_preset', entityId: String(rows[0]?.id || ''),
+      entityName: name, adminName: popupAdminName(req)
+    });
+    return res.status(201).json({ success: true, preset: mapOwsPopupPresetRow(rows[0] || {}) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/popup-presets:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.delete('/ows-dashboard/popup-presets/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsPopupPresetsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_popup_presets WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Preset no encontrado' });
+    logAdminActivity({
+      action: 'delete', entityType: 'popup_preset', entityId: String(id), adminName: popupAdminName(req)
+    });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-dashboard/popup-presets/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ============================================================
    OWS LAUNCH PROJECTS — proyectos creados para OWS especificamente
    (los titulos que se van a lanzar en el ecosistema, ej: Wilder
    Gambit). Separado del catalogo general de OWS Store

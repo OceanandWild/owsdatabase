@@ -922,6 +922,30 @@ function requireOwsStoreAdmin(req, res) {
   return false;
 }
 
+// Variante SIN respuesta: sirve para "si es admin, hago X; si no, hago Y"
+// dentro del mismo handler. requireOwsStoreAdmin manda un 401 cuando falla,
+// así que llamarla dos veces en un request rompería la respuesta.
+// Misma lógica de token, pero devuelve true/false y nunca escribe en res.
+function isOwsStoreAdminRequest(req) {
+  const provided = String(
+    req.headers['x-ows-admin-token']
+    || req.headers['authorization']?.replace(/^Bearer\s+/i, '')
+    || req.headers['x-admin-secret']
+    || req.query?.admin_token
+    || req.body?.admin_token
+    || ''
+  ).trim();
+  if (!provided) return false;
+  if (provided === OWS_ADMIN_SECRET) return true;
+  const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  try {
+    const payload = jwt.verify(provided, jwtSecret);
+    return payload?.scope === 'ows-admin-panel' && payload?.role === 'superadmin';
+  } catch (_) {
+    return false;
+  }
+}
+
 function toNewsArray(value) {
   if (Array.isArray(value)) {
     return value.map((v) => String(v || '').trim()).filter(Boolean);
@@ -14895,11 +14919,12 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
 });
 
 // ── Descarga directa del instalador (público, estilo launcher) ──
-// GET /ows-launch-projects/:slug/download
+// (se expone en /ows-launch-projects/:slug/download y también como alias en
+//  /ows-updates/projects/:slug/download, que usa el mismo handler)
 // (1) installer_url manual → redirect 302
 // (2) itch API con ITCH_API_KEY → stream autenticado del .exe
 // (3) fallback → redirect a la página de itch.io
-app.get('/ows-launch-projects/:slug/download', async (req, res) => {
+async function launchProjectDownloadHandler(req, res) {
   const slug = normalizeProjectSlug(req.params.slug);
   if (!slug) return res.status(400).json({ error: 'slug inválido' });
   const debug = normalizeNewsBoolean(req.query.debug, false);
@@ -14973,7 +14998,9 @@ app.get('/ows-launch-projects/:slug/download', async (req, res) => {
     }
     return res.status(500).json({ error: 'Error interno' });
   }
-});
+}
+
+app.get('/ows-launch-projects/:slug/download', launchProjectDownloadHandler);
 
 // ── Sincronizar itch.io (admin) ──
 // Body: { itch_url?, version?, file?, size?, installer_url?, updated_at? }
@@ -15485,6 +15512,418 @@ app.delete('/ows-project-releases/:id', async (req, res) => {
     return res.json({ success: true, deleted: Number(rowCount) });
   } catch (err) {
     console.error('Error en DELETE /ows-project-releases/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+// GESTOR DE ACTUALIZACIONES — OWS Hub + proyectos
+// ──────────────────────────────────────────────────────────────
+// Responde "¿qué hay para actualizar?" en UNA sola llamada:
+//   • OWS Hub (launcher desktop): la release vive en GitHub
+//     (OceanandWild/ows-hub) porque es un repo aparte. Se lee por la
+//     API con token del servidor y se cachea 5 min para no quemarse
+//     el rate limit. NO hay tabla propia: la release ES la fuente.
+//   • Proyectos: la última release activa de ows_project_releases.
+// El cliente manda su estado (`?hub=3.1.6&installed=slug:ver,slug:ver`)
+// y el servidor devuelve el plan de actualización ya comparado, para que
+// el frontend no tenga que reinventar la comparación de versiones ni
+// tenga que pegarle a GitHub desde el navegador (CORS + rate limit).
+//
+// Descarga: el gestor NO sirve binarios. Reutiliza las rutas que ya
+// existen (`/ows-updates/projects/:slug/download` es alias de la de
+// lanzamientos, y el Hub desktop se autoactualiza con el plugin updater
+// de Tauri leyendo el mismo latest.json de la release).
+// ══════════════════════════════════════════════════════════════
+const OWS_HUB_UPDATE_REPO = { owner: 'OceanandWild', repo: 'ows-hub' };
+const OWS_HUB_UPDATE_CACHE_TTL_MS = 5 * 60 * 1000;
+const OWS_HUB_UPDATE_STALE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// ── Comparación de versiones (semver-lite) ──
+// "3.1.10" > "3.1.9" (numérico, no lexicográfico). Acepta 'v' inicial,
+// sufijos de pre-release (-beta.2) y build (+abc): el pre-release ordena
+// ANTES que el mismo número sin sufijo, como manda semver.
+// Devuelve -1 (a < b), 0 (a == b) o 1 (a > b). Vacío/null = unknowable.
+function parseVersionParts(value) {
+  const raw = String(value ?? '').trim().replace(/^[vV]/, '');
+  if (!raw) return null;
+  // Se separan los tres segmentos de semver: núcleo numérico, pre-release
+  // (-beta.2) y build metadata (+build5). El build metadata NO ordena:
+  // 1.0.0 y 1.0.0+build5 son la MISMA versión para comparar.
+  const m = raw.match(/^(\d+(?:\.\d+)*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
+  if (!m) return null;
+  const nums = m[1].split('.').map((n) => Number(n));
+  while (nums.length < 3) nums.push(0);
+  return { nums: nums.slice(0, 4), pre: m[2] || '', raw };
+}
+
+function compareVersionStrings(a, b) {
+  const pa = parseVersionParts(a);
+  const pb = parseVersionParts(b);
+  if (!pa && !pb) return 0;
+  // Sin una de las dos no se puede ordenar: se trata como "sin dato".
+  if (!pa) return -1;
+  if (!pb) return 1;
+  const len = Math.max(pa.nums.length, pb.nums.length);
+  for (let i = 0; i < len; i += 1) {
+    const na = Number(pa.nums[i] || 0);
+    const nb = Number(pb.nums[i] || 0);
+    if (na !== nb) return na > nb ? 1 : -1;
+  }
+  // Mismo número: 1.0.0 > 1.0.0-beta (el que tiene sufijo va antes).
+  if (pa.pre === pb.pre) return 0;
+  if (!pa.pre) return 1;
+  if (!pb.pre) return -1;
+  const as = pa.pre.split('.');
+  const bs = pb.pre.split('.');
+  for (let i = 0; i < Math.max(as.length, bs.length); i += 1) {
+    if (i >= as.length) return -1;
+    if (i >= bs.length) return 1;
+    const xa = as[i];
+    const xb = bs[i];
+    if (xa === xb) continue;
+    const na = /^\d+$/.test(xa) ? Number(xa) : null;
+    const nb = /^\d+$/.test(xb) ? Number(xb) : null;
+    if (na !== null && nb !== null) return na > nb ? 1 : -1;
+    // numérico < alfanumérico (semver)
+    if (na !== null) return -1;
+    if (nb !== null) return 1;
+    return String(xa) > String(xb) ? 1 : -1;
+  }
+  return 0;
+}
+
+function isNewerVersion(remote, local) {
+  if (!String(remote || '').trim()) return false;
+  if (!String(local || '').trim()) return false;
+  return compareVersionStrings(remote, local) > 0;
+}
+
+// Traduce la release de GitHub a JSON plano para el gestor. Cache en memoria
+// con ventana fresca + ventana stale: si GitHub falla se sirve lo último
+// bueno marcando `stale:true` (mejor una versión de hace horas que un error).
+async function getOwsHubUpdateRelease() {
+  if (!globalThis.__owsHubUpdateReleaseCache) globalThis.__owsHubUpdateReleaseCache = { payload: null, ts: 0 };
+  const cache = globalThis.__owsHubUpdateReleaseCache;
+  const now = Date.now();
+  if (cache.payload && (now - cache.ts) < OWS_HUB_UPDATE_CACHE_TTL_MS) return cache.payload;
+
+  const { owner, repo } = OWS_HUB_UPDATE_REPO;
+  const releasesUrl = `https://github.com/${owner}/${repo}/releases/latest`;
+  try {
+    const release = await fetchGithubLatestReleaseLite(owner, repo);
+    const tag = String(release?.tag_name || release?.name || '').trim();
+    if (!tag) throw new Error('GitHub no devolvió tag');
+    const assets = Array.isArray(release?.assets) ? release.assets.filter((a) => a && a.browser_download_url) : [];
+    const installer = pickOwsHubUpdateInstaller(assets);
+    cache.payload = {
+      ok: true,
+      stale: false,
+      repo: `${owner}/${repo}`,
+      tag,
+      version: tag.replace(/^[vV]/, ''),
+      notes: String(release?.body || '').trim(),
+      name: String(release?.name || tag).trim(),
+      published_at: release?.published_at || release?.created_at || null,
+      html_url: String(release?.html_url || releasesUrl),
+      releases_url: `https://github.com/${owner}/${repo}/releases`,
+      // latest.json es el manifiesto que lee el updater de Tauri: sirve para
+      // instalar sin salir de la app y también como descarga directa.
+      manifest_url: `${releasesUrl}/download/latest.json`,
+      installer_name: installer ? String(installer.name || '') : '',
+      installer_size: installer ? Number(installer.size || 0) : 0,
+      installer_url: installer ? String(installer.browser_download_url || '') : '',
+      assets: assets.slice(0, 12).map((a) => ({
+        name: String(a.name || ''),
+        size: Number(a.size || 0),
+        url: String(a.browser_download_url || '')
+      }))
+    };
+    cache.ts = now;
+    return cache.payload;
+  } catch (err) {
+    // Cache vencido pero no ancient: servirlo es mejor que un error en la UI.
+    if (cache.payload && (now - cache.ts) < OWS_HUB_UPDATE_STALE_TTL_MS) {
+      return { ...cache.payload, stale: true, error: String(err?.message || err).slice(0, 200) };
+    }
+    // Sin red y sin caché: igual devolvemos 200 con la info mínima para que la
+    // UI pueda enlazar a la página de releases en vez de romperse.
+    return {
+      ok: false,
+      stale: true,
+      repo: `${owner}/${repo}`,
+      tag: '',
+      version: '',
+      notes: '',
+      name: '',
+      published_at: null,
+      html_url: releasesUrl,
+      releases_url: `https://github.com/${owner}/${repo}/releases`,
+      manifest_url: '',
+      installer_name: '',
+      installer_size: 0,
+      installer_url: '',
+      assets: [],
+      error: String(err?.message || err).slice(0, 200)
+    };
+  }
+}
+
+// Prioridad de assets del Hub: instalador de Windows (setup/installer) →
+// cualquier .exe/.msi → portable .zip/.7z → otros. Espejo de la misma
+// lógica que usa el frontend (pickOwsHubAsset) para que backend y UI
+// coincidan en qué archivo se baja.
+function pickOwsHubUpdateInstaller(assets) {
+  const list = Array.isArray(assets) ? assets : [];
+  if (!list.length) return null;
+  const rank = (name) => {
+    const n = String(name || '').trim().toLowerCase();
+    if (/\.(exe|msi)$/.test(n)) return (/setup|installer|owshub[-_ ]?hub/i.test(n)) ? 0 : 1;
+    if (/\.(zip|7z)$/.test(n)) return 2;
+    if (/\.(appx|msix|apk|dmg|deb|rpm|appimage)$/.test(n)) return 3;
+    return 9;
+  };
+  const sorted = [...list].sort((a, b) => {
+    const d = rank(a.name) - rank(b.name);
+    return d !== 0 ? d : (Number(b.size || 0) - Number(a.size || 0));
+  });
+  return sorted[0] || null;
+}
+
+// ── Estado del cliente: `installed=slug:version,slug2:version2` ──
+// El Hub desktop lo arma con la biblioteca local (localStorage). También
+// acepta JSON: `installed={"slug":"1.0"}` por si algún día viaja un body.
+function parseInstalledMap(req) {
+  const out = {};
+  const raw = String(req?.query?.installed || '').trim();
+  if (!raw) return out;
+  if (raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        Object.keys(parsed).forEach((slug) => {
+          const s = normalizeProjectSlug(slug);
+          const v = String(parsed[slug] ?? '').trim();
+          if (s && v) out[s] = v;
+        });
+      }
+    } catch (_) { /* formato inválido = sin instalados */ }
+    return out;
+  }
+  raw.split(',').forEach((chunk) => {
+    const part = String(chunk || '').trim();
+    if (!part) return;
+    const cut = part.lastIndexOf(':');
+    if (cut <= 0) return;
+    const slug = normalizeProjectSlug(part.slice(0, cut));
+    const version = part.slice(cut + 1).trim();
+    if (slug && version) out[slug] = version;
+  });
+  return out;
+}
+
+// Proyectos con su última release activa, ya aplanados para el gestor.
+// Reutiliza latest_release de /ows-launch-projects (misma tabla, misma
+// fuente de verdad) y agrega el diff contra lo instalado.
+async function buildOwsUpdateProjectRows(installedMap) {
+  await ensureOwsProjectReleasesTable();
+  const { rows } = await pool.query(
+    `SELECT id, slug, name, icon_url, genre, platforms, status, is_active, admin_only,
+            expected_date, link_url, metadata
+       FROM ows_launch_projects
+      WHERE is_active = TRUE
+      ORDER BY priority DESC, name ASC`
+  );
+  const projects = rows.map((r) => mapOwsLaunchProjectRow(r));
+  let relMap = {};
+  try { relMap = await getLatestReleasesMapByProjectIds(projects.map((p) => p.id)); } catch (_) { relMap = {}; }
+
+  return projects.map((p) => {
+    const rel = relMap[p.id] || null;
+    const installedVersion = String((installedMap && installedMap[p.slug]) || '').trim();
+    const latestVersion = String((rel && rel.version) || p.itch_version || '').trim();
+    const hasBuild = !!(rel && rel.id) || !!p.itch_version || !!p.installer_url;
+    const installed = !!installedVersion;
+    const available = installed && hasBuild && isNewerVersion(latestVersion, installedVersion);
+    return {
+      slug: p.slug,
+      name: p.name,
+      icon_url: p.icon_url,
+      status: p.status,
+      genre: p.genre,
+      platforms: p.platforms,
+      expected_date: p.expected_date,
+      admin_only: p.admin_only,
+      has_build: hasBuild,
+      installed,
+      installed_version: installedVersion || null,
+      latest_version: latestVersion || null,
+      update_available: available,
+      // Sin instalar no es "actualización": es instalación, y el gestor lo
+      // muestra con otra etiqueta para no prometer una mejora inexistente.
+      kind: installed ? (available ? 'update' : 'current') : (hasBuild ? 'install' : 'unavailable'),
+      notes: String((rel && rel.notes) || '').trim(),
+      channel: (rel && rel.channel) || 'stable',
+      prerelease: !!rel && rel.channel !== 'stable',
+      file_label: String((rel && rel.file_label) || p.itch_file || '').trim(),
+      size_label: String((rel && rel.size_label) || p.itch_size || '').trim(),
+      released_at: (rel && rel.released_at) || p.itch_updated_at || null,
+      release_id: (rel && rel.id) || null,
+      download_url: `/ows-updates/projects/${encodeURIComponent(p.slug)}/download`,
+      page_url: p.itch_url || p.link_url || ''
+    };
+  });
+}
+
+// Resumen del Hub (público). No necesita ni token ni body.
+app.get('/ows-updates/hub', async (_req, res) => {
+  try {
+    const release = await getOwsHubUpdateRelease();
+    return res.json({ success: true, hub: release });
+  } catch (err) {
+    console.error('Error en GET /ows-updates/hub:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Proyectos + su última release (público, sin estado del cliente).
+// Por defecto SOLO los proyectos públicos: los de Gestión (admin_only) no se
+// sirven en público, igual que en /ows-launch-projects. ?include_hidden=1 los
+// suma (uso interno).
+app.get('/ows-updates/projects', async (req, res) => {
+  const includeHidden = normalizeNewsBoolean(req.query.include_hidden, false);
+  try {
+    const installed = parseInstalledMap(req);
+    const all = await buildOwsUpdateProjectRows(installed);
+    const projects = includeHidden ? all : all.filter((p) => !p.admin_only);
+    return res.json({
+      success: true,
+      projects,
+      counts: {
+        total: projects.length,
+        with_build: projects.filter((p) => p.has_build).length,
+        installed: projects.filter((p) => p.installed).length,
+        updates: projects.filter((p) => p.update_available).length
+      }
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-updates/projects:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── GET /ows-updates/check — el endpoint que usa el Gestor ──
+// ?hub=3.1.6            versión del launcher instalada (vacío en navegador)
+// &installed=slug:ver   qué juegos tenés instalados y en qué versión
+// &include_hidden=1     suma los proyectos solo-admin (uso interno)
+// Devuelve el plan ya comparado + contadores para el badge del menú.
+app.get('/ows-updates/check', async (req, res) => {
+  try {
+    const localHubVersion = String(req.query.hub ?? req.query.hub_version ?? '').trim().replace(/^[vV]/, '');
+    const includeHidden = normalizeNewsBoolean(req.query.include_hidden, false);
+    const [hub, allProjects] = await Promise.all([
+      getOwsHubUpdateRelease(),
+      buildOwsUpdateProjectRows(parseInstalledMap(req))
+    ]);
+    const projects = includeHidden
+      ? allProjects
+      : allProjects.filter((p) => !p.admin_only);
+
+    const latestHubVersion = String(hub.version || '').trim();
+    // Sin versión local no se puede afirmar que "hay update": en navegador
+    // el Hub no está instalado, así que se informa pero no se cuenta.
+    const hubAvailable = !!(localHubVersion && latestHubVersion)
+      && isNewerVersion(latestHubVersion, localHubVersion);
+    const hubUnknown = !localHubVersion || !latestHubVersion;
+
+    const updates = projects.filter((p) => p.update_available);
+    return res.json({
+      success: true,
+      checked_at: new Date().toISOString(),
+      hub: {
+        ok: !!hub.ok,
+        repo: hub.repo,
+        current_version: localHubVersion || null,
+        latest_version: latestHubVersion || null,
+        update_available: hubAvailable,
+        // No sabemos con qué corre el cliente: la UI lo trata como "revisar".
+        unknown: hubUnknown,
+        tag: hub.tag || '',
+        notes: hub.notes || '',
+        published_at: hub.published_at || null,
+        html_url: hub.html_url,
+        releases_url: hub.releases_url,
+        manifest_url: hub.manifest_url,
+        installer_name: hub.installer_name || '',
+        installer_size: hub.installer_size || 0,
+        installer_url: hub.installer_url || '',
+        stale: !!hub.stale,
+        error: hub.error || ''
+      },
+      projects,
+      counts: {
+        total: projects.length,
+        installed: projects.filter((p) => p.installed).length,
+        with_build: projects.filter((p) => p.has_build).length,
+        updates: updates.length,
+        pending: updates.length + (hubAvailable ? 1 : 0)
+      }
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-updates/check:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Descarga de un proyecto desde el gestor: mismo handler que Lanzamientos
+// (installer_url → itch API → página de itch.io), así el Gestor y la grilla
+// de lanzamientos descargan EXACTAMENTE el mismo archivo.
+app.get('/ows-updates/projects/:slug/download', launchProjectDownloadHandler);
+
+// Versiones de un proyecto para el changelog del gestor (?include_inactive=1
+// exige admin, igual que en /ows-project-releases).
+app.get('/ows-updates/projects/:slug/releases', async (req, res) => {
+  const slug = normalizeProjectSlug(req.params.slug);
+  if (!slug) return res.status(400).json({ error: 'slug inválido' });
+  const wantInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  try {
+    await ensureOwsProjectReleasesTable();
+    if (wantInactive && !requireOwsStoreAdmin(req, res)) return;
+    const { rows } = await pool.query(
+      `SELECT r.*, p.slug AS project_slug, p.name AS project_name, p.icon_url, p.admin_only, p.is_active
+         FROM ows_project_releases r
+         JOIN ows_launch_projects p ON p.id = r.project_id
+        WHERE LOWER(p.slug) = LOWER($1)
+          AND ($2 = TRUE OR r.is_active = TRUE)
+        ORDER BY r.released_at DESC NULLS LAST, r.id DESC
+        LIMIT 50`,
+      [slug, wantInactive]
+    );
+    // Los proyectos de Gestión (admin_only) u ocultos no se exponen en
+    // público: el changelog de un juego solo-admin requiere token admin.
+    const isAdmin = isOwsStoreAdminRequest(req);
+    const visible = rows.filter((r) => isAdmin || (!r.admin_only && r.is_active !== false));
+    if (!visible.length && rows.length) {
+      return res.status(404).json({ error: 'Proyecto no encontrado' });
+    }
+    const releases = visible.map((r) => ({
+      ...mapOwsProjectReleaseRow(r),
+      project_name: String(r.project_name || ''),
+      icon_url: String(r.icon_url || '')
+    }));
+    const installedVersion = String(req.query.installed || '').trim();
+    return res.json({
+      success: true,
+      slug,
+      releases,
+      latest: releases.length ? releases[0] : null,
+      installed_version: installedVersion || null,
+      // ¿La lista mostrada trae algo más nuevo que lo instalado?
+      update_available: !!(installedVersion && releases.length
+        && isNewerVersion(releases[0].version, installedVersion))
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-updates/projects/:slug/releases:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

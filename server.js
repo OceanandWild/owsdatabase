@@ -15788,10 +15788,12 @@ app.get('/ows-updates/hub', async (_req, res) => {
 
 // Proyectos + su última release (público, sin estado del cliente).
 // Por defecto SOLO los proyectos públicos: los de Gestión (admin_only) no se
-// sirven en público, igual que en /ows-launch-projects. ?include_hidden=1 los
-// suma (uso interno).
+// sirven en público, igual que en /ows-launch-projects. Pedir include_hidden=1
+// EXIGE token de admin (a diferencia de /ows-launch-projects, que lo deja
+// abierto: acá no se replica esa fuga).
 app.get('/ows-updates/projects', async (req, res) => {
   const includeHidden = normalizeNewsBoolean(req.query.include_hidden, false);
+  if (includeHidden && !requireOwsStoreAdmin(req, res)) return;
   try {
     const installed = parseInstalledMap(req);
     const all = await buildOwsUpdateProjectRows(installed);
@@ -15821,6 +15823,7 @@ app.get('/ows-updates/check', async (req, res) => {
   try {
     const localHubVersion = String(req.query.hub ?? req.query.hub_version ?? '').trim().replace(/^[vV]/, '');
     const includeHidden = normalizeNewsBoolean(req.query.include_hidden, false);
+    if (includeHidden && !requireOwsStoreAdmin(req, res)) return;
     const [hub, allProjects] = await Promise.all([
       getOwsHubUpdateRelease(),
       buildOwsUpdateProjectRows(parseInstalledMap(req))

@@ -265,6 +265,11 @@
             <span class="nav-txt">Descargas</span>
             <span id="nav-dl-badge" class="nav-dl-badge hidden">0</span>
           </a>
+          <a href="#/actualizaciones" class="nav-link nav-link-updates" data-view="sec-actualizaciones" data-keys="actualizaciones updates parches versiones hub juegos nuevo">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg></span>
+            <span class="nav-txt">Actualizaciones</span>
+            <span id="nav-upd-badge" class="nav-dl-badge nav-upd-badge hidden">0</span>
+          </a>
         </nav>
 
         <p class="nav-group-label">Ecosistema</p>
@@ -280,6 +285,30 @@
             <span class="nav-tag">Owner</span>
           </a>
         </nav>
+
+        <!-- Panel: descarga OWS Hub (obligatoria si estás en el navegador) -->
+        <div class="nav-hub" id="nav-hub-panel" data-state="loading">
+          <div class="nav-hub-glow" aria-hidden="true"></div>
+          <div class="nav-hub-head">
+            <span class="nav-hub-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+            </span>
+            <div class="nav-hub-titles">
+              <p class="nav-hub-title">OWS Hub</p>
+              <p class="nav-hub-sub" id="nav-hub-sub">Buscando la última versión…</p>
+            </div>
+          </div>
+          <p class="nav-hub-note" id="nav-hub-note">
+            Estás en el navegador: para continuar con las descargas <b>necesitas OWS Hub</b>. Sin él no se pueden instalar ni lanzar los juegos.
+          </p>
+          <a class="btn btn-primary btn-sm btn-block nav-hub-btn" id="nav-hub-download" href="#" rel="noopener" target="_blank" download>
+            <span id="nav-hub-download-txt">⬇ Descargar OWS Hub</span>
+          </a>
+          <div class="nav-hub-meta">
+            <span class="nav-hub-chip" id="nav-hub-version">—</span>
+            <a class="nav-hub-gh" id="nav-hub-releases" href="https://github.com/OceanandWild/ows-hub/releases/latest" target="_blank" rel="noopener" title="Ver releases en GitHub">GitHub ↗</a>
+          </div>
+        </div>
 
         <!-- Promo Ocean Pay -->
         <div class="nav-promo">
@@ -303,7 +332,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.1.3</span>
+          <span class="nav-version">OWS Hub · v3.2.0</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>
@@ -430,7 +459,7 @@
           <span class="section-index">03</span>
           <div class="section-titles">
             <h3 class="section-title">Lanzamientos</h3>
-            <p class="section-sub">Lo nuevo que se viene al ecosistema</p>
+            <p class="section-sub">Pasa el cursor para ver el nombre · 1 clic = info · 2 clics = detalles</p>
           </div>
         </div>
         <div id="releases-grid" class="releases-grid"></div>
@@ -464,16 +493,169 @@
             <p class="section-sub">Tus juegos descargándose y listos para jugar</p>
           </div>
           <span class="section-meta" id="downloads-count">Sin descargas</span>
-          <button id="btn-clear-downloads" class="btn btn-ghost btn-sm downloads-clear hidden" type="button">Limpiar</button>
+          <button id="btn-clear-downloads" class="btn btn-ghost btn-sm downloads-clear hidden" type="button">Limpiar historial</button>
         </div>
-        <div class="downloads-panel glass-card">
-          <div id="downloads-list" class="downloads-list"></div>
-          <div id="downloads-empty" class="downloads-empty">
-            <span class="downloads-empty-icon">📥</span>
-            <p class="downloads-empty-title">No hay descargas todavía</p>
-            <p class="downloads-empty-sub">Presiona <b>⬇ Descargar</b> en Wilder Gambit y aparecerá aquí con su progreso en vivo.</p>
-            <button id="btn-goto-releases" class="btn btn-primary btn-sm" type="button" data-goto-view="sec-lanzamientos">Ver lanzamientos 🚀</button>
+
+        <!-- Aviso obligatorio: en navegador las descargas exigen OWS Hub -->
+        <div class="hub-gate hidden" id="hub-gate" role="alert">
+          <span class="hub-gate-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>
+          </span>
+          <div class="hub-gate-main">
+            <b>Necesitas OWS Hub para descargar</b>
+            <p>Estás usando el navegador, así que aquí no se puede continuar con las descargas. Instala <b>OWS Hub</b> (gratis, Windows) y vuelve a iniciar sesión: con el Hub puedes descargar, instalar y jugar con 1 clic.</p>
+            <div class="hub-gate-actions">
+              <a class="btn btn-primary btn-sm" id="hub-gate-download" href="#" target="_blank" rel="noopener" download>⬇ Descargar OWS Hub</a>
+              <a class="btn btn-ghost btn-sm" id="hub-gate-releases" href="https://github.com/OceanandWild/ows-hub/releases/latest" target="_blank" rel="noopener">Ver releases ↗</a>
+            </div>
           </div>
+        </div>
+
+        <!-- Resumen en vivo: en curso / listas / peso / velocidad -->
+        <div class="dl-summary" id="dl-summary" hidden>
+          <div class="dl-stat dl-stat-active">
+            <span class="dl-stat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="dl-stat-spin"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9" /></svg>
+            </span>
+            <span class="dl-stat-txt"><b id="dl-stat-active">0</b><small>En curso</small></span>
+          </div>
+          <div class="dl-stat dl-stat-done">
+            <span class="dl-stat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="dl-stat-ico-svg"><path d="M20 6.5 9.5 17 4 11.5" /></svg>
+            </span>
+            <span class="dl-stat-txt"><b id="dl-stat-done">0</b><small>Listas para jugar</small></span>
+          </div>
+          <div class="dl-stat dl-stat-weight">
+            <span class="dl-stat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="dl-stat-ico-svg"><path d="M3 7h18v12H3z"/><path d="M3 11h18"/><path d="M10 7v12"/></svg>
+            </span>
+            <span class="dl-stat-txt"><b id="dl-stat-size">0 MB</b><small>Descargado</small></span>
+          </div>
+          <div class="dl-stat dl-stat-speed">
+            <span class="dl-stat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="dl-stat-ico-svg"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+            </span>
+            <span class="dl-stat-txt"><b id="dl-stat-speed">—</b><small>Velocidad</small></span>
+          </div>
+        </div>
+
+        <div id="downloads-list" class="downloads-list"></div>
+        <div id="downloads-empty" class="downloads-empty">
+          <div class="downloads-empty-art" aria-hidden="true">
+            <span class="downloads-empty-icon">📥</span>
+          </div>
+          <p class="downloads-empty-title">No hay descargas todavía</p>
+          <p class="downloads-empty-sub">Presiona <b>⬇ Descargar</b> en cualquier juego de Lanzamientos: el progreso aparece aquí en vivo y, si estás en otra sección, también te aviso arriba.</p>
+          <button id="btn-goto-releases" class="btn btn-primary btn-sm" type="button" data-goto-view="sec-lanzamientos">Ver lanzamientos 🚀</button>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════
+           GESTOR DE ACTUALIZACIONES
+           OWS Hub (launcher) + proyectos instalados.
+           El backend decide qué hay para actualizar (GET /ows-updates/check);
+           esta sección solo pinta el plan y ejecuta la actualización.
+           ═══════════════════════════════════════════ -->
+      <section id="sec-actualizaciones" class="page-section ows-view" aria-label="Gestor de Actualizaciones">
+        <div class="section-head">
+          <span class="section-index">06</span>
+          <div class="section-titles">
+            <h3 class="section-title">Gestor de Actualizaciones</h3>
+            <p class="section-sub">OWS Hub y tus juegos, siempre en la última versión</p>
+          </div>
+          <div class="section-actions">
+            <span class="section-meta" id="updates-checked">Sin revisar</span>
+            <button id="btn-updates-refresh" class="btn btn-ghost btn-sm" type="button">↻ Buscar actualizaciones</button>
+          </div>
+        </div>
+
+        <!-- Tarjeta del OWS Hub (auto-actualización) -->
+        <div class="upd-hub-card" id="upd-hub-card" data-state="loading">
+          <div class="upd-hub-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          </div>
+          <div class="upd-hub-main">
+            <div class="upd-hub-top">
+              <div class="upd-hub-titles">
+                <p class="upd-hub-name">OWS Hub</p>
+                <p class="upd-hub-state" id="upd-hub-state">Buscando la última versión…</p>
+              </div>
+              <div class="upd-hub-vers">
+                <span class="upd-ver-chip upd-ver-old" id="upd-hub-current">—</span>
+                <span class="upd-ver-arrow" aria-hidden="true">→</span>
+                <span class="upd-ver-chip upd-ver-new" id="upd-hub-latest">—</span>
+              </div>
+            </div>
+            <div class="upd-hub-bar" id="upd-hub-bar" hidden>
+              <div class="upd-hub-bar-track"><div class="upd-hub-bar-fill" id="upd-hub-bar-fill" style="width:0%"></div></div>
+              <span class="upd-hub-bar-pct" id="upd-hub-bar-pct">0%</span>
+            </div>
+            <p class="upd-hub-notes" id="upd-hub-notes"></p>
+            <div class="upd-hub-actions" id="upd-hub-actions">
+              <a class="btn btn-ghost btn-sm" id="upd-hub-releases" href="https://github.com/OceanandWild/ows-hub/releases/latest" target="_blank" rel="noopener">Releases ↗</a>
+            </div>
+            <p class="upd-hub-hint" id="upd-hub-hint"></p>
+          </div>
+        </div>
+
+        <!-- Aviso: en el navegador las actualizaciones se instalan desde OWS Hub -->
+        <div class="upd-gate hidden" id="upd-gate" role="alert">
+          <span class="upd-gate-ico" aria-hidden="true">💡</span>
+          <div class="upd-gate-main">
+            <b>Las actualizaciones se aplican desde la app OWS Hub</b>
+            <p>Desde el navegador podés ver qué hay nuevo y leer todas las notas, pero para instalar tenés que usar OWS Hub (gratis, Windows): baja el instalador, ejecutalo y en 1 clic te actualiza todo.</p>
+          </div>
+          <a class="btn btn-primary btn-sm" id="upd-gate-download" href="#" target="_blank" rel="noopener" download>⬇ Descargar OWS Hub</a>
+        </div>
+
+        <!-- Contadores -->
+        <div class="upd-stats" id="upd-stats">
+          <div class="upd-stat upd-stat-pending">
+            <span class="upd-stat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 19h16"/></svg>
+            </span>
+            <span class="upd-stat-txt"><b id="upd-stat-pending">0</b><small>Para actualizar</small></span>
+          </div>
+          <div class="upd-stat upd-stat-installed">
+            <span class="upd-stat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M20 6.5 9.5 17 4 11.5"/></svg>
+            </span>
+            <span class="upd-stat-txt"><b id="upd-stat-installed">0</b><small>Instalados</small></span>
+          </div>
+          <div class="upd-stat upd-stat-current">
+            <span class="upd-stat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-7-10a7 7 0 1 1 14 0c0 5.4-7 10-7 10Z"/><path d="M9.5 11.5 11.5 13.5 15 10"/></svg>
+            </span>
+            <span class="upd-stat-txt"><b id="upd-stat-current">0</b><small>Al día</small></span>
+          </div>
+          <div class="upd-stat upd-stat-new">
+            <span class="upd-stat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+            </span>
+            <span class="upd-stat-txt"><b id="upd-stat-new">0</b><small>Juegos con build</small></span>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="upd-filters" id="upd-filters" role="tablist" aria-label="Filtrar actualizaciones">
+          <button type="button" class="upd-chip upd-chip-active" data-upd-filter="all" role="tab" aria-selected="true">Todas</button>
+          <button type="button" class="upd-chip" data-upd-filter="pending" role="tab" aria-selected="false">Para actualizar</button>
+          <button type="button" class="upd-chip" data-upd-filter="current" role="tab" aria-selected="false">Al día</button>
+          <button type="button" class="upd-chip" data-upd-filter="unavailable" role="tab" aria-selected="false">Sin build</button>
+        </div>
+
+        <!-- Lista -->
+        <div id="updates-list" class="upd-list">
+          <p class="loading-note">Cargando estado de actualizaciones…</p>
+        </div>
+
+        <div id="updates-empty" class="downloads-empty hidden">
+          <div class="downloads-empty-art" aria-hidden="true">
+            <span class="downloads-empty-icon">✅</span>
+          </div>
+          <p class="downloads-empty-title">Estás todo al día</p>
+          <p class="downloads-empty-sub" id="updates-empty-sub">No hay actualizaciones pendientes. Cuando salga una nueva build de un juego o una versión del Hub, la vas a ver acá.</p>
+          <button id="btn-updates-goto-releases" class="btn btn-primary btn-sm" type="button" data-goto-view="sec-lanzamientos">Ver lanzamientos 🚀</button>
         </div>
       </section>
 
@@ -483,6 +665,8 @@
       <span>OWS Ecosystem © <span id="ows-year">2026</span> — Ocean &amp; Wild Studios</span>
     </footer>
     </div>
+    <!-- Spotlight Lanzamientos: dentro del wrap para compartir stacking context con el side-nav (z 60). Fuera del wrap tapaba hasta el menú y el item activo. -->
+    <div id="releases-spotlight" class="releases-spotlight hidden" aria-hidden="true"></div>
   </section>
 
   <!-- Event details modal -->
@@ -493,9 +677,10 @@
     </div>
   </div>
 
-  <!-- Release details modal (contenido dinamico) -->
-  <div id="release-modal" class="modal-overlay hidden">
-    <div class="modal-card glass-card">
+  <!-- Release details modal fullscreen (contenido dinamico) -->
+  <div id="release-modal" class="release-overlay hidden" role="dialog" aria-modal="true">
+    <div class="rd-progress" aria-hidden="true"><i></i></div>
+    <div class="release-modal-card">
       <button class="modal-close" data-close="release-modal" aria-label="Cerrar">&times;</button>
       <div id="release-modal-body"></div>
     </div>
@@ -509,9 +694,21 @@
     </div>
   </div>
 
+  <!-- Changelog de un proyecto (historial de versiones del Gestor) -->
+  <div id="updates-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-card glass-card updates-modal-card">
+      <button class="modal-close" data-close="updates-modal" aria-label="Cerrar">&times;</button>
+      <div id="updates-modal-body"></div>
+    </div>
+  </div>
+
   <!-- Toasts (click en toast de descarga → va al Gestor) -->
   <div id="toast" class="toast hidden"></div>
   <div id="toast-dl" class="toast toast-download hidden" role="status"></div>
+
+  <!-- Toaster de descargas (ARriba): si Starts una descarga estando en otra
+       sección, el aviso aparece acá con el progreso en vivo → click = Gestor -->
+  <div id="dl-toaster" class="dl-toaster hidden" aria-live="polite"></div>
 
   <!-- Toasts de anuncios de Eventos (arriba por defecto, una sola vez) -->
   <div id="announce-toasts" class="announce-toasts" aria-live="polite"></div>

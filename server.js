@@ -165,6 +165,20 @@ const dashboardEventUpload = multer({
   limits: { fileSize: 15 * 1024 * 1024 } // 15 MB maximo por imagen
 });
 
+// OWS Dashboard news image uploads (Cloudinary) — seccion Noticias del dashboard
+const dashboardNewsStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'ows-dashboard/news',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif'],
+    transformation: [{ width: 1280, crop: 'limit', quality: 'auto' }]
+  },
+});
+const dashboardNewsUpload = multer({
+  storage: dashboardNewsStorage,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15 MB maximo por imagen
+});
+
 // Función para generar ID único de usuario (100 caracteres)
 function generateUserUniqueId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -13447,8 +13461,12 @@ async function ensureOwsDashboardNewsTable() {
       priority     INTEGER NOT NULL DEFAULT 0,
       published_at TIMESTAMPTZ,
       created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  // Portada opcional de la noticia (subida a Cloudinary o URL externa)
+  await pool.query(`
+    ALTER TABLE ows_dashboard_news ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT ''
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_ows_dashboard_news_order
@@ -13463,6 +13481,7 @@ function mapOwsDashboardNewsRow(row) {
     title: String(row.title || ''),
     description: String(row.description || ''),
     project_name: String(row.project_name || 'OWS'),
+    image_url: String(row.image_url || ''),
     is_active: row.is_active !== false,
     priority: Number(row.priority || 0),
     published_at: row.published_at || row.created_at || null,
@@ -13481,7 +13500,7 @@ app.get('/ows-dashboard/news', async (req, res) => {
     const where = [];
     if (!includeInactive) where.push('is_active = TRUE');
     const { rows } = await pool.query(
-      `SELECT id, title, description, project_name, is_active, priority, published_at, created_at, updated_at
+      `SELECT id, title, description, project_name, image_url, is_active, priority, published_at, created_at, updated_at
          FROM ows_dashboard_news
         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY COALESCE(published_at, created_at) DESC, id DESC
@@ -13496,15 +13515,17 @@ app.get('/ows-dashboard/news', async (req, res) => {
 });
 
 // Crear noticia del dashboard (requiere token/secret de admin OWS)
-app.post('/ows-dashboard/news', async (req, res) => {
+app.post('/ows-dashboard/news', dashboardNewsUpload.single('image'), async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
 
   const title = String(req.body?.title || '').trim();
   const description = String(req.body?.description || '').trim();
   const projectName = String(req.body?.project_name || req.body?.projectName || 'OWS').trim() || 'OWS';
+  const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
   const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
   const rawPublishedAt = req.body?.published_at;
   const publishedAt = rawPublishedAt ? new Date(rawPublishedAt) : null;
+  const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
 
   if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
   if (publishedAt && Number.isNaN(publishedAt.getTime())) {
@@ -13514,10 +13535,10 @@ app.post('/ows-dashboard/news', async (req, res) => {
   try {
     await ensureOwsDashboardNewsTable();
     const { rows } = await pool.query(
-      `INSERT INTO ows_dashboard_news (title, description, project_name, priority, published_at)
-       VALUES ($1, $2, $3, $4, COALESCE($5, NOW()))
-       RETURNING id, title, description, project_name, is_active, priority, published_at, created_at, updated_at`,
-      [title, description, projectName, priority, publishedAt]
+      `INSERT INTO ows_dashboard_news (title, description, project_name, image_url, priority, published_at)
+       VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()))
+       RETURNING id, title, description, project_name, image_url, is_active, priority, published_at, created_at, updated_at`,
+      [title, description, projectName, finalImageUrl, priority, publishedAt]
     );
     return res.status(201).json({ success: true, news: mapOwsDashboardNewsRow(rows[0] || {}) });
   } catch (err) {
@@ -13528,7 +13549,7 @@ app.post('/ows-dashboard/news', async (req, res) => {
 
 // Editar noticia del dashboard (admin). Si no se envian campos, alterna
 // el estado activo/inactivo (comportamiento original del toggle).
-app.patch('/ows-dashboard/news/:id', async (req, res) => {
+app.patch('/ows-dashboard/news/:id', dashboardNewsUpload.single('image'), async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const id = Number(req.params.id || 0);
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
@@ -13544,6 +13565,9 @@ app.patch('/ows-dashboard/news/:id', async (req, res) => {
     if (req.body?.project_name !== undefined) updates.project_name = String(req.body.project_name).trim() || 'OWS';
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    if (req.body?.image_url !== undefined) updates.image_url = String(req.body.image_url || '').trim();
+    // Archivo nuevo (Cloudinary) gana sobre la URL enviada
+    if (req.file && req.file.path) updates.image_url = String(req.file.path);
 
     if (!Object.keys(updates).length) {
       // Toggle original cuando no hay campos explicitos
@@ -13553,7 +13577,7 @@ app.patch('/ows-dashboard/news/:id', async (req, res) => {
             SET is_active = NOT is_active,
                 updated_at = NOW()
           WHERE id = $1
-          RETURNING id, title, description, project_name, is_active, priority, published_at, created_at, updated_at`,
+          RETURNING id, title, description, project_name, image_url, is_active, priority, published_at, created_at, updated_at`,
         [id]
       );
       if (!rows.length) return res.status(404).json({ error: 'Noticia no encontrada' });
@@ -13566,7 +13590,7 @@ app.patch('/ows-dashboard/news/:id', async (req, res) => {
       `UPDATE ows_dashboard_news
           SET ${setSql}, updated_at = NOW()
         WHERE id = $1
-        RETURNING id, title, description, project_name, is_active, priority, published_at, created_at, updated_at`,
+        RETURNING id, title, description, project_name, image_url, is_active, priority, published_at, created_at, updated_at`,
       [id, ...keys.map((k) => updates[k])]
     );
     if (!rows.length) return res.status(404).json({ error: 'Noticia no encontrada' });

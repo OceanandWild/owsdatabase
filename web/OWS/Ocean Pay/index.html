@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ocean Pay — OWS Unified Wallet</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Ambient background glow -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- AUTH SECTION (Login / Register) -->
+  <section id="auth-section" class="screen-center">
+    <div class="glass-card auth-box">
+      <div class="brand-header">
+        <div class="logo-circle">🌊</div>
+        <h1>OCEAN PAY</h1>
+        <p class="subtitle">Billetera oficial de Ocean &amp; Wild Studios</p>
+      </div>
+
+      <div class="tab-switch">
+        <button id="tab-login-btn" class="tab-btn active" type="button" data-optab="login">Iniciar Sesión</button>
+        <button id="tab-register-btn" class="tab-btn" type="button" data-optab="register">Registrarse</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form">
+        <div class="input-group">
+          <label for="login-username">Usuario OWS</label>
+          <input type="text" id="login-username" placeholder="Ingresa tu usuario" required autocomplete="username" />
+        </div>
+
+        <div class="input-group">
+          <label for="login-password">Contraseña</label>
+          <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+
+        <button type="submit" id="btn-login-submit" class="btn btn-primary btn-block">Entrar a Ocean Pay</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" class="hidden">
+        <div class="input-group">
+          <label for="reg-username">Nombre de Usuario</label>
+          <input type="text" id="reg-username" placeholder="Crea tu usuario" required autocomplete="username" />
+        </div>
+
+        <div class="input-group">
+          <label for="reg-password">Contraseña</label>
+          <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" required autocomplete="new-password" />
+        </div>
+
+        <button type="submit" id="btn-register-submit" class="btn btn-primary btn-block">Crear Cuenta</button>
+      </form>
+
+      <div id="auth-alert" class="alert-box hidden"></div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD SECTION (Main Wallet Hub) -->
+  <section id="dashboard-section" class="dashboard-container hidden">
+    <!-- Top Navigation Header -->
+    <header class="top-nav glass-card">
+      <div class="nav-brand">
+        <span class="logo-emoji">🌊</span>
+        <span class="brand-title">Ocean Pay</span>
+        <span class="badge badge-beta">OWS Wallet</span>
+      </div>
+
+      <div class="nav-actions">
+        <!-- BOTÓN VOLVER AL DASHBOARD -->
+        <button id="btn-back-ows" class="btn btn-secondary btn-sm" type="button" title="Volver a OWS Hub">
+          ← OWS
+        </button>
+
+        <!-- BOTÓN PANEL ADMIN (SOLO OCEANANDWILD) -->
+        <button id="btn-admin-panel" class="btn btn-primary btn-sm hidden" type="button" style="background: linear-gradient(135deg, #f59e0b, #ef4444); border: 1px solid rgba(245,158,11,0.5);">
+          👑 Panel Admin
+        </button>
+
+        <!-- BOTÓN HISTORIAL EN EL MENÚ SUPERIOR -->
+        <button class="btn btn-secondary btn-sm" type="button" data-action="open-history">
+          📜 Historial de Movimientos
+        </button>
+
+        <div class="user-chip">
+          <span class="user-avatar" id="nav-user-avatar">👤</span>
+          <span class="user-name" id="nav-user-name">Jugador</span>
+        </div>
+        <button id="btn-op-logout" class="btn btn-secondary btn-sm" type="button">Cerrar Sesión</button>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <!-- LEFT COLUMN: Virtual Card & Primary Balances -->
+      <div class="col-left">
+        <!-- CARD SELECTOR (MULTIPLE CARDS) -->
+        <div class="card-selector-wrapper">
+          <label for="card-select-dropdown" class="section-label">💳 Tarjeta Activa</label>
+          <select id="card-select-dropdown" class="custom-select">
+            <option value="0">Cargando tarjetas...</option>
+          </select>
+        </div>
+
+        <!-- 3D INTERACTIVE VIRTUAL CARD (CLICK TO FLIP) -->
+        <div id="virtual-card-wrapper" class="virtual-card-wrapper" title="Haz click para girar la tarjeta">
+          <div class="virtual-card" id="virtual-card-element">
+            <!-- FRONT FACE -->
+            <div class="card-face card-front">
+              <div class="card-chip-row">
+                <div class="card-chip"></div>
+                <div class="card-brand" id="card-name-display">OCEAN PAY</div>
+              </div>
+              <div class="card-number-box">
+                <div class="card-number" id="card-number-display">•••• •••• •••• ••••</div>
+                <span id="card-copy-icon" class="card-copy-icon" title="Copiar número">📋</span>
+              </div>
+              <div class="card-footer">
+                <div class="card-holder">
+                  <span class="card-label">TITULAR</span>
+                  <span class="card-value" id="card-holder-name">CARGANDO...</span>
+                </div>
+                <div class="card-expiry">
+                  <span class="card-label">EXPIRA</span>
+                  <span class="card-value" id="card-expiry-display">12/30</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- BACK FACE -->
+            <div class="card-face card-back">
+              <div class="card-magnetic-stripe"></div>
+              <div class="card-back-content">
+                <div>
+                  <span class="card-label">CVV / SEGURIDAD</span>
+                  <div class="cvv-box" id="card-cvv-display">•••</div>
+                </div>
+                <div class="badge badge-beta">OWS SECURE</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="card-hint">💡 Tip: Haz click en la tarjeta para voltearla o en 📋 para copiar su número</p>
+
+        <!-- QUICK STATS: GAMBITS & TIDES -->
+        <div class="currencies-grid">
+          <!-- TIDES CARD (PREMIUM) -->
+          <div class="currency-card tides-card glass-card">
+            <div class="currency-header">
+              <div class="icon-circle tide-icon">🌊</div>
+              <div>
+                <h3>Tides</h3>
+                <span class="currency-tag premium-tag">⭐ Divisa Premium OWS</span>
+              </div>
+            </div>
+            <div class="currency-balance-row">
+              <span class="balance-number" id="balance-tides">0</span>
+              <span class="balance-unit">TIDES</span>
+            </div>
+            <p class="currency-desc">Divisa exclusiva adquirida mediante tienda oficial o pases especiales.</p>
+          </div>
+
+          <!-- GAMBITS CARD (IN-GAME) -->
+          <div class="currency-card gambits-card glass-card">
+            <div class="currency-header">
+              <div class="icon-circle gambit-icon">🃏</div>
+              <div>
+                <h3>Gambits</h3>
+                <span class="currency-tag">Wilder Gambit Exclusive</span>
+              </div>
+            </div>
+            <div class="currency-balance-row">
+              <span class="balance-number" id="balance-gambits">0</span>
+              <span class="balance-unit">GAMBITS</span>
+            </div>
+            <p class="currency-desc">Ganados exclusivamente en partidas y torneos de Wilder Gambit.</p>
+          </div>
+        </div>
+
+        <!-- SECCIÓN: CUOTA MENSUAL DE TRANSFERENCIAS SIN COMISIÓN -->
+        <div class="glass-card" style="padding: 18px 22px; margin-bottom: 20px; border: 1px solid rgba(52, 211, 153, 0.3); background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(6, 78, 59, 0.25)); border-radius: 20px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 6px;">
+            <div>
+              <div style="display:flex; align-items:center; gap: 8px;">
+                <span style="font-size: 1.15rem;">🎁</span>
+                <h4 style="font-size: 0.92rem; font-weight: 800; color: #fff; letter-spacing: -0.01em;">Transferencias Gratuitas</h4>
+              </div>
+              <p style="font-size: 0.73rem; color: var(--text-muted); margin-top: 2px;">Cuota mensual de 5 envíos con 0% de comisión en cualquier divisa.</p>
+            </div>
+            <span id="free-quota-used" class="badge" style="background: rgba(52, 211, 153, 0.15); color: var(--success); border: 1px solid rgba(52, 211, 153, 0.35); font-size: 0.8rem; font-weight: 800; padding: 4px 10px; border-radius: 8px;">0 / 5</span>
+          </div>
+
+          <!-- Progress Bar -->
+          <div style="width: 100%; height: 7px; background: rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; margin: 12px 0 10px 0;">
+            <div id="free-quota-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #34d399, #00f2fe); border-radius: 6px; transition: width 0.4s ease;"></div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
+            <div>Disponibles este mes: <b id="free-quota-remaining" style="color:#fff;">5 envíos</b></div>
+            <div>Reinicio de cuota: <b id="free-quota-reset" style="color:var(--primary-cyan);">en -- días</b></div>
+          </div>
+        </div>
+
+        <!-- REFRESH WALLET BUTTON -->
+        <div class="action-card-footer" style="margin-bottom: 20px;">
+          <button id="btn-sync-balances" class="btn btn-secondary btn-block" type="button">
+            🔄 Sincronizar Balances
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: Elegant P2P Transfer Hub (Step-by-step) -->
+      <div class="col-right">
+        <div class="glass-card transfer-hub-card">
+          <div class="transfer-hub-header">
+            <div class="transfer-header-icon">📤</div>
+            <div>
+              <h2>Transferencia Directa P2P</h2>
+              <p class="subtitle">Envía divisas al instante a cualquier jugador de OWS</p>
+            </div>
+          </div>
+
+          <form id="transfer-form" class="transfer-form-layout">
+            <!-- STEP 1: DESTINATARIO (ACTIVO POR DEFECTO) -->
+            <div class="transfer-step step-active" id="step-wrapper-1" data-step="1">
+              <div class="step-badge" id="step-badge-1">1</div>
+              <div class="step-content">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <label class="step-label">Destinatario</label>
+                  <span id="recipient-status-badge" style="font-size:0.75rem; font-weight:700; display:none;"></span>
+                </div>
+                <div class="input-with-prefix">
+                  <span class="input-prefix">@</span>
+                  <input type="text" id="transfer-recipient" placeholder="nombre_de_usuario" required autocomplete="off" />
+                  <span id="recipient-spinner" style="display:none; position:absolute; right:12px; font-size:0.9rem;">⏳</span>
+                </div>
+                <div id="recipient-feedback-msg" style="display:none; font-size:0.78rem; margin-top:4px;"></div>
+              </div>
+            </div>
+
+            <!-- STEP 2: SELECTOR DE DIVISA -->
+            <div class="transfer-step step-inactive" id="step-wrapper-2">
+              <div class="step-badge" id="step-badge-2" data-step="2">2</div>
+              <div class="step-content">
+                <label class="step-label" data-step="2">Selecciona la Divisa</label>
+                <div class="currency-pills-group">
+                  <label class="currency-pill active" id="pill-gambits" data-currency="gambits">
+                    <input type="radio" name="currency-radio" value="gambits" checked class="hidden-radio" />
+                    <span class="pill-icon">🃏</span>
+                    <div class="pill-info">
+                      <span class="pill-title">Gambits</span>
+                      <span class="pill-sub" id="pill-gambits-bal">Disp: 0</span>
+                    </div>
+                  </label>
+
+                  <label class="currency-pill" id="pill-tides" data-currency="tides">
+                    <input type="radio" name="currency-radio" value="tides" class="hidden-radio" />
+                    <span class="pill-icon">🌊</span>
+                    <div class="pill-info">
+                      <span class="pill-title">Tides (Premium)</span>
+                      <span class="pill-sub" id="pill-tides-bal">Disp: 0</span>
+                    </div>
+                  </label>
+                </div>
+                <input type="hidden" id="transfer-currency" value="gambits" />
+              </div>
+            </div>
+
+            <!-- STEP 3: MONTO & PRESETS -->
+            <div class="transfer-step step-inactive" id="step-wrapper-3" data-step="3">
+              <div class="step-badge" id="step-badge-3">3</div>
+              <div class="step-content">
+                <div class="amount-header-row">
+                  <label class="step-label">Monto a Enviar</label>
+                  <span id="btn-max-amount" class="max-balance-link">Enviar Todo</span>
+                </div>
+                
+                <div class="amount-input-box">
+                  <input type="number" id="transfer-amount" placeholder="0" min="1" step="1" required />
+                  <span class="currency-badge-suffix" id="amount-suffix-label">GAMBITS</span>
+                </div>
+
+                <!-- PRESETS RÁPIDOS -->
+                <div class="amount-presets">
+                  <button type="button" class="preset-chip" data-preset="10">+10</button>
+                  <button type="button" class="preset-chip" data-preset="50">+50</button>
+                  <button type="button" class="preset-chip" data-preset="100">+100</button>
+                  <button type="button" class="preset-chip" data-preset="500">+500</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- RESUMEN PREVIO DE TRANSFERENCIA -->
+            <div class="transfer-summary-box" id="transfer-summary-box">
+              <div class="summary-row">
+                <span id="fee-label-display">Comisión de Red OWS:</span>
+                <span id="fee-value-display" class="free-tag">0.00 (Gratis)</span>
+              </div>
+              <div id="fee-hint-display" class="fee-hint" style="display:none; font-size: 0.78rem; color: var(--accent-gold, #f59e0b); margin-top: -4px; margin-bottom: 6px;"></div>
+              <div class="summary-row total-row">
+                <span>Total a debitar:</span>
+                <span id="summary-total-display">0 GAMBITS</span>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-submit-transfer" class="btn btn-primary btn-block btn-lg" disabled>
+              <span>🚀 Confirmar y Enviar Fondos</span>
+            </button>
+          </form>
+
+          <div id="operation-alert" class="alert-box hidden"></div>
+        </div>
+
+        <!-- QUICK ACCESS BANNER TO HISTORY -->
+        <div class="glass-card banner-history-card" data-action="open-history">
+          <div class="banner-icon">📜</div>
+          <div class="banner-text">
+            <h4>Registro Completo de Transacciones</h4>
+            <p>Consulta todos tus movimientos históricos, filtros por divisa y buscador.</p>
+          </div>
+          <span class="banner-arrow">➔</span>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- MODAL: CONFIRMACIÓN DE TRANSFERENCIA SEGURA -->
+  <div id="confirm-modal" class="modal-overlay hidden">
+    <div class="glass-card modal-container confirm-modal-box">
+      <div class="confirm-icon-circle">🔐</div>
+      <h2>¿Confirmar Transferencia?</h2>
+      <p class="subtitle">Verifica los detalles antes de enviar los fondos</p>
+      
+      <div class="confirm-amount-display" id="confirm-amount-text">0 GAMBITS</div>
+
+      <div class="confirm-details-list">
+        <div>
+          <span style="color:var(--text-muted);">Destinatario:</span>
+          <b id="confirm-recipient-text" style="color:#fff;">@usuario</b>
+        </div>
+        <div>
+          <span style="color:var(--text-muted);">Divisa:</span>
+          <b id="confirm-currency-text" style="color:var(--primary-cyan);">GAMBITS</b>
+        </div>
+        <div>
+          <span style="color:var(--text-muted);">Comisión:</span>
+          <b id="confirm-fee-text" style="color:var(--success);">0.00 (Gratis)</b>
+        </div>
+        <div id="confirm-discount-row">
+          <span id="confirm-discount-text" style="display:none; font-size: 0.8rem; color: var(--accent-gold, #f59e0b);"></span>
+        </div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; margin-top: 4px;">
+          <span style="color:var(--text-muted);">Total a debitar:</span>
+          <b id="confirm-total-text" style="color:var(--primary-cyan); font-size: 1.05rem;">0 GAMBITS</b>
+        </div>
+      </div>
+
+      <div class="confirm-modal-actions">
+        <button type="button" class="btn btn-secondary" data-close-confirm>Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-final-transfer">Sí, Transferir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: HISTORIAL COMPLETO DE TRANSACCIONES -->
+  <div id="history-modal" class="modal-overlay hidden">
+    <div class="glass-card modal-container">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h2>📜 Historial de Movimientos</h2>
+          <span class="badge badge-beta" id="modal-tx-count">0 movimientos</span>
+        </div>
+        <button class="modal-close-btn" type="button" data-close-history>✕</button>
+      </div>
+
+      <!-- SEARCH & FILTER TOOLBAR -->
+      <div class="modal-toolbar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="tx-search-input" placeholder="Buscar por concepto, usuario o fecha..." />
+        </div>
+        <select id="tx-filter-currency" class="custom-select filter-select">
+          <option value="all">Todas las divisas</option>
+          <option value="gambits">🃏 Gambits</option>
+          <option value="tides">🌊 Tides</option>
+        </select>
+      </div>
+
+      <!-- SETTINGS TOOLBAR: AUTO-CLEAR & ACTIONS -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding: 10px 14px; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.06);">
+        <div style="display:flex; align-items:center; gap: 8px; font-size: 0.8rem; color: var(--text-muted);">
+          <span>⏱️ Auto-limpieza periódica:</span>
+          <select id="tx-auto-clear-period" class="custom-select" style="padding: 4px 8px; font-size: 0.78rem;">
+            <option value="never">Desactivada (Conservar siempre)</option>
+            <option value="7d">Cada 7 días</option>
+            <option value="15d">Cada 15 días</option>
+            <option value="30d">Cada 30 días</option>
+          </select>
+        </div>
+        <button id="btn-clear-history" class="btn btn-danger btn-sm" type="button" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 6px 12px;">
+          🗑️ Vaciar Historial
+        </button>
+      </div>
+
+      <!-- MODAL BODY: SCROLLABLE LIST -->
+      <div class="modal-body" id="modal-activity-list">
+        <div class="empty-state">Cargando historial de transacciones...</div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-reload-tx" class="btn btn-secondary btn-sm" type="button">
+          🔄 Actualizar Lista
+        </button>
+        <button class="btn btn-primary btn-sm" type="button" data-close-history>
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRMACIÓN DE VACIAR HISTORIAL -->
+  <div id="clear-history-confirm-modal" class="modal-overlay hidden" style="z-index: 1100;">
+    <div class="glass-card modal-container" style="max-width: 400px; text-align: center;">
+      <div style="font-size: 2.2rem; margin-bottom: 10px;">🗑️</div>
+      <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 6px;">¿Eliminar todo el Historial?</h3>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px;">
+        Esta acción eliminará de forma permanente todos tus registros de transacciones en la base de datos. Tus saldos actuales de Gambits y Tides no se verán afectados.
+      </p>
+      <div style="display:flex; justify-content:center; gap: 12px;">
+        <button id="btn-cancel-clear" class="btn btn-secondary btn-sm" type="button">Cancelar</button>
+        <button class="btn btn-danger btn-sm" type="button" id="btn-confirm-clear-history" style="background: #ef4444; border-color: #ef4444;">
+          Sí, Eliminar Historial
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PANEL DE ADMINISTRACIÓN (SOLO OCEANANDWILD) -->
+  <div id="admin-modal" class="modal-overlay hidden">
+    <div class="glass-card modal-container admin-modal-box" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h2>👑 Panel de Administración OWS</h2>
+          <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: var(--accent-gold); border: 1px solid rgba(245, 158, 11, 0.4);">OceanandWild</span>
+        </div>
+        <button class="modal-close-btn" type="button" data-close-admin>✕</button>
+      </div>
+
+      <p class="subtitle" style="margin-bottom: 16px; font-size: 0.85rem;">Modifica o asigna saldo directamente en la base de datos real del servidor.</p>
+
+      <form id="admin-balance-form" style="display:flex; flex-direction:column; gap: 14px;">
+        <div class="field-group">
+          <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Usuario Destino</label>
+          <input type="text" id="admin-target-user" class="custom-select" style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); border-radius:10px; color:#fff;" value="OceanandWild" required />
+        </div>
+
+        <div class="field-group">
+          <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Divisa a Modificar</label>
+          <select id="admin-currency-select" class="custom-select" style="width:100%; padding:10px 14px;">
+            <option value="tides">🌊 Tides (Premium OWS)</option>
+            <option value="gambits">🃏 Gambits (Wilder Gambit)</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Modo de Ajuste</label>
+          <div style="display:flex; gap:10px;">
+            <label style="flex:1; display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 12px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid rgba(255,255,255,0.1); font-size:0.85rem;">
+              <input type="radio" name="admin-mode-radio" value="set" checked />
+              <span>Fijar saldo (=)</span>
+            </label>
+            <label style="flex:1; display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 12px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid rgba(255,255,255,0.1); font-size:0.85rem;">
+              <input type="radio" name="admin-mode-radio" value="add" />
+              <span>Sumar saldo (+)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Cantidad / Monto</label>
+          <input type="number" id="admin-amount-input" placeholder="0" min="0" step="1" required style="width:100%; padding:10px 14px; font-family:'JetBrains Mono', monospace; font-size:1.1rem; font-weight:700; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); border-radius:10px; color:var(--primary-cyan);" />
+        </div>
+
+        <div id="admin-alert" class="alert-box hidden"></div>
+
+        <div class="modal-footer" style="padding:0; margin-top:10px;">
+          <button class="btn btn-secondary btn-sm" type="button" data-close-admin>Cancelar</button>
+          <button class="btn btn-primary btn-sm" id="btn-submit-admin" type="submit" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
+            ⚡ Aplicar a Base de Datos
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

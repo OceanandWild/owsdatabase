@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
+  <link rel="stylesheet" href="admin-styles.css?v=5" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <canvas id="admin-stars"></canvas>
+
+  <!-- ═══════════════ LOGIN ═══════════════ -->
+  <section id="admin-login" class="login-wrap">
+    <div class="login-card glass-card">
+      <div class="brand-header">
+        <div class="brand-logo"><span class="logo-text">OWS</span><div class="logo-ring"></div></div>
+        <h1 class="brand-name">Admin Panel</h1>
+        <p class="brand-sub">Acceso restringido al <b>equipo de administración</b></p>
+      </div>
+
+      <!-- Paso 1: credenciales -->
+      <form id="login-step1" data-adm-ev="submit" data-adm="adminLogin" data-adm-a0="ev">
+        <div class="field-group">
+          <label for="adm-user">Usuario</label>
+          <input type="text" id="adm-user" placeholder="Usuario administrador" required autocomplete="username" />
+        </div>
+        <div class="field-group">
+          <label for="adm-pass">Contraseña</label>
+          <input type="password" id="adm-pass" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+        <button type="submit" id="btn-admin-login" class="btn btn-primary btn-block">🔐 Iniciar sesión</button>
+      </form>
+
+      <!-- Paso 2: secreto -->
+      <form id="login-step2" class="hidden" data-adm-ev="submit" data-adm="adminVerifyStep1" data-adm-a0="ev">
+        <div class="step-tag">Paso 2 de 3</div>
+        <div class="field-group">
+          <label for="adm-secret">Secreto administrativo (STUDIO_SECRET)</label>
+          <input type="password" id="adm-secret" placeholder="Secreto del estudio" required autocomplete="off" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Continuar</button>
+      </form>
+
+      <!-- Paso 3: desafío -->
+      <form id="login-step3" class="hidden" data-adm-ev="submit" data-adm="adminVerifyStep2" data-adm-a0="ev">
+        <div class="step-tag">Paso 3 de 3</div>
+        <div class="field-group">
+          <label for="adm-answer" id="adm-challenge-label">Desafío de seguridad</label>
+          <input type="text" id="adm-answer" inputmode="numeric" placeholder="Respuesta numérica" required autocomplete="off" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Desbloquear panel</button>
+      </form>
+
+      <div id="admin-login-alert" class="alert-box hidden"></div>
+      <p class="login-note">Verificación en 3 pasos con bloqueo de 15 minutos tras 3 intentos fallidos.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ PANEL ═══════════════ -->
+  <section id="admin-panel" class="panel-wrap hidden">
+   <div class="admin-shell">
+    <!-- Barra lateral: marca + navegación + perfil/acciones abajo -->
+    <aside class="admin-sidebar glass-card">
+     <div class="nav-brand">
+       <span class="nav-logo-text">OWS</span>
+       <div class="nav-titles">
+         <span class="nav-ecosystem">Admin Panel</span>
+         <span class="nav-badge owner-badge">🛡️ Administración</span>
+       </div>
+     </div>
+     <nav class="panel-tabs" aria-label="Secciones principales">
+       <button class="ptab active" id="ptab-news" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:news">📰 Noticias</button>
+       <button class="ptab" id="ptab-events" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:events">🗓️ Eventos</button>
+       <button class="ptab" id="ptab-projects" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:projects">📁 Proyectos</button>
+       <button class="ptab" id="ptab-manage" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:manage">🛡️ Gestión</button>
+        <button class="ptab" id="ptab-incidents" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:incidents">🚨 Incidentes</button>
+        <button class="ptab" id="ptab-reports" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:reports">📋 Informes</button>
+        <button class="ptab" id="ptab-users" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:users">👥 Usuarios</button>
+     </nav>
+     <div class="admin-nav-divider" aria-hidden="true"></div>
+     <nav id="sub-tabs" class="sub-tabs hidden" aria-label="Sub-secciones">
+       <span class="sub-tabs-label">Sub-sección</span>
+       <div id="sub-tabs-buttons" class="sub-tabs-buttons"></div>
+     </nav>
+     <div class="sidebar-spacer"></div>
+     <div class="sidebar-footer">
+       <div class="sidebar-profile">
+         <span class="sidebar-avatar" id="sidebar-avatar">👤</span>
+         <div class="sidebar-profile-meta">
+           <b id="sidebar-admin-name">Admin</b>
+           <span class="nav-session-dot" id="nav-session-dot" title="Sesión administrativa"><i></i>Sesión admin</span>
+         </div>
+       </div>
+       <div class="sidebar-actions">
+         <button class="btn btn-ghost btn-sm" data-adm-href="../index.html" title="Volver al ecosistema OWS">🏠 Inicio</button>
+         <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="adminLogout">Salir</button>
+       </div>
+     </div>
+    </aside>
+
+    <!-- Contenido -->
+    <main class="admin-main">
+
+    <!-- ============ TAB: NOTICIAS (diseño renovado) ============ -->
+    <div id="tab-news" class="tab-content">
+      <!-- Hero: 1 icon · 2 título+desc+stats · 3 acciones -->
+      <div class="glass-card newsadm-hero page-head">
+        <div class="page-head-icon">📰</div>
+        <div class="newsadm-hero-info page-head-body">
+          <h3 class="form-title">Noticias del ecosistema</h3>
+          <p class="form-hint">Creá, editá y publicá lo que ven los jugadores en el dashboard de OWS. La más nueva aparece primero.</p>
+          <div class="newsadm-stats">
+            <div class="newsadm-stat"><strong id="news-stat-total">0</strong><small>Total</small></div>
+            <div class="newsadm-stat newsadm-stat-ok"><strong id="news-stat-active">0</strong><small>Activas</small></div>
+            <div class="newsadm-stat newsadm-stat-off"><strong id="news-stat-hidden">0</strong><small>Ocultas</small></div>
+          </div>
+        </div>
+        <div class="page-head-actions">
+        <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openNewsForm">＋ Nueva noticia</button>
+        <button class="btn btn-ghost btn-sm newsadm-refresh" data-adm-ev="click" data-adm="loadAdminNews" data-adm-a0="b:1" title="Recargar noticias">↻ Actualizar</button>
+        </div>
+      </div>
+
+      <!-- Toolbar: búsqueda + filtros -->
+      <div class="glass-card newsadm-toolbar">
+        <label class="newsadm-search" for="news-search">
+          <span>🔍</span>
+          <input type="text" id="news-search" placeholder="Buscar por título, descripción o proyecto…" data-adm-ev="input" data-adm="filterNewsList" autocomplete="off" />
+        </label>
+        <div class="newsadm-filters" role="tablist" aria-label="Filtrar noticias">
+          <button type="button" class="newsadm-chip active" data-newsfilter="all" data-adm-ev="click" data-adm="setNewsFilter" data-adm-a0="s:all">Todas</button>
+          <button type="button" class="newsadm-chip" data-newsfilter="active" data-adm-ev="click" data-adm="setNewsFilter" data-adm-a0="s:active">Activas</button>
+          <button type="button" class="newsadm-chip" data-newsfilter="hidden" data-adm-ev="click" data-adm="setNewsFilter" data-adm-a0="s:hidden">Ocultas</button>
+        </div>
+      </div>
+
+      <div class="newsadm-layout">
+        <!-- Formulario -->
+        <div class="glass-card newsadm-form-card" data-mform="news">
+          <div class="newsadm-form-head">
+            <h3 class="form-title" id="news-form-title">✨ Nueva noticia</h3>
+            <span class="status-pill status-off" id="news-form-mode">Borrador</span>
+          </div>
+          <form id="news-form" class="newsadm-form" data-adm-ev="submit" data-adm="saveNews" data-adm-a0="ev">
+            <input type="hidden" id="news-id" />
+
+            <!-- 1 · Contenido -->
+            <div class="ev-section newsadm-sec">
+              <div class="ev-section-title">✏️ Contenido</div>
+              <div class="field-group">
+                <label for="news-title">Titular * <span class="newsadm-count" id="news-title-count">0/120</span></label>
+                <input type="text" id="news-title" placeholder="Ej: Wilder Gambit llega a su Beta Cerrada" maxlength="120" required data-adm-ev="input" data-adm="admUpdateNewsCountersAndPreview" autocomplete="off" />
+              </div>
+              <div class="field-group">
+                <label for="news-desc">Resumen <span class="newsadm-count" id="news-desc-count">0/500</span></label>
+                <textarea id="news-desc" rows="3" maxlength="500" placeholder="Opcional: 1 o 2 frases que se leen en el dashboard." data-adm-ev="input" data-adm="admUpdateNewsCountersAndPreview"></textarea>
+              </div>
+            </div>
+
+            <!-- 2 · Imagen -->
+            <div class="ev-section newsadm-sec">
+              <div class="ev-section-title">🖼️ Imagen</div>
+              <div class="ev-dropzone" id="news-dropzone" data-adm-drop="news-img-file" data-adm-drop-not="news-img-file">
+                <div class="ev-dropzone-inner">
+                  <span class="ev-dropzone-icon">📤</span>
+                  <span class="ev-dropzone-text"><b>Arrastrá una imagen</b> o hacé clic para elegir <small>PNG · JPG · WEBP · GIF — hasta 15 MB, se sube a Cloudinary</small></span>
+                </div>
+                <input type="file" id="news-img-file" class="hidden" accept="image/png,image/jpeg,image/webp,image/gif" />
+              </div>
+              <div id="news-img-preview" class="ev-preview hidden"></div>
+              <div class="field-group news-url-group">
+                <label for="news-img-url">…o pegá una URL de imagen <span class="opt-tag">opcional</span></label>
+                <input type="url" id="news-img-url" placeholder="https://…" autocomplete="off" data-adm-ev="input" data-adm="updateNewsPreview" />
+              </div>
+            </div>
+
+            <!-- 3 · Publicación -->
+            <div class="ev-section newsadm-sec">
+              <div class="ev-section-title">🚀 Publicación</div>
+              <div class="field-group">
+                <label for="news-project">Proyecto <span class="opt-tag">etiqueta de la tarjeta</span></label>
+                <input type="text" id="news-project" list="news-project-list" placeholder="OWS" autocomplete="off" data-adm-ev="input" data-adm="updateNewsPreview" />
+                <datalist id="news-project-list"></datalist>
+              </div>
+              <div class="newsadm-preview">
+                <span class="newsadm-preview-label">Vista previa · así se verá en el dashboard</span>
+                <div class="newsadm-preview-card">
+                  <img id="news-preview-img" class="newsadm-preview-img hidden" alt="" data-adm-err="closest:.newsadm-preview-card|no-media" />
+                  <strong id="news-preview-title">Tu titular aparecerá aquí…</strong>
+                  <p id="news-preview-desc">El resumen se mostrará debajo del título.</p>
+                  <div class="newsadm-preview-foot">
+                    <span class="news-item-project" id="news-preview-project">OWS</span>
+                    <span class="newsadm-preview-date" id="news-preview-date">Hoy</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="news-form-alert" class="alert-box hidden"></div>
+            <div class="newsadm-form-actions">
+              <button type="button" class="btn btn-ghost newsadm-cancel hidden" id="btn-cancel-news" data-adm-ev="click" data-adm="resetNewsForm">Cancelar</button>
+              <button type="submit" class="btn btn-primary newsadm-submit" id="btn-save-news">🚀 Publicar noticia</button>
+            </div>
+            <p class="newsadm-kbd">Atajo: <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para publicar · <kbd>Esc</kbd> para cerrar</p>
+          </form>
+        </div>
+
+        <!-- Lista -->
+        <div class="glass-card newsadm-list-card">
+          <div class="newsadm-list-head">
+            <h3 class="form-title">Publicadas <span class="newsadm-count" id="news-count-badge"></span></h3>
+            <p class="form-hint" id="news-list-hint">Ordenadas por fecha de creación · la más nueva arriba.</p>
+          </div>
+          <div id="news-list" class="newsadm-list"><p class="loading-note">Cargando noticias…</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TAB: EVENTOS — v2 renovado ============ -->
+    <div id="tab-events" class="tab-content hidden">
+     <div class="admin-subpane" data-sub="main" id="events-sub-main">
+      <!-- Hero: título+desc · acciones · stats -->
+      <div class="glass-card events-hero page-head">
+        <div class="page-head-icon events-hero-icon">🗓️</div>
+        <div class="page-head-body">
+        <div class="events-hero-top">
+          <div>
+            <h3 class="form-title events-hero-title">Calendario OWS</h3>
+            <p class="form-hint events-hero-sub">Lanzamientos, actualizaciones y anuncios del ecosistema. Todo lo que pasa aquí alimenta al OWS público.</p>
+          </div>
+          <div class="events-hero-actions page-head-actions">
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusEventForm">＋ Nuevo evento</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="clearEventFilters">↺ Limpiar filtros</button>
+          </div>
+        </div>
+        <div class="events-stats" id="events-stats">
+          <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-total">0</span><span class="ev-stat-label">Total</span></div>
+          <div class="ev-stat ev-stat-live"><span class="ev-stat-num" id="ev-stat-live">0</span><span class="ev-stat-label">● En curso</span></div>
+          <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-upcoming">0</span><span class="ev-stat-label">◷ Programados</span></div>
+          <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-ended">0</span><span class="ev-stat-label">✔ Finalizados</span></div>
+          <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-hidden">0</span><span class="ev-stat-label">👁️ Ocultos</span></div>
+        </div>
+        </div>
+      </div>
+
+      <div class="events-layout">
+        <!-- ── Formulario por secciones + preview en vivo ── -->
+        <div class="glass-card form-card events-form-card" data-mform="event">
+          <div class="events-form-head">
+            <h3 class="form-title" id="event-form-title">Nuevo evento</h3>
+            <span class="status-pill status-on" id="event-form-mode">✦ Creando</span>
+          </div>
+          <form data-adm-ev="submit" data-adm="saveEvent" data-adm-a0="ev" id="event-form">
+            <input type="hidden" id="event-id" />
+
+            <div class="ev-section">
+              <div class="ev-section-title">📝 Información</div>
+              <div class="field-group">
+                <label for="event-title">Título * <span class="char-count" id="event-title-count">0/80</span></label>
+                <input type="text" id="event-title" maxlength="80" placeholder="Ej: Actualización 2.0 de Wilder Gambit" required data-adm-ev="input" data-adm="updateEventLivePreview" />
+              </div>
+              <div class="field-group">
+                <label for="event-desc">Descripción <span class="char-count" id="event-desc-count">0/280</span></label>
+                <textarea id="event-desc" rows="3" maxlength="280" placeholder="Detalles del evento, actualización o lanzamiento" data-adm-ev="input" data-adm="updateEventLivePreview"></textarea>
+              </div>
+              <div class="field-row">
+                <div class="field-group">
+                  <label for="event-category">Categoría</label>
+                  <select id="event-category" data-adm-ev="change" data-adm="updateEventLivePreview">
+                    <option value="update">⬆️ Actualización</option>
+                    <option value="launch">🚀 Lanzamiento</option>
+                    <option value="release">📦 Release</option>
+                    <option value="event">🎉 Evento</option>
+                    <option value="announcement">📢 Anuncio</option>
+                    <option value="maintenance">🛠️ Mantenimiento</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label for="event-project">Proyecto</label>
+                  <input type="text" id="event-project" list="event-project-list" placeholder="OWS" data-adm-ev="input" data-adm="updateEventLivePreview" />
+                  <datalist id="event-project-list"></datalist>
+                </div>
+              </div>
+            </div>
+
+            <div class="ev-section">
+              <div class="ev-section-title">⏰ Tiempo</div>
+              <div class="field-row">
+                <div class="field-group">
+                  <label for="event-start">Inicio *</label>
+                  <input type="datetime-local" id="event-start" required data-adm-ev="change" data-adm="updateEventLivePreview" />
+                </div>
+                <div class="field-group">
+                  <label for="event-end">Fin <span class="opt-tag">opcional</span></label>
+                  <input type="datetime-local" id="event-end" data-adm-ev="change" data-adm="updateEventLivePreview" />
+                </div>
+              </div>
+              <div class="ev-quick-dates">
+                <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:today">Hoy</button>
+                <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:week">+7 días</button>
+                <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:month">+30 días</button>
+                <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:clear-end">Sin fin</button>
+              </div>
+              <p class="ev-duration-hint" id="event-duration-hint">Elegí inicio y fin para ver la duración.</p>
+            </div>
+
+            <div class="ev-section">
+              <div class="ev-section-title">🖼️ Portada</div>
+              <div class="ev-dropzone" id="event-dropzone" data-adm-drop="event-image" data-adm-drop-not="event-image">
+                <div class="ev-dropzone-inner">
+                  <span class="ev-dropzone-icon">📤</span>
+                  <span class="ev-dropzone-text"><b>Arrastrá una imagen</b> o hacé clic para elegir <small>PNG · JPG · WEBP · GIF — hasta 15 MB, se sube a Cloudinary</small></span>
+                </div>
+                <input type="file" id="event-image" class="hidden" accept="image/png,image/jpeg,image/webp,image/gif" />
+              </div>
+              <div id="event-image-preview" class="ev-preview hidden"></div>
+              <div class="field-group ev-url-group">
+                <label for="event-image-url">…o pegá una URL de imagen</label>
+                <input type="url" id="event-image-url" placeholder="https://…" data-adm-ev="input" data-adm="updateEventLivePreview" />
+              </div>
+            </div>
+
+            <div class="ev-section">
+              <div class="ev-section-title">⚙️ Extras</div>
+              <div class="field-group">
+                <label for="event-link">Link opcional <span class="opt-tag">botón “Ver más”</span></label>
+                <input type="url" id="event-link" placeholder="https://…" />
+              </div>
+              <div class="field-row ev-extras-row">
+                <div class="field-group">
+                  <label for="event-priority">Prioridad <span class="char-count" id="event-priority-label">0</span></label>
+                  <div class="ev-priority-wrap">
+                    <input type="range" id="event-priority-range" min="0" max="100" value="0" data-adm-ev="input" data-adm="syncEventPriority" data-adm-a0="s:range" />
+                    <input type="number" id="event-priority" value="0" min="0" max="100" data-adm-ev="input" data-adm="syncEventPriority" data-adm-a0="s:number" />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label>Visibilidad</label>
+                  <label class="ev-switch-row" for="event-visible">
+                    <input type="checkbox" id="event-visible" checked />
+                    <span class="ev-switch"></span>
+                    <span id="event-visible-label">Visible en OWS</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vista previa en vivo -->
+            <div class="ev-section ev-live-section">
+              <div class="ev-section-title">👁️ Vista previa</div>
+              <div class="ev-live-card" id="event-live-preview"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btn-save-event">💾 Guardar evento</button>
+            <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-event" data-adm-ev="click" data-adm="resetEventForm">Cancelar edición</button>
+          </form>
+        </div>
+
+        <!-- ── Lista renovada: buscador + filtros + cards ── -->
+        <div class="glass-card list-card events-list-card">
+          <div class="events-toolbar">
+            <div class="events-search-wrap">
+              <span class="events-search-icon">🔎</span>
+              <input type="text" id="events-search" placeholder="Buscar por título, proyecto o descripción…" data-adm-ev="input" data-adm="onEventsSearch" data-adm-a0="thp:value" />
+            </div>
+            <div class="events-filters">
+              <select id="events-filter-category" data-adm-ev="change" data-adm="onEventsFilterChange" title="Filtrar por categoría">
+                <option value="">Todas las categorías</option>
+                <option value="update">⬆️ Actualización</option>
+                <option value="launch">🚀 Lanzamiento</option>
+                <option value="release">📦 Release</option>
+                <option value="event">🎉 Evento</option>
+                <option value="announcement">📢 Anuncio</option>
+                <option value="maintenance">🛠️ Mantenimiento</option>
+              </select>
+              <select id="events-filter-status" data-adm-ev="change" data-adm="onEventsFilterChange" title="Filtrar por estado">
+                <option value="">Todos los estados</option>
+                <option value="live">● En curso</option>
+                <option value="upcoming">◷ Programados</option>
+                <option value="ended">✔ Finalizados</option>
+                <option value="hidden">👁️ Ocultos</option>
+              </select>
+              <select id="events-filter-sort" data-adm-ev="change" data-adm="onEventsFilterChange" title="Ordenar">
+                <option value="soon">Orden: más próximos</option>
+                <option value="recent">Orden: recientes</option>
+                <option value="priority">Orden: prioridad</option>
+                <option value="az">Orden: A → Z</option>
+              </select>
+              <div class="events-view-toggle">
+                <button class="btn btn-ghost btn-mini active" id="events-view-grid" data-adm-ev="click" data-adm="setEventsView" data-adm-a0="s:grid" title="Vista tarjetas">▦</button>
+                <button class="btn btn-ghost btn-mini" id="events-view-list" data-adm-ev="click" data-adm="setEventsView" data-adm-a0="s:list" title="Vista compacta">☰</button>
+              </div>
+            </div>
+          </div>
+          <div class="events-count-row"><span id="events-count">0 eventos</span><span class="events-count-hint">Duplicá, ocultá o eliminá desde cada tarjeta</span></div>
+          <div id="events-list" class="events-grid"><p class="loading-note">Cargando…</p></div>
+        </div>
+      </div>
+     </div><!-- /events-sub-main -->
+
+     <!-- ── SUB: MODALES EMERGENTES (una sola vez por usuario) ── -->
+     <div class="admin-subpane hidden" data-sub="popups" id="events-sub-popups">
+      <div class="glass-card events-hero page-head">
+        <div class="page-head-icon events-hero-icon">💬</div>
+        <div class="page-head-body">
+          <div class="events-hero-top">
+            <div>
+              <h3 class="form-title events-hero-title">Modales emergentes</h3>
+              <p class="form-hint events-hero-sub">Anuncios con imagen que aparecen <b>una sola vez</b> a cada usuario. La tabla indica si se envió y cuándo. Con <b>🔁 Re-mostrar</b> vuelve a aparecer sin recrearlo.</p>
+            </div>
+            <div class="events-hero-actions page-head-actions">
+              <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusPopupForm">＋ Nuevo modal</button>
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadEventPopups" data-adm-a0="b:1" title="Recargar modales">↻ Actualizar</button>
+            </div>
+          </div>
+          <div class="events-stats" id="popups-stats">
+            <div class="ev-stat"><span class="ev-stat-num" id="pop-stat-total">0</span><span class="ev-stat-label">Total</span></div>
+            <div class="ev-stat ev-stat-live"><span class="ev-stat-num" id="pop-stat-sent">0</span><span class="ev-stat-label">✔ Enviados</span></div>
+            <div class="ev-stat"><span class="ev-stat-num" id="pop-stat-draft">0</span><span class="ev-stat-label">✏️ Borradores</span></div>
+            <div class="ev-stat"><span class="ev-stat-num" id="pop-stat-hidden">0</span><span class="ev-stat-label">👁️ Ocultos</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="events-layout">
+        <div class="glass-card form-card events-form-card" data-mform="popup">
+          <div class="events-form-head">
+            <h3 class="form-title" id="popup-form-title">Nuevo modal</h3>
+            <span class="status-pill status-on" id="popup-form-mode">✦ Creando</span>
+          </div>
+          <form data-adm-ev="submit" data-adm="savePopup" data-adm-a0="ev" id="popup-form">
+            <input type="hidden" id="popup-id" />
+            <div class="ev-section">
+              <div class="ev-section-title">📝 Contenido</div>
+              <div class="field-group">
+                <label for="popup-title">Título * <span class="char-count" id="popup-title-count">0/80</span></label>
+                <input type="text" id="popup-title" maxlength="80" placeholder="Ej: ¡Wilder Gambit ya disponible!" required data-adm-ev="input" data-adm="updatePopupLivePreview" />
+              </div>
+              <div class="field-group">
+                <label for="popup-body">Información <span class="char-count" id="popup-body-count">0/280</span></label>
+                <textarea id="popup-body" rows="3" maxlength="280" placeholder="Texto del anuncio…" data-adm-ev="input" data-adm="updatePopupLivePreview"></textarea>
+              </div>
+            </div>
+            <div class="ev-section">
+              <div class="ev-section-title">🍞 Tipo</div>
+              <div class="field-group">
+                <label for="popup-kind">¿Modal o toast?</label>
+                <select id="popup-kind" data-adm-ev="change" data-adm="onPopupKindChange">
+                  <option value="modal">💬 Modal (ventana central con imagen)</option>
+                  <option value="toast">🍞 Toast (barrita corta, arriba por defecto)</option>
+                </select>
+                <p class="form-hint">El toast es bien cortito en altura y amarillo por defecto — el color se puede cambiar abajo.</p>
+              </div>
+              <div id="popup-toast-opts" class="hidden">
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="popup-toast-color">Color</label>
+                    <input type="color" id="popup-toast-color" value="#f59e0b" data-adm-ev="input" data-adm="updatePopupLivePreview" />
+                  </div>
+                  <div class="field-group">
+                    <label for="popup-toast-position">Posición</label>
+                    <select id="popup-toast-position" data-adm-ev="change" data-adm="updatePopupLivePreview">
+                      <option value="top">⬆ Arriba (por defecto)</option>
+                      <option value="bottom">⬇ Abajo</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label for="popup-toast-duration">Duración (seg)</label>
+                    <input type="number" id="popup-toast-duration" value="6" min="2" max="30" data-adm-ev="input" data-adm="updatePopupLivePreview" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="ev-section">
+              <div class="ev-section-title">🖼️ Imagen</div>
+              <div class="ev-dropzone" id="popup-dropzone" data-adm-drop="popup-image" data-adm-drop-not="popup-image">
+                <div class="ev-dropzone-inner">
+                  <span class="ev-dropzone-icon">📤</span>
+                  <span class="ev-dropzone-text"><b>Arrastrá una imagen</b> o hacé clic para elegir <small>PNG · JPG · WEBP · GIF — hasta 15 MB</small></span>
+                </div>
+                <input type="file" id="popup-image" class="hidden" accept="image/png,image/jpeg,image/webp,image/gif" />
+              </div>
+              <div id="popup-image-preview" class="ev-preview hidden"></div>
+              <div class="field-group ev-url-group">
+                <label for="popup-image-url">…o pegá una URL de imagen</label>
+                <input type="url" id="popup-image-url" placeholder="https://…" data-adm-ev="input" data-adm="updatePopupLivePreview" />
+              </div>
+            </div>
+            <div class="ev-section">
+              <div class="ev-section-title">🔗 Botón + visibilidad</div>
+              <div class="field-row">
+                <div class="field-group">
+                  <label for="popup-link">Link del botón <span class="opt-tag">opcional</span></label>
+                  <input type="url" id="popup-link" placeholder="https://…" />
+                </div>
+                <div class="field-group">
+                  <label for="popup-link-label">Texto del botón</label>
+                  <input type="text" id="popup-link-label" maxlength="40" placeholder="Ver más ↗" />
+                </div>
+              </div>
+              <label class="ev-switch-row" for="popup-visible">
+                <input type="checkbox" id="popup-visible" checked />
+                <span class="ev-switch"></span>
+                <span id="popup-visible-label">Visible en OWS</span>
+              </label>
+            </div>
+            <div class="ev-section ev-live-section">
+              <div class="ev-section-title">👁️ Vista previa</div>
+              <div class="ev-live-card" id="popup-live-preview"></div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="btn-save-popup">💾 Guardar modal</button>
+            <button type="button" class="btn btn-ghost btn-block" data-adm-ev="click" data-adm="savePopupFormAsPreset">🎨 Guardar como preset</button>
+            <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-popup" data-adm-ev="click" data-adm="resetPopupForm">Cancelar edición</button>
+          </form>
+        </div>
+
+        <div class="glass-card list-card events-list-card">
+          <div class="events-count-row"><span id="popups-count">0 modales</span><span class="events-count-hint">Enviá, re-mostrá u ocultá desde cada fila</span></div>
+          <div id="popups-list" class="events-rows"><p class="loading-note">Cargando…</p></div>
+        </div>
+      </div>
+     </div><!-- /events-sub-popups -->
+
+     <!-- ── SUB: PRESETS DE MODALES ── -->
+     <div class="admin-subpane hidden" data-sub="presets" id="events-sub-presets">
+      <div class="glass-card events-hero page-head">
+        <div class="page-head-icon events-hero-icon">🎨</div>
+        <div class="page-head-body">
+          <div class="events-hero-top">
+            <div>
+              <h3 class="form-title events-hero-title">Presets de modales</h3>
+              <p class="form-hint events-hero-sub">Plantillas listas para reusar: con <b>Usar</b> se cargan en el formulario de Modales sin reescribir nada.</p>
+            </div>
+            <div class="events-hero-actions page-head-actions">
+              <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openPresetForm">＋ Nuevo preset</button>
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadPopupPresets" data-adm-a0="b:1" title="Recargar presets">↻ Actualizar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="events-layout">
+        <div class="glass-card form-card events-form-card" data-mform="preset">
+          <div class="events-form-head">
+            <h3 class="form-title" id="preset-form-title">Nuevo preset</h3>
+            <span class="status-pill status-on" id="preset-form-mode">✦ Creando</span>
+          </div>
+          <form data-adm-ev="submit" data-adm="savePreset" data-adm-a0="ev" id="preset-form">
+            <input type="hidden" id="preset-id" />
+            <div class="field-group">
+              <label for="preset-name">Nombre del preset *</label>
+              <input type="text" id="preset-name" maxlength="80" placeholder="Ej: Lanzamiento estándar" required />
+            </div>
+            <div class="field-group">
+              <label for="preset-title">Título del modal</label>
+              <input type="text" id="preset-title" maxlength="80" placeholder="Título…" />
+            </div>
+            <div class="field-group">
+              <label for="preset-body">Información</label>
+              <textarea id="preset-body" rows="3" maxlength="280" placeholder="Texto del anuncio…"></textarea>
+            </div>
+            <div class="field-group">
+              <label for="preset-image-url">URL de imagen</label>
+              <input type="url" id="preset-image-url" placeholder="https://…" />
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="preset-kind">Tipo</label>
+                <select id="preset-kind">
+                  <option value="modal">💬 Modal</option>
+                  <option value="toast">🍞 Toast</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="preset-toast-color">Color del toast</label>
+                <input type="color" id="preset-toast-color" value="#f59e0b" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="preset-toast-position">Posición del toast</label>
+                <select id="preset-toast-position">
+                  <option value="top">⬆ Arriba (por defecto)</option>
+                  <option value="bottom">⬇ Abajo</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="preset-toast-duration">Duración (seg)</label>
+                <input type="number" id="preset-toast-duration" value="6" min="2" max="30" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="preset-link">Link del botón</label>
+                <input type="url" id="preset-link" placeholder="https://…" />
+              </div>
+              <div class="field-group">
+                <label for="preset-link-label">Texto del botón</label>
+                <input type="text" id="preset-link-label" maxlength="40" placeholder="Ver más ↗" />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="btn-save-preset">💾 Guardar preset</button>
+            <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-preset" data-adm-ev="click" data-adm="resetPresetForm">Cancelar edición</button>
+          </form>
+        </div>
+
+        <div class="glass-card list-card events-list-card">
+          <div class="events-count-row"><span id="presets-count">0 presets</span><span class="events-count-hint">Usá un preset para no reescribir</span></div>
+          <div id="popup-presets-list" class="events-rows"><p class="loading-note">Cargando…</p></div>
+        </div>
+      </div>
+     </div><!-- /events-sub-presets -->
+    </div>
+
+    <!-- ============ TAB: PROYECTOS (proyectos OWS lanzables) ============ -->
+    <div id="tab-projects" class="tab-content hidden">
+      <!-- Hero: mismo patrón que el resto (icon · info+badges · acciones) -->
+      <div class="glass-card projects-hero page-head">
+        <div class="page-head-icon projects-hero-icon">📁</div>
+        <div class="page-head-body">
+          <h3 class="form-title">Proyectos OWS</h3>
+          <p class="form-hint">Catálogo exclusivo de títulos creados para lanzar en OWS. Estar <b>anunciado</b> no significa estar terminado: los que siguen <b>en desarrollo</b> tienen su propio % de avance, que es el mismo que ves en Gestión.</p>
+          <div class="manage-badges">
+            <span class="status-pill status-from-projects">📁 Públicos</span>
+            <span class="status-pill status-off">Se editan aquí</span>
+            <span class="status-pill status-admin-only">📈 % en desarrollo</span>
+          </div>
+        </div>
+        <div class="page-head-actions">
+          <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openProjectForm">＋ Nuevo proyecto</button>
+          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadAdminProjects" title="Recargar proyectos">↻ Actualizar</button>
+        </div>
+      </div>
+      <div class="panel-grid">
+        <div class="glass-card form-card" data-mform="project">
+          <h3 class="form-title">Nuevo proyecto OWS</h3>
+          <p class="form-hint">Catálogo exclusivo de títulos creados para lanzar en OWS (distinto del catálogo general de OWS Store).</p>
+          <form data-adm-ev="submit" data-adm="saveProject" data-adm-a0="ev">
+            <div class="field-row">
+              <div class="field-group">
+                <label for="proj-slug">Slug *</label>
+                <input type="text" id="proj-slug" placeholder="ej: wilder-gambit" required />
+              </div>
+              <div class="field-group">
+                <label for="proj-name">Nombre *</label>
+                <input type="text" id="proj-name" placeholder="ej: Wilder Gambit" required />
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="proj-desc">Descripción</label>
+              <textarea id="proj-desc" rows="2" placeholder="Ej: Ajedrez de alto riesgo. Cada movimiento cuenta."></textarea>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="proj-status">Estado</label>
+                <select id="proj-status">
+                  <option value="development">En desarrollo</option>
+                  <option value="soon">Próximamente</option>
+                  <option value="launched">Lanzado</option>
+                  <option value="cancelled">Cancelado</option>
+                  <option value="discontinued">Descontinuado</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="proj-genre">Género</label>
+                <input type="text" id="proj-genre" placeholder="ej: Ajedrez · Estrategia" />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Plataformas</label>
+              <div class="check-row">
+                <label class="check-item"><input type="checkbox" id="plat-windows" checked /> Windows</label>
+                <label class="check-item"><input type="checkbox" id="plat-android" /> Android</label>
+                <label class="check-item"><input type="checkbox" id="plat-web" /> Web</label>
+                <label class="check-item"><input type="checkbox" id="plat-mac" /> Mac</label>
+                <label class="check-item"><input type="checkbox" id="plat-linux" /> Linux</label>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="proj-expected">Fecha esperada</label>
+                <input type="date" id="proj-expected" />
+              </div>
+              <div class="field-group">
+                <label for="proj-confirmed">Fecha confirmada</label>
+                <input type="date" id="proj-confirmed" />
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="proj-created">Fecha real de creación <span class="opt-tag">opcional</span></label>
+              <input type="date" id="proj-created" />
+              <p class="form-hint">Si el proyecto nació antes de cargarlo acá, poné el día verdadero: es el que queda como creación y se muestra en el listado. Vacío = hoy.</p>
+            </div>
+            <div class="field-group">
+              <label for="proj-icon">Icono — pega una URL o sube un archivo (se sube a Cloudinary)</label>
+              <input type="text" id="proj-icon" placeholder="https://… (.png/.jpg/.webp)" />
+              <input type="file" id="proj-icon-file" accept="image/png,image/jpeg,image/webp,image/gif" />
+              <div id="proj-icon-preview" class="img-preview hidden"></div>
+            </div>
+            <div class="field-group">
+              <label for="proj-banner">Banner — pega una URL o sube un archivo (se sube a Cloudinary)</label>
+              <input type="text" id="proj-banner" placeholder="https://…" />
+              <input type="file" id="proj-banner-file" accept="image/png,image/jpeg,image/webp,image/gif" />
+              <div id="proj-banner-preview" class="img-preview hidden"></div>
+            </div>
+            <div class="field-group">
+              <label for="proj-link">Link oficial (opcional)</label>
+              <input type="text" id="proj-link" placeholder="https://…" />
+            </div>
+            <div id="proj-alert" class="alert-box hidden"></div>
+            <button type="submit" class="btn btn-primary btn-block" id="btn-save-project">📁 Crear proyecto OWS</button>
+            <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-project" data-adm-ev="click" data-adm="resetProjectForm">Cancelar edición</button>
+          </form>
+        </div>
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Proyectos OWS</h3>
+              <p class="form-hint">Visibles en el OWS público. Los internos viven en Gestión.</p>
+            </div>
+          </div>
+          <div id="projects-list" class="admin-list"><p class="loading-note">Cargando…</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TAB: GESTIÓN (Proyectos solo-admin + vista de disponibles) ============ -->
+    <!-- Aquí viven los proyectos que SOLO los admins ven (admin_only = true).
+         Con el filtro se pueden ver también los disponibles de la sección
+         Proyectos, marcados con etiqueta y SIN edición (solo lectura). -->
+    <div id="tab-manage" class="tab-content hidden">
+      <!-- Sub-panel PRINCIPAL: copia la sección Gestión completa -->
+      <div class="admin-subpane" data-sub="main" id="manage-sub-main">
+      <div class="glass-card manage-hero page-head">
+        <div class="page-head-icon manage-hero-icon">🛡️</div>
+        <div class="manage-hero-info page-head-body">
+          <h3 class="form-title">Gestión — Proyectos solo-admin</h3>
+          <p class="form-hint">Sección exclusiva para administradores. Aquí se crean los proyectos que <b>solo los admins ven</b> (no aparecen en el OWS público). Con el filtro de abajo también podés ver los proyectos disponibles de la sección Proyectos, pero esos se editan únicamente en Proyectos.</p>
+          <div class="manage-badges">
+            <span class="status-pill status-on">🔒 Solo admins</span>
+            <span class="status-pill status-off" id="manage-session-badge">Sesión persistente</span>
+            <span class="status-pill status-admin-only" id="manage-count-badge">0 solo-admin</span>
+          </div>
+        </div>
+        <div class="page-head-actions">
+          <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openManageForm">＋ Nuevo proyecto</button>
+          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="admReloadManage" title="Recargar gestión">↻ Actualizar</button>
+        </div>
+      </div>
+
+      <div class="panel-grid">
+        <div class="glass-card form-card" data-mform="manage">
+          <h3 class="form-title" id="manage-form-title">Nuevo proyecto solo-admin</h3>
+          <p class="form-hint">🔒 Este proyecto <b>no</b> se publica en OWS. Solo visible con <b>?include_hidden=1</b> (panel admin).</p>
+          <form data-adm-ev="submit" data-adm="saveManageProject" data-adm-a0="ev">
+            <div class="field-row">
+              <div class="field-group">
+                <label for="mproj-slug">Slug *</label>
+                <input type="text" id="mproj-slug" placeholder="ej: prototipo-secreto" required />
+              </div>
+              <div class="field-group">
+                <label for="mproj-name">Nombre *</label>
+                <input type="text" id="mproj-name" placeholder="ej: Prototipo interno" required />
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="mproj-desc">Descripción</label>
+              <textarea id="mproj-desc" rows="2" placeholder="Notas internas, estado real, pendientes…"></textarea>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="mproj-status">Estado</label>
+                <select id="mproj-status" data-adm-ev="change" data-adm="onManageStatusChange">
+                  <option value="development">En desarrollo</option>
+                  <option value="soon">Próximamente</option>
+                  <option value="launched">Lanzado</option>
+                  <option value="cancelled">Cancelado</option>
+                  <option value="discontinued">Descontinuado</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="mproj-genre">Género</label>
+                <input type="text" id="mproj-genre" placeholder="ej: Interno · Pruebas" />
+              </div>
+            </div>
+            <div class="field-group manage-feedback-wrap feedback-development" id="mproj-feedback-wrap">
+              <label for="mproj-feedback">💬 Feedback del estado * <span class="opt-tag" id="mproj-feedback-tag">En desarrollo</span></label>
+              <textarea id="mproj-feedback" rows="2" maxlength="500" placeholder="¿En qué punto está el desarrollo? Contá avances, bloqueos o próximos pasos."></textarea>
+              <p class="form-hint" id="mproj-feedback-hint">Obligatorio: explicá por qué elegiste este estado. Queda registrado junto al proyecto.</p>
+            </div>
+            <div class="field-group manage-permanence-wrap hidden" id="mproj-permanence-wrap">
+              <label>📌 ¿Es permanente o temporal? *</label>
+              <div class="perm-options">
+                <label class="perm-option perm-permanent"><input type="radio" name="mproj-perm" value="permanent" /> <span>🔒 Permanente <small>definitivo, no se retoma</small></span></label>
+                <label class="perm-option perm-temporary"><input type="radio" name="mproj-perm" value="temporary" /> <span>⏸️ Temporal <small>reversible, podría retomarse</small></span></label>
+              </div>
+              <p class="form-hint" id="mproj-permanence-hint"></p>
+            </div>
+            <div class="field-group">
+              <label>Plataformas</label>
+              <div class="check-row">
+                <label class="check-item"><input type="checkbox" id="mplat-windows" checked /> Windows</label>
+                <label class="check-item"><input type="checkbox" id="mplat-android" /> Android</label>
+                <label class="check-item"><input type="checkbox" id="mplat-web" /> Web</label>
+                <label class="check-item"><input type="checkbox" id="mplat-mac" /> Mac</label>
+                <label class="check-item"><input type="checkbox" id="mplat-linux" /> Linux</label>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="mproj-expected">Fecha esperada</label>
+                <input type="date" id="mproj-expected" />
+              </div>
+              <div class="field-group">
+                <label for="mproj-confirmed">Fecha confirmada</label>
+                <input type="date" id="mproj-confirmed" />
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="mproj-created">Fecha real de creación <span class="opt-tag">opcional</span></label>
+              <input type="date" id="mproj-created" />
+              <p class="form-hint">Si el proyecto nació antes de cargarlo acá, poné el día verdadero: es el que queda como creación y se muestra en el listado. Vacío = hoy.</p>
+            </div>
+            <div class="field-group">
+              <label for="mproj-icon">Icono — pega una URL o sube un archivo</label>
+              <input type="text" id="mproj-icon" placeholder="https://… (.png/.jpg/.webp)" />
+              <input type="file" id="mproj-icon-file" accept="image/png,image/jpeg,image/webp,image/gif" />
+              <div id="mproj-icon-preview" class="img-preview hidden"></div>
+            </div>
+            <div class="field-group">
+              <label for="mproj-banner">Banner — pega una URL o sube un archivo</label>
+              <input type="text" id="mproj-banner" placeholder="https://…" />
+              <input type="file" id="mproj-banner-file" accept="image/png,image/jpeg,image/webp,image/gif" />
+              <div id="mproj-banner-preview" class="img-preview hidden"></div>
+            </div>
+            <div class="field-group">
+              <label for="mproj-link">Link oficial (opcional)</label>
+              <input type="text" id="mproj-link" placeholder="https://…" />
+            </div>
+            <div id="manage-alert" class="alert-box hidden"></div>
+            <button type="submit" class="btn btn-primary btn-block" id="btn-save-manage">🔒 Crear proyecto solo-admin</button>
+            <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-manage" data-adm-ev="click" data-adm="resetManageProjectForm">Cancelar edición</button>
+          </form>
+        </div>
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Proyectos de Gestión</h3>
+              <p class="form-hint">Solo-admin por defecto. Activá el filtro para ver disponibles en solo lectura.</p>
+            </div>
+          </div>
+          <label class="manage-filter-row" for="manage-show-public">
+            <input type="checkbox" id="manage-show-public" data-adm-ev="change" data-adm="toggleManageShowPublic" />
+            <span>👁️ Mostrar también proyectos disponibles <small>(vienen de Proyectos · solo lectura)</small></span>
+          </label>
+          <div id="manage-list" class="admin-list"><p class="loading-note">Cargando…</p></div>
+        </div>
+      </div>
+
+      <!-- ============ DESARROLLO (debajo de Gestión) ============ -->
+      <!-- Progreso de desarrollo de los proyectos de Gestión: % completado,
+           qué admin lo actualizó (multi-admin) y cuándo (hace cuánto / fecha). -->
+      <div class="glass-card list-card manage-dev-card">
+        <div class="manage-dev-head card-head">
+          <div class="card-head-text">
+            <h3 class="form-title">🚧 Desarrollo de proyectos</h3>
+            <p class="form-hint">Cuánto lleva completado cada proyecto de Gestión. El porcentaje se actualiza aquí y queda registrado <b>qué admin</b> lo cambió y <b>cuándo</b>.</p>
+          </div>
+          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadProjectDevelopment" data-adm-a0="b:1" title="Recargar progreso">↻ Actualizar</button>
+        </div>
+        <div id="dev-list" class="admin-list dev-list"><p class="loading-note">Cargando desarrollo…</p></div>
+      </div>
+      </div><!-- /manage-sub-main -->
+
+      <!-- Sub-sección DEVLOG (registro de desarrollo de Gestión) -->
+      <div class="admin-subpane hidden" data-sub="devlog" id="manage-sub-devlog">
+        <!-- ═══ SESIONES DE TRABAJO: los "minidevlogs del momento" ═══
+             Mientras trabajás se van abriendo y cerrando bloques. Todas las
+             sesiones de un día se combinan después en un solo devlog. Si
+             un bloque cae después de las 00:00 se parte entre los dos días. -->
+        <div class="glass-card list-card ws-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">🕐 Sesiones de trabajo <span class="ws-live" id="ws-clock">--:--:--</span></h3>
+              <p class="form-hint">Anotá <b>cada bloque por separado</b> mientras avanzás: queda con la hora en que se empezó y la hora en que terminó. Al final del día, todas se combinan en un único <b>devlog del día</b> 👇. Si un bloque termina después de las 00:00, se reparte solo entre los dos días.</p>
+            </div>
+            <div class="ws-head-actions">
+              <div class="ws-view-toggle" role="tablist" aria-label="Vista de sesiones">
+                <button type="button" class="btn btn-ghost btn-sm ws-view-btn is-on" id="ws-view-all" data-adm-ev="click" data-adm="setWsTimelineMode" data-adm-a0="s:all" title="Ver todas las sesiones agrupadas por día">📅 Por día</button>
+                <button type="button" class="btn btn-ghost btn-sm ws-view-btn" id="ws-view-day" data-adm-ev="click" data-adm="setWsTimelineMode" data-adm-a0="s:day" title="Ver un solo día">📓 Un día</button>
+              </div>
+              <input type="date" id="ws-day" data-adm-ev="change" data-adm="onWsDayChange" />
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="admSetWsDayToday" title="Ir a hoy">Hoy</button>
+              <button class="btn ws-start-btn btn-sm" id="ws-start-btn" data-adm-ev="click" data-adm="openWsRealtimeForm" title="Pide los datos y arranca el cronómetro">⏱ Iniciar en tiempo real</button>
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsForm" data-adm-a0="x:" data-adm-a1="s:active" title="Abrir una sesión escribiendo las horas a mano">✍️ Manual</button>
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadWorkSessions" data-adm-a0="b:1" title="Recargar sesiones">↻</button>
+            </div>
+          </div>
+
+          <!-- Barras de sesiones en vivo: una fila por cronómetro (puede haber varias).
+               Las pinta renderWsLiveBar() según las activas del servidor. -->
+          <div class="ws-live-list hidden" id="ws-live-bar"></div>
+          <div class="ws-live-note hidden" id="ws-live-note"></div>
+
+          <!-- Sesiones interrumpidas esperando ser retomadas -->
+          <div class="ws-paused-bar hidden" id="ws-paused-bar"></div>
+
+          <!-- Reworks (cambios masivos): los cambios conectados entre sí.
+               Lo pinta renderWsReworks() con lo que devuelve /ows-work-reworks. -->
+          <div class="ws-reworks hidden" id="ws-reworks"></div>
+
+          <div class="ws-banner hidden" id="ws-banner"></div>
+
+          <div class="ws-form hidden" id="ws-form">
+            <div class="ws-form-head">
+              <b id="ws-form-title">Nueva sesión</b>
+              <span class="opt-tag" id="ws-form-tag">en curso</span>
+            </div>
+            <div class="ws-form-note">
+              ✍️ <b>Carga manual</b>: escribís las horas a mano. Para que el reloj las tome solo, usá
+              <button type="button" class="btn-link" data-adm-ev="click" data-adm="admCloseWsAndRealtime">⏱ Iniciar en tiempo real</button>.
+            </div>
+            <div class="ws-field">
+              <label for="ws-project">¿De qué proyecto?</label>
+              <select id="ws-project" data-adm-ev="change" data-adm="onWsProjectChange"><option value="">— Sin proyecto (general) —</option></select>
+            </div>
+            <div class="ws-field">
+              <label for="ws-title">¿Qué hiciste? *</label>
+              <input type="text" id="ws-title" maxlength="160" placeholder="Ej: Sistema de combate" autocomplete="off" />
+            </div>
+            <div class="ws-field">
+              <label for="ws-details">Detalle</label>
+              <textarea id="ws-details" rows="2" maxlength="4000" placeholder="Qué se hizo, qué quedó pendiente…"></textarea>
+            </div>
+            <div class="ws-field-row">
+              <div class="ws-field">
+                <label for="ws-start">Empezó (aprox.)</label>
+                <input type="datetime-local" id="ws-start" />
+              </div>
+              <div class="ws-field">
+                <label for="ws-end">Terminó (aprox.)</label>
+                <input type="datetime-local" id="ws-end" />
+                <p class="form-hint">Vacío = la sesión <b>sigue abierta</b>.</p>
+              </div>
+            </div>
+            <div class="ws-field ws-breaks-field" id="ws-breaks-field">
+              <label>Pausas <small>(opcional)</small></label>
+              <p class="form-hint">Si cortaste el trabajo y lo seguiste más tarde, anotá cada corte: la sesión queda
+                partida en tramos y el devlog cuenta <b>que se interrumpió, a qué hora se continuó y si se terminó con éxito</b>.
+                El tiempo en pausa no cuenta como trabajo.</p>
+              <div class="ws-breaks" id="ws-breaks"></div>
+              <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="addWsBreak">＋ Agregar pausa</button>
+            </div>
+            <div class="ws-field">
+              <label>¿Cuánto avanzó?</label>
+              <div class="ws-delta">
+                <input type="range" id="ws-delta-range" min="0" max="100" step="0.5" value="0" data-adm-ev="input" data-adm="syncWsDelta" />
+                <input type="text" id="ws-delta-num" inputmode="decimal" value="0" data-adm-ev="input" data-adm="syncWsDelta" data-adm-a0="b:1" />
+                <span class="ws-delta-sign">%</span>
+              </div>
+              <p class="form-hint" id="ws-delta-hint">Se aplica al <b>cierre</b> de la sesión, no al abrirla. Si es 0, la sesión solo queda registrada.</p>
+            </div>
+            <div class="ws-field" id="ws-comp-field"></div>
+            <div id="ws-alert" class="alert-box hidden"></div>
+            <div class="ws-form-actions">
+              <button type="button" class="btn btn-primary" id="ws-save" data-adm-ev="click" data-adm="saveWsSession">💾 Guardar sesión</button>
+              <button type="button" class="btn btn-ghost" data-adm-ev="click" data-adm="closeWsForm">Cancelar</button>
+            </div>
+          </div>
+
+          <div class="ws-timeline" id="ws-timeline"><p class="loading-note">Cargando sesiones…</p></div>
+        </div>
+
+        <!-- ═══ DEVLOG DEL DÍA: combinación de las sesiones ═══ -->
+        <div class="glass-card list-card ws-daily-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">🗓️ Devlog del día — <span id="ws-daily-label">hoy</span></h3>
+              <p class="form-hint">Resumen automático de las sesiones de ese día. Al publicar se crea <b>una entrada del devlog</b> con la hora de cada bloque, el total de tiempo y el avance. El porcentaje ya se movió al cerrar cada sesión, así que al publicar no se vuelve a sumar. Para publicar días anteriores, elegí la fecha.</p>
+            </div>
+            <div class="ws-head-actions">
+              <input type="date" id="ws-daily-day" data-adm-ev="change" data-adm="onWsDailyDayChange" title="Elegir qué día publicar" />
+              <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="publishDailyDevlog" data-adm-a0="n:0">📤 Publicar todo</button>
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadWsDaily">↻</button>
+            </div>
+          </div>
+          <div class="ws-daily" id="ws-daily"><p class="loading-note">Cargando resumen…</p></div>
+        </div>
+
+        <div class="glass-card manage-hero devlog-hero page-head">
+          <div class="page-head-icon devlog-hero-icon">📝</div>
+          <div class="manage-hero-info page-head-body">
+            <h3 class="form-title">Devlog — Registro de desarrollo</h3>
+            <p class="form-hint">Registro de desarrollo de los proyectos de Gestión: por qué se hizo cada cambio, si afecta a un proyecto y a cuál. Las entradas más nuevas se resaltan.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-on">🔒 Solo admins</span>
+              <span class="status-pill status-admin-only" id="devlog-total-badge">📝 0 entradas</span>
+              <span class="status-pill status-off" id="devlog-daily-badge">🗓️ 0 del día</span>
+              <span class="status-pill status-off" id="devlog-fresh-badge">🆕 0 nuevas</span>
+            </div>
+          </div>
+          <div class="devlog-hero-actions page-head-actions">
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openDevlogForm" title="Crear una nueva entrada">＋ Crear Devlog</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadDevlogs" data-adm-a0="b:1" title="Recargar devlogs">↻</button>
+          </div>
+        </div>
+        <div class="glass-card list-card devlog-list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Entradas del devlog</h3>
+              <p class="form-hint">Clic en una fila para ver el detalle completo.</p>
+            </div>
+          </div>
+          <div class="devlog-table-wrap">
+            <table class="devlog-table">
+              <thead>
+                <tr>
+                  <th>Devlog</th>
+                  <th>Proyecto</th>
+                  <th class="devlog-th-progress">Progreso</th>
+                  <th>Por quién</th>
+                  <th>Cuándo</th>
+                  <th class="devlog-th-actions">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="devlog-table-body"></tbody>
+            </table>
+            <div id="devlog-empty" class="news-empty">
+              <span class="news-empty-icon">📝</span>
+              <p class="news-empty-title">Sin entradas todavía</p>
+              <p class="news-empty-sub">Creá la primera con “Crear Devlog”.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-sección ACTIVIDAD 14 DÍAS — bitácora diaria autogenerada.
+           Una fila por proyecto y una columna por día (DIA/MES), empezando
+           por hoy y retrocediendo 14 días. La ventana se recalcula sola: al
+           cambiar la fecha aparece una columna nueva y se va la más vieja. -->
+      <div class="admin-subpane hidden" data-sub="activity" id="manage-sub-activity">
+        <div class="glass-card manage-hero pax-hero page-head">
+          <div class="page-head-icon pax-hero-icon">📅</div>
+          <div class="manage-hero-info page-head-body">
+            <h3 class="form-title">Actividad de proyectos — 14 días</h3>
+            <p class="form-hint">Tabla que <b>se genera sola</b>: una fila por proyecto y una columna por cada uno de los <b>14 días</b> (<b>DIA/MES</b>), empezando por <b>hoy</b> y hasta 14 días atrás. Cada celda dice qué sucedió ese día en ese proyecto: devlogs, cambios de porcentaje (<span class="pax-inline-up">verde cuando suma</span> · <span class="pax-inline-down">rojo cuando resta</span>), notas, ediciones del proyecto, altas y fechas de lanzamiento. La ventana avanza sola al cambiar el día.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-on">🔒 Solo admins</span>
+              <span class="status-pill status-admin-only" id="pax-range-badge">📅 —</span>
+              <span class="status-pill status-off" id="pax-events-badge">⚡ 0 eventos</span>
+              <span class="status-pill status-off hidden" id="pax-time-badge">⏱ —</span>
+              <span class="status-pill status-off" id="pax-projects-badge">🚧 0 proyectos</span>
+              <span class="status-pill status-off" id="pax-net-badge">📈 —</span>
+              <span class="status-pill status-off" id="pax-sync-badge">↻ —</span>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadProjectActivity" data-adm-a0="b:1" title="Recargar la bitácora">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <div class="glass-card list-card pax-list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Bitácora diaria por proyecto</h3>
+              <p class="form-hint">Clic en cualquier día para desplegar el detalle de lo que ocurrió. Las celdas vacías son días sin movimiento.</p>
+            </div>
+          </div>
+
+          <div class="pax-toolbar">
+            <div class="pax-toolbar-row">
+              <label class="pax-ctl" for="pax-filter-project">🎯 Proyecto
+                <select id="pax-filter-project" data-adm-ev="change" data-adm="onPaxFilterChange">
+                  <option value="">Todos los proyectos</option>
+                </select>
+              </label>
+              <label class="pax-check" for="pax-only-active">
+                <input type="checkbox" id="pax-only-active" data-adm-ev="change" data-adm="onPaxFilterChange" />
+                <span>🔥 Solo con movimiento</span>
+              </label>
+              <label class="pax-check" for="pax-hide-general">
+                <input type="checkbox" id="pax-hide-general" data-adm-ev="change" data-adm="onPaxFilterChange" />
+                <span>🙈 Ocultar “sin proyecto”</span>
+              </label>
+              <div class="pax-legend" id="pax-legend"></div>
+            </div>
+            <div class="pax-daystrip" id="pax-daystrip"></div>
+          </div>
+
+          <div class="pax-table-wrap" id="pax-table-wrap">
+            <table class="pax-table" id="pax-table">
+              <thead>
+                <tr id="pax-head-row"></tr>
+              </thead>
+              <tbody id="pax-table-body"></tbody>
+              <tfoot>
+                <tr id="pax-foot-events"></tr>
+                <tr id="pax-foot-min"></tr>
+                <tr id="pax-foot-net"></tr>
+              </tfoot>
+            </table>
+            <div id="pax-empty" class="news-empty">
+              <span class="news-empty-icon">📅</span>
+              <p class="news-empty-title">Sin proyectos para mostrar</p>
+              <p class="news-empty-sub">Creá un proyecto en Gestión o activá “Mostrar también proyectos disponibles”.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-sección ANALYTICS — TOPs y gráfica de rangos (7/14/30 días). -->
+      <div class="admin-subpane hidden" data-sub="analytics" id="manage-sub-analytics">
+        <div class="glass-card manage-hero page-head">
+          <div class="page-head-icon">📊</div>
+          <div class="manage-hero-info page-head-body">
+            <h3 class="form-title">Analytics de trabajo</h3>
+            <p class="form-hint">Cómo fue el trabajo en los últimos días: qué día se trabajó más (y quién), qué día hubo más cambios, quién registró más y qué proyecto movió más. Elegí el rango y listo.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-admin-only" id="an-range-badge">📅 —</span>
+              <span class="status-pill status-off" id="an-sessions-badge">⏱ 0 sesiones</span>
+              <span class="status-pill status-off" id="an-changes-badge">⏺ 0 cambios</span>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="renderWsAnalytics" data-adm-a0="b:1" title="Recargar los datos">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Tiempo y cambios por día</h3>
+              <p class="form-hint">Barras doradas: minutos trabajados. Barras verdes: cambios registrados. Pasá el cursor para ver el detalle.</p>
+            </div>
+            <div class="an-range-btns" id="an-range-btns">
+              <button class="btn btn-ghost btn-sm" data-days="7" data-adm-ev="click" data-adm="setAnalyticsRange" data-adm-a0="n:7">7 días</button>
+              <button class="btn btn-ghost btn-sm is-on" data-days="14" data-adm-ev="click" data-adm="setAnalyticsRange" data-adm-a0="n:14">14 días</button>
+              <button class="btn btn-ghost btn-sm" data-days="30" data-adm-ev="click" data-adm="setAnalyticsRange" data-adm-a0="n:30">30 días</button>
+            </div>
+          </div>
+          <div class="an-chart" id="an-chart"></div>
+          <div class="an-legend"><span><i style="background:#fbbf24"></i>⏱ Minutos</span><span><i style="background:#34d399"></i>⏺ Cambios</span></div>
+        </div>
+
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">🏆 TOPs del período</h3>
+              <p class="form-hint">Ranking del rango elegido. Elegí qué ver en el desplegable: días, admins, proyectos, tipos de cambio o grupos, de mayor a menor. Si no hay datos, dice “Sin Información”.</p>
+            </div>
+            <select id="an-top-select" class="an-top-select" data-adm-ev="change" data-adm="setAnalyticsTop" data-adm-a0="thp:value" title="Qué ranking ver">
+              <option value="dayMinutes">🔥 Días con más trabajo</option>
+              <option value="dayChanges">⏺ Días con más cambios</option>
+              <option value="adminMinutes">🏆 Admins por horas</option>
+              <option value="adminChanges">📝 Admins por cambios</option>
+              <option value="projects">🎯 Proyectos más trabajados</option>
+              <option value="kinds">🏷️ Tipos de cambio</option>
+              <option value="reworks">🧩 Grupos más trabajados</option>
+            </select>
+          </div>
+          <div id="an-top-single"></div>
+        </div>
+
+        <!-- ═══ HISTÓRICO DE SUBIDAS DE % + ESFUERZO POR ADMIN ═══
+             Gráfica por proyecto con TODOS los días en los que subió el %,
+             sin límite de 7/14/30 días. Debajo, clasificación del esfuerzo
+             de cada admin en ese proyecto según % aportado, tiempo, sesiones,
+             cambios/devlogs y constancia. -->
+        <div class="glass-card list-card an-effort-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">📈 Subidas de % por día — histórico completo</h3>
+              <p class="form-hint">Elegí un proyecto y mirá <b>cuánto subió cada día</b> en <b>toda su historia</b> (no solo los últimos 7/14/30 días): solo aparecen los días en los que el % realmente subió. Debajo se clasifica el <b>esfuerzo de cada admin</b> en ese proyecto según cuánto subió en general + tiempo trabajado, sesiones, cambios/devlogs y constancia.</p>
+            </div>
+            <div class="an-effort-controls">
+              <select id="an-effort-project" class="an-top-select" data-adm-ev="change" data-adm="setAnalyticsEffortProject" data-adm-a0="thp:value" title="Proyecto a analizar">
+                <option value="">— Elegí un proyecto —</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="reloadAnalyticsEffort" title="Recargar historial, sesiones y devlogs">↻ Actualizar</button>
+            </div>
+          </div>
+          <div class="an-effort-badges manage-badges" id="an-effort-badges"></div>
+          <div class="an-effort-chart-wrap">
+            <div class="an-chart an-effort-chart" id="an-effort-chart"><p class="loading-note">Elegí un proyecto para ver su histórico de subidas…</p></div>
+            <div class="an-legend"><span><i style="background:#38bdf8"></i>📈 % subido ese día</span><span>Pasá el cursor en cada barra para ver quién lo subió y la nota.</span></div>
+          </div>
+          <div class="an-effort-table-wrap" id="an-effort-days"></div>
+          <div class="an-effort-divider"></div>
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">💪 Esfuerzo de los admins en este proyecto</h3>
+              <p class="form-hint">Puntaje 0–100 por admin: <b>40%</b> % aportado · <b>25%</b> tiempo trabajado · <b>15%</b> sesiones · <b>10%</b> cambios + devlogs · <b>10%</b> constancia (días distintos). Nivel: 🔥 Excepcional (80+) · 💪 Alto (60+) · 👍 Medio (40+) · 🌱 Bajo (20+) · 💤 Mínimo (&gt;0).</p>
+            </div>
+          </div>
+          <div id="an-effort-board"></div>
+          <div class="an-effort-project-level" id="an-effort-project-level"></div>
+        </div>
+      </div>
+
+      <!-- Sub-sección CELEBRACIONES 🎉 — llegada al catálogo global + hitos 90/95/99/100.
+           Muro interno: cada vez que un proyecto entra al catálogo público o
+           cruza un umbral de euforia, queda registrado acá (backend ows_celebrations). -->
+      <div class="admin-subpane hidden" data-sub="celebs" id="manage-sub-celebs">
+        <div class="glass-card manage-hero celeb-hero page-head">
+          <div class="page-head-icon">🎉</div>
+          <div class="manage-hero-info page-head-body">
+            <h3 class="form-title">Celebraciones — catálogo global</h3>
+            <p class="form-hint">Muro interno del estudio: <b>llegadas al catálogo global</b> (proyecto que se vuelve público o se lanza) e <b>hitos de euforia</b> (90% · 95% · 99% · 100%). Todo queda registrado en el backend y no se borra al recargar.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-on" id="celeb-total-badge">🎉 0 festejos</span>
+              <span class="status-pill status-from-projects" id="celeb-catalog-badge">🌍 0 en catálogo</span>
+              <span class="status-pill status-admin-only" id="celeb-hype-badge">🔥 0 hitos</span>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadCelebrations" data-adm-a0="b:1" title="Recargar celebraciones">↻ Actualizar</button>
+          </div>
+        </div>
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Muro de festejos</h3>
+              <p class="form-hint">Lo más nuevo primero. Podés festejar a mano la entrada al catálogo de un proyecto en 100% o borrar un festejo.</p>
+            </div>
+          </div>
+          <div id="celebs-list" class="admin-list"><p class="loading-note">Cargando festejos…</p></div>
+        </div>
+      </div>
+
+      <!-- Sub-sección BIENVENIDAS 🌱 — nace un proyecto solo-admin.
+           Cada proyecto que se crea en Gestión recibe su bienvenida:
+           pronto será grande, hoy se festeja el inicio. -->
+      <div class="admin-subpane hidden" data-sub="welcome" id="manage-sub-welcome">
+        <div class="glass-card manage-hero celeb-hero page-head">
+          <div class="page-head-icon">🌱</div>
+          <div class="manage-hero-info page-head-body">
+            <h3 class="form-title">Bienvenidas — nuevos proyectos</h3>
+            <p class="form-hint">Cuando se crea un <b>proyecto solo-admin</b> en Gestión, nace acá su bienvenida: <b>pronto será un proyecto grande</b>. Es el punto de partida antes de la cuenta atrás al 100%.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-on" id="welcome-total-badge">🌱 0 bienvenidas</span>
+              <span class="status-pill status-off">🔒 Solo admins</span>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadCelebrations" data-adm-a0="b:1" title="Recargar bienvenidas">↻ Actualizar</button>
+          </div>
+        </div>
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Nacimientos</h3>
+              <p class="form-hint">Del más nuevo al más viejo. Cada tarjeta dice quién lo creó y cuándo.</p>
+            </div>
+          </div>
+          <div id="welcome-list" class="admin-list"><p class="loading-note">Cargando bienvenidas…</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TAB: INCIDENTES — status page + registro ============ -->
+    <!-- Reporte de problemas del estudio (desarrollo atascado, desarrollo
+         demasiado lento, caídas del server, red, builds, etc). El admin abre
+         el incidente, lo deja activo el tiempo que quiera, lo va actualizando
+         a medida que avanza y cuando lo termina lo finaliza: recién ahí pasa
+         al REGISTRO con su hora de inicio y de fin. Mientras está activo
+         mueve la luz de la status page. -->
+    <div id="tab-incidents" class="tab-content hidden">
+
+      <!-- ===== Sub-panel PRINCIPAL: la status page ===== -->
+      <div class="admin-subpane" data-sub="main" id="incidents-sub-main">
+        <!-- Banner: estado general del ecosistema -->
+        <div class="glass-card inc-banner page-head" id="inc-banner">
+          <div class="inc-banner-gauge">
+            <span class="inc-banner-dot" id="inc-banner-dot" aria-hidden="true"></span>
+            <div class="inc-banner-info page-head-body">
+              <h3 class="form-title" id="inc-banner-title">Comprobando estado…</h3>
+              <p class="form-hint" id="inc-banner-sub">—</p>
+              <div class="manage-badges">
+                <span class="status-pill status-admin-only" id="inc-open-badge">🔴 0 en curso</span>
+                <span class="status-pill status-off" id="inc-sev-badge">—</span>
+                <span class="status-pill status-off" id="inc-mttr-badge">⏱ —</span>
+                <span class="status-pill status-off" id="inc-updated-badge">↻ —</span>
+                <span class="status-pill status-on">🔒 Solo admins</span>
+              </div>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusIncidentForm" title="Reportar un problema nuevo">🚨 Reportar problema</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadIncidents" data-adm-a0="b:1" title="Recargar el estado">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <!-- Luces por componente (una por tipo de problema) -->
+        <div class="glass-card list-card inc-comp-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Componentes</h3>
+              <p class="form-hint">Una luz por tipo de problema. Cada una baja de color según la gravedad del peor incidente abierto de esa categoría.</p>
+            </div>
+          </div>
+          <div class="inc-components" id="inc-components"><p class="loading-note">Cargando estado…</p></div>
+        </div>
+
+        <!-- Formulario: reportar un problema nuevo -->
+        <div class="panel-grid">
+          <div class="glass-card form-card" data-mform="incident">
+            <h3 class="form-title" id="inc-form-title">🚨 Reportar un problema</h3>
+            <p class="form-hint">El incidente queda <b>activado</b> en la status page desde ya. Lo vas actualizando a medida que avanza y, cuando lo resolvés, lo finalizás: en ese momento pasa al <b>registro de incidentes</b> con su hora de inicio y de fin.</p>
+            <form data-adm-ev="submit" data-adm="saveIncident" data-adm-a0="ev">
+              <input type="hidden" id="inc-id" />
+              <div class="field-group">
+                <label for="inc-title">Título * <span class="newsadm-count" id="inc-title-count">0/120</span></label>
+                <input type="text" id="inc-title" maxlength="120" required placeholder="Ej: El desarrollo se está tardando demasiado" data-adm-ev="input" data-adm="updateIncidentCounters" autocomplete="off" />
+              </div>
+              <div class="field-group">
+                <label>Tipo de problema *</label>
+                <div class="inc-cat-grid" id="inc-category-grid">
+                  <label class="inc-cat"><input type="radio" name="inc-category" value="development" checked /><span><i>🧑‍💻</i><b>Desarrollo</b><small>El juego no avanza, bugs, bloqueos</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="inc-category" value="performance" /><span><i>🐌</i><b>Velocidad</b><small>Va demasiado lento, stutters, lags</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="inc-category" value="server" /><span><i>🖥️</i><b>Servidor / API</b><small>Caídas, errores, base de datos</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="inc-category" value="network" /><span><i>🌐</i><b>Red</b><small>Conexiones, timeouts, descargas</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="inc-category" value="build" /><span><i>📦</i><b>Builds</b><small>Compilaciones, artefactos, releases</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="inc-category" value="other" /><span><i>🧩</i><b>Otro</b><small>Cualquier cosa fuera de las anteriores</small></span></label>
+                </div>
+              </div>
+              <div class="field-group">
+                <label>Gravedad *</label>
+                <div class="inc-sev-grid" id="inc-severity-grid">
+                  <label class="inc-sev is-minor"><input type="radio" name="inc-severity" value="minor" /><span>🟢<b>Menor</b><small>Molesto, no rompe nada</small></span></label>
+                  <label class="inc-sev is-major"><input type="radio" name="inc-severity" value="major" checked /><span>🟠<b>Mayor</b><small>Se nota, hay que esperar</small></span></label>
+                  <label class="inc-sev is-critical"><input type="radio" name="inc-severity" value="critical" /><span>🔴<b>Crítico</b><small>Está caído, no se puede usar</small></span></label>
+                </div>
+              </div>
+              <label class="manage-filter-row" for="inc-affects-project">
+                <input type="checkbox" id="inc-affects-project" data-adm-ev="change" data-adm="onIncidentProjectChange" />
+                <span>🎯 Afecta a un proyecto <small>(elegilo abajo)</small></span>
+              </label>
+              <div class="field-group hidden" id="inc-project-group">
+                <label for="inc-project">Proyecto afectado</label>
+                <select id="inc-project"><option value="">— Elegí un proyecto —</option></select>
+              </div>
+              <div class="field-group">
+                <label for="inc-details">¿Qué está pasando? * <span class="newsadm-count" id="inc-details-count">0/2000</span></label>
+                <textarea id="inc-details" rows="3" maxlength="2000" required placeholder="Describí el problema: qué se rompió o qué está lento, desde cuándo, qué se Intentó…" data-adm-ev="input" data-adm="updateIncidentCounters"></textarea>
+              </div>
+              <div class="field-group">
+                <label for="inc-impact">Impacto <span class="opt-tag">opcional</span></label>
+                <textarea id="inc-impact" rows="2" maxlength="2000" placeholder="¿A quién le pega? ¿Se puede jugar, se pierde progreso, todo el mundo o solo algunos?"></textarea>
+              </div>
+              <div class="field-group">
+                <label for="inc-started-at">¿Desde cuándo? <span class="opt-tag">opcional</span></label>
+                <input type="datetime-local" id="inc-started-at" />
+                <p class="form-hint">Dejalo vacío si empezó ahora. Si el problema venía desde antes, poné la hora real: es la que queda como inicio del incidente en el registro.</p>
+              </div>
+              <div id="inc-form-alert" class="alert-box hidden"></div>
+              <button type="submit" class="btn btn-primary btn-block" id="btn-save-incident">🚨 Activar incidente</button>
+              <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-incident" data-adm-ev="click" data-adm="resetIncidentForm">Cancelar edición</button>
+            </form>
+          </div>
+
+          <!-- Vista previa: así se ve el incidente en la status page -->
+          <div class="glass-card list-card">
+            <div class="card-head">
+              <div class="card-head-text">
+                <h3 class="form-title">Vista previa en la status page</h3>
+                <p class="form-hint">Así va a verse el incidente mientras esté activo. Se actualiza sola a medida que escribís.</p>
+              </div>
+            </div>
+            <div class="inc-preview" id="inc-preview"></div>
+          </div>
+        </div>
+      </div><!-- /incidents-sub-main -->
+
+      <!-- Sub-sección EN CURSO — los incidentes que siguen abiertos -->
+      <div class="admin-subpane hidden" data-sub="live" id="incidents-sub-live">
+        <div class="glass-card inc-hero page-head">
+          <div class="page-head-icon inc-hero-icon">🔴</div>
+          <div class="page-head-body">
+            <h3 class="form-title">Incidentes en curso</h3>
+            <p class="form-hint">Los problemas que todavía <b>no</b> están resueltos. Cada uno lleva su cronómetro desde que empezó y su última actualización. Añadí una actualización sin tocar nada más cuando haya avances.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-admin-only" id="inc-live-badge">🔴 0 abiertos</span>
+              <span class="status-pill status-off" id="inc-live-longest">⏱ —</span>
+              <span class="status-pill status-on">🔒 Solo admins</span>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusIncidentForm">🚨 Reportar problema</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadIncidents" data-adm-a0="b:1" title="Recargar">↻ Actualizar</button>
+          </div>
+        </div>
+        <div id="inc-live-list" class="inc-live-list"><p class="loading-note">Cargando incidentes…</p></div>
+      </div>
+
+      <!-- Sub-sección REGISTRO — incidentes ya finalizados -->
+      <div class="admin-subpane hidden" data-sub="log" id="incidents-sub-log">
+        <div class="glass-card inc-hero page-head">
+          <div class="page-head-icon inc-log-hero-icon">📜</div>
+          <div class="page-head-body">
+            <h3 class="form-title">Registro de incidentes</h3>
+            <p class="form-hint">Todo lo que ya se resolvió, con la <b>hora de inicio</b>, la <b>hora de fin</b> y cuánto duró cada problema. Sirve para ver qué se repite y cuánto tiempo se pierde en cada cosa.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-admin-only" id="inc-log-badge">📜 0 resueltos</span>
+              <span class="status-pill status-off" id="inc-log-total">⏱ —</span>
+              <span class="status-pill status-off" id="inc-log-avg">📊 —</span>
+              <span class="status-pill status-on">🔒 Solo admins</span>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadIncidents" data-adm-a0="b:1" title="Recargar">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Historial</h3>
+              <p class="form-hint">Clic en una fila para ver el detalle completo y la línea de tiempo de actualizaciones.</p>
+            </div>
+          </div>
+          <div class="inc-toolbar">
+            <label class="inc-search" for="inc-log-search">
+              <span>🔍</span>
+              <input type="text" id="inc-log-search" placeholder="Buscar por título, tipo o proyecto…" data-adm-ev="input" data-adm="filterIncidentLog" autocomplete="off" />
+            </label>
+            <div class="newsadm-filters" role="tablist" aria-label="Filtrar el registro por tipo">
+              <button type="button" class="newsadm-chip active" data-incfilter="all" data-adm-ev="click" data-adm="setIncidentFilter" data-adm-a0="s:all">Todos</button>
+              <button type="button" class="newsadm-chip" data-incfilter="development" data-adm-ev="click" data-adm="setIncidentFilter" data-adm-a0="s:development">🧑‍💻 Desarrollo</button>
+              <button type="button" class="newsadm-chip" data-incfilter="performance" data-adm-ev="click" data-adm="setIncidentFilter" data-adm-a0="s:performance">🐌 Velocidad</button>
+              <button type="button" class="newsadm-chip" data-incfilter="server" data-adm-ev="click" data-adm="setIncidentFilter" data-adm-a0="s:server">🖥️ Servidor</button>
+              <button type="button" class="newsadm-chip" data-incfilter="network" data-adm-ev="click" data-adm="setIncidentFilter" data-adm-a0="s:network">🌐 Red</button>
+              <button type="button" class="newsadm-chip" data-incfilter="build" data-adm-ev="click" data-adm="setIncidentFilter" data-adm-a0="s:build">📦 Builds</button>
+              <button type="button" class="newsadm-chip" data-incfilter="other" data-adm-ev="click" data-adm="setIncidentFilter" data-adm-a0="s:other">🧩 Otro</button>
+            </div>
+          </div>
+          <div class="inc-table-wrap">
+            <table class="inc-table">
+              <thead>
+                <tr>
+                  <th>Incidente</th>
+                  <th>Tipo</th>
+                  <th>Gravedad</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Duración</th>
+                  <th class="inc-th-actions">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="inc-log-body"></tbody>
+            </table>
+            <div id="inc-log-empty" class="news-empty">
+              <span class="news-empty-icon">📜</span>
+              <p class="news-empty-title">Todavía no hay incidentes resueltos</p>
+              <p class="news-empty-sub">Cuando finalices uno aparece acá con su hora de inicio y de fin.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TAB: INFORMES — avisos activos hasta terminar ============ -->
+    <!-- NO es un incidente: es un informe/estado activo (ej: desarrollo en pausa
+         por un rato, problemas internos del equipo, avisos de disponibilidad).
+         Queda ACTIVO hasta que se termina: se publica, se actualiza con notas
+         y al finalizar pasa al HISTORIAL con inicio y fin. Reutiliza las clases
+         visuales inc-* para no duplicar CSS. -->
+    <div id="tab-reports" class="tab-content hidden">
+
+      <!-- ===== Sub-panel PRINCIPAL ===== -->
+      <div class="admin-subpane" data-sub="main" id="reports-sub-main">
+        <!-- Banner: cuántos informes siguen activos -->
+        <div class="glass-card inc-banner page-head" id="rep-banner">
+          <div class="inc-banner-gauge">
+            <span class="inc-banner-dot" id="rep-banner-dot" aria-hidden="true"></span>
+            <div class="inc-banner-info page-head-body">
+              <h3 class="form-title" id="rep-banner-title">Sin informes activos</h3>
+              <p class="form-hint" id="rep-banner-sub">—</p>
+              <div class="manage-badges">
+                <span class="status-pill status-admin-only" id="rep-open-badge">📋 0 activos</span>
+                <span class="status-pill status-off" id="rep-kind-badge">—</span>
+                <span class="status-pill status-off" id="rep-time-badge">⏱ —</span>
+                <span class="status-pill status-off" id="rep-updated-badge">↻ —</span>
+                <span class="status-pill status-on">🔒 Solo admins</span>
+              </div>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusReportForm" title="Publicar un informe nuevo">📋 Nuevo informe</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadReports" data-adm-a0="b:1" title="Recargar">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <!-- Tipos de informe -->
+        <div class="glass-card list-card inc-comp-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Tipos de informe</h3>
+              <p class="form-hint">Cuántos informes activos hay de cada tipo. No son errores: son estados del estudio.</p>
+            </div>
+          </div>
+          <div class="inc-components" id="rep-kinds"><p class="loading-note">Cargando…</p></div>
+        </div>
+
+        <!-- Formulario: publicar un informe nuevo -->
+        <div class="panel-grid">
+          <div class="glass-card form-card" data-mform="report">
+            <h3 class="form-title" id="rep-form-title">📋 Nuevo informe</h3>
+            <p class="form-hint">El informe queda <b>activo</b> desde ya (ej: “desarrollo en pausa por una semana”, “problemas internos del equipo”). Lo vas actualizando con notas y, cuando termina, lo finalizás: en ese momento pasa al <b>historial</b> con su hora de inicio y de fin.</p>
+            <form data-adm-ev="submit" data-adm="saveReport" data-adm-a0="ev">
+              <input type="hidden" id="rep-id" />
+              <div class="field-group">
+                <label for="rep-title">Título * <span class="newsadm-count" id="rep-title-count">0/120</span></label>
+                <input type="text" id="rep-title" maxlength="120" required placeholder="Ej: Desarrollo en pausa por una semana" data-adm-ev="input" data-adm="updateReportCounters" autocomplete="off" />
+              </div>
+              <div class="field-group">
+                <label>Tipo de informe *</label>
+                <div class="inc-cat-grid" id="rep-kind-grid">
+                  <label class="inc-cat"><input type="radio" name="rep-kind" value="pause" checked /><span><i>⏸️</i><b>Pausa</b><small>Desarrollo pausado por un rato</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="rep-kind" value="internal" /><span><i>🏢</i><b>Interno</b><small>Problemas internos del equipo</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="rep-kind" value="progress" /><span><i>🐢</i><b>Ritmo</b><small>Avance lento, ritmo reducido</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="rep-kind" value="info" /><span><i>📢</i><b>Aviso</b><small>Comunicado general del estudio</small></span></label>
+                  <label class="inc-cat"><input type="radio" name="rep-kind" value="other" /><span><i>🧩</i><b>Otro</b><small>Cualquier otro estado activo</small></span></label>
+                </div>
+              </div>
+              <label class="manage-filter-row" for="rep-affects-project">
+                <input type="checkbox" id="rep-affects-project" data-adm-ev="change" data-adm="onReportProjectChange" />
+                <span>🎯 Afecta a un proyecto <small>(elegilo abajo)</small></span>
+              </label>
+              <div class="field-group hidden" id="rep-project-group">
+                <label for="rep-project">Proyecto relacionado</label>
+                <select id="rep-project"><option value="">— Elegí un proyecto —</option></select>
+              </div>
+              <div class="field-group">
+                <label for="rep-details">¿De qué trata? * <span class="newsadm-count" id="rep-details-count">0/2000</span></label>
+                <textarea id="rep-details" rows="3" maxlength="2000" required placeholder="Explicá la situación: por qué se pausa, qué problema interno hay, hasta cuándo estimás que sigue…" data-adm-ev="input" data-adm="updateReportCounters"></textarea>
+              </div>
+              <div class="field-group">
+                <label for="rep-started-at">¿Desde cuándo? <span class="opt-tag">opcional</span></label>
+                <input type="datetime-local" id="rep-started-at" />
+                <p class="form-hint">Dejalo vacío si empieza ahora. Si la situación venía desde antes, poné la hora real.</p>
+              </div>
+              <div id="rep-form-alert" class="alert-box hidden"></div>
+              <button type="submit" class="btn btn-primary btn-block" id="btn-save-report">📋 Activar informe</button>
+              <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-report" data-adm-ev="click" data-adm="resetReportForm">Cancelar edición</button>
+            </form>
+          </div>
+
+          <!-- Vista previa -->
+          <div class="glass-card list-card">
+            <div class="card-head">
+              <div class="card-head-text">
+                <h3 class="form-title">Vista previa del informe activo</h3>
+                <p class="form-hint">Así va a verse mientras esté activo. Se actualiza sola a medida que escribís.</p>
+              </div>
+            </div>
+            <div class="inc-preview" id="rep-preview"></div>
+          </div>
+        </div>
+      </div><!-- /reports-sub-main -->
+
+      <!-- Sub-sección ACTIVOS -->
+      <div class="admin-subpane hidden" data-sub="live" id="reports-sub-live">
+        <div class="glass-card inc-hero page-head">
+          <div class="page-head-icon inc-hero-icon">📋</div>
+          <div class="page-head-body">
+            <h3 class="form-title">Informes activos</h3>
+            <p class="form-hint">Los avisos que <b>siguen vigentes</b>. Cada uno lleva su cronómetro desde que empezó y su última actualización. Agregá notas cuando haya novedades.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-admin-only" id="rep-live-badge">📋 0 activos</span>
+              <span class="status-pill status-off" id="rep-live-longest">⏱ —</span>
+              <span class="status-pill status-on">🔒 Solo admins</span>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusReportForm">📋 Nuevo informe</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadReports" data-adm-a0="b:1" title="Recargar">↻ Actualizar</button>
+          </div>
+        </div>
+        <div id="rep-live-list" class="inc-live-list"><p class="loading-note">Cargando informes…</p></div>
+      </div>
+
+      <!-- Sub-sección HISTORIAL -->
+      <div class="admin-subpane hidden" data-sub="log" id="reports-sub-log">
+        <div class="glass-card inc-hero page-head">
+          <div class="page-head-icon inc-log-hero-icon">📜</div>
+          <div class="page-head-body">
+            <h3 class="form-title">Historial de informes</h3>
+            <p class="form-hint">Todo lo que ya terminó, con la <b>hora de inicio</b>, la <b>hora de fin</b> y cuánto duró cada situación.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-admin-only" id="rep-log-badge">📜 0 terminados</span>
+              <span class="status-pill status-off" id="rep-log-total">⏱ —</span>
+              <span class="status-pill status-off" id="rep-log-avg">📊 —</span>
+              <span class="status-pill status-on">🔒 Solo admins</span>
+            </div>
+          </div>
+          <div class="page-head-actions">
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadReports" data-adm-a0="b:1" title="Recargar">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Historial</h3>
+              <p class="form-hint">Clic en una fila para ver el detalle completo y la línea de tiempo.</p>
+            </div>
+          </div>
+          <div class="inc-toolbar">
+            <label class="inc-search" for="rep-log-search">
+              <span>🔍</span>
+              <input type="text" id="rep-log-search" placeholder="Buscar por título o proyecto…" data-adm-ev="input" data-adm="filterReportLog" autocomplete="off" />
+            </label>
+            <div class="newsadm-filters" role="tablist" aria-label="Filtrar el historial por tipo">
+              <button type="button" class="newsadm-chip active" data-repfilter="all" data-adm-ev="click" data-adm="setReportFilter" data-adm-a0="s:all">Todos</button>
+              <button type="button" class="newsadm-chip" data-repfilter="pause" data-adm-ev="click" data-adm="setReportFilter" data-adm-a0="s:pause">⏸️ Pausa</button>
+              <button type="button" class="newsadm-chip" data-repfilter="internal" data-adm-ev="click" data-adm="setReportFilter" data-adm-a0="s:internal">🏢 Interno</button>
+              <button type="button" class="newsadm-chip" data-repfilter="progress" data-adm-ev="click" data-adm="setReportFilter" data-adm-a0="s:progress">🐢 Ritmo</button>
+              <button type="button" class="newsadm-chip" data-repfilter="info" data-adm-ev="click" data-adm="setReportFilter" data-adm-a0="s:info">📢 Aviso</button>
+              <button type="button" class="newsadm-chip" data-repfilter="other" data-adm-ev="click" data-adm="setReportFilter" data-adm-a0="s:other">🧩 Otro</button>
+            </div>
+          </div>
+          <div class="inc-table-wrap">
+            <table class="inc-table">
+              <thead>
+                <tr>
+                  <th>Informe</th>
+                  <th>Tipo</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Duración</th>
+                  <th class="inc-th-actions">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="rep-log-body"></tbody>
+            </table>
+            <div id="rep-log-empty" class="news-empty">
+              <span class="news-empty-icon">📜</span>
+              <p class="news-empty-title">Todavía no hay informes terminados</p>
+              <p class="news-empty-sub">Cuando finalices uno aparece acá con su hora de inicio y de fin.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TAB: USUARIOS (administración) ============ -->
+    <!-- Cantidad total de usuarios + gestión de datos sensibles.
+         Solo las cuentas con rol de superadmin pueden ver esta sección,
+         modificar datos sensibles (usuario, contraseña, rol admin, saldos)
+         y agregar usuarios nuevos (opcionalmente como admin). -->
+    <div id="tab-users" class="tab-content hidden">
+      <div class="glass-card manage-hero users-hero page-head">
+        <div class="page-head-icon users-hero-icon">👥</div>
+        <div class="manage-hero-info page-head-body">
+          <h3 class="form-title">Usuarios — Administración</h3>
+          <p class="form-hint">Cantidad total de cuentas del ecosistema y gestión de datos sensibles. Solo las <b>cuentas administradoras</b> pueden modificar datos sensibles y agregar usuarios. Al crear un usuario podés asignarle el rol de <b>admin</b>.</p>
+          <div class="manage-badges">
+            <span class="status-pill status-on" id="users-total-badge">👥 0 usuarios</span>
+            <span class="status-pill status-admin-only" id="users-admins-badge">🛡️ 0 admins</span>
+            <span class="status-pill status-off" id="users-regular-badge">🧑 0 miembros</span>
+            <span class="status-pill status-off" id="users-week-badge">🆕 0 esta semana</span>
+            <span class="status-pill status-on">🔒 Edición restringida a admins</span>
+          </div>
+        </div>
+        <div class="page-head-actions">
+        <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openUserForm">＋ Nuevo usuario</button>
+        <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadAdminUsers" data-adm-a0="b:1" title="Recargar usuarios">↻ Actualizar</button>
+        </div>
+      </div>
+
+      <div class="panel-grid">
+        <div class="glass-card form-card" data-mform="user">
+          <h3 class="form-title" id="user-form-title">➕ Agregar usuario</h3>
+          <p class="form-hint">🔒 La creación de usuarios está restringida a administradores. Si marcás “Es admin”, la cuenta se crea con rol de administrador.</p>
+          <form data-adm-ev="submit" data-adm="saveAdminUser" data-adm-a0="ev">
+            <div class="field-group">
+              <label for="new-username">Usuario *</label>
+              <input type="text" id="new-username" placeholder="ej: nuevo_jugador" required minlength="3" maxlength="60" autocomplete="off" />
+            </div>
+            <div class="field-group">
+              <label for="new-password" id="new-password-label">Contraseña *</label>
+              <input type="password" id="new-password" placeholder="Mínimo 6 caracteres" required autocomplete="new-password" />
+            </div>
+            <label class="manage-filter-row" for="new-is-admin">
+              <input type="checkbox" id="new-is-admin" />
+              <span>🛡️ Crear como <b>admin</b> <small>(si no se marca, es miembro normal)</small></span>
+            </label>
+            <div class="field-row hidden" id="user-balances-row">
+              <div class="field-group">
+                <label for="edit-aquabux">AquaBux</label>
+                <input type="number" id="edit-aquabux" min="0" value="0" />
+              </div>
+              <div class="field-group">
+                <label for="edit-ecoxionums">Ecoxionums</label>
+                <input type="number" id="edit-ecoxionums" min="0" value="0" />
+              </div>
+            </div>
+            <div id="users-form-alert" class="alert-box hidden"></div>
+            <button type="submit" class="btn btn-primary btn-block" id="btn-save-user">➕ Crear usuario</button>
+            <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-user" data-adm-ev="click" data-adm="resetAdminUserForm">Cancelar edición</button>
+          </form>
+        </div>
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Usuarios registrados</h3>
+              <p class="form-hint">Buscá, filtrá por rol y gestioná cada cuenta.</p>
+            </div>
+          </div>
+          <div class="users-search-row">
+            <input type="text" id="users-search" placeholder="🔍 Buscar por nombre…" data-adm-ev="input" data-adm="onAdminUsersSearch" data-adm-a0="thp:value" autocomplete="off" />
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadAdminUsers" data-adm-a0="b:1" title="Recargar">↻</button>
+          </div>
+          <div class="users-filters" role="tablist" aria-label="Filtrar usuarios por rol">
+            <button type="button" class="newsadm-chip active" data-usersfilter="all" data-adm-ev="click" data-adm="setAdminUsersFilter" data-adm-a0="s:all">Todos</button>
+            <button type="button" class="newsadm-chip" data-usersfilter="admins" data-adm-ev="click" data-adm="setAdminUsersFilter" data-adm-a0="s:admins">🛡️ Admins</button>
+            <button type="button" class="newsadm-chip" data-usersfilter="members" data-adm-ev="click" data-adm="setAdminUsersFilter" data-adm-a0="s:members">🧑 Miembros</button>
+          </div>
+          <div id="users-list" class="admin-list"><p class="loading-note">Cargando usuarios…</p></div>
+        </div>
+      </div>
+    </div>
+
+    </main>
+   </div>
+   <footer class="dashboard-footer">
+     <span>OWS Admin Panel © 2026 — Panel de administración</span>
+   </footer>
+  </section>
+
+  <!-- Modal: editar progreso de desarrollo -->
+  <div id="dev-modal" class="devmodal-overlay hidden" data-adm-overlay-id="dev-modal" data-adm-overlay-fn="closeDevModal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeDevModal" aria-label="Cerrar">&times;</button>
+      <div id="dev-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: versiones descargables de un proyecto (tabla ows_project_releases) -->
+  <div id="rel-modal" class="devmodal-overlay hidden" data-adm-overlay-id="rel-modal" data-adm-overlay-fn="closeReleasesModal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeReleasesModal" aria-label="Cerrar">&times;</button>
+      <div id="rel-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: crear / ver devlog -->
+  <div id="devlog-modal" class="devmodal-overlay hidden" data-adm-overlay-id="devlog-modal" data-adm-overlay-fn="closeDevlogModal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeDevlogModal" aria-label="Cerrar">&times;</button>
+      <div id="devlog-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: sesión en tiempo real (arrancar / detener) -->
+  <div id="ws-modal" class="devmodal-overlay hidden" data-adm-overlay-id="ws-modal" data-adm-overlay-fn="closeWsModal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeWsModal" aria-label="Cerrar">&times;</button>
+      <div id="ws-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: ver / actualizar / finalizar un incidente -->
+  <div id="inc-modal" class="devmodal-overlay hidden" data-adm-overlay-id="inc-modal" data-adm-overlay-fn="closeIncidentModal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeIncidentModal" aria-label="Cerrar">&times;</button>
+      <div id="inc-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: ver / actualizar / finalizar un informe -->
+  <div id="rep-modal" class="devmodal-overlay hidden" data-adm-overlay-id="rep-modal" data-adm-overlay-fn="closeReportModal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeReportModal" aria-label="Cerrar">&times;</button>
+      <div id="rep-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal genérico: formularios de creación / edición (una sección a la vez) -->
+  <div id="form-modal" class="devmodal-overlay formmodal-overlay hidden" data-adm-overlay-id="form-modal" data-adm-overlay-fn="closeFormModal">
+    <div class="devmodal-card formmodal-card glass-card" role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
+      <div class="formmodal-head">
+        <div class="formmodal-titles">
+          <span class="formmodal-eyebrow" id="form-modal-eyebrow">Formulario</span>
+          <span class="formmodal-title" id="form-modal-title">…</span>
+        </div>
+        <button class="devmodal-close" data-adm-ev="click" data-adm="closeFormModal" aria-label="Cerrar">&times;</button>
+      </div>
+      <div id="form-modal-body" class="formmodal-body"></div>
+    </div>
+  </div>
+
+  <!-- Overlay Euforia: despegue 100% (confetti + fanfarria + atajos) -->
+  <div id="euphoria-overlay" class="devmodal-overlay hidden" data-adm-overlay-id="euphoria-overlay" data-adm-overlay-fn="closeEuphoriaOverlay">
+    <div class="devmodal-card glass-card euphoria-card" role="dialog" aria-modal="true" aria-labelledby="euphoria-title">
+      <canvas id="euphoria-confetti"></canvas>
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeEuphoriaOverlay" aria-label="Cerrar">&times;</button>
+      <div class="euphoria-inner" id="euphoria-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="admin-app.js?v=2"></script>
+  <div class="an-tip hidden" id="an-tip"></div>
+</body>
+</html>

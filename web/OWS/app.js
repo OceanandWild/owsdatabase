@@ -2090,6 +2090,8 @@ function openReleaseModal(project) {
   paintUninstallSize(slug);
   // Peso del archivo a descargar: se calcula solo (dato del server o HEAD).
   paintDownloadSize(slug, token);
+  // App Android: botón de APK (o aviso "solo PC") dentro del modal.
+  if (owsEnvironment() === 'android') paintAndroidApkSlot(slug, token);
   // Si aún no sabemos qué archivo se baja (ZIP real vs .exe), se consulta
   // en background y la ficha de descarga se repinta al llegar.
   if (!p.download) enrichReleasesWithItch([p]).then(refreshReleaseModalArtifact);
@@ -2111,6 +2113,7 @@ function refreshReleaseModalArtifact() {
     }
     // El tamaño real llega con la misma resolución: se repinta la ficha.
     paintDownloadSize(slug);
+    if (owsEnvironment() === 'android') paintAndroidApkSlot(slug);
   } catch (_) {}
 }
 
@@ -2304,6 +2307,11 @@ function releaseVersionsHtml(p, releases) {
     } else if (hubIsRequired()) {
       // Navegador: sin OWS Hub no hay descargas. Se muestra el aviso obligatorio.
       html += hubRequiredNoticeHtml();
+    } else if (owsEnvironment() === 'android') {
+      // App Android: el slot lo rellena paintAndroidApkSlot con el APK
+      // publicado (o con el aviso "se juega en PC" si no existe).
+      html += `<div id="rm-apk-slot" data-apk-slug="${safeSlug}"><p class="loading-note"><span class="btn-spinner"></span> Buscando APK para Android…</p></div>`;
+      html += progressMarkup;
     } else {
       const direct = `${API_BASE}/ows-launch-projects/${encodeURIComponent(slug)}/download`;
       html += `<a class="btn btn-primary btn-block rm-dl-btn" href="${escapeHtml(direct)}" download="${escapeHtml(art.file && /\.zip$/i.test(art.file) ? art.file : safeSlug + '.zip')}" data-hub-action="download-browser" data-slug="${safeSlug}" style="text-align:center;text-decoration:none;display:block">⬇ Descargar ${art.isZip ? 'ZIP' : 'build'}${effVer ? ` (v${escapeHtml(effVer)})` : ''}</a>`;
@@ -2354,6 +2362,7 @@ async function loadReleaseModalVersions(slug, token) {
     if (box && p) {
       box.innerHTML = releaseVersionsHtml(p, releases);
       bindReleaseModalActions(box);
+      if (owsEnvironment() === 'android') paintAndroidApkSlot(slug, token);
     }
     const factVer = document.getElementById('rm-fact-version');
     if (factVer && p) {
@@ -2411,6 +2420,10 @@ function bindReleaseModalActions(root) {
         closeReleaseModal();
         showDownloadToastStarted(displayName);
         startDesktopInstallManaged(slug, ver, displayName);
+      } else if (action === 'install-apk') {
+        // App Android: descarga interna con progreso + instalación del APK.
+        if (ev && ev.preventDefault) ev.preventDefault();
+        startAndroidApkInstall(slug, displayName);
       } else if (action === 'uninstall') {
         ev.preventDefault();
         runUninstall(btn, slug, displayName);
@@ -2510,6 +2523,111 @@ async function paintDownloadSize(slug, token) {
   } catch (_) { /* sin dato */ }
 
   put('N/D', false);
+}
+
+// ── Android: slot de APK en el modal + descarga e instalación nativa ──
+// Pinta el botón "Descargar e instalar APK" (o el aviso "solo PC") dentro
+// de #rm-apk-slot con la release publicada en ows_android_releases.
+async function paintAndroidApkSlot(slug, token) {
+  const modal = document.getElementById('release-modal');
+  const body = document.getElementById('release-modal-body');
+  const s = String(slug || '').trim();
+  if (!s || !modal || !body || modal.classList.contains('hidden')) return;
+  if (String(body.dataset.rmSlug || '') !== s) return;
+  if (token && body.dataset.rmToken && body.dataset.rmToken !== token) return;
+  if (!document.getElementById('rm-apk-slot')) return;
+  const rel = await fetchAndroidRelease(s);
+  // El usuario pudo cambiar de proyecto o cerrar el modal mientras consultamos.
+  if (modal.classList.contains('hidden') || String(body.dataset.rmSlug || '') !== s) return;
+  const slot = document.getElementById('rm-apk-slot');
+  if (!slot) return;
+  if (!rel || !rel.apk_url) {
+    slot.innerHTML = `
+      <div class="rm-notice rm-notice-pc">
+        <span class="rm-notice-ico">🖥️</span>
+        <div class="rm-notice-main">
+          <b>Se juega en PC — todavía no hay APK</b>
+          <p>Esta versión es de Windows: instalala con <b>OWS Hub</b> en tu computadora y jugá desde ahí.</p>
+        </div>
+      </div>`;
+    return;
+  }
+  const size = Number(rel.size_bytes || 0);
+  const sizeLabel = size ? ` · ${formatMB(size)}` : '';
+  const verLabel = rel.version_name ? `v${escapeHtml(String(rel.version_name))}` : 'última versión';
+  slot.innerHTML = `
+    <button class="btn btn-primary btn-block rm-apk-btn" data-hub-action="install-apk" data-slug="${escapeHtml(s)}">⬇ Descargar e instalar APK (${verLabel}${sizeLabel})</button>
+    <p class="loading-note" style="text-align:center;font-size:0.78rem">Se guarda en tu teléfono y Android te pide instalarlo. Si aparece un aviso de seguridad, elegí "permitir".</p>`;
+  bindReleaseModalActions(slot);
+}
+
+// Descarga el APK a la caché de la app (con % en el Gestor) y abre el
+// instalador del sistema. Toda la transferencia ocurre dentro de la app.
+async function startAndroidApkInstall(slug, displayName) {
+  const s = String(slug || '').trim();
+  const proj = getDownloadProject(s);
+  const name = displayName || (proj && proj.name) || s;
+  const rel = androidReleaseCache[s] || await fetchAndroidRelease(s);
+  if (!rel || !rel.apk_url) {
+    showToast('Este proyecto todavía no tiene APK para Android');
+    return null;
+  }
+  let native = null;
+  try { native = await loadOwsNative(); } catch (_) { native = null; }
+  if (!native) {
+    showToast('No se pudo cargar el módulo nativo de descargas');
+    return null;
+  }
+
+  closeReleaseModal();
+  showDownloadToastStarted(name);
+  const id = createDownloadEntry({
+    slug: s, name,
+    icon: (proj && proj.icon_url) || '',
+    version: rel.version_name || '',
+    mode: 'android',
+    fileLabel: `APK · ${name}${rel.version_name ? ' v' + rel.version_name : ''}`,
+    url: rel.apk_url,
+    filename: `ows-${s}.apk`,
+  });
+
+  let handle = null;
+  try {
+    updateDownload(id, { status: 'downloading', note: 'Preparando descarga…' });
+    handle = await native.FileTransfer.addListener('progress', (p) => {
+      if (!p || p.type !== 'download') return;
+      updateDownload(id, {
+        status: 'downloading',
+        downloaded: Number(p.bytes || 0),
+        total: Number(p.contentLength || 0),
+        note: 'Descargando APK…',
+      });
+    });
+    await native.Filesystem.mkdir({ path: 'owshub-apk', directory: native.Directory.Cache, recursive: true });
+    const fname = `ows-${s}-${String(rel.version_name || 'latest').replace(/[^\w.-]+/g, '_')}.apk`;
+    const uriRes = await native.Filesystem.getUri({ directory: native.Directory.Cache, path: 'owshub-apk/' + fname });
+    const absPath = String((uriRes && uriRes.uri) || '').replace(/^file:\/\//, '');
+    if (!absPath) throw new Error('no se pudo resolver la ruta de descarga');
+    const out = await native.FileTransfer.downloadFile({ url: rel.apk_url, path: absPath, progress: true });
+    updateDownload(id, { status: 'completed', pct: 100, completedAt: new Date().toISOString(), note: 'APK listo · abriendo instalador' });
+    showToast(`APK de ${name} listo · confirmá la instalación 📲`);
+    try {
+      await native.FileOpener.open({
+        filePath: (out && out.path) || absPath,
+        contentType: 'application/vnd.android.package-archive',
+        openWithDefault: true,
+      });
+    } catch (openErr) {
+      showToast('Descarga lista: abrí la notificación para instalarla');
+    }
+  } catch (err) {
+    const msg = String((err && (err.message || err.error)) || err);
+    updateDownload(id, { status: 'error', error: msg });
+    showToast('Falló la descarga del APK: ' + msg);
+  } finally {
+    try { if (handle && typeof handle.remove === 'function') await handle.remove(); } catch (_) {}
+  }
+  return id;
 }
 
 // Desinstalar desde la propia OWS Hub: borra la carpeta del juego de la
@@ -3076,7 +3194,8 @@ function dlCardHtml(d) {
         <div class="dl-foot">
           ${dlMetaHtml(d)}
           <span class="dl-actions">
-            ${d.status === 'downloading' ? `<button class="btn btn-ghost btn-sm dl-btn" type="button" data-dl-action="cancel" data-dl-id="${escapeHtml(d.id)}">Cancelar</button>` : ''}
+            ${d.status === 'downloading' && d.mode !== 'android' ? `<button class="btn btn-ghost btn-sm dl-btn" type="button" data-dl-action="cancel" data-dl-id="${escapeHtml(d.id)}">Cancelar</button>` : ''}
+            ${d.status === 'downloading' && d.mode === 'android' ? `<span class="dl-badge dl-badge-downloading">APK nativo</span>` : ''}
             ${(d.status === 'error' || d.status === 'cancelled') ? `<button class="btn btn-primary btn-sm dl-btn" type="button" data-dl-action="retry" data-dl-id="${escapeHtml(d.id)}">↻ Reintentar</button>` : ''}
             ${dlCanUninstall(d) ? `<button class="btn btn-danger btn-sm dl-btn" type="button" data-dl-action="uninstall" data-dl-id="${escapeHtml(d.id)}">🗑 Desinstalar</button>` : ''}
             ${(d.status === 'completed' || d.status === 'error' || d.status === 'cancelled') ? `<button class="btn btn-ghost btn-sm dl-btn dl-btn-quiet" type="button" data-dl-action="dismiss" data-dl-id="${escapeHtml(d.id)}">Quitar</button>` : ''}
@@ -3335,6 +3454,9 @@ function retryDownload(id) {
   showDownloadToastStarted(found.name);
   if (found.mode === 'desktop') {
     startDesktopInstallManaged(found.slug, found.version, found.name);
+  } else if (found.mode === 'android') {
+    // Canal APK nativo: reutiliza la release ya cacheada y repite el flujo.
+    startAndroidApkInstall(found.slug, found.name);
   } else {
     startBrowserDownloadManaged(found.slug, { url: found.url, filename: found.filename });
   }
@@ -3710,6 +3832,7 @@ function owsEnvironment() {
   try {
     if (window.OWSHub && window.OWSHub.isDesktop) return 'desktop';
     if (isTauriWebview()) return 'desktop';
+    if (isAndroidApp()) return 'android';
   } catch (_) {}
   return 'browser';
 }
@@ -3809,20 +3932,81 @@ function fetchOwsHubRelease() {
   return owsHubReleasePromise;
 }
 
+// ¿Estamos dentro de la app Android (Capacitor)? getPlatform() solo existe
+// cuando la web corre empaquetada como app nativa; en navegador y en el
+// Hub desktop (Tauri) no está, así que no puede dar falsos positivos.
+function isAndroidApp() {
+  try {
+    const cap = window.Capacitor;
+    return !!(cap && typeof cap.getPlatform === 'function' && cap.getPlatform() === 'android');
+  } catch (_) { return false; }
+}
+
 // ¿Hay que bloquear la descarga porque estamos en el navegador?
-function hubIsRequired() { return owsEnvironment() !== 'desktop'; }
+// En la app Android NO: ahí las descargas van por el canal APK nativo.
+function hubIsRequired() { return owsEnvironment() === 'browser'; }
+
+// ── Android (Capacitor): bundle nativo + canal de APKs ──
+// Esta web no usa bundler, así que el JS de los plugins (@capacitor/core,
+// FileTransfer, Filesystem, FileOpener, App…) se pre-empaqueta con esbuild
+// en app/vendor/cap-native.js y solo se inyecta cuando la app corre en
+// Android. En web y en el Hub desktop (Tauri) ese archivo no existe ni se pide.
+const OWS_NATIVE_BUNDLE_URL = './vendor/cap-native.js';
+const OWS_ANDROID_CHANNEL = 'owshub';
+let owsNativePromise = null;
+const androidReleaseCache = {};
+
+function loadOwsNative() {
+  if (window.OWSNative) return Promise.resolve(window.OWSNative);
+  if (owsNativePromise) return owsNativePromise;
+  owsNativePromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = OWS_NATIVE_BUNDLE_URL;
+    s.async = true;
+    s.onload = () => resolve(window.OWSNative || null);
+    s.onerror = () => { owsNativePromise = null; reject(new Error('módulo nativo no disponible')); };
+    document.head.appendChild(s);
+  });
+  return owsNativePromise;
+}
+
+// Arranque del lado nativo en Android: barra de estado con el color de la
+// marca y splash oculto por si el auto-hide nativo no corrió.
+function bootAndroidNative() {
+  loadOwsNative().then((n) => {
+    if (!n) return;
+    try { if (n.StatusBar) { n.StatusBar.setBackgroundColor({ color: '#050a12' }); n.StatusBar.setStyle({ style: 'LIGHT' }); } } catch (_) {}
+    try { if (n.SplashScreen) n.SplashScreen.hide(); } catch (_) {}
+  }).catch(() => {});
+}
+
+// Última release Android publicada para un slug (null = no hay APK).
+async function fetchAndroidRelease(slug) {
+  const s = String(slug || '').trim();
+  if (!s) return null;
+  try {
+    const res = await fetch(API_BASE + '/ows-store/android/releases/' + encodeURIComponent(s) + '/latest');
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => ({}));
+    const rel = (data && data.release) || null;
+    if (rel) androidReleaseCache[s] = rel;
+    return rel;
+  } catch (_) { return null; }
+}
 
 // Pinta el panel lateral + el aviso del Gestor con la misma release.
 function applyOwsHubRelease(rel) {
   if (!rel) return;
-  const isDesktop = owsEnvironment() === 'desktop';
+  const env = owsEnvironment();
+  const isDesktop = env === 'desktop';
+  const isAndroid = env === 'android';
   const verLabel = rel.version ? `v${rel.version}` : 'OWS Hub';
   const sizeLabel = rel.assetSize ? ` · ${formatMB(rel.assetSize)}` : '';
 
   // ── Panel lateral ──
   const panel = document.getElementById('nav-hub-panel');
   if (panel) {
-    panel.dataset.state = isDesktop ? 'desktop' : (rel.tag ? 'ready' : 'error');
+    panel.dataset.state = isDesktop ? 'desktop' : (isAndroid ? 'android' : (rel.tag ? 'ready' : 'error'));
     const sub = document.getElementById('nav-hub-sub');
     const note = document.getElementById('nav-hub-note');
     const btn = document.getElementById('nav-hub-download');
@@ -3839,6 +4023,17 @@ function applyOwsHubRelease(rel) {
         btn.removeAttribute('download');
         btn.setAttribute('aria-disabled', 'false');
         btn.dataset.hubMode = 'installed';
+      }
+    } else if (isAndroid) {
+      // Ya estás en OWS Hub (la app Android): el panel no pide instalar nada.
+      if (sub) sub.textContent = 'App instalada ✓';
+      if (note) note.innerHTML = 'Ya estás en <b>OWS Hub</b> para Android. En PC está la app de escritorio, con instalación y ejecución de juegos en 1 clic.';
+      if (btnTxt) btnTxt.textContent = 'OWS Hub para PC ↗';
+      if (btn) {
+        btn.href = rel.htmlUrl || OWS_HUB_RELEASES_URL;
+        btn.removeAttribute('download');
+        btn.setAttribute('aria-disabled', 'false');
+        btn.dataset.hubMode = 'pc';
       }
     } else {
       if (sub) sub.textContent = rel.tag ? `Última versión · ${verLabel}` : 'Descarga obligatoria';
@@ -3882,6 +4077,10 @@ function initOwsHubPanel() {
   const gate = document.getElementById('hub-gate');
   // El aviso del Gestor depende solo del entorno: se decide al instante.
   if (gate) gate.classList.toggle('hidden', !hubIsRequired());
+  // App Android: precarga el bundle nativo de plugins. (setTimeout porque
+  // los const del bloque Android se declaran más abajo y esta función corre
+  // durante la evaluación inicial del script, antes de llegar a ellos.)
+  if (owsEnvironment() === 'android') setTimeout(bootAndroidNative, 0);
   if (!panel && !gate) return;
   // Pintado inmediato con lo que haya en caché para que no parpadee "Buscando…".
   applyOwsHubRelease(readOwsHubCache());
@@ -4093,6 +4292,8 @@ function setUpdatesFilter(value) {
 
 async function loadUpdatesManager(opts) {
   const force = !!(opts && opts.force);
+  // App Android: canal propio (APK del Hub) en lugar del updater de Tauri.
+  if (owsEnvironment() === 'android') return loadUpdatesManagerAndroid(opts);
   if (updatesState.loading) return;
   if (!force && updatesState.loaded && !updatesState.error) {
     const age = updatesState.checkedAt ? (Date.now() - new Date(updatesState.checkedAt).getTime()) : Infinity;
@@ -4157,6 +4358,104 @@ async function loadUpdatesManager(opts) {
   }
   try { renderUpdates(); } catch (_) {}
   try { syncUpdatesBadge(); } catch (_) {}
+}
+
+// ── Android: la tarjeta del Hub consulta el canal APK propio ──
+// Mismo estado que el gestor normal (para que renderUpdates y el badge del
+// menú funcionen igual), pero sin proyectos de PC ni updater de Tauri.
+async function loadUpdatesManagerAndroid(opts) {
+  const force = !!(opts && opts.force);
+  if (updatesState.loading) return;
+  if (!force && updatesState.loaded && updatesState.android && !updatesState.error) {
+    const age = updatesState.checkedAt ? (Date.now() - new Date(updatesState.checkedAt).getTime()) : Infinity;
+    if (age < UPDATES_STALE_MS) { renderUpdates(); return; }
+  }
+  updatesState.loading = true;
+  updatesState.error = '';
+  try { renderUpdates(); } catch (_) {}
+
+  try {
+    const native = await loadOwsNative().catch(() => null);
+    let info = { version: '', build: 0 };
+    if (native && native.App && typeof native.App.getInfo === 'function') {
+      try { info = await native.App.getInfo(); } catch (_) {}
+    }
+    const installedName = String((info && info.version) || '').trim();
+    const installedCode = Number((info && info.build) || 0);
+    const res = await fetch(API_BASE + '/ows-store/android/check-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_slug: OWS_ANDROID_CHANNEL,
+        package_id: 'com.oceanandwild.owshub',
+        installed_version_code: installedCode || 0,
+        installed_version_name: installedName,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const latest = (data && data.latest) || null;
+    let updateAvailable = !!(data && data.update_available);
+    // Sin versionCode en el lado nativo se compara por nombre (3.3.6 > 3.3.5).
+    if (!installedCode && latest && latest.version_name && installedName) {
+      updateAvailable = owshubCompareVersions(latest.version_name, installedName) > 0;
+    }
+
+    updatesState = {
+      android: true,
+      loaded: true,
+      loading: false,
+      error: '',
+      checkedAt: new Date().toISOString(),
+      filter: updatesState.filter || 'all',
+      hub: {
+        name: 'OWS Hub (Android)',
+        current_version: installedName || (installedCode ? String(installedCode) : ''),
+        latest_version: latest ? latest.version_name : '',
+        update_available: updateAvailable,
+        can_self_update: true,
+        notes: latest ? (latest.release_notes || '') : '',
+        published_at: latest ? (latest.published_at || '') : '',
+        html_url: OWS_HUB_RELEASES_URL,
+        android_apk: latest,
+      },
+      projects: [],
+      counts: { total: 0, installed: 0, with_build: 0, updates: updateAvailable ? 1 : 0, pending: updateAvailable ? 1 : 0 },
+    };
+  } catch (err) {
+    updatesState.loading = false;
+    updatesState.loaded = false;
+    updatesState.error = String((err && err.message) || err);
+  }
+  try { renderUpdates(); } catch (_) {}
+  try { syncUpdatesBadge(); } catch (_) {}
+}
+
+// Comparador semver-lite (solo para el canal Android del Hub).
+function owshubCompareVersions(a, b) {
+  const pa = String(a == null ? '' : a).trim().replace(/^[vV]/, '').split('.');
+  const pb = String(b == null ? '' : b).trim().replace(/^[vV]/, '').split('.');
+  const n = Math.max(pa.length, pb.length);
+  for (let i = 0; i < n; i++) {
+    const va = parseInt(pa[i], 10); const vb = parseInt(pb[i], 10);
+    const na = Number.isFinite(va) ? va : 0;
+    const nb = Number.isFinite(vb) ? vb : 0;
+    if (na !== nb) return na > nb ? 1 : -1;
+  }
+  return 0;
+}
+
+// Actualización del propio OWS Hub en Android: mismo flujo de APK nativo.
+async function runHubAndroidUpdate(btn) {
+  if (btn) { btn.disabled = true; }
+  try {
+    const rel = (updatesState.hub && updatesState.hub.android_apk) || await fetchAndroidRelease(OWS_ANDROID_CHANNEL);
+    if (!rel || !rel.apk_url) { showToast('Todavía no hay APK publicado para actualizar'); return; }
+    androidReleaseCache[OWS_ANDROID_CHANNEL] = rel;
+    await startAndroidApkInstall(OWS_ANDROID_CHANNEL, 'OWS Hub');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // Arranca el gestor la primera vez (o refresca si ya quedó viejo).
@@ -4298,9 +4597,15 @@ function renderUpdates() {
     const sub = document.getElementById('updates-empty-sub');
     if (sub) {
       const f = updatesState.filter || 'all';
-      sub.textContent = f === 'pending'
-        ? 'No tenés actualizaciones pendientes. Todo lo que tenés instalado está en la última versión.'
-        : (f === 'current' ? 'No tenés juegos instalados todavía.' : 'Nada para mostrar con este filtro.');
+      if (updatesState.android) {
+        sub.textContent = 'Aquí solo se actualiza esta app de Android. Los juegos de PC se actualizan desde OWS Hub para Windows.';
+      } else if (f === 'pending') {
+        sub.textContent = 'No tenés actualizaciones pendientes. Todo lo que tenés instalado está en la última versión.';
+      } else if (f === 'current') {
+        sub.textContent = 'No tenés juegos instalados todavía.';
+      } else {
+        sub.textContent = 'Nada para mostrar con este filtro.';
+      }
     }
     return;
   }
@@ -4322,6 +4627,7 @@ function renderHubUpdateCard() {
   const hub = updatesState.hub || {};
 
   const inDesktop = owsEnvironment() === 'desktop';
+  const isAndroid = owsEnvironment() === 'android';
   const hasUpdate = !!hub.update_available;
 
   if (updatesState.loading && !updatesState.loaded) card.dataset.state = 'loading';
@@ -4336,7 +4642,9 @@ function renderHubUpdateCard() {
   if (state) {
     if (updatesState.loading && !updatesState.loaded) state.textContent = 'Buscando la última versión…';
     else if (updatesState.error) state.textContent = 'No se pudo consultar la release del Hub';
-    else if (hasUpdate) state.textContent = inDesktop ? 'Hay una versión nueva para instalar' : 'Hay una versión nueva disponible';
+    else if (hasUpdate) state.textContent = isAndroid
+      ? 'Hay una versión nueva de OWS Hub para Android'
+      : (inDesktop ? 'Hay una versión nueva para instalar' : 'Hay una versión nueva disponible');
     else if (hub.unknown) state.textContent = 'Versión del Hub sin verificar';
     else state.textContent = 'Tu OWS Hub está actualizado';
   }
@@ -4362,7 +4670,10 @@ function renderHubUpdateCard() {
       // Mientras baja o espera el reinicio: el botón no se puede tocar dos veces.
       btns.push(`<button class="btn btn-primary btn-sm" disabled>⬇ Actualizando…</button>`);
     } else if (hasUpdate) {
-      if (inDesktop && hub.can_self_update) {
+      if (isAndroid) {
+        // Misma acción nativa que los juegos: baja el APK y abre el instalador.
+        btns.push(`<button class="btn btn-primary btn-sm" data-upd-action="hub-apk">⬇ Actualizar APK${hub.latest_version ? ' v' + escapeHtml(hub.latest_version) : ''}</button>`);
+      } else if (inDesktop && hub.can_self_update) {
         // Acción única y simple: descargar. El progreso vive en el toaster.
         btns.push(`<button class="btn btn-primary btn-sm" data-upd-action="hub-install">⬇ Descargar v${escapeHtml(hub.latest_version || '')}</button>`);
       } else {
@@ -4383,6 +4694,8 @@ function renderHubUpdateCard() {
   if (hint) {
     if (updatesState.error) {
       hint.textContent = 'Revisá tu conexión y tocá "Buscar actualizaciones".';
+    } else if (hasUpdate && isAndroid) {
+      hint.textContent = 'La actualización baja el APK y lo instala con el mismo paso de siempre.';
     } else if (hasUpdate && inDesktop && !hub.can_self_update) {
       hint.textContent = 'Tu versión del Hub no trae el actualizador: cerrá el Hub y usá el instalador.';
     } else if (hasUpdate && !inDesktop) {
@@ -4902,6 +5215,8 @@ function bindUpdatesManager() {
   if (hubCard && !hubCard.dataset.bound) {
     hubCard.dataset.bound = '1';
     hubCard.addEventListener('click', (e) => {
+      const apk = e.target.closest('[data-upd-action="hub-apk"]');
+      if (apk) { runHubAndroidUpdate(apk); return; }
       const btn = e.target.closest('[data-upd-action="hub-install"]');
       if (btn) runHubSelfUpdate(btn);
     });

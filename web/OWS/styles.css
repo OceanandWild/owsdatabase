@@ -362,6 +362,7 @@ body {
 .nav-hub[data-state="ready"] { border-color: rgba(56,189,248,0.45); box-shadow: 0 6px 24px rgba(56,189,248,0.14); }
 .nav-hub[data-state="error"] { border-color: rgba(248,113,113,0.45); background: linear-gradient(150deg, rgba(248,113,113,0.14), rgba(168,85,247,0.12)); }
 .nav-hub[data-state="desktop"] { border-color: rgba(52,211,153,0.4); background: linear-gradient(150deg, rgba(52,211,153,0.14), rgba(56,189,248,0.1)); }
+.nav-hub[data-state="android"] { border-color: rgba(52,211,153,0.4); background: linear-gradient(150deg, rgba(56,189,248,0.16), rgba(52,211,153,0.1)); }
 .nav-hub-glow { position: absolute; width: 150px; height: 150px; border-radius: 50%; background: rgba(56,189,248,0.28); filter: blur(52px); top: -60px; right: -55px; pointer-events: none; }
 .nav-hub-head { position: relative; display: flex; align-items: center; gap: 10px; }
 .nav-hub-ico {
@@ -1228,6 +1229,10 @@ body.releases-focus #releases-grid .release-dock-item:not(.is-open) {
 .rm-notice-main p b { display: inline; color: var(--text-main); }
 .rm-notice-cancelled, .rm-notice-discontinued { border-color: rgba(248, 113, 113, 0.35); background: rgba(248, 113, 113, 0.07); }
 .rm-notice-cancelled .rm-notice-main b, .rm-notice-discontinued .rm-notice-main b { color: #fca5a5; }
+.rm-notice-pc { border-color: rgba(56, 189, 248, 0.35); background: rgba(56, 189, 248, 0.07); }
+.rm-notice-pc .rm-notice-main b { color: #7dd3fc; }
+#rm-apk-slot { display: block; }
+#rm-apk-slot .rm-apk-btn { margin-bottom: 4px; }
 
 /* Tarjeta de release */
 .rm-rel-card {
@@ -2004,6 +2009,12 @@ body.releases-focus #releases-grid .release-dock-item:not(.is-open) {
   .side-nav.collapsed .nav-collapse { display: none; }
   .auth-layout { grid-template-columns: 1fr; }
   .auth-brand { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); padding: 36px 28px; }
+  /* Tap targets cómodos en móvil: íconos del topbar y filas del menú */
+  .mobile-topbar .icon-btn, #btn-menu-mobile { width: 40px; height: 40px; }
+  .side-nav .nav-link { min-height: 44px; box-sizing: border-box; }
+  .mobile-dl-wrap .icon-btn { width: 40px; height: 40px; }
+  /* Nada de desbordes: textos largos o URLs se parten en vez de estirar el layout */
+  .hero-title, .section-title, .setup-title { overflow-wrap: anywhere; }
 }
 @media (max-width: 600px) {
   .page-container { padding: 0 16px; }

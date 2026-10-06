@@ -23,6 +23,15 @@
     return isTauriWebview();
   }
 
+  // App Android (Capacitor): aquí no hay puente Tauri ni carpetas de Windows.
+  // getPlatform() solo existe en la web empaquetada como app nativa.
+  function isAndroidNative() {
+    try {
+      const cap = window.Capacitor;
+      return !!(cap && typeof cap.getPlatform === 'function' && cap.getPlatform() === 'android');
+    } catch (_) { return false; }
+  }
+
   // Resuelve el puente UNA vez. OJO: el `await invoke(...)` va FUERA del try;
   // si el comando Rust falla (no existe, ruta inválida, juego abierto…) ese
   // error es real y debe llegar a la UI. Si se captura aquí, el código caía al
@@ -45,6 +54,11 @@
   const tauriInvoke = resolveInvoker();
 
   async function invoke(cmd, args) {
+    // En Android no existe el binario del Hub: se corta acá con un mensaje
+    // claro (sin intentar importar el módulo ESM de Tauri, que daría 404).
+    if (isAndroidNative()) {
+      throw new Error('Esta acción solo existe en OWS Hub para PC.');
+    }
     if (tauriInvoke) return tauriInvoke(cmd, args || {});
     // Sin puente: el import ESM solo funciona con bundler/importmap.
     const mod = await import('@tauri-apps/api/core');
@@ -312,6 +326,9 @@
     },
 
     async launch(slug) {
+      if (isAndroidNative()) {
+        throw new Error('En Android abrí el juego desde el menú de tu teléfono.');
+      }
       const inst = this.installed(slug);
       if (!inst || !inst.exePath) throw new Error('Juego no instalado');
       if (!this.isDesktop) {
@@ -327,6 +344,12 @@
     // opts: { version } → fuerza la versión que queda registrada al instalar.
     async downloadAndInstall(slug, onEvent, opts) {
       const emit = (e) => { try { onEvent && onEvent(e); } catch (_) {} };
+      if (isAndroidNative()) {
+        // El flujo Android es el canal APK (botón "Descargar e instalar APK").
+        const friendly = new Error('En Android las descargas van por el APK del proyecto.');
+        emit({ type: 'error', error: friendly.message });
+        throw friendly;
+      }
       const project = findProject(slug) || {};
       // La versión que se REGISTRA al instalar tiene que ser la misma que el
       // Gestor de Actualizaciones va a comparar después. Si se guardara la de
@@ -426,7 +449,7 @@
     }
   };
 
-  window.OWSHub = { isDesktop: OWSHubLibrary.isDesktop, downloadUrlFor };
+  window.OWSHub = { isDesktop: OWSHubLibrary.isDesktop, isAndroid: isAndroidNative(), downloadUrlFor };
   window.OWSHubLibrary = OWSHubLibrary;
 
   // Progreso de descarga/instalación para el modal (bare global usado por app.js).

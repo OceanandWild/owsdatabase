@@ -332,7 +332,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.2.0</span>
+          <span class="nav-version">OWS Hub · v3.3.1</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>
@@ -569,33 +569,28 @@
           </div>
         </div>
 
-        <!-- Tarjeta del OWS Hub (auto-actualización) -->
+        <!-- Tarjeta del OWS Hub (auto-actualización).
+             El botón de descarga va junto al icono y al nombre: es la única
+             acción. El progreso NO vive acá, vive en el toaster (#hub-upd-toaster)
+             que queda fijo mientras baja, y después en el modal de reinicio. -->
         <div class="upd-hub-card" id="upd-hub-card" data-state="loading">
-          <div class="upd-hub-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          <div class="upd-hub-top">
+            <div class="upd-hub-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+            </div>
+            <div class="upd-hub-titles">
+              <p class="upd-hub-name">OWS Hub</p>
+              <p class="upd-hub-state" id="upd-hub-state">Buscando la última versión…</p>
+            </div>
+            <div class="upd-hub-vers">
+              <span class="upd-ver-chip upd-ver-old" id="upd-hub-current">—</span>
+              <span class="upd-ver-arrow" aria-hidden="true">→</span>
+              <span class="upd-ver-chip upd-ver-new" id="upd-hub-latest">—</span>
+            </div>
+            <div class="upd-hub-actions" id="upd-hub-actions"></div>
           </div>
-          <div class="upd-hub-main">
-            <div class="upd-hub-top">
-              <div class="upd-hub-titles">
-                <p class="upd-hub-name">OWS Hub</p>
-                <p class="upd-hub-state" id="upd-hub-state">Buscando la última versión…</p>
-              </div>
-              <div class="upd-hub-vers">
-                <span class="upd-ver-chip upd-ver-old" id="upd-hub-current">—</span>
-                <span class="upd-ver-arrow" aria-hidden="true">→</span>
-                <span class="upd-ver-chip upd-ver-new" id="upd-hub-latest">—</span>
-              </div>
-            </div>
-            <div class="upd-hub-bar" id="upd-hub-bar" hidden>
-              <div class="upd-hub-bar-track"><div class="upd-hub-bar-fill" id="upd-hub-bar-fill" style="width:0%"></div></div>
-              <span class="upd-hub-bar-pct" id="upd-hub-bar-pct">0%</span>
-            </div>
-            <p class="upd-hub-notes" id="upd-hub-notes"></p>
-            <div class="upd-hub-actions" id="upd-hub-actions">
-              <a class="btn btn-ghost btn-sm" id="upd-hub-releases" href="https://github.com/OceanandWild/ows-hub/releases/latest" target="_blank" rel="noopener">Releases ↗</a>
-            </div>
-            <p class="upd-hub-hint" id="upd-hub-hint"></p>
-          </div>
+          <p class="upd-hub-notes" id="upd-hub-notes"></p>
+          <p class="upd-hub-hint" id="upd-hub-hint"></p>
         </div>
 
         <!-- Aviso: en el navegador las actualizaciones se instalan desde OWS Hub -->
@@ -702,6 +697,48 @@
     </div>
   </div>
 
+  <!-- ═══ ACTUALIZACIÓN DEL HUB (rework 3.3.0) ═══
+       1) Botón simple de descarga en la tarjeta del Hub.
+       2) #hub-upd-toaster: aviso FIJO mientras baja (no se auto-oculta).
+       3) #hub-restart-modal: cuenta regresiva de 5 s antes de reiniciar.
+       4) #hub-changelog-modal: novedades de la versión nueva, una sola vez
+          por versión (se marca como visto al abrirse). -->
+
+  <!-- Cuenta regresiva antes de reiniciar -->
+  <div id="hub-restart-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="glass-card modal-card hub-restart-card">
+      <div class="hub-restart-ring" aria-hidden="true">
+        <svg viewBox="0 0 120 120">
+          <circle class="hub-restart-track" cx="60" cy="60" r="52"></circle>
+          <circle class="hub-restart-prog" id="hub-restart-prog" cx="60" cy="60" r="52"></circle>
+        </svg>
+        <b id="hub-restart-count">5</b>
+      </div>
+      <h3 class="hub-restart-title">Actualización lista 🎉</h3>
+      <p class="hub-restart-sub">OWS Hub <b id="hub-restart-ver">—</b> quedó descargado y verificado. Se reiniciará en <b><span id="hub-restart-secs">5</span> s</b> para aplicar los cambios.</p>
+      <div class="hub-restart-actions">
+        <button type="button" class="btn btn-primary" id="hub-restart-now">Reiniciar ahora</button>
+        <button type="button" class="btn btn-ghost" id="hub-restart-cancel">Ahora no</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Novedades de la versión nueva (una vez por versión) -->
+  <div id="hub-changelog-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="glass-card modal-card hub-changelog-card">
+      <button class="modal-close" data-close="hub-changelog-modal" aria-label="Cerrar">&times;</button>
+      <div class="hub-changelog-head">
+        <span class="hub-changelog-badge" id="hub-changelog-ver">v—</span>
+        <h3 class="hub-changelog-title">¡Actualizaste a esta versión!</h3>
+        <p class="hub-changelog-sub">Esto es lo nuevo en OWS Hub. Se muestra una sola vez por versión.</p>
+      </div>
+      <div class="hub-changelog-body" id="hub-changelog-body"></div>
+      <div class="hub-changelog-actions">
+        <button type="button" class="btn btn-primary btn-block" data-close="hub-changelog-modal">¡Genial, empezar!</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toasts (click en toast de descarga → va al Gestor) -->
   <div id="toast" class="toast hidden"></div>
   <div id="toast-dl" class="toast toast-download hidden" role="status"></div>
@@ -709,6 +746,10 @@
   <!-- Toaster de descargas (ARriba): si Starts una descarga estando en otra
        sección, el aviso aparece acá con el progreso en vivo → click = Gestor -->
   <div id="dl-toaster" class="dl-toaster hidden" aria-live="polite"></div>
+
+  <!-- Toaster DEL HUB: Unlike el de juegos, este NO se auto-oculta: queda
+       fijo mientras baja la actualización (aunque estés en otra sección). -->
+  <div id="hub-upd-toaster" class="dl-toaster hub-upd-toaster hidden" aria-live="polite"></div>
 
   <!-- Toasts de anuncios de Eventos (arriba por defecto, una sola vez) -->
   <div id="announce-toasts" class="announce-toasts" aria-live="polite"></div>

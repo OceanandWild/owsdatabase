@@ -2237,7 +2237,17 @@ function releaseVersionsHtml(p, releases) {
   const installed = (window.OWSHubLibrary && window.OWSHubLibrary.installed(slug)) || null;
   const effVer = releaseEffectiveVersion(p);
   const list = Array.isArray(releases) ? releases : null;
-  const latest = (list && list.length ? list[0] : null) || releaseLatestOf(p);
+  // Multi-plataforma: la tarjeta principal es la de ESTE cliente (Windows en
+  // desktop, Android en la app). La otra plataforma, si tiene build, se anuncia
+  // como línea secundaria en vez de robarse la tarjeta (antes la release más
+  // nueva ganaba sin importar su plataforma).
+  const here = owsUpdatesPlatform();
+  const platMatch = (r) => {
+    const rp = String((r && (r.platform || '')) || 'windows').toLowerCase();
+    return rp === 'all' || rp === here;
+  };
+  const latest = ((list && (list.find(platMatch) || list[0])) || null) || releaseLatestOf(p);
+  const other = (list || []).find((r) => r && r !== latest && !platMatch(r) && r.id) || null;
   const hasBuild = releaseHasBuild(p) || !!(latest && latest.id);
 
   let html = '';
@@ -2260,11 +2270,15 @@ function releaseVersionsHtml(p, releases) {
         </div>
         ${releaseArtifactLineHtml(art)}
         ${latest.notes ? `<p class="rm-rel-notes">${escapeHtml(latest.notes)}</p>` : ''}
+        ${other ? `<p class="rm-rel-other">${here === 'android' ? '🪟' : '🤖'} También disponible en ${here === 'android' ? 'Windows' : 'Android'} · <b>v${escapeHtml(other.version || '?')}</b></p>` : ''}
       </div>`;
     if (list && list.length > 1) {
-      html += `<div class="rm-rel-history">` + list.slice(1, 5).map((r) => `
-        <div class="rm-rel-old"><span>v${escapeHtml(r.version || '?')}</span><span>${escapeHtml(r.channel || '')}</span><span>${r.released_at ? escapeHtml(formatReleaseDate(r.released_at) || '') : ''}</span></div>
-      `).join('') + `</div>`;
+      html += `<div class="rm-rel-history">` + list.slice(1, 5).map((r) => {
+        const rp = String(r.platform || 'windows').toLowerCase();
+        const tag = rp === 'android' ? ' 🤖' : (rp === 'all' ? '' : '');
+        return `
+        <div class="rm-rel-old"><span>v${escapeHtml(r.version || '?')}${tag}</span><span>${escapeHtml(r.channel || '')}</span><span>${r.released_at ? escapeHtml(formatReleaseDate(r.released_at) || '') : ''}</span></div>`;
+      }).join('') + `</div>`;
     }
   } else if (hasBuild) {
     // Build heredada de itch.io (sin fila en la tabla de releases)
@@ -2344,7 +2358,12 @@ async function loadReleaseModalVersions(slug, token) {
     if (body.dataset.rmToken !== token || body.dataset.rmSlug !== slug) return;
     if (modal.classList.contains('hidden')) return;
     const idx = releasesCache.findIndex((x) => String(x.slug) === String(slug));
-    const latest = releases.length ? releases[0] : null;
+    // La "última" en caché es la de esta plataforma (o la primera si no hay):
+    // sin esto una release Android más nueva quedaba como versión visible en PC.
+    const herePlat = owsUpdatesPlatform();
+    const latest = releases.length
+      ? (releases.find((r) => String(r.platform || 'windows').toLowerCase() === herePlat || String(r.platform || '').toLowerCase() === 'all') || releases[0])
+      : null;
     if (idx >= 0) {
       releasesCache[idx] = {
         ...releasesCache[idx],
@@ -2416,7 +2435,8 @@ function bindReleaseModalActions(root) {
         startBrowserDownloadManaged(slug);
       } else if (action === 'install') {
         // Desktop (Tauri): mismo UX — cerrar, toast y seguir en el Gestor.
-        const ver = (proj && (proj.itch_version || proj.itchVersion)) || '';
+        // La versión la manda la release oficial (multi-plataforma), no itch.
+        const ver = (proj && releaseEffectiveVersion(proj)) || '';
         closeReleaseModal();
         showDownloadToastStarted(displayName);
         startDesktopInstallManaged(slug, ver, displayName);
@@ -2734,6 +2754,9 @@ async function startAndroidApkInstall(slug, displayName) {
       }
     }
     if (opened) {
+      // Se abrió el instalador del sistema: se registra la versión para que
+      // el Gestor la compare y ofrezca actualizar cuando salga una nueva.
+      try { saveAndroidInstalled(s, rel.version_name || ''); } catch (_) {}
       showToast(`APK de ${name} listo · confirmá la instalación 📲`);
     } else {
       const detail = openDiag.join('\n') + '\n' + savedPath;
@@ -4571,6 +4594,20 @@ async function loadUpdatesManagerAndroid(opts) {
       updateAvailable = owshubCompareVersions(latest.version_name, installedName) > 0;
     }
 
+    // Proyectos multi-plataforma en Android: el servidor ya filtra por
+    // plataforma y compara contra lo instalado (se manda installed=slug:ver
+    // desde el registro local de APKs). Así Wilder Gambit y demás juegos con
+    // build Android aparecen para instalar/actualizar desde el Gestor.
+    let projects = [];
+    try {
+      const inst = androidInstalledMapParam();
+      const qs = inst ? ('?platform=android&installed=' + encodeURIComponent(inst)) : '?platform=android';
+      const pres = await fetch(API_BASE + '/ows-updates/projects' + qs);
+      const pdata = await pres.json().catch(() => ({}));
+      if (pres.ok && Array.isArray(pdata.projects)) projects = pdata.projects;
+    } catch (_) { projects = []; }
+
+    const pendingProjects = projects.filter((p) => p.update_available).length;
     updatesState = {
       android: true,
       platform: 'android',
@@ -4590,8 +4627,14 @@ async function loadUpdatesManagerAndroid(opts) {
         html_url: OWS_HUB_RELEASES_URL,
         android_apk: latest,
       },
-      projects: [],
-      counts: { total: 0, installed: 0, with_build: 0, updates: updateAvailable ? 1 : 0, pending: updateAvailable ? 1 : 0 },
+      projects,
+      counts: {
+        total: projects.length,
+        installed: projects.filter((p) => p.installed).length,
+        with_build: projects.filter((p) => p.has_build).length,
+        updates: pendingProjects,
+        pending: pendingProjects + (updateAvailable ? 1 : 0),
+      },
     };
   } catch (err) {
     updatesState.loading = false;
@@ -4614,6 +4657,53 @@ function owshubCompareVersions(a, b) {
     if (na !== nb) return na > nb ? 1 : -1;
   }
   return 0;
+}
+
+// ── APKs instalados en Android (registro local) ──
+// Android no tiene OWSHubLibrary: se guarda qué versión de cada APK se abrió
+// para instalar, y el Gestor la compara contra la publicada para ofrecer
+// actualizar. El Hub mismo se excluye (su versión la da el paquete nativo).
+const OWS_ANDROID_INSTALLED_KEY = 'ows_android_installed_v1';
+function getAndroidInstalledMap() {
+  try {
+    const raw = localStorage.getItem(OWS_ANDROID_INSTALLED_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    if (obj && typeof obj === 'object') {
+      const out = {};
+      Object.keys(obj).forEach((k) => {
+        const v = String(obj[k] || '').trim();
+        if (k && v) out[String(k)] = v;
+      });
+      return out;
+    }
+  } catch (_) {}
+  return {};
+}
+function androidInstalledMapParam() {
+  const map = getAndroidInstalledMap();
+  return Object.keys(map).map((s) => `${s}:${map[s]}`).join(',');
+}
+function saveAndroidInstalled(slug, version) {
+  const s = String(slug || '').trim();
+  const v = String(version || '').trim();
+  if (!s || !v || s === OWS_ANDROID_CHANNEL) return;
+  try {
+    const map = getAndroidInstalledMap();
+    map[s] = v;
+    localStorage.setItem(OWS_ANDROID_INSTALLED_KEY, JSON.stringify(map));
+  } catch (_) {}
+}
+
+// Instalar/actualizar un JUEGO en Android desde el Gestor: mismo flujo de APK
+// nativo que el Hub (descarga con % en el Gestor + instalador del sistema).
+async function runProjectApkInstall(slug) {
+  const s = String(slug || '').trim();
+  if (!s) return;
+  const row = (updatesState.projects || []).find((p) => String(p.slug) === s);
+  const proj = getDownloadProject(s);
+  const name = (row && row.name) || (proj && proj.name) || s;
+  await startAndroidApkInstall(s, name);
+  try { loadUpdatesManager({ force: true }); } catch (_) {}
 }
 
 // Actualización del propio OWS Hub en Android: mismo flujo de APK nativo.
@@ -4682,6 +4772,7 @@ function updatesRowHtml(p) {
   if (p.prerelease) metaBits.push(`<span class="upd-chip-pre">${escapeHtml(p.channel || 'beta')}</span>`);
 
   const actions = [];
+  const inAndroid = owsEnvironment() === 'android';
   if (p.has_build) {
     if (inDesktop) {
       // Si la release es beta/alpha el botón lo dice: nada de prometer una
@@ -4694,6 +4785,13 @@ function updatesRowHtml(p) {
       if (p.installed) {
         actions.push(`<button class="btn btn-ghost btn-sm" data-upd-action="play" data-slug="${safeSlug}">▶ Jugar</button>`);
       }
+    } else if (inAndroid) {
+      // App Android: instalar/actualizar el APK directo (canal ows_android_releases).
+      const chTag = p.prerelease ? ` <span class="upd-chip-pre">${escapeHtml(p.channel || 'beta')}</span>` : '';
+      const label = p.update_available
+        ? `⬇ Actualizar${p.latest_version ? ' a v' + escapeHtml(p.latest_version) : ''}`
+        : (p.installed ? `⬇ Reinstalar${p.latest_version ? ' v' + escapeHtml(p.latest_version) : ''}` : `⬇ Instalar APK${p.latest_version ? ' v' + escapeHtml(p.latest_version) : ''}`);
+      actions.push(`<button class="btn btn-primary btn-sm" data-upd-action="${p.update_available ? 'apk-update' : 'apk-install'}" data-slug="${safeSlug}">📲 ${label}</button>${chTag}`);
     } else {
       actions.push(`<button class="btn btn-ghost btn-sm" data-upd-action="goto-releases" data-slug="${safeSlug}">Ver en Lanzamientos ↗</button>`);
     }
@@ -4778,7 +4876,7 @@ function renderUpdates() {
     if (sub) {
       const f = updatesState.filter || 'all';
       if (updatesState.android) {
-        sub.textContent = 'Aquí solo se actualiza esta app de Android. Los juegos de PC se actualizan desde OWS Hub para Windows.';
+        sub.textContent = 'Sin juegos con APK todavía: cuando un proyecto publique su versión Android aparecerá acá para instalarlo.';
       } else if (f === 'pending') {
         sub.textContent = 'No tenés actualizaciones pendientes. Todo lo que tenés instalado está en la última versión.';
       } else if (f === 'current') {
@@ -5090,7 +5188,16 @@ function bindHubFullscreenKeys() {
 // Contenido REAL de cada versión (el body de la release de GitHub es el
 // texto genérico del instalador, no un changelog: acá va lo que cambió).
 // Se agrega una línea por versión NUEVA cuando se publica.
+// Versión con anuncio destacado (se resalta en el modal de novedades y en
+// la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
+const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.0': [
+    '✨ ¡Wilder Gambit 1.0.0 ya está acá! Primera versión completa, disponible para Windows y Android.',
+    'En Lanzamientos cada juego muestra su versión por plataforma: tarjeta de Windows en PC y botón de APK en Android.',
+    'En Android el Gestor de Actualizaciones ahora lista tus juegos: instalá y actualizá sus APK sin salir del Hub.',
+    'El servidor elige automáticamente el archivo de la versión oficial cuando conviven varias builds.'
+  ],
   '3.3.7': [
     'Android: el setup inicial ya no pide ruta de descargas ni avisa de descargar OWS Hub; se puede completar sin complicaciones.'
   ],
@@ -5209,6 +5316,21 @@ function openHubChangelogModal(version, notes) {
   if (!modal) return;
   const verEl = document.getElementById('hub-changelog-ver');
   if (verEl) verEl.textContent = 'v' + String(version || '').replace(/^[vV]/, '');
+  // La versión destacada (lanzamiento) lleva aro dorado + píldora ✨.
+  try {
+    const card = modal.querySelector('.hub-changelog-card');
+    const hot = String(version || '').replace(/^[vV]/, '') === HUB_CHANGELOG_HIGHLIGHT;
+    if (card) card.classList.toggle('is-highlight', hot);
+    let pill = modal.querySelector('.hub-changelog-hot');
+    if (hot && !pill && card) {
+      pill = document.createElement('p');
+      pill.className = 'hub-changelog-hot';
+      pill.textContent = '✨ Novedad destacada';
+      const head = card.querySelector('.hub-changelog-head');
+      if (head) head.appendChild(pill);
+    }
+    if (!hot && pill) pill.remove();
+  } catch (_) {}
   const body = document.getElementById('hub-changelog-body');
   if (body) {
     // Prioridad: el changelog curado de la versión. Si no está (una release
@@ -5394,6 +5516,7 @@ function bindUpdatesManager() {
       const action = btn.getAttribute('data-upd-action');
       const slug = btn.getAttribute('data-slug') || '';
       if (action === 'refresh') loadUpdatesManager({ force: true });
+      else if (action === 'apk-install' || action === 'apk-update') runProjectApkInstall(slug);
       else if (action === 'update' || action === 'install') runProjectUpdate(slug);
       else if (action === 'changelog') openUpdatesChangelog(slug);
       else if (action === 'goto-releases') { showOwsSection('sec-lanzamientos', { smooth: true }); }

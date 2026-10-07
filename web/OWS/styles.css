@@ -2717,3 +2717,21 @@ body.releases-focus #releases-grid .release-dock-item:not(.is-open) {
   .upd-row, .upd-stat, .upd-chip { transition: none; }
   .upd-row:hover, .upd-stat:hover { transform: none; }
 }
+/* Novedad destacada del Hub (lanzamiento): aro dorado + pildora. */
+.hub-changelog-card.is-highlight {
+  border: 2px solid var(--gold-border-strong);
+  box-shadow: 0 0 34px rgba(245, 158, 11, 0.35), 0 18px 60px rgba(0, 0, 0, 0.5);
+}
+.hub-changelog-hot {
+  display: inline-block; margin: 8px 0 0; padding: 4px 14px; border-radius: 999px;
+  font-size: 0.74rem; font-weight: 800; color: #1a1005;
+  background: linear-gradient(135deg, #fcd34d, #f59e0b);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.55);
+}
+/* Otra plataforma disponible (modal de lanzamiento). */
+.rm-rel-other {
+  margin: 8px 0 0; font-size: 0.8rem; color: var(--text-muted);
+  background: rgba(245, 158, 11, 0.07); border: 1px dashed var(--gold-border);
+  border-radius: 8px; padding: 7px 10px;
+}
+.rm-rel-other b { color: var(--gold-light); }

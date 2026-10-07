@@ -11031,6 +11031,131 @@ app.post('/ocean-pay/gambits/earn', async (req, res) => {
 
 // Compatibilidad legacy para clientes que aÃ¯Â¿Â½n usan este endpoint (ej. WildShorts)
 // y endpoint general usado por Ocean Pay / Velocity Surge.
+// ── Wilder Gambit · Pase de temporada (Gambito Real) ──────────────────────
+// El precio y el cobro viven AQUÍ: el cliente solo lo pinta. El descuento de
+// Tides y la marca de propiedad se hacen en la misma transacción, contra el
+// saldo real de la cuenta Ocean Pay.
+const WILDER_GAMBIT_SEASON = { season: 1, priceTides: 450 };
+
+function decodeWilderGambitUser(req) {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) return null;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const userId = Number(decoded.id || decoded.uid || decoded.sub);
+    return Number.isFinite(userId) && userId > 0 ? userId : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+async function ensureWilderGambitSeasonTable(client) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS wilder_gambit_season_pass (
+      user_id      INTEGER PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      season       INTEGER NOT NULL DEFAULT 1,
+      price_tides  INTEGER NOT NULL DEFAULT 0,
+      purchased_at TIMESTAMP DEFAULT NOW()
+    )`);
+}
+
+// GET /ocean-pay/wilder-gambit/season-pass
+// → { success, owned, season, priceTides, tides, username }
+app.get('/ocean-pay/wilder-gambit/season-pass', async (req, res) => {
+  const userId = decodeWilderGambitUser(req);
+  if (!userId) return res.status(401).json({ error: 'Token inválido' });
+
+  const client = await pool.connect();
+  try {
+    await ensureWilderGambitSeasonTable(client);
+    const owned = await client.query(
+      'SELECT 1 FROM wilder_gambit_season_pass WHERE user_id = $1 AND season = $2',
+      [userId, WILDER_GAMBIT_SEASON.season]
+    );
+    const tides = await getUnifiedBalance(client, userId, 'tides');
+    const user = await client.query('SELECT username FROM ocean_pay_users WHERE id = $1', [userId]);
+    return res.json({
+      success: true,
+      owned: owned.rows.length > 0,
+      season: WILDER_GAMBIT_SEASON.season,
+      priceTides: WILDER_GAMBIT_SEASON.priceTides,
+      tides: Number(tides) || 0,
+      username: user.rows[0]?.username || ''
+    });
+  } catch (e) {
+    console.error('[WilderGambit] Error consultando el pase:', e);
+    return res.status(500).json({ error: 'No se pudo consultar el pase de temporada' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /ocean-pay/wilder-gambit/season-pass/purchase  (body vacío)
+// Cobro idempotente: si ya es tuyo no descuenta dos veces.
+app.post('/ocean-pay/wilder-gambit/season-pass/purchase', async (req, res) => {
+  const userId = decodeWilderGambitUser(req);
+  if (!userId) return res.status(401).json({ error: 'Token inválido' });
+
+  const season = WILDER_GAMBIT_SEASON.season;
+  const price = WILDER_GAMBIT_SEASON.priceTides;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureWilderGambitSeasonTable(client);
+
+    const owned = await client.query(
+      'SELECT 1 FROM wilder_gambit_season_pass WHERE user_id = $1 AND season = $2 FOR UPDATE',
+      [userId, season]
+    );
+    if (owned.rows.length > 0) {
+      const tides = await getUnifiedBalance(client, userId, 'tides');
+      await client.query('COMMIT');
+      return res.json({
+        success: true, owned: true, alreadyOwned: true, spent: 0,
+        season, priceTides: price, tides: Number(tides) || 0
+      });
+    }
+
+    const tides = Math.max(0, Math.floor(Number(await getUnifiedBalance(client, userId, 'tides')) || 0));
+    if (tides < price) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'No tienes Tides suficientes para el Gambito Real',
+        tides, required: price, owned: false, success: false
+      });
+    }
+
+    await setUnifiedBalance(client, userId, 'tides', tides - price);
+    await client.query(
+      `INSERT INTO wilder_gambit_season_pass (user_id, season, price_tides)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id) DO UPDATE
+       SET season = EXCLUDED.season, price_tides = EXCLUDED.price_tides, purchased_at = NOW()`,
+      [userId, season, price]
+    );
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, `Wilder Gambit · Gambito Real (Temporada ${season})`, -price, 'Wilder Gambit', 'tides']
+    ).catch(() => {});
+
+    await client.query('COMMIT');
+    console.log(`[WilderGambit] Usuario ${userId} compró el Gambito Real (temporada ${season}) por ${price} Tides. Saldo: ${tides - price}`);
+    return res.json({
+      success: true, owned: true, alreadyOwned: false, spent: price,
+      season, priceTides: price, tides: tides - price
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en POST /ocean-pay/wilder-gambit/season-pass/purchase:', err);
+    return res.status(500).json({ error: 'Error interno al cobrar el Gambito Real' });
+  } finally {
+    client.release();
+  }
+});
+
 app.post(['/ocean-pay/cards/change-balance', '/ocean-pay/currency/change'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {

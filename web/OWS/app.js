@@ -2561,6 +2561,83 @@ async function paintAndroidApkSlot(slug, token) {
   bindReleaseModalActions(slot);
 }
 
+function nativeFilePath(uri) {
+  let p = String(uri || '').replace(/^file:\/\//, '');
+  try { p = decodeURIComponent(p); } catch (_) {}
+  return p;
+}
+
+function describeNativeError(err) {
+  if (err == null) return 'error desconocido';
+  if (typeof err === 'string') return err;
+  const parts = [];
+  const msg = err.message || err.errorMessage || err.error;
+  if (msg) parts.push(String(msg));
+  if (err.code) parts.push('código ' + err.code);
+  const d = err.data && typeof err.data === 'object' ? err.data : {};
+  if (d.httpStatus) parts.push('HTTP ' + d.httpStatus);
+  if (d.exception && d.exception !== msg) parts.push(String(d.exception));
+  if (d.target) parts.push('destino ' + d.target);
+  if (!parts.length) {
+    try { parts.push(JSON.stringify(err)); } catch (_) { parts.push(String(err)); }
+  }
+  return parts.join(' · ');
+}
+
+// Cuadro de error persistente: el toast es corto y en móvil no deja leer
+// el detalle, así que los fallos de instalación se muestran acá (con copiar).
+function showErrorDialog(title, summary, detail, action) {
+  try {
+    const prev = document.getElementById('ows-error-dialog');
+    if (prev) prev.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'ows-error-dialog';
+    wrap.setAttribute('role', 'alertdialog');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#0b1422;color:#e8f0ff;border:1px solid #2a3b57;border-radius:14px;max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:16px;font-size:14px;line-height:1.4;';
+    const h = document.createElement('b');
+    h.textContent = '⚠️ ' + title;
+    h.style.cssText = 'display:block;font-size:16px;margin-bottom:8px;';
+    const p = document.createElement('p');
+    p.textContent = summary || '';
+    p.style.cssText = 'margin:0 0 10px;';
+    const pre = document.createElement('pre');
+    pre.textContent = detail || '';
+    pre.style.cssText = 'white-space:pre-wrap;word-break:break-all;user-select:text;-webkit-user-select:text;background:#050a12;border-radius:8px;padding:10px;font-size:12px;margin:0 0 12px;max-height:40vh;overflow:auto;';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+    const mk = (label, fn, primary) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn ' + (primary ? 'btn-primary' : 'btn-ghost');
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      row.appendChild(b);
+    };
+    if (action && action.run) mk(action.label || 'Reintentar', () => { wrap.remove(); try { action.run(); } catch (_) {} }, true);
+    mk('Copiar detalle', () => {
+      const text = `${title}\n${summary || ''}\n${detail || ''}`;
+      try { navigator.clipboard.writeText(text); showToast('Detalle copiado'); } catch (_) {}
+    }, false);
+    mk('Cerrar', () => wrap.remove(), false);
+    box.append(h, p);
+    if (detail) box.appendChild(pre);
+    box.appendChild(row);
+    wrap.appendChild(box);
+    document.body.appendChild(wrap);
+  } catch (_) {
+    try { alert(title + '\n' + (summary || '') + '\n' + (detail || '')); } catch (__) {}
+  }
+}
+
+// Último recurso: el navegador del sistema descarga el APK y Android lo instala.
+function openApkInBrowser(url) {
+  const u = String(url || '');
+  if (!u) return;
+  try { window.location.href = u; } catch (_) {}
+}
+
 // Descarga el APK a la caché de la app (con % en el Gestor) y abre el
 // instalador del sistema. Toda la transferencia ocurre dentro de la app.
 async function startAndroidApkInstall(slug, displayName) {
@@ -2603,27 +2680,78 @@ async function startAndroidApkInstall(slug, displayName) {
         note: 'Descargando APK…',
       });
     });
-    await native.Filesystem.mkdir({ path: 'owshub-apk', directory: native.Directory.Cache, recursive: true });
     const fname = `ows-${s}-${String(rel.version_name || 'latest').replace(/[^\w.-]+/g, '_')}.apk`;
-    const uriRes = await native.Filesystem.getUri({ directory: native.Directory.Cache, path: 'owshub-apk/' + fname });
-    const absPath = String((uriRes && uriRes.uri) || '').replace(/^file:\/\//, '');
-    if (!absPath) throw new Error('no se pudo resolver la ruta de descarga');
-    const out = await native.FileTransfer.downloadFile({ url: rel.apk_url, path: absPath, progress: true });
+    const diag = [];
+    let savedPath = '';
+    const roots = [['Cache', native.Directory.Cache], ['Data', native.Directory.Data]];
+    for (let r = 0; r < roots.length && !savedPath; r++) {
+      const rootName = roots[r][0];
+      const rootDir = roots[r][1];
+      let fileUri = '';
+      try {
+        try { await native.Filesystem.mkdir({ path: 'owshub-apk', directory: rootDir, recursive: true }); } catch (_) {}
+        const uriRes = await native.Filesystem.getUri({ directory: rootDir, path: 'owshub-apk/' + fname });
+        fileUri = String((uriRes && uriRes.uri) || '');
+        if (!fileUri) throw new Error('no se pudo resolver la ruta de descarga');
+      } catch (pathErr) {
+        diag.push(`[${rootName}] ruta: ${describeNativeError(pathErr)}`);
+        continue;
+      }
+      const plain = nativeFilePath(fileUri);
+      const forms = [fileUri, plain].filter((v, i, a) => v && a.indexOf(v) === i);
+      for (let f = 0; f < forms.length && !savedPath; f++) {
+        try {
+          await native.Filesystem.deleteFile({ path: 'owshub-apk/' + fname, directory: rootDir });
+        } catch (_) {}
+        try {
+          updateDownload(id, { status: 'downloading', downloaded: 0, note: 'Descargando APK…' });
+          await native.FileTransfer.downloadFile({ url: rel.apk_url, path: forms[f], progress: true });
+          savedPath = plain;
+        } catch (dlErr) {
+          diag.push(`[${rootName} ${forms[f] === fileUri ? 'uri' : 'ruta'}] descarga: ${describeNativeError(dlErr)}`);
+        }
+      }
+    }
+    if (!savedPath) {
+      const detail = diag.join('\n');
+      throw Object.assign(new Error('no se pudo guardar el APK'), { owsDetail: detail });
+    }
+
     updateDownload(id, { status: 'completed', pct: 100, completedAt: new Date().toISOString(), note: 'APK listo · abriendo instalador' });
-    showToast(`APK de ${name} listo · confirmá la instalación 📲`);
-    try {
-      await native.FileOpener.open({
-        filePath: (out && out.path) || absPath,
-        contentType: 'application/vnd.android.package-archive',
-        openWithDefault: true,
+    const openDiag = [];
+    let opened = false;
+    const openForms = [savedPath, 'file://' + savedPath];
+    for (let o = 0; o < openForms.length && !opened; o++) {
+      try {
+        await native.FileOpener.open({
+          filePath: openForms[o],
+          contentType: 'application/vnd.android.package-archive',
+          openWithDefault: true,
+        });
+        opened = true;
+      } catch (openErr) {
+        openDiag.push(`[abrir ${o === 0 ? 'ruta' : 'uri'}] ${describeNativeError(openErr)}`);
+      }
+    }
+    if (opened) {
+      showToast(`APK de ${name} listo · confirmá la instalación 📲`);
+    } else {
+      const detail = openDiag.join('\n') + '\n' + savedPath;
+      updateDownload(id, { note: 'APK descargado, pero no se pudo abrir el instalador' });
+      showErrorDialog('No se pudo abrir el instalador', 'El APK se descargó pero Android no permitió abrirlo desde la app.', detail, {
+        label: 'Descargar desde el navegador',
+        run: () => openApkInBrowser(rel.apk_url),
       });
-    } catch (openErr) {
-      showToast('Descarga lista: abrí la notificación para instalarla');
     }
   } catch (err) {
-    const msg = String((err && (err.message || err.error)) || err);
-    updateDownload(id, { status: 'error', error: msg });
-    showToast('Falló la descarga del APK: ' + msg);
+    const base = String((err && (err.message || err.error)) || err);
+    const detail = (err && err.owsDetail) || describeNativeError(err);
+    updateDownload(id, { status: 'error', error: base + (detail ? ' · ' + detail.split('\n')[0] : '') });
+    showToast('Falló la descarga del APK · mirá el detalle en pantalla');
+    showErrorDialog('Falló la descarga del APK', base, detail, {
+      label: 'Descargar desde el navegador',
+      run: () => openApkInBrowser(rel.apk_url),
+    });
   } finally {
     try { if (handle && typeof handle.remove === 'function') await handle.remove(); } catch (_) {}
   }
@@ -4963,6 +5091,11 @@ function bindHubFullscreenKeys() {
 // texto genérico del instalador, no un changelog: acá va lo que cambió).
 // Se agrega una línea por versión NUEVA cuando se publica.
 const HUB_CHANGELOGS = {
+  '3.3.6': [
+    'Android: arreglada la instalación del APK al actualizar OWS Hub (error con la carpeta de caché).',
+    'Si falla una descarga o instalación en Android, ahora se muestra un cuadro con el detalle completo y opción de copiarlo.',
+    'Nuevo respaldo: descargar el APK desde el navegador si el instalador no se abre.'
+  ],
   '3.3.5': [
     'El menú lateral muestra solo "OWS Hub": marca limpia y sin etiquetas redundantes.',
     'Textos renovados en toda la app: ahora se distingue el estudio (Ocean & Wild Studios) del producto (OWS Hub).',

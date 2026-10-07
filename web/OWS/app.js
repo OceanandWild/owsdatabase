@@ -2725,7 +2725,10 @@ async function startAndroidApkInstall(slug, displayName) {
         } catch (_) {}
         try {
           updateDownload(id, { status: 'downloading', downloaded: 0, note: 'Descargando APK…' });
-          await native.FileTransfer.downloadFile({ url: rel.apk_url, path: forms[f], progress: true });
+          // Timeouts anti-cuelgue (v3.4.4, par del fix desktop en Rust): si el
+          // servidor muere a mitad de la descarga, esto falla con error claro
+          // (y botón Reintentar) en vez de quedar en 0% para siempre.
+          await native.FileTransfer.downloadFile({ url: rel.apk_url, path: forms[f], progress: true, connectTimeout: 30000, readTimeout: 60000 });
           // El instalador de Android rechaza el APK con "error en el análisis
           // del paquete" si el archivo quedó trunco (típico en 600+ MB con
           // WiFi inestable). Se verifica el tamaño contra el publicado ANTES
@@ -5348,6 +5351,10 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.4': [
+    'Las descargas ya no se cuelgan en 0%: si el servidor deja de responder a mitad de la descarga, el Hub corta con un error claro y botón de Reintentar.',
+    'En Android los tiempos de espera de descarga ahora son explícitos (30 s conexión / 60 s lectura).',
+  ],
   '3.4.3': [
     'Descargas e instalaciones en segundo plano: instala o actualiza juegos y el Hub y sigue usando la app con total normalidad.',
     'Notificación de progreso: aviso del sistema al empezar, hitos de 25/50/75 %, % en el título y aviso al terminar o fallar.',

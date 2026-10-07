@@ -14868,9 +14868,36 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
 // Orden: (1) installer_url manual (redirect), (2) itch API con
 // ITCH_API_KEY (stream autenticado, la key nunca sale del servidor),
 // (3) fallback: redirect a la página de itch.io.
-async function resolveItchUploadDownload({ gameId, fileName, apiKey, preferVersion = '', wantExt = '' }) {
+// Uploads fijados de itch.io (canales de butler): la API de uploads solo
+// lista los clásicos (subidos por dashboard), así que los builds de canal se
+// direccionan por ID (el ID del canal es estable entre pushes; lo que cambia
+// es el build). /uploads/{id}/download los sirve igual (302 al CDN).
+const ITCH_PINNED_UPLOADS = {
+  'wilder-gambit': {
+    windows: { id: 19612126, file: 'Wilder-Gambit-v1.0.0-Windows.zip', size: 520389699, kind: 'zip' },
+    android: { id: 19612049, file: 'wilder-gambit-v1.0.0-android.apk', size: 662547989, kind: 'apk' }
+  }
+};
+function itchPinnedUpload(slug, kind) {
+  const s = String(slug || '').trim().toLowerCase();
+  const k = String(kind || '').trim().toLowerCase() === 'android' ? 'android' : 'windows';
+  const p = (ITCH_PINNED_UPLOADS[s] || {})[k];
+  return (p && Number(p.id) > 0) ? p : null;
+}
+
+async function resolveItchUploadDownload({ gameId, fileName, apiKey, preferVersion = '', wantExt = '', pinned = null }) {
   const key = String(apiKey || process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
   if (!key || !gameId) return null;
+  // Canal fijado: va directo sin listar (los builds de butler no salen en /uploads).
+  if (pinned && Number(pinned.id) > 0) {
+    return {
+      uploadId: Number(pinned.id),
+      filename: String(pinned.file || 'installer'),
+      size: Number(pinned.size || 0),
+      kind: String(pinned.kind || 'file'),
+      pinned: true
+    };
+  }
   const headers = { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' };
   let uploads = [];
   try {
@@ -14964,7 +14991,7 @@ async function getDownloadArtifact(mapped, preferVersion = '') {
       if (apiKey && itchUrl) {
         const viaApi = await fetchItchApiInfo({ apiKey, matchUrl: itchUrl, matchSlug: slug });
         if (viaApi?.raw_id) {
-          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: itchFile, apiKey, preferVersion });
+          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: itchFile, apiKey, preferVersion, pinned: itchPinnedUpload(slug, 'windows') });
           if (dl?.uploadId) {
             const sizeBytes = Number(dl.size || 0) || 0;
             artifact = {
@@ -15178,7 +15205,8 @@ async function launchProjectDownloadHandler(req, res) {
           gameId: viaApi.raw_id,
           fileName: mapped.itch_file,
           apiKey,
-          preferVersion: officialVersion
+          preferVersion: officialVersion,
+          pinned: itchPinnedUpload(slug, 'windows')
         });
         trace.push({ step: 'itch-api-uploads', upload_id: dl?.uploadId || null, filename: dl?.filename || null, kind: dl?.kind || null, size: dl?.size || null });
         if (dl?.uploadId) {
@@ -15253,7 +15281,8 @@ app.get('/ows-launch-projects/:slug/apk-download', async (req, res) => {
           fileName: '',
           apiKey,
           preferVersion: officialVersion,
-          wantExt: '.apk'
+          wantExt: '.apk',
+          pinned: itchPinnedUpload(slug, 'android')
         });
         trace.push({ step: 'itch-api-uploads', upload_id: dl?.uploadId || null, filename: dl?.filename || null, size: dl?.size || null });
         if (dl?.uploadId && /\.apk$/i.test(String(dl.filename || ''))) {

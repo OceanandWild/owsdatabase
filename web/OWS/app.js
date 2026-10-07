@@ -3121,6 +3121,8 @@ function createDownloadEntry(meta) {
   downloadsState.unshift(entry);
   downloadsState = downloadsState.slice(0, 20);
   renderDownloads();
+  try { owsBgOnDownloadStart(entry); } catch (_) {}
+  try { owsBgSyncTitle(); } catch (_) {}
   return entry.id;
 }
 
@@ -3153,6 +3155,7 @@ function updateDownload(id, patch) {
   if (['completed', 'error', 'cancelled'].includes(next.status)) {
     try { persistDownloadsHistory(); } catch (_) {}
   }
+  try { owsBgOnDownloadTick(next); } catch (_) {}
 }
 
 function pushHubEventToManager(id, e) {
@@ -3721,8 +3724,131 @@ function saveOwsSettings(patch) {
   return next;
 }
 
+// ═══════════════════════════════════════════════
+// SEGUNDO PLANO + NOTIFICACIÓN DE PROGRESO
+// Las descargas/instalaciones (juegos y Hub) ya siguen corriendo al cambiar
+// de vista (fetch/Rust no se cancelan); este módulo avisa aunque no estés
+// en el Gestor: toaster persistente + título con % + notificación del SO.
+// ═══════════════════════════════════════════════
+const OWS_BG_NOTIFY_MILESTONES = [25, 50, 75];
+const owsBgNotified = new Map(); // id -> Set(hitos avisados)
+let owsBgTitleBase = '';
+
+function owsBgNotifsOn() {
+  try { return getOwsSettings().notifs !== false; } catch (_) { return true; }
+}
+
+function owsBgEnsurePermission() {
+  try {
+    if (!owsBgNotifsOn()) return;
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+    // Tauri: pide permiso al plugin una vez (no-op en navegador).
+    try {
+      if (typeof tauriInvoke === 'function') {
+        tauriInvoke('plugin:notification|request_permission', {}, 4000).catch(() => {});
+      }
+    } catch (_) {}
+  } catch (_) {}
+}
+
+function owsBgNotify(title, body) {
+  if (!owsBgNotifsOn()) return;
+  const t = String(title || 'OWS Hub');
+  const b = String(body || '');
+  // 1) Tauri nativo (funciona con la ventana minimizada / en otra vista).
+  try {
+    if (typeof tauriInvoke === 'function' && (isTauriWebview() || (window.OWSHub && window.OWSHub.isDesktop))) {
+      tauriInvoke('plugin:notification|notify', { title: t, body: b }, 4000).catch(() => {});
+    }
+  } catch (_) {}
+  // 2) Web Notification (navegador + WebView2).
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const n = new Notification(t, { body: b, silent: true });
+      setTimeout(() => { try { n.close(); } catch (_) {} }, 6000);
+    }
+  } catch (_) {}
+}
+
+function owsBgMarkNotified(id, key) {
+  const k = String(id || '');
+  if (!k) return false;
+  let set = owsBgNotified.get(k);
+  if (!set) { set = new Set(); owsBgNotified.set(k, set); }
+  if (set.has(key)) return false;
+  set.add(key);
+  return true;
+}
+
+function owsBgSyncTitle() {
+  try {
+    const active = (Array.isArray(downloadsState) ? downloadsState : []).filter(dlIsActive);
+    if (!owsBgTitleBase) owsBgTitleBase = document.title || 'OWS Hub';
+    if (!active.length) {
+      if (document.title !== owsBgTitleBase) document.title = owsBgTitleBase;
+      return;
+    }
+    const top = active[0];
+    const pct = Math.max(0, Math.min(100, Number(top.pct || 0)));
+    document.title = `(${pct}%) ${top.name || 'Descargando'} — OWS Hub`;
+  } catch (_) {}
+}
+
+function owsBgOnDownloadStart(d) {
+  try {
+    if (!d) return;
+    // El progreso ya vive en el toaster aunque cambies de sección; se avisa
+    // una vez para que sepas que puedes seguir usando el Hub tranquilo.
+    if (owsCurrentView !== 'sec-descargas') { try { syncDlToaster(); } catch (_) {} }
+    owsBgNotify(`⬇ ${d.name || 'Descarga'} en segundo plano`, 'Puedes seguir usando OWS Hub · el progreso sigue arriba y en Descargas.');
+  } catch (_) {}
+}
+
+function owsBgOnDownloadTick(d) {
+  try {
+    if (!d) return;
+    owsBgSyncTitle();
+    const pct = Math.max(0, Math.min(100, Number(d.pct || 0)));
+    for (const m of OWS_BG_NOTIFY_MILESTONES) {
+      if (pct >= m && owsBgMarkNotified(d.id, 'm' + m)) {
+        owsBgNotify(`${d.name || 'Descarga'} · ${Math.round(pct)}%`, `${formatMB(d.downloaded)} / ${formatMB(d.total || d.downloaded)} · sigue en segundo plano`);
+      }
+    }
+    if (d.status === 'completed' && owsBgMarkNotified(d.id, 'done')) {
+      owsBgNotify(`✓ ${d.name || 'Descarga'} listo`, d.mode === 'desktop' ? 'Instalado · el juego ya se está abriendo 🎮' : 'Descarga completa · míralo en el Gestor');
+      try { owsBgSyncTitle(); } catch (_) {}
+    } else if ((d.status === 'error' || d.status === 'cancelled') && owsBgMarkNotified(d.id, 'end')) {
+      owsBgNotify(`⚠ ${d.name || 'Descarga'} ${d.status === 'cancelled' ? 'cancelada' : 'falló'}`, String(d.error || 'Reintenta desde el Gestor de Descargas'));
+      try { owsBgSyncTitle(); } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+let owsBgHubLastMilestone = 0;
+function owsBgOnHubTick(pct, info, done, version) {
+  try {
+    if (!owsBgTitleBase) owsBgTitleBase = document.title || 'OWS Hub';
+    if (done) {
+      document.title = owsBgTitleBase;
+      owsBgNotify(`✓ OWS Hub v${version || ''} listo`, 'Se descargó en segundo plano · confirma el reinicio 🎉');
+      return;
+    }
+    document.title = `(${Math.round(pct)}%) Actualizando OWS Hub — en segundo plano`;
+    for (const m of OWS_BG_NOTIFY_MILESTONES) {
+      if (pct >= m && owsBgHubLastMilestone < m) {
+        owsBgHubLastMilestone = m;
+        owsBgNotify(`OWS Hub · ${m}%`, String(info || 'Descargando actualización en segundo plano…'));
+      }
+    }
+    if (pct <= 1) owsBgHubLastMilestone = 0;
+  } catch (_) {}
+}
+
 function initOwsSettings() {
   try { window.OWSSettings = getOwsSettings(); } catch (_) {}
+  try { owsBgEnsurePermission(); } catch (_) {}
   // Expone la carpeta elegida a la librería desktop (library.js la lee si existe)
   try {
     window.OWSHub = window.OWSHub || {};
@@ -5062,6 +5188,10 @@ function hubUpdToastShow(version) {
       </span>
     </div>`;
   box.classList.remove('hidden');
+  try {
+    owsBgHubLastMilestone = 0;
+    owsBgNotify(`⬇ OWS Hub v${version} en segundo plano`, 'Puedes seguir usando el Hub · el progreso sigue arriba.');
+  } catch (_) {}
 }
 
 function hubUpdToastPatch(pct, info, done) {
@@ -5076,6 +5206,11 @@ function hubUpdToastPatch(pct, info, done) {
   const badge = item.querySelector('.hub-upd-toast-badge');
   if (badge && done) { badge.textContent = '✔ Listo'; badge.classList.add('dl-badge-done'); }
   if (done) item.classList.add('is-done');
+  try {
+    const nameEl = item.querySelector('.dl-toast-name');
+    const ver = nameEl ? String(nameEl.textContent || '').replace(/^OWS Hub v/i, '').trim() : '';
+    owsBgOnHubTick(Number(pct) || 0, String(info || ''), !!done, ver);
+  } catch (_) {}
 }
 
 function hubUpdToastHide() {
@@ -5213,6 +5348,11 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.3': [
+    'Descargas e instalaciones en segundo plano: instala o actualiza juegos y el Hub y sigue usando la app con total normalidad.',
+    'Notificación de progreso: aviso del sistema al empezar, hitos de 25/50/75 %, % en el título y aviso al terminar o fallar.',
+    'La actualización del Hub también avisa en segundo plano mientras se descarga.',
+  ],
   '3.4.2': [
     'Android: si un APK se descarga incompleto, el Hub lo detecta por tamaño y te pide reintentar con WiFi en vez de fallar en el instalador.'
   ],

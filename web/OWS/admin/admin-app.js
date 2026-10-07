@@ -2268,10 +2268,10 @@ function renderDevlogs() {
         <span class="news-item-title">${escapeHtml(d.title)}${dailyTag}${isNewest ? ' <span class="devlog-new-badge">🆕 Nuevo</span>' : ''}</span>
         ${d.reason ? `<span class="news-item-desc">${escapeHtml(d.reason.length > 90 ? d.reason.slice(0, 90) + '…' : d.reason)}</span>` : ''}
       </td>
-      <td>${proj}</td>
+      <td data-label="Proyecto">${proj}</td>
       <td data-label="Progreso">${devlogProgressCell(d)}</td>
-      <td><span class="devlog-by">👤 ${escapeHtml(d.created_by || '—')}</span></td>
-      <td class="news-item-date">${escapeHtml(formatDevlogDate(d.created_at))}</td>
+      <td data-label="Por quién"><span class="devlog-by">👤 ${escapeHtml(d.created_by || '—')}</span></td>
+      <td class="news-item-date" data-label="Cuándo">${escapeHtml(formatDevlogDate(d.created_at))}</td>
       <td class="devlog-td-actions" data-adm-stop="1">
         <button class="btn btn-ghost btn-mini" title="Ver" data-adm-ev="click" data-adm="viewDevlog" data-adm-a0="r:${d.id}">👁️</button>
         <button class="btn btn-ghost btn-mini" title="Editar" data-adm-ev="click" data-adm="openDevlogForm" data-adm-a0="r:${d.id}">✏️</button>

@@ -1,4 +1,4 @@
-﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    OWS Admin Panel â€” Design System
    Paleta acorde al dashboard OWS: deep space Â· gold Â· purple
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
@@ -4080,4 +4080,78 @@ body {
 @media (max-width: 640px) {
   .dev-step-actions { flex-wrap: wrap; }
   .dev-step-actions .btn { flex: 1 1 auto; min-width: 0; min-height: 36px; }
+}
+
+/* ============================================================
+   DEVLOG en movil (<=640px): cabeceras apiladas, sesiones y
+   resumen del dia sin desborde, y la tabla de entradas pasa a
+   tarjetas (sin scroll horizontal de 720px).
+   ============================================================ */
+@media (max-width: 640px) {
+  #manage-sub-devlog .card-head { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 12px; }
+  #manage-sub-devlog .card-head-text .form-hint { font-size: 0.74rem; }
+  .ws-card, .ws-daily-card, .devlog-list-card { padding: 14px 12px; margin-bottom: 12px; }
+  .devlog-hero { padding: 14px 12px; }
+  .devlog-hero .page-head-icon { width: 44px; height: 44px; font-size: 1.3rem; border-radius: 13px; }
+  .devlog-hero .manage-badges { gap: 6px; }
+  .devlog-hero-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .devlog-hero-actions .btn { flex: none; width: 100%; justify-content: center; }
+
+  .ws-head-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+  .ws-head-actions > * { min-width: 0; }
+  .ws-head-actions .ws-view-toggle { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; margin: 0; }
+  .ws-head-actions input[type="date"] { grid-column: 1 / -1; width: 100%; min-height: 38px; }
+  .ws-head-actions .ws-start-btn { grid-column: 1 / -1; min-height: 42px; justify-content: center; }
+  .ws-head-actions .btn { justify-content: center; }
+  #manage-sub-devlog .ws-daily-card .ws-head-actions .btn-primary { grid-column: 1 / -1; min-height: 42px; }
+
+  .ws-form { padding: 12px; }
+  .ws-form-actions { flex-direction: column; }
+  .ws-delta { flex-wrap: wrap; }
+  .ws-delta input[type="text"] { width: 76px; }
+  .ws-field input[type="datetime-local"], .ws-field input[type="text"], .ws-field select, .ws-field textarea { width: 100%; max-width: 100%; box-sizing: border-box; }
+
+  .ws-day { padding: 12px 10px 4px; }
+  .ws-day-head { flex-wrap: wrap; }
+  .ws-item { gap: 8px; }
+  .ws-item-rail { width: 10px; flex-basis: 10px; }
+  .ws-item-body { padding: 10px; }
+  .ws-item-title, .ws-item-desc, .ws-line-title, .ws-preview-val, .ws-daily-proj { overflow-wrap: anywhere; word-break: break-word; }
+  .ws-item-foot { gap: 6px 10px; }
+  .ws-item-actions { width: 100%; }
+  .ws-item-actions .btn { flex: 1 1 auto; justify-content: center; min-height: 34px; }
+  .ws-daily-item { padding: 12px 10px; }
+  .ws-daily-head { align-items: flex-start; }
+  .ws-daily-badge { margin-left: 0; }
+  .ws-daily-lines li { padding: 6px 8px; gap: 4px 8px; }
+
+  .devlog-table-wrap { overflow: visible; border: none; background: transparent; }
+  .devlog-table, .devlog-table tbody, .devlog-table tr, .devlog-table td { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
+  .devlog-table { min-width: 0; font-size: 0.84rem; }
+  .devlog-table thead { display: none; }
+  .devlog-table tbody { display: flex; flex-direction: column; gap: 10px; }
+  .devlog-table tbody tr {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px;
+    padding: 12px; border-radius: var(--radius-md);
+    background: rgba(21, 8, 38, 0.6); border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .devlog-table tbody tr.devlog-fresh { border-left: 3px solid var(--success); }
+  .devlog-table tbody td { padding: 0; border: none; min-width: 0; }
+  .devlog-table tbody tr.devlog-fresh td:first-child { box-shadow: none; background: transparent; }
+  .devlog-table tbody td:first-child { grid-column: 1 / -1; }
+  .devlog-table tbody td[data-label="Progreso"] { grid-column: 1 / -1; }
+  .devlog-table tbody td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 3px;
+    font-size: 0.6rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim);
+  }
+  .devlog-table .news-item-title, .devlog-table .news-item-desc { overflow-wrap: anywhere; max-width: none; }
+  .devlog-spark { min-width: 0; }
+  .devlog-by { white-space: normal; overflow-wrap: anywhere; }
+  .devlog-table tbody td.devlog-td-actions {
+    grid-column: 1 / -1; display: flex; gap: 8px; justify-content: stretch;
+    padding-top: 10px; border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  }
+  .devlog-td-actions .btn-mini { flex: 1; justify-content: center; min-height: 38px; }
+  .devlog-table-wrap .news-empty { padding: 28px 12px; }
 }

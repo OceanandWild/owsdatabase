@@ -5091,6 +5091,9 @@ function bindHubFullscreenKeys() {
 // texto genérico del instalador, no un changelog: acá va lo que cambió).
 // Se agrega una línea por versión NUEVA cuando se publica.
 const HUB_CHANGELOGS = {
+  '3.3.7': [
+    'Android: el setup inicial ya no pide ruta de descargas ni avisa de descargar OWS Hub; se puede completar sin complicaciones.'
+  ],
   '3.3.6': [
     'Android: arreglada la instalación del APK al actualizar OWS Hub (error con la carpeta de caché).',
     'Si falla una descarga o instalación en Android, ahora se muestra un cuadro con el detalle completo y opción de copiarlo.',
@@ -5522,6 +5525,9 @@ function setEnvBadge(env) {
   if (env === 'desktop') {
     badge.textContent = '🖥 App desktop';
     badge.classList.add('is-desktop');
+  } else if (env === 'android') {
+    badge.textContent = '🤖 App Android';
+    badge.classList.add('is-desktop');
   } else {
     badge.textContent = '🌐 Navegador';
     badge.classList.remove('is-desktop');
@@ -5604,6 +5610,20 @@ async function renderDownloadStep() {
     }
     if (hint) hint.textContent = 'Ahí se instalan tus juegos. Puedes escribir otra ruta o pulsar 📂 para elegirla con el explorador (↺ vuelve a la de por defecto).';
     syncDirResetBtn();
+    return;
+  }
+
+  if (env === 'android') {
+    if (input) {
+      input.readOnly = true;
+      input.value = 'Almacenamiento de la app (automático)';
+    }
+    if (browse) browse.classList.add('hidden');
+    const rst = document.getElementById('btn-setup-dir-reset');
+    if (rst) rst.classList.add('hidden');
+    if (hint) hint.textContent = 'En Android no hace falta elegir carpeta: el APK se descarga solo y Android te pide instalarlo. Solo cambia el nick si quieres y continúa.';
+    saveOwsSettings({ downloadMode: 'android', libraryVerified: false, downloadDir: '' });
+    setDirStatus('✓ Listo: las descargas se gestionan solas en tu teléfono', 'ok');
     return;
   }
 
@@ -5746,6 +5766,8 @@ function setupNext() {
         downloadMode: custom ? 'custom' : 'managed',
         libraryVerified: !custom,
       });
+    } else if (env === 'android') {
+      saveOwsSettings({ nick: String(nick).trim().slice(0, 24), downloadMode: 'android', downloadDir: '', libraryVerified: false });
     } else {
       // Navegador: no hay ruta que validar, solo se guarda el nick
       saveOwsSettings({ nick: String(nick).trim().slice(0, 24), downloadMode: 'browser', downloadDir: '' });
@@ -5786,15 +5808,18 @@ function renderSetupSummary() {
   if (!box) return;
   const s = getOwsSettings();
   const nick = (document.getElementById('setup-nick') || {}).value || s.nick || '—';
-  const isBrowserMode = (s.downloadMode || owsEnvironment()) === 'browser';
+  const isAndroidMode = owsEnvironment() === 'android';
+  const isBrowserMode = !isAndroidMode && (s.downloadMode || owsEnvironment()) === 'browser';
   const isCustom = s.downloadMode === 'custom';
-  const dir = isBrowserMode
+  const dir = isAndroidMode
+    ? 'Almacenamiento de la app (automático)'
+    : isBrowserMode
     ? 'Descargas del navegador'
     : ((document.getElementById('setup-download-dir') || {}).value || s.downloadDir || defaultDownloadDir());
   const on = (v) => (v ? 'Sí ✓' : 'No');
   const esc = (typeof escapeHtml === 'function') ? escapeHtml : (t) => String(t || '');
   box.innerHTML = `
-    <dl class="setup-summary-row"><dt>🖥 Entorno</dt><dd>${isBrowserMode ? 'Navegador 🌐' : 'App desktop ✓'}</dd></dl>
+    <dl class="setup-summary-row"><dt>🖥 Entorno</dt><dd>${isAndroidMode ? 'App Android ✓' : (isBrowserMode ? 'Navegador 🌐' : 'App desktop ✓')}</dd></dl>
     <dl class="setup-summary-row"><dt>📁 Descargas en</dt><dd><code>${esc(dir)}</code>${isCustom ? ' ✎' : ''}</dd></dl>
     <dl class="setup-summary-row"><dt>🎮 Nick</dt><dd>${esc(nick || '—')}</dd></dl>
     <dl class="setup-summary-row"><dt>🔔 Notificaciones</dt><dd>${on(s.notifs)}</dd></dl>

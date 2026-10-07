@@ -1,7 +1,7 @@
-/* ═══════════════════════════════════════════════
-   OWS Admin Panel — Design System
-   Paleta acorde al dashboard OWS: deep space · gold · purple
-═══════════════════════════════════════════════ */
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   OWS Admin Panel â€” Design System
+   Paleta acorde al dashboard OWS: deep space Â· gold Â· purple
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 :root {
   --bg-dark:       #080010;
@@ -59,7 +59,7 @@ body {
   box-shadow: var(--shadow-card);
 }
 
-/* ── Buttons ────────────────────────────────── */
+/* â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .btn {
   font-family: inherit;
   font-weight: 700;
@@ -93,7 +93,7 @@ body {
 .btn-danger:hover { background: rgba(239, 68, 68, 0.28); }
 .btn-mini { padding: 5px 10px; font-size: 0.72rem; border-radius: 8px; }
 
-/* ── Forms ──────────────────────────────────── */
+/* â”€â”€ Forms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .field-group { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
 
 .field-group label {
@@ -133,8 +133,11 @@ body {
 }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* datetime-local y date traen ancho intrínseco grande: sin min-width:0 la
+   columna se desborda de la tarjeta del modal. */
+.field-row > * { min-width: 0; }
 
-/* ── Login ──────────────────────────────────── */
+/* â”€â”€ Login â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .login-wrap {
   position: relative; z-index: 1;
   min-height: 100vh;
@@ -176,7 +179,7 @@ body {
 
 .login-note { margin-top: 16px; font-size: 0.72rem; color: var(--text-muted); text-align: center; }
 
-/* ── Alerts & toast ─────────────────────────── */
+/* â”€â”€ Alerts & toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .alert-box {
   margin-top: 16px; padding: 12px 14px; border-radius: var(--radius-sm);
   font-size: 0.84rem; font-weight: 600;
@@ -196,15 +199,15 @@ body {
   max-width: 90vw;
 }
 
-/* ── Panel layout · shell unificado ─────────────────────────────
-   Orden: 1 topbar → 2 nav unificada (tabs + sub-tabs) → 3 contenido.
-   Antes eran 3 tarjetas apiladas sin jerarquía; ahora la navegación
+/* â”€â”€ Panel layout Â· shell unificado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Orden: 1 topbar â†’ 2 nav unificada (tabs + sub-tabs) â†’ 3 contenido.
+   Antes eran 3 tarjetas apiladas sin jerarquÃ­a; ahora la navegaciÃ³n
    vive en una sola tarjeta y el contenido respira con ritmo uniforme. */
 .panel-wrap { position: relative; z-index: 1; padding: 16px 20px 40px; max-width: 1440px; margin: 0 auto; }
 .admin-shell { display: flex; flex-direction: row; gap: 16px; align-items: stretch; }
 .admin-main { display: flex; flex-direction: column; gap: 12px; min-height: 40vh; flex: 1; min-width: 0; }
 
-/* Barra lateral izquierda: marca, navegación y, abajo, el perfil con sus acciones */
+/* Barra lateral izquierda: marca, navegaciÃ³n y, abajo, el perfil con sus acciones */
 .admin-sidebar {
   width: 240px; flex-shrink: 0; align-self: stretch;
   display: flex; flex-direction: column; gap: 12px;
@@ -232,8 +235,8 @@ body {
   display: flex; align-items: center; justify-content: space-between;
   gap: 14px;
   padding: 12px 18px;
-  /* Sin sticky: el sticky + backdrop-filter dejaba una banda negra sólida
-     a mitad de la sección Incidentes al hacer scroll o captura (el blur no
+  /* Sin sticky: el sticky + backdrop-filter dejaba una banda negra sÃ³lida
+     a mitad de la secciÃ³n Incidentes al hacer scroll o captura (el blur no
      se repintaba y tapaba banner + componentes). */
   position: static;
 }
@@ -265,7 +268,7 @@ body {
   animation: evPulse 1.8s ease-in-out infinite;
 }
 
-/* Navegación unificada: una sola columna dentro de la barra lateral */
+/* NavegaciÃ³n unificada: una sola columna dentro de la barra lateral */
 .admin-nav { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .panel-tabs {
   display: flex; flex-direction: column; gap: 6px; padding: 0; margin: 0;
@@ -293,7 +296,7 @@ body {
   flex-shrink: 0;
 }
 
-/* ── Sub-secciones (nivel secundario dentro de la nav unificada) ── */
+/* â”€â”€ Sub-secciones (nivel secundario dentro de la nav unificada) â”€â”€ */
 .sub-tabs {
   display: flex; flex-direction: column; align-items: stretch; gap: 8px;
   padding: 0 2px;
@@ -327,11 +330,11 @@ body {
 
 .admin-subpane { animation: tabIn 0.3s ease; display: flex; flex-direction: column; gap: 12px; }
 
-/* ═══════════════════════════════════════════════
-   SISTEMA DE JERARQUÍA · page-head + card-head
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SISTEMA DE JERARQUÃA Â· page-head + card-head
    Todas las secciones comparten el mismo orden:
-   [icon] [título → desc → badges] [acciones]
-   ═══════════════════════════════════════════════ */
+   [icon] [tÃ­tulo â†’ desc â†’ badges] [acciones]
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .tab-content { animation: tabIn 0.3s ease; display: flex; flex-direction: column; gap: 12px; }
 .tab-content.hidden { display: none !important; }
 @keyframes tabIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -387,14 +390,14 @@ body {
 .manage-hero-info .form-hint,
 .page-head-body .form-hint { max-width: 76ch; }
 
-/* ── Devlog (sub-sección de Gestión) ── */
+/* â”€â”€ Devlog (sub-secciÃ³n de GestiÃ³n) â”€â”€ */
 .devlog-hero {
   border-color: rgba(52, 211, 153, 0.32);
   background: linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(18, 6, 32, 0.85) 60%);
 }
 
-/* ── Incidentes (status page): las dos sub-paneles ── */
-/* En curso = rojo (algo está roto ahora); registro = verde (ya se resolvió). */
+/* â”€â”€ Incidentes (status page): las dos sub-paneles â”€â”€ */
+/* En curso = rojo (algo estÃ¡ roto ahora); registro = verde (ya se resolviÃ³). */
 .inc-hero {
   border-color: rgba(239, 68, 68, 0.34);
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(18, 6, 32, 0.85) 60%);
@@ -434,7 +437,7 @@ body {
 .status-chip-cancelled{ background: rgba(239, 68, 68, 0.14);  color: var(--danger);  border: 1px solid rgba(239, 68, 68, 0.4); }
 .status-chip-discontinued { background: rgba(148, 163, 184, 0.14); color: #cbd5e1; border: 1px dashed rgba(148, 163, 184, 0.5); }
 
-/* ── Feedback del estado (Gestión / solo-admin) ── */
+/* â”€â”€ Feedback del estado (GestiÃ³n / solo-admin) â”€â”€ */
 .manage-feedback-wrap {
   background: rgba(8, 0, 16, 0.45);
   border: 1px solid var(--gold-border);
@@ -449,7 +452,7 @@ body {
 .manage-feedback-wrap.feedback-cancelled    { border-left-color: #f87171; }
 .manage-feedback-wrap.feedback-discontinued { border-left-color: #94a3b8; border-left-style: dashed; }
 .manage-feedback-wrap .form-hint { margin: 6px 0 0; }
-/* Animación de aparición al elegir/cambiar el estado */
+/* AnimaciÃ³n de apariciÃ³n al elegir/cambiar el estado */
 @keyframes feedbackIn {
   from { opacity: 0; transform: translateY(-10px) scale(0.99); }
   60%  { opacity: 1; transform: translateY(2px) scale(1); }
@@ -471,7 +474,7 @@ body {
 }
 .manage-feedback b { color: #d8b4fe; }
 
-/* ── Permanencia del estado (solo Cancelado / Descontinuado) ── */
+/* â”€â”€ Permanencia del estado (solo Cancelado / Descontinuado) â”€â”€ */
 .manage-permanence-wrap {
   background: rgba(8, 0, 16, 0.45);
   border: 1px solid var(--gold-border);
@@ -501,7 +504,7 @@ body {
 .status-perm-permanent { background: rgba(239, 68, 68, 0.14); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45); }
 .status-perm-temporary { background: rgba(56, 189, 248, 0.13); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.4); }
 
-/* ── Admin lists ────────────────────────────── */
+/* â”€â”€ Admin lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .admin-list { display: flex; flex-direction: column; gap: 10px; max-height: 640px; overflow-y: auto; padding-right: 4px; }
 
 .admin-item {
@@ -537,7 +540,7 @@ body {
 .admin-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .admin-item-title { font-weight: 700; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-item-sub { font-size: 0.74rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Info del proyecto (de qué trata): la descripción guardada en el formulario */
+/* Info del proyecto (de quÃ© trata): la descripciÃ³n guardada en el formulario */
 .admin-item-desc {
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
@@ -560,9 +563,9 @@ body {
   border: 1px solid var(--gold-border);
 }
 
-/* ── % de desarrollo dentro de la lista de Proyectos ──
+/* â”€â”€ % de desarrollo dentro de la lista de Proyectos â”€â”€
    Un proyecto anunciado puede seguir en desarrollo: la barra deja claro
-   que "visible en el catálogo" no es lo mismo que "terminado". */
+   que "visible en el catÃ¡logo" no es lo mismo que "terminado". */
 .proj-prog {
   display: flex; align-items: center; gap: 9px;
   margin-top: 6px; max-width: 340px;
@@ -600,7 +603,7 @@ body {
   border-radius: 999px; padding: 2px 9px;
 }
 
-/* ── Heroes por sección (mismo orden, distinto acento) ── */
+/* â”€â”€ Heroes por secciÃ³n (mismo orden, distinto acento) â”€â”€ */
 .manage-hero {
   border-color: rgba(168, 85, 247, 0.34);
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.09), rgba(18, 6, 32, 0.85) 60%);
@@ -616,7 +619,7 @@ body {
 .users-hero-icon { background: linear-gradient(135deg, rgba(52,211,153,0.22), rgba(168,85,247,0.18)); }
 .events-hero-icon { background: linear-gradient(135deg, rgba(56,189,248,0.24), rgba(168,85,247,0.16)); }
 
-/* ── Usuarios ── */
+/* â”€â”€ Usuarios â”€â”€ */
 .users-hero {
   border-color: rgba(52, 211, 153, 0.32);
   background: linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(18, 6, 32, 0.85) 60%);
@@ -658,7 +661,7 @@ body {
 }
 #user-balances-row { margin-top: 4px; }
 
-/* ── Usuarios: filtros por rol + lista categorizada ── */
+/* â”€â”€ Usuarios: filtros por rol + lista categorizada â”€â”€ */
 .users-filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 2px; }
 .users-group-title {
   display: flex; align-items: center; gap: 8px;
@@ -676,7 +679,7 @@ body {
   border: 1px solid var(--gold-border);
   border-radius: 999px; padding: 1px 10px;
 }
-/* Rol ADMIN: imposible de confundir — borde dorado + glow + avatar con escudo */
+/* Rol ADMIN: imposible de confundir â€” borde dorado + glow + avatar con escudo */
 .status-admin {
   background: linear-gradient(135deg, #f59e0b, #f97316);
   color: #1a0a05;
@@ -714,7 +717,7 @@ body {
   border: 1px solid var(--gold-border);
 }
 
-/* Filtro "mostrar también disponibles" */
+/* Filtro "mostrar tambiÃ©n disponibles" */
 .manage-filter-row {
   display: flex;
   align-items: center;
@@ -733,7 +736,7 @@ body {
 .manage-filter-row input { accent-color: var(--gold); width: 16px; height: 16px; cursor: pointer; }
 .manage-filter-row small { color: var(--text-muted); font-weight: 500; }
 
-/* Items de Gestión */
+/* Items de GestiÃ³n */
 .manage-admin-item {
   border-color: rgba(168, 85, 247, 0.45);
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(8, 0, 16, 0.5) 60%);
@@ -757,7 +760,7 @@ body {
   border-radius: var(--radius-sm);
 }
 
-/* ── Desarrollo (debajo de Gestión) ── */
+/* â”€â”€ Desarrollo (debajo de GestiÃ³n) â”€â”€ */
 .manage-dev-card { margin-top: 0; }
 .manage-dev-head { margin-bottom: 14px; }
 .manage-dev-head .btn { flex-shrink: 0; }
@@ -777,7 +780,7 @@ body {
 .dev-range { flex: 1; min-width: 140px; accent-color: var(--gold); cursor: pointer; }
 .dev-pct-sign { font-weight: 800; color: var(--gold-light); }
 
-/* ── Desarrollo como tabla ── */
+/* â”€â”€ Desarrollo como tabla â”€â”€ */
 .dev-table-wrap {
   overflow-x: auto; margin: 0; padding: 0;
   border: 1px solid rgba(255,255,255,0.06);
@@ -809,9 +812,9 @@ body {
 .dev-by b, .dev-when { color: var(--text-main); }
 .dev-actions { text-align: right; white-space: nowrap; }
 
-/* ═══════════════════════════════════════════════
-   PROGRESO — modo "Avance de hoy" vs "Ajuste total"
-   ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PROGRESO â€” modo "Avance de hoy" vs "Ajuste total"
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .devmode {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
   margin-bottom: 14px;
@@ -847,7 +850,7 @@ body {
   animation: tabIn 0.25s ease;
 }
 
-/* ── Marcador de proyecto al 100% (listo para fecha de lanzamiento) ── */
+/* â”€â”€ Marcador de proyecto al 100% (listo para fecha de lanzamiento) â”€â”€ */
 .dev-done {
   font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--success); background: rgba(52, 211, 153, 0.16);
@@ -855,7 +858,7 @@ body {
   border-radius: 999px; padding: 2px 8px;
 }
 
-/* ── Modal de desarrollo ── */
+/* â”€â”€ Modal de desarrollo â”€â”€ */
 .devmodal-overlay {
   position: fixed; inset: 0; z-index: 9000;
   display: flex; align-items: center; justify-content: center; padding: 24px;
@@ -866,13 +869,24 @@ body {
 .devmodal-card {
   width: 100%; max-width: 460px; padding: 30px;
   animation: modalIn 0.25s ease; position: relative;
+  /* Cada modal puede crecer con su contenido: si supera la pantalla, la
+     tarjeta hace scroll interno para que los botones finales siempre sean
+     alcanzables (antes se salÃ­an del viewport y quedaban recortados). */
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.35) transparent;
 }
-/* El wizard de devlog necesita más ancho: la comparación de % y los presets
+.devmodal-card::-webkit-scrollbar { width: 6px; }
+.devmodal-card::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.3); border-radius: 99px; }
+/* El wizard de devlog necesita mÃ¡s ancho: la comparaciÃ³n de % y los presets
    se leen mal en una caja angosta. */
 #devlog-modal .devmodal-card { max-width: 560px; }
-/* El modal de progreso tiene selector de modo + resumen: también más ancho. */
+/* El modal de progreso tiene selector de modo + resumen: tambiÃ©n mÃ¡s ancho. */
 #dev-modal .devmodal-card { max-width: 540px; }
-/* Modal detener/arrancar (ws-modal): necesita más ancho para el resumen
+/* Modal detener/arrancar (ws-modal): necesita mÃ¡s ancho para el resumen
    y scroll interno para que los botones finales siempre sean alcanzables. */
 #ws-modal .devmodal-card {
   max-width: 620px;
@@ -917,7 +931,7 @@ body {
 }
 .devmodal-bigpct small { color: var(--text-muted); font-size: 0.78rem; }
 .devmodal-bar { height: 12px; margin-bottom: 20px; }
-.devmodal-presets { display: flex; gap: 8px; margin-bottom: 18px; }
+.devmodal-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
 .devmodal-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 /* Campo decimal: type="text" (los type=number pelean con el separador).
    Se lee como un input normal pero centrado y monoespaciado para que los
@@ -945,7 +959,7 @@ body {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Tabla apilada en móvil */
+/* Tabla apilada en mÃ³vil */
 @media (max-width: 720px) {
   .dev-table thead { display: none; }
   .dev-table, .dev-table tbody, .dev-table tr, .dev-table td { display: block; width: 100%; }
@@ -962,7 +976,7 @@ body {
   .dev-actions .btn { width: 100%; }
 }
 
-/* Compat: grillas/cards antiguas de Gestión (por si quedan referencias) */
+/* Compat: grillas/cards antiguas de GestiÃ³n (por si quedan referencias) */
 .manage-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -982,9 +996,9 @@ body {
 .manage-card-empty { opacity: 0.85; border-style: dashed; }
 .manage-list-card { padding: 22px; }
 
-/* ═══════════════════════════════════════════════
-   NOTICIAS — hero + toolbar + layout form/preview/lista
-   ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   NOTICIAS â€” hero + toolbar + layout form/preview/lista
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .newsadm-hero {
   border-color: rgba(251, 191, 36, 0.34);
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(18, 6, 32, 0.86) 55%, rgba(168, 85, 247, 0.08));
@@ -1152,9 +1166,9 @@ body {
 .newsadm-empty p b { color: var(--text-main); }
 .newsadm-empty .btn { margin-top: 8px; }
 
-/* ═══════════════════════════════════════════════
-   EVENTOS — hero + stats + layout form/lista
-   ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   EVENTOS â€” hero + stats + layout form/lista
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .events-hero {
   border-color: rgba(56, 189, 248, 0.3);
   background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(18, 6, 32, 0.86) 55%, rgba(168, 85, 247, 0.09));
@@ -1409,10 +1423,10 @@ body {
 
 .dashboard-footer { text-align: center; margin-top: 30px; font-size: 0.74rem; color: var(--text-muted); }
 
-/* ═══════════════════════════════════════════════
-   DEVLOG — tabla de entradas + highlight + modal
-   Orden: cabecera fija → filas tarjeta → vacío integrado
-   ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   DEVLOG â€” tabla de entradas + highlight + modal
+   Orden: cabecera fija â†’ filas tarjeta â†’ vacÃ­o integrado
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .devlog-list-card { padding: 20px; }
 .devlog-table-wrap {
   overflow-x: auto;
@@ -1447,7 +1461,7 @@ body {
   vertical-align: middle;
 }
 .devlog-table tbody tr:last-child td { border-bottom: none; }
-/* Highlight: entradas nuevas (últimos 7 días) */
+/* Highlight: entradas nuevas (Ãºltimos 7 dÃ­as) */
 .devlog-table tbody tr.devlog-fresh td:first-child {
   box-shadow: inset 3px 0 0 var(--success);
   background: linear-gradient(90deg, rgba(52, 211, 153, 0.09), transparent 70%);
@@ -1466,8 +1480,8 @@ body {
 .devlog-td-actions .btn-mini { padding: 5px 9px; }
 .devlog-th-progress { width: 190px; }
 
-/* ── Mini-gráfica de progreso (registro de avance) ──
-   Base gris = % anterior · Tramo verde = lo que sumó este devlog. */
+/* â”€â”€ Mini-grÃ¡fica de progreso (registro de avance) â”€â”€
+   Base gris = % anterior Â· Tramo verde = lo que sumÃ³ este devlog. */
 .devlog-no-progress { font-size: 0.7rem; color: var(--text-dim); }
 .devlog-spark { display: flex; flex-direction: column; gap: 5px; min-width: 132px; }
 .devlog-spark-bar {
@@ -1508,12 +1522,12 @@ body {
   border-radius: 999px; padding: 0 7px;
 }
 
-/* Texto de filas (título / descripción / fecha) */
+/* Texto de filas (tÃ­tulo / descripciÃ³n / fecha) */
 .news-item-title { display: block; font-weight: 700; font-size: 0.9rem; line-height: 1.35; }
 .news-item-desc { display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; line-height: 1.5; max-width: 44ch; }
 .news-item-date { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
 
-/* Estado vacío — integrado a la tabla, no una caja punteada gigante */
+/* Estado vacÃ­o â€” integrado a la tabla, no una caja punteada gigante */
 .news-empty {
   text-align: center; padding: 44px 20px;
   border-top: 1px dashed rgba(255,255,255,0.1);
@@ -1535,9 +1549,9 @@ body {
 .modal-about-title { font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gold-light); margin-bottom: 6px; }
 .modal-about-text { font-size: 0.86rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 
-/* ═══════════════════════════════════════════════
-   DEVLOG — wizard de 2 pasos + confirmación de % 
-   ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   DEVLOG â€” wizard de 2 pasos + confirmaciÃ³n de % 
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .devstep-tag {
   display: inline-block; margin: 2px 0 14px;
   font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
@@ -1556,7 +1570,7 @@ body {
 }
 .dev-next-hint b { color: #d8b4fe; }
 
-/* Bloque "¿aumentó el %?" */
+/* Bloque "Â¿aumentÃ³ el %?" */
 .dev-impact {
   display: flex; flex-direction: column; gap: 12px;
   background: rgba(8, 0, 16, 0.45);
@@ -1595,7 +1609,7 @@ body {
   border: 1px solid var(--gold-border); border-radius: 8px; padding: 7px 9px;
 }
 
-/* Resumen ANTES → DESPUÉS (lo que el usuario confirma) */
+/* Resumen ANTES â†’ DESPUÃ‰S (lo que el usuario confirma) */
 .dev-confirm {
   background: linear-gradient(135deg, rgba(52, 211, 153, 0.1), rgba(8, 0, 16, 0.6) 65%);
   border: 1px solid rgba(52, 211, 153, 0.35);
@@ -1663,9 +1677,9 @@ body {
 
 .dashboard-footer { text-align: center; margin-top: 8px; padding: 14px 0 4px; font-size: 0.74rem; color: var(--text-dim); }
 
-/* ═══════════════════════════════════════════════
-   ANALYTICS — gráfica de barras + TOPs
-   ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ANALYTICS â€” grÃ¡fica de barras + TOPs
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .an-range-btns { display: flex; gap: 6px; }
 .an-range-btns .btn.is-on { border-color: var(--gold); color: var(--gold); background: rgba(251, 191, 36, 0.08); }
 .an-chart { overflow-x: auto; padding: 14px 4px 2px; }
@@ -1744,11 +1758,11 @@ body {
   transition: width 0.3s ease;
 }
 
-/* ═══════════════════════════════════════════════
-   ANALYTICS — HISTÓRICO DE SUBIDAS + ESFUERZO POR ADMIN
-   Gráfica con todos los días en que el % subió (sin recorte
-   7/14/30) + tabla día por día + ranking de esfuerzo.
-   ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ANALYTICS â€” HISTÃ“RICO DE SUBIDAS + ESFUERZO POR ADMIN
+   GrÃ¡fica con todos los dÃ­as en que el % subiÃ³ (sin recorte
+   7/14/30) + tabla dÃ­a por dÃ­a + ranking de esfuerzo.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .an-effort-card { margin-top: 0; }
 .an-effort-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .an-effort-badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
@@ -1782,19 +1796,19 @@ body {
   .an-effort-controls .an-top-select { flex: 1; min-width: 0; }
 }
 
-/* ═══════════════════════════════════════════════
-   ACTIVIDAD 14 DÍAS — bitácora diaria autogenerada
-   Una fila por proyecto, una columna por día (DIA/MES).
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ACTIVIDAD 14 DÃAS â€” bitÃ¡cora diaria autogenerada
+   Una fila por proyecto, una columna por dÃ­a (DIA/MES).
    La tabla es ancha por naturaleza: el contenedor
    hace scroll horizontal y las dos primeras columnas
    quedan fijas para no perder el nombre del proyecto.
-   ═══════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .pax-hero-icon { background: linear-gradient(135deg, rgba(56,189,248,0.26), rgba(168,85,247,0.14)); }
 .pax-inline-up { color: var(--success); font-weight: 700; }
 .pax-inline-down { color: var(--danger); font-weight: 700; }
 .pax-list-card { padding: 20px; }
 
-/* ── Barra de herramientas ── */
+/* â”€â”€ Barra de herramientas â”€â”€ */
 .pax-toolbar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
 .pax-toolbar-row {
   display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap;
@@ -1824,7 +1838,7 @@ body {
 }
 .pax-legend-item small { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.02em; }
 
-/* ── Franja resumen de los 14 días ── */
+/* â”€â”€ Franja resumen de los 14 dÃ­as â”€â”€ */
 .pax-daystrip {
   display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px;
 }
@@ -1845,14 +1859,14 @@ body {
 .pax-day-ev { font-size: 0.62rem; font-weight: 700; color: var(--text-dim); }
 .pax-day.is-today { border-color: var(--gold-border-strong); background: var(--gold-dim); }
 .pax-day.is-today .pax-day-wd { color: var(--gold-light); }
-/* Intensidad = cantidad de eventos de ese día */
+/* Intensidad = cantidad de eventos de ese dÃ­a */
 .pax-day.lv-1 .pax-day-ev { color: var(--success); }
 .pax-day.lv-2 { background: rgba(52, 211, 153, 0.09); border-color: rgba(52, 211, 153, 0.32); }
 .pax-day.lv-2 .pax-day-ev { color: var(--success); }
 .pax-day.lv-3 { background: rgba(52, 211, 153, 0.17); border-color: rgba(52, 211, 153, 0.5); }
 .pax-day.lv-3 .pax-day-ev { color: var(--success); }
 
-/* ── Tabla ── */
+/* â”€â”€ Tabla â”€â”€ */
 .pax-table-wrap {
   overflow: auto; max-height: 68vh;
   border: 1px solid rgba(255,255,255,0.06);
@@ -1905,7 +1919,7 @@ body {
 .pax-tr-general .pax-td-proj { background: rgba(10, 4, 20, 0.96); }
 .pax-tr-general { border-top: 1px dashed var(--gold-border-strong); }
 
-/* Celdas de día */
+/* Celdas de dÃ­a */
 .pax-cell { text-align: center; padding: 7px 4px !important; }
 .pax-cell.is-empty { background: transparent; }
 .pax-cell.is-active { cursor: pointer; transition: background 0.14s ease, box-shadow 0.14s ease; }
@@ -1913,7 +1927,7 @@ body {
 .pax-cell:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .pax-cell.is-today { background: rgba(245, 158, 11, 0.07); }
 .pax-cell.is-today.is-empty { background: rgba(245, 158, 11, 0.04); }
-/* Intensidad = cuántos eventos pasaron ese día en ese proyecto */
+/* Intensidad = cuÃ¡ntos eventos pasaron ese dÃ­a en ese proyecto */
 .pax-cell.lv-2 { background: rgba(52, 211, 153, 0.05); }
 .pax-cell.lv-3 { background: rgba(52, 211, 153, 0.11); }
 .pax-cell.is-focus { background: rgba(245, 158, 11, 0.15) !important; box-shadow: inset 1px 0 0 var(--gold-border-strong), inset -1px 0 0 var(--gold-border-strong); }
@@ -1934,7 +1948,7 @@ body {
 .pax-chip-launch { color: #fb923c; border-color: rgba(249, 115, 22, 0.5); background: rgba(249, 115, 22, 0.15); }
 .pax-chip-due { color: #cbd5e1; border-color: rgba(203, 213, 225, 0.35); background: rgba(203, 213, 225, 0.1); }
 
-/* Neto del día / del periodo: verde si suma, rojo si resta */
+/* Neto del dÃ­a / del periodo: verde si suma, rojo si resta */
 .pax-net {
   display: inline-block; font-size: 0.7rem; font-weight: 800; white-space: nowrap;
   padding: 1px 6px; border-radius: 999px; border: 1px solid transparent;
@@ -1950,7 +1964,7 @@ body {
 }
 .pax-tr.is-quiet .pax-td-proj .dev-cell-proj-info strong { color: var(--text-muted); }
 
-/* ── Detalle desplegado ── */
+/* â”€â”€ Detalle desplegado â”€â”€ */
 .pax-detail-row td {
   padding: 0 !important;
   background: rgba(8, 0, 16, 0.5);
@@ -1976,7 +1990,7 @@ body {
 .pax-detail-title { font-size: 0.82rem; line-height: 1.5; color: var(--text-main); }
 .pax-detail-meta { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); margin-top: 2px; }
 
-/* ── Pie: eventos y neto por día ── */
+/* â”€â”€ Pie: eventos y neto por dÃ­a â”€â”€ */
 .pax-table tfoot td, .pax-table tfoot th {
   position: sticky; bottom: 0; z-index: 2;
   padding: 9px 8px;
@@ -2010,16 +2024,16 @@ body {
   display: inline-block; font-size: 0.62rem; font-weight: 700; color: #7dd3fc;
   background: rgba(56, 189, 248, 0.1); border-radius: 999px; padding: 0 6px;
 }
-/* Chips de sesión de trabajo y cruce de medianoche */
+/* Chips de sesiÃ³n de trabajo y cruce de medianoche */
 .pax-chip-session { color: #7dd3fc; border-color: rgba(56, 189, 248, 0.5); background: rgba(56, 189, 248, 0.14); }
 .pax-chip-cont { color: #d8b4fe; border-color: rgba(168, 85, 247, 0.55); background: rgba(168, 85, 247, 0.18); }
 .pax-chip-roll { color: #fb923c; border-color: rgba(249, 115, 22, 0.5); background: rgba(249, 115, 22, 0.16); }
 .pax-chip-shipped { color: var(--text-muted); border-color: rgba(148, 163, 184, 0.35); background: rgba(148, 163, 184, 0.12); }
 
-/* ═══════════════════════════════════════════════
-   SESIONES DE TRABAJO — minidevlogs del momento
-   Tarjeta del día, línea de tiempo y devlog combinado.
-   ═══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SESIONES DE TRABAJO â€” minidevlogs del momento
+   Tarjeta del dÃ­a, lÃ­nea de tiempo y devlog combinado.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .ws-card, .ws-daily-card { padding: 20px; margin-bottom: 16px; }
 .ws-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ws-head-actions input[type="date"] {
@@ -2038,7 +2052,7 @@ body {
   padding: 1px 10px; font-variant-numeric: tabular-nums;
 }
 
-/* Aviso de estado del día */
+/* Aviso de estado del dÃ­a */
 .ws-banner {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
@@ -2049,7 +2063,7 @@ body {
 .ws-banner b { color: var(--gold-light); }
 .ws-banner-icon { font-size: 1rem; }
 
-/* ── Formulario ── */
+/* â”€â”€ Formulario â”€â”€ */
 .ws-form {
   background: var(--bg-inset);
   border: 1px solid var(--gold-border);
@@ -2094,6 +2108,7 @@ body {
 }
 .ws-field input[type="datetime-local"] { font-variant-numeric: tabular-nums; }
 .ws-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ws-field-row > * { min-width: 0; }
 .ws-field .form-hint { margin-top: 2px; }
 .ws-delta { display: flex; align-items: center; gap: 10px; }
 .ws-delta input[type="range"] { flex: 1; accent-color: var(--success); cursor: pointer; }
@@ -2102,7 +2117,7 @@ body {
 .ws-form-actions { display: flex; gap: 10px; margin-top: 4px; }
 .ws-form-actions .btn { flex: 1; }
 
-/* ── Línea de tiempo del día ── */
+/* â”€â”€ LÃ­nea de tiempo del dÃ­a â”€â”€ */
 .ws-timeline { display: flex; flex-direction: column; gap: 16px; }
 .ws-view-toggle { display: inline-flex; gap: 6px; margin-right: 2px; }
 .ws-view-btn.is-on {
@@ -2201,13 +2216,13 @@ body {
 .ws-delta.is-down { color: var(--danger); background: rgba(248, 113, 113, 0.16); border-color: rgba(248, 113, 113, 0.45); }
 .ws-delta.is-none { color: var(--text-dim); }
 
-/* Vacío */
+/* VacÃ­o */
 .ws-empty { text-align: center; padding: 26px 16px; }
 .ws-empty-icon { font-size: 2rem; display: block; margin-bottom: 8px; opacity: 0.85; }
 .ws-empty-title { font-weight: 700; margin-bottom: 4px; }
 .ws-empty-sub { font-size: 0.8rem; color: var(--text-muted); max-width: 46ch; margin: 0 auto 12px; }
 
-/* ── Devlog del día (combinación) ── */
+/* â”€â”€ Devlog del dÃ­a (combinaciÃ³n) â”€â”€ */
 .ws-daily { display: flex; flex-direction: column; gap: 12px; }
 .ws-daily-pending {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -2261,7 +2276,7 @@ body {
 .ws-line-title { color: var(--text-main); font-weight: 600; }
 .ws-line-mark { font-size: 0.68rem; color: #d8b4fe; font-weight: 700; }
 
-/* Devlog del día en la tabla de entradas */
+/* Devlog del dÃ­a en la tabla de entradas */
 .devlog-daily-badge {
   display: inline-block; font-size: 0.62rem; font-weight: 800;
   letter-spacing: 0.05em; padding: 2px 9px; border-radius: 999px; white-space: nowrap;
@@ -2269,7 +2284,7 @@ body {
   border: 1px solid var(--gold-border-strong); margin-left: 6px; vertical-align: 1px;
 }
 
-/* ── Sesión EN TIEMPO REAL ── */
+/* â”€â”€ SesiÃ³n EN TIEMPO REAL â”€â”€ */
 .ws-start-btn, .ws-stop-btn {
   color: #06120c; font-weight: 800;
   background: linear-gradient(135deg, #34d399, #10b981);
@@ -2293,7 +2308,7 @@ body {
   50% { box-shadow: 0 0 26px rgba(52, 211, 153, 0.6); }
 }
 
-/* Barras de sesiones corriendo: una fila por cronómetro (multi en vivo) */
+/* Barras de sesiones corriendo: una fila por cronÃ³metro (multi en vivo) */
 .ws-live-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .ws-live-list.hidden { display: none; }
 .ws-live-bar,
@@ -2383,7 +2398,7 @@ body {
 .ws-item.is-live .ws-item-body { border-color: rgba(52, 211, 153, 0.5); }
 .ws-daily-lines li.is-live { border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.07); }
 
-/* ── Los tres finales de un bloque: completada / interrumpida / a medias ── */
+/* â”€â”€ Los tres finales de un bloque: completada / interrumpida / a medias â”€â”€ */
 .ws-comp {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2449,7 +2464,7 @@ body {
 .form-hint.is-ok { color: var(--success); }
 .form-hint.is-warn { color: var(--danger); }
 
-/* Botón de pausa: el mismo verde del cronómetro, pero "pausar" y no "detener". */
+/* BotÃ³n de pausa: el mismo verde del cronÃ³metro, pero "pausar" y no "detener". */
 .btn-ws-pause {
   color: #fbbf24; background: rgba(251, 191, 36, 0.15);
   border: 1px solid rgba(251, 191, 36, 0.55);
@@ -2461,7 +2476,7 @@ body {
 }
 .btn-ws-inc:hover { color: #fdba74; background: rgba(251, 146, 60, 0.24); border-color: rgba(251, 146, 60, 0.8); }
 
-/* ── Barra de las sesiones pausadas (interrumpidas, esperando ser retomadas) ── */
+/* â”€â”€ Barra de las sesiones pausadas (interrumpidas, esperando ser retomadas) â”€â”€ */
 .ws-paused-bar {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   background: rgba(251, 191, 36, 0.1);
@@ -2474,7 +2489,7 @@ body {
 .ws-paused-info b { color: #fde68a; }
 .ws-paused-info em { font-style: normal; color: var(--text-dim); }
 
-/* ── La historia de una sesión interrumpida ── */
+/* â”€â”€ La historia de una sesiÃ³n interrumpida â”€â”€ */
 .ws-story { margin-top: 8px; }
 .ws-story-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .ws-story-chip {
@@ -2495,11 +2510,11 @@ body {
   font-size: 0.72rem; font-weight: 700; color: var(--text-dim);
 }
 .ws-story-more > summary::-webkit-details-marker { display: none; }
-.ws-story-more > summary::before { content: '▸ '; }
-.ws-story-more[open] > summary::before { content: '▾ '; }
+.ws-story-more > summary::before { content: 'â–¸ '; }
+.ws-story-more[open] > summary::before { content: 'â–¾ '; }
 .ws-story-more > summary:hover { color: var(--text-muted); }
 
-/* ── Cambios registrados en vivo: qué se hizo y a qué hora ── */
+/* â”€â”€ Cambios registrados en vivo: quÃ© se hizo y a quÃ© hora â”€â”€ */
 .ws-change-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; max-height: 260px; overflow-y: auto; padding-right: 4px; }
 .ws-change-item { display: flex; gap: 10px; }
 .ws-change-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; background: var(--success); box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16); }
@@ -2544,9 +2559,9 @@ body {
   border: 1px solid rgba(52, 211, 153, 0.4); border-radius: var(--radius-sm); padding: 8px 4px; outline: none;
 }
 .ws-change-delta-num:focus { border-color: var(--success); box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.12); }
-/* Selector de tamaño del cambio (modal): una tarjeta por tamaño. */
+/* Selector de tamaÃ±o del cambio (modal): una tarjeta por tamaÃ±o. */
 .ws-kind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
-.ws-kind { cursor: pointer; }
+.ws-kind { cursor: pointer; position: relative; }
 .ws-kind input { position: absolute; opacity: 0; pointer-events: none; }
 .ws-kind > span {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
@@ -2617,14 +2632,14 @@ body {
 .ws-story-totals { font-size: 0.72rem; color: var(--text-dim); margin: 6px 0 0; }
 .ws-story-totals b { color: var(--text-muted); }
 
-/* ═══════════════════════════════════════════════════════
-   REWORKS — cambios masivos (cambios conectados entre sí)
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   REWORKS â€” cambios masivos (cambios conectados entre sÃ­)
    Un rework agrupa los cambios que son parte del mismo trabajo
    grande. Su color viene del propio rework (--rw) y el estado
-   sale de la sesión: si la sesión se pausa, el rework también.
-   ═══════════════════════════════════════════════════════ */
+   sale de la sesiÃ³n: si la sesiÃ³n se pausa, el rework tambiÃ©n.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* Estado del rework: la pastillita que dice si va, si espera o si está listo. */
+/* Estado del rework: la pastillita que dice si va, si espera o si estÃ¡ listo. */
 .ws-rw-state {
   display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
   font-size: 0.66rem; font-weight: 800; letter-spacing: 0.02em;
@@ -2635,12 +2650,12 @@ body {
 .ws-rw-state.is-pending { color: #38bdf8; background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.45); }
 .ws-rw-state.is-done { color: var(--text-muted); background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.14); }
 
-/* Selector de tipo de grupo: el <i> lleva emoji, no el puntito de tamaño. */
+/* Selector de tipo de grupo: el <i> lleva emoji, no el puntito de tamaÃ±o. */
 .ws-rework-kind-grid .ws-kind > span > i {
   width: auto; height: auto; border-radius: 0; background: none;
   font-size: 1.05rem; font-style: normal; flex-shrink: 0;
 }
-/* Tipo de grupo: rework (revamp/rediseño) o trabajo grande (se destaca). */
+/* Tipo de grupo: rework (revamp/rediseÃ±o) o trabajo grande (se destaca). */
 .ws-rw-kind {
   display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
   font-size: 0.66rem; font-weight: 800; letter-spacing: 0.02em;
@@ -2648,7 +2663,7 @@ body {
 }
 .ws-rw-kind.is-rework { color: #6ee7b7; background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.4); }
 .ws-rw-kind.is-major { color: #fcd34d; background: rgba(245, 158, 11, 0.14); border-color: rgba(245, 158, 11, 0.55); }
-/* Trabajo grande: cabecera y tarjeta con más presencia + su % bien visible. */
+/* Trabajo grande: cabecera y tarjeta con mÃ¡s presencia + su % bien visible. */
 .ws-rw-head.is-major {
   border-width: 2px;
   box-shadow: 0 0 18px color-mix(in srgb, var(--rw) 35%, transparent);
@@ -2668,12 +2683,12 @@ body {
 .ws-rw-chip > i { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .ws-rw-chip > b { font-weight: 800; opacity: 0.92; }
 
-/* Tira de reworks de una sesión (fila del timeline / barra en vivo). */
+/* Tira de reworks de una sesiÃ³n (fila del timeline / barra en vivo). */
 .ws-rw-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 7px 0 2px; }
 .ws-rw-strip-label { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
 .ws-rw-strip-hint { font-size: 0.64rem; color: var(--text-dim); }
 
-/* ── Cabecera de un grupo de cambios de un mismo rework ── */
+/* â”€â”€ Cabecera de un grupo de cambios de un mismo rework â”€â”€ */
 .ws-rw-head {
   position: relative; display: flex; align-items: flex-start; gap: 10px;
   margin: 12px 0 2px; padding: 9px 11px 9px 13px;
@@ -2699,7 +2714,7 @@ body {
 /* El rework cambia el color de fondo del cuerpo del cambio. */
 .ws-change-item.is-rw .ws-change-body { background: rgba(8, 0, 16, 0.62); }
 
-/* ── Bloque del rework dentro del modal "Registrar cambio" ── */
+/* â”€â”€ Bloque del rework dentro del modal "Registrar cambio" â”€â”€ */
 .ws-rw-block {
   display: flex; flex-direction: column; gap: 8px; margin: 12px 0;
   padding: 12px 13px; border-radius: var(--radius-md);
@@ -2710,8 +2725,8 @@ body {
 /* El rework es opcional (solo trabajos muy grandes): vive colapsado. */
 .ws-rw-details > summary { cursor: pointer; list-style: none; }
 .ws-rw-details > summary::-webkit-details-marker { display: none; }
-.ws-rw-details > summary::before { content: '▸ '; color: var(--text-muted); }
-.ws-rw-details[open] > summary::before { content: '▾ '; }
+.ws-rw-details > summary::before { content: 'â–¸ '; color: var(--text-muted); }
+.ws-rw-details[open] > summary::before { content: 'â–¾ '; }
 .ws-rw-row { display: flex; gap: 8px; align-items: center; }
 .ws-rw-row select {
   flex: 1; min-width: 0; font-family: inherit; font-size: 0.82rem; font-weight: 700; color: var(--text-main);
@@ -2732,7 +2747,7 @@ body {
   background: rgba(8, 0, 16, 0.6); border: 1px solid rgba(168, 85, 247, 0.45); border-radius: var(--radius-sm);
 }
 
-/* Tarjeta del rework elegido: su estado y qué lleva. */
+/* Tarjeta del rework elegido: su estado y quÃ© lleva. */
 .ws-rw-card {
   display: flex; flex-direction: column; gap: 5px;
   padding: 10px 12px; border-radius: var(--radius-sm);
@@ -2752,7 +2767,7 @@ body {
 }
 .ws-rw-card.is-paused .ws-rw-card-warn { color: #fbbf24; }
 
-/* Selector de rework en la fila inline del modal de detener: oculto tras 🧩. */
+/* Selector de rework en la fila inline del modal de detener: oculto tras ðŸ§©. */
 .ws-change-rework-wrap { display: inline-flex; align-items: center; gap: 6px; }
 .ws-change-rework-wrap.hidden { display: none; }
 [id^="ws-change-rework-toggle-inline"].is-on {
@@ -2782,7 +2797,7 @@ body {
   border-radius: 999px; padding: 2px 9px; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* ── Reworks en la barra de sesiones pausadas ── */
+/* â”€â”€ Reworks en la barra de sesiones pausadas â”€â”€ */
 .ws-paused-reworks {
   display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 6px;
 }
@@ -2797,7 +2812,7 @@ body {
 .ws-paused-rw > b { color: var(--rw); font-weight: 800; }
 .ws-paused-rw-hint { font-size: 0.64rem; color: var(--text-dim); }
 
-/* ── Panel de reworks ── */
+/* â”€â”€ Panel de reworks â”€â”€ */
 .ws-reworks {
   margin: 14px 0; padding: 14px 15px; border-radius: var(--radius-md);
   background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(168, 85, 247, 0.28);
@@ -2867,7 +2882,7 @@ body {
 /* Dentro del panel el listado de cambios no hace falta scrollear tanto. */
 .ws-rw-detail .ws-change-list { max-height: 340px; }
 
-/* ── Sesión pausada: el bloque queda a la espera, no cerrado ── */
+/* â”€â”€ SesiÃ³n pausada: el bloque queda a la espera, no cerrado â”€â”€ */
 .ws-item.is-paused .ws-item-body { border-color: rgba(251, 191, 36, 0.42); background: rgba(251, 191, 36, 0.06); border-left: 3px solid #fbbf24; }
 .ws-item.is-resumed .ws-item-body { border-left: 3px solid #38bdf8; }
 .ws-mark.is-paused {
@@ -2876,7 +2891,7 @@ body {
   max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* ── Pausas del formulario manual ── */
+/* â”€â”€ Pausas del formulario manual â”€â”€ */
 .ws-breaks-field {
   background: rgba(251, 191, 36, 0.05);
   border: 1px solid rgba(251, 191, 36, 0.22);
@@ -2904,7 +2919,7 @@ body {
 }
 .ws-break-reason:focus { outline: none; border-color: rgba(251, 191, 36, 0.55); }
 
-/* ── Resumen del día: pausadas y retomadas ── */
+/* â”€â”€ Resumen del dÃ­a: pausadas y retomadas â”€â”€ */
 .ws-daily-pause {
   display: inline-block; font-size: 0.7rem; font-weight: 800;
   color: #fbbf24; background: rgba(251, 191, 36, 0.15);
@@ -2936,7 +2951,7 @@ body {
 .pax-row-tag.is-resume { color: #7dd3fc; background: rgba(56, 189, 248, 0.14); border-color: rgba(56, 189, 248, 0.45); }
 .pax-row-tag.is-tramos { color: #c4b5fd; background: rgba(139, 92, 246, 0.14); border-color: rgba(167, 139, 250, 0.45); }
 
-/* ── Marcas: incompleta ── */
+/* â”€â”€ Marcas: incompleta â”€â”€ */
 .ws-mark.is-incomplete {
   color: #fb923c; background: rgba(251, 146, 60, 0.15);
   border-color: rgba(251, 146, 60, 0.5);
@@ -2958,7 +2973,7 @@ body {
 }
 .pax-chip-incomplete { color: #fb923c; border-color: rgba(251, 146, 60, 0.55); background: rgba(251, 146, 60, 0.16); }
 
-/* ── Responsive ─────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* ============================================================
    INCIDENTES - status page + registro de incidentes
    ============================================================
@@ -2994,8 +3009,8 @@ body {
 /* --- Banner: el estado general del ecosistema --- */
 .inc-banner,
 .inc-comp-card {
-  /* Fondo sólido + sin blur: el glass con blur fallaba al componer y se
-     veía como un rectángulo negro tapando los componentes. */
+  /* Fondo sÃ³lido + sin blur: el glass con blur fallaba al componer y se
+     veÃ­a como un rectÃ¡ngulo negro tapando los componentes. */
   background: var(--bg-card-solid);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -3031,7 +3046,7 @@ body {
 
 /* --- Selectores del formulario (tipo + gravedad) --- */
 .inc-cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
-.inc-cat { cursor: pointer; }
+.inc-cat { cursor: pointer; position: relative; }
 .inc-cat input { position: absolute; opacity: 0; pointer-events: none; }
 .inc-cat > span {
   display: flex; flex-direction: column; gap: 2px;
@@ -3052,7 +3067,7 @@ body {
 }
 
 .inc-sev-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.inc-sev { cursor: pointer; }
+.inc-sev { cursor: pointer; position: relative; }
 .inc-sev input { position: absolute; opacity: 0; pointer-events: none; }
 .inc-sev > span {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
@@ -3135,7 +3150,7 @@ body {
 .inc-card-impact b { color: var(--gold-light); font-weight: 700; }
 .inc-card-resolution b { color: var(--success); }
 
-/* Historial apilado: una tarjeta por actualización, una debajo de la otra.
+/* Historial apilado: una tarjeta por actualizaciÃ³n, una debajo de la otra.
    Con scroll interno para que un incidente con muchas notas no estire la
    tarjeta hasta el infinito. */
 .inc-card-history {
@@ -3322,12 +3337,12 @@ body {
   .inc-modal-times { grid-template-columns: 1fr; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ADMIN V2 — sistema de layout: sidebar + héroe + workspace
-   (formulario de creación a la izquierda, datos a la derecha)
-   ═══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ADMIN V2 â€” sistema de layout: sidebar + hÃ©roe + workspace
+   (formulario de creaciÃ³n a la izquierda, datos a la derecha)
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* —— 01 · Contenedor general ——————————————— */
+/* â€”â€” 01 Â· Contenedor general â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .panel-wrap {
   max-width: 1560px;
   padding: 20px 24px 48px;
@@ -3341,7 +3356,7 @@ body {
   min-width: 0;
 }
 
-/* —— 02 · Sidebar —————————————————————————— */
+/* â€”â€” 02 Â· Sidebar â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .admin-sidebar {
   width: 264px;
   gap: 8px;
@@ -3352,7 +3367,7 @@ body {
 }
 .panel-tabs { gap: 4px; }
 
-/* Pestaña: pastilla con indicador lateral + icono */
+/* PestaÃ±a: pastilla con indicador lateral + icono */
 .ptab {
   position: relative;
   display: flex; align-items: center; gap: 10px;
@@ -3392,7 +3407,7 @@ body {
 .sidebar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .sidebar-actions .btn { width: 100%; }
 
-/* —— 03 · Héroe de sección (icon · info+stats · acciones) —— */
+/* â€”â€” 03 Â· HÃ©roe de secciÃ³n (icon Â· info+stats Â· acciones) â€”â€” */
 .page-head {
   align-items: center;
   gap: 18px;
@@ -3422,7 +3437,7 @@ body {
   margin-left: auto; align-items: center;
 }
 
-/* Fila de estadísticas: pastillas compactas y legibles */
+/* Fila de estadÃ­sticas: pastillas compactas y legibles */
 .events-stats, .newsadm-stats {
   display: flex; flex-wrap: wrap; gap: 8px;
   margin-top: 6px;
@@ -3436,8 +3451,8 @@ body {
 .ev-stat-num, .newsadm-stat strong { font-size: 1.15rem; }
 .manage-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 
-/* —— 04 · Workspace: crear (izq) + datos (der) ——————— */
-/* Las tres variantes comparten el mismo patrón */
+/* â€”â€” 04 Â· Workspace: crear (izq) + datos (der) â€”â€”â€”â€”â€”â€”â€” */
+/* Las tres variantes comparten el mismo patrÃ³n */
 .panel-grid,
 .events-layout,
 .newsadm-layout {
@@ -3447,16 +3462,16 @@ body {
   align-items: start;
 }
 
-/* —— 05 · Tarjeta de formulario ————————————————————— */
+/* â€”â€” 05 Â· Tarjeta de formulario â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .form-card, .newsadm-form-card, .events-form-card {
   padding: 22px;
   border-radius: 20px;
-  /* Sin scroll interno: la página manda (adiós doble scrollbar) */
+  /* Sin scroll interno: la pÃ¡gina manda (adiÃ³s doble scrollbar) */
   position: static;
   max-height: none;
   overflow: visible;
 }
-/* Cabecera del formulario: título + estado, siempre visible y ordenada */
+/* Cabecera del formulario: tÃ­tulo + estado, siempre visible y ordenada */
 .events-form-head, .newsadm-form-head {
   padding-bottom: 14px;
   margin-bottom: 16px;
@@ -3488,7 +3503,7 @@ body {
 .newsadm-form-card .btn-block,
 .events-form-card .btn-block { margin-top: 10px; }
 
-/* Dropzone más limpia */
+/* Dropzone mÃ¡s limpia */
 .ev-dropzone {
   border-style: dashed;
   border-width: 1.5px;
@@ -3500,14 +3515,14 @@ body {
   background: rgba(245, 158, 11, 0.05);
 }
 
-/* —— 06 · Tarjeta de datos (lista/tabla) ————————————— */
+/* â€”â€” 06 Â· Tarjeta de datos (lista/tabla) â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .list-card, .newsadm-list-card, .events-list-card {
   padding: 22px;
   border-radius: 20px;
   min-width: 0;
   min-height: 420px;
 }
-/* Cabecera de la lista: título + descripción */
+/* Cabecera de la lista: tÃ­tulo + descripciÃ³n */
 .card-head { margin-bottom: 14px; }
 .newsadm-list-head { margin-bottom: 14px; }
 .events-count-row {
@@ -3540,20 +3555,20 @@ body {
 .admin-item { transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease; }
 .admin-item:hover { border-color: var(--gold-border-strong); transform: translateY(-1px); }
 
-/* Estado vacío centrado y respirable */
+/* Estado vacÃ­o centrado y respirable */
 .news-empty { padding: 48px 20px; }
 
 /* Tablas (devlog, incidentes, informes): cabecera fija legible */
 .devlog-table-wrap, .inc-table-wrap, .pax-table-wrap { border-radius: 14px; }
 
-/* —— 07 · Formularios: ritmo y foco —————————————————— */
+/* â€”â€” 07 Â· Formularios: ritmo y foco â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .field-group { margin-bottom: 14px; }
 .field-group:last-child { margin-bottom: 0; }
 
-/* —— 08 · Transición al cambiar de pestaña ——————————— */
+/* â€”â€” 08 Â· TransiciÃ³n al cambiar de pestaÃ±a â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .tab-content { animation: tabIn 0.3s ease; }
 
-/* —— 09 · Responsive del sistema V2 —————————————————— */
+/* â€”â€” 09 Â· Responsive del sistema V2 â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 @media (max-width: 1280px) {
   .panel-grid, .events-layout, .newsadm-layout { grid-template-columns: minmax(340px, 360px) minmax(0, 1fr); }
 }
@@ -3568,10 +3583,10 @@ body {
   .admin-shell { flex-direction: column; align-items: stretch; gap: 12px; }
 
   /* La barra lateral deja de ser una tarjeta: sus hijos pasan a ser
-     elementos del shell. Así la navegación puede quedarse pegada arriba
+     elementos del shell. AsÃ­ la navegaciÃ³n puede quedarse pegada arriba
      (sticky se limita al contenedor: dentro de la tarjeta corta se iba
-     con apenas unos píxeles de scroll). El orden manda: marca → nav →
-     contenido → perfil. */
+     con apenas unos pÃ­xeles de scroll). El orden manda: marca â†’ nav â†’
+     contenido â†’ perfil. */
   .admin-sidebar { display: contents; }
   .nav-brand { order: 1; padding: 2px; }
   .admin-nav { order: 2; }
@@ -3579,7 +3594,7 @@ body {
   .sidebar-spacer { display: none; }
   .sidebar-footer { order: 4; }
 
-  /* Navegación pegada arriba: las pestañas quedan siempre a la mano */
+  /* NavegaciÃ³n pegada arriba: las pestaÃ±as quedan siempre a la mano */
   .admin-nav {
     position: sticky; top: 0; z-index: 60;
     display: flex; flex-direction: column; gap: 8px;
@@ -3593,8 +3608,8 @@ body {
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
   }
 
-  /* Tira de secciones: pastillas táctiles con scroll horizontal visible
-     (con la scrollbar oculta no había ninguna pista de que hay más tabs). */
+  /* Tira de secciones: pastillas tÃ¡ctiles con scroll horizontal visible
+     (con la scrollbar oculta no habÃ­a ninguna pista de que hay mÃ¡s tabs). */
   .panel-tabs {
     flex-direction: row; gap: 6px;
     overflow-x: auto; overflow-y: hidden;
@@ -3629,7 +3644,7 @@ body {
 
   .admin-nav-divider { display: none; }
 
-  /* Sub-secciones: segunda tira de pastillas (la etiqueta sobra en móvil) */
+  /* Sub-secciones: segunda tira de pastillas (la etiqueta sobra en mÃ³vil) */
   .sub-tabs {
     flex-direction: row; align-items: center;
     gap: 8px;
@@ -3676,7 +3691,7 @@ body {
   .newsadm-form-card, .events-form-card { top: 0; }
 }
 
-/* Móvil angosto: pastillas más compactas para que quepan más por pantalla */
+/* MÃ³vil angosto: pastillas mÃ¡s compactas para que quepan mÃ¡s por pantalla */
 @media (max-width: 480px) {
   .ptab { padding: 8px 12px; font-size: 0.82rem; min-height: 38px; }
   .subtab { padding: 7px 11px; font-size: 0.76rem; min-height: 34px; }
@@ -3685,14 +3700,14 @@ body {
   .sidebar-actions { min-width: 0; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ADMIN V2.1 — identidad por sección: crear (izq) + datos (der)
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ADMIN V2.1 â€” identidad por secciÃ³n: crear (izq) + datos (der)
    Se aplica a Noticias, Eventos, Modales, Presets, Proyectos,
-   Gestión, Incidentes, Informes y Usuarios.
-   ═══════════════════════════════════════════════════════════════ */
+   GestiÃ³n, Incidentes, Informes y Usuarios.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* —— A · Formulario: tarjeta con acento + pasos numerados ————— */
-/* Acento superior degradado en toda tarjeta de creación */
+/* â€”â€” A Â· Formulario: tarjeta con acento + pasos numerados â€”â€”â€”â€”â€” */
+/* Acento superior degradado en toda tarjeta de creaciÃ³n */
 .form-card, .newsadm-form-card, .events-form-card {
   position: relative;
   background:
@@ -3700,7 +3715,7 @@ body {
     var(--bg-card);
   border-color: var(--gold-border-strong);
 }
-/* Banda de estado del formulario (Crear / Editando) más protagonista */
+/* Banda de estado del formulario (Crear / Editando) mÃ¡s protagonista */
 .events-form-head, .newsadm-form-head {
   align-items: center;
   background: rgba(8, 0, 16, 0.45);
@@ -3708,7 +3723,7 @@ body {
   border-radius: 12px;
   padding: 10px 14px;
 }
-/* Pasos numerados automáticos en Eventos y Modales */
+/* Pasos numerados automÃ¡ticos en Eventos y Modales */
 #event-form, #popup-form { counter-reset: evstep; }
 #event-form .ev-section:not(.ev-live-section),
 #popup-form .ev-section:not(.ev-live-section) { counter-increment: evstep; }
@@ -3722,13 +3737,13 @@ body {
   display: inline-flex; align-items: center; justify-content: center;
   box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35);
 }
-/* Vista previa como bloque diferenciado, no un paso más */
+/* Vista previa como bloque diferenciado, no un paso mÃ¡s */
 .ev-live-section {
   border-style: dashed;
   border-color: rgba(52, 211, 153, 0.35);
   background: rgba(52, 211, 153, 0.04);
 }
-/* Botón principal de guardado con más presencia */
+/* BotÃ³n principal de guardado con mÃ¡s presencia */
 .form-card .btn-primary.btn-block,
 .newsadm-form-card .btn-primary.btn-block,
 .events-form-card .btn-primary.btn-block {
@@ -3737,8 +3752,8 @@ body {
   box-shadow: 0 6px 24px rgba(249, 115, 22, 0.4);
 }
 
-/* —— B · Datos: banda de herramientas + cabecera con conteo —— */
-/* Banda de búsqueda/filtros con fondo propio */
+/* â€”â€” B Â· Datos: banda de herramientas + cabecera con conteo â€”â€” */
+/* Banda de bÃºsqueda/filtros con fondo propio */
 .events-toolbar, .newsadm-toolbar, .inc-toolbar {
   background: rgba(8, 0, 16, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -3763,18 +3778,18 @@ body {
 /* Tarjetas de datos con hover elevado */
 .events-grid > *, .events-rows > *, .admin-list > * { scroll-margin: 12px; }
 
-/* —— C · Héroes unificados por sección ——————————————————————— */
+/* â€”â€” C Â· HÃ©roes unificados por secciÃ³n â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .newsadm-hero, .events-hero, .projects-hero, .manage-hero,
 .inc-banner, .inc-hero, .users-hero, .devlog-hero, .pax-hero {
   background:
     linear-gradient(160deg, rgba(249, 115, 22, 0.1), transparent 45%, rgba(168, 85, 247, 0.1)),
     var(--bg-card);
 }
-/* Estadísticas como cinta segmentada */
+/* EstadÃ­sticas como cinta segmentada */
 .events-stats .ev-stat, .newsadm-stats .newsadm-stat { border-radius: 10px; }
 .events-stats .ev-stat + .ev-stat, .newsadm-stats .newsadm-stat + .newsadm-stat { border-left-width: 1px; }
 
-/* —— D · Tablas: cabecera legible y filas con ritmo ——————————— */
+/* â€”â€” D Â· Tablas: cabecera legible y filas con ritmo â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .devlog-table thead th, .inc-table thead th, .pax-table thead th {
   position: sticky; top: 0; z-index: 2;
   background: #1c0b30;
@@ -3783,31 +3798,31 @@ body {
 .devlog-table tbody tr, .inc-table tbody tr { transition: background 0.15s ease; }
 .devlog-table tbody tr:hover, .inc-table tbody tr:hover { background: rgba(245, 158, 11, 0.06); }
 
-/* ═══════════════════════════════════════════════════════════════
-   ADMIN V3 — formularios en modal, datos a ancho completo
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ADMIN V3 â€” formularios en modal, datos a ancho completo
    Los [data-mform] viven ocultos en su grilla y solo se muestran
    dentro de #form-modal-body. Las listas usan todo el espacio.
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* —— A · Workspaces a una sola columna (datos full-width) ————— */
+/* â€”â€” A Â· Workspaces a una sola columna (datos full-width) â€”â€”â€”â€”â€” */
 .panel-grid, .events-layout, .newsadm-layout { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 1280px) {
   .panel-grid, .events-layout, .newsadm-layout { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* —— B · Formularios: ocultos en grilla, visibles en modal ———— */
+/* â€”â€” B Â· Formularios: ocultos en grilla, visibles en modal â€”â€”â€”â€” */
 .panel-grid > [data-mform],
 .events-layout > [data-mform],
 .newsadm-layout > [data-mform] { display: none; }
 #form-modal-body > [data-mform] { display: block; animation: tabIn 0.25s ease; }
-/* Vista previa de incidentes/informes: acompaña al form dentro del modal */
+/* Vista previa de incidentes/informes: acompaÃ±a al form dentro del modal */
 #inc-preview, #rep-preview { scroll-margin: 12px; }
 .panel-grid > .glass-card.list-card:has(#inc-preview),
 .panel-grid > .glass-card.list-card:has(#rep-preview) { display: none; }
 #form-modal-body .glass-card.list-card:has(#inc-preview),
 #form-modal-body .glass-card.list-card:has(#rep-preview) { display: block; }
 
-/* —— C · Modal de formularios ————————————————————————————————— */
+/* â€”â€” C Â· Modal de formularios â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .formmodal-overlay { z-index: 6000; }
 .formmodal-card {
   width: min(700px, calc(100vw - 32px));
@@ -3842,7 +3857,7 @@ body {
   color: var(--text-main);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* Dentro del modal el título propio del form se oculta (ya está arriba);
+/* Dentro del modal el tÃ­tulo propio del form se oculta (ya estÃ¡ arriba);
    solo queda su pill de estado (Creando/Editando) alineada a la derecha */
 .formmodal-body .events-form-head .form-title,
 .formmodal-body .newsadm-form-head .form-title,
@@ -3859,6 +3874,11 @@ body {
 }
 .formmodal-body {
   padding: 18px 20px 22px;
+  /* min-height:0 + flex:1 es lo que permite que el cuerpo encoja y haga
+     scroll dentro de la tarjeta; sin esto crecÃ­a con el formulario y la
+     tarjeta (overflow:hidden) recortaba los botones del pie. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(245, 158, 11, 0.35) transparent;
@@ -3877,7 +3897,7 @@ body {
 }
 .formmodal-body > * + * { margin-top: 16px; }
 
-/* —— D · Listas: más columnas y aire a ancho completo —————————— */
+/* â€”â€” D Â· Listas: mÃ¡s columnas y aire a ancho completo â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 .events-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .newsadm-list { display: flex; flex-direction: column; gap: 10px; }
 @media (max-width: 640px) {
@@ -3886,10 +3906,10 @@ body {
   .formmodal-body { padding: 14px 14px 18px; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   EUFORIA OWS — cuenta atrás 90 → 100 + celebraciones
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   EUFORIA OWS â€” cuenta atrÃ¡s 90 â†’ 100 + celebraciones
    Filas de Desarrollo que laten, overlay Despegue y muro interno.
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* Badges de hype en la tabla de desarrollo */
 .euph-badge {
@@ -3976,4 +3996,88 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .euph-99, .dev-table tr[class*="euph-row"] .dev-fill::after,
   .dev-table tbody tr.euph-row-99 td, .euphoria-icon { animation: none !important; }
+}
+
+
+/* ============================================================
+   AJUSTE DE SECCIONES â€” pantallas chicas (<=640px)
+   Filas de listas, chips y acciones en lÃ­neas propias, tÃ­tulos
+   que no se cortan y objetivos de toque cÃ³modos.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* Filas de listas (GestiÃ³n, Proyectos, Celebraciones): el bloque de
+     acciones pasa a su propia lÃ­nea y el tÃ­tulo deja de cortarse. */
+  .admin-item { flex-wrap: wrap; align-items: flex-start; gap: 10px; padding: 12px; }
+  .admin-item-info { flex: 1 1 calc(100% - 74px); }
+  .admin-item-title {
+    white-space: normal; overflow: visible; text-overflow: clip;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .admin-item-sub { white-space: normal; }
+  .admin-item-desc { -webkit-line-clamp: 4; }
+  .admin-item-actions { flex: 1 1 100%; }
+  .admin-item-actions .btn { flex: 1 1 78px; justify-content: center; min-height: 36px; }
+
+  /* Usuarios: acciones en lÃ­nea propia, alineadas a la izquierda. */
+  .user-item { flex-wrap: wrap; align-items: flex-start; }
+  .user-item .user-info, .user-item .admin-item-info { flex: 1 1 calc(100% - 74px); }
+  .user-actions { flex: 1 1 100%; justify-content: flex-start; }
+  .user-actions .btn { flex: 1 1 78px; justify-content: center; min-height: 36px; }
+
+  /* Filas de modales y presets (Eventos): thumb + tÃ­tulo arriba,
+     chips en la segunda lÃ­nea y acciones al ancho completo. */
+  .ev-row { flex-wrap: wrap; gap: 8px 10px; padding: 12px; }
+  .ev-row-thumb { width: 50px; height: 44px; }
+  .ev-row-main { flex: 1 1 calc(100% - 60px); }
+  .ev-row .ev-chip { margin-left: 60px; }
+  .ev-card-actions { flex: 1 1 100%; }
+  .ev-card-actions .btn { flex: 1 1 auto; justify-content: center; min-height: 36px; }
+
+  /* Noticias: la portada pasa arriba del texto para no comerse el tÃ­tulo. */
+  .newsadm-item-body { flex-direction: column; gap: 10px; }
+  .newsadm-item-media { width: 100%; height: 150px; }
+  .newsadm-item-foot { flex-direction: column; align-items: stretch; }
+  .newsadm-actions { justify-content: space-between; }
+  .newsadm-actions .btn { flex: 1 1 auto; justify-content: center; min-height: 36px; }
+
+  /* Objetivos de toque: ningÃºn botÃ³n chico queda por debajo de 34px. */
+  .btn-mini { min-height: 34px; }
+  .btn-sm { min-height: 36px; }
+}
+
+/* ============================================================
+   TABLAS Y GRÃFICOS con scroll horizontal: scroll visible y
+   cÃ³modo de arrastrar (escritorio y mÃ³vil).
+   ============================================================ */
+.dev-table-wrap, .devlog-table-wrap, .pax-table-wrap, .inc-table-wrap, .an-chart {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.45) transparent;
+}
+.dev-table-wrap::-webkit-scrollbar,
+.devlog-table-wrap::-webkit-scrollbar,
+.pax-table-wrap::-webkit-scrollbar,
+.inc-table-wrap::-webkit-scrollbar,
+.an-chart::-webkit-scrollbar { height: 8px; width: 8px; }
+.dev-table-wrap::-webkit-scrollbar-track,
+.devlog-table-wrap::-webkit-scrollbar-track,
+.pax-table-wrap::-webkit-scrollbar-track,
+.inc-table-wrap::-webkit-scrollbar-track,
+.an-chart::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 999px; }
+.dev-table-wrap::-webkit-scrollbar-thumb,
+.devlog-table-wrap::-webkit-scrollbar-thumb,
+.pax-table-wrap::-webkit-scrollbar-thumb,
+.inc-table-wrap::-webkit-scrollbar-thumb,
+.an-chart::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.45); border-radius: 999px; }
+
+/* ============================================================
+   MODALES Â· filas de acciÃ³n en pantallas chicas.
+   Tres botones seguidos (Confirmar / Volver / Cancelar) sumaban mÃ¡s
+   ancho que la tarjeta y el Ãºltimo quedaba fuera del borde (recortado
+   por el overflow de la card). Se parten en 2 lÃ­neas con objetivo de
+   toque cÃ³modo.
+   ============================================================ */
+@media (max-width: 640px) {
+  .dev-step-actions { flex-wrap: wrap; }
+  .dev-step-actions .btn { flex: 1 1 auto; min-width: 0; min-height: 36px; }
 }

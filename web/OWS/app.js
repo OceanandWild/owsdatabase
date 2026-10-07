@@ -3837,6 +3837,20 @@ function owsEnvironment() {
   return 'browser';
 }
 
+// Plataforma del cliente para el Gestor de Actualizaciones: 'android' solo
+// dentro de la app Android, 'windows' en el Hub de escritorio y en el
+// navegador (los builds publicados para PC son los del Hub). Todo lo que
+// pida versiones manda esta etiqueta: sin ella el backend servía "la última
+// release" del repo ows-hub, que puede ser de Android, y se mezclaban.
+function owsUpdatesPlatform() {
+  return owsEnvironment() === 'android' ? 'android' : 'windows';
+}
+
+// Rótulo legible de la plataforma que se está mostrando.
+function owsPlatformLabel(platform) {
+  return String(platform || '') === 'android' ? 'Android' : 'Windows';
+}
+
 // ═══════════════════════════════════════════════════════
 // OWS HUB — descarga obligatoria en navegador
 // El Hub tiene su propio repo (OceanandWild/ows-hub) donde se publican los
@@ -3846,16 +3860,33 @@ function owsEnvironment() {
 // ═══════════════════════════════════════════════════════
 const OWS_HUB_REPO = { owner: 'OceanandWild', repo: 'ows-hub' };
 const OWS_HUB_RELEASES_URL = `https://github.com/${OWS_HUB_REPO.owner}/${OWS_HUB_REPO.repo}/releases/latest`;
+// Página con TODAS las releases (Windows y Android conviven en el repo):
+// sirve cuando hay que llevar al usuario a la otra plataforma.
+const OWS_HUB_RELEASES_LIST_URL = `https://github.com/${OWS_HUB_REPO.owner}/${OWS_HUB_REPO.repo}/releases`;
 const OWS_HUB_CACHE_KEY = 'ows_hub_release_cache_v1';
 const OWS_HUB_CACHE_TTL_MS = 15 * 60 * 1000;
 const OWS_HUB_FETCH_TIMEOUT_MS = 12000;
+
+// Caché POR PLATAFORMA: Windows y Android publican releases distintas en el
+// mismo repo, así que no pueden compartir la entrada del localStorage.
+function owsHubCacheKey() {
+  return `${OWS_HUB_CACHE_KEY}_${owsUpdatesPlatform()}`;
+}
 
 let owsHubReleasePromise = null;
 
 // Prioridad de assets: instalador de Windows primero, luego portable, luego
 // el paquete (.zip/.7z). Cualquier otro archivo se usa solo de último recurso.
+// OJO: el repo publica Windows y Android juntos: en Windows NUNCA se elige
+// un .apk (y en Android solo sirve el .apk).
 function pickOwsHubAsset(assets) {
-  const list = Array.isArray(assets) ? assets.filter((a) => a && a.browser_download_url) : [];
+  const plat = owsUpdatesPlatform();
+  const list = (Array.isArray(assets) ? assets : []).filter((a) => {
+    if (!a || !a.browser_download_url) return false;
+    const n = String(a.name || '').toLowerCase();
+    if (plat === 'android') return n.endsWith('.apk');
+    return !n.endsWith('.apk');
+  });
   if (!list.length) return null;
   const rank = (name) => {
     const n = String(name || '').toLowerCase();
@@ -3864,7 +3895,7 @@ function pickOwsHubAsset(assets) {
       return 1;
     }
     if (/\.(zip|7z)$/.test(n)) return 2;
-    if (/\.(appx|msix|apk|dmg|deb|rpm|appimage)$/.test(n)) return 3;
+    if (/\.(appx|msix|dmg|deb|rpm|appimage)$/.test(n)) return 3;
     return 9;
   };
   const sorted = [...list].sort((a, b) => {
@@ -3876,7 +3907,7 @@ function pickOwsHubAsset(assets) {
 
 function readOwsHubCache() {
   try {
-    const raw = localStorage.getItem(OWS_HUB_CACHE_KEY);
+    const raw = localStorage.getItem(owsHubCacheKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !parsed.tag) return null;
@@ -3886,19 +3917,21 @@ function readOwsHubCache() {
 }
 
 function writeOwsHubCache(payload) {
-  try { localStorage.setItem(OWS_HUB_CACHE_KEY, JSON.stringify({ ...payload, ts: Date.now() })); } catch (_) {}
+  try { localStorage.setItem(owsHubCacheKey(), JSON.stringify({ ...payload, ts: Date.now() })); } catch (_) {}
 }
 
-// Última release del Hub. Nunca lanza: si falla devuelve el caché (o null) para
-// que el panel pueda degradar a un link genérico a la página de releases.
+// Última release del Hub de LA PLATAFORMA CORRECTA (?platform=...): nunca
+// lanza: si falla devuelve el caché (o null) para que el panel pueda degradar
+// a un link genérico a la página de releases.
 function fetchOwsHubRelease() {
   if (owsHubReleasePromise) return owsHubReleasePromise;
   const cached = readOwsHubCache();
   if (cached) return Promise.resolve(cached);
 
+  const platform = owsUpdatesPlatform();
   owsHubReleasePromise = (async () => {
     try {
-      const url = `${API_BASE}/ows-store/github/repos/${OWS_HUB_REPO.owner}/${OWS_HUB_REPO.repo}/releases/latest`;
+      const url = `${API_BASE}/ows-store/github/repos/${OWS_HUB_REPO.owner}/${OWS_HUB_REPO.repo}/releases/latest?platform=${platform}`;
       const res = await fetchWithTimeout(url, OWS_HUB_FETCH_TIMEOUT_MS);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -3907,7 +3940,10 @@ function fetchOwsHubRelease() {
       const asset = pickOwsHubAsset(data.assets);
       const payload = {
         tag,
-        version: tag.replace(/^v/i, ''),
+        platform,
+        // Los tags de Android son "android-v3.3.5": la versión se muestra
+        // siempre como "3.3.5", igual que en Windows.
+        version: tag.replace(/^(android|windows|win)[-_]/i, '').replace(/^v/i, ''),
         assetName: asset ? String(asset.name || '') : '',
         assetSize: asset ? Number(asset.size || 0) : 0,
         url: (asset && asset.browser_download_url) || OWS_HUB_RELEASES_URL,
@@ -3920,12 +3956,12 @@ function fetchOwsHubRelease() {
       console.warn('[OWS] No se pudo leer la release de OWS Hub:', err && err.message);
       const stale = (() => {
         try {
-          const raw = localStorage.getItem(OWS_HUB_CACHE_KEY);
+          const raw = localStorage.getItem(owsHubCacheKey());
           return raw ? JSON.parse(raw) : null;
         } catch (_) { return null; }
       })();
       // Sin red ni caché: al menos la página de releases siempre sirve.
-      return stale || { tag: '', version: '', assetName: '', assetSize: 0, url: OWS_HUB_RELEASES_URL, htmlUrl: OWS_HUB_RELEASES_URL, publishedAt: '' };
+      return stale || { tag: '', platform, version: '', assetName: '', assetSize: 0, url: OWS_HUB_RELEASES_URL, htmlUrl: OWS_HUB_RELEASES_URL, publishedAt: '' };
     }
   })();
 
@@ -4030,7 +4066,9 @@ function applyOwsHubRelease(rel) {
       if (note) note.innerHTML = 'Ya estás en <b>OWS Hub</b> para Android. En PC está la app de escritorio, con instalación y ejecución de juegos en 1 clic.';
       if (btnTxt) btnTxt.textContent = 'OWS Hub para PC ↗';
       if (btn) {
-        btn.href = rel.htmlUrl || OWS_HUB_RELEASES_URL;
+        // rel es la release de Android (la de esta plataforma): para el PC va
+        // el listado general, nunca la página del APK.
+        btn.href = OWS_HUB_RELEASES_LIST_URL;
         btn.removeAttribute('download');
         btn.setAttribute('aria-disabled', 'false');
         btn.dataset.hubMode = 'pc';
@@ -4147,6 +4185,8 @@ let updatesState = {
   error: '',
   checkedAt: '',
   filter: 'all',
+  // Plataforma de los datos que se están mostrando (windows | android).
+  platform: 'windows',
   hub: null,
   projects: [],
   counts: { total: 0, installed: 0, with_build: 0, updates: 0, pending: 0 },
@@ -4305,7 +4345,8 @@ async function loadUpdatesManager(opts) {
 
   try {
     const hubVer = await hubLocalVersion();
-    const params = [];
+    const platform = owsUpdatesPlatform();
+    const params = ['platform=' + platform];
     if (hubVer) params.push('hub=' + encodeURIComponent(hubVer));
     const inst = installedMapParam();
     if (inst) params.push('installed=' + encodeURIComponent(inst));
@@ -4341,6 +4382,7 @@ async function loadUpdatesManager(opts) {
       error: '',
       checkedAt: data.checked_at || new Date().toISOString(),
       filter: updatesState.filter || 'all',
+      platform: data.platform || platform,
       hub,
       projects,
       counts: {
@@ -4403,6 +4445,7 @@ async function loadUpdatesManagerAndroid(opts) {
 
     updatesState = {
       android: true,
+      platform: 'android',
       loaded: true,
       loading: false,
       error: '',
@@ -4561,6 +4604,15 @@ function renderUpdates() {
         ? 'Revisado'
         : ('Revisado ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }));
     } else meta.textContent = 'Sin revisar';
+  }
+
+  // Plataforma de las versiones listadas: el repo publica build de Windows y
+  // de Android, y acá solo se muestra el de este cliente.
+  const platChip = document.getElementById('updates-platform-chip');
+  if (platChip) {
+    const plat = updatesState.platform || owsUpdatesPlatform();
+    platChip.dataset.platform = plat;
+    platChip.textContent = plat === 'android' ? '🤖 Versiones de Android' : '🪟 Versiones de Windows';
   }
 
   // Contadores
@@ -5146,14 +5198,16 @@ async function openUpdatesChangelog(slug) {
   const token = ++updatesModalToken;
   body.innerHTML = `
     <h3 class="form-title">📜 Historial de versiones — ${escapeHtml(name)}</h3>
-    ${installed ? `<p class="form-hint">Tenés <b>v${escapeHtml(installed)}</b> instalada.</p>` : '<p class="form-hint">Todavía no lo instalaste.</p>'}
+    <p class="form-hint">Builds de <b>${owsPlatformLabel(updatesState.platform || owsUpdatesPlatform())}</b> · ${installed ? `Tenés <b>v${escapeHtml(installed)}</b> instalada.` : 'Todavía no lo instalaste.'}</p>
     <div id="upd-changelog-list" class="upd-changelog"><p class="loading-note">Cargando historial…</p></div>`;
   modal.classList.remove('hidden');
   try { document.body.style.overflow = 'hidden'; } catch (_) {}
 
   const box = document.getElementById('upd-changelog-list');
   try {
-    const qs = installed ? ('?installed=' + encodeURIComponent(installed)) : '';
+    const params = ['platform=' + owsUpdatesPlatform()];
+    if (installed) params.push('installed=' + encodeURIComponent(installed));
+    const qs = '?' + params.join('&');
     const res = await fetchWithTimeout(API_BASE + '/ows-updates/projects/' + encodeURIComponent(slug) + '/releases' + qs, UPDATES_FETCH_TIMEOUT_MS);
     const data = await res.json().catch(() => ({}));
     if (token !== updatesModalToken || !box) return;
@@ -5165,11 +5219,13 @@ async function openUpdatesChangelog(slug) {
     box.innerHTML = list.map((r) => {
       const when = r.released_at ? formatReleaseDate(r.released_at) : '—';
       const isCurrent = installed && String(r.version) === installed;
+      const plat = String(r.platform || 'all');
       return `
         <div class="upd-changelog-item">
           <div class="upd-changelog-top">
             <span class="upd-ver-chip upd-ver-new">v${escapeHtml(r.version || '?')}</span>
             <span class="upd-changelog-channel">${escapeHtml(r.channel || 'stable')}</span>
+            ${plat !== 'all' && plat !== owsUpdatesPlatform() ? `<span class="upd-changelog-channel">${plat === 'android' ? '🤖 Android' : '🪟 Windows'}</span>` : ''}
             ${isCurrent ? '<span class="upd-chip-current">Tu versión</span>' : ''}
             <span class="upd-changelog-date">${escapeHtml(when)}</span>
           </div>

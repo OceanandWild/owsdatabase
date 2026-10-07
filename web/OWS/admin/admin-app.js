@@ -503,6 +503,19 @@ function openPanel() {
 // TABS
 // =======================================================
 
+// En móvil las pestañas son tiras con scroll horizontal: al cambiar de
+// sección (o de sub-sección) la pastilla activa se trae a la vista si quedó
+// fuera de pantalla. Solo se mueve la tira, nunca la página.
+function revealAdminTab(el) {
+  if (!el) return;
+  const strip = el.parentElement;
+  if (!strip || strip.scrollWidth <= strip.clientWidth + 1) return;
+  const r = el.getBoundingClientRect();
+  const s = strip.getBoundingClientRect();
+  if (r.left < s.left + 4) strip.scrollLeft += r.left - s.left - 8;
+  else if (r.right > s.right - 4) strip.scrollLeft += r.right - s.right + 8;
+}
+
 function switchAdminTab(tab) {
   try { closeFormModal(); } catch (_) {}
   ['news', 'events', 'projects', 'manage', 'incidents', 'reports', 'users'].forEach((t) => {
@@ -511,6 +524,7 @@ function switchAdminTab(tab) {
     if (pane) pane.classList.toggle('hidden', t !== tab);
     if (btn) btn.classList.toggle('active', t === tab);
   });
+  revealAdminTab(document.getElementById(`ptab-${tab}`));
   // Recargar la lista correspondiente al entrar a cada pestaña para que
   // Proyectos y Gestión siempre estén sincronizados (admin_only, etc.)
   if (tab === 'manage') { loadAdminManage(); loadDevlogs(); loadProjectActivity(); loadWorkSessions(); loadWsDaily(); loadCelebrations(); }
@@ -591,6 +605,7 @@ function renderSubTabs(tab) {
   ).join('');
   bar.classList.remove('hidden');
   applyAdminSub(tab, active);
+  revealAdminTab(box.querySelector('.subtab.active'));
 }
 
 function switchAdminSub(tab, sub) {
@@ -598,6 +613,7 @@ function switchAdminSub(tab, sub) {
   document.querySelectorAll('#sub-tabs-buttons .subtab').forEach((b) =>
     b.classList.toggle('active', b.dataset.sub === sub)
   );
+  revealAdminTab(document.querySelector('#sub-tabs-buttons .subtab.active'));
   applyAdminSub(tab, sub);
   // La bitácora de 14 días necesita su propio refresco: al entrar se
   // regenera la ventana de días para que no muestre datos viejos.
@@ -6766,6 +6782,9 @@ function findAnyLaunchProject(id) {
 function releaseRowBadge(r) {
   const parts = [`<span class="status-pill">📦 v${escapeHtml(r.version || '?')}</span>`];
   if (r.channel && r.channel !== 'stable') parts.push(`<span class="status-pill">${escapeHtml(r.channel)}</span>`);
+  parts.push(r.platform && r.platform !== 'windows'
+    ? `<span class="status-pill">${r.platform === 'android' ? '🤖 Android' : '🌐 Todas'}</span>`
+    : '<span class="status-pill">🪟 Windows</span>');
   parts.push(r.is_active
     ? '<span class="status-pill status-on">Activa</span>'
     : '<span class="status-pill status-off">Inactiva</span>');
@@ -6799,6 +6818,16 @@ async function openReleasesModal(id) {
             <option value="beta">beta</option>
             <option value="alpha">alpha</option>
             <option value="demo">demo</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label for="rel-platform">Plataforma del build</label>
+          <select id="rel-platform">
+            <option value="windows">Windows (.exe / .msi)</option>
+            <option value="android">Android (.apk)</option>
+            <option value="all">Todas</option>
           </select>
         </div>
       </div>
@@ -6896,6 +6925,7 @@ async function saveRelease(e) {
   const payload = {
     version,
     channel: document.getElementById('rel-channel').value,
+    platform: document.getElementById('rel-platform') ? document.getElementById('rel-platform').value : 'windows',
     file_label: document.getElementById('rel-file').value.trim(),
     size_label: document.getElementById('rel-size').value.trim(),
     installer_url: document.getElementById('rel-installer').value.trim(),
@@ -6936,6 +6966,8 @@ function editRelease(id) {
   editingReleaseId = Number(id);
   document.getElementById('rel-version').value = r.version || '';
   document.getElementById('rel-channel').value = r.channel || 'stable';
+  const relPlat = document.getElementById('rel-platform');
+  if (relPlat) relPlat.value = r.platform || 'windows';
   document.getElementById('rel-file').value = r.file_label || '';
   document.getElementById('rel-size').value = r.size_label || '';
   document.getElementById('rel-installer').value = r.installer_url || '';
@@ -6955,6 +6987,8 @@ function resetReleaseForm() {
   });
   const ch = document.getElementById('rel-channel');
   if (ch) ch.value = 'stable';
+  const pl = document.getElementById('rel-platform');
+  if (pl) pl.value = 'windows';
   const t = document.getElementById('rel-form-title');
   if (t) t.textContent = 'Nueva versión';
   const b = document.getElementById('btn-save-release');
@@ -7745,7 +7779,7 @@ function renderWsLiveBar() {
         <div class="ws-live-right">
           <span class="ws-live-timer" data-ws-timer="${Number(s.id)}">${wsStopwatch(wsElapsedSeconds(s))}</span>
           <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsChangeForm" data-adm-a0="r:${Number(s.id)}" title="Anotar qué hiciste: queda con la hora en esta sesión">⏺ Cambio</button>
-          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsReworkForm" title="Crear un grupo: agrupa los cambios que son parte del mismo trabajo grande">🧩 Grupo</button>
+          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsReworkForm" data-adm-a0="x:" data-adm-a1="r:${Number(s.id)}" title="Crear un grupo en ESTA sesión: agrupa los cambios que son parte del mismo trabajo grande">🧩 Grupo</button>
           <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsStopForm" data-adm-a0="r:${Number(s.id)}" title="Corregir los datos antes de cerrar">✏️ Datos</button>
           <button class="btn ws-stop-btn btn-sm" data-adm-ev="click" data-adm="openWsStopForm" data-adm-a0="r:${Number(s.id)}" title="Detener el cronómetro">⏹ Detener</button>
         </div>
@@ -8989,37 +9023,63 @@ let wsReworkFormSession = 0;
 // modal para poder seguir anotando cambios sin tener que reabrir.
 let wsReworkFromChange = false;
 
-function wsReworkFormTargetSession() {
-  if (wsReworkFormSession) {
-    const s = wsCache.find((x) => Number(x.id) === Number(wsReworkFormSession));
-    if (s && s.status !== 'done') return s;
-  }
-  return wsRunning() || wsCache.find((s) => s.status !== 'done') || null;
+function wsModalIsOpen() {
+  const m = document.getElementById('ws-modal');
+  return !!m && !m.classList.contains('hidden');
 }
 
-function openWsReworkForm(key) {
-  // Si se abrió desde el modal de cambios, el rework se cuelga de LA MISMA
-  // sesión del cambio, no de otra que esté abierta.
-  let s = null;
-  if (wsModalStep === 'change' && wsChangeId) {
-    s = wsCache.find((x) => Number(x.id) === Number(wsChangeId)) || null;
+function wsReworkFormTargetSession() {
+  const running = wsRunningList();
+  // La última sesión usada solo sirve si sigue EN VIVO: si se cerró, o quedó
+  // pausada mientras había otra corriendo, un grupo nuevo no se le cuelga.
+  if (wsReworkFormSession && running.some((x) => Number(x.id) === Number(wsReworkFormSession))) {
+    const s = wsCache.find((x) => Number(x.id) === Number(wsReworkFormSession));
+    if (s) return s;
   }
-  if (!s) s = wsReworkFormTargetSession();
-  if (!s) return showToast('⚠️ No hay ninguna sesión abierta: arrancá una en vivo para poder colgarle un grupo.');
-  const body = document.getElementById('ws-modal-body');
-  if (!body) return;
-  wsReworkFromChange = wsModalStep === 'change';
-  wsModalStep = 'rework';
-  hideAlert('ws-rework-alert');
+  // Sin contexto (panel "＋ Nuevo grupo"): la sesión en vivo más reciente,
+  // nunca "la primera que encuentre" (con dos en vivo eso elegía siempre
+  // la más vieja y el grupo terminaba en el proyecto equivocado).
+  if (running.length) return running[running.length - 1];
+  return wsCache.find((s) => s.status !== 'done') || null;
+}
+
+function openWsReworkForm(key, sessionId) {
   // Editar: se busca el grupo en todas las sesiones (puede estar en otra) y
   // se edita en la sesión abierta donde esté, así vale para el panel.
   const rw = key ? wsReworkIndexAll().get(key) : null;
-  wsReworkFormKey = rw ? rw.key : '';
-  const where = rw
+  const whereRw = rw
     ? (wsCache.find((x) => x.status !== 'done' && wsReworksOf(x).some((r) => r.key === rw.key))
-      || wsCache.find((x) => wsReworksOf(x).some((r) => r.key === rw.key)) || s)
-    : s;
+      || wsCache.find((x) => wsReworksOf(x).some((r) => r.key === rw.key)) || null)
+    : null;
+  // El botón 🧩 de cada fila en vivo lleva SU id de sesión: el grupo se cuelga
+  // de esa fila concreta, sin adivinar cuál es "la sesión actual".
+  let s = null;
+  if (sessionId) {
+    s = wsCache.find((x) => Number(x.id) === Number(sessionId)) || null;
+    if (s && s.status === 'done') s = null;
+  }
+  // Si se abrió desde el modal de cambios, el rework se cuelga de LA MISMA
+  // sesión del cambio, no de otra que esté abierta. Ojo: el paso del modal
+  // sobrevive a cerrarlo, así que hay que mirar que siga abierto y que la
+  // sesión siga viva (si no, el grupo se mandaba a otra sesión o a una
+  // que ya estaba cerrada).
+  const fromChange = !!(wsModalStep === 'change' && wsChangeId && wsModalIsOpen());
+  if (!s && fromChange) {
+    const c = wsCache.find((x) => Number(x.id) === Number(wsChangeId)) || null;
+    if (c && c.status !== 'done') s = c;
+  }
+  if (!s) s = wsReworkFormTargetSession();
+  const where = whereRw || s;
+  if (!where) return showToast('⚠️ No hay ninguna sesión abierta: arrancá una en vivo para poder colgarle un grupo.');
+  const body = document.getElementById('ws-modal-body');
+  if (!body) return;
+  wsModalStep = 'rework';
+  hideAlert('ws-rework-alert');
+  wsReworkFormKey = rw ? rw.key : '';
   wsReworkFormSession = Number(where.id);
+  // Solo tiene sentido volver al modal de cambios si el grupo quedó en la
+  // misma sesión de ese cambio.
+  wsReworkFromChange = fromChange && Number(wsChangeId) === Number(where.id);
   const color = rw ? wsReworkColor(rw.color) : wsNextReworkColor();
   const kind = rw ? (rw.kind === 'major' ? 'major' : 'rework') : 'major';
   body.innerHTML = `

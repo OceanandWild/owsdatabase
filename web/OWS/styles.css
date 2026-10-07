@@ -2651,6 +2651,16 @@ body.releases-focus #releases-grid .release-dock-item:not(.is-open) {
 .upd-ver-new { color: #1a0a00; background: var(--gold-grad); }
 .upd-ver-arrow { color: var(--text-dim); font-size: 0.78rem; font-weight: 700; }
 
+/* Chip de plataforma: aclara si la lista es de versiones Windows o Android */
+.upd-platform-chip {
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap;
+  padding: 4px 10px; border-radius: 999px;
+  color: #7dd3fc; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.34);
+}
+.upd-platform-chip[data-platform="android"] {
+  color: #6ee7b7; background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.34);
+}
+
 .upd-row-notes { margin: 8px 0 0; font-size: 0.81rem; line-height: 1.55; color: var(--text-muted); }
 .upd-row-notes.upd-row-na { color: var(--text-dim); font-style: italic; }
 .upd-row-meta { margin: 8px 0 0; font-size: 0.74rem; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

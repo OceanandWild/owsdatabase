@@ -11815,8 +11815,25 @@ async function githubProxyHandler(req, res) {
 
   const queryIndex = String(req.originalUrl || '').indexOf('?');
   const query = queryIndex >= 0 ? String(req.originalUrl || '').slice(queryIndex) : '';
-  const ghUrl = `https://api.github.com/repos/${owner}/${repo}${tail ? `/${tail}` : ''}${query}`;
-  const cacheKey = ghUrl;
+  // ?platform=windows|android sobre releases/latest: el repo ows-hub publica
+  // build de Windows y de Android juntos, así que "la última" puede ser de la
+  // otra plataforma. En ese caso se pide la LISTA de releases y se elige la
+  // última de la plataforma pedida (el cache va por plataforma).
+  const platformParam = String(req.query?.platform || '').trim().toLowerCase();
+  const wantsPlatformRelease = ['windows', 'android'].includes(platformParam)
+    && /^releases\/latest$/i.test(tail);
+  const ghUrl = wantsPlatformRelease
+    ? `https://api.github.com/repos/${owner}/${repo}/releases?per_page=30`
+    : `https://api.github.com/repos/${owner}/${repo}${tail ? `/${tail}` : ''}${query}`;
+  const cacheKey = wantsPlatformRelease ? `${ghUrl}#platform=${platformParam}` : ghUrl;
+  const pickPlatformRelease = (payload) => {
+    const list = Array.isArray(payload) ? payload : [payload];
+    const picked = pickGithubReleaseForPlatform(list, platformParam);
+    if (!picked) {
+      return { error: `No hay release de ${platformParam} en ${owner}/${repo}` };
+    }
+    return { release: picked };
+  };
   const now = Date.now();
   const cached = proxyCache.get(cacheKey);
   if (cached && (now - cached.ts) < GH_CACHE_TTL_MS) {
@@ -11945,12 +11962,21 @@ async function githubProxyHandler(req, res) {
       if (isRateLimit) {
         try {
           const fallbackPayload = await buildReleaseFallbackFromHtml();
-          proxyCache.set(cacheKey, { ts: Date.now(), payload: fallbackPayload });
+          let outPayload = fallbackPayload;
+          if (wantsPlatformRelease) {
+            // El fallback scrapea "la última" (puede ser de la otra
+            // plataforma): se re-sobre la lista para respetar ?platform=.
+            const resolved = pickPlatformRelease(fallbackPayload);
+            if (resolved.error) throw new Error(resolved.error);
+            outPayload = resolved.release;
+          }
+          proxyCache.set(cacheKey, { ts: Date.now(), payload: outPayload });
           res.setHeader('Cache-Control', 'no-store, max-age=0');
           res.setHeader('Pragma', 'no-cache');
           res.setHeader('Expires', '0');
+          res.setHeader('X-OWS-GH-Cache', 'miss');
           res.setHeader('X-OWS-GH-Fallback', 'html-release');
-          return res.json(fallbackPayload);
+          return res.json(outPayload);
         } catch (fallbackErr) {
           if (cached && (now - cached.ts) < GH_STALE_TTL_MS) {
             res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -11980,6 +12006,16 @@ async function githubProxyHandler(req, res) {
 
     try {
       const payload = JSON.parse(text);
+      if (wantsPlatformRelease) {
+        const resolved = pickPlatformRelease(payload);
+        if (resolved.error) {
+          return res.status(404).json({ error: resolved.error, platform: platformParam });
+        }
+        proxyCache.set(cacheKey, { ts: Date.now(), payload: resolved.release });
+        res.setHeader('X-OWS-GH-Cache', 'miss');
+        res.setHeader('X-OWS-GH-Platform', platformParam);
+        return res.json(resolved.release);
+      }
       proxyCache.set(cacheKey, { ts: Date.now(), payload });
       res.setHeader('X-OWS-GH-Cache', 'miss');
       return res.json(payload);
@@ -14901,7 +14937,9 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const mapped = mapOwsLaunchProjectRow(rows[0]);
     let latestRelease = null;
-    try { latestRelease = await getLatestReleaseBySlug(slug); } catch (_) { latestRelease = null; }
+    // Este endpoint alimenta al Hub de escritorio: solo versiones de Windows
+    // (o 'all'). Una release Android jamás puede ser "la última" acá.
+    try { latestRelease = await getLatestReleaseBySlug(slug, 'windows'); } catch (_) { latestRelease = null; }
     const fresh = isItchCacheFresh((rows[0].metadata || {}).itch);
     if (!fresh) {
       // Background refresh: no bloquea la respuesta
@@ -14968,9 +15006,10 @@ async function launchProjectDownloadHandler(req, res) {
     const mapped = mapOwsLaunchProjectRow(rows[0]);
     trace.push({ step: 'db', installer_url: !!mapped.installer_url, itch_url: mapped.itch_url || null, file: mapped.itch_file || null });
     // Release oficial (tabla ows_project_releases): si trae installer_url
-    // propio, gana sobre todo lo demás.
+    // propio, gana sobre todo lo demás. Solo build de Windows: este handler
+    // es el que baja el instalador del Hub desktop.
     try {
-      const rel = await getLatestReleaseBySlug(slug);
+      const rel = await getLatestReleaseBySlug(slug, 'windows');
       trace.push({ step: 'release', has_release: !!(rel && rel.id), version: (rel && rel.version) || null });
       if (rel && rel.installer_url) {
         trace.push({ step: 'release-installer', action: 'redirect-302' });
@@ -15143,7 +15182,24 @@ app.post('/ows-launch-projects', async (req, res) => {
       action: 'create', entityType: 'launch_project', entityId: slug,
       entityName: name, adminName, meta: { status, platforms, admin_only: adminOnly, created_at: rows[0]?.created_at || null }
     });
-    return res.status(201).json({ success: true, project: mapOwsLaunchProjectRow(rows[0] || {}) });
+    // Celebración automática de nacimiento:
+    //  - solo-admin → 'welcome' (Bienvenidas 🌱, pronto será grande)
+    //  - público    → 'catalog_entry' (llegada al catálogo global 🎉)
+    let birthCelebration = null;
+    try {
+      const newId = Number(rows[0]?.id || 0);
+      if (newId > 0) {
+        birthCelebration = await createCelebrationOnce({
+          projectId: newId,
+          kind: adminOnly ? 'welcome' : 'catalog_entry',
+          createdBy: adminName,
+          metadata: { birth: true, admin_only: adminOnly, status }
+        });
+      }
+    } catch (e) {
+      console.error('[celebrations] bienvenida falló:', e?.message || e);
+    }
+    return res.status(201).json({ success: true, project: mapOwsLaunchProjectRow(rows[0] || {}), celebration: birthCelebration });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Ya existe un proyecto OWS con ese slug' });
@@ -15160,6 +15216,16 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
   try {
     await ensureOwsLaunchProjectsTable();
+    // Estado previo: detecta si el proyecto SALE a catálogo global
+    // (admin_only true→false) o se LANZA (status → launched).
+    let prevRow = null;
+    try {
+      const { rows: pr } = await pool.query(
+        'SELECT id, slug, name, status, admin_only FROM ows_launch_projects WHERE id = $1 LIMIT 1',
+        [id]
+      );
+      prevRow = pr[0] || null;
+    } catch (_) { prevRow = null; }
     const updates = {};
     if (req.body?.name !== undefined) {
       const name = String(req.body.name).trim();
@@ -15216,7 +15282,31 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
       entityName: String(rows[0]?.name || ''), adminName: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim(),
       meta: { fields: keys }
     });
-    return res.json({ success: true, project: mapOwsLaunchProjectRow(rows[0]) });
+    // Si el proyecto entró al catálogo global, se festeja UNA vez:
+    //  - era solo-admin y ahora es público, o
+    //  - pasó a estado launched (esté donde esté).
+    let catalogCelebration = null;
+    try {
+      const wasAdminOnly = !!(prevRow && (prevRow.admin_only === true || String(prevRow.admin_only).toLowerCase() === 'true' || Number(prevRow.admin_only) === 1));
+      const isAdminOnly = !!rows[0].admin_only;
+      const wasLaunched = String(prevRow?.status || '').toLowerCase() === 'launched';
+      const isLaunched = String(rows[0]?.status || '').toLowerCase() === 'launched';
+      const enteredCatalog = (wasAdminOnly && !isAdminOnly) || (!wasLaunched && isLaunched);
+      if (enteredCatalog) {
+        catalogCelebration = await createCelebrationOnce({
+          projectId: Number(rows[0].id),
+          kind: 'catalog_entry',
+          createdBy: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild',
+          metadata: {
+            from_admin_only: wasAdminOnly, to_public: !isAdminOnly,
+            from_status: String(prevRow?.status || ''), to_status: String(rows[0]?.status || '')
+          }
+        });
+      }
+    } catch (e) {
+      console.error('[celebrations] entrada a catálogo falló:', e?.message || e);
+    }
+    return res.json({ success: true, project: mapOwsLaunchProjectRow(rows[0]), celebration: catalogCelebration });
   } catch (err) {
     console.error('Error en PATCH /ows-launch-projects/:id:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -15282,12 +15372,20 @@ async function ensureOwsProjectReleasesTable() {
       installer_url TEXT NOT NULL DEFAULT '',
       itch_url      TEXT NOT NULL DEFAULT '',
       channel       VARCHAR(20) NOT NULL DEFAULT 'stable',
+      -- Plataforma del build: windows | android | all. Sin esto el gestor
+      -- mezclaba versiones de Android con las de Windows (una release de
+      -- Android quedaba como "última versión" para los usuarios de PC).
+      platform      VARCHAR(20) NOT NULL DEFAULT 'windows',
       notes         TEXT NOT NULL DEFAULT '',
       is_active     BOOLEAN NOT NULL DEFAULT TRUE,
       released_at   TIMESTAMPTZ,
       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  await pool.query(`
+    ALTER TABLE ows_project_releases
+    ADD COLUMN IF NOT EXISTS platform VARCHAR(20) NOT NULL DEFAULT 'windows'
   `);
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_releases_project ON ows_project_releases(project_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_releases_active ON ows_project_releases(is_active)');
@@ -15323,6 +15421,7 @@ function mapOwsProjectReleaseRow(row) {
     installerUrl: String(r.installer_url || '').trim(),
     itch_url: String(r.itch_url || '').trim(),
     itchUrl: String(r.itch_url || '').trim(),
+    platform: normalizeOwsReleasePlatform(r.platform),
     channel: normalizeReleaseChannel(r.channel),
     notes: String(r.notes || '').trim(),
     is_active: r.is_active !== false,
@@ -15333,18 +15432,44 @@ function mapOwsProjectReleaseRow(row) {
   };
 }
 
+// ── Plataforma de una release ──
+// 'windows' | 'android' | 'all' (all = aplica a todas, filas sin etiqueta).
+// El ecosistema OWS es Windows primero, así que el valor por defecto (y el
+// de las filas viejas) es 'windows'.
+function normalizeOwsReleasePlatform(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  if (v === 'android' || v === 'apk') return 'android';
+  if (v === 'all' || v === 'any' || v === '*') return 'all';
+  return 'windows';
+}
+
+// Plataforma que PIDE el cliente del gestor: solo existe Windows y Android.
+function normalizeOwsUpdatePlatform(value) {
+  return String(value ?? '').trim().toLowerCase() === 'android' ? 'android' : 'windows';
+}
+
+// ¿La fila sirve para la plataforma pedida?
+function owsReleaseMatchesPlatform(releasePlatform, platform) {
+  const p = normalizeOwsReleasePlatform(releasePlatform);
+  if (p === 'all') return true;
+  return p === normalizeOwsUpdatePlatform(platform);
+}
+
 // Última release ACTIVA por proyecto (1 sola query para N proyectos).
-async function getLatestReleasesMapByProjectIds(ids) {
+// `platform` acota el filtro: sin parámetro o con '' no filtra.
+async function getLatestReleasesMapByProjectIds(ids, platform) {
   const list = (Array.isArray(ids) ? ids : []).map(Number).filter((n) => Number.isFinite(n) && n > 0);
   if (!list.length) return {};
+  const plat = (platform === undefined || platform === null) ? '' : normalizeOwsUpdatePlatform(platform);
   await ensureOwsProjectReleasesTable();
   const { rows } = await pool.query(
     `SELECT r.*, p.slug AS project_slug
        FROM ows_project_releases r
        JOIN ows_launch_projects p ON p.id = r.project_id
       WHERE r.is_active = TRUE AND r.project_id = ANY($1::bigint[])
+        AND ($2 = '' OR r.platform = 'all' OR r.platform = $2)
       ORDER BY r.project_id, r.released_at DESC NULLS LAST, r.id DESC`,
-    [list]
+    [list, plat]
   );
   // DISTINCT ON no se usa para no depender de orden exacto; nos quedamos
   // con la primera (más reciente) por proyecto.
@@ -15356,18 +15481,20 @@ async function getLatestReleasesMapByProjectIds(ids) {
   return map;
 }
 
-async function getLatestReleaseBySlug(slug) {
+async function getLatestReleaseBySlug(slug, platform) {
   const s = normalizeProjectSlug(slug);
   if (!s) return null;
+  const plat = (platform === undefined || platform === null) ? '' : normalizeOwsUpdatePlatform(platform);
   await ensureOwsProjectReleasesTable();
   const { rows } = await pool.query(
     `SELECT r.*, p.slug AS project_slug
        FROM ows_project_releases r
        JOIN ows_launch_projects p ON p.id = r.project_id
       WHERE r.is_active = TRUE AND LOWER(p.slug) = LOWER($1)
+        AND ($2 = '' OR r.platform = 'all' OR r.platform = $2)
       ORDER BY r.released_at DESC NULLS LAST, r.id DESC
       LIMIT 1`,
-    [s]
+    [s, plat]
   );
   return rows.length ? mapOwsProjectReleaseRow(rows[0]) : null;
 }
@@ -15388,6 +15515,11 @@ async function resolveLaunchProjectIdBySlug(slug) {
 app.get('/ows-project-releases', async (req, res) => {
   const slug = normalizeProjectSlug(req.query.slug || req.query.project || '');
   const wantInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  // ?platform=windows|android acota el historial; vacío = todas (el admin
+  // necesita ver todo, por eso no filtra por defecto).
+  const platformFilter = ['windows', 'android'].includes(String(req.query.platform || '').trim().toLowerCase())
+    ? String(req.query.platform).trim().toLowerCase()
+    : '';
   try {
     await ensureOwsProjectReleasesTable();
     if (wantInactive && !requireOwsStoreAdmin(req, res)) return;
@@ -15397,9 +15529,10 @@ app.get('/ows-project-releases', async (req, res) => {
          JOIN ows_launch_projects p ON p.id = r.project_id
         WHERE ($1 = '' OR LOWER(p.slug) = LOWER($1))
           AND ($2 = TRUE OR r.is_active = TRUE)
+          AND ($3 = '' OR r.platform = 'all' OR r.platform = $3)
         ORDER BY r.released_at DESC NULLS LAST, r.id DESC
         LIMIT 100`,
-      [slug, wantInactive]
+      [slug, wantInactive, platformFilter]
     );
     return res.json({ success: true, slug: slug || null, releases: rows.map(mapOwsProjectReleaseRow) });
   } catch (err) {
@@ -15428,8 +15561,8 @@ app.post('/ows-project-releases', async (req, res) => {
     const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
     const { rows } = await pool.query(
       `INSERT INTO ows_project_releases
-         (project_id, version, file_label, size_label, installer_url, itch_url, channel, notes, is_active, released_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         (project_id, version, file_label, size_label, installer_url, itch_url, channel, platform, notes, is_active, released_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING *`,
       [
         projectId,
@@ -15439,6 +15572,7 @@ app.post('/ows-project-releases', async (req, res) => {
         normalizeItchUrl(req.body?.installer_url ?? req.body?.installerUrl ?? ''),
         normalizeItchUrl(req.body?.itch_url ?? req.body?.itchUrl ?? ''),
         normalizeReleaseChannel(req.body?.channel),
+        normalizeOwsReleasePlatform(req.body?.platform),
         String(req.body?.notes ?? '').trim().slice(0, 1000),
         req.body?.is_active === undefined ? true : normalizeNewsBoolean(req.body.is_active, true),
         relDate.value
@@ -15487,6 +15621,7 @@ app.patch('/ows-project-releases/:id', async (req, res) => {
       updates.itch_url = normalizeItchUrl(req.body.itch_url ?? req.body.itchUrl ?? '');
     }
     if (req.body?.channel !== undefined) updates.channel = normalizeReleaseChannel(req.body.channel);
+    if (req.body?.platform !== undefined) updates.platform = normalizeOwsReleasePlatform(req.body.platform);
     if (req.body?.notes !== undefined) updates.notes = String(req.body.notes).trim().slice(0, 1000);
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
     if (req.body?.released_at !== undefined || req.body?.releasedAt !== undefined) {
@@ -15623,29 +15758,114 @@ function isNewerVersion(remote, local) {
   return compareVersionStrings(remote, local) > 0;
 }
 
+// ── Releases de GitHub por PLATAFORMA ──
+// El repo OceanandWild/ows-hub publica Windows (.exe/.msi/latest.json) y
+// Android (.apk, tags "android-v…") en el MISMO repo, así que "la última
+// release" puede ser un build de Android. Sin filtrar, los usuarios de
+// Windows veían versiones de Android (y se les ofrecía el .apk).
+function githubReleasePlatforms(release) {
+  const tag = String(release?.tag_name || release?.name || '').trim().toLowerCase();
+  const names = (Array.isArray(release?.assets) ? release.assets : [])
+    .map((a) => String(a?.name || '').toLowerCase())
+    .filter(Boolean);
+  const hasApk = names.some((n) => n.endsWith('.apk'));
+  const hasDesktop = names.some((n) => /\.(exe|msi)$/.test(n) || n === 'latest.json' || n === 'latest.yml');
+  const out = [];
+  if (hasDesktop) out.push('windows');
+  if (hasApk) out.push('android');
+  if (out.length) return out;
+  // Sin assets (o con el fallback HTML que no trae assets): manda el tag.
+  if (/android/i.test(tag)) return ['android'];
+  if (/windows/i.test(tag) || /^win[-_]/i.test(tag)) return ['windows'];
+  return ['windows'];
+}
+
+// De una lista de releases de GitHub, la más nueva de la plataforma pedida.
+// Se ordena por versión (semver-lite) y no por fecha: los tags de Android y
+// de Windows comparten número (3.3.5), así que el orden por fecha mezcla.
+function pickGithubReleaseForPlatform(list, platform) {
+  const plat = normalizeOwsUpdatePlatform(platform);
+  const matches = (Array.isArray(list) ? list : [])
+    .filter((r) => r && githubReleasePlatforms(r).includes(plat))
+    .sort((a, b) => {
+      const ver = compareVersionStrings(
+        String(a?.tag_name || a?.name || '').replace(/^(android|windows|win)[-_]/i, ''),
+        String(b?.tag_name || b?.name || '').replace(/^(android|windows|win)[-_]/i, '')
+      );
+      if (ver !== 0) return -ver;
+      return String(b?.published_at || b?.created_at || '').localeCompare(String(a?.published_at || a?.created_at || ''));
+    });
+  return matches[0] || null;
+}
+
+// Lista de releases del repo (para buscar la de la plataforma pedida cuando
+// la "última" es de otra). Devuelve [] si GitHub no responde.
+async function fetchGithubReleasesListLite(owner, repo, limit = 30) {
+  const safeOwner = String(owner || '').trim();
+  const safeRepo = String(repo || '').trim();
+  if (!safeOwner || !safeRepo) return [];
+  const headers = {
+    'User-Agent': 'OWS-OceanAI',
+    'Accept': 'application/vnd.github+json'
+  };
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const apiRes = await fetch(
+      `https://api.github.com/repos/${safeOwner}/${safeRepo}/releases?per_page=${Math.max(5, Math.min(100, Number(limit) || 30))}`,
+      { headers }
+    );
+    if (!apiRes.ok) return [];
+    const payload = await apiRes.json();
+    return Array.isArray(payload) ? payload : [];
+  } catch (_err) {
+    return [];
+  }
+}
+
+// Release de GitHub válida para la plataforma pedida: primero mira la
+// "última" y, si es de otra plataforma, busca en la lista.
+async function fetchGithubReleaseForPlatform(owner, repo, platform) {
+  const plat = normalizeOwsUpdatePlatform(platform);
+  const latest = await fetchGithubLatestReleaseLite(owner, repo);
+  if (latest && githubReleasePlatforms(latest).includes(plat)) return latest;
+  const list = await fetchGithubReleasesListLite(owner, repo, 30);
+  const picked = pickGithubReleaseForPlatform(list, plat);
+  if (picked) return picked;
+  return latest;
+}
+
 // Traduce la release de GitHub a JSON plano para el gestor. Cache en memoria
-// con ventana fresca + ventana stale: si GitHub falla se sirve lo último
-// bueno marcando `stale:true` (mejor una versión de hace horas que un error).
-async function getOwsHubUpdateRelease() {
-  if (!globalThis.__owsHubUpdateReleaseCache) globalThis.__owsHubUpdateReleaseCache = { payload: null, ts: 0 };
-  const cache = globalThis.__owsHubUpdateReleaseCache;
+// POR PLATAFORMA (windows y android tienen releases distintas) con ventana
+// fresca + ventana stale: si GitHub falla se sirve lo último bueno marcando
+// `stale:true` (mejor una versión de hace horas que un error).
+async function getOwsHubUpdateRelease(platform) {
+  const plat = normalizeOwsUpdatePlatform(platform);
+  if (!globalThis.__owsHubUpdateReleaseCache) globalThis.__owsHubUpdateReleaseCache = {};
+  const store = globalThis.__owsHubUpdateReleaseCache;
+  if (!store[plat]) store[plat] = { payload: null, ts: 0 };
+  const cache = store[plat];
   const now = Date.now();
   if (cache.payload && (now - cache.ts) < OWS_HUB_UPDATE_CACHE_TTL_MS) return cache.payload;
 
   const { owner, repo } = OWS_HUB_UPDATE_REPO;
   const releasesUrl = `https://github.com/${owner}/${repo}/releases/latest`;
   try {
-    const release = await fetchGithubLatestReleaseLite(owner, repo);
+    const release = await fetchGithubReleaseForPlatform(owner, repo, plat);
     const tag = String(release?.tag_name || release?.name || '').trim();
     if (!tag) throw new Error('GitHub no devolvió tag');
     const assets = Array.isArray(release?.assets) ? release.assets.filter((a) => a && a.browser_download_url) : [];
-    const installer = pickOwsHubUpdateInstaller(assets);
+    const installer = pickOwsHubUpdateInstaller(assets, plat);
+    // Los tags de Android son "android-v3.3.5": para comparar y mostrar la
+    // versión se usa siempre el número ("3.3.5"), como en Windows.
+    const version = tag.replace(/^(android|windows|win)[-_]/i, '').replace(/^[vV]/, '');
     cache.payload = {
       ok: true,
       stale: false,
       repo: `${owner}/${repo}`,
       tag,
-      version: tag.replace(/^[vV]/, ''),
+      platform: plat,
+      version,
       notes: String(release?.body || '').trim(),
       name: String(release?.name || tag).trim(),
       published_at: release?.published_at || release?.created_at || null,
@@ -15677,6 +15897,7 @@ async function getOwsHubUpdateRelease() {
       stale: true,
       repo: `${owner}/${repo}`,
       tag: '',
+      platform: plat,
       version: '',
       notes: '',
       name: '',
@@ -15696,15 +15917,22 @@ async function getOwsHubUpdateRelease() {
 // Prioridad de assets del Hub: instalador de Windows (setup/installer) →
 // cualquier .exe/.msi → portable .zip/.7z → otros. Espejo de la misma
 // lógica que usa el frontend (pickOwsHubAsset) para que backend y UI
-// coincidan en qué archivo se baja.
-function pickOwsHubUpdateInstaller(assets) {
-  const list = Array.isArray(assets) ? assets : [];
+// coincidan en qué archivo se baja. OJO: nunca se elige un .apk como
+// instalador de Windows (ni al revés), aunque sea el único asset.
+function pickOwsHubUpdateInstaller(assets, platform) {
+  const plat = normalizeOwsUpdatePlatform(platform);
+  let list = Array.isArray(assets) ? assets : [];
+  list = list.filter((a) => {
+    const n = String(a?.name || '').trim().toLowerCase();
+    if (plat === 'android') return n.endsWith('.apk');
+    return !n.endsWith('.apk');
+  });
   if (!list.length) return null;
   const rank = (name) => {
     const n = String(name || '').trim().toLowerCase();
     if (/\.(exe|msi)$/.test(n)) return (/setup|installer|owshub[-_ ]?hub/i.test(n)) ? 0 : 1;
     if (/\.(zip|7z)$/.test(n)) return 2;
-    if (/\.(appx|msix|apk|dmg|deb|rpm|appimage)$/.test(n)) return 3;
+    if (/\.(appx|msix|dmg|deb|rpm|appimage)$/.test(n)) return 3;
     return 9;
   };
   const sorted = [...list].sort((a, b) => {
@@ -15749,7 +15977,8 @@ function parseInstalledMap(req) {
 // Proyectos con su última release activa, ya aplanados para el gestor.
 // Reutiliza latest_release de /ows-launch-projects (misma tabla, misma
 // fuente de verdad) y agrega el diff contra lo instalado.
-async function buildOwsUpdateProjectRows(installedMap) {
+async function buildOwsUpdateProjectRows(installedMap, platform) {
+  const plat = normalizeOwsUpdatePlatform(platform);
   await ensureOwsProjectReleasesTable();
   const { rows } = await pool.query(
     `SELECT id, slug, name, icon_url, genre, platforms, status, is_active, admin_only,
@@ -15758,15 +15987,24 @@ async function buildOwsUpdateProjectRows(installedMap) {
       WHERE is_active = TRUE
       ORDER BY priority DESC, name ASC`
   );
-  const projects = rows.map((r) => mapOwsLaunchProjectRow(r));
+  // Solo proyectos disponibles en la plataforma pedida: un juego de Android
+  // no es "actualización pendiente" para un usuario de Windows (y viceversa).
+  const projects = rows
+    .map((r) => mapOwsLaunchProjectRow(r))
+    .filter((p) => !Array.isArray(p.platforms) || !p.platforms.length
+      || p.platforms.includes(plat)
+      || p.platforms.includes('web'));
   let relMap = {};
-  try { relMap = await getLatestReleasesMapByProjectIds(projects.map((p) => p.id)); } catch (_) { relMap = {}; }
+  // Última release COMPATIBLE con la plataforma pedida (o 'all').
+  try { relMap = await getLatestReleasesMapByProjectIds(projects.map((p) => p.id), plat); } catch (_) { relMap = {}; }
 
   return projects.map((p) => {
     const rel = relMap[p.id] || null;
     const installedVersion = String((installedMap && installedMap[p.slug]) || '').trim();
-    const latestVersion = String((rel && rel.version) || p.itch_version || '').trim();
-    const hasBuild = !!(rel && rel.id) || !!p.itch_version || !!p.installer_url;
+    // itch.io guarda el build de ESCRITORIO: en Android no cuenta como build.
+    const isWindows = plat === 'windows';
+    const latestVersion = String((rel && rel.version) || (isWindows ? p.itch_version : '') || '').trim();
+    const hasBuild = !!(rel && rel.id) || (isWindows && (!!p.itch_version || !!p.installer_url));
     const installed = !!installedVersion;
     const available = installed && hasBuild && isNewerVersion(latestVersion, installedVersion);
     return {
@@ -15776,6 +16014,8 @@ async function buildOwsUpdateProjectRows(installedMap) {
       status: p.status,
       genre: p.genre,
       platforms: p.platforms,
+      // Plataforma del build que se está mostrando (para que la UI lo rotule).
+      platform: (rel && rel.platform) || plat,
       expected_date: p.expected_date,
       admin_only: p.admin_only,
       has_build: hasBuild,
@@ -15789,9 +16029,9 @@ async function buildOwsUpdateProjectRows(installedMap) {
       notes: String((rel && rel.notes) || '').trim(),
       channel: (rel && rel.channel) || 'stable',
       prerelease: !!rel && rel.channel !== 'stable',
-      file_label: String((rel && rel.file_label) || p.itch_file || '').trim(),
-      size_label: String((rel && rel.size_label) || p.itch_size || '').trim(),
-      released_at: (rel && rel.released_at) || p.itch_updated_at || null,
+      file_label: String((rel && rel.file_label) || (isWindows ? p.itch_file : '') || '').trim(),
+      size_label: String((rel && rel.size_label) || (isWindows ? p.itch_size : '') || '').trim(),
+      released_at: (rel && rel.released_at) || (isWindows ? p.itch_updated_at : null) || null,
       release_id: (rel && rel.id) || null,
       download_url: `/ows-updates/projects/${encodeURIComponent(p.slug)}/download`,
       page_url: p.itch_url || p.link_url || ''
@@ -15800,10 +16040,12 @@ async function buildOwsUpdateProjectRows(installedMap) {
 }
 
 // Resumen del Hub (público). No necesita ni token ni body.
-app.get('/ows-updates/hub', async (_req, res) => {
+// ?platform=windows|android: el repo ows-hub publica build de las dos
+// plataformas, así que hay que decir cuál se quiere (default windows).
+app.get('/ows-updates/hub', async (req, res) => {
   try {
-    const release = await getOwsHubUpdateRelease();
-    return res.json({ success: true, hub: release });
+    const release = await getOwsHubUpdateRelease(req.query.platform);
+    return res.json({ success: true, platform: normalizeOwsUpdatePlatform(req.query.platform), hub: release });
   } catch (err) {
     console.error('Error en GET /ows-updates/hub:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -15820,10 +16062,11 @@ app.get('/ows-updates/projects', async (req, res) => {
   if (includeHidden && !requireOwsStoreAdmin(req, res)) return;
   try {
     const installed = parseInstalledMap(req);
-    const all = await buildOwsUpdateProjectRows(installed);
+    const all = await buildOwsUpdateProjectRows(installed, req.query.platform);
     const projects = includeHidden ? all : all.filter((p) => !p.admin_only);
     return res.json({
       success: true,
+      platform: normalizeOwsUpdatePlatform(req.query.platform),
       projects,
       counts: {
         total: projects.length,
@@ -15841,16 +16084,22 @@ app.get('/ows-updates/projects', async (req, res) => {
 // ── GET /ows-updates/check — el endpoint que usa el Gestor ──
 // ?hub=3.1.6            versión del launcher instalada (vacío en navegador)
 // &installed=slug:ver   qué juegos tenés instalados y en qué versión
+// &platform=windows|android
+//                       plataforma del cliente (default windows): de acá
+//                       depende qué release del Hub y qué build de cada
+//                       juego se comparan. Sin esto un usuario de Windows
+//                       veía versiones de Android.
 // &include_hidden=1     suma los proyectos solo-admin (uso interno)
 // Devuelve el plan ya comparado + contadores para el badge del menú.
 app.get('/ows-updates/check', async (req, res) => {
   try {
     const localHubVersion = String(req.query.hub ?? req.query.hub_version ?? '').trim().replace(/^[vV]/, '');
     const includeHidden = normalizeNewsBoolean(req.query.include_hidden, false);
+    const platform = normalizeOwsUpdatePlatform(req.query.platform);
     if (includeHidden && !requireOwsStoreAdmin(req, res)) return;
     const [hub, allProjects] = await Promise.all([
-      getOwsHubUpdateRelease(),
-      buildOwsUpdateProjectRows(parseInstalledMap(req))
+      getOwsHubUpdateRelease(platform),
+      buildOwsUpdateProjectRows(parseInstalledMap(req), platform)
     ]);
     const projects = includeHidden
       ? allProjects
@@ -15867,9 +16116,11 @@ app.get('/ows-updates/check', async (req, res) => {
     return res.json({
       success: true,
       checked_at: new Date().toISOString(),
+      platform,
       hub: {
         ok: !!hub.ok,
         repo: hub.repo,
+        platform: hub.platform || platform,
         current_version: localHubVersion || null,
         latest_version: latestHubVersion || null,
         update_available: hubAvailable,
@@ -15909,10 +16160,14 @@ app.get('/ows-updates/projects/:slug/download', launchProjectDownloadHandler);
 
 // Versiones de un proyecto para el changelog del gestor (?include_inactive=1
 // exige admin, igual que en /ows-project-releases).
+// ?platform=windows|android (default windows): el historial también se
+// corta por plataforma, si no un usuario de Windows leía notas de builds
+// de Android.
 app.get('/ows-updates/projects/:slug/releases', async (req, res) => {
   const slug = normalizeProjectSlug(req.params.slug);
   if (!slug) return res.status(400).json({ error: 'slug inválido' });
   const wantInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const platform = normalizeOwsUpdatePlatform(req.query.platform);
   try {
     await ensureOwsProjectReleasesTable();
     if (wantInactive && !requireOwsStoreAdmin(req, res)) return;
@@ -15922,9 +16177,10 @@ app.get('/ows-updates/projects/:slug/releases', async (req, res) => {
          JOIN ows_launch_projects p ON p.id = r.project_id
         WHERE LOWER(p.slug) = LOWER($1)
           AND ($2 = TRUE OR r.is_active = TRUE)
+          AND (r.platform = 'all' OR r.platform = $3)
         ORDER BY r.released_at DESC NULLS LAST, r.id DESC
         LIMIT 50`,
-      [slug, wantInactive]
+      [slug, wantInactive, platform]
     );
     // Los proyectos de Gestión (admin_only) u ocultos no se exponen en
     // público: el changelog de un juego solo-admin requiere token admin.
@@ -15942,6 +16198,7 @@ app.get('/ows-updates/projects/:slug/releases', async (req, res) => {
     return res.json({
       success: true,
       slug,
+      platform,
       releases,
       latest: releases.length ? releases[0] : null,
       installed_version: installedVersion || null,
@@ -16158,6 +16415,18 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
       entityName: String(projRows[0].name || ''), adminName: updatedBy,
       meta: { percent, mode, delta: percent - percentBefore, note }
     });
+    // Celebraciones automáticas por hitos de euforia (90/95/99/100).
+    // Se crean solo al CRUZAR cada umbral hacia arriba (before < umbral <= after)
+    // y con dedupe por (project_id, kind) para no duplicar.
+    let celebrations = [];
+    try {
+      celebrations = await autoCelebrateProgressMilestones({
+        projectId, projectName: String(projRows[0].name || ''),
+        before: percentBefore, after: percent, createdBy: updatedBy
+      });
+    } catch (e) {
+      console.error('[celebrations] auto-hitos falló:', e?.message || e);
+    }
     return res.json({
       success: true,
       development: {
@@ -16169,10 +16438,287 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
       mode,
       percent_before: percentBefore,
       delta: Math.round((percent - percentBefore) * 100) / 100,
-      history: historyEntry
+      history: historyEntry,
+      celebrations
     });
   } catch (err) {
     console.error('Error en PUT /ows-project-development/:projectId:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ═══════════════════════════════════════════════
+// CELEBRACIONES OWS — euforia + bienvenidas + catálogo global
+// Tabla: ows_celebrations (1 fila por hito/proyecto).
+// kinds:
+//   'welcome'       → nace un proyecto solo-admin (sub-sección Bienvenidas 🌱)
+//   'hype_90'       → cruzó 90%  (euforia nivel 1 🔥)
+//   'hype_95'       → cruzó 95%  (euforia nivel 2 ⚡)
+//   'hype_99'       → cruzó 99%  (euforia nivel 3 🚨)
+//   'liftoff_100'   → llegó a 100% (despegue 🚀)
+//   'catalog_entry' → entró al catálogo global (sección Celebraciones 🎉:
+//                     proyecto público nuevo o solo-admin que se vuelve público/lanzado)
+// Todo es solo-admin: lectura/escritura/borrado exigen token admin.
+// ═══════════════════════════════════════════════
+let owsCelebrationsReady = false;
+
+const OWS_CELEBRATION_KINDS = new Set([
+  'welcome', 'hype_90', 'hype_95', 'hype_99', 'liftoff_100', 'catalog_entry'
+]);
+
+function normalizeCelebrationKind(value, fallback = '') {
+  const raw = String(value || '').trim().toLowerCase();
+  if (OWS_CELEBRATION_KINDS.has(raw)) return raw;
+  return fallback;
+}
+
+async function ensureOwsCelebrationsTable() {
+  if (owsCelebrationsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_celebrations (
+      id              BIGSERIAL PRIMARY KEY,
+      project_id      BIGINT REFERENCES ows_launch_projects(id) ON DELETE CASCADE,
+      project_slug    TEXT NOT NULL DEFAULT '',
+      project_name    TEXT NOT NULL DEFAULT '',
+      kind            TEXT NOT NULL DEFAULT 'liftoff_100',
+      title           TEXT NOT NULL DEFAULT '',
+      message         TEXT NOT NULL DEFAULT '',
+      percent_before  NUMERIC(5,2),
+      percent_after   NUMERIC(5,2),
+      created_by      TEXT NOT NULL DEFAULT 'OceanandWild',
+      metadata        JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_celeb_project ON ows_celebrations(project_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_celeb_kind ON ows_celebrations(kind)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_celeb_created ON ows_celebrations(created_at DESC)');
+  owsCelebrationsReady = true;
+}
+
+function celebrationDefaults(kind, projectName) {
+  const name = String(projectName || 'el proyecto');
+  switch (kind) {
+    case 'welcome':
+      return {
+        title: `🌱 ¡Bienvenido, ${name}!`,
+        message: `${name} nació en Gestión como proyecto solo-admin. Pronto será grande: a darle cariño hasta el 100%.`
+      };
+    case 'hype_90':
+      return {
+        title: `🔥 ${name} entró en Zona Hype (90%)`,
+        message: `¡A un paso del despegue! ${name} cruzó el 90% de desarrollo. Último empujón.`
+      };
+    case 'hype_95':
+      return {
+        title: `⚡ ${name} casi listo (95%)`,
+        message: `${name} está al 95%. Recta final: pulir, probar y preparar el anuncio.`
+      };
+    case 'hype_99':
+      return {
+        title: `🚨 ${name} en 99% — punto crítico`,
+        message: `${name} roza el 100%. Todo el estudio en modo despegue.`
+      };
+    case 'liftoff_100':
+      return {
+        title: `🚀 ${name} llegó al 100% — DESPEGUE`,
+        message: `${name} completó su desarrollo. Momento de fijar fecha de lanzamiento y anunciarlo al ecosistema.`
+      };
+    case 'catalog_entry':
+      return {
+        title: `🎉 ${name} entró al catálogo global`,
+        message: `${name} ya es visible en el catálogo público de OWS. ¡A celebrarlo con la comunidad!`
+      };
+    default:
+      return { title: `🎉 ${name}`, message: '' };
+  }
+}
+
+function sanitizeCelebrationRow(r) {
+  const pct = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+  };
+  let meta = {};
+  try { meta = (r?.metadata && typeof r.metadata === 'object') ? r.metadata : JSON.parse(String(r?.metadata || '{}')); } catch (_) { meta = {}; }
+  return {
+    id: Number(r?.id || 0),
+    project_id: r?.project_id != null ? Number(r.project_id) : null,
+    project_slug: String(r?.project_slug || ''),
+    project_name: String(r?.project_name || ''),
+    kind: normalizeCelebrationKind(r?.kind, 'liftoff_100'),
+    title: String(r?.title || ''),
+    message: String(r?.message || ''),
+    percent_before: pct(r?.percent_before),
+    percent_after: pct(r?.percent_after),
+    created_by: String(r?.created_by || 'OceanandWild'),
+    metadata: meta,
+    created_at: r?.created_at ? new Date(r.created_at).toISOString() : null
+  };
+}
+
+// Crea una celebración con dedupe: los hitos (welcome/liftoff/catalog/hypes)
+// existen UNA vez por (project_id, kind). Si ya existe, devuelve la existente
+// sin duplicar. Devuelve la fila saneada o null si no pudo.
+async function createCelebrationOnce({ projectId = null, kind = '', title = '', message = '', percentBefore = null, percentAfter = null, createdBy = 'OceanandWild', metadata = {} }) {
+  const k = normalizeCelebrationKind(kind);
+  if (!k) return null;
+  const pid = Number(projectId);
+  if (!Number.isFinite(pid) || pid <= 0) return null;
+  await ensureOwsLaunchProjectsTable();
+  await ensureOwsCelebrationsTable();
+  const { rows: projRows } = await pool.query(
+    'SELECT id, slug, name FROM ows_launch_projects WHERE id = $1 LIMIT 1',
+    [pid]
+  );
+  if (!projRows.length) return null;
+  const slug = String(projRows[0].slug || '');
+  const name = String(projRows[0].name || '');
+  // Dedupe por hito: un proyecto festeja cada hito una sola vez.
+  const { rows: existing } = await pool.query(
+    'SELECT * FROM ows_celebrations WHERE project_id = $1 AND kind = $2 LIMIT 1',
+    [pid, k]
+  );
+  if (existing.length) return sanitizeCelebrationRow(existing[0]);
+  const def = celebrationDefaults(k, name);
+  const finalTitle = String(title || '').trim().slice(0, 160) || def.title;
+  const finalMsg = String(message || '').trim().slice(0, 1000) || def.message;
+  const by = String(createdBy || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+  const pb = (percentBefore === null || percentBefore === undefined || percentBefore === '') ? null : Number(percentBefore);
+  const pa = (percentAfter === null || percentAfter === undefined || percentAfter === '') ? null : Number(percentAfter);
+  const { rows } = await pool.query(
+    `INSERT INTO ows_celebrations (project_id, project_slug, project_name, kind, title, message, percent_before, percent_after, created_by, metadata)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
+     RETURNING *`,
+    [pid, slug, name, k, finalTitle, finalMsg,
+      Number.isFinite(pb) ? pb : null, Number.isFinite(pa) ? pa : null, by,
+      JSON.stringify((metadata && typeof metadata === 'object') ? metadata : {})]
+  );
+  const created = sanitizeCelebrationRow(rows[0] || {});
+  try {
+    logAdminActivity({
+      action: 'celebrate', entityType: 'launch_project', entityId: slug || String(pid),
+      entityName: name, adminName: by, meta: { kind: k, celebration_id: created.id }
+    });
+  } catch (_) { /* no bloquea */ }
+  return created;
+}
+
+// Al cruzar umbrales hacia arriba crea hype_90 / hype_95 / hype_99 / liftoff_100.
+// Devuelve las celebraciones creadas (o ya existentes) en orden de cruce.
+async function autoCelebrateProgressMilestones({ projectId, projectName = '', before = 0, after = 0, createdBy = 'OceanandWild' }) {
+  const b = Number(before) || 0;
+  const a = Number(after) || 0;
+  if (!(a > b)) return [];
+  const out = [];
+  const steps = [
+    { threshold: 90, kind: 'hype_90' },
+    { threshold: 95, kind: 'hype_95' },
+    { threshold: 99, kind: 'hype_99' },
+    { threshold: 100, kind: 'liftoff_100' }
+  ];
+  for (const s of steps) {
+    if (b < s.threshold && a >= s.threshold) {
+      try {
+        const c = await createCelebrationOnce({
+          projectId, kind: s.kind,
+          percentBefore: Math.round(b * 100) / 100,
+          percentAfter: Math.round(a * 100) / 100,
+          createdBy, metadata: { threshold: s.threshold, project_name: projectName }
+        });
+        if (c) out.push(c);
+      } catch (e) {
+        console.error(`[celebrations] hito ${s.kind} falló:`, e?.message || e);
+      }
+    }
+  }
+  return out;
+}
+
+// Listar celebraciones (solo-admin). ?kind=welcome|liftoff_100|... ?project_id=N ?limit=100
+app.get('/ows-celebrations', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const kind = normalizeCelebrationKind(req.query?.kind, '');
+  const projectId = Number(req.query?.project_id || 0);
+  const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 100) || 100));
+  try {
+    await ensureOwsCelebrationsTable();
+    const where = [];
+    const params = [];
+    if (kind) { params.push(kind); where.push(`c.kind = $${params.length}`); }
+    if (Number.isFinite(projectId) && projectId > 0) { params.push(projectId); where.push(`c.project_id = $${params.length}`); }
+    params.push(limit);
+    const { rows } = await pool.query(
+      `SELECT c.*, p.admin_only, p.icon_url AS project_icon_url, p.status AS project_status
+         FROM ows_celebrations c
+         LEFT JOIN ows_launch_projects p ON p.id = c.project_id
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT $${params.length}`,
+      params
+    );
+    return res.json({
+      success: true,
+      celebrations: rows.map((r) => ({
+        ...sanitizeCelebrationRow(r),
+        project_icon_url: String(r.project_icon_url || ''),
+        project_status: String(r.project_status || ''),
+        admin_only: r.admin_only === true
+      }))
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-celebrations:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear celebración manual (solo-admin). Body: { project_id | slug, kind, title?, message? }
+app.post('/ows-celebrations', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const kind = normalizeCelebrationKind(req.body?.kind);
+  if (!kind) return res.status(400).json({ error: 'kind inválido (welcome, hype_90, hype_95, hype_99, liftoff_100, catalog_entry)' });
+  let projectId = Number(req.body?.project_id ?? req.body?.projectId ?? 0);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsCelebrationsTable();
+    if ((!Number.isFinite(projectId) || projectId <= 0) && req.body?.slug) {
+      const slugNorm = normalizeProjectSlug(req.body.slug);
+      const { rows } = await pool.query('SELECT id FROM ows_launch_projects WHERE LOWER(slug) = LOWER($1) LIMIT 1', [slugNorm]);
+      if (rows.length) projectId = Number(rows[0].id);
+    }
+    if (!Number.isFinite(projectId) || projectId <= 0) return res.status(400).json({ error: 'project_id o slug inválido' });
+    const headerAdmin = String(req.headers['x-ows-admin-name'] || '').trim();
+    const createdBy = String(req.body?.created_by || req.body?.createdBy || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+    const created = await createCelebrationOnce({
+      projectId, kind,
+      title: String(req.body?.title || ''),
+      message: String(req.body?.message || ''),
+      percentBefore: req.body?.percent_before ?? req.body?.percentBefore ?? null,
+      percentAfter: req.body?.percent_after ?? req.body?.percentAfter ?? null,
+      createdBy,
+      metadata: (req.body?.metadata && typeof req.body.metadata === 'object') ? req.body.metadata : { manual: true }
+    });
+    if (!created) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    return res.status(201).json({ success: true, celebration: created });
+  } catch (err) {
+    console.error('Error en POST /ows-celebrations:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Borrar celebración (solo-admin).
+app.delete('/ows-celebrations/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id inválido' });
+  try {
+    await ensureOwsCelebrationsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_celebrations WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Celebración no encontrada' });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-celebrations/:id:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

@@ -266,6 +266,7 @@ body {
 }
 
 /* Navegación unificada: una sola columna dentro de la barra lateral */
+.admin-nav { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .panel-tabs {
   display: flex; flex-direction: column; gap: 6px; padding: 0; margin: 0;
   overflow-y: auto; flex: 0 1 auto;
@@ -3277,10 +3278,6 @@ body {
 @media (max-width: 900px) {
   .admin-shell { flex-direction: column; }
   .admin-sidebar { width: auto; position: static; max-height: none; }
-  .panel-tabs, .sub-tabs-buttons { flex-direction: row; overflow-x: auto; }
-  .ptab { text-align: center; }
-  .sub-tabs { flex-direction: row; align-items: center; }
-  .admin-nav-divider { width: 1px; min-width: 1px; height: auto; background: linear-gradient(180deg, transparent, var(--gold-border-strong), transparent); }
   .newsadm-form-card, .events-form-card { top: 0; }
 }
 @media (max-width: 640px) {
@@ -3568,18 +3565,124 @@ body {
 }
 @media (max-width: 900px) {
   .panel-wrap { padding: 12px 12px 32px; }
-  .admin-sidebar {
-    width: auto; position: static; max-height: none;
-    padding: 14px 12px;
-  }
-  .panel-tabs { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
-  .ptab { white-space: nowrap; }
-  .ptab::before { display: none; }
-  .sub-tabs-buttons { flex-direction: row; overflow-x: auto; }
+  .admin-shell { flex-direction: column; align-items: stretch; gap: 12px; }
+
+  /* La barra lateral deja de ser una tarjeta: sus hijos pasan a ser
+     elementos del shell. Así la navegación puede quedarse pegada arriba
+     (sticky se limita al contenedor: dentro de la tarjeta corta se iba
+     con apenas unos píxeles de scroll). El orden manda: marca → nav →
+     contenido → perfil. */
+  .admin-sidebar { display: contents; }
+  .nav-brand { order: 1; padding: 2px; }
+  .admin-nav { order: 2; }
+  .admin-main { order: 3; width: 100%; }
   .sidebar-spacer { display: none; }
-  .sidebar-footer { flex-direction: row; align-items: center; }
-  .sidebar-profile { flex: 1; }
-  .sidebar-actions { display: flex; }
+  .sidebar-footer { order: 4; }
+
+  /* Navegación pegada arriba: las pestañas quedan siempre a la mano */
+  .admin-nav {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 10px;
+    background: rgba(6, 9, 18, 0.97);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 0;
+    border-radius: 0 0 16px 16px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+  }
+
+  /* Tira de secciones: pastillas táctiles con scroll horizontal visible
+     (con la scrollbar oculta no había ninguna pista de que hay más tabs). */
+  .panel-tabs {
+    flex-direction: row; gap: 6px;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(245, 158, 11, 0.45) transparent;
+  }
+  .panel-tabs::-webkit-scrollbar { display: block; height: 4px; width: auto; }
+  .panel-tabs::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.06); border-radius: 99px; }
+  .panel-tabs::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.5); border-radius: 99px; }
+  .ptab {
+    flex: 0 0 auto;
+    text-align: center; white-space: nowrap;
+    min-height: 40px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    scroll-snap-align: center;
+    touch-action: manipulation;
+  }
+  .ptab::before { display: none; }
+  .ptab:hover { transform: none; background: rgba(255, 255, 255, 0.06); }
+  .ptab.active {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(249, 115, 22, 0.18));
+    border-color: var(--gold-border-strong);
+    color: var(--gold-light);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.22);
+  }
+
+  .admin-nav-divider { display: none; }
+
+  /* Sub-secciones: segunda tira de pastillas (la etiqueta sobra en móvil) */
+  .sub-tabs {
+    flex-direction: row; align-items: center;
+    gap: 8px;
+    background: transparent; border: 0; padding: 0; border-radius: 0;
+  }
+  .sub-tabs-label { display: none; }
+  .sub-tabs-buttons {
+    flex-direction: row; gap: 6px;
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(168, 85, 247, 0.5) transparent;
+  }
+  .sub-tabs-buttons::-webkit-scrollbar { display: block; height: 4px; width: auto; }
+  .sub-tabs-buttons::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.06); border-radius: 99px; }
+  .sub-tabs-buttons::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.5); border-radius: 99px; }
+  .subtab {
+    flex: 0 0 auto;
+    text-align: center; white-space: nowrap;
+    min-height: 36px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    scroll-snap-align: center;
+    touch-action: manipulation;
+  }
+  .subtab:hover { background: rgba(255, 255, 255, 0.06); }
+  .subtab.active {
+    background: rgba(168, 85, 247, 0.24);
+    border-color: rgba(168, 85, 247, 0.55);
+    color: #e9d5ff;
+    box-shadow: 0 4px 14px rgba(168, 85, 247, 0.22);
+  }
+
+  /* Perfil y acciones al pie del contenido */
+  .sidebar-footer {
+    flex-direction: row; align-items: center; flex-wrap: wrap;
+    gap: 10px; padding-top: 12px;
+  }
+  .sidebar-profile { flex: 1; min-width: 190px; }
+  .sidebar-actions { display: flex; min-width: 160px; }
+  .newsadm-form-card, .events-form-card { top: 0; }
+}
+
+/* Móvil angosto: pastillas más compactas para que quepan más por pantalla */
+@media (max-width: 480px) {
+  .ptab { padding: 8px 12px; font-size: 0.82rem; min-height: 38px; }
+  .subtab { padding: 7px 11px; font-size: 0.76rem; min-height: 34px; }
+  .admin-nav { padding: 8px; }
+  .sidebar-profile { min-width: 0; }
+  .sidebar-actions { min-width: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════

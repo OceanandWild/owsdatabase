@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=5" />
+  <link rel="stylesheet" href="admin-styles.css?v=6" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -72,20 +72,22 @@
          <span class="nav-badge owner-badge">🛡️ Administración</span>
        </div>
      </div>
-     <nav class="panel-tabs" aria-label="Secciones principales">
-       <button class="ptab active" id="ptab-news" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:news">📰 Noticias</button>
-       <button class="ptab" id="ptab-events" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:events">🗓️ Eventos</button>
-       <button class="ptab" id="ptab-projects" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:projects">📁 Proyectos</button>
-       <button class="ptab" id="ptab-manage" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:manage">🛡️ Gestión</button>
-        <button class="ptab" id="ptab-incidents" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:incidents">🚨 Incidentes</button>
+      <div class="admin-nav">
+       <nav class="panel-tabs" aria-label="Secciones principales">
+        <button class="ptab active" id="ptab-news" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:news">📰 Noticias</button>
+        <button class="ptab" id="ptab-events" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:events">🗓️ Eventos</button>
+        <button class="ptab" id="ptab-projects" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:projects">📁 Proyectos</button>
+        <button class="ptab" id="ptab-manage" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:manage">🛡️ Gestión</button>
+         <button class="ptab" id="ptab-incidents" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:incidents">🚨 Incidentes</button>
         <button class="ptab" id="ptab-reports" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:reports">📋 Informes</button>
         <button class="ptab" id="ptab-users" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:users">👥 Usuarios</button>
-     </nav>
-     <div class="admin-nav-divider" aria-hidden="true"></div>
-     <nav id="sub-tabs" class="sub-tabs hidden" aria-label="Sub-secciones">
-       <span class="sub-tabs-label">Sub-sección</span>
-       <div id="sub-tabs-buttons" class="sub-tabs-buttons"></div>
-     </nav>
+       </nav>
+       <div class="admin-nav-divider" aria-hidden="true"></div>
+       <nav id="sub-tabs" class="sub-tabs hidden" aria-label="Sub-secciones">
+        <span class="sub-tabs-label">Sub-sección</span>
+        <div id="sub-tabs-buttons" class="sub-tabs-buttons"></div>
+       </nav>
+      </div>
      <div class="sidebar-spacer"></div>
      <div class="sidebar-footer">
        <div class="sidebar-profile">
@@ -1805,7 +1807,7 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="admin-app.js?v=2"></script>
+  <script src="admin-app.js?v=3"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

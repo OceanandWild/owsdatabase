@@ -2726,8 +2726,29 @@ async function startAndroidApkInstall(slug, displayName) {
         try {
           updateDownload(id, { status: 'downloading', downloaded: 0, note: 'Descargando APK…' });
           await native.FileTransfer.downloadFile({ url: rel.apk_url, path: forms[f], progress: true });
+          // El instalador de Android rechaza el APK con "error en el análisis
+          // del paquete" si el archivo quedó trunco (típico en 600+ MB con
+          // WiFi inestable). Se verifica el tamaño contra el publicado ANTES
+          // de abrir el instalador: si no coincide se borra el parcial y se
+          // pide reintentar, en vez del error críptico del sistema.
+          const expected = Number(rel.size_bytes || 0);
+          if (expected > 0) {
+            let actual = -1;
+            try {
+              const st = await native.Filesystem.stat({ path: 'owshub-apk/' + fname, directory: rootDir });
+              actual = Number(st && st.size);
+            } catch (_) { actual = -1; }
+            if (Number.isFinite(actual) && actual >= 0 && actual !== expected) {
+              try { await native.Filesystem.deleteFile({ path: 'owshub-apk/' + fname, directory: rootDir }); } catch (_) {}
+              throw Object.assign(
+                new Error(`descarga incompleta (${formatMB(actual)} de ${formatMB(expected)}): reintentá con WiFi estable`),
+                { owsDetail: `Esperado: ${expected} bytes\nRecibido: ${actual} bytes\nURL: ${rel.apk_url || ''}` }
+              );
+            }
+          }
           savedPath = plain;
         } catch (dlErr) {
+          if (dlErr && dlErr.owsDetail) throw dlErr;
           diag.push(`[${rootName} ${forms[f] === fileUri ? 'uri' : 'ruta'}] descarga: ${describeNativeError(dlErr)}`);
         }
       }
@@ -5192,6 +5213,9 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.2': [
+    'Android: si un APK se descarga incompleto, el Hub lo detecta por tamaño y te pide reintentar con WiFi en vez de fallar en el instalador.'
+  ],
   '3.4.0': [
     '✨ ¡Wilder Gambit 1.0.0 ya está acá! Primera versión completa, disponible para Windows y Android.',
     'En Lanzamientos cada juego muestra su versión por plataforma: tarjeta de Windows en PC y botón de APK en Android.',

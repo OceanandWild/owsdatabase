@@ -72,18 +72,38 @@
       || /module specifier/.test(msg);
   }
 
-  async function listenDownloadProgress(handler) {
-    try {
+  // v3.4.5: con timeout. Si el puente de eventos no responde en 15 s, se
+  // sigue igual SIN % en vivo (no-op) en vez de dejar la instalación
+  // colgada en "Conectando…" para siempre.
+  async function listenDownloadProgress(handler, timeoutMs) {
+    const ms = Number(timeoutMs) || 15000;
+    const work = (async () => {
       const ev = window.__TAURI__ && window.__TAURI__.event;
       if (ev && typeof ev.listen === 'function') {
         return await ev.listen('ows-download-progress', (e) => handler(e.payload));
       }
       const mod = await import('@tauri-apps/api/event');
       return await mod.listen('ows-download-progress', (e) => handler(e.payload));
+    })();
+    let timer = null;
+    let timedOut = false;
+    try {
+      return await Promise.race([
+        work,
+        new Promise((_, rej) => { timer = setTimeout(() => { timedOut = true; rej(new Error('listen-timeout')); }, ms); }),
+      ]);
     } catch (_) {
-      // Sin puente de eventos (binario sin withGlobalTauri ni importmap):
-      // devuelve unlisten no-op para no romper la instalación (solo sin % en vivo).
+      // Sin puente de eventos (binario sin withGlobalTauri ni importmap)
+      // o timeout: devuelve unlisten no-op para no romper la instalación
+      // (solo sin % en vivo).
       return function () {};
+    } finally {
+      try { if (timer) clearTimeout(timer); } catch (_) {}
+      // Solo si ganó el timeout y el listen llega tarde: se libera
+      // enseguida para no duplicar eventos de progreso.
+      if (timedOut) {
+        try { work.then((u) => { if (typeof u === 'function') u(); }).catch(() => {}); } catch (_) {}
+      }
     }
   }
 
@@ -323,6 +343,15 @@
       delete store[String(slug)];
       saveStore(store);
       return removed;
+    },
+
+    // v3.4.5: cancelación REAL. Antes el Gestor solo marcaba la tarjeta y
+    // el Rust seguía descargando (y podía pisar el archivo de un reintento).
+    cancel(slug) {
+      if (!this.isDesktop) return Promise.resolve(false);
+      return invoke('cancel_download', { slug: String(slug || '') })
+        .then((v) => !!v)
+        .catch(() => false);
     },
 
     async launch(slug) {

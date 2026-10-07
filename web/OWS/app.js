@@ -2890,7 +2890,30 @@ async function startDesktopInstallManaged(slug, remoteVersion, displayName) {
   });
   // No se cambia de sección a la fuerza: si el usuario está en otra vista
   // ve el toaster de arriba con el progreso; el badge del menú marca el curso.
+  // v3.4.5 — watchdog anti-cuelgue: si el instalador (JS→Rust) no emite
+  // NINGÚN evento en 3 min (sea por listen, IPC o red), se marca error con
+  // Reintentar en vez de quedar en 0% para siempre. Las descargas sanas
+  // emiten eventos por chunk (varias veces por segundo), así que no hay
+  // falsos positivos. El intervalo se limpia al terminar.
+  let lastEvAt = Date.now();
+  let settled = false;
+  const watch = setInterval(() => {
+    try {
+      if (settled) { clearInterval(watch); return; }
+      const d = (Array.isArray(downloadsState) ? downloadsState : []).find((x) => String(x.id) === String(id));
+      if (!d || !dlIsActive(d)) { clearInterval(watch); return; }
+      if (Date.now() - lastEvAt > 180000) {
+        settled = true;
+        clearInterval(watch);
+        updateDownload(id, { status: 'error', error: 'El instalador no responde (sin progreso 3 min). Reintentá.' });
+        try { window.OWSHubInstallProgress && window.OWSHubInstallProgress({ type: 'error', error: 'instalador sin respuesta' }); } catch (_) {}
+        showToast('El instalador no responde · tocá Reintentar 🔁');
+      }
+    } catch (_) {}
+  }, 15000);
   const onEvent = (e) => {
+    lastEvAt = Date.now();
+    if (e && (e.type === 'done' || e.type === 'error')) settled = true;
     try { window.OWSHubInstallProgress && window.OWSHubInstallProgress(e); } catch (_) {}
     pushHubEventToManager(id, e);
     if (e && e.type === 'done' && !e.fallback) {
@@ -2909,6 +2932,10 @@ async function startDesktopInstallManaged(slug, remoteVersion, displayName) {
     // actualizarse para siempre).
     await window.OWSHubLibrary.downloadAndInstall(slug, onEvent, { version });
   } catch (_) { /* error ya reflejado en el Gestor */ }
+  finally {
+    settled = true;
+    try { clearInterval(watch); } catch (_) {}
+  }
 }
 
 // Descarga el ZIP real en el navegador mostrando % y MB en el Gestor.
@@ -3618,6 +3645,14 @@ function cancelDownload(id) {
   if (ctrl) {
     try { ctrl.abort(); } catch (_) {}
   } else {
+    // v3.4.5: en desktop la cancelación llega al Rust (antes el backend
+    // seguía descargando en segundo plano y podía pisar un reintento).
+    try {
+      const found = (Array.isArray(downloadsState) ? downloadsState : []).find((d) => String(d.id) === String(id));
+      if (found && found.mode === 'desktop' && window.OWSHubLibrary && typeof window.OWSHubLibrary.cancel === 'function') {
+        window.OWSHubLibrary.cancel(found.slug).catch(() => {});
+      }
+    } catch (_) {}
     updateDownload(id, { status: 'cancelled', error: 'Cancelada por el usuario' });
   }
   showToast('Descarga cancelada');
@@ -5351,6 +5386,11 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.5': [
+    'Si una descarga se queda sin progreso 3 minutos, el Gestor la marca como error con botón Reintentar (nunca más 0% eterno).',
+    'El botón Cancelar ahora detiene de verdad la descarga en curso.',
+    'Timeout también al iniciar la conexión con el servidor.',
+  ],
   '3.4.4': [
     'Las descargas ya no se cuelgan en 0%: si el servidor deja de responder a mitad de la descarga, el Hub corta con un error claro y botón de Reintentar.',
     'En Android los tiempos de espera de descarga ahora son explícitos (30 s conexión / 60 s lectura).',

@@ -9877,7 +9877,7 @@ function wsSessionRowHtml(s, day) {
   // pausado. Con la sesión pausada, el rework también.
   const reworks = wsReworksStripHtml(s);
   return `
-    <li class="ws-item${isOpen ? ' is-open' : ''}${isPaused ? ' is-paused' : ''}${s.crosses_midnight ? ' is-cross' : ''}${isLive ? ' is-live' : ''}${s.completion === 'incomplete' ? ' is-incomplete' : ''}${s.interrupt_count ? ' is-resumed' : ''}">
+    <li data-sid="${s.id}" class="ws-item${isOpen ? ' is-open' : ''}${isPaused ? ' is-paused' : ''}${s.crosses_midnight ? ' is-cross' : ''}${isLive ? ' is-live' : ''}${s.completion === 'incomplete' ? ' is-incomplete' : ''}${s.interrupt_count ? ' is-resumed' : ''}">
       <div class="ws-item-rail"><span class="ws-item-dot"></span></div>
       <div class="ws-item-body">
         <div class="ws-item-head">
@@ -11751,3 +11751,57 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && admFormModalKey) closeFormModal();
 });
 
+// =======================================================
+// Devlog en movil: secciones plegables (cerradas al inicio).
+// Solo actua con pantalla <=640px; en escritorio todo sigue abierto.
+// El estado abierto/cerrado se recuerda entre repintados.
+// =======================================================
+(function mobileFolds() {
+  const mq = window.matchMedia ? window.matchMedia('(max-width: 640px)') : null;
+  if (!mq) return;
+  const state = new Map();
+  const SEL = '.m-fold-card, #ws-timeline .ws-day, #ws-timeline .ws-item[data-sid], #ws-daily .ws-daily-item';
+  const HEAD = '.m-fold-card > .card-head, .ws-day > .ws-day-head, .ws-item .ws-item-head, .ws-item .ws-item-title, .ws-daily-item > .ws-daily-head';
+  function keyOf(el) {
+    if (el.dataset.fold) return el.dataset.fold;
+    if (el.classList.contains('ws-day')) return el.id;
+    if (el.classList.contains('ws-item')) return 's' + el.dataset.sid;
+    const n = el.querySelector('.ws-daily-proj');
+    return 'd' + (n ? n.textContent.trim() : '');
+  }
+  function isOpenByDefault(el) {
+    return el.classList.contains('ws-day') && el.classList.contains('is-today');
+  }
+  function apply(root) {
+    (root || document).querySelectorAll(SEL).forEach((el) => {
+      const k = keyOf(el);
+      const open = state.has(k) ? state.get(k) : isOpenByDefault(el);
+      el.classList.toggle('m-open', !!open);
+    });
+  }
+  document.addEventListener('click', (e) => {
+    if (!mq.matches) return;
+    const h = e.target.closest(HEAD);
+    if (!h || !h.closest('#manage-sub-devlog')) return;
+    if (e.target.closest('button, a, input, select, textarea, label')) return;
+    const host = h.closest(SEL);
+    if (!host) return;
+    const k = keyOf(host);
+    const next = !host.classList.contains('m-open');
+    state.set(k, next);
+    host.classList.toggle('m-open', next);
+  });
+  function boot() {
+    const pane = document.getElementById('manage-sub-devlog');
+    if (!pane) return;
+    apply(pane);
+    let queued = false;
+    new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; apply(pane); });
+    }).observe(pane, { childList: true, subtree: true });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();

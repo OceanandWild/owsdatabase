@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=8" />
+  <link rel="stylesheet" href="admin-styles.css?v=9" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -884,7 +884,7 @@
              Mientras trabajás se van abriendo y cerrando bloques. Todas las
              sesiones de un día se combinan después en un solo devlog. Si
              un bloque cae después de las 00:00 se parte entre los dos días. -->
-        <div class="glass-card list-card ws-card">
+        <div class="glass-card list-card ws-card m-fold-card" data-fold="ws">
           <div class="card-head">
             <div class="card-head-text">
               <h3 class="form-title">🕐 Sesiones de trabajo <span class="ws-live" id="ws-clock">--:--:--</span></h3>
@@ -978,7 +978,7 @@
         </div>
 
         <!-- ═══ DEVLOG DEL DÍA: combinación de las sesiones ═══ -->
-        <div class="glass-card list-card ws-daily-card">
+        <div class="glass-card list-card ws-daily-card m-fold-card" data-fold="daily">
           <div class="card-head">
             <div class="card-head-text">
               <h3 class="form-title">🗓️ Devlog del día — <span id="ws-daily-label">hoy</span></h3>
@@ -1010,7 +1010,7 @@
             <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadDevlogs" data-adm-a0="b:1" title="Recargar devlogs">↻</button>
           </div>
         </div>
-        <div class="glass-card list-card devlog-list-card">
+        <div class="glass-card list-card devlog-list-card m-fold-card" data-fold="entries">
           <div class="card-head">
             <div class="card-head-text">
               <h3 class="form-title">Entradas del devlog</h3>
@@ -1807,7 +1807,7 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="admin-app.js?v=4"></script>
+  <script src="admin-app.js?v=5"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

@@ -4224,4 +4224,12 @@ body {
   .devlog-table .news-item-desc { display: none; }
   .devlog-new-badge, .devlog-daily-badge { margin-left: 0; margin-top: 4px; display: inline-block; }
   .devlog-table-wrap .news-empty { padding: 24px 12px; }
+
+  /* Barra EN VIVO: los 4 botones (Cambio/Grupo/Datos/Detener) en grilla 2x2.
+     .ws-live-right no envuelve por defecto y en 390px los botones quedaban
+     fuera de la tarjeta. El cronometro ocupa la fila de arriba. */
+  .ws-live-right { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+  .ws-live-timer { grid-column: 1 / -1; min-width: 0; text-align: left; font-size: 1.3rem; }
+  .ws-live-right .btn { width: 100%; justify-content: center; min-height: 40px; }
+  .ws-live-title, .ws-live-proj, .ws-live-since { overflow-wrap: anywhere; min-width: 0; }
 }

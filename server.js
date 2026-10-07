@@ -14868,7 +14868,7 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
 // Orden: (1) installer_url manual (redirect), (2) itch API con
 // ITCH_API_KEY (stream autenticado, la key nunca sale del servidor),
 // (3) fallback: redirect a la página de itch.io.
-async function resolveItchUploadDownload({ gameId, fileName, apiKey }) {
+async function resolveItchUploadDownload({ gameId, fileName, apiKey, preferVersion = '', wantExt = '' }) {
   const key = String(apiKey || process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
   if (!key || !gameId) return null;
   const headers = { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' };
@@ -14891,9 +14891,20 @@ async function resolveItchUploadDownload({ gameId, fileName, apiKey }) {
   }
   if (!uploads.length) return null;
   const want = String(fileName || '').trim().toLowerCase();
-  // Prioridad launcher: (1) match exacto, (2) ZIP completo (juego real con _Data),
-  // (3) EXE suelto, (4) primer upload. El ZIP es el que contiene Wilder Gambit.exe + _Data.
+  // Versión oficial (tabla ows_project_releases): cuando hay varias builds
+  // (ej: v0.1.0 y v1.0.0 conviviendo en itch.io) se prefiere el archivo cuyo
+  // nombre la contenga ("Wilder-Gambit-v1.0.0-Windows.zip"). Sin esto el flujo
+  // heredado seguía sirviendo el primer .zip viejo aunque ya hubiera release nueva.
+  const ver = String(preferVersion || '').trim().toLowerCase().replace(/^[vV]/, '');
+  const inVer = (u) => ver && String(u?.filename || '').toLowerCase().includes(ver);
+  const wantRx = wantExt === '.apk' ? /\.apk$/i : (wantExt === '.zip' ? /\.zip$/i : null);
+  const inExt = (u) => !wantRx || wantRx.test(String(u?.filename || ''));
+  // Prioridad launcher: (1) match exacto, (2) versión oficial + extensión
+  // pedida, (3) versión oficial, (4) ZIP completo (juego real con _Data),
+  // (5) EXE suelto, (6) primer upload. El ZIP es el que contiene Wilder Gambit.exe + _Data.
   const pick = (want && uploads.find((u) => String(u?.filename || '').toLowerCase() === want))
+    || (ver && uploads.find((u) => inVer(u) && inExt(u)))
+    || (ver && uploads.find(inVer))
     || uploads.find((u) => /\.zip$/i.test(String(u?.filename || '')))
     || uploads.find((u) => /\.exe$/i.test(String(u?.filename || '')))
     || uploads[0];
@@ -14928,7 +14939,7 @@ function humanizeBytes(bytes) {
 // Resuelve (con cache 6h en memoria) el archivo + tamaño que el endpoint
 // /download realmente sirve para este slug. Best-effort: si itch no
 // responde devuelve null y la UI usa los datos cacheados de metadata.itch.
-async function getDownloadArtifact(mapped) {
+async function getDownloadArtifact(mapped, preferVersion = '') {
   const slug = String(mapped?.slug || '').trim();
   if (!slug) return null;
   const hit = downloadArtifactCache.get(slug);
@@ -14953,7 +14964,7 @@ async function getDownloadArtifact(mapped) {
       if (apiKey && itchUrl) {
         const viaApi = await fetchItchApiInfo({ apiKey, matchUrl: itchUrl, matchSlug: slug });
         if (viaApi?.raw_id) {
-          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: itchFile, apiKey });
+          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: itchFile, apiKey, preferVersion });
           if (dl?.uploadId) {
             const sizeBytes = Number(dl.size || 0) || 0;
             artifact = {
@@ -15070,9 +15081,10 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
       // Background refresh: no bloquea la respuesta
       syncItchForProject({ slug }).catch((e) => console.error('[itch] background sync falló:', e?.message || e));
     }
-    // Qué archivo se baja de verdad (ZIP con el juego completo, no el .exe suelto)
+    // Qué archivo se baja de verdad (ZIP con el juego completo, no el .exe suelto).
+    // Con varias builds en itch.io se prefiere la de la versión oficial.
     let download = null;
-    try { download = await getDownloadArtifact(mapped); } catch (_) { download = null; }
+    try { download = await getDownloadArtifact(mapped, (latestRelease && latestRelease.version) || ''); } catch (_) { download = null; }
     return res.json({
       success: true,
       slug: mapped.slug,
@@ -15133,9 +15145,13 @@ async function launchProjectDownloadHandler(req, res) {
     // Release oficial (tabla ows_project_releases): si trae installer_url
     // propio, gana sobre todo lo demás. Solo build de Windows: este handler
     // es el que baja el instalador del Hub desktop.
+    // La versión oficial también guía el picking en itch.io (preferVersion):
+    // con v0.1.0 y v1.0.0 conviviendo, se sirve el archivo de la oficial.
+    let officialVersion = '';
     try {
       const rel = await getLatestReleaseBySlug(slug, 'windows');
       trace.push({ step: 'release', has_release: !!(rel && rel.id), version: (rel && rel.version) || null });
+      if (rel && rel.version) officialVersion = String(rel.version);
       if (rel && rel.installer_url) {
         trace.push({ step: 'release-installer', action: 'redirect-302' });
         if (debug) return finishTrace('release-installer', { version: rel.version });
@@ -15161,7 +15177,8 @@ async function launchProjectDownloadHandler(req, res) {
         const dl = await resolveItchUploadDownload({
           gameId: viaApi.raw_id,
           fileName: mapped.itch_file,
-          apiKey
+          apiKey,
+          preferVersion: officialVersion
         });
         trace.push({ step: 'itch-api-uploads', upload_id: dl?.uploadId || null, filename: dl?.filename || null, kind: dl?.kind || null, size: dl?.size || null });
         if (dl?.uploadId) {
@@ -15189,6 +15206,76 @@ async function launchProjectDownloadHandler(req, res) {
 }
 
 app.get('/ows-launch-projects/:slug/download', launchProjectDownloadHandler);
+
+// ── Descarga directa del APK (público, para la app Android) ──
+// La página de itch.io puede ser RESTRICTED: el teléfono no tiene API key,
+// así que el servidor resuelve el .apk vía itch API (con key) y lo streamea.
+// Es lo que se registra como apk_url en ows_android_releases.
+// ?debug=1 devuelve el trace sin descargar.
+app.get('/ows-launch-projects/:slug/apk-download', async (req, res) => {
+  const slug = normalizeProjectSlug(req.params.slug);
+  if (!slug) return res.status(400).json({ error: 'slug inválido' });
+  const debug = normalizeNewsBoolean(req.query.debug, false);
+  const trace = [];
+  const finishTrace = (decision, extra = {}) => res.json({ success: true, slug, decision, trace, ...extra });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    const { rows } = await pool.query(
+      `SELECT id, slug, name, link_url, metadata FROM ows_launch_projects
+        WHERE LOWER(slug) = LOWER($1) AND is_active = TRUE LIMIT 1`,
+      [slug]
+    );
+    if (!rows.length) {
+      if (debug) return finishTrace('not-found');
+      return res.status(404).json({ error: 'Proyecto no encontrado' });
+    }
+    const mapped = mapOwsLaunchProjectRow(rows[0]);
+    // Versión oficial Android (o Windows como respaldo) para elegir el .apk
+    // correcto cuando conviven varias builds en itch.io.
+    let officialVersion = '';
+    try {
+      const relA = await getLatestReleaseBySlug(slug, 'android');
+      const relW = (!relA || !relA.id) ? await getLatestReleaseBySlug(slug, 'windows') : null;
+      const rel = (relA && relA.id) ? relA : relW;
+      if (rel && rel.version) officialVersion = String(rel.version);
+      trace.push({ step: 'release', version: officialVersion || null });
+    } catch (_) { /* sigue sin versión oficial */ }
+    const apiKey = String(process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
+    trace.push({ step: 'itch-api', key_present: !!apiKey });
+    try {
+      const viaApi = apiKey
+        ? await fetchItchApiInfo({ apiKey, matchUrl: mapped.itch_url, matchSlug: mapped.slug })
+        : null;
+      trace.push({ step: 'itch-api-games', found: !!viaApi, game_id: viaApi?.raw_id || null });
+      if (viaApi?.raw_id) {
+        const dl = await resolveItchUploadDownload({
+          gameId: viaApi.raw_id,
+          fileName: '',
+          apiKey,
+          preferVersion: officialVersion,
+          wantExt: '.apk'
+        });
+        trace.push({ step: 'itch-api-uploads', upload_id: dl?.uploadId || null, filename: dl?.filename || null, size: dl?.size || null });
+        if (dl?.uploadId && /\.apk$/i.test(String(dl.filename || ''))) {
+          if (debug) return finishTrace('itch-api-stream', { upload_id: dl.uploadId, filename: dl.filename, size: dl.size, size_bytes: dl.size });
+          return await streamItchUploadToResponse(dl.uploadId, dl.filename, res);
+        }
+        trace.push({ step: 'no-apk-upload', action: '404' });
+      }
+    } catch (e) {
+      trace.push({ step: 'itch-api-error', error: String(e?.message || e).slice(0, 200) });
+    }
+    if (debug) return finishTrace('unavailable');
+    return res.status(404).json({ error: 'Este proyecto aún no tiene APK disponible' });
+  } catch (err) {
+    console.error('Error en GET /ows-launch-projects/:slug/apk-download:', err);
+    if (debug) {
+      trace.push({ step: 'fatal', error: String(err?.message || err).slice(0, 200) });
+      return finishTrace('error');
+    }
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
 
 // ── Sincronizar itch.io (admin) ──
 // Body: { itch_url?, version?, file?, size?, installer_url?, updated_at? }

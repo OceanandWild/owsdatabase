@@ -14874,7 +14874,7 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
 // es el build). /uploads/{id}/download los sirve igual (302 al CDN).
 const ITCH_PINNED_UPLOADS = {
   'wilder-gambit': {
-    windows: { id: 19612126, file: 'Wilder-Gambit-v1.0.0-Windows.zip', size: 520389699, kind: 'zip' },
+    windows: { id: 19612126, file: 'Wilder-Gambit-v1.0.1-Windows.zip', size: 472621971, kind: 'zip' },
     android: { id: 19612049, file: 'wilder-gambit-v1.0.0-android.apk', size: 662547989, kind: 'apk' }
   }
 };

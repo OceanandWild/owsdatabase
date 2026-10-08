@@ -17917,6 +17917,13 @@ app.delete('/ows-incidents/:id', async (req, res) => {
 const OWS_REPORT_KINDS = ['pause', 'internal', 'info', 'progress', 'other'];
 const OWS_REPORT_STATUSES = ['active', 'monitoring', 'resolved'];
 const OWS_REPORT_MAX_UPDATES = 120;
+// Elementos de diseño del informe: cada uno es un bloque de la "maqueta".
+// Tipos: heading (subtítulo), text (párrafo), list (viñetas), stat (dato
+// destacado), callout (aviso), image (imagen), tags (etiquetas), divider.
+const OWS_REPORT_BLOCK_TYPES = ['heading', 'text', 'list', 'stat', 'callout', 'image', 'tags', 'divider'];
+const OWS_REPORT_MAX_BLOCKS = 40;
+// Acentos de color: el violeta/ámbar del panel + unos pocos de estado.
+const OWS_REPORT_ACCENTS = ['', 'amber', 'violet', 'sky', 'emerald', 'rose'];
 
 let owsReportsReady = false;
 
@@ -17948,7 +17955,9 @@ async function ensureOwsReportsTable() {
       ADD COLUMN IF NOT EXISTS started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       ADD COLUMN IF NOT EXISTS resolved_at  TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS updates      JSONB NOT NULL DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS updated_by   TEXT NOT NULL DEFAULT 'OceanandWild'
+      ADD COLUMN IF NOT EXISTS updated_by   TEXT NOT NULL DEFAULT 'OceanandWild',
+      ADD COLUMN IF NOT EXISTS blocks       JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS accent       VARCHAR(24) NOT NULL DEFAULT ''
   `).catch((err) => console.log(' Aviso: migración ows_reports:', err.message));
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_reports_started ON ows_reports(started_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_reports_resolved ON ows_reports(resolved_at DESC)');
@@ -17982,10 +17991,46 @@ function normalizeOwsReportUpdates(raw, fallbackAuthor = 'OceanandWild') {
     .slice(-OWS_REPORT_MAX_UPDATES);
 }
 
+function normalizeOwsReportBlocks(raw) {
+  let list = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === 'string' && raw.trim()) {
+    try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) list = parsed; } catch (_) { list = []; }
+  } else if (raw && typeof raw === 'object') list = [raw];
+  return list
+    .map((it) => {
+      const type = pickOwsReportEnum(it?.type, OWS_REPORT_BLOCK_TYPES, '');
+      if (!type) return null;
+      const text = String(it?.text ?? '').trim().slice(0, 2000);
+      const label = String(it?.label ?? '').trim().slice(0, 160);
+      const value = String(it?.value ?? '').trim().slice(0, 160);
+      const caption = String(it?.caption ?? '').trim().slice(0, 400);
+      const url = String(it?.image_url ?? it?.url ?? '').trim().slice(0, 1200);
+      const items = (Array.isArray(it?.items) ? it.items : String(it?.items || '').split('\n'))
+        .map((s) => String(s ?? '').trim().slice(0, 400))
+        .filter(Boolean)
+        .slice(0, 40);
+      if (type === 'image' && !/^https?:\/\//i.test(url)) return null;
+      if (type === 'divider') return { type };
+      if (type === 'image') return { type, url, caption };
+      if (type === 'stat') return { type, value, label };
+      if (type === 'list' || type === 'tags') return items.length ? { type, items } : null;
+      return text ? { type, text } : null;
+    })
+    .filter(Boolean)
+    .slice(0, OWS_REPORT_MAX_BLOCKS);
+}
+
+function pickOwsReportAccent(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  return OWS_REPORT_ACCENTS.includes(v) ? v : '';
+}
+
 function sanitizeReportRow(r) {
   const startedAt = toIsoOrNull(r?.started_at);
   const resolvedAt = toIsoOrNull(r?.resolved_at);
   const updates = normalizeOwsReportUpdates(r?.updates, r?.updated_by || r?.created_by);
+  const blocks = normalizeOwsReportBlocks(r?.blocks);
   const rawStatus = pickOwsReportEnum(r?.status, OWS_REPORT_STATUSES, 'active');
   const isOpen = !resolvedAt;
   const startMs = startedAt ? new Date(startedAt).getTime() : null;
@@ -17997,6 +18042,8 @@ function sanitizeReportRow(r) {
     kind: pickOwsReportEnum(r?.kind, OWS_REPORT_KINDS, 'info'),
     status: isOpen ? (rawStatus === 'resolved' ? 'active' : rawStatus) : 'resolved',
     details: String(r?.details || '').slice(0, 5000),
+    blocks,
+    accent: pickOwsReportAccent(r?.accent),
     project_id: r?.project_id != null ? Number(r.project_id) : null,
     project_name: String(r?.project_name || r?.live_project_name || '').slice(0, 160),
     is_open: isOpen,
@@ -18080,7 +18127,7 @@ app.get('/ows-reports', async (req, res) => {
 });
 
 // POST /ows-reports — publicar un informe (nace ACTIVO).
-// Body: { title*, details*, kind?, project_id?, started_at? }
+// Body: { title*, details*, kind?, project_id?, started_at?, blocks?, accent? }
 app.post('/ows-reports', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const title = String(req.body?.title || '').trim().slice(0, 160);
@@ -18088,6 +18135,8 @@ app.post('/ows-reports', async (req, res) => {
   if (!title) return res.status(400).json({ error: 'El título es obligatorio.' });
   if (!details) return res.status(400).json({ error: 'Contá de qué trata el informe.' });
   const kind = pickOwsReportEnum(req.body?.kind, OWS_REPORT_KINDS, 'info');
+  const blocks = normalizeOwsReportBlocks(req.body?.blocks);
+  const accent = pickOwsReportAccent(req.body?.accent);
   const actor = owsReportActor(req, req.body, 'OceanandWild');
   const startedAt = toIsoOrNull(req.body?.started_at) || new Date().toISOString();
   try {
@@ -18104,15 +18153,15 @@ app.post('/ows-reports', async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO ows_reports (title, kind, status, details,
                                 project_id, project_name, started_at, updates,
-                                created_by, updated_by)
-       VALUES ($1, $2, 'active', $3, $4, $5, $6, $7::jsonb, $8, $8)
+                                blocks, accent, created_by, updated_by)
+       VALUES ($1, $2, 'active', $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $10)
        RETURNING *`,
-      [title, kind, details, proj.pid, proj.name, startedAt, JSON.stringify(updates), actor]
+      [title, kind, details, proj.pid, proj.name, startedAt, JSON.stringify(updates), JSON.stringify(blocks), accent, actor]
     );
     logAdminActivity({
       action: 'create-report', entityType: 'report', entityId: String(rows[0]?.id || ''),
       entityName: title, adminName: actor,
-      meta: { kind, project_name: proj.name, started_at: startedAt }
+      meta: { kind, project_name: proj.name, started_at: startedAt, blocks: blocks.length, accent }
     });
     return res.json({ success: true, report: sanitizeReportRow(rows[0]) });
   } catch (err) {
@@ -18144,6 +18193,12 @@ app.patch('/ows-reports/:id', async (req, res) => {
     const status = req.body?.status !== undefined
       ? pickOwsReportEnum(req.body.status, OWS_REPORT_STATUSES, row.status)
       : row.status;
+    const blocks = req.body?.blocks !== undefined
+      ? normalizeOwsReportBlocks(req.body.blocks)
+      : normalizeOwsReportBlocks(row.blocks);
+    const accent = req.body?.accent !== undefined
+      ? pickOwsReportAccent(req.body.accent)
+      : pickOwsReportAccent(row.accent);
 
     let pid = row.project_id;
     let projectName = row.project_name || '';
@@ -18187,18 +18242,19 @@ app.patch('/ows-reports/:id', async (req, res) => {
           SET title = $1, kind = $2, status = $3, details = $4,
               project_id = $5, project_name = $6,
               started_at = $7, resolved_at = $8, updates = $9::jsonb,
-              updated_by = $10, updated_at = NOW()
-        WHERE id = $11
+              blocks = $10::jsonb, accent = $11,
+              updated_by = $12, updated_at = NOW()
+        WHERE id = $13
         RETURNING *`,
       [title, kind, status, details, pid, projectName,
-       startedAt, resolvedAt, JSON.stringify(finalUpdates), actor, id]
+       startedAt, resolvedAt, JSON.stringify(finalUpdates), JSON.stringify(blocks), accent, actor, id]
     );
     const report = sanitizeReportRow(rows[0]);
     logAdminActivity({
       action: wasOpen && !report.is_open ? 'resolve-report' : 'edit-report',
       entityType: 'report', entityId: String(id),
       entityName: title, adminName: actor,
-      meta: { kind, status: report.status, note: note || null, update_count: report.update_count }
+      meta: { kind, status: report.status, note: note || null, update_count: report.update_count, blocks: blocks.length, accent }
     });
     return res.json({ success: true, report });
   } catch (err) {

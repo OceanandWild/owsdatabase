@@ -13792,6 +13792,204 @@ app.delete('/ows-dashboard/news', async (req, res) => {
 });
 
 /* ============================================================
+   OWS DASHBOARD — NOTICIAS RAPIDAS (seccion "⚡ Noticias Rapidas")
+   Noticias de texto corto, sin imagen: lo que se publica en el
+   panel admin aparece al instante en el Hub. Cada entrada recien
+   publicada lleva el tag "Nuevo", que el servidor apaga solo
+   pasados OWS_QUICK_NEWS_NEW_DAYS dias (no hace falta borrar nada).
+   ============================================================ */
+
+const OWS_QUICK_NEWS_NEW_DAYS = 3;
+const OWS_QUICK_NEWS_MAX_TEXT = 240;
+
+let owsQuickNewsReady = false;
+
+async function ensureOwsQuickNewsTable() {
+  if (owsQuickNewsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_quick_news (
+      id           BIGSERIAL PRIMARY KEY,
+      text         TEXT NOT NULL,
+      tag          VARCHAR(40) NOT NULL DEFAULT '',
+      link_url     TEXT NOT NULL DEFAULT '',
+      is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+      published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_by   TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    ALTER TABLE ows_quick_news
+      ADD COLUMN IF NOT EXISTS tag          VARCHAR(40) NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS link_url     TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `).catch((err) => console.log(' Aviso: migración ows_quick_news:', err.message));
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_quick_news_order ON ows_quick_news (is_active, published_at DESC)');
+  owsQuickNewsReady = true;
+}
+
+function mapOwsQuickNewsRow(row) {
+  const publishedAt = row.published_at || row.created_at || null;
+  const pubMs = publishedAt ? new Date(publishedAt).getTime() : null;
+  const ageDays = pubMs != null ? (Date.now() - pubMs) / 86400000 : null;
+  return {
+    id: Number(row.id || 0),
+    text: String(row.text || '').slice(0, OWS_QUICK_NEWS_MAX_TEXT),
+    tag: String(row.tag || '').slice(0, 40),
+    link_url: String(row.link_url || ''),
+    is_active: row.is_active !== false,
+    published_at: publishedAt,
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null,
+    created_by: String(row.created_by || 'OceanandWild').slice(0, 120),
+    // "Nuevo" por unos dias: el servidor decide, asi el tag se apaga solo.
+    is_new: ageDays != null && ageDays >= 0 && ageDays <= OWS_QUICK_NEWS_NEW_DAYS
+  };
+}
+
+function quickNewsActor(req, body, fallback = 'OceanandWild') {
+  const header = String(req.headers['x-ows-admin-name'] || '').trim();
+  return String(body?.created_by || body?.updated_by || header || fallback || 'OceanandWild')
+    .trim().slice(0, 120) || 'OceanandWild';
+}
+
+// Feed publico de la seccion de Noticias Rapidas (solo las activas)
+app.get('/ows-dashboard/quick-news', async (req, res) => {
+  const limit = Math.max(1, Math.min(60, normalizeNewsNumber(req.query.limit, 12)));
+  try {
+    await ensureOwsQuickNewsTable();
+    const { rows } = await pool.query(
+      `SELECT id, text, tag, link_url, is_active, published_at, created_by, created_at, updated_at
+         FROM ows_quick_news
+        WHERE is_active = TRUE
+        ORDER BY COALESCE(published_at, created_at) DESC, id DESC
+        LIMIT $1`,
+      [limit]
+    );
+    const news = rows.map(mapOwsQuickNewsRow);
+    const hasNew = news.some((n) => n.is_new);
+    const newest = news.length ? news[0].published_at : null;
+    return res.json({
+      success: true,
+      news,
+      meta: { has_new: hasNew, newest_at: newest, new_days: OWS_QUICK_NEWS_NEW_DAYS }
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/quick-news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Lista completa para el panel admin (incluye ocultas)
+app.get('/ows-dashboard/quick-news/all', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsQuickNewsTable();
+    const { rows } = await pool.query(
+      `SELECT id, text, tag, link_url, is_active, published_at, created_by, created_at, updated_at
+         FROM ows_quick_news
+        ORDER BY COALESCE(published_at, created_at) DESC, id DESC
+        LIMIT 200`
+    );
+    return res.json({ success: true, news: rows.map(mapOwsQuickNewsRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/quick-news/all:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Publicar una noticia rapida (admin)
+app.post('/ows-dashboard/quick-news', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const text = String(req.body?.text || '').trim().slice(0, OWS_QUICK_NEWS_MAX_TEXT);
+  const tag = String(req.body?.tag || '').trim().slice(0, 40);
+  const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim().slice(0, 500);
+  const actor = quickNewsActor(req, req.body);
+  if (!text) return res.status(400).json({ error: 'Escribi el texto de la noticia rapida.' });
+  if (linkUrl && !/^https?:\/\//i.test(linkUrl)) {
+    return res.status(400).json({ error: 'El link tiene que empezar con http:// o https://' });
+  }
+  const publishedAt = toIsoOrNull(req.body?.published_at) || new Date().toISOString();
+  try {
+    await ensureOwsQuickNewsTable();
+    const { rows } = await pool.query(
+      `INSERT INTO ows_quick_news (text, tag, link_url, is_active, published_at, created_by)
+       VALUES ($1, $2, $3, TRUE, $4, $5)
+       RETURNING id, text, tag, link_url, is_active, published_at, created_by, created_at, updated_at`,
+      [text, tag, linkUrl, publishedAt, actor]
+    );
+    return res.status(201).json({ success: true, news: mapOwsQuickNewsRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/quick-news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar una noticia rapida (admin)
+app.patch('/ows-dashboard/quick-news/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsQuickNewsTable();
+    const { rows: cur } = await pool.query('SELECT * FROM ows_quick_news WHERE id = $1', [id]);
+    if (!cur.length) return res.status(404).json({ error: 'Noticia rapida no encontrada' });
+
+    const row = cur[0];
+    const updates = {};
+    if (req.body?.text !== undefined) {
+      const text = String(req.body.text || '').trim().slice(0, OWS_QUICK_NEWS_MAX_TEXT);
+      if (!text) return res.status(400).json({ error: 'El texto no puede quedar vacio.' });
+      updates.text = text;
+    }
+    if (req.body?.tag !== undefined) updates.tag = String(req.body.tag || '').trim().slice(0, 40);
+    if (req.body?.link_url !== undefined) {
+      const linkUrl = String(req.body.link_url || '').trim().slice(0, 500);
+      if (linkUrl && !/^https?:\/\//i.test(linkUrl)) {
+        return res.status(400).json({ error: 'El link tiene que empezar con http:// o https://' });
+      }
+      updates.link_url = linkUrl;
+    }
+    if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    if (req.body?.published_at !== undefined) {
+      const publishedAt = toIsoOrNull(req.body.published_at);
+      if (!publishedAt) return res.status(400).json({ error: 'Fecha invalida' });
+      updates.published_at = publishedAt;
+    }
+    updates.updated_at = new Date().toISOString();
+
+    const keys = Object.keys(updates);
+    const setSql = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const { rows } = await pool.query(
+      `UPDATE ows_quick_news SET ${setSql} WHERE id = $1
+       RETURNING id, text, tag, link_url, is_active, published_at, created_by, created_at, updated_at`,
+      [id, ...keys.map((k) => updates[k])]
+    );
+    return res.json({ success: true, news: mapOwsQuickNewsRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-dashboard/quick-news/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar una noticia rapida (admin)
+app.delete('/ows-dashboard/quick-news/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsQuickNewsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_quick_news WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Noticia rapida no encontrada' });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-dashboard/quick-news/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ============================================================
    OWS DASHBOARD — SECCION DE EVENTOS (estilo Roblox / Steam)
    Eventos con fecha de inicio y fin, imagen/banner, categoria
    (update/launch/release/etc.) y proyecto asociado. Alimenta la

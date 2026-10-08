@@ -14022,6 +14022,11 @@ async function ensureOwsDashboardEventsTable() {
     CREATE INDEX IF NOT EXISTS idx_ows_dashboard_events_order
       ON ows_dashboard_events (is_active, starts_at DESC)
   `);
+  // Proyecto asociado (opcional): el evento puede colgar de un proyecto
+  // catalogado (público o solo-admin) en vez de escribirse el nombre a mano.
+  await pool.query(`
+    ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS project_id BIGINT
+  `).catch((err) => console.log(' Aviso: migración ows_dashboard_events:', err.message));
   owsDashboardEventsTableReady = true;
 }
 
@@ -14041,12 +14046,19 @@ function mapOwsDashboardEventRow(row) {
   let phase = 'upcoming';
   if (startTs && now >= startTs && (!endTs || now <= endTs)) phase = 'active';
   else if (endTs && now > endTs) phase = 'ended';
+  // El nombre vivo del proyecto manda sobre el guardado: si se renombró el
+  // proyecto, el evento muestra el nombre nuevo.
+  const linkedName = String(row.linked_project_name || '').trim();
   return {
     id: Number(row.id || 0),
     title: String(row.title || ''),
     description: String(row.description || ''),
     category: normalizeDashboardEventCategory(row.category),
-    project_name: String(row.project_name || 'OWS'),
+    project_id: row.project_id != null ? Number(row.project_id) : null,
+    // Solo el backend sabe si el proyecto es solo-admin: la web pública usa
+    // este flag para no mostrar el nombre de los proyectos internos.
+    project_is_admin: row.linked_admin_only === true,
+    project_name: linkedName || String(row.project_name || 'OWS'),
     image_url: String(row.image_url || ''),
     imageUrl: String(row.image_url || ''),
     link_url: String(row.link_url || ''),
@@ -14063,6 +14075,33 @@ function mapOwsDashboardEventRow(row) {
     updated_at: row.updated_at || null
   };
 }
+
+// Proyecto del evento: si viene project_id se resuelve contra el catálogo
+// (y el nombre guardado pasa a ser el real del proyecto). Si no, se respeta
+// el nombre escrito a mano (eventos viejos).
+async function resolveDashboardEventProject(body, fallbackName = 'OWS') {
+  const rawId = body?.project_id !== undefined ? body.project_id : body?.projectId;
+  let pid = null;
+  let name = String(fallbackName || '').trim();
+  if (rawId !== undefined && rawId !== null && String(rawId).trim() !== '') {
+    const proj = await resolveOwsIncidentProject(rawId);
+    if (proj.notFound) return { notFound: true };
+    if (proj.pid) {
+      pid = Number(proj.pid);
+      name = String(proj.name || '').trim() || name;
+    }
+  }
+  if (!pid && body?.project_name !== undefined) {
+    // Sin proyecto vinculado manda el nombre escrito a mano. Con proyecto
+    // vinculado gana siempre el nombre del catálogo (así, si se renombra el
+    // proyecto, el evento muestra el nombre nuevo).
+    name = String(body.project_name || '').trim() || 'OWS';
+  }
+  return { pid, name: name || 'OWS' };
+}
+
+const OWS_EVENT_COLUMNS_SELECT = `id, title, description, category, project_name, project_id,
+       image_url, link_url, starts_at, ends_at, is_active, priority, created_by, created_at, updated_at`;
 
 function resolveDashboardEventDates(body = {}) {
   const rawStart = body.starts_at || body.startsAt || body.event_start || body.eventStart || body.start_date || body.startDate;
@@ -14091,11 +14130,14 @@ app.get('/ows-dashboard/events', async (req, res) => {
     if (!includeInactive) where.push('is_active = TRUE');
     if (!includeEnded) where.push("(ends_at IS NULL OR ends_at >= NOW() - INTERVAL '2 days')");
     const { rows } = await pool.query(
-      `SELECT id, title, description, category, project_name, image_url, link_url,
-              starts_at, ends_at, is_active, priority, created_by, created_at, updated_at
-         FROM ows_dashboard_events
+      `SELECT e.id, e.title, e.description, e.category, e.project_name, e.project_id,
+              e.image_url, e.link_url, e.starts_at, e.ends_at, e.is_active, e.priority,
+              e.created_by, e.created_at, e.updated_at,
+              p.name AS linked_project_name, p.admin_only AS linked_admin_only
+         FROM ows_dashboard_events e
+         LEFT JOIN ows_launch_projects p ON p.id = e.project_id
         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-        ORDER BY COALESCE(starts_at, created_at) DESC, id DESC
+        ORDER BY COALESCE(e.starts_at, e.created_at) DESC, e.id DESC
         LIMIT $1`,
       values
     );
@@ -14123,18 +14165,20 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
 
   try {
+    await ensureOwsLaunchProjectsTable();
     await ensureOwsDashboardEventsTable();
+    const proj = await resolveDashboardEventProject(req.body || {}, projectName);
+    if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const { rows } = await pool.query(
       `INSERT INTO ows_dashboard_events
-         (title, description, category, project_name, image_url, link_url, starts_at, ends_at, priority, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, title, description, category, project_name, image_url, link_url,
-                 starts_at, ends_at, is_active, priority, created_by, created_at, updated_at`,
-      [title, description, category, projectName, finalImageUrl, linkUrl, dates.start, dates.end, priority, adminName]
+         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, priority, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING ${OWS_EVENT_COLUMNS_SELECT}`,
+      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl, dates.start, dates.end, priority, adminName]
     );
     logAdminActivity({
       action: 'create', entityType: 'dashboard_event', entityId: String(rows[0]?.id || ''),
-      entityName: title, adminName, meta: { category, project_name: projectName }
+      entityName: title, adminName, meta: { category, project_name: proj.name, project_id: proj.pid }
     });
     return res.status(201).json({ success: true, event: mapOwsDashboardEventRow(rows[0] || {}) });
   } catch (err) {
@@ -14149,6 +14193,7 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
   const id = Number(req.params.id || 0);
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
   try {
+    await ensureOwsLaunchProjectsTable();
     await ensureOwsDashboardEventsTable();
     const updates = {};
     if (req.body?.title !== undefined) {
@@ -14158,7 +14203,15 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
     }
     if (req.body?.description !== undefined) updates.description = String(req.body.description).trim();
     if (req.body?.category !== undefined) updates.category = normalizeDashboardEventCategory(req.body.category);
-    if (req.body?.project_name !== undefined) updates.project_name = String(req.body.project_name).trim() || 'OWS';
+    // Proyecto: project_id (del catálogo) o nombre escrito a mano.
+    if (req.body?.project_id !== undefined || req.body?.project_name !== undefined) {
+      const { rows: curRows } = await pool.query('SELECT project_name FROM ows_dashboard_events WHERE id = $1', [id]);
+      if (!curRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
+      const proj = await resolveDashboardEventProject(req.body || {}, curRows[0].project_name);
+      if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado' });
+      updates.project_id = proj.pid;
+      updates.project_name = proj.name;
+    }
     if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
@@ -14182,8 +14235,7 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
       `UPDATE ows_dashboard_events
           SET ${setSql}, updated_at = NOW()
         WHERE id = $1
-        RETURNING id, title, description, category, project_name, image_url, link_url,
-                  starts_at, ends_at, is_active, priority, created_by, created_at, updated_at`,
+        RETURNING ${OWS_EVENT_COLUMNS_SELECT}`,
       [id, ...keys.map((k) => updates[k])]
     );
     if (!rows.length) return res.status(404).json({ error: 'Evento no encontrado' });

@@ -331,7 +331,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.4.5</span>
+          <span class="nav-version">OWS Hub · v3.4.6</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>
@@ -449,6 +449,26 @@
             <p class="news-empty-sub">Las últimas novedades de OWS Hub aparecerán aquí.</p>
           </div>
         </div>
+
+        <!-- ⚡ Noticias Rápidas: texto corto, al pie de las noticias -->
+        <div class="qnews-panel glass-card" id="qnews-panel">
+          <div class="qnews-head">
+            <div class="qnews-head-text">
+              <h4 class="qnews-title">
+                ⚡ Noticias Rápidas
+                <span class="qnews-new hidden" id="qnews-new" title="Sección recién estrenada">✨ Nuevo</span>
+              </h4>
+              <p class="qnews-sub">Lo que se cuenta en una línea. Se actualiza al instante.</p>
+            </div>
+            <span class="qnews-count" id="qnews-count">0</span>
+          </div>
+          <div id="qnews-list" class="qnews-list"></div>
+          <div id="qnews-empty" class="qnews-empty hidden">
+            <span class="qnews-empty-icon">⚡</span>
+            <p class="qnews-empty-title">Sin noticias rápidas por ahora</p>
+            <p class="qnews-empty-sub">Cuando haya algo corto para contar, aparece acá.</p>
+          </div>
+        </div>
       </section>
 
       <!-- 03 · Lanzamientos -->
@@ -473,6 +493,12 @@
             <h3 class="section-title">Eventos</h3>
             <p class="section-sub">Actualizaciones, lanzamientos y novedades con fecha</p>
           </div>
+          <label class="events-filter" for="events-filter-project">
+            <span aria-hidden="true">📁</span>
+            <select id="events-filter-project">
+              <option value="all">Todos los proyectos</option>
+            </select>
+          </label>
         </div>
         <div id="events-grid" class="events-grid"></div>
         <div id="events-empty" class="events-empty hidden">

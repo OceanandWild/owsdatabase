@@ -730,6 +730,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
     loadDashboardNews();
+    loadQuickNews();
     loadDashboardEvents();
     loadDashboardReleases();
     checkOwsPopups();
@@ -1077,6 +1078,7 @@ async function handleLogin(e) {
       showDashboard();
       updateAdminVisibility();
       loadDashboardNews();
+      loadQuickNews();
       loadDashboardEvents();
       loadDashboardReleases();
       checkOwsPopups();
@@ -1252,14 +1254,63 @@ function eventCountdown(targetIso, phase) {
   return `Empieza en ${Math.max(1, minutes)}m`;
 }
 
+let eventsCache = [];
+// Filtro por proyecto de la sección Eventos: 'all' o el id/nombre del proyecto.
+let eventsProjectFilter = 'all';
+
+// Etiqueta pública del proyecto de un evento. Los proyectos solo-admin no
+// muestran su nombre: se ven como "Proyecto interno" (lo sabe el backend).
+function eventProjectLabel(ev) {
+  if (!ev) return 'OWS';
+  if (ev.project_is_admin) return 'Proyecto interno';
+  return String(ev.project_name || 'OWS');
+}
+
+// Clave con la que se agrupa/filtra: el id si está vinculado, si no el nombre.
+function eventProjectKey(ev) {
+  if (!ev) return 'ows';
+  if (ev.project_id != null) return `id:${Number(ev.project_id)}`;
+  return `name:${String(ev.project_name || 'OWS').trim().toLowerCase()}`;
+}
+
+// Opciones del filtro: una por proyecto presente entre los eventos.
+// El estado (eventsProjectFilter) manda: el select solo lo refleja.
+function renderEventsProjectFilter() {
+  const sel = document.getElementById('events-filter-project');
+  if (!sel) return;
+  const seen = new Map();
+  eventsCache.forEach((ev) => {
+    const key = eventProjectKey(ev);
+    if (!seen.has(key)) seen.set(key, eventProjectLabel(ev));
+  });
+  const rows = [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  sel.innerHTML = '<option value="all">Todos los proyectos</option>' +
+    rows.map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`).join('');
+  // Si el proyecto filtrado dejó de existir, se vuelve a "todos".
+  if (eventsProjectFilter !== 'all' && !rows.some(([key]) => key === eventsProjectFilter)) {
+    eventsProjectFilter = 'all';
+  }
+  sel.value = eventsProjectFilter;
+}
+
+function onEventsProjectFilter(value) {
+  eventsProjectFilter = value || 'all';
+  renderEvents(eventsCache);
+}
+
 function renderEvents(eventsList) {
   const grid = document.getElementById('events-grid');
   const empty = document.getElementById('events-empty');
   const statEvents = document.getElementById('stat-events');
   if (!grid || !empty) return;
 
-  const items = Array.isArray(eventsList) ? eventsList.slice() : [];
+  let items = Array.isArray(eventsList) ? eventsList.slice() : [];
   if (statEvents) statEvents.textContent = items.length;
+  eventsCache = items;
+  renderEventsProjectFilter();
+  if (eventsProjectFilter && eventsProjectFilter !== 'all') {
+    items = items.filter((ev) => eventProjectKey(ev) === eventsProjectFilter);
+  }
   // Orden: activos primero, luego próximos, luego terminados; por prioridad y fecha
   const phaseRank = { active: 0, upcoming: 1, ended: 2 };
   items.sort((a, b) => {
@@ -1281,7 +1332,6 @@ function renderEvents(eventsList) {
   }
   empty.classList.add('hidden');
 
-  eventsCache = items;
   grid.innerHTML = items.map((ev, evIdx) => {
     const meta = eventCategoryMeta(ev.category);
     const hasImg = Boolean(ev.image_url || ev.cover_url);
@@ -1304,7 +1354,7 @@ function renderEvents(eventsList) {
           ${phaseBadge}
         </div>
         <div class="event-card-body">
-          <span class="event-card-project">${escapeHtml(ev.project_name || 'OWS')}</span>
+          <span class="event-card-project">${escapeHtml(eventProjectLabel(ev))}</span>
           <h4 class="event-card-title">${escapeHtml(ev.title)}</h4>
           ${ev.description ? `<p class="event-card-desc">${escapeHtml(ev.description)}</p>` : ''}
           <span class="event-card-date">📅 ${dateRange}</span>
@@ -1316,6 +1366,12 @@ function renderEvents(eventsList) {
 
 async function loadDashboardEvents() {
   const empty = document.getElementById('events-empty');
+  // El filtro por proyecto se arma con lo que llega del servidor.
+  const filterSel = document.getElementById('events-filter-project');
+  if (filterSel && !filterSel.dataset.bound) {
+    filterSel.dataset.bound = '1';
+    filterSel.addEventListener('change', () => onEventsProjectFilter(filterSel.value));
+  }
   try {
     const res = await fetch(API_BASE + '/ows-dashboard/events?limit=30');
     if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
@@ -1345,7 +1401,7 @@ function openEventModal(ev) {
       <div class="modal-head-info">
         <span class="ev-badge ev-badge-cat ${meta.cls}" style="align-self:flex-start">${meta.icon} ${meta.label}</span>
         <h3 class="modal-title">${escapeHtml(ev.title)}</h3>
-        <p class="modal-tagline">${escapeHtml(ev.project_name || 'OWS')} · ${escapeHtml(formatEventRange(ev.starts_at, ev.ends_at))}</p>
+        <p class="modal-tagline">${escapeHtml(eventProjectLabel(ev))} · ${escapeHtml(formatEventRange(ev.starts_at, ev.ends_at))}</p>
       </div>
     </div>
     ${ev.description ? `<div class="modal-about"><p class="modal-about-text">${escapeHtml(ev.description)}</p></div>` : ''}
@@ -1686,6 +1742,81 @@ async function loadDashboardNews() {
 }
 
 // ═══════════════════════════════════════════════
+// ⚡ NOTICIAS RÁPIDAS — texto corto al pie de Noticias
+// El tag "Nuevo" lo decide el servidor: se apaga solo a los pocos días
+// de publicada la entrada, sin borrar nada.
+// ═══════════════════════════════════════════════
+
+function quickNewsWhen(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const diff = Date.now() - d.getTime();
+  const mins = Math.round(diff / 60000);
+  if (mins < 1) return 'ahora';
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'ayer';
+  if (days < 30) return `hace ${days} días`;
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+}
+
+function renderQuickNews(list, meta) {
+  const box = document.getElementById('qnews-list');
+  const empty = document.getElementById('qnews-empty');
+  const panel = document.getElementById('qnews-panel');
+  const count = document.getElementById('qnews-count');
+  const newTag = document.getElementById('qnews-new');
+  if (!box || !empty) return;
+
+  const items = Array.isArray(list) ? list : [];
+  const hasNew = !!(meta && meta.has_new);
+  if (count) count.textContent = items.length ? `${items.length}` : '0';
+  if (newTag) newTag.classList.toggle('hidden', !hasNew);
+
+  // Sin nada que contar, el panel entero se aparta para no dejar un hueco vacío.
+  if (panel) panel.classList.toggle('hidden', items.length === 0 && !hasNew);
+  if (!items.length) {
+    box.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  box.innerHTML = items.map((item) => {
+    const isNew = !!item.is_new;
+    const tag = String(item.tag || '').trim();
+    const link = String(item.link_url || '').trim();
+    const foot = `<span class="qnews-item-when">${escapeHtml(quickNewsWhen(item.published_at || item.created_at))}</span>`;
+    const body = `
+      <span class="qnews-item-dot" aria-hidden="true"></span>
+      <span class="qnews-item-text">${escapeHtml(item.text)}</span>
+      <span class="qnews-item-side">
+        ${isNew ? '<span class="qnews-item-new">✨ Nuevo</span>' : ''}
+        ${tag ? `<span class="qnews-item-tag">${escapeHtml(tag)}</span>` : ''}
+        ${foot}
+      </span>
+      ${link ? '<span class="qnews-item-cta" aria-hidden="true">↗</span>' : ''}`;
+    return link
+      ? `<a class="qnews-item${isNew ? ' is-new' : ''}" href="${escapeHtml(link)}" target="_blank" rel="noopener">${body}</a>`
+      : `<div class="qnews-item${isNew ? ' is-new' : ''}">${body}</div>`;
+  }).join('');
+}
+
+async function loadQuickNews() {
+  try {
+    const res = await fetch(API_BASE + '/ows-dashboard/quick-news?limit=12');
+    if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
+    const data = await res.json();
+    renderQuickNews(data.news || [], data.meta || {});
+  } catch (err) {
+    console.error('[OWS] No se pudieron cargar las noticias rápidas:', err);
+  }
+}
+
+// ═══════════════════════════════════════════════
 // LANZAMIENTOS — proyectos OWS (ows-launch-projects)
 // ═══════════════════════════════════════════════
 
@@ -1763,7 +1894,6 @@ const RELEASES_FALLBACK = [
 ];
 
 let releasesCache = [];
-let eventsCache = [];
 // Estados de carga: sin esto la grilla quedaba vacía mientras Render
 // despertaba (free tier tarda 20-60s en el primer request) y parecía rota.
 let releasesLoadState = 'idle'; // idle | loading | ready | error
@@ -5386,6 +5516,11 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.6': [
+    '⚡ Noticias Rápidas: una sección nueva al pie de Noticias, con avisos cortos que se publican al instante.',
+    'Las noticias rápidas recién publicadas llevan el tag ✨ Nuevo, que se borra solo a los 3 días.',
+    'Eventos por proyecto: filtrá la sección Eventos por proyecto y cada evento muestra a qué juego pertenece.',
+  ],
   '3.4.5': [
     'Si una descarga se queda sin progreso 3 minutos, el Gestor la marca como error con botón Reintentar (nunca más 0% eterno).',
     'El botón Cancelar ahora detiene de verdad la descarga en curso.',

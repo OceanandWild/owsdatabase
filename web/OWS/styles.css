@@ -580,6 +580,22 @@ body {
   padding: 6px 14px; border-radius: 999px; white-space: nowrap;
 }
 
+/* Filtro por proyecto (sección Eventos) */
+.events-filter {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  font-size: 0.78rem; color: var(--text-muted);
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px; padding: 5px 12px 5px 12px;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.events-filter:hover { border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.06); }
+.events-filter select {
+  font-family: inherit; font-size: 0.78rem; font-weight: 700; color: var(--text-main);
+  background: transparent; border: none; outline: none; cursor: pointer;
+  max-width: 190px;
+}
+.events-filter select option { background: #150826; color: var(--text-main); }
+
 /* ── Modules grid ──────────────────────────── */
 .modules-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;
@@ -738,6 +754,107 @@ body {
   margin: 0 18px 18px; padding: 10px 14px; border-radius: var(--radius-sm);
   background: rgba(248, 113, 113, 0.08); border: 1px solid rgba(248, 113, 113, 0.25);
   color: var(--danger); font-size: 0.8rem;
+}
+
+/* ── ⚡ Noticias Rápidas ─────────────────────── */
+/* Texto corto al pie de las noticias. El tag "Nuevo" se enciende solo
+   cuando hay entradas recientes: el servidor lo apaga a los pocos días. */
+.qnews-panel {
+  margin-top: 16px; padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  position: relative; overflow: hidden;
+  animation: rdCardIn 0.35s ease;
+}
+.qnews-panel::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.65), rgba(56, 189, 248, 0.5), transparent);
+}
+.qnews-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px;
+}
+.qnews-head-text { min-width: 0; }
+.qnews-title {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  font-family: 'Space Grotesk', sans-serif; font-size: 1.02rem; font-weight: 700;
+  color: var(--text-main); letter-spacing: -0.01em;
+}
+.qnews-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
+.qnews-count {
+  font-family: 'Space Grotesk', monospace; font-size: 0.74rem; font-weight: 700;
+  color: var(--gold-light); background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 999px;
+  padding: 3px 10px; white-space: nowrap;
+}
+
+/* El tag "Nuevo": degrada cálido + brillo suave. Se va solo. */
+.qnews-new {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
+  color: #0b0413; padding: 3px 9px 3px 8px; border-radius: 999px;
+  background: linear-gradient(100deg, #fbbf24, #f97316 60%, #fb7185);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.45), 0 4px 14px rgba(249, 115, 22, 0.3);
+  animation: qnewsNewGlow 2.4s ease-in-out infinite;
+}
+@keyframes qnewsNewGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.45), 0 4px 14px rgba(249, 115, 22, 0.24); }
+  50%      { box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.65), 0 4px 20px rgba(249, 115, 22, 0.42); }
+}
+
+.qnews-list { display: flex; flex-direction: column; gap: 7px; }
+.qnews-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 13px; border-radius: var(--radius-md);
+  background: rgba(8, 0, 16, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-decoration: none; color: inherit;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+.qnews-item:hover {
+  border-color: rgba(245, 158, 11, 0.42);
+  background: rgba(245, 158, 11, 0.06);
+  transform: translateX(2px);
+}
+/* Recién publicada: fila con un poco de luz propia. */
+.qnews-item.is-new {
+  border-color: rgba(251, 191, 36, 0.34);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), rgba(8, 0, 16, 0.5) 55%);
+}
+.qnews-item-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--gold); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+}
+.qnews-item.is-new .qnews-item-dot { background: #fbbf24; box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.22); }
+.qnews-item-text { flex: 1; min-width: 0; font-size: 0.87rem; line-height: 1.5; color: var(--text-main); }
+.qnews-item-side {
+  display: flex; align-items: center; gap: 7px; flex-shrink: 0;
+  font-size: 0.68rem; color: var(--text-muted); white-space: nowrap;
+}
+.qnews-item-when { font-family: 'Space Grotesk', monospace; }
+.qnews-item-tag {
+  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.04em;
+  color: var(--gold-light); background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28); border-radius: 999px; padding: 2px 8px;
+}
+.qnews-item-new {
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #fbbf24; background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 999px; padding: 2px 7px;
+}
+.qnews-item-cta { color: var(--gold-light); font-size: 0.8rem; flex-shrink: 0; }
+
+.qnews-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  text-align: center; padding: 26px 16px;
+}
+.qnews-empty-icon { font-size: 1.5rem; opacity: 0.5; }
+.qnews-empty-title { font-size: 0.86rem; font-weight: 700; color: var(--text-main); opacity: 0.7; }
+.qnews-empty-sub { font-size: 0.76rem; color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .qnews-item { flex-wrap: wrap; }
+  .qnews-item-side { margin-left: 17px; }
+  .qnews-panel { padding: 15px 15px; }
 }
 
 /* ── News · modal pantalla completa ────────── */

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=10" />
+  <link rel="stylesheet" href="admin-styles.css?v=11" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -109,6 +109,7 @@
 
     <!-- ============ TAB: NOTICIAS (diseño renovado) ============ -->
     <div id="tab-news" class="tab-content">
+     <div class="admin-subpane" data-sub="main" id="news-sub-main">
       <!-- Hero: 1 icon · 2 título+desc+stats · 3 acciones -->
       <div class="glass-card newsadm-hero page-head">
         <div class="page-head-icon">📰</div>
@@ -220,6 +221,82 @@
           <div id="news-list" class="newsadm-list"><p class="loading-note">Cargando noticias…</p></div>
         </div>
       </div>
+     </div><!-- /news-sub-main -->
+
+     <!-- ── SUB: NOTICIAS RÁPIDAS ── -->
+     <!-- Texto corto, sin imagen: se publica en segundos y aparece al pie de
+          la sección Noticias del Hub. El tag "Nuevo" lo apaga solo el servidor
+          a los pocos días de publicada la entrada. -->
+     <div class="admin-subpane hidden" data-sub="quick" id="news-sub-quick">
+       <div class="glass-card events-hero page-head">
+         <div class="page-head-icon events-hero-icon">⚡</div>
+         <div class="page-head-body">
+           <div class="events-hero-top">
+             <div>
+               <h3 class="form-title events-hero-title">Noticias Rápidas</h3>
+               <p class="form-hint events-hero-sub">Noticias de <b>texto corto</b> (hasta 240 caracteres), sin imagen. Se ven al pie de la sección <b>Noticias</b> del Hub y se actualizan al instante. Cada entrada recién publicada lleva el tag <b>✨ Nuevo</b>, que desaparece solo a los <b>3 días</b>.</p>
+             </div>
+             <div class="events-hero-actions page-head-actions">
+               <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusQuickNewsForm">＋ Nueva rápida</button>
+               <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadQuickNews" data-adm-a0="b:1" title="Recargar">↻ Actualizar</button>
+             </div>
+           </div>
+           <div class="events-stats" id="qnews-stats">
+             <div class="ev-stat"><span class="ev-stat-num" id="qn-stat-total">0</span><span class="ev-stat-label">Total</span></div>
+             <div class="ev-stat ev-stat-live"><span class="ev-stat-num" id="qn-stat-active">0</span><span class="ev-stat-label">⚡ Publicadas</span></div>
+             <div class="ev-stat"><span class="ev-stat-num" id="qn-stat-hidden">0</span><span class="ev-stat-label">👁️ Ocultas</span></div>
+             <div class="ev-stat"><span class="ev-stat-num" id="qn-stat-new">0</span><span class="ev-stat-label">✨ Nuevas</span></div>
+           </div>
+         </div>
+       </div>
+
+       <div class="events-layout">
+         <div class="glass-card form-card events-form-card" data-mform="quicknews">
+           <div class="events-form-head">
+             <h3 class="form-title" id="qnews-form-title">Nueva noticia rápida</h3>
+             <span class="status-pill status-on" id="qnews-form-mode">✦ Creando</span>
+           </div>
+           <form id="qnews-form" data-adm-ev="submit" data-adm="saveQuickNews" data-adm-a0="ev">
+             <input type="hidden" id="qnews-id" />
+
+             <div class="ev-section">
+               <div class="ev-section-title">⚡ La noticia</div>
+               <div class="field-group">
+                 <label for="qnews-text">Texto * <span class="newsadm-count" id="qnews-text-count">0/240</span></label>
+                 <textarea id="qnews-text" rows="3" maxlength="240" placeholder="Ej: Ya se puede probar el nuevo control táctil de Wilder Gambit." data-adm-ev="input" data-adm="updateQuickNewsCounters"></textarea>
+                 <p class="form-hint">Corta y al pie: una línea basta. Si necesita imagen o desarrollo, usá una noticia normal.</p>
+               </div>
+               <div class="field-group">
+                 <label for="qnews-tag">Etiqueta <span class="opt-tag">opcional</span></label>
+                 <input type="text" id="qnews-tag" maxlength="40" placeholder="Ej: Wilder Gambit · OWS · Build" data-adm-ev="input" data-adm="updateQuickNewsCounters" autocomplete="off" />
+               </div>
+             </div>
+
+             <div class="ev-section">
+               <div class="ev-section-title">🔗 Link + vista previa</div>
+               <div class="field-group">
+                 <label for="qnews-link">Link <span class="opt-tag">botón ↗, opcional</span></label>
+                 <input type="url" id="qnews-link" placeholder="https://…" data-adm-ev="input" data-adm="updateQuickNewsCounters" />
+                 <p class="form-hint">Tiene que empezar con <b>http://</b> o <b>https://</b>.</p>
+               </div>
+               <div class="ev-section ev-live-section">
+                 <div class="ev-section-title">👁️ Vista previa</div>
+                 <div id="qnews-preview" class="qnews-preview"></div>
+               </div>
+             </div>
+
+             <div id="qnews-form-alert" class="alert-box hidden"></div>
+             <button type="submit" class="btn btn-primary btn-block" id="btn-save-qnews">⚡ Publicar rápida</button>
+             <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-qnews" data-adm-ev="click" data-adm="resetQuickNewsForm">Cancelar edición</button>
+           </form>
+         </div>
+
+         <div class="glass-card list-card events-list-card">
+           <div class="events-count-row"><span id="qnews-count">0 rápidas</span><span class="events-count-hint">Editá, ocultá o borrá desde cada fila</span></div>
+           <div id="qnews-list" class="events-rows"><p class="loading-note">Cargando…</p></div>
+         </div>
+       </div>
+     </div><!-- /news-sub-quick -->
     </div>
 
     <!-- ============ TAB: EVENTOS — v2 renovado ============ -->
@@ -269,24 +346,30 @@
                 <label for="event-desc">Descripción <span class="char-count" id="event-desc-count">0/280</span></label>
                 <textarea id="event-desc" rows="3" maxlength="280" placeholder="Detalles del evento, actualización o lanzamiento" data-adm-ev="input" data-adm="updateEventLivePreview"></textarea>
               </div>
-              <div class="field-row">
-                <div class="field-group">
-                  <label for="event-category">Categoría</label>
-                  <select id="event-category" data-adm-ev="change" data-adm="updateEventLivePreview">
-                    <option value="update">⬆️ Actualización</option>
-                    <option value="launch">🚀 Lanzamiento</option>
-                    <option value="release">📦 Release</option>
-                    <option value="event">🎉 Evento</option>
-                    <option value="announcement">📢 Anuncio</option>
-                    <option value="maintenance">🛠️ Mantenimiento</option>
-                  </select>
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="event-category">Categoría</label>
+                    <select id="event-category" data-adm-ev="change" data-adm="updateEventLivePreview">
+                      <option value="update">⬆️ Actualización</option>
+                      <option value="launch">🚀 Lanzamiento</option>
+                      <option value="release">📦 Release</option>
+                      <option value="event">🎉 Evento</option>
+                      <option value="announcement">📢 Anuncio</option>
+                      <option value="maintenance">🛠️ Mantenimiento</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label for="event-project">Proyecto</label>
+                    <select id="event-project" data-adm-ev="change" data-adm="onEventProjectChange">
+                      <option value="">— Sin proyecto (general OWS) —</option>
+                    </select>
+                    <div class="field-group hidden" id="event-project-custom-group">
+                      <label for="event-project-custom">Nombre a mano <span class="opt-tag">no está en la lista</span></label>
+                      <input type="text" id="event-project-custom" maxlength="80" placeholder="Ej: Proyecto sin catalogar" data-adm-ev="input" data-adm="updateEventLivePreview" autocomplete="off" />
+                    </div>
+                    <p class="form-hint">Lista del catálogo: primero los proyectos OWS (con su estado) y después los que son <b>solo admin</b>. Si el evento es general, dejá "Sin proyecto".</p>
+                  </div>
                 </div>
-                <div class="field-group">
-                  <label for="event-project">Proyecto</label>
-                  <input type="text" id="event-project" list="event-project-list" placeholder="OWS" data-adm-ev="input" data-adm="updateEventLivePreview" />
-                  <datalist id="event-project-list"></datalist>
-                </div>
-              </div>
             </div>
 
             <div class="ev-section">
@@ -1512,42 +1595,77 @@
           <div class="glass-card form-card" data-mform="report">
             <h3 class="form-title" id="rep-form-title">📋 Nuevo informe</h3>
             <p class="form-hint">El informe queda <b>activo</b> desde ya (ej: “desarrollo en pausa por una semana”, “problemas internos del equipo”). Lo vas actualizando con notas y, cuando termina, lo finalizás: en ese momento pasa al <b>historial</b> con su hora de inicio y de fin.</p>
-            <form data-adm-ev="submit" data-adm="saveReport" data-adm-a0="ev">
+            <form data-adm-ev="submit" data-adm="saveReport" data-adm-a0="ev" id="rep-form">
               <input type="hidden" id="rep-id" />
-              <div class="field-group">
-                <label for="rep-title">Título * <span class="newsadm-count" id="rep-title-count">0/120</span></label>
-                <input type="text" id="rep-title" maxlength="120" required placeholder="Ej: Desarrollo en pausa por una semana" data-adm-ev="input" data-adm="updateReportCounters" autocomplete="off" />
-              </div>
-              <div class="field-group">
-                <label>Tipo de informe *</label>
-                <div class="inc-cat-grid" id="rep-kind-grid">
-                  <label class="inc-cat"><input type="radio" name="rep-kind" value="pause" checked /><span><i>⏸️</i><b>Pausa</b><small>Desarrollo pausado por un rato</small></span></label>
-                  <label class="inc-cat"><input type="radio" name="rep-kind" value="internal" /><span><i>🏢</i><b>Interno</b><small>Problemas internos del equipo</small></span></label>
-                  <label class="inc-cat"><input type="radio" name="rep-kind" value="progress" /><span><i>🐢</i><b>Ritmo</b><small>Avance lento, ritmo reducido</small></span></label>
-                  <label class="inc-cat"><input type="radio" name="rep-kind" value="info" /><span><i>📢</i><b>Aviso</b><small>Comunicado general del estudio</small></span></label>
-                  <label class="inc-cat"><input type="radio" name="rep-kind" value="other" /><span><i>🧩</i><b>Otro</b><small>Cualquier otro estado activo</small></span></label>
+              <input type="hidden" id="rep-accent" value="" />
+
+              <!-- 1 · Contenido -->
+              <div class="ev-section">
+                <div class="ev-section-title">📝 Contenido</div>
+                <div class="field-group">
+                  <label for="rep-title">Título * <span class="newsadm-count" id="rep-title-count">0/120</span></label>
+                  <input type="text" id="rep-title" maxlength="120" required placeholder="Ej: Desarrollo en pausa por una semana" data-adm-ev="input" data-adm="updateReportCounters" autocomplete="off" />
+                </div>
+                <div class="field-group">
+                  <label>Tipo de informe *</label>
+                  <div class="inc-cat-grid" id="rep-kind-grid">
+                    <label class="inc-cat"><input type="radio" name="rep-kind" value="pause" checked /><span><i>⏸️</i><b>Pausa</b><small>Desarrollo pausado por un rato</small></span></label>
+                    <label class="inc-cat"><input type="radio" name="rep-kind" value="internal" /><span><i>🏢</i><b>Interno</b><small>Problemas internos del equipo</small></span></label>
+                    <label class="inc-cat"><input type="radio" name="rep-kind" value="progress" /><span><i>🐢</i><b>Ritmo</b><small>Avance lento, ritmo reducido</small></span></label>
+                    <label class="inc-cat"><input type="radio" name="rep-kind" value="info" /><span><i>📢</i><b>Aviso</b><small>Comunicado general del estudio</small></span></label>
+                    <label class="inc-cat"><input type="radio" name="rep-kind" value="other" /><span><i>🧩</i><b>Otro</b><small>Cualquier otro estado activo</small></span></label>
+                  </div>
+                </div>
+                <label class="manage-filter-row" for="rep-affects-project">
+                  <input type="checkbox" id="rep-affects-project" data-adm-ev="change" data-adm="onReportProjectChange" />
+                  <span>🎯 Afecta a un proyecto <small>(elegilo abajo)</small></span>
+                </label>
+                <div class="field-group hidden" id="rep-project-group">
+                  <label for="rep-project">Proyecto relacionado</label>
+                  <select id="rep-project"><option value="">— Elegí un proyecto —</option></select>
+                </div>
+                <div class="field-group">
+                  <label for="rep-details">¿De qué trata? * <span class="newsadm-count" id="rep-details-count">0/2000</span></label>
+                  <textarea id="rep-details" rows="3" maxlength="2000" required placeholder="Explicá la situación: por qué se pausa, qué problema interno hay, hasta cuándo estimás que sigue…" data-adm-ev="input" data-adm="updateReportCounters"></textarea>
                 </div>
               </div>
-              <label class="manage-filter-row" for="rep-affects-project">
-                <input type="checkbox" id="rep-affects-project" data-adm-ev="change" data-adm="onReportProjectChange" />
-                <span>🎯 Afecta a un proyecto <small>(elegilo abajo)</small></span>
-              </label>
-              <div class="field-group hidden" id="rep-project-group">
-                <label for="rep-project">Proyecto relacionado</label>
-                <select id="rep-project"><option value="">— Elegí un proyecto —</option></select>
+
+              <!-- 2 · Diseño -->
+              <div class="ev-section">
+                <div class="ev-section-title">🎨 Diseño</div>
+                <div class="field-group">
+                  <label>Color de acento <span class="opt-tag">barra y detalles</span></label>
+                  <div class="rep-accent-row" id="rep-accent-row" role="group" aria-label="Color de acento del informe"></div>
+                </div>
+                <div class="field-group">
+                  <label for="rep-started-at">¿Desde cuándo? <span class="opt-tag">opcional</span></label>
+                  <input type="datetime-local" id="rep-started-at" data-adm-ev="change" data-adm="updateReportCounters" />
+                  <p class="form-hint">Dejalo vacío si empieza ahora. Si la situación venía desde antes, poné la hora real.</p>
+                </div>
               </div>
-              <div class="field-group">
-                <label for="rep-details">¿De qué trata? * <span class="newsadm-count" id="rep-details-count">0/2000</span></label>
-                <textarea id="rep-details" rows="3" maxlength="2000" required placeholder="Explicá la situación: por qué se pausa, qué problema interno hay, hasta cuándo estimás que sigue…" data-adm-ev="input" data-adm="updateReportCounters"></textarea>
+
+              <!-- 3 · Elementos -->
+              <div class="ev-section">
+                <div class="ev-section-title">🧱 Elementos del informe</div>
+                <p class="form-hint">Armá el informe con elementos: se muestran en el orden en que los agregás y se ven en la vista previa, en las tarjetas y en el detalle.</p>
+                <div class="repb-palette" id="repb-palette" role="group" aria-label="Agregar un elemento"></div>
+                <div id="rep-blocks" class="repb-list"></div>
+                <div id="rep-blocks-empty" class="repb-empty">
+                  <span class="repb-empty-icon">🧱</span>
+                  <p class="repb-empty-title">Todavía no hay elementos</p>
+                  <p class="repb-empty-sub">Elegí uno de la barra de arriba: subtítulo, párrafo, lista, dato destacado, aviso, imagen, etiquetas o separador.</p>
+                </div>
+                <div class="repb-tools">
+                  <span class="repb-count" id="rep-blocks-count">0 elementos</span>
+                  <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="clearReportBlocks" title="Quitar todos los elementos">🧹 Limpiar todo</button>
+                </div>
               </div>
-              <div class="field-group">
-                <label for="rep-started-at">¿Desde cuándo? <span class="opt-tag">opcional</span></label>
-                <input type="datetime-local" id="rep-started-at" />
-                <p class="form-hint">Dejalo vacío si empieza ahora. Si la situación venía desde antes, poné la hora real.</p>
-              </div>
+
               <div id="rep-form-alert" class="alert-box hidden"></div>
-              <button type="submit" class="btn btn-primary btn-block" id="btn-save-report">📋 Activar informe</button>
-              <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-report" data-adm-ev="click" data-adm="resetReportForm">Cancelar edición</button>
+              <div class="newsadm-form-actions">
+                <button type="button" class="btn btn-ghost newsadm-cancel hidden" id="btn-cancel-report" data-adm-ev="click" data-adm="resetReportForm">Cancelar</button>
+                <button type="submit" class="btn btn-primary newsadm-submit" id="btn-save-report">📋 Activar informe</button>
+              </div>
             </form>
           </div>
 
@@ -1570,7 +1688,7 @@
           <div class="page-head-icon inc-hero-icon">📋</div>
           <div class="page-head-body">
             <h3 class="form-title">Informes activos</h3>
-            <p class="form-hint">Los avisos que <b>siguen vigentes</b>. Cada uno lleva su cronómetro desde que empezó y su última actualización. Agregá notas cuando haya novedades.</p>
+            <p class="form-hint">Los avisos que <b>siguen vigentes</b>. Cada uno lleva su cronómetro desde que empezó y su última actualización. Con <b>💬 Actualizar</b> se abre el editor para escribir la novedad.</p>
             <div class="manage-badges">
               <span class="status-pill status-admin-only" id="rep-live-badge">📋 0 activos</span>
               <span class="status-pill status-off" id="rep-live-longest">⏱ —</span>
@@ -1782,6 +1900,58 @@
     </div>
   </div>
 
+  <!-- Modal: crear una actualización (nota) de un informe -->
+  <!-- Antes la nota se escribía en un cuadro dentro de la tarjeta: quedaba
+       chico y sin contexto. Ahora se abre este modal con estado, plantillas
+       y vista previa de cómo va a quedar en la línea de tiempo. -->
+  <div id="rep-upd-modal" class="devmodal-overlay hidden" data-adm-overlay-id="rep-upd-modal" data-adm-overlay-fn="closeReportUpdateModal">
+    <div class="devmodal-card glass-card rep-upd-card" role="dialog" aria-modal="true" aria-labelledby="rep-upd-title">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeReportUpdateModal" aria-label="Cerrar">&times;</button>
+
+      <div class="devmodal-head">
+        <div class="devmodal-icon" id="rep-upd-icon">💬</div>
+        <div class="devmodal-head-info">
+          <h3 class="devmodal-title" id="rep-upd-title">Nueva actualización</h3>
+          <p class="modal-tagline" id="rep-upd-sub">—</p>
+          <div class="devmodal-tags" id="rep-upd-tags"></div>
+        </div>
+      </div>
+
+      <div class="ev-section">
+        <div class="ev-section-title">🧩 Plantillas rápidas</div>
+        <div class="rep-tpl-row" id="rep-upd-templates" role="group" aria-label="Plantillas de nota"></div>
+        <p class="form-hint">Un clic escribe el texto: después lo editás como quieras antes de guardar.</p>
+      </div>
+
+      <div class="ev-section">
+        <div class="ev-section-title">📝 La nota</div>
+        <div class="field-group">
+          <label for="rep-upd-status">Estado del informe al escribir esto</label>
+          <select id="rep-upd-status" data-adm-ev="change" data-adm="updateReportUpdatePreview">
+            <option value="active">📋 Activo — la situación sigue igual</option>
+            <option value="monitoring">👀 En seguimiento — se está trabajando</option>
+          </select>
+          <p class="form-hint">El informe <b>sigue activo</b> igual: el estado solo describe cómo va la cosa. Para terminarlo usá <b>✅ Terminar</b>.</p>
+        </div>
+        <div class="field-group">
+          <label for="rep-upd-note">¿Qué cambió? * <span class="newsadm-count" id="rep-upd-count">0/2000</span></label>
+          <textarea id="rep-upd-note" class="inc-quick-note" rows="5" maxlength="2000" placeholder="Contá la novedad: qué se avanzó, qué se decidió, qué falta…" data-adm-ev="input" data-adm="updateReportUpdatePreview"></textarea>
+        </div>
+      </div>
+
+      <div class="ev-section ev-live-section">
+        <div class="ev-section-title">👁️ Así se verá en la línea de tiempo</div>
+        <div id="rep-upd-preview" class="inc-preview"></div>
+      </div>
+
+      <div id="rep-upd-alert" class="alert-box hidden"></div>
+      <div class="dev-step-actions">
+        <button class="btn btn-primary" id="btn-save-report-update" data-adm-ev="click" data-adm="saveReportUpdate">💬 Guardar actualización</button>
+        <button class="btn btn-ghost" data-adm-ev="click" data-adm="closeReportUpdateModal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal genérico: formularios de creación / edición (una sección a la vez) -->
   <div id="form-modal" class="devmodal-overlay formmodal-overlay hidden" data-adm-overlay-id="form-modal" data-adm-overlay-fn="closeFormModal">
     <div class="devmodal-card formmodal-card glass-card" role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
@@ -1807,7 +1977,7 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="admin-app.js?v=5"></script>
+  <script src="admin-app.js?v=6"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

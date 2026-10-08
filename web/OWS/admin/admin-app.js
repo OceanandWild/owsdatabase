@@ -555,6 +555,9 @@ function switchAdminTab(tab) {
 // =======================================================
 
 const ADMIN_EXTRA_SUBS = {
+  news: [
+    { id: 'quick', label: '⚡ Rápidas' }
+  ],
   events: [
     { id: 'popups', label: '💬 Modales' },
     { id: 'presets', label: '🎨 Presets' }
@@ -641,6 +644,9 @@ function switchAdminSub(tab, sub) {
   if (tab === 'incidents' && (sub === 'live' || sub === 'log')) loadIncidents();
   // Lo mismo para informes: activos e historial se piden al abrir.
   if (tab === 'reports' && (sub === 'live' || sub === 'log')) loadReports();
+  // Las noticias rápidas se piden al abrir su sub-sección: es donde más
+  // seguido se publica (texto corto, al instante).
+  if (tab === 'news' && sub === 'quick') loadQuickNews();
   // Salto instantáneo: el smooth + sticky con blur dejaba una banda negra
   // repintada a mitad de Incidentes en Chrome.
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -726,6 +732,8 @@ async function loadAdminManage() {
     const box = document.getElementById('manage-show-public');
     if (box) box.checked = manageShowPublic;
     renderManageList();
+    // El catálogo cambió: el dropdown de proyecto de Eventos se rearma.
+    populateEventProjectOptions();
   } catch (err) {
     list.innerHTML = `<p class="loading-note">⚠️ ${escapeHtml(err.message)}</p>`;
   }
@@ -3807,6 +3815,41 @@ const REP_KIND_META = {
   other: { icon: '🧩', label: 'Otro' }
 };
 
+// Colores de acento: la barra, los pill y los bloques del informe.
+// Mismo vocabulario que el backend (OWS_REPORT_ACCENTS). El vacío es el
+// ámbar de siempre.
+const REP_ACCENTS = [
+  { key: '', label: 'Ámbar (por defecto)' },
+  { key: 'amber', label: 'Ámbar' },
+  { key: 'violet', label: 'Violeta' },
+  { key: 'sky', label: 'Celeste' },
+  { key: 'emerald', label: 'Verde' },
+  { key: 'rose', label: 'Rojo' }
+];
+
+// Elementos de diseño: la paleta del constructor de informes.
+// Cada tipo define su icono, su nombre y qué campos se editan.
+const REP_BLOCK_META = {
+  heading: { icon: '🔖', label: 'Subtítulo', hint: 'Un título intermedio que ordena el informe' },
+  text:    { icon: '📄', label: 'Párrafo', hint: 'Texto explicativo de varias líneas' },
+  list:    { icon: '•',  label: 'Lista', hint: 'Viñetas, una por línea' },
+  stat:    { icon: '📊', label: 'Dato', hint: 'Un número grande con su etiqueta' },
+  callout: { icon: '📣', label: 'Aviso', hint: 'Recuadro destacado para lo importante' },
+  image:   { icon: '🖼️', label: 'Imagen', hint: 'Imagen por URL con su pie' },
+  tags:    { icon: '🏷️', label: 'Etiquetas', hint: 'Chips cortos, uno por línea' },
+  divider: { icon: '➖', label: 'Separador', hint: 'Una línea para separar bloques' }
+};
+
+function repBlockMeta(type) {
+  return REP_BLOCK_META[type] || { icon: '🧩', label: 'Elemento', hint: '' };
+}
+
+// Borrador de elementos mientras se arma/edita el informe.
+let repBlocksDraft = [];
+let repBlockSeq = 0;
+// Modal de actualización: a qué informe se le está escribiendo la nota.
+let repUpdateModalId = null;
+
 function repKind(key) {
   return REP_KIND_META[key] || { icon: '🧩', label: 'Otro' };
 }
@@ -3850,6 +3893,9 @@ async function loadReports(manual) {
 }
 
 function renderReports() {
+  renderReportBlockPalette();
+  renderReportAccents();
+  renderReportBlocks();
   renderReportBanner();
   renderReportKinds();
   renderReportLive();
@@ -3932,6 +3978,234 @@ function renderReportKinds() {
 }
 
 // ═══════════════════════════════════════════════
+// ELEMENTOS DE DISEÑO — constructor de bloques
+// ═══════════════════════════════════════════════
+// El informe se arma con elementos (bloques) que se guardan en orden.
+// Uno los escribe (borrador), otro los dibuja ya guardados (preview,
+// tarjetas y detalle). Mismo HTML para los dos: lo que se ve armando es
+// lo que se ve publicado.
+
+function repBlockList(value) {
+  if (Array.isArray(value)) return value.map((s) => String(s || '').trim()).filter(Boolean);
+  return String(value || '').split('\n').map((s) => s.trim()).filter(Boolean);
+}
+
+// El acento vacío significa "el de siempre" (ámbar): se normaliza acá para
+// que el CSS tenga siempre una clase con la que pintar.
+function repAccentKey(value) {
+  const v = String(value || '');
+  return REP_ACCENTS.some((a) => a.key === v && a.key) ? v : 'amber';
+}
+
+// Dibuja los bloques tal como se ven en el informe publicado.
+function reportBlocksHtml(blocks) {
+  const list = Array.isArray(blocks) ? blocks : [];
+  if (!list.length) return '';
+  return `<div class="rep-blocks">${list.map((b) => {
+    const type = String(b?.type || '');
+    const meta = repBlockMeta(type);
+    if (!REP_BLOCK_META[type]) return '';
+    if (type === 'divider') return '<hr class="rep-blk rep-blk-div" />';
+    if (type === 'heading') return `<h4 class="rep-blk rep-blk-heading">${escapeHtml(String(b.text || ''))}</h4>`;
+    if (type === 'text') return `<p class="rep-blk rep-blk-text">${escapeHtml(String(b.text || ''))}</p>`;
+    if (type === 'callout') return `<div class="rep-blk rep-blk-callout"><span class="rep-blk-callout-icon">${meta.icon}</span><p>${escapeHtml(String(b.text || ''))}</p></div>`;
+    if (type === 'list') {
+      const items = repBlockList(b.items);
+      if (!items.length) return '';
+      return `<ul class="rep-blk rep-blk-list">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
+    }
+    if (type === 'tags') {
+      const items = repBlockList(b.items);
+      if (!items.length) return '';
+      return `<div class="rep-blk rep-blk-tags">${items.map((i) => `<span class="rep-tag">${escapeHtml(i)}</span>`).join('')}</div>`;
+    }
+    if (type === 'stat') {
+      return `<div class="rep-blk rep-blk-stat"><strong>${escapeHtml(String(b.value || ''))}</strong><small>${escapeHtml(String(b.label || ''))}</small></div>`;
+    }
+    if (type === 'image') {
+      const url = String(b.image_url || b.url || '');
+      return `<figure class="rep-blk rep-blk-image">
+        <img src="${escapeHtml(url)}" alt="${escapeHtml(String(b.caption || ''))}" loading="lazy" data-adm-err="rm" />
+        ${b.caption ? `<figcaption>${escapeHtml(String(b.caption || ''))}</figcaption>` : ''}
+      </figure>`;
+    }
+    return '';
+  }).filter(Boolean).join('')}</div>`;
+}
+
+// ── Paleta de elementos ──
+function renderReportBlockPalette() {
+  const box = document.getElementById('repb-palette');
+  if (!box) return;
+  box.innerHTML = Object.entries(REP_BLOCK_META).map(([type, meta]) => `
+    <button type="button" class="repb-pal" data-adm-ev="click" data-adm="addReportBlock" data-adm-a0="s:${type}" title="${escapeHtml(meta.hint)}">
+      <span class="repb-pal-icon">${meta.icon}</span>
+      <span class="repb-pal-text"><b>${escapeHtml(meta.label)}</b><small>${escapeHtml(meta.hint)}</small></span>
+      <span class="repb-pal-plus">＋</span>
+    </button>`).join('');
+}
+
+function renderReportAccents() {
+  const box = document.getElementById('rep-accent-row');
+  if (!box) return;
+  const current = String(document.getElementById('rep-accent')?.value || '');
+  box.innerHTML = REP_ACCENTS.map((a) => `
+    <button type="button" class="rep-accent${a.key === current ? ' active' : ''}${a.key ? ` is-${a.key}` : ''}"
+      data-adm-ev="click" data-adm="setReportAccent" data-adm-a0="s:${a.key}" title="${escapeHtml(a.label)}">
+      <span class="rep-accent-swatch"></span><small>${escapeHtml(a.label)}</small>
+    </button>`).join('');
+}
+
+function setReportAccent(key) {
+  const input = document.getElementById('rep-accent');
+  if (input) input.value = REP_ACCENTS.some((a) => a.key === key) ? key : '';
+  renderReportAccents();
+  renderReportPreview();
+}
+
+// ── Borrador: agregar / mover / duplicar / borrar ──
+function addReportBlock(type) {
+  if (!REP_BLOCK_META[type]) return;
+  if (repBlocksDraft.length >= 40) {
+    showToast('⚠️ Un informe no puede tener más de 40 elementos.');
+    return;
+  }
+  const id = `b${++repBlockSeq}`;
+  const base = { id, type };
+  if (type === 'list') base.items = ['Primer punto', 'Segundo punto'];
+  else if (type === 'tags') base.items = ['desarrollo', 'equipo'];
+  else if (type === 'divider') { /* sin campos */ }
+  else if (type === 'stat') { base.value = '0'; base.label = 'personas afectadas'; }
+  else if (type === 'image') { base.url = ''; base.caption = 'Captura o gráfico del informe'; }
+  else if (type === 'heading') base.text = 'Nuevo subtítulo';
+  else if (type === 'text') base.text = '';
+  else if (type === 'callout') base.text = 'Esto es lo más importante del informe.';
+  repBlocksDraft.push(base);
+  renderReportBlocks();
+  renderReportPreview();
+  const first = document.querySelector(`[data-repblock="${id}"] input, [data-repblock="${id}"] textarea`);
+  if (first) { try { first.focus(); } catch (_) {} }
+}
+
+function repBlockField(id, field) {
+  const b = repBlocksDraft.find((x) => x.id === id);
+  if (!b) return;
+  const raw = this.value;
+  if (field === 'items') b.items = raw.split('\n');
+  else b[field] = raw;
+  renderReportPreview();
+}
+
+function moveReportBlock(id, dir) {
+  const i = repBlocksDraft.findIndex((x) => x.id === id);
+  if (i < 0) return;
+  const j = i + dir;
+  if (j < 0 || j >= repBlocksDraft.length) return;
+  const [b] = repBlocksDraft.splice(i, 1);
+  repBlocksDraft.splice(j, 0, b);
+  renderReportBlocks();
+  renderReportPreview();
+}
+
+function duplicateReportBlock(id) {
+  const i = repBlocksDraft.findIndex((x) => x.id === id);
+  if (i < 0) return;
+  if (repBlocksDraft.length >= 40) {
+    showToast('⚠️ Un informe no puede tener más de 40 elementos.');
+    return;
+  }
+  const copy = JSON.parse(JSON.stringify(repBlocksDraft[i]));
+  copy.id = `b${++repBlockSeq}`;
+  repBlocksDraft.splice(i + 1, 0, copy);
+  renderReportBlocks();
+  renderReportPreview();
+}
+
+function removeReportBlock(id) {
+  repBlocksDraft = repBlocksDraft.filter((x) => x.id !== id);
+  renderReportBlocks();
+  renderReportPreview();
+}
+
+function clearReportBlocks() {
+  if (!repBlocksDraft.length) return;
+  if (!confirm('¿Quitar todos los elementos del informe?')) return;
+  repBlocksDraft = [];
+  renderReportBlocks();
+  renderReportPreview();
+}
+
+// ── Lista editable de elementos ──
+// Enter dentro de un campo no debe enviar el formulario: el dispatcher hace
+// preventDefault cuando data-adm-key coincide, así que el handler queda vacío.
+function repBlockEnterGuard() { /* solo evita el submit del formulario */ }
+
+function reportBlocksEditorHtml() {
+  if (!repBlocksDraft.length) return '';
+  const guard = ' data-adm-key="Enter"';
+  return repBlocksDraft.map((b, i) => {
+    const meta = repBlockMeta(b.type);
+    const at = `data-adm-a0="r:${b.id}"`;
+    const upd = 'data-adm-ev="input|keydown" data-adm="repBlockEnterGuard"';
+    const fields = (() => {
+      if (b.type === 'divider') return '<p class="repb-row-note">Separador: no tiene contenido.</p>';
+      if (b.type === 'list' || b.type === 'tags') {
+        return `<label class="repb-field">
+          <span>${b.type === 'list' ? 'Viñetas (una por línea)' : 'Etiquetas (una por línea)'}</span>
+          <textarea class="inc-quick-note" rows="4"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:items">${escapeHtml(repBlockList(b.items).join('\n'))}</textarea>
+        </label>`;
+      }
+      if (b.type === 'stat') {
+        return `<div class="repb-field-row">
+          <label class="repb-field"><span>Valor</span>
+            <input type="text" value="${escapeHtml(String(b.value || ''))}" maxlength="160"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:value" /></label>
+          <label class="repb-field"><span>Etiqueta</span>
+            <input type="text" value="${escapeHtml(String(b.label || ''))}" maxlength="160"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:label" /></label>
+        </div>`;
+      }
+      if (b.type === 'image') {
+        return `<label class="repb-field"><span>URL de la imagen</span>
+          <input type="url" placeholder="https://…" value="${escapeHtml(String(b.image_url || b.url || ''))}"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:url" /></label>
+        <label class="repb-field"><span>Pie de imagen <span class="opt-tag">opcional</span></span>
+          <input type="text" placeholder="Qué se ve en la imagen" value="${escapeHtml(String(b.caption || ''))}" maxlength="400"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:caption" /></label>`;
+      }
+      if (b.type === 'heading') {
+        return `<label class="repb-field"><span>Subtítulo</span>
+          <input type="text" value="${escapeHtml(String(b.text || ''))}" maxlength="2000"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:text" /></label>`;
+      }
+      const label = b.type === 'callout' ? 'Texto del aviso' : 'Párrafo';
+      const rows = b.type === 'callout' ? '3' : '4';
+      return `<label class="repb-field"><span>${label}</span>
+        <textarea class="inc-quick-note" rows="${rows}"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:text">${escapeHtml(String(b.text || ''))}</textarea></label>`;
+    })();
+    return `
+    <div class="repb-row is-${escapeHtml(b.type)}" data-repblock="${escapeHtml(b.id)}">
+      <div class="repb-row-head">
+        <span class="repb-row-order">${i + 1}</span>
+        <span class="repb-row-type">${meta.icon} ${escapeHtml(meta.label)}</span>
+        <span class="repb-row-tools">
+          <button type="button" class="btn btn-ghost btn-mini" title="Subir" data-adm-ev="click" data-adm="moveReportBlock" data-adm-a0="r:${b.id}" data-adm-a1="n:-1"${i === 0 ? ' disabled' : ''}>↑</button>
+          <button type="button" class="btn btn-ghost btn-mini" title="Bajar" data-adm-ev="click" data-adm="moveReportBlock" data-adm-a0="r:${b.id}" data-adm-a1="n:1"${i === repBlocksDraft.length - 1 ? ' disabled' : ''}>↓</button>
+          <button type="button" class="btn btn-ghost btn-mini" title="Duplicar" data-adm-ev="click" data-adm="duplicateReportBlock" data-adm-a0="r:${b.id}">⧉</button>
+          <button type="button" class="btn btn-ghost btn-mini" title="Quitar" data-adm-ev="click" data-adm="removeReportBlock" data-adm-a0="r:${b.id}">✕</button>
+        </span>
+      </div>
+      <div class="repb-row-body">${fields}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderReportBlocks() {
+  const box = document.getElementById('rep-blocks');
+  const empty = document.getElementById('rep-blocks-empty');
+  const count = document.getElementById('rep-blocks-count');
+  if (count) count.textContent = `${repBlocksDraft.length} ${repBlocksDraft.length === 1 ? 'elemento' : 'elementos'}`;
+  if (empty) empty.classList.toggle('hidden', repBlocksDraft.length > 0);
+  if (!box) return;
+  box.innerHTML = reportBlocksEditorHtml();
+}
+
+// ═══════════════════════════════════════════════
 // INFORMES ACTIVOS
 // ═══════════════════════════════════════════════
 
@@ -3944,6 +4218,7 @@ function reportStatusOptions(selected) {
 function reportCardHtml(r) {
   const kind = repKind(r.kind);
   const updates = Array.isArray(r.updates) ? r.updates : [];
+  const blocks = Array.isArray(r.blocks) ? r.blocks : [];
   const sinceMs = r.started_at ? new Date(r.started_at).getTime() : Date.now();
   const isLive = !!r.is_open;
   const historyHtml = updates.length ? `
@@ -3960,8 +4235,9 @@ function reportCardHtml(r) {
         </div>`;
       }).join('')}
     </div>` : '';
+  const accentCls = ` is-${escapeHtml(repAccentKey(r.accent))}`;
   return `
-  <article class="inc-card" data-severity="major" data-state="${escapeHtml(r.status)}">
+  <article class="inc-card${accentCls}" data-severity="major" data-state="${escapeHtml(r.status)}">
     <span class="inc-card-stripe" aria-hidden="true"></span>
     <div class="inc-card-main">
       <div class="inc-card-top">
@@ -3969,6 +4245,7 @@ function reportCardHtml(r) {
           <span class="inc-pill is-cat">${kind.icon} ${escapeHtml(kind.label)}</span>
           <span class="inc-pill is-status">📋 ${isLive ? 'Activo' : 'Terminado'}</span>
           ${r.project_name ? `<span class="inc-pill is-proj">🎯 ${escapeHtml(r.project_name)}</span>` : ''}
+          ${blocks.length ? `<span class="inc-pill is-updates">🧱 ${blocks.length}</span>` : ''}
           <span class="inc-pill is-updates">💬 ${r.update_count || updates.length}</span>
         </div>
         <div class="inc-card-clock">
@@ -3980,23 +4257,16 @@ function reportCardHtml(r) {
       <h3 class="inc-card-title" role="button" tabindex="0" data-adm-ev="click" data-adm="viewReport" data-adm-a0="r:${r.id}">${escapeHtml(r.title)}</h3>
       ${r.details ? `<p class="inc-card-text">${escapeHtml(r.details)}</p>` : ''}
 
-      ${historyHtml}
+      ${reportBlocksHtml(blocks)}
 
-      ${isLive ? `
-        <div class="inc-quick">
-          <label class="inc-quick-label" for="rep-q-note-${r.id}">➕ Novedad del informe</label>
-          <textarea id="rep-q-note-${r.id}" class="inc-quick-note" rows="2" maxlength="2000" placeholder="¿Qué cambió? Escribí acá la novedad: el informe sigue activo, solo se le agrega esta nota."></textarea>
-          <div class="inc-quick-foot">
-            <button type="button" class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="addReportUpdate" data-adm-a0="r:${r.id}">💬 Agregar nota</button>
-            <span class="inc-quick-hint">El informe queda activo hasta que lo finalices.</span>
-          </div>
-        </div>` : ''}
+      ${historyHtml}
 
       <div class="inc-card-actions">
         <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="viewReport" data-adm-a0="r:${r.id}" title="Ver detalle y línea de tiempo">👁️ Detalle</button>
-        <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openReportForm" data-adm-a0="r:${r.id}" title="Editar título, tipo y detalle">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openReportForm" data-adm-a0="r:${r.id}" title="Editar título, tipo, diseño y elementos">✏️ Editar</button>
         ${isLive
-          ? `<button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openResolveReportForm" data-adm-a0="r:${r.id}" title="Terminar y mandar al historial">✅ Terminar</button>
+          ? `<button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openReportUpdateModal" data-adm-a0="r:${r.id}" title="Escribir una actualización del informe">💬 Actualizar</button>
+             <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openResolveReportForm" data-adm-a0="r:${r.id}" title="Terminar y mandar al historial">✅ Terminar</button>
              <button class="btn btn-danger btn-sm" data-adm-ev="click" data-adm="deleteReport" data-adm-a0="r:${r.id}" title="Eliminar definitivamente">🗑️</button>`
           : `<button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="reopenReport" data-adm-a0="r:${r.id}" title="Volver a ponerlo activo">♻️ Reactivar</button>`}
       </div>
@@ -4159,13 +4429,25 @@ function readReportDraft() {
   const proj = document.getElementById('rep-project');
   const details = document.getElementById('rep-details');
   const started = document.getElementById('rep-started-at');
+  const accent = document.getElementById('rep-accent');
   return {
     title: (document.getElementById('rep-title')?.value || '').trim(),
     kind: kind ? kind.value : 'info',
     affects_project: !!(aff && aff.checked),
     project_id: (aff && aff.checked && proj && !proj.disabled) ? Number(proj.value || 0) : 0,
     details: details ? details.value.trim() : '',
-    started_at: started ? fromLocalInputValue(started.value) : ''
+    started_at: started ? fromLocalInputValue(started.value) : '',
+    accent: accent ? accent.value : '',
+    blocks: repBlocksDraft.map((b) => {
+      const out = { type: b.type };
+      if (b.text != null) out.text = String(b.text);
+      if (Array.isArray(b.items)) out.items = repBlockList(b.items);
+      if (b.value != null) out.value = String(b.value);
+      if (b.label != null) out.label = String(b.label);
+      if (b.url != null) out.image_url = String(b.url);
+      if (b.caption != null) out.caption = String(b.caption);
+      return out;
+    })
   };
 }
 
@@ -4179,17 +4461,21 @@ function renderReportPreview() {
     const p = all.find((x) => Number(x?.id) === d.project_id);
     return p ? (p.name || p.slug || `#${d.project_id}`) : '';
   })() : '';
+  const blocks = reportBlocksHtml(d.blocks);
+  const accent = repAccentKey(d.accent);
   box.innerHTML = `
-    <div class="inc-prev" data-severity="major">
+    <div class="inc-prev is-${escapeHtml(accent)}" data-severity="major">
       <span class="inc-prev-stripe" aria-hidden="true"></span>
       <div class="inc-prev-body">
         <div class="inc-card-pills">
           <span class="inc-pill is-cat">${kind.icon} ${escapeHtml(kind.label)}</span>
           <span class="inc-pill is-status">📋 Activo</span>
           ${proj ? `<span class="inc-pill is-proj">🎯 ${escapeHtml(proj)}</span>` : ''}
+          ${d.blocks.length ? `<span class="inc-pill is-updates">🧱 ${d.blocks.length}</span>` : ''}
         </div>
         <h3 class="inc-prev-title">${d.title ? escapeHtml(d.title) : '<span class="inc-prev-empty">Tu título aparecerá acá</span>'}</h3>
         <p class="inc-card-text">${d.details ? escapeHtml(d.details) : '<span class="inc-prev-empty">Explicá la situación y va a quedar escrita acá.</span>'}</p>
+        ${blocks}
         <div class="inc-prev-foot">
           <span class="inc-elapsed" data-since="${Date.now()}">0s</span>
           <small>${d.started_at ? `empezó ${escapeHtml(fmtIncidentDateTime(d.started_at))}` : 'empezando ahora'}</small>
@@ -4218,6 +4504,12 @@ function resetReportForm() {
   document.querySelectorAll('input[name="rep-kind"]').forEach((r) => { r.checked = r.value === 'pause'; });
   const aff = document.getElementById('rep-affects-project');
   if (aff) aff.checked = false;
+  repBlocksDraft = [];
+  const accent = document.getElementById('rep-accent');
+  if (accent) accent.value = '';
+  renderReportBlockPalette();
+  renderReportAccents();
+  renderReportBlocks();
   onReportProjectChange();
   hideAlert('rep-form-alert');
   updateReportFormMode();
@@ -4250,6 +4542,20 @@ function openReportForm(editId) {
   document.querySelectorAll('input[name="rep-kind"]').forEach((x) => {
     x.checked = x.value === ((r && r.kind) || 'pause');
   });
+  // Elementos de diseño: se copian al borrador con ids nuevos de sesión.
+  // La URL de la imagen se guarda como `url` en el borrador (el backend la
+  // devuelve como `image_url`), así el campo editable siempre refleja el valor.
+  repBlocksDraft = (Array.isArray(r?.blocks) ? r.blocks : []).map((b) => {
+    const copy = { ...b, id: `b${++repBlockSeq}` };
+    if (copy.type === 'image') {
+      copy.url = String(copy.image_url || copy.url || '');
+      delete copy.image_url;
+    }
+    return copy;
+  });
+  renderReportBlockPalette();
+  renderReportAccents();
+  renderReportBlocks();
   onReportProjectChange();
   hideAlert('rep-form-alert');
   updateReportFormMode();
@@ -4276,12 +4582,25 @@ async function saveReport(e) {
     document.getElementById('rep-project')?.focus();
     return;
   }
+  // Los elementos vacíos no se guardan: se descartan con aviso en vez de
+  // dejar placeholders colgando en el informe.
+  const usable = d.blocks.filter((b) => {
+    if (b.type === 'image') return String(b.image_url || '').trim();
+    if (b.type === 'stat') return String(b.value || '').trim();
+    if (b.type === 'list' || b.type === 'tags') return (b.items || []).length > 0;
+    if (b.type === 'divider') return true;
+    return String(b.text || '').trim();
+  });
+  const dropped = d.blocks.length - usable.length;
+
   const body = {
     title: d.title,
     details: d.details,
     kind: d.kind,
     project_id: d.affects_project ? d.project_id : null,
-    started_at: d.started_at || null
+    started_at: d.started_at || null,
+    blocks: usable,
+    accent: d.accent
   };
   const editing = editingReportId != null;
   const url = editing ? `${API_BASE}/ows-reports/${editingReportId}` : `${API_BASE}/ows-reports`;
@@ -4295,6 +4614,7 @@ async function saveReport(e) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    if (dropped > 0) showToast(`🧹 Se descartaron ${dropped} ${dropped === 1 ? 'elemento vacío' : 'elementos vacíos'}.`);
     showToast(editing
       ? `✔ Informe #${data.report?.id || editingReportId} actualizado`
       : `📋 Informe activado: “${data.report?.title || d.title}”`);
@@ -4308,36 +4628,140 @@ async function saveReport(e) {
 }
 
 // ═══════════════════════════════════════════════
-// ACCIONES SOBRE UN INFORME
+// ACTUALIZACIONES — modal para escribir una nota
 // ═══════════════════════════════════════════════
+// Antes la nota se escribía en un cuadro dentro de la tarjeta (o en el
+// modal de detalle). Ahora siempre se abre este modal: lugar para elegir
+// el estado, plantillas rápidas y la vista previa de la entrada.
 
-async function addReportUpdate(id, fromModal) {
-  const fieldId = fromModal ? 'rep-modal-note' : `rep-q-note-${id}`;
-  const note = (document.getElementById(fieldId)?.value || '').trim();
+const REP_UPDATE_TEMPLATES = [
+  { label: '🧘 Sin novedades', text: 'Sin novedades por ahora: la situación sigue igual y se sigue trabajando.' },
+  { label: '🔧 Trabajando', text: 'Se está trabajando en esto: ' },
+  { label: '🐢 Retraso', text: 'El desarrollo se está retrasando más de lo previsto: ' },
+  { label: '📅 Nueva fecha', text: 'Fecha estimada actualizada: ' },
+  { label: '✅ Resuelto', text: 'El problema quedó resuelto: ' },
+  { label: '🚧 Sigue pausado', text: 'La pausa sigue vigente: todavía no se retoma el desarrollo.' }
+];
+
+function openReportUpdateModal(id) {
+  const r = getReport(id);
+  if (!r) return showToast('⚠️ Informe no encontrado');
+  repUpdateModalId = Number(id);
+  const kind = repKind(r.kind);
+
+  const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.textContent = val; };
+  set('rep-upd-icon', kind.icon);
+  set('rep-upd-title', 'Nueva actualización');
+  set('rep-upd-sub', `#${r.id} · ${kind.icon} ${kind.label}${r.project_name ? ` · 🎯 ${r.project_name}` : ''} · “${r.title}”`);
+  const tags = document.getElementById('rep-upd-tags');
+  if (tags) {
+    tags.innerHTML = `
+      <span class="inc-pill is-cat">${kind.icon} ${escapeHtml(kind.label)}</span>
+      <span class="inc-pill is-updates">💬 ${r.update_count || (Array.isArray(r.updates) ? r.updates.length : 0)} notas</span>
+      <span class="inc-pill is-status">sigue activo</span>`;
+  }
+
+  const status = document.getElementById('rep-upd-status');
+  if (status) status.value = (r.status && r.status !== 'resolved') ? r.status : 'active';
+  const note = document.getElementById('rep-upd-note');
+  if (note) note.value = '';
+  hideAlert('rep-upd-alert');
+  renderReportUpdateTemplates();
+  updateReportUpdatePreview();
+
+  const modal = document.getElementById('rep-upd-modal');
+  if (modal) modal.classList.remove('hidden');
+  try { document.body.style.overflow = 'hidden'; } catch (_) {}
+  setTimeout(() => { try { note?.focus(); } catch (_) {} }, 90);
+}
+
+function closeReportUpdateModal() {
+  const modal = document.getElementById('rep-upd-modal');
+  if (modal) modal.classList.add('hidden');
+  // Solo se libera el scroll si no quedó otro modal abierto detrás.
+  const behind = ['rep-modal', 'form-modal'].some((m) => {
+    const el = document.getElementById(m);
+    return el && !el.classList.contains('hidden');
+  });
+  if (!behind) { try { document.body.style.overflow = ''; } catch (_) {} }
+  repUpdateModalId = null;
+}
+
+function renderReportUpdateTemplates() {
+  const box = document.getElementById('rep-upd-templates');
+  if (!box) return;
+  box.innerHTML = REP_UPDATE_TEMPLATES.map((t, i) => `
+    <button type="button" class="rep-tpl" data-adm-ev="click" data-adm="applyReportUpdateTemplate" data-adm-a0="n:${i}">${escapeHtml(t.label)}</button>`).join('');
+}
+
+function applyReportUpdateTemplate(i) {
+  const t = REP_UPDATE_TEMPLATES[Number(i)];
+  const note = document.getElementById('rep-upd-note');
+  if (!t || !note) return;
+  const cur = note.value.replace(/\s+$/, '');
+  note.value = cur ? `${cur}\n${t.text}` : t.text;
+  updateReportUpdatePreview();
+  try {
+    note.focus();
+    note.setSelectionRange(note.value.length, note.value.length);
+  } catch (_) {}
+}
+
+function updateReportUpdatePreview() {
+  const note = document.getElementById('rep-upd-note');
+  const count = document.getElementById('rep-upd-count');
+  if (note && count) count.textContent = `${note.value.length}/2000`;
+  const box = document.getElementById('rep-upd-preview');
+  if (!box) return;
+  const r = repUpdateModalId != null ? getReport(repUpdateModalId) : null;
+  const status = document.getElementById('rep-upd-status')?.value || 'active';
+  const monitoring = status === 'monitoring';
+  const text = (note?.value || '').trim();
+  box.innerHTML = `
+    <div class="inc-card-last${monitoring ? ' is-monitoring' : ''}">
+      <span class="inc-last-tag">${monitoring ? '👀 En seguimiento' : '📋 Nota'} · recién</span>
+      <p class="inc-last-text">${text ? escapeHtml(text) : '<span class="inc-prev-empty">La nota que escribas se va a ver así en la línea de tiempo.</span>'}</p>
+      <span class="inc-last-by">👤 OceanandWild · ${r ? `en “${escapeHtml(r.title)}”` : ''}</span>
+    </div>`;
+}
+
+async function saveReportUpdate() {
+  const id = repUpdateModalId;
+  if (!id) return;
+  const note = (document.getElementById('rep-upd-note')?.value || '').trim();
   if (!note) {
-    showToast('⚠️ Escribí la nota antes de guardarla.');
-    document.getElementById(fieldId)?.focus();
+    showAlert('rep-upd-alert', 'Escribí qué cambió antes de guardar.', 'error');
+    document.getElementById('rep-upd-note')?.focus();
     return;
   }
+  const status = document.getElementById('rep-upd-status')?.value || 'active';
+  const btn = document.getElementById('btn-save-report-update');
+  if (btn) { btn.disabled = true; btn.textContent = '💬 Guardando…'; }
   try {
     const res = await adminFetch(`${API_BASE}/ows-reports/${id}/updates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: note })
+      body: JSON.stringify({ body: note, status })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
-    showToast(`💬 Nota agregada (${data.report?.update_count || 0} en total)`);
-    const box = document.getElementById(fieldId);
-    if (box) box.value = '';
+    showToast(`💬 Actualización guardada (${data.report?.update_count || 0} en total)`);
+    closeReportUpdateModal();
     await loadReports();
-    if (reportModalId === Number(id) && reportModalMode === 'view') {
-      viewReport(id);
-    }
+    if (reportModalId === Number(id) && reportModalMode === 'view') viewReport(id);
   } catch (err) {
-    showToast(`⚠️ ${err.message}`);
+    showAlert('rep-upd-alert', err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '💬 Guardar actualización'; }
   }
 }
+
+// Atajos del modal de actualización: Esc cierra · Ctrl+Enter guarda.
+document.addEventListener('keydown', (e) => {
+  const modal = document.getElementById('rep-upd-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeReportUpdateModal(); return; }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveReportUpdate(); }
+});
 
 // ═══════════════════════════════════════════════
 // MODAL — detalle, línea de tiempo, terminar y reactivar
@@ -4347,12 +4771,13 @@ function reportTimelineHtml(updates) {
   const list = Array.isArray(updates) ? updates : [];
   if (!list.length) return '<p class="inc-timeline-empty">Todavía no hay notas en este informe.</p>';
   return `<ol class="inc-timeline">${list.slice().reverse().map((u) => {
+    const monitoring = u.status === 'monitoring';
     return `
-      <li class="inc-tl-item" data-state="monitoring">
+      <li class="inc-tl-item" data-state="${escapeHtml(u.status || 'active')}">
         <span class="inc-tl-dot" aria-hidden="true"></span>
         <div class="inc-tl-body">
           <div class="inc-tl-head">
-            <span class="inc-tl-status">📋 Nota</span>
+            <span class="inc-tl-status">${monitoring ? '👀 En seguimiento' : '📋 Nota'}</span>
             <span class="inc-tl-time" title="${escapeHtml(fmtIncidentDateTime(u.at))}">${escapeHtml(fmtIncidentClock(u.at))} · ${escapeHtml(fmtIncidentAgo(u.at))}</span>
           </div>
           <p class="inc-tl-text">${escapeHtml(u.body)}</p>
@@ -4388,9 +4813,11 @@ function viewReport(id) {
   reportModalId = Number(id);
   const kind = repKind(r.kind);
   const updates = Array.isArray(r.updates) ? r.updates : [];
+  const blocks = Array.isArray(r.blocks) ? r.blocks : [];
   const isLive = !!r.is_open;
   const sinceMs = r.started_at ? new Date(r.started_at).getTime() : Date.now();
   const liveMs = isLive ? Date.now() - sinceMs : Number(r.duration_ms ?? 0);
+  const accentCls = r.accent ? ` is-${escapeHtml(repAccentKey(r.accent))}` : ' is-amber';
 
   body.innerHTML = `
     <div class="devmodal-head">
@@ -4401,6 +4828,7 @@ function viewReport(id) {
         <div class="devmodal-tags">
           <span class="inc-pill is-cat">${kind.icon} ${escapeHtml(kind.label)}</span>
           ${r.project_name ? `<span class="inc-pill is-proj">🎯 ${escapeHtml(r.project_name)}</span>` : ''}
+          ${blocks.length ? `<span class="inc-pill is-updates">🧱 ${blocks.length}</span>` : ''}
           <span class="inc-pill is-updates">💬 ${r.update_count || updates.length}</span>
         </div>
       </div>
@@ -4424,15 +4852,18 @@ function viewReport(id) {
       </div>
     </div>
 
-    ${r.details ? `<div class="modal-about"><h4 class="modal-about-title">¿De qué trata?</h4><p class="modal-about-text">${escapeHtml(r.details)}</p></div>` : ''}
+    <div class="rep-detail${accentCls}">
+      ${r.details ? `<div class="modal-about"><h4 class="modal-about-title">¿De qué trata?</h4><p class="modal-about-text">${escapeHtml(r.details)}</p></div>` : ''}
+      ${reportBlocksHtml(blocks)}
+    </div>
 
     ${isLive ? `
       <div class="inc-quick is-modal">
-        <label class="inc-quick-label" for="rep-modal-note">➕ Agregar nota</label>
-        <textarea id="rep-modal-note" class="inc-quick-note" rows="2" maxlength="2000" placeholder="¿Qué cambió? La nota se suma a la línea de tiempo y el informe sigue activo."></textarea>
+        <span class="inc-quick-label">💬 Nueva actualización</span>
+        <p class="inc-quick-hint">Abrí el editor para escribir la nota: podés elegir el estado, usar una plantilla y ver cómo queda antes de guardarla.</p>
         <div class="inc-quick-foot">
-          <button type="button" class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="addReportUpdate" data-adm-a0="r:${r.id}" data-adm-a1="b:1">💬 Agregar nota</button>
-          <span class="inc-quick-hint">Queda activo hasta que lo termines.</span>
+          <button type="button" class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openReportUpdateModal" data-adm-a0="r:${r.id}">💬 Escribir actualización</button>
+          <span class="inc-quick-hint">El informe sigue activo hasta que lo termines.</span>
         </div>
       </div>` : ''}
 
@@ -4579,6 +5010,250 @@ async function deleteReport(id) {
     showToast('🗑️ Informe eliminado');
     closeReportModal();
     await loadReports();
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  }
+}
+
+// =======================================================
+// NOTICIAS RÁPIDAS (⚡) — texto corto, sin imagen
+// Endpoints (solo-admin): GET /ows-dashboard/quick-news/all,
+// POST /ows-dashboard/quick-news, PATCH/DELETE /:id.
+// El feed público es /ows-dashboard/quick-news (sin token).
+// =======================================================
+
+let quickNewsCache = [];
+let editingQuickNewsId = null;
+
+function getQuickNews(id) {
+  return quickNewsCache.find((q) => Number(q.id) === Number(id)) || null;
+}
+
+function quickNewsAgo(value) {
+  if (!value) return '—';
+  const t = new Date(value).getTime();
+  if (!Number.isFinite(t)) return '—';
+  const mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return 'ahora';
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'ayer';
+  if (days < 30) return `hace ${days} días`;
+  return new Date(value).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+async function loadQuickNews(manual) {
+  const list = document.getElementById('qnews-list');
+  if (!list) return;
+  try {
+    const res = await adminFetch(API_BASE + '/ows-dashboard/quick-news/all');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    quickNewsCache = Array.isArray(data.news) ? data.news : [];
+    renderQuickNewsAdmin();
+    if (manual) showToast(`⚡ Rápidas actualizadas: ${quickNewsCache.filter((q) => q.is_active).length} publicadas`);
+  } catch (err) {
+    list.innerHTML = `<div class="newsadm-empty"><span class="newsadm-empty-icon">⚠️</span><p><b>No se pudieron cargar</b></p><p>${escapeHtml(err.message)}</p><button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadQuickNews" data-adm-a0="b:1">Reintentar</button></div>`;
+  }
+}
+
+function renderQuickNewsAdmin() {
+  const list = document.getElementById('qnews-list');
+  if (!list) return;
+  const active = quickNewsCache.filter((q) => q.is_active);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('qn-stat-total', quickNewsCache.length);
+  set('qn-stat-active', active.length);
+  set('qn-stat-hidden', quickNewsCache.length - active.length);
+  set('qn-stat-new', active.filter((q) => q.is_new).length);
+  set('qnews-count', `${quickNewsCache.length} ${quickNewsCache.length === 1 ? 'rápida' : 'rápidas'}`);
+
+  if (!quickNewsCache.length) {
+    list.innerHTML = `<div class="newsadm-empty">
+      <span class="newsadm-empty-icon">⚡</span>
+      <p><b>Todavía no hay noticias rápidas</b></p>
+      <p>Escribí una corta en el formulario: aparece al pie de la sección Noticias del Hub.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = quickNewsCache.map((q) => {
+    const on = !!q.is_active;
+    return `
+    <article class="qn-row ${on ? 'is-on' : 'is-off'}">
+      <div class="qn-row-main">
+        <div class="qn-row-top">
+          <span class="qn-row-text">${escapeHtml(q.text)}</span>
+          <span class="qn-row-pills">
+            ${q.is_new ? '<span class="status-pill status-on">✨ Nueva</span>' : ''}
+            <span class="status-pill ${on ? 'status-on' : 'status-off'}">${on ? 'Publicada' : 'Oculta'}</span>
+            ${q.tag ? `<span class="status-pill status-from-projects">🏷️ ${escapeHtml(q.tag)}</span>` : ''}
+            ${q.link_url ? '<span class="status-pill status-admin-only">🔗 Link</span>' : ''}
+          </span>
+        </div>
+        <div class="qn-row-meta">
+          <span>🕐 ${escapeHtml(quickNewsAgo(q.published_at || q.created_at))}</span>
+          <span>👤 ${escapeHtml(q.created_by || '—')}</span>
+        </div>
+      </div>
+      <div class="qn-row-actions">
+        <button class="btn btn-ghost btn-mini" title="Editar" data-adm-ev="click" data-adm="openQuickNewsForm" data-adm-a0="r:${q.id}">✏️</button>
+        <button class="btn btn-ghost btn-mini" title="${on ? 'Ocultar del Hub' : 'Volver a publicar'}" data-adm-ev="click" data-adm="toggleQuickNews" data-adm-a0="r:${q.id}">${on ? '🙈' : '👁️'}</button>
+        <button class="btn btn-danger btn-mini" title="Eliminar" data-adm-ev="click" data-adm="deleteQuickNews" data-adm-a0="r:${q.id}">🗑️</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+// ── Formulario ──
+function readQuickNewsDraft() {
+  const text = document.getElementById('qnews-text');
+  const tag = document.getElementById('qnews-tag');
+  const link = document.getElementById('qnews-link');
+  return {
+    text: text ? text.value.trim() : '',
+    tag: tag ? tag.value.trim() : '',
+    link_url: link ? link.value.trim() : ''
+  };
+}
+
+function updateQuickNewsCounters() {
+  const text = document.getElementById('qnews-text');
+  const count = document.getElementById('qnews-text-count');
+  if (text && count) count.textContent = `${text.value.length}/240`;
+  renderQuickNewsPreview();
+}
+
+function renderQuickNewsPreview() {
+  const box = document.getElementById('qnews-preview');
+  if (!box) return;
+  const d = readQuickNewsDraft();
+  const link = d.link_url && /^https?:\/\//i.test(d.link_url) ? d.link_url : '';
+  box.innerHTML = `
+    <div class="qnews-item is-new">
+      <span class="qnews-item-dot" aria-hidden="true"></span>
+      <span class="qnews-item-text">${d.text ? escapeHtml(d.text) : '<span class="qnews-prev-empty">La noticia rápida se va a ver acá…</span>'}</span>
+      <span class="qnews-item-side">
+        <span class="qnews-item-new">✨ Nuevo</span>
+        ${d.tag ? `<span class="qnews-item-tag">${escapeHtml(d.tag)}</span>` : ''}
+        <span class="qnews-item-when">ahora</span>
+      </span>
+      ${link ? '<span class="qnews-item-cta" aria-hidden="true">↗</span>' : ''}
+    </div>
+    <p class="form-hint">Así aparece en el Hub. El tag <b>✨ Nuevo</b> se borra solo a los 3 días.</p>`;
+}
+
+function updateQuickNewsFormMode() {
+  const title = document.getElementById('qnews-form-title');
+  const btn = document.getElementById('btn-save-qnews');
+  const cancel = document.getElementById('btn-cancel-qnews');
+  const editing = editingQuickNewsId != null;
+  if (title) title.textContent = editing ? `✏️ Editando la rápida #${editingQuickNewsId}` : 'Nueva noticia rápida';
+  if (btn) btn.textContent = editing ? '💾 Guardar cambios' : '⚡ Publicar rápida';
+  if (cancel) cancel.classList.toggle('hidden', !editing);
+}
+
+function resetQuickNewsForm() {
+  editingQuickNewsId = null;
+  ['qnews-text', 'qnews-tag', 'qnews-link'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  hideAlert('qnews-form-alert');
+  updateQuickNewsFormMode();
+  updateQuickNewsCounters();
+  try { closeFormModal(); } catch (_) {}
+}
+
+function focusQuickNewsForm() {
+  openQuickNewsForm(null);
+}
+
+function openQuickNewsForm(editId) {
+  switchAdminTab('news');
+  switchAdminSub('news', 'quick');
+  const q = editId != null && editId !== '' ? getQuickNews(editId) : null;
+  if (editId != null && editId !== '' && !q) {
+    showToast('⚠️ Noticia rápida no encontrada');
+    return;
+  }
+  editingQuickNewsId = q ? Number(q.id) : null;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('qnews-text', q ? q.text : '');
+  set('qnews-tag', q ? (q.tag || '') : '');
+  set('qnews-link', q ? (q.link_url || '') : '');
+  hideAlert('qnews-form-alert');
+  updateQuickNewsFormMode();
+  updateQuickNewsCounters();
+  openFormModal('quicknews');
+}
+
+async function saveQuickNews(e) {
+  if (e) e.preventDefault();
+  hideAlert('qnews-form-alert');
+  const d = readQuickNewsDraft();
+  if (!d.text) {
+    showAlert('qnews-form-alert', 'Escribí el texto de la noticia rápida.', 'error');
+    document.getElementById('qnews-text')?.focus();
+    return;
+  }
+  if (d.link_url && !/^https?:\/\//i.test(d.link_url)) {
+    showAlert('qnews-form-alert', 'El link tiene que empezar con http:// o https://', 'error');
+    document.getElementById('qnews-link')?.focus();
+    return;
+  }
+  const editing = editingQuickNewsId != null;
+  const url = editing ? `${API_BASE}/ows-dashboard/quick-news/${editingQuickNewsId}` : `${API_BASE}/ows-dashboard/quick-news`;
+  const btn = document.getElementById('btn-save-qnews');
+  if (btn) { btn.disabled = true; btn.textContent = editing ? '💾 Guardando…' : '⚡ Publicando…'; }
+  try {
+    const res = await adminFetch(url, {
+      method: editing ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(d)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast(editing ? '✔ Rápida actualizada' : `⚡ Publicada: “${data.news?.text || d.text}”`);
+    resetQuickNewsForm();
+    await loadQuickNews();
+  } catch (err) {
+    showAlert('qnews-form-alert', err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; updateQuickNewsFormMode(); }
+  }
+}
+
+async function toggleQuickNews(id) {
+  const q = getQuickNews(id);
+  if (!q) return showToast('⚠️ Noticia rápida no encontrada');
+  try {
+    const res = await adminFetch(`${API_BASE}/ows-dashboard/quick-news/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !q.is_active })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast(q.is_active ? '🙈 Rápida oculta del Hub' : '👁️ Rápida publicada de nuevo');
+    await loadQuickNews();
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  }
+}
+
+async function deleteQuickNews(id) {
+  const q = getQuickNews(id);
+  if (!q) return showToast('⚠️ Noticia rápida no encontrada');
+  if (!confirm(`¿Eliminar la noticia rápida “${q.text}”?`)) return;
+  try {
+    const res = await adminFetch(`${API_BASE}/ows-dashboard/quick-news/${id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast('🗑️ Rápida eliminada');
+    await loadQuickNews();
   } catch (err) {
     showToast(`⚠️ ${err.message}`);
   }
@@ -5116,19 +5791,100 @@ function eventProgress(ev) {
   return Math.max(0, Math.min(100, Math.round(((now - s) / (e - s)) * 100)));
 }
 
-function populateEventProjectDatalist() {
-  const dl = document.getElementById('event-project-list');
-  if (!dl) return;
-  const names = new Set(['OWS']);
-  (eventsCache || []).forEach((ev) => {
-    const n = String(ev.project_name || '').trim();
-    if (n) names.add(n);
+// El nombre del proyecto se muestra a mano o sale del catálogo. Estado corto
+// para saber de un vistazo cuál está lanzado y cuál sigue en desarrollo.
+const EVENT_PROJECT_STATUS = {
+  development: 'en desarrollo',
+  soon: 'próximamente',
+  launched: 'lanzado',
+  cancelled: 'cancelado',
+  discontinued: 'descontinuado'
+};
+
+// Catálogo unificado: manageProjectsCache trae admin_only + públicos
+// (include_hidden=1) y projectsCache solo los públicos.
+function eventProjectCatalog() {
+  const byId = new Map();
+  (manageProjectsCache || []).forEach((p) => {
+    if (p && p.id != null) byId.set(Number(p.id), p);
   });
   (projectsCache || []).forEach((p) => {
-    const n = String(p.name || '').trim();
-    if (n) names.add(n);
+    if (p && p.id != null && !byId.has(Number(p.id))) byId.set(Number(p.id), p);
   });
-  dl.innerHTML = [...names].sort().map((n) => `<option value="${escapeHtml(n)}"></option>`).join('');
+  const all = [...byId.values()];
+  const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''));
+  return {
+    public: all.filter((p) => !isAdminOnlyProject(p)).sort(byName),
+    adminOnly: all.filter((p) => isAdminOnlyProject(p)).sort(byName)
+  };
+}
+
+function eventProjectOption(p) {
+  const status = EVENT_PROJECT_STATUS[p.status] || '';
+  const suffix = status ? ` · ${status}` : '';
+  return `<option value="${Number(p.id)}" data-name="${escapeHtml(String(p.name || ''))}">${escapeHtml(String(p.name || ''))}${suffix}</option>`;
+}
+
+// Arma el dropdown del proyecto del evento. `keep` preserva la selección
+// actual (id, 'custom' o '') para no perderla al repintar.
+function populateEventProjectOptions(keep) {
+  const sel = document.getElementById('event-project');
+  if (!sel) return;
+  const current = keep !== undefined ? keep : sel.value;
+  const { public: pub, adminOnly } = eventProjectCatalog();
+  const parts = ['<option value="">— Sin proyecto (general OWS) —</option>'];
+  if (pub.length) parts.push(`<optgroup label="📁 Proyectos OWS">${pub.map(eventProjectOption).join('')}</optgroup>`);
+  if (adminOnly.length) parts.push(`<optgroup label="🛡️ Solo admin">${adminOnly.map(eventProjectOption).join('')}</optgroup>`);
+  parts.push('<option value="custom">✏️ Otro / escribir a mano…</option>');
+  sel.innerHTML = parts.join('');
+  const valid = [...sel.options].some((o) => o.value === String(current));
+  sel.value = valid ? String(current) : '';
+  onEventProjectChange();
+}
+
+function onEventProjectChange() {
+  const sel = document.getElementById('event-project');
+  const customGroup = document.getElementById('event-project-custom-group');
+  if (customGroup) customGroup.classList.toggle('hidden', sel ? sel.value !== 'custom' : true);
+  updateEventLivePreview();
+}
+
+// Proyecto elegido: id del catálogo o nombre escrito a mano.
+function readEventProjectSelection() {
+  const sel = document.getElementById('event-project');
+  const custom = document.getElementById('event-project-custom');
+  const value = sel ? sel.value : '';
+  if (value === 'custom') {
+    return { project_id: null, project_name: (custom && custom.value.trim()) || '' };
+  }
+  if (value) {
+    const opt = [...sel.options].find((o) => o.value === value);
+    return { project_id: Number(value), project_name: (opt && opt.dataset && opt.dataset.name) || '' };
+  }
+  return { project_id: null, project_name: '' };
+}
+
+// Marca en el dropdown el proyecto del evento que se está editando.
+function selectEventProject(ev) {
+  const sel = document.getElementById('event-project');
+  const custom = document.getElementById('event-project-custom');
+  if (!sel) return;
+  const id = ev && ev.project_id != null ? Number(ev.project_id) : null;
+  if (id && [...sel.options].some((o) => Number(o.value) === id)) {
+    sel.value = String(id);
+  } else {
+    const name = String((ev && ev.project_name) || '').trim();
+    const match = [...sel.options].find((o) => o.value && o.value !== 'custom' && o.dataset.name === name);
+    if (match) {
+      sel.value = match.value;
+    } else if (name && name !== 'OWS') {
+      sel.value = 'custom';
+      if (custom) custom.value = name;
+    } else {
+      sel.value = '';
+    }
+  }
+  onEventProjectChange();
 }
 
 function setupEventImagePreview() {
@@ -5270,7 +6026,6 @@ function updateEventLivePreview() {
   const titleEl = document.getElementById('event-title');
   const descEl = document.getElementById('event-desc');
   const catEl = document.getElementById('event-category');
-  const projEl = document.getElementById('event-project');
   const startEl = document.getElementById('event-start');
   const endEl = document.getElementById('event-end');
   const tc = document.getElementById('event-title-count');
@@ -5280,7 +6035,8 @@ function updateEventLivePreview() {
   const cat = eventCategoryMeta(catEl ? catEl.value : 'update');
   const title = titleEl && titleEl.value.trim() ? titleEl.value.trim() : 'Título del evento…';
   const desc = descEl && descEl.value.trim() ? descEl.value.trim() : 'La descripción aparecerá aquí tal como la verán en OWS.';
-  const proj = projEl && projEl.value.trim() ? projEl.value.trim() : 'OWS';
+  const sel = readEventProjectSelection();
+  const proj = sel.project_name || 'OWS';
   const src = currentEventImageSrc('');
   const when = startEl && startEl.value
     ? formatEventDate(new Date(startEl.value).toISOString()) + (endEl && endEl.value ? ' → ' + formatEventDate(new Date(endEl.value).toISOString()) : '')
@@ -5373,7 +6129,7 @@ async function loadAdminEvents() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     eventsCache = data.events || [];
-    populateEventProjectDatalist();
+    populateEventProjectOptions();
     updateEventsStats();
     renderAdminEvents();
   } catch (err) {
@@ -5464,7 +6220,7 @@ function renderAdminEvents() {
         <div class="ev-card-title" title="${escapeHtml(ev.title)}">${escapeHtml(ev.title)}</div>
         ${ev.description ? `<div class="ev-card-desc" title="${escapeHtml(ev.description)}">${escapeHtml(ev.description)}</div>` : ''}
         <div class="ev-card-meta">
-          <span>📁 ${escapeHtml(ev.project_name || 'OWS')}</span>
+          <span>📁 ${escapeHtml(ev.project_name || 'OWS')}${ev.project_is_admin ? ' 🛡️ solo admin' : ''}</span>
           <span>🕒 ${escapeHtml(dates)}</span>
           <span>⏳ ${escapeHtml(eventCountdown(ev))}</span>
           ${prio ? `<span>★ Prioridad ${prio}</span>` : ''}
@@ -5490,7 +6246,7 @@ async function saveEvent(e) {
   const title = document.getElementById('event-title').value.trim();
   const description = document.getElementById('event-desc').value.trim();
   const category = document.getElementById('event-category').value;
-  const project_name = document.getElementById('event-project').value.trim() || 'OWS';
+  const proj = readEventProjectSelection();
   const startsAt = document.getElementById('event-start').value;
   const endsAt = document.getElementById('event-end').value;
   const linkUrl = document.getElementById('event-link').value.trim();
@@ -5512,7 +6268,9 @@ async function saveEvent(e) {
     fd.append('title', title);
     fd.append('description', description);
     fd.append('category', category);
-    fd.append('project_name', project_name);
+    if (proj.project_id) fd.append('project_id', String(proj.project_id));
+    else fd.append('project_id', '');
+    fd.append('project_name', proj.project_name || 'OWS');
     fd.append('starts_at', new Date(startsAt).toISOString());
     if (endsAt) fd.append('ends_at', new Date(endsAt).toISOString());
     if (linkUrl) fd.append('link_url', linkUrl);
@@ -5574,7 +6332,10 @@ async function editEvent(id) {
     document.getElementById('event-title').value = item.title || '';
     document.getElementById('event-desc').value = item.description || '';
     document.getElementById('event-category').value = item.category || 'update';
-    document.getElementById('event-project').value = item.project_name || 'OWS';
+    // El dropdown se rellena con el catálogo antes de marcar la opción: si el
+    // proyecto del evento no está (eventos viejos a mano), cae en "Otro".
+    populateEventProjectOptions();
+    selectEventProject(item);
     document.getElementById('event-start').value = localDatetimeValue(item.starts_at);
     document.getElementById('event-end').value = localDatetimeValue(item.ends_at);
     document.getElementById('event-link').value = item.link_url || '';
@@ -5612,6 +6373,7 @@ async function duplicateEvent(id) {
     fd.append('title', `${src.title} (copia)`);
     fd.append('description', src.description || '');
     fd.append('category', src.category || 'update');
+    fd.append('project_id', src.project_id != null ? String(src.project_id) : '');
     fd.append('project_name', src.project_name || 'OWS');
     const s = src.starts_at ? new Date(src.starts_at) : new Date();
     fd.append('starts_at', new Date(s.getTime() + 7 * 24 * 3600 * 1000).toISOString());
@@ -5644,10 +6406,11 @@ function resetEventForm() {
   if (mode) { mode.textContent = '✦ Creando'; mode.className = 'status-pill status-on'; }
   document.getElementById('btn-cancel-event').classList.add('hidden');
   updateEventSaveLabel();
-  ['event-title', 'event-desc', 'event-project', 'event-start', 'event-end', 'event-link'].forEach((id) => {
+  ['event-title', 'event-desc', 'event-start', 'event-end', 'event-link', 'event-project-custom'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  populateEventProjectOptions('');
   const urlEl = document.getElementById('event-image-url');
   if (urlEl) urlEl.value = '';
   document.getElementById('event-category').value = 'update';
@@ -6526,6 +7289,8 @@ async function loadAdminProjects() {
     hiddenAdminOnlyCount = all.filter((p) => p.admin_only === true || p.adminOnly === true).length;
     projectsCache = all.filter((p) => !(p.admin_only === true || p.adminOnly === true));
     renderAdminProjectsList();
+    // El catálogo cambió: el dropdown de proyecto de Eventos se rearma.
+    populateEventProjectOptions();
   } catch (err) {
     list.innerHTML = `<p class="loading-note">⚠️ ${escapeHtml(err.message)}</p>`;
   }
@@ -11629,8 +12394,9 @@ function bindAdminDispatch() {
         ? e.target.closest('[data-adm],[data-adm-stop],[data-adm-href],[data-adm-drop],[data-adm-overlay-fn]')
         : null;
       if (!el || !document.contains(el)) return;
+      // Un mismo elemento puede escuchar varios eventos: "input|keydown".
       const want = el.getAttribute('data-adm-ev');
-      if (want && want !== t) return;
+      if (want && want.split('|').indexOf(t) === -1) return;
       if (t === 'keydown' && el.hasAttribute('data-adm-key')) {
         const keys = el.getAttribute('data-adm-key').split('|');
         if (keys.indexOf(e.key) === -1 && keys.indexOf(e.code) === -1) return;
@@ -11679,6 +12445,7 @@ document.addEventListener('DOMContentLoaded', bindAdminDispatch);
 
 const ADM_FORM_MODAL = {
   news:     { eyebrow: 'Noticias · Formulario', focus: 'news-title', titleSel: '#news-form-title' },
+  quicknews:{ eyebrow: 'Noticias Rápidas · Formulario', focus: 'qnews-text', titleSel: '#qnews-form-title' },
   event:    { eyebrow: 'Eventos · Formulario', focus: 'event-title', titleSel: '#event-form-title' },
   popup:    { eyebrow: 'Modales · Formulario', focus: 'popup-title', titleSel: '#popup-form-title' },
   preset:   { eyebrow: 'Presets · Formulario', focus: 'preset-name', titleSel: '#preset-form-title' },

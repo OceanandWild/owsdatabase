@@ -3438,9 +3438,22 @@ async function startDesktopInstallManaged(slug, remoteVersion, displayName) {
     // oficial publicada; se pasa explícita para que el registro local no
     // quede en la versión vieja de itch.io (eso hacía que el juego pidiera
     // actualizarse para siempre).
-    await window.OWSHubLibrary.downloadAndInstall(slug, onEvent, { version });
-  } catch (_) { /* error ya reflejado en el Gestor */ }
-  finally {
+    await window.OWSHubLibrary.downloadAndInstall(slug, onEvent, { version: remoteVersion });
+  } catch (err) {
+    // ANTES: catch (_) {} — se tragaba el error en silencio y la tarjeta
+    // quedaba en "Iniciando la descarga…" al 0% para siempre, sin dar ninguna
+    // pista. El comentario decía "error ya reflejado en el Gestor", pero eso
+    // solo es cierto si el fallo llegó por un evento {type:'error'}: si el
+    // invoke a Rust falla (timeout, comando inexistente, panic) se perdía.
+    // Ahora se refleja en la tarjeta para que se vea el motivo real.
+    settled = true;
+    try { clearInterval(watch); } catch (_) {}
+    const msg = String((err && err.message) || err || 'no se pudo iniciar la descarga');
+    updateDownload(id, { status: 'error', error: msg });
+    try { window.OWSHubInstallProgress && window.OWSHubInstallProgress({ type: 'error', error: msg }); } catch (_) {}
+    try { pushHubEventToManager(id, { type: 'error', error: msg }); } catch (_) {}
+    showToast(`Falló la descarga de ${name}: ${msg}`);
+  } finally {
     settled = true;
     try { clearInterval(watch); } catch (_) {}
   }
@@ -3877,8 +3890,15 @@ function dlCardHtml(d) {
     sub = 'Abriendo el juego…';
   } else if (d.total > 0) {
     sub = `<b>${escapeHtml(formatMB(d.downloaded))}</b> de ${escapeHtml(formatMB(d.total))}`;
+  } else if (d.downloaded > 0) {
+    // Llegan bytes pero el servidor no declaró Content-Length: no se puede
+    // saber el total, así que se muestra lo bajado sin porcentaje.
+    sub = `<b>${escapeHtml(formatMB(d.downloaded))}</b> descargados`;
   } else {
-    sub = 'Conectando con itch.io…';
+    // Antes decía "Conectando con itch.io…": quedó de cuando todo venía de
+    // itch.io. Ahora la fuente puede ser el CDN de GitHub, así que el texto
+    // es neutro (y no promete un origen que ya no es el real).
+    sub = 'Iniciando la descarga…';
   }
 
   const barExtra = d.status === 'completed' ? ' dl-bar-done' : (d.status === 'error' ? ' dl-bar-error' : (d.status === 'cancelled' ? ' dl-bar-cancel' : ''));
@@ -4093,7 +4113,7 @@ if (sig === dlToasterSig) {
       const eta = dlEtaText(d);
       const size = d.total > 0
         ? `${formatMB(d.downloaded)} / ${formatMB(d.total)}`
-        : 'Conectando con itch.io…';
+        : (d.downloaded > 0 ? `${formatMB(d.downloaded)} descargados` : 'Iniciando la descarga…');
       const txt = d.status === 'downloading'
         ? `${size}${speed ? ` · ${speed}` : ''}${eta ? ` · ${eta}` : ''}`
         : meta.label;
@@ -4113,7 +4133,11 @@ box.innerHTML = active.map((d) => {
       ? `<img src="${escapeHtml(d.icon)}" alt="" class="dl-toast-icon" loading="lazy" onerror="this.remove()" />`
       : `<span class="dl-toast-icon dl-toast-icon-fallback">🎮</span>`;
     const info = d.status === 'downloading'
-      ? (d.total > 0 ? `${escapeHtml(formatMB(d.downloaded))} / ${escapeHtml(formatMB(d.total))}` : 'Conectando con itch.io…')
+      ? (d.total > 0
+          ? `${escapeHtml(formatMB(d.downloaded))} / ${escapeHtml(formatMB(d.total))}`
+          : (d.downloaded > 0
+              ? `${escapeHtml(formatMB(d.downloaded))} descargados`
+              : 'Iniciando la descarga…'))
       : escapeHtml(meta.label);
     return `
       <div class="dl-toast-item" role="button" tabindex="0" data-dl-toast="${escapeHtml(d.id)}" title="Ver en el Gestor de Descargas">

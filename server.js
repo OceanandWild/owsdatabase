@@ -14127,8 +14127,10 @@ app.get('/ows-dashboard/events', async (req, res) => {
     await ensureOwsDashboardEventsTable();
     const values = [limit];
     const where = [];
-    if (!includeInactive) where.push('is_active = TRUE');
-    if (!includeEnded) where.push("(ends_at IS NULL OR ends_at >= NOW() - INTERVAL '2 days')");
+    // Calificado con el alias: ows_launch_projects también tiene is_active y
+    // sin el "e." el WHERE quedaba ambiguo (500 en el feed de Eventos).
+    if (!includeInactive) where.push('e.is_active = TRUE');
+    if (!includeEnded) where.push("(e.ends_at IS NULL OR e.ends_at >= NOW() - INTERVAL '2 days')");
     const { rows } = await pool.query(
       `SELECT e.id, e.title, e.description, e.category, e.project_name, e.project_id,
               e.image_url, e.link_url, e.starts_at, e.ends_at, e.is_active, e.priority,

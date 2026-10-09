@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Hub — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -331,7 +331,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.4.7</span>
+          <span class="nav-version">OWS Hub · v3.4.8</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>
@@ -622,27 +622,42 @@
         </div>
 
         <!-- Tarjeta del OWS Hub (auto-actualización).
-             El botón de descarga va junto al icono y al nombre: es la única
-             acción. El progreso NO vive acá, vive en el toaster (#hub-upd-toaster)
-             que queda fijo mientras baja, y después en el modal de reinicio. -->
+             Layout nuevo: identidad a la izquierda, flujo de versiones a la
+             derecha, novedades plegables en el medio y acciones al pie.
+             El progreso NO vive acá: queda en el toaster (#hub-upd-toaster)
+             mientras baja y después en el modal de reinicio. -->
         <div class="upd-hub-card" id="upd-hub-card" data-state="loading">
           <div class="upd-hub-top">
-            <div class="upd-hub-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-            </div>
-            <div class="upd-hub-titles">
-              <p class="upd-hub-name">OWS Hub</p>
-              <p class="upd-hub-state" id="upd-hub-state">Buscando la última versión…</p>
+            <div class="upd-hub-id">
+              <div class="upd-hub-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+              </div>
+              <div class="upd-hub-titles">
+                <p class="upd-hub-kicker">Launcher del ecosistema</p>
+                <p class="upd-hub-name">OWS Hub</p>
+                <p class="upd-hub-state" id="upd-hub-state">Buscando la última versión…</p>
+              </div>
             </div>
             <div class="upd-hub-vers">
-              <span class="upd-ver-chip upd-ver-old" id="upd-hub-current">—</span>
+              <span class="upd-ver-cell">
+                <small>Instalada</small>
+                <b class="upd-ver-chip upd-ver-old" id="upd-hub-current">—</b>
+              </span>
               <span class="upd-ver-arrow" aria-hidden="true">→</span>
-              <span class="upd-ver-chip upd-ver-new" id="upd-hub-latest">—</span>
+              <span class="upd-ver-cell">
+                <small>Disponible</small>
+                <b class="upd-ver-chip upd-ver-new" id="upd-hub-latest">—</b>
+              </span>
             </div>
-            <div class="upd-hub-actions" id="upd-hub-actions"></div>
           </div>
-          <p class="upd-hub-notes" id="upd-hub-notes"></p>
-          <p class="upd-hub-hint" id="upd-hub-hint"></p>
+
+          <div class="upd-hub-notes" id="upd-hub-notes"></div>
+          <button class="upd-hub-notes-more hidden" id="upd-hub-notes-more" type="button" aria-expanded="false">Ver todas las novedades</button>
+
+          <div class="upd-hub-foot">
+            <div class="upd-hub-actions" id="upd-hub-actions"></div>
+            <p class="upd-hub-hint" id="upd-hub-hint"></p>
+          </div>
         </div>
 
         <!-- Aviso: en el navegador las actualizaciones se instalan desde OWS Hub -->
@@ -683,12 +698,12 @@
           </div>
         </div>
 
-        <!-- Filtros -->
+        <!-- Filtros (con contador por estado) -->
         <div class="upd-filters" id="upd-filters" role="tablist" aria-label="Filtrar actualizaciones">
-          <button type="button" class="upd-chip upd-chip-active" data-upd-filter="all" role="tab" aria-selected="true">Todas</button>
-          <button type="button" class="upd-chip" data-upd-filter="pending" role="tab" aria-selected="false">Para actualizar</button>
-          <button type="button" class="upd-chip" data-upd-filter="current" role="tab" aria-selected="false">Al día</button>
-          <button type="button" class="upd-chip" data-upd-filter="unavailable" role="tab" aria-selected="false">Sin build</button>
+          <button type="button" class="upd-chip upd-chip-active" data-upd-filter="all" role="tab" aria-selected="true">Todas <i class="upd-chip-n" data-upd-count="all">0</i></button>
+          <button type="button" class="upd-chip" data-upd-filter="pending" role="tab" aria-selected="false">Para actualizar <i class="upd-chip-n" data-upd-count="pending">0</i></button>
+          <button type="button" class="upd-chip" data-upd-filter="current" role="tab" aria-selected="false">Al día <i class="upd-chip-n" data-upd-count="current">0</i></button>
+          <button type="button" class="upd-chip" data-upd-filter="unavailable" role="tab" aria-selected="false">Sin build <i class="upd-chip-n" data-upd-count="unavailable">0</i></button>
         </div>
 
         <!-- Lista -->
@@ -816,7 +831,7 @@
   <!-- Toasts de anuncios de Eventos (arriba por defecto, una sola vez) -->
   <div id="announce-toasts" class="announce-toasts" aria-live="polite"></div>
 
-  <script src="library.js?v=2"></script>
-  <script src="app.js?v=2"></script>
+  <script src="library.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

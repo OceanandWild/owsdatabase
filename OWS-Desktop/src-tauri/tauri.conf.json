@@ -2,13 +2,13 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OWS Hub",
   "mainBinaryName": "ows-hub",
-  "version": "3.1.3",
+  "version": "3.4.8",
   "identifier": "com.oceanwildstudios.owshub",
   "build": {
-    "frontendDist": "../../web/OWS",
+    "frontendDist": "../app",
     "devUrl": "http://localhost:8099",
     "beforeDevCommand": "",
-    "beforeBuildCommand": ""
+    "beforeBuildCommand": "npm run sync:app"
   },
   "app": {
     "withGlobalTauri": true,
@@ -30,7 +30,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "nsis",
+    "targets": ["nsis", "msi"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -39,8 +39,10 @@
     ],
     "windows": {
       "nsis": {
-        "installMode": "currentUser",
-        "installerIcon": "icons/icon.ico"
+        "installMode": "currentUser"
+      },
+      "wix": {
+        "language": ["es-ES", "en-US"]
       }
     }
   },
@@ -48,8 +50,10 @@
     "updater": {
       "active": true,
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ3RTVGMzMwQkI0MDI5RjcKUldUM0tVQzdNUFBsUjVNcE9zcitUd2R6a2lqcC9nQTdmYzdiM0YvVkQyOExHSHZobzBYYldMangK",
-      "endpoints": ["https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/ows-hub-tauri-update.json"]
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg1MDU2RjNERUVEMjdGQ0YKUldUUGY5THVQVzhGaGJZL20wTkVHUnFJQ2xVbVlPOXNNcyt1SzZEU2xmWWdIRHJCbElZVVBQZUIK",
+      "endpoints": [
+        "https://github.com/OceanandWild/ows-hub/releases/latest/download/latest.json"
+      ]
     }
   }
 }

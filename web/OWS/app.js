@@ -2140,7 +2140,10 @@ function featuredReleaseHtml(p) {
   const itchUrl = p.itch_url || p.itchUrl || p.link_url || p.linkUrl || '';
   return `
   <article class="rel-hero${banner ? '' : ' rel-hero-fallback'}" data-slug="${escapeHtml(p.slug)}">
-    ${banner ? `<div class="rel-hero-banner" data-parallax="1.6" aria-hidden="true"><img src="${escapeHtml(banner)}" alt="" loading="lazy" data-blurup /></div>` : ''}
+    ${banner
+      ? `<div class="rel-hero-banner" data-parallax="1.6" aria-hidden="true"><img src="${escapeHtml(banner)}" alt="" loading="lazy" data-blurup /></div>
+         <div class="rel-hero-scrim" aria-hidden="true"></div>`
+      : ''}
     <div class="rel-hero-inner" data-parallax="0.45">
       ${icon
         ? `<img class="rel-hero-icon" src="${escapeHtml(icon)}" alt="${escapeHtml(p.name)}" loading="lazy" />`
@@ -2314,11 +2317,22 @@ function bindHeroParallax(hero) {
     || window.matchMedia('(hover: none)').matches;
   if (reposo()) return;
   let px = 0, py = 0, raf = 0;
+  // Tope del desplazamiento: el banner lleva un sangrado de 50px a los
+  // costados y 34px arriba/abajo, asi que el limite se queda por debajo de
+  // ese sobrante y la imagen nunca deja el borde de la tarjeta. Las capas
+  // menos profundas (el texto) se mueven menos para no arrimar el texto
+  // al borde.
+  const LIM_X = 40, LIM_Y = 24;
+  const limitar = (v, tope) => Math.max(-tope, Math.min(tope, v));
   const apply = () => {
     raf = 0;
     hero.querySelectorAll('[data-parallax]').forEach((el) => {
       const depth = parseFloat(el.getAttribute('data-parallax')) || 0.5;
-      el.style.transform = `translate3d(${(-px * depth * 100).toFixed(2)}px, ${(-py * depth * 60).toFixed(2)}px, 0)`;
+      const topeX = LIM_X * Math.min(1, depth);
+      const topeY = LIM_Y * Math.min(1, depth);
+      const dx = limitar(-px * depth * 100, topeX);
+      const dy = limitar(-py * depth * 60, topeY);
+      el.style.transform = `translate3d(${dx.toFixed(2)}px, ${dy.toFixed(2)}px, 0)`;
     });
   };
   const programar = () => { if (!raf) raf = requestAnimationFrame(apply); };
@@ -2337,6 +2351,10 @@ function bindHeroParallax(hero) {
 // propio (.rd-hero-flip) porque la imagen de adentro ya tiene su animación.
 function releaseFlipSource(card) {
   if (!card || !card.querySelector) return null;
+  // La ficha destacada se anima desde la tarjeta, no desde el banner: el
+  // banner tiene sangrado para el parallax y su caja es mas grande que la
+  // tarjeta, asi que la portada arrancaria descentrada y agrandada.
+  if (card.classList && card.classList.contains('rel-hero')) return card;
   return card.querySelector('.release-media')
     || card.querySelector('.rel-hero-banner')
     || card;
@@ -5434,15 +5452,20 @@ function updatesRowHtml(p) {
     ? `<img class="upd-row-icon" src="${escapeHtml(p.icon_url)}" alt="" loading="lazy" />`
     : `<span class="upd-row-icon upd-row-icon-fallback" aria-hidden="true">🎮</span>`;
 
-  const verChips = [];
-  if (p.installed_version) verChips.push(`<span class="upd-ver-chip upd-ver-old">v${escapeHtml(p.installed_version)}</span>`);
-  if (p.latest_version) verChips.push(`<span class="upd-ver-arrow" aria-hidden="true">→</span><span class="upd-ver-chip upd-ver-new">v${escapeHtml(p.latest_version)}</span>`);
+  // Flujo de versiones en celdas con etiqueta: se lee de un vistazo qué hay
+  // instalada y qué hay disponible, incluso cuando son la misma versión.
+  const verCells = [];
+  verCells.push(`<span class="upd-ver-cell"><small>Instalada</small><b class="upd-ver-chip upd-ver-old">${p.installed_version ? 'v' + escapeHtml(p.installed_version) : '—'}</b></span>`);
+  if (p.latest_version) {
+    verCells.push(`<span class="upd-ver-arrow" aria-hidden="true">→</span>`);
+    verCells.push(`<span class="upd-ver-cell"><small>${p.update_available ? 'Nueva' : 'Última'}</small><b class="upd-ver-chip upd-ver-new">v${escapeHtml(p.latest_version)}</b></span>`);
+  }
 
   const metaBits = [];
-  if (p.size_label) metaBits.push(`📦 ${escapeHtml(p.size_label)}`);
+  if (p.size_label) metaBits.push(`<span class="upd-meta-bit">📦 ${escapeHtml(p.size_label)}</span>`);
   if (p.released_at) {
     const d = formatReleaseDate(p.released_at);
-    if (d) metaBits.push(`🗓️ ${escapeHtml(d)}`);
+    if (d) metaBits.push(`<span class="upd-meta-bit">🗓️ ${escapeHtml(d)}</span>`);
   }
   if (p.prerelease) metaBits.push(`<span class="upd-chip-pre">${escapeHtml(p.channel || 'beta')}</span>`);
 
@@ -5481,9 +5504,9 @@ function updatesRowHtml(p) {
           <b class="upd-row-name">${escapeHtml(p.name || slug)}</b>
           <span class="upd-status ${st.cls}">${escapeHtml(st.text)}</span>
         </div>
-        ${verChips.length ? `<div class="upd-row-vers">${verChips.join('')}</div>` : ''}
+        <div class="upd-row-vers">${verCells.join('')}</div>
         ${p.notes ? `<p class="upd-row-notes">${escapeHtml(p.notes)}</p>` : ''}
-        ${metaBits.length ? `<p class="upd-row-meta">${metaBits.join(' · ')}</p>` : ''}
+        ${metaBits.length ? `<p class="upd-row-meta">${metaBits.join('')}</p>` : ''}
         ${!p.has_build ? `<p class="upd-row-notes upd-row-na">Todavía no hay versión descargable de este juego.</p>` : ''}
       </div>
       <div class="upd-row-actions">${actions.join('')}</div>
@@ -5522,6 +5545,18 @@ function renderUpdates() {
   setStat('upd-stat-installed', updatesState.counts.installed || 0);
   setStat('upd-stat-current', (updatesState.projects || []).filter((p) => p.installed && !p.update_available).length);
   setStat('upd-stat-new', updatesState.counts.with_build || 0);
+
+  // Contador al lado de cada filtro: se ve de una cuántos hay en cada estado.
+  const all = Array.isArray(updatesState.projects) ? updatesState.projects : [];
+  const counts = {
+    all: all.length,
+    pending: all.filter((p) => p.update_available || (!p.installed && p.has_build)).length,
+    current: all.filter((p) => p.installed && !p.update_available).length,
+    unavailable: all.filter((p) => !p.has_build).length
+  };
+  document.querySelectorAll('[data-upd-count]').forEach((el) => {
+    el.textContent = String(counts[el.getAttribute('data-upd-count')] || 0);
+  });
 
   renderHubUpdateCard();
 
@@ -5606,14 +5641,24 @@ function renderHubUpdateCard() {
     const raw = String(hub.notes || '').trim();
     if (raw) {
       // Las notas de GitHub vienen en Markdown: se muestran con el
-      // mini-markdown (negritas y links), siempre HTML escapado, y
-      // recortadas.
-      const cut = raw.length > 420 ? (raw.slice(0, 420).trim() + '…') : raw;
-      notes.innerHTML = hubMdInline(hubMdEscape(cut));
-      notes.classList.remove('hidden');
+      // mini-markdown (negritas y links), siempre HTML escapado.
+      notes.innerHTML = hubMdInline(hubMdEscape(raw));
+      notes.classList.remove('hidden', 'is-open');
+      // El bloque se recorta con un degradado y se despliega con el boton:
+      // antes tenia scroll interno y la barra cortaba el texto a mitad.
+      const more = document.getElementById('upd-hub-notes-more');
+      if (more) {
+        const desborda = notes.scrollHeight > notes.clientHeight + 6;
+        more.classList.toggle('hidden', !desborda);
+        more.textContent = 'Ver todas las novedades';
+        more.setAttribute('aria-expanded', 'false');
+      }
     } else {
       notes.innerHTML = '';
       notes.classList.add('hidden');
+      notes.classList.remove('is-open');
+      const more = document.getElementById('upd-hub-notes-more');
+      if (more) more.classList.add('hidden');
     }
   }
 
@@ -5695,6 +5740,8 @@ const HUB_FULLSCREEN_KEY = 'ows_hub_fullscreen_after_update_v1';
 let hubUpdateBusy = false;
 let hubRestartTimer = null;
 let hubPendingInstall = null;   // { rid, bytesRid }
+// Retardo del cierre del toaster una vez llena la barra (ver runHubSelfUpdate).
+let hubUpdHideTimer = null;
 
 // ── Toaster fijo del Hub ────────────────────────────────────────
 // A diferencia del de juegos, este NO se oculta solo: se queda mientras
@@ -5703,6 +5750,7 @@ let hubPendingInstall = null;   // { rid, bytesRid }
 function hubUpdToastShow(version) {
   const box = document.getElementById('hub-upd-toaster');
   if (!box) return;
+  clearTimeout(hubUpdHideTimer);
   box.innerHTML = `
     <div class="dl-toast-item hub-upd-toast-item" data-hub-upd="1">
       <span class="hub-upd-toast-thumb" aria-hidden="true">🖥</span>
@@ -5728,7 +5776,19 @@ function hubUpdToastPatch(pct, info, done) {
   const item = box.querySelector('[data-hub-upd]');
   if (!item) return;
   const bar = item.querySelector('.hub-upd-toast-bar i');
-  if (bar) bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  if (bar) {
+    if (done) {
+      // El 100% final va SIN transicion: con la animacion de 0.25s la barra
+      // se quedaba en la mitad del recorrido y parecia que la descarga no
+      // habia terminado (el toaster se cerraba antes de que llegara al final).
+      bar.style.transition = 'none';
+      void bar.offsetWidth; // fuerza el corte antes del último salto
+      bar.style.width = '100%';
+    } else {
+      // En curso nunca llega al 100%: la barra llena es sinónimo de "listo".
+      bar.style.width = Math.max(0, Math.min(99, pct)) + '%';
+    }
+  }
   const txt = item.querySelector('.hub-upd-toast-info');
   if (txt && txt.textContent !== info) txt.textContent = info;
   const badge = item.querySelector('.hub-upd-toast-badge');
@@ -5742,6 +5802,7 @@ function hubUpdToastPatch(pct, info, done) {
 }
 
 function hubUpdToastHide() {
+  clearTimeout(hubUpdHideTimer);
   const box = document.getElementById('hub-upd-toaster');
   if (!box) return;
   box.classList.add('hidden');
@@ -5876,6 +5937,15 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.8': [
+    'La ficha destacada de Lanzamientos ya no deja franjas vacías en los bordes al mover el mouse sobre la portada.',
+    'El velo de lectura va en su propia capa: el texto mantiene el contraste mientras la portada se mueve.',
+    'Al abrir un juego, la portada vuela desde la tarjeta correcta.',
+    'La ficha del Hub muestra la versión instalada y la disponible en celdas con etiqueta.',
+    'Las novedades de cada versión se despliegan con un botón en vez de cortarse con una barra de scroll.',
+    'Contador al lado de cada filtro de actualizaciones.',
+    'La barra de progreso de la descarga del Hub llega al 100%.',
+  ],
   '3.4.7': [
     'Lanzamientos completamente rediseñado: ficha destacada del juego con su banner, y debajo el catálogo en tarjetas con portada, estado, versión y plataformas.',
     'Filtros por estado y contador de lanzamientos, para ver rápido qué hay disponible y qué viene.',
@@ -6122,10 +6192,12 @@ async function runHubSelfUpdate(btn) {
     const hubNotes = (updatesState.hub && updatesState.hub.notes) || '';
     hubChangelogSave(version, hubNotes || upd.body || '');
 
-    // 5) Aviso de 5 s y, al terminar, instalar + reiniciar. El toaster solo
-    //    vive mientras baja: al estar listo, el modal toma el protagonismo.
+    // 5) Aviso de 5 s y, al terminar, instalar + reiniciar. El toaster se
+    //    queda un instante mas con la barra llena: si se esconde en el acto,
+    //    el 100% no se llega a ver y parece que la descarga quedo a mitad.
     hubPendingInstall = { rid: upd.rid, bytesRid: bytesRid };
-    hubUpdToastHide();
+    clearTimeout(hubUpdHideTimer);
+    hubUpdHideTimer = setTimeout(() => hubUpdToastHide(), 900);
     if (!openHubRestartModal(version)) { await doHubInstall(); return; }
     // hubUpdateBusy sigue en true: la descarga está hecha pero la instalación
     // pendiente, así que el botón no debe volver a activarse.
@@ -6256,6 +6328,18 @@ function bindUpdatesManager() {
     filters.addEventListener('click', (e) => {
       const chip = e.target.closest('[data-upd-filter]');
       if (chip) setUpdatesFilter(chip.getAttribute('data-upd-filter'));
+    });
+  }
+  // Desplegar/plegar las novedades del Hub.
+  const notesMore = document.getElementById('upd-hub-notes-more');
+  if (notesMore && !notesMore.dataset.bound) {
+    notesMore.dataset.bound = '1';
+    notesMore.addEventListener('click', () => {
+      const notes = document.getElementById('upd-hub-notes');
+      if (!notes) return;
+      const open = notes.classList.toggle('is-open');
+      notesMore.textContent = open ? 'Ver menos' : 'Ver todas las novedades';
+      notesMore.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
   }
   const btnRefresh = document.getElementById('btn-updates-refresh');

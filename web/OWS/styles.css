@@ -1543,16 +1543,29 @@ body.releases-focus #releases-grid .release-dock-item:not(.is-open) {
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(249, 115, 22, 0.14);
   animation: relIn 0.5s cubic-bezier(0.22, 0.8, 0.32, 1) both;
 }
-.rel-hero-banner { position: absolute; inset: 0; }
+.rel-hero-banner {
+  /* Sangrado a proposito: el paralaje desplaza esta banda hasta 40px, y si
+     la capa midiera exactamente como la tarjeta se veria el fondo vacio en
+     los bordes al mover el mouse. Con el sobrante la imagen siempre cubre. */
+  position: absolute; inset: -34px -50px;
+  will-change: transform;
+  transition: transform 0.28s ease-out;
+}
 .rel-hero-banner img {
   width: 100%; height: 100%; object-fit: cover; object-position: center 62%;
   animation: relKen 20s ease-in-out infinite alternate;
 }
-.rel-hero-banner::after {
-  content: ''; position: absolute; inset: 0;
+/* El velo de lectura va en su propia capa y quieto: antes iba pegado al
+   banner, asi que se corria con el parallax y el texto perdia contraste. */
+.rel-hero-scrim {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background: linear-gradient(100deg, rgba(6, 2, 14, 0.95) 0%, rgba(6, 2, 14, 0.8) 40%, rgba(6, 2, 14, 0.38) 74%, rgba(6, 2, 14, 0.18) 100%);
 }
-.rel-hero-inner { position: relative; z-index: 2; display: flex; align-items: flex-start; gap: 22px; padding: 26px 28px; }
+.rel-hero-inner {
+  position: relative; z-index: 2; display: flex; align-items: flex-start; gap: 22px; padding: 26px 28px;
+  will-change: transform;
+  transition: transform 0.28s ease-out;
+}
 .rel-hero-icon {
   width: 96px; height: 96px; flex-shrink: 0; border-radius: 22px; object-fit: cover;
   border: 1px solid rgba(245, 158, 11, 0.45);
@@ -2215,7 +2228,9 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 .dl-toast-bar i {
   display: block; height: 100%; border-radius: 999px;
   background: var(--sunset); box-shadow: 0 0 10px rgba(249, 115, 22, 0.6);
-  transition: width 0.3s ease;
+  /* Lineal y corto: la barra acompana al porcentaje de texto. Con una curva
+     mas larga la barra iba atras y al terminar se veia a mitad de camino. */
+  transition: width 0.25s linear;
 }
 .dl-toast-go {
   flex-shrink: 0; font-size: 0.72rem; font-weight: 800; color: var(--gold-light);
@@ -2676,67 +2691,127 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 /* Acciones a la derecha del header de sección (solo el gestor las usa) */
 .section-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-/* ── Tarjeta del OWS Hub ── */
+/* ── Tarjeta del OWS Hub ──
+   Layout en tres franjas: identidad + flujo de versiones arriba, novedades
+   plegables en el medio y acciones al pie. Antes todo iba en una sola fila
+   apretada, con las notas en una caja de scroll que cortaba el texto. */
 .upd-hub-card {
-  display: flex; flex-direction: column; align-items: stretch; gap: 0;
-  padding: 20px; margin-bottom: 16px;
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 0;
+  padding: 22px 24px 18px; margin-bottom: 18px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(150deg, rgba(56,189,248,0.12), rgba(168,85,247,0.1));
-  border: 1px solid rgba(255,255,255,0.08);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(56,189,248,0.16), transparent 58%),
+    radial-gradient(120% 160% at 100% 0%, rgba(168,85,247,0.14), transparent 60%),
+    var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.42);
   transition: border-color 0.25s, box-shadow 0.25s;
+}
+/* Reflejo superior: da profundidad sin sumar otro borde. */
+.upd-hub-card::before {
+  content: ''; position: absolute; inset: 0 0 auto; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
 }
 .upd-hub-card[data-state="pending"] {
   border-color: var(--gold-border);
-  background: linear-gradient(150deg, rgba(245,158,11,0.18), rgba(249,115,22,0.1));
-  box-shadow: 0 8px 34px rgba(245,158,11,0.16);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(245,158,11,0.2), transparent 58%),
+    radial-gradient(120% 160% at 100% 0%, rgba(249,115,22,0.16), transparent 60%),
+    var(--bg-card);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.42), 0 0 0 1px rgba(245,158,11,0.08), 0 10px 40px rgba(245,158,11,0.14);
 }
-.upd-hub-card[data-state="ok"] { border-color: rgba(52,211,153,0.3); background: linear-gradient(150deg, rgba(52,211,153,0.12), rgba(56,189,248,0.08)); }
-.upd-hub-card[data-state="error"] { border-color: rgba(248,113,113,0.4); background: linear-gradient(150deg, rgba(248,113,113,0.13), rgba(168,85,247,0.1)); }
+.upd-hub-card[data-state="ok"] { border-color: rgba(52,211,153,0.28); }
+.upd-hub-card[data-state="error"] { border-color: rgba(248,113,113,0.4); }
 .upd-hub-card[data-state="unknown"] { border-color: rgba(255,255,255,0.12); }
 
-.upd-hub-icon {
-  width: 48px; height: 48px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 14px; color: #7dd3fc;
-  background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.34);
-}
-.upd-hub-card[data-state="pending"] .upd-hub-icon { color: var(--gold-light); background: var(--gold-dim); border-color: var(--gold-border); }
-.upd-hub-icon svg { width: 24px; height: 24px; }
-.upd-hub-main { flex: 1; min-width: 0; }
-
 .upd-hub-top {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px 24px; flex-wrap: wrap;
 }
+.upd-hub-id { display: flex; align-items: center; gap: 15px; min-width: 0; }
+.upd-hub-icon {
+  width: 54px; height: 54px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 16px; color: #7dd3fc;
+  background: linear-gradient(150deg, rgba(56,189,248,0.22), rgba(56,189,248,0.08));
+  border: 1px solid rgba(56,189,248,0.34);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 22px rgba(56,189,248,0.14);
+}
+.upd-hub-card[data-state="pending"] .upd-hub-icon {
+  color: var(--gold-light);
+  background: linear-gradient(150deg, rgba(245,158,11,0.26), rgba(245,158,11,0.08));
+  border-color: var(--gold-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 24px rgba(245,158,11,0.2);
+}
+.upd-hub-icon svg { width: 26px; height: 26px; }
 .upd-hub-titles { min-width: 0; }
+.upd-hub-kicker {
+  margin: 0 0 3px; font-size: 0.62rem; font-weight: 800;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim);
+}
 .upd-hub-name {
   margin: 0; font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.05rem; font-weight: 700; color: var(--text-main);
+  font-size: 1.3rem; font-weight: 700; color: var(--text-main); line-height: 1.15;
 }
-.upd-hub-state { margin: 2px 0 0; font-size: 0.84rem; color: var(--text-muted); }
+.upd-hub-state { margin: 4px 0 0; font-size: 0.86rem; color: var(--text-muted); }
 .upd-hub-card[data-state="pending"] .upd-hub-state { color: var(--gold-light); font-weight: 600; }
 .upd-hub-card[data-state="ok"] .upd-hub-state { color: var(--success); }
+.upd-hub-card[data-state="error"] .upd-hub-state { color: var(--danger); }
 
-.upd-hub-vers { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
-
-.upd-hub-notes {
-  margin: 12px 0 0; font-size: 0.82rem; line-height: 1.6; color: var(--text-muted);
-  white-space: pre-wrap; word-break: break-word;
-  max-height: 9.5em; overflow-y: auto;
+/* Flujo de versiones: instalada → disponible, cada una con su etiqueta. */
+.upd-hub-vers { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.upd-ver-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.upd-ver-cell small {
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-dim); white-space: nowrap;
 }
-.upd-hub-notes.hidden { display: none; }
+.upd-ver-arrow { color: var(--text-dim); font-size: 1rem; font-weight: 700; }
+/* La flecha se alinea con los chips, no con las etiquetas de arriba.
+   (con padding no funciona: es un span en linea, asi que se usa margen) */
+.upd-hub-vers .upd-ver-arrow,
+.upd-row-vers .upd-ver-arrow { margin-top: 16px; }
 
-/* El botón de descarga vive en la fila del icono + nombre, sin margen extra */
-.upd-hub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-left: auto; }
+/* Novedades: recorte con degradado y boton para desplegar (sin scroll interno). */
+.upd-hub-notes {
+  margin: 16px 0 0; font-size: 0.84rem; line-height: 1.65; color: var(--text-muted);
+  max-height: 5.6em; overflow: hidden;
+  mask-image: linear-gradient(180deg, #000 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 62%, transparent 100%);
+}
+.upd-hub-notes.is-open { max-height: none; mask-image: none; -webkit-mask-image: none; }
+.upd-hub-notes.hidden { display: none; }
+.upd-hub-notes b { color: var(--text-main); }
+.upd-hub-notes a { color: var(--gold-light); }
+.upd-hub-notes-more {
+  align-self: flex-start; margin-top: 6px; padding: 0;
+  font-family: inherit; font-size: 0.74rem; font-weight: 700;
+  color: var(--gold-light); background: none; border: 0; cursor: pointer;
+}
+.upd-hub-notes-more:hover { text-decoration: underline; }
+.upd-hub-notes-more.hidden { display: none; }
+
+.upd-hub-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px 18px; flex-wrap: wrap;
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+/* Acciones al pie: el boton principal manda, el resto acompana. */
+.upd-hub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .upd-hub-actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
 .upd-hub-ok {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: 7px;
   font-size: 0.78rem; font-weight: 700; color: var(--success);
   background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.32);
-  padding: 6px 12px; border-radius: 999px;
+  padding: 7px 14px; border-radius: 999px;
 }
-.upd-hub-date { font-size: 0.72rem; color: var(--text-dim); }
-.upd-hub-hint { margin: 10px 0 0; font-size: 0.74rem; color: var(--text-dim); }
+.upd-hub-ok::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--success); box-shadow: 0 0 8px var(--success);
+}
+.upd-hub-date { font-size: 0.74rem; color: var(--text-dim); }
+.upd-hub-hint { margin: 0; font-size: 0.74rem; color: var(--text-dim); }
 .upd-hub-hint:empty { display: none; }
 .upd-hub-hint a { color: var(--gold-light); text-decoration: none; }
 .upd-hub-hint a:hover { text-decoration: underline; }
@@ -2749,6 +2824,10 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 
 /* El toaster del Hub no es clickeable: el click va al reinicio, no al Gestor */
 .hub-upd-toaster { z-index: 9995; }
+/* El aviso de reinicio va por encima del toaster: al terminar la descarga el
+   toaster se queda un instante mostrando el 100%, y sin esto quedaba
+   flotando sobre el fondo oscurecido del modal. */
+#hub-restart-modal { z-index: 10000; }
 .hub-upd-toast-item { cursor: default; border-color: rgba(56,189,248,0.42); }
 .hub-upd-toast-item:hover { transform: none; border-color: rgba(56,189,248,0.6); }
 .hub-upd-toast-item.is-done { border-color: rgba(52,211,153,0.5); }
@@ -2835,18 +2914,25 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 
 /* ── Contadores ── */
 .upd-stats {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px; margin-bottom: 16px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 12px; margin-bottom: 18px;
 }
 .upd-stat {
-  display: flex; align-items: center; gap: 11px;
-  padding: 12px 14px; border-radius: var(--radius-md);
-  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.07);
-  transition: border-color 0.2s, transform 0.2s;
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 15px; border-radius: var(--radius-md);
+  background: linear-gradient(160deg, rgba(255,255,255,0.045), rgba(0,0,0,0.24));
+  border: 1px solid rgba(255,255,255,0.07);
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
-.upd-stat:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.14); }
+/* Barra de acento: liga cada contador con el color de su icono. */
+.upd-stat::after {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: currentColor; opacity: 0.55;
+}
+.upd-stat:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.16); box-shadow: 0 12px 30px rgba(0,0,0,0.34); }
 .upd-stat-ico {
-  width: 34px; height: 34px; flex-shrink: 0;
+  width: 36px; height: 36px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   border-radius: 11px;
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
@@ -2856,79 +2942,100 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
   fill: none; stroke: currentColor; stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round;
 }
-.upd-stat-pending .upd-stat-ico { color: #fbbf24; background: rgba(245,158,11,0.13); border-color: rgba(245,158,11,0.35); }
-.upd-stat-installed .upd-stat-ico { color: #a5b4fc; background: rgba(165,180,252,0.12); border-color: rgba(165,180,252,0.32); }
-.upd-stat-current .upd-stat-ico { color: #6ee7b7; background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.35); }
-.upd-stat-new .upd-stat-ico { color: #7dd3fc; background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.32); }
+.upd-stat-pending { color: #fbbf24; }
+.upd-stat-installed { color: #a5b4fc; }
+.upd-stat-current { color: #6ee7b7; }
+.upd-stat-new { color: #7dd3fc; }
+.upd-stat-pending .upd-stat-ico { background: rgba(245,158,11,0.13); border-color: rgba(245,158,11,0.35); }
+.upd-stat-installed .upd-stat-ico { background: rgba(165,180,252,0.12); border-color: rgba(165,180,252,0.32); }
+.upd-stat-current .upd-stat-ico { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.35); }
+.upd-stat-new .upd-stat-ico { background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.32); }
 .upd-stat-txt { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .upd-stat-txt b {
-  font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem; font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif; font-size: 1.28rem; font-weight: 700;
   color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.upd-stat-txt small { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-dim); }
+.upd-stat-txt small { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
 
 /* ── Filtros ── */
-.upd-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.upd-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .upd-chip {
+  display: inline-flex; align-items: center; gap: 7px;
   font-family: inherit; font-size: 0.78rem; font-weight: 600;
   color: var(--text-muted); background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.09);
-  padding: 7px 15px; border-radius: 999px; cursor: pointer;
-  transition: all 0.18s;
+  padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  transition: color 0.18s, border-color 0.18s, background 0.18s, box-shadow 0.18s;
 }
-.upd-chip:hover { color: var(--text-main); border-color: rgba(255,255,255,0.2); }
+.upd-chip:hover { color: var(--text-main); border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.07); }
 .upd-chip-active {
   color: #1a0a00; background: var(--gold-grad); border-color: transparent;
-  box-shadow: 0 3px 12px rgba(245,158,11,0.34);
+  box-shadow: 0 3px 14px rgba(245,158,11,0.34);
 }
+.upd-chip-n {
+  font-style: normal; font-size: 0.68rem; font-weight: 800;
+  padding: 1px 7px; border-radius: 999px;
+  background: rgba(255,255,255,0.09); color: inherit;
+}
+.upd-chip-active .upd-chip-n { background: rgba(26,10,0,0.18); }
 
 /* ── Lista de proyectos ── */
 .upd-list { display: flex; flex-direction: column; gap: 12px; }
 .upd-row {
-  display: flex; align-items: flex-start; gap: 14px;
-  padding: 16px 18px; border-radius: var(--radius-md);
+  position: relative; overflow: hidden;
+  display: flex; align-items: flex-start; flex-wrap: wrap; gap: 16px;
+  padding: 16px 20px 16px 22px; border-radius: var(--radius-md);
   background: var(--bg-card); border: 1px solid rgba(255,255,255,0.07);
   transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
-.upd-row:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.14); }
+.upd-row:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.15); box-shadow: 0 14px 34px rgba(0,0,0,0.34); }
+/* Lima de acento: marca de un vistazo lo que hay que actualizar. */
+.upd-row::before {
+  content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px;
+  border-radius: 0 3px 3px 0; background: rgba(255,255,255,0.1);
+}
+.upd-row[data-kind="update"]::before { background: var(--gold-grad); box-shadow: 0 0 12px rgba(245,158,11,0.5); }
 .upd-row[data-kind="update"] {
   border-color: var(--gold-border);
-  background: linear-gradient(120deg, rgba(245,158,11,0.09), rgba(18,6,32,0.82) 55%);
+  background: linear-gradient(110deg, rgba(245,158,11,0.1), rgba(18,6,32,0.86) 52%);
 }
-.upd-row[data-kind="update"]:hover { box-shadow: 0 10px 30px rgba(245,158,11,0.14); }
-.upd-row[data-kind="unavailable"] { opacity: 0.72; }
+.upd-row[data-kind="update"]:hover { box-shadow: 0 14px 34px rgba(0,0,0,0.36), 0 0 0 1px rgba(245,158,11,0.1); }
+.upd-row[data-kind="unavailable"] { opacity: 0.74; }
 
 .upd-row-media { flex-shrink: 0; }
 .upd-row-icon {
-  width: 52px; height: 52px; border-radius: 13px; object-fit: cover; display: block;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  width: 56px; height: 56px; border-radius: 15px; object-fit: cover; display: block;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.34);
 }
 .upd-row-icon-fallback {
-  display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+  display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
 }
-.upd-row-main { flex: 1; min-width: 0; }
+.upd-row-main { flex: 1 1 260px; min-width: 0; }
 .upd-row-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .upd-row-name {
-  font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif; font-size: 1.04rem; font-weight: 700;
   color: var(--text-main);
 }
 .upd-status {
-  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
-  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap;
 }
+.upd-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .upd-st-update { color: #1a0a00; background: var(--gold-grad); }
+.upd-st-update::before { background: rgba(26,10,0,0.55); }
 .upd-st-ok { color: var(--success); background: rgba(52,211,153,0.14); border: 1px solid rgba(52,211,153,0.32); }
 .upd-st-install { color: #7dd3fc; background: rgba(56,189,248,0.14); border: 1px solid rgba(56,189,248,0.32); }
 .upd-st-none { color: var(--text-dim); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); }
 
-.upd-row-vers { display: flex; align-items: center; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+.upd-row-vers { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
 .upd-ver-chip {
-  font-family: 'Space Grotesk', sans-serif; font-size: 0.74rem; font-weight: 700;
-  padding: 3px 9px; border-radius: 7px; white-space: nowrap;
+  font-family: 'Space Grotesk', sans-serif; font-size: 0.76rem; font-weight: 700;
+  padding: 3px 10px; border-radius: 8px; white-space: nowrap;
 }
 .upd-ver-old { color: var(--text-muted); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); }
 .upd-ver-new { color: #1a0a00; background: var(--gold-grad); }
-.upd-ver-arrow { color: var(--text-dim); font-size: 0.78rem; font-weight: 700; }
 
 /* Chip de plataforma: aclara si la lista es de versiones Windows o Android */
 .upd-platform-chip {
@@ -2942,14 +3049,41 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 
 .upd-row-notes { margin: 8px 0 0; font-size: 0.81rem; line-height: 1.55; color: var(--text-muted); }
 .upd-row-notes.upd-row-na { color: var(--text-dim); font-style: italic; }
-.upd-row-meta { margin: 8px 0 0; font-size: 0.74rem; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.upd-row-meta { margin: 9px 0 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.upd-meta-bit {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.74rem; color: var(--text-dim);
+}
 .upd-chip-pre {
   font-size: 0.64rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
   color: #d8b4fe; background: rgba(168,85,247,0.16); border: 1px solid rgba(168,85,247,0.4);
   padding: 2px 8px; border-radius: 999px;
 }
-.upd-row-actions { display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; align-items: stretch; }
-.upd-row-actions .btn { white-space: nowrap; justify-content: center; text-decoration: none; display: inline-flex; align-items: center; }
+.upd-row-actions {
+  display: flex; flex-direction: column; gap: 7px; flex-shrink: 0;
+  align-items: stretch; margin-left: auto;
+}
+.upd-row-actions .btn {
+  white-space: nowrap; justify-content: center; text-decoration: none;
+  display: inline-flex; align-items: center; min-width: 148px;
+}
+
+/* ── Responsive del gestor ── */
+@media (max-width: 720px) {
+  .upd-hub-card { padding: 18px 16px 16px; }
+  .upd-hub-top { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .upd-hub-vers { width: 100%; justify-content: flex-start; }
+  .upd-hub-foot { flex-direction: column; align-items: stretch; }
+  .upd-hub-actions .btn { flex: 1; justify-content: center; }
+  .upd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .upd-row { flex-wrap: wrap; padding: 14px 16px 14px 18px; }
+  .upd-row-main { flex-basis: 100%; }
+  .upd-row-actions {
+    flex-direction: row; flex-wrap: wrap; width: 100%; margin-left: 0;
+    padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .upd-row-actions .btn { flex: 1; min-width: 0; }
+}
 
 .upd-error {
   padding: 20px; border-radius: var(--radius-md); text-align: center;
@@ -2983,18 +3117,13 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 
 /* ── Responsive ── */
 @media (max-width: 720px) {
-  .upd-hub-card { flex-direction: column; gap: 0; padding: 16px; }
-  .upd-hub-top { flex-direction: column; align-items: flex-start; }
-  .upd-hub-actions { margin-left: 0; margin-top: 4px; }
   .upd-gate { flex-direction: column; align-items: flex-start; }
-  .upd-row { flex-wrap: wrap; padding: 14px; }
-  .upd-row-main { flex-basis: 100%; order: 3; }
-  .upd-row-actions { flex-direction: row; flex-wrap: wrap; flex-basis: 100%; order: 4; }
-  .upd-row-actions .btn { flex: 1 1 auto; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .upd-row, .upd-stat, .upd-chip { transition: none; }
+  .upd-row, .upd-stat, .upd-chip, .upd-hub-card, .upd-hub-notes-more { transition: none; }
   .upd-row:hover, .upd-stat:hover { transform: none; }
+  .upd-hub-notes { max-height: none; mask-image: none; -webkit-mask-image: none; }
+  .upd-hub-notes-more { display: none !important; }
 }
 /* Novedad destacada del Hub (lanzamiento): aro dorado + pildora. */
 .hub-changelog-card.is-highlight {

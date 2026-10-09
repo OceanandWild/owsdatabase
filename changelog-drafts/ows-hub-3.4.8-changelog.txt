@@ -1,0 +1,35 @@
+OWS Hub 3.4.8 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.8
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-09
+
+Cambios:
+- Arreglado el efecto de profundidad de la ficha destacada en Lanzamientos: al pasar el cursor, la portada ya no deja franjas vacías en los bordes de la tarjeta.
+- El velo de lectura de la ficha destacada ahora va en su propia capa: el texto mantiene el contraste mientras la portada se mueve.
+- Al abrir un juego desde la ficha destacada, la portada vuela desde la tarjeta correcta (antes arrancaba descentrada y agrandada).
+- Gestor de Actualizaciones: la ficha del Hub muestra la versión instalada y la disponible en celdas con etiqueta, así se distinguen de un vistazo.
+- Las novedades de cada versión ya no se cortan con una barra de scroll: se recortan con un degradado y se despliegan con un botón «Ver todas las novedades».
+- Contador al lado de cada filtro de actualizaciones (Para actualizar / Al día / Sin build), para saber cuántas hay en cada estado sin entrar.
+- La barra de progreso de la descarga del Hub llega ahora al 100%: antes se quedaba a mitad de camino al terminar y parecía que la descarga no había concluido.
+- El aviso de reinicio tras actualizar el Hub va por encima del aviso de progreso, para que no flote sobre el fondo oscurecido.
+- Las descargas de juegos y del Hub comparten el mismo estilo de aviso, con barra y porcentaje en línea.
+- Los archivos de la app se sirven con número de versión (styles.css?v=3, app.js?v=3, library.js?v=3) para que los cambios se apliquen siempre al actualizar.
+
+=== ENGLISH ===
+Version: 3.4.8
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-09
+
+Changes:
+- Fixed the depth effect on the featured card in Releases: the cover art no longer leaves empty strips along the card edges when the pointer moves.
+- The featured card's reading scrim now lives on its own layer, so the text keeps its contrast while the cover art moves.
+- Opening a game from the featured card now flies the cover art from the right element (it used to start off-center and oversized).
+- Updates Manager: the Hub card shows the installed and available versions as labelled cells, so they are distinguishable at a glance.
+- Release notes are no longer cut by a scrollbar: they are clipped with a gradient and expand via a "See all release notes" button.
+- Counter next to each update filter (To update / Up to date / No build), so you know how many items are in each state without opening them.
+- The Hub download progress bar now reaches 100%: it used to stop mid-way when finishing, making it look like the download had not completed.
+- The restart prompt after updating the Hub now sits above the progress notice, so it no longer floats over the darkened backdrop.
+- Game and Hub downloads share the same notice style, with the bar and percentage in line.
+- App assets are served with a version number (styles.css?v=3, app.js?v=3, library.js?v=3) so changes always apply after updating.

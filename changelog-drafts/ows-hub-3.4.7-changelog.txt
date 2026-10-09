@@ -1,0 +1,31 @@
+OWS Hub 3.4.7 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.7
+Plataforma: Windows (NSIS + MSI) y Android (APK)
+Fecha: 2026-10-09
+
+Cambios:
+- Lanzamientos completamente rediseñado: ficha destacada del juego con su banner, icono, estado, versión y fecha estimada, y debajo el catálogo en tarjetas con portada, género, descripción y plataformas. Antes la sección solo mostraba iconos flotando en el vacío.
+- Filtros por estado y contador de lanzamientos para ver de un vistazo qué está disponible y qué viene.
+- Animaciones nuevas: las tarjetas entran en escala, la portada se agranda al pasar el cursor y la ficha destacada tiene un efecto de profundidad al mover el mouse.
+- Al abrir un juego la portada vuela desde la tarjeta hasta el detalle: se ve de inmediato de qué juego se abrió la información.
+- Mientras el servidor despierta, la sección muestra esqueletos de carga con brillo en vez de quedarse en blanco.
+- Las portadas se cargan con un fundido suave en lugar de aparecer de golpe.
+- Un clic en una tarjeta abre los detalles directamente; el acceso rápido de iconos se mantiene igual (cursor para ver el nombre, 1 clic para la info rápida, 2 clics para los detalles).
+- Mejoras de accesibilidad y adaptación a pantallas chicas: foco visible, navegación con teclado, y respeto por la preferencia del sistema de reducir movimiento.
+
+=== ENGLISH ===
+Version: 3.4.7
+Platform: Windows (NSIS + MSI) and Android (APK)
+Date: 2026-10-09
+
+Changes:
+- Releases fully redesigned: featured game card with its banner, icon, status, version and expected date, plus a card catalog below with cover art, genre, description and platforms. Previously the section only showed floating icons in an empty space.
+- Status filters and a launch counter so you can see at a glance what is available and what is coming.
+- New animations: cards fade in with a stagger, the cover art zooms on hover, and the featured card gains depth as you move the mouse.
+- Opening a game now flies the cover art from the card into the detail view, making it clear which game you opened.
+- While the server wakes up, the section shows shimmer skeletons instead of a blank space.
+- Cover images now fade in smoothly instead of popping into place.
+- A single click on a card opens the details; the quick-access icon dock stays the same (hover to see the name, 1 click for quick info, 2 clicks for details).
+- Accessibility and small-screen improvements: visible focus, keyboard navigation, and respect for the system "reduce motion" preference.

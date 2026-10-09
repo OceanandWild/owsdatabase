@@ -18171,8 +18171,9 @@ const OWS_REPORT_STATUSES = ['active', 'monitoring', 'resolved'];
 const OWS_REPORT_MAX_UPDATES = 120;
 // Elementos de diseño del informe: cada uno es un bloque de la "maqueta".
 // Tipos: heading (subtítulo), text (párrafo), list (viñetas), stat (dato
-// destacado), callout (aviso), image (imagen), tags (etiquetas), divider.
-const OWS_REPORT_BLOCK_TYPES = ['heading', 'text', 'list', 'stat', 'callout', 'image', 'tags', 'divider'];
+// destacado), callout (aviso), highlight (frase que resalta sola), image
+// (imagen), tags (etiquetas), divider.
+const OWS_REPORT_BLOCK_TYPES = ['heading', 'text', 'list', 'stat', 'callout', 'highlight', 'image', 'tags', 'divider'];
 const OWS_REPORT_MAX_BLOCKS = 40;
 // Acentos de color: el violeta/ámbar del panel + unos pocos de estado.
 const OWS_REPORT_ACCENTS = ['', 'amber', 'violet', 'sky', 'emerald', 'rose'];

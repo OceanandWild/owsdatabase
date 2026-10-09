@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Hub — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -331,7 +331,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.4.6</span>
+          <span class="nav-version">OWS Hub · v3.4.7</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>
@@ -478,10 +478,36 @@
           <span class="section-index">03</span>
           <div class="section-titles">
             <h3 class="section-title">Lanzamientos</h3>
-            <p class="section-sub">Pasa el cursor para ver el nombre · 1 clic = info · 2 clics = detalles</p>
+            <p class="section-sub">Nuestros juegos: estado, versión y acceso rápido a la descarga.</p>
+          </div>
+          <div class="section-actions">
+            <span class="section-meta" id="rel-count" aria-live="polite">—</span>
           </div>
         </div>
-        <div id="releases-grid" class="releases-grid"></div>
+
+        <!-- Acceso rápido: el dock de iconos de siempre (hover = nombre,
+             1 clic = mini info · 2 clics = detalles). Se conserva tal cual. -->
+        <div class="rel-rail" id="rel-rail">
+          <div class="rel-rail-head">
+            <span class="rel-rail-title">⚡ Acceso rápido</span>
+            <span class="rel-rail-hint">Pasá el cursor para ver el nombre · 1 clic = info · 2 clics = detalles</span>
+          </div>
+          <div id="releases-grid" class="releases-grid"></div>
+          <div id="rel-retry" class="rel-retry-slot"></div>
+        </div>
+
+        <!-- Destacado + catálogo en tarjetas -->
+        <div id="rel-body" class="rel-body">
+          <div id="rel-hero" class="rel-slot"></div>
+          <div class="rel-catalog">
+            <div class="rel-catalog-head">
+              <h4 class="rel-catalog-title">Todos los lanzamientos</h4>
+              <div class="rel-filters" id="rel-filters" role="group" aria-label="Filtrar lanzamientos por estado"></div>
+            </div>
+            <div id="rel-cards" class="rel-cards"></div>
+            <div id="rel-cards-empty" class="rel-empty hidden"></div>
+          </div>
+        </div>
       </section>
 
       <!-- 04 · Eventos -->
@@ -790,7 +816,7 @@
   <!-- Toasts de anuncios de Eventos (arriba por defecto, una sola vez) -->
   <div id="announce-toasts" class="announce-toasts" aria-live="polite"></div>
 
-  <script src="library.js"></script>
-  <script src="app.js"></script>
+  <script src="library.js?v=2"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

@@ -1520,6 +1520,168 @@ body.releases-focus #releases-grid .release-dock-item:not(.is-open) {
 .release-status-launched  { background: rgba(52, 211, 153, 0.18); color: #6ee7b7; border-color: rgba(52, 211, 153, 0.5); animation: releasePulse 2.4s ease-in-out infinite; }
 .release-status-cancelled { background: rgba(148, 163, 184, 0.14); color: #cbd5e1; border-color: rgba(148, 163, 184, 0.4); opacity: 0.75; }
 
+/* ══════════════════════════════════════════════════════
+   LANZAMIENTOS · dock (acceso rápido) + destacado + catálogo
+   Las tarjetas reutilizan .release-card / .release-media /
+   .release-body, que ya venían definidos arriba.
+   ══════════════════════════════════════════════════════ */
+.rel-rail { margin-bottom: 26px; }
+.rel-rail-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 3px; }
+.rel-rail-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-light);
+}
+.rel-rail-hint { font-size: 0.72rem; color: var(--text-muted); }
+.rel-retry-slot:empty { display: none; }
+
+/* ── Ficha destacada ── */
+.rel-body { display: flex; flex-direction: column; gap: 28px; }
+.rel-hero {
+  position: relative; overflow: hidden; border-radius: 22px;
+  border: 1px solid transparent;
+  background: linear-gradient(var(--bg-card), var(--bg-card)) padding-box, var(--sunset-border) border-box;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(249, 115, 22, 0.14);
+  animation: relIn 0.5s cubic-bezier(0.22, 0.8, 0.32, 1) both;
+}
+.rel-hero-banner { position: absolute; inset: 0; }
+.rel-hero-banner img {
+  width: 100%; height: 100%; object-fit: cover; object-position: center 62%;
+  animation: relKen 20s ease-in-out infinite alternate;
+}
+.rel-hero-banner::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, rgba(6, 2, 14, 0.95) 0%, rgba(6, 2, 14, 0.8) 40%, rgba(6, 2, 14, 0.38) 74%, rgba(6, 2, 14, 0.18) 100%);
+}
+.rel-hero-inner { position: relative; z-index: 2; display: flex; align-items: flex-start; gap: 22px; padding: 26px 28px; }
+.rel-hero-icon {
+  width: 96px; height: 96px; flex-shrink: 0; border-radius: 22px; object-fit: cover;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6), 0 0 26px rgba(245, 158, 11, 0.25);
+}
+.rel-hero-icon-fb {
+  display: flex; align-items: center; justify-content: center; font-size: 2.6rem;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.22), rgba(168, 85, 247, 0.22));
+}
+.rel-hero-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+.rel-hero-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rel-chip {
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); background: rgba(10, 8, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 4px 11px; border-radius: 999px; white-space: nowrap;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.rel-chip-star { color: var(--gold-light); border-color: rgba(245, 158, 11, 0.45); }
+.rel-chip-ver { color: #6ee7b7; border-color: rgba(52, 211, 153, 0.4); }
+.rel-hero-name {
+  font-family: 'Space Grotesk', sans-serif; margin: 0;
+  font-size: clamp(1.5rem, 3.2vw, 2.35rem); line-height: 1.08; color: #fff;
+  text-shadow: 0 4px 26px rgba(0, 0, 0, 0.7);
+}
+.rel-hero-genre {
+  margin: 0; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: #a5b4fc;
+}
+.rel-hero-desc { margin: 0; font-size: 0.9rem; line-height: 1.6; color: #e9dcc6; max-width: 62ch; }
+.rel-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+/* Sin banner: gradiente de color en vez de un hueco vacío. */
+.rel-hero-fallback {
+  background:
+    radial-gradient(circle at 20% 16%, rgba(168, 85, 247, 0.3), transparent 55%),
+    radial-gradient(circle at 84% 82%, rgba(249, 115, 22, 0.24), transparent 55%),
+    linear-gradient(135deg, #1b1030 0%, #0a1220 72%);
+}
+
+/* ── Catálogo ── */
+.rel-catalog-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px 16px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.rel-catalog-title {
+  font-family: 'Space Grotesk', sans-serif; margin: 0;
+  font-size: 0.82rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold-light);
+}
+.rel-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.rel-filter {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--text-muted); background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 999px;
+  padding: 5px 13px; cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.rel-filter:hover { color: var(--gold-light); border-color: rgba(245, 158, 11, 0.4); }
+.rel-filter.is-active { color: #1a0a00; background: var(--gold-grad); border-color: transparent; }
+.rel-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(266px, 1fr)); gap: 20px; }
+.rel-card {
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  animation: relCardIn 0.5s cubic-bezier(0.22, 0.8, 0.32, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+.rel-card:hover, .rel-card:focus-visible {
+  transform: translateY(-5px);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.68), 0 0 34px rgba(245, 158, 11, 0.2);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+.rel-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.rel-card .release-media img { transition: transform 0.45s ease; }
+.rel-card:hover .release-media img { transform: scale(1.06); }
+.rel-card.is-dim { opacity: 0.6; filter: saturate(0.45); }
+
+/* ── Esqueletos de carga (mientras el servidor despierta) ── */
+.rel-skel { pointer-events: none; animation: none; }
+.rel-skel-body { display: flex; flex-direction: column; gap: 9px; padding: 14px 18px 18px; }
+.rel-shimmer { position: relative; overflow: hidden; background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
+.rel-shimmer::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.09), transparent);
+  animation: relShimmer 1.4s infinite;
+}
+.rel-skel-icon { width: 96px; height: 96px; border-radius: 22px; flex-shrink: 0; }
+.rel-skel-line { border-radius: 999px; }
+
+/* ── Vacío ── */
+.rel-empty { text-align: center; padding: 34px 18px; color: var(--text-muted); }
+.rel-empty-ico { font-size: 2.2rem; }
+.rel-empty-title { margin: 8px 0 2px; font-family: 'Space Grotesk', sans-serif; font-size: 0.98rem; color: var(--text-main); }
+.rel-empty-sub { margin: 0; font-size: 0.8rem; }
+
+@keyframes relIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes relCardIn { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes relKen { from { transform: scale(1); } to { transform: scale(1.08); } }
+@keyframes relShimmer { to { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rel-hero, .rel-card, .rel-hero-banner img, .rel-shimmer::after,
+  .rel-card .release-media img { animation: none !important; transition: none !important; }
+}
+
+/* ── P2 · blur-up de las portadas ──
+   La imagen arranca corrida y desenfocada; al cargar se asienta en su
+   sitio. Sin JS adicional: el listener global pone .is-loaded. */
+img[data-blurup] {
+  opacity: 0; filter: blur(14px); transform: scale(1.03);
+  transition: opacity 0.5s ease, filter 0.55s ease, transform 0.55s ease;
+}
+img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
+.rel-skel img[data-blurup] { opacity: 0; }
+
+/* ── P2 · contenedor del banner del modal (FLIP compartido) ── */
+.rd-hero-flip {
+  position: absolute; inset: 0; overflow: hidden;
+  will-change: transform;
+}
+@media (max-width: 720px) {
+  .rel-hero-inner { flex-direction: column; gap: 16px; padding: 20px; }
+  .rel-hero-icon { width: 72px; height: 72px; border-radius: 18px; }
+  .rel-cards { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rel-hero-banner[data-parallax], .rel-hero-inner[data-parallax] { transform: none !important; }
+  .rd-hero-flip { transition: none !important; }
+}
+
 /* ── Events ────────────────────────────────── */
 .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
 .event-card {

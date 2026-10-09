@@ -166,6 +166,117 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// ═══════════════════════════════════════════════
+// TEXTO CON FORMATO — informes y notas
+// Marcas ligeras que se guardan TAL CUAL en el texto plano
+// del informe y se dibujan al renderizar (el backend no toca
+// el contenido). El HTML se escapa ANTES de aplicar las marcas,
+// así que nada de lo que se escriba puede inyectar etiquetas.
+//   **negrita**   *cursiva*   ==resaltado==   `código`
+//   "• " o "- " al principio de la línea = viñeta
+// ═══════════════════════════════════════════════
+function reportInlineFmt(text) {
+  return String(text || '')
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/==([^=\n]*[^\s=])==/g, '<mark>$1</mark>')
+    .replace(/\*([^*\n]*[^\s*])\*/g, '<em>$1</em>');
+}
+
+// Texto listo para mostrar. Es inline a propósito (los saltos van con
+// <br>): así cabe dentro de los <p> de las tarjetas y de la línea de
+// tiempo, donde no pueden anidarse listas ni párrafos.
+function reportRichHtml(raw) {
+  const text = String(raw ?? '');
+  if (!text.trim()) return '';
+  return escapeHtml(text)
+    .split('\n')
+    .map((line) => reportInlineFmt(line.replace(/^([ \t]*)[-•][ \t]+/, '$1• ')))
+    .join('<br>');
+}
+
+// Barra de formato del editor de notas. Los botones se reutilizan en el
+// modal de actualización y en el de cierre: por eso el id del textarea
+// viaja como argumento.
+const REP_FMT_META = {
+  bold:   { label: '<b>B</b>', title: 'Negrita', before: '**', after: '**', sample: 'texto importante' },
+  italic: { label: '<i>I</i>', title: 'Cursiva', before: '*', after: '*', sample: 'texto' },
+  mark:   { label: '🖍️ Resaltar', title: 'Resaltado: para lo que tiene que saltar a la vista', before: '==', after: '==', sample: 'clave', cls: 'is-mark' },
+  code:   { label: '&lt;/&gt; Código', title: 'Código, rutas o valores literales', before: '`', after: '`', sample: 'valor' },
+  list:   { label: '• Lista', title: 'Viñetas: una por línea', line: '• ', cls: 'is-list' }
+};
+
+function repFmtBarHtml(targetId) {
+  const id = String(targetId || 'rep-upd-note');
+  const btns = Object.entries(REP_FMT_META).map(([key, m]) => `
+    <button type="button" class="rep-fmt${m.cls ? ` ${m.cls}` : ''}" data-adm-ev="click" data-adm="repNoteFormat" data-adm-a0="s:${key}" data-adm-a1="s:${id}" title="${escapeHtml(m.title)}">${m.label}</button>`).join('');
+  return `<div class="rep-fmt-bar" role="group" aria-label="Formato del texto">${btns}
+    <button type="button" class="rep-fmt is-clear" data-adm-ev="click" data-adm="repNoteClearFormat" data-adm-a0="s:${id}" title="Quitar el formato del texto">✕ Sin formato</button>
+  </div>`;
+}
+
+function repNoteRefresh(targetId) {
+  if (targetId === 'rep-upd-note' && typeof updateReportUpdatePreview === 'function') {
+    updateReportUpdatePreview();
+  }
+}
+
+function repNoteSetRange(ta, from, to) {
+  try {
+    ta.focus();
+    ta.setSelectionRange(from, to);
+  } catch (_) {
+    try { ta.focus(); } catch (_) {}
+  }
+}
+
+// Aplica la marca al texto seleccionado (o escribe un ejemplo si no hay
+// selección, listo para editar encima).
+function repNoteFormat(kind, targetId) {
+  const id = String(targetId || 'rep-upd-note');
+  const ta = document.getElementById(id);
+  const meta = REP_FMT_META[kind];
+  if (!ta || !meta) return;
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? start;
+  if (meta.line) {
+    const block = ta.value.slice(start, end) || 'punto';
+    const joined = block
+      .split('\n')
+      .map((l) => (l.trim()
+        ? `${meta.line}${l.replace(/^([ \t]*)[-•][ \t]+/, '$1')}`
+        : l))
+      .join('\n');
+    ta.value = ta.value.slice(0, start) + joined + ta.value.slice(end);
+    repNoteSetRange(ta, start + meta.line.length, start + joined.length);
+  } else {
+    const sel = ta.value.slice(start, end);
+    const inner = sel || meta.sample;
+    ta.value = `${ta.value.slice(0, start)}${meta.before}${inner}${meta.after}${ta.value.slice(end)}`;
+    repNoteSetRange(ta, start + meta.before.length, start + meta.before.length + inner.length);
+  }
+  repNoteRefresh(id);
+}
+
+// Quita las marcas (de la selección, o de todo el texto si no hay).
+function repNoteClearFormat(targetId) {
+  const id = String(targetId || 'rep-upd-note');
+  const ta = document.getElementById(id);
+  if (!ta) return;
+  const start = ta.selectionStart ?? 0;
+  const end = ta.selectionEnd ?? ta.value.length;
+  const hasSel = end > start;
+  const clean = (hasSel ? ta.value.slice(start, end) : ta.value)
+    .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+    .replace(/==([^=\n]*[^\s=])==/g, '$1')
+    .replace(/\*([^*\n]*[^\s*])\*/g, '$1')
+    .replace(/`([^`\n]+)`/g, '$1')
+    .replace(/^[ \t]*[-•][ \t]+/gm, '');
+  ta.value = hasSel ? ta.value.slice(0, start) + clean + ta.value.slice(end) : clean;
+  repNoteSetRange(ta, start, start + clean.length);
+  repNoteRefresh(id);
+}
+
 // ── Porcentajes: 2 decimales como máximo ──
 // round2() para calcular/guardar (nunca más de 2 decimales) y fmtPct() para
 // mostrar (2,5% y no 2.50% — sin ceros de relleno).
@@ -3743,6 +3854,7 @@ async function resolveIncident() {
     await loadIncidents();
   } catch (err) {
     showToast(`⚠️ ${err.message}`);
+  } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar y finalizar'; }
   }
 }
@@ -3835,6 +3947,7 @@ const REP_BLOCK_META = {
   list:    { icon: '•',  label: 'Lista', hint: 'Viñetas, una por línea' },
   stat:    { icon: '📊', label: 'Dato', hint: 'Un número grande con su etiqueta' },
   callout: { icon: '📣', label: 'Aviso', hint: 'Recuadro destacado para lo importante' },
+  highlight: { icon: '💡', label: 'Frase', hint: 'Una frase corta que resalta sola' },
   image:   { icon: '🖼️', label: 'Imagen', hint: 'Imagen por URL con su pie' },
   tags:    { icon: '🏷️', label: 'Etiquetas', hint: 'Chips cortos, uno por línea' },
   divider: { icon: '➖', label: 'Separador', hint: 'Una línea para separar bloques' }
@@ -3998,6 +4111,8 @@ function repAccentKey(value) {
 }
 
 // Dibuja los bloques tal como se ven en el informe publicado.
+// El texto admite las marcas ligeras (**negrita**, *cursiva*,
+// ==resaltado==, `código`) y las viñetas con "-" o "•".
 function reportBlocksHtml(blocks) {
   const list = Array.isArray(blocks) ? blocks : [];
   if (!list.length) return '';
@@ -4006,13 +4121,14 @@ function reportBlocksHtml(blocks) {
     const meta = repBlockMeta(type);
     if (!REP_BLOCK_META[type]) return '';
     if (type === 'divider') return '<hr class="rep-blk rep-blk-div" />';
-    if (type === 'heading') return `<h4 class="rep-blk rep-blk-heading">${escapeHtml(String(b.text || ''))}</h4>`;
-    if (type === 'text') return `<p class="rep-blk rep-blk-text">${escapeHtml(String(b.text || ''))}</p>`;
-    if (type === 'callout') return `<div class="rep-blk rep-blk-callout"><span class="rep-blk-callout-icon">${meta.icon}</span><p>${escapeHtml(String(b.text || ''))}</p></div>`;
+    if (type === 'heading') return `<h4 class="rep-blk rep-blk-heading">${reportRichHtml(String(b.text || ''))}</h4>`;
+    if (type === 'highlight') return `<p class="rep-blk rep-blk-hl">${reportRichHtml(String(b.text || ''))}</p>`;
+    if (type === 'text') return `<p class="rep-blk rep-blk-text">${reportRichHtml(String(b.text || ''))}</p>`;
+    if (type === 'callout') return `<div class="rep-blk rep-blk-callout"><span class="rep-blk-callout-icon">${meta.icon}</span><p>${reportRichHtml(String(b.text || ''))}</p></div>`;
     if (type === 'list') {
       const items = repBlockList(b.items);
       if (!items.length) return '';
-      return `<ul class="rep-blk rep-blk-list">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
+      return `<ul class="rep-blk rep-blk-list">${items.map((i) => `<li>${reportRichHtml(i)}</li>`).join('')}</ul>`;
     }
     if (type === 'tags') {
       const items = repBlockList(b.items);
@@ -4080,6 +4196,7 @@ function addReportBlock(type) {
   else if (type === 'heading') base.text = 'Nuevo subtítulo';
   else if (type === 'text') base.text = '';
   else if (type === 'callout') base.text = 'Esto es lo más importante del informe.';
+  else if (type === 'highlight') base.text = 'Frase para destacar: lo que más importa de este informe.';
   repBlocksDraft.push(base);
   renderReportBlocks();
   renderReportPreview();
@@ -4173,7 +4290,9 @@ function reportBlocksEditorHtml() {
         return `<label class="repb-field"><span>Subtítulo</span>
           <input type="text" value="${escapeHtml(String(b.text || ''))}" maxlength="2000"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:text" /></label>`;
       }
-      const label = b.type === 'callout' ? 'Texto del aviso' : 'Párrafo';
+      const label = b.type === 'callout' ? 'Texto del aviso'
+        : b.type === 'highlight' ? 'Frase destacada'
+        : 'Párrafo';
       const rows = b.type === 'callout' ? '3' : '4';
       return `<label class="repb-field"><span>${label}</span>
         <textarea class="inc-quick-note" rows="${rows}"${guard} ${upd} data-adm="repBlockField" ${at} data-adm-a1="s:text">${escapeHtml(String(b.text || ''))}</textarea></label>`;
@@ -4230,7 +4349,7 @@ function reportCardHtml(r) {
         return `
         <div class="inc-card-last">
           <span class="inc-last-tag">📋 ${escapeHtml(tag)}</span>
-          <p class="inc-last-text">${escapeHtml(u?.body || '')}</p>
+          <p class="inc-last-text">${reportRichHtml(u?.body || '')}</p>
           <span class="inc-last-by">👤 ${escapeHtml(u?.author || '—')}</span>
         </div>`;
       }).join('')}
@@ -4255,7 +4374,7 @@ function reportCardHtml(r) {
       </div>
 
       <h3 class="inc-card-title" role="button" tabindex="0" data-adm-ev="click" data-adm="viewReport" data-adm-a0="r:${r.id}">${escapeHtml(r.title)}</h3>
-      ${r.details ? `<p class="inc-card-text">${escapeHtml(r.details)}</p>` : ''}
+      ${r.details ? `<p class="inc-card-text">${reportRichHtml(r.details)}</p>` : ''}
 
       ${reportBlocksHtml(blocks)}
 
@@ -4474,7 +4593,7 @@ function renderReportPreview() {
           ${d.blocks.length ? `<span class="inc-pill is-updates">🧱 ${d.blocks.length}</span>` : ''}
         </div>
         <h3 class="inc-prev-title">${d.title ? escapeHtml(d.title) : '<span class="inc-prev-empty">Tu título aparecerá acá</span>'}</h3>
-        <p class="inc-card-text">${d.details ? escapeHtml(d.details) : '<span class="inc-prev-empty">Explicá la situación y va a quedar escrita acá.</span>'}</p>
+        <p class="inc-card-text">${d.details ? reportRichHtml(d.details) : '<span class="inc-prev-empty">Explicá la situación y va a quedar escrita acá.</span>'}</p>
         ${blocks}
         <div class="inc-prev-foot">
           <span class="inc-elapsed" data-since="${Date.now()}">0s</span>
@@ -4665,6 +4784,10 @@ function openReportUpdateModal(id) {
   if (status) status.value = (r.status && r.status !== 'resolved') ? r.status : 'active';
   const note = document.getElementById('rep-upd-note');
   if (note) note.value = '';
+  // El botón conserva su estado entre aperturas: se reinicia acá para que
+  // un intento anterior cancelado o a medias no lo deje deshabilitado.
+  const btnSave = document.getElementById('btn-save-report-update');
+  if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💬 Guardar actualización'; }
   hideAlert('rep-upd-alert');
   renderReportUpdateTemplates();
   updateReportUpdatePreview();
@@ -4720,7 +4843,7 @@ function updateReportUpdatePreview() {
   box.innerHTML = `
     <div class="inc-card-last${monitoring ? ' is-monitoring' : ''}">
       <span class="inc-last-tag">${monitoring ? '👀 En seguimiento' : '📋 Nota'} · recién</span>
-      <p class="inc-last-text">${text ? escapeHtml(text) : '<span class="inc-prev-empty">La nota que escribas se va a ver así en la línea de tiempo.</span>'}</p>
+      <p class="inc-last-text">${text ? reportRichHtml(text) : '<span class="inc-prev-empty">La nota que escribas se va a ver así en la línea de tiempo.</span>'}</p>
       <span class="inc-last-by">👤 OceanandWild · ${r ? `en “${escapeHtml(r.title)}”` : ''}</span>
     </div>`;
 }
@@ -4751,6 +4874,10 @@ async function saveReportUpdate() {
     if (reportModalId === Number(id) && reportModalMode === 'view') viewReport(id);
   } catch (err) {
     showAlert('rep-upd-alert', err.message, 'error');
+  } finally {
+    // El modal vive en el HTML (no se redibuja), así que el botón conserva
+    // su estado entre aperturas: sin este finally quedaba en "Guardando…"
+    // y deshabilitado hasta recargar la página con Ctrl+R.
     if (btn) { btn.disabled = false; btn.textContent = '💬 Guardar actualización'; }
   }
 }
@@ -4780,7 +4907,7 @@ function reportTimelineHtml(updates) {
             <span class="inc-tl-status">${monitoring ? '👀 En seguimiento' : '📋 Nota'}</span>
             <span class="inc-tl-time" title="${escapeHtml(fmtIncidentDateTime(u.at))}">${escapeHtml(fmtIncidentClock(u.at))} · ${escapeHtml(fmtIncidentAgo(u.at))}</span>
           </div>
-          <p class="inc-tl-text">${escapeHtml(u.body)}</p>
+          <p class="inc-tl-text">${reportRichHtml(u.body)}</p>
           <span class="inc-tl-author">👤 ${escapeHtml(u.author || '—')}</span>
         </div>
       </li>`;
@@ -4853,7 +4980,7 @@ function viewReport(id) {
     </div>
 
     <div class="rep-detail${accentCls}">
-      ${r.details ? `<div class="modal-about"><h4 class="modal-about-title">¿De qué trata?</h4><p class="modal-about-text">${escapeHtml(r.details)}</p></div>` : ''}
+      ${r.details ? `<div class="modal-about"><h4 class="modal-about-title">¿De qué trata?</h4><p class="modal-about-text">${reportRichHtml(r.details)}</p></div>` : ''}
       ${reportBlocksHtml(blocks)}
     </div>
 
@@ -4932,6 +5059,7 @@ function openResolveReportForm(id) {
     </div>
     <div class="field-group">
       <label for="rep-resolve-note">Nota de cierre <span class="opt-tag">opcional</span></label>
+      ${repFmtBarHtml('rep-resolve-note')}
       <textarea id="rep-resolve-note" rows="3" maxlength="2000" placeholder="Cómo terminó: se retomó el desarrollo, se resolvió lo interno, etc. Queda como última entrada."></textarea>
     </div>
     <div class="inc-resolve-warn">
@@ -4971,6 +5099,7 @@ async function resolveReport() {
     await loadReports();
   } catch (err) {
     showToast(`⚠️ ${err.message}`);
+  } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar y terminar'; }
   }
 }

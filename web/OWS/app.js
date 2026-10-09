@@ -285,7 +285,7 @@ function bindStaticEvents() {
         relClickTimer = null;
         if (!item.classList.contains('is-open')) toggleDockItem(item);
         const p = findProject(item.getAttribute('data-slug'));
-        if (p) openReleaseModal(p);
+        if (p) openReleaseModal(p, item);
         return;
       }
       relClickTimer = setTimeout(() => {
@@ -301,7 +301,7 @@ function bindStaticEvents() {
       try { if (relClickTimer) { clearTimeout(relClickTimer); relClickTimer = null; } } catch (_) {}
       if (!item.classList.contains('is-open')) toggleDockItem(item);
       const p = findProject(item.getAttribute('data-slug'));
-      if (p) openReleaseModal(p);
+      if (p) openReleaseModal(p, item);
     });
     releasesGrid.addEventListener('keydown', (e) => {
       const item = e.target.closest ? e.target.closest('[data-slug]') : null;
@@ -311,10 +311,38 @@ function bindStaticEvents() {
         // Enter simple = preview · con Ctrl/Cmd+Enter = modal directo (accesible sin ratón)
         if ((e.ctrlKey || e.metaKey)) {
           const p = findProject(item.getAttribute('data-slug'));
-          if (p) openReleaseModal(p);
+          if (p) openReleaseModal(p, item);
         } else {
           toggleDockItem(item);
         }
+      }
+    });
+  }
+
+  // ── Hero destacado + catálogo: 1 clic = detalles ──
+  // Se delega en un único contenedor (#rel-body) para no atar listeners a
+  // cada render. El dock conserva su propio comportamiento (1/2 clics).
+  const relBody = document.getElementById('rel-body');
+  if (relBody && !relBody.dataset.bound) {
+    relBody.dataset.bound = '1';
+    const openBySlug = (slug, card) => {
+      const p = releasesCache.find((x) => String(x.slug) === String(slug));
+      if (p) openReleaseModal(p, releaseFlipSource(card));
+    };
+    relBody.addEventListener('click', (e) => {
+      // Un enlace real (itch.io) se abre solo: no debe disparar también el modal.
+      if (e.target.closest('a[href]')) return;
+      const filter = e.target.closest('[data-rel-filter]');
+      if (filter) { setReleasesFilter(filter.getAttribute('data-rel-filter')); return; }
+      const card = e.target.closest('[data-slug]');
+      if (card) openBySlug(card.getAttribute('data-slug'), card);
+    });
+    relBody.addEventListener('keydown', (e) => {
+      const card = e.target.closest && e.target.closest('[data-slug]');
+      if (!card || e.target.closest('a[href], button')) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openBySlug(card.getAttribute('data-slug'), card);
       }
     });
   }
@@ -1836,12 +1864,12 @@ function releaseMediaMarkup(p) {
   const hero = banner ? '' : ' release-banner-hero';
   if (banner) {
     return `<div class="release-media">
-      <img src="${escapeHtml(banner)}" alt="${escapeHtml(alt)}" class="release-banner" loading="lazy" />
+      <img src="${escapeHtml(banner)}" alt="${escapeHtml(alt)}" class="release-banner" loading="lazy" data-blurup />
     </div>`;
   }
   if (icon) {
     return `<div class="release-media">
-      <img src="${escapeHtml(icon)}" alt="${escapeHtml(alt)}" class="release-banner${hero}" loading="lazy" />
+      <img src="${escapeHtml(icon)}" alt="${escapeHtml(alt)}" class="release-banner${hero}" loading="lazy" data-blurup />
     </div>`;
   }
   return '<div class="release-media release-media-empty"></div>';
@@ -1921,6 +1949,18 @@ function renderReleasesLoading() {
       <p class="releases-placeholder-sub">La primera carga puede tardar si el servidor está despertando.</p>
     </div>`;
   try { syncReleasesSpotlight(); } catch (_) {}
+  // La ficha y el catálogo también "cargan": esqueletos en vez de vacío.
+  const skel = releasesSkeletonHtml();
+  const heroBox = document.getElementById('rel-hero');
+  if (heroBox) { heroBox.classList.remove('hidden'); heroBox.innerHTML = skel.hero; }
+  const cardsBox = document.getElementById('rel-cards');
+  if (cardsBox) cardsBox.innerHTML = skel.cards;
+  const emptyBox = document.getElementById('rel-cards-empty');
+  if (emptyBox) emptyBox.classList.add('hidden');
+  const count = document.getElementById('rel-count');
+  if (count) count.textContent = 'Cargando…';
+  const filters = document.getElementById('rel-filters');
+  if (filters) filters.innerHTML = '';
 }
 
 // ── Spotlight Lanzamientos ──────────────────────────────────
@@ -1964,6 +2004,7 @@ function renderReleases(projects) {
     grid.innerHTML = '<p class="loading-note" style="color:var(--text-muted);font-size:0.85rem">Todavía no hay lanzamientos anunciados. ¡Volvé pronto! ✨</p>';
     releasesLoadState = 'ready';
     try { syncReleasesSpotlight(); } catch (_) {}
+    renderReleasesChrome(items);
     return;
   }
   // Conserva el icono expandido si el enrich re-renderiza al llegar la versión de itch.io
@@ -2022,13 +2063,329 @@ function renderReleases(projects) {
   }).join('');
   releasesLoadState = 'ready';
   try { syncReleasesSpotlight(); } catch (_) {}
+  renderReleasesChrome(items);
+}
+
+// ═══════════════════════════════════════════
+// LANZAMIENTOS · hero destacado + catálogo
+// El dock de iconos (#releases-grid) sigue siendo el acceso rápido y no se
+// toca. Encima se arma la ficha grande del juego destacado y, debajo, el
+// catálogo en tarjetas (reutiliza .release-card / .release-media, que ya
+// estaban definidos en el CSS junto a sus helpers de markup).
+// ═══════════════════════════════════════════
+let releasesFilter = 'all';
+try { releasesFilter = localStorage.getItem('ows_releases_filter') || 'all'; } catch (_) {}
+
+const RELEASE_FILTERS = [
+  { key: 'all', label: 'Todos' },
+  { key: 'launched', label: '¡Disponible ya!' },
+  { key: 'development', label: 'En desarrollo' },
+  { key: 'soon', label: 'Próximamente' },
+  { key: 'cancelled', label: 'Cancelado' }
+];
+
+// El estado crudo puede venir vacío o con mayúsculas: se normaliza para que
+// los filtros y el destacado no dependan de cómo lo escribió el backend.
+function releaseFilterKey(p) {
+  return String(p?.status || 'development').trim().toLowerCase();
+}
+
+function releasesAvailableFilters(items) {
+  const used = new Set((items || []).map(releaseFilterKey));
+  return RELEASE_FILTERS.filter((f) => f.key === 'all' || used.has(f.key));
+}
+
+function releasesFiltered(items) {
+  const list = Array.isArray(items) ? items : [];
+  if (releasesFilter === 'all') return list;
+  return list.filter((p) => releaseFilterKey(p) === releasesFilter);
+}
+
+// Destacado: primero lo que ya se puede jugar, después por estado. Los
+// cancelados nunca quedan destacados si hay otra cosa. El sort es estable,
+// así que los empates mantienen el orden que manda el servidor.
+const RELEASE_FEATURED_RANK = { launched: 0, development: 1, soon: 2, cancelled: 3 };
+function pickFeaturedRelease(items) {
+  const usable = (items || []).filter((p) => releaseFilterKey(p) !== 'cancelled');
+  const pool = usable.length ? usable : (items || []);
+  if (!pool.length) return null;
+  return pool.slice().sort((a, b) => {
+    const byBuild = Number(releaseHasBuild(b)) - Number(releaseHasBuild(a));
+    if (byBuild) return byBuild;
+    const rankA = RELEASE_FEATURED_RANK[releaseFilterKey(a)];
+    const rankB = RELEASE_FEATURED_RANK[releaseFilterKey(b)];
+    return (rankA == null ? 9 : rankA) - (rankB == null ? 9 : rankB);
+  })[0];
+}
+
+function releaseStatusChip(p) {
+  const meta = releaseStatusMeta(p.status);
+  return `<span class="release-soon ${meta.cls}">${escapeHtml(meta.label)}</span>`;
+}
+
+// Fecha confirmada si existe; si no, la estimada (rotulada como tal).
+function releaseDateChip(p) {
+  const confirmed = p.confirmed_date || p.confirmedDate || '';
+  const raw = confirmed || p.expected_date || p.expectedDate || '';
+  const label = formatReleaseDate(raw);
+  if (!label) return '';
+  return `<span class="rel-chip">📅 ${escapeHtml(confirmed ? `Lanzamiento: ${label}` : `Fecha estimada: ${label}`)}</span>`;
+}
+
+function featuredReleaseHtml(p) {
+  const meta = releaseStatusMeta(p.status);
+  const banner = p.banner_url || p.bannerUrl || '';
+  const icon = p.icon_url || p.iconUrl || '';
+  const version = releaseEffectiveVersion(p);
+  const itchUrl = p.itch_url || p.itchUrl || p.link_url || p.linkUrl || '';
+  return `
+  <article class="rel-hero${banner ? '' : ' rel-hero-fallback'}" data-slug="${escapeHtml(p.slug)}">
+    ${banner ? `<div class="rel-hero-banner" data-parallax="1.6" aria-hidden="true"><img src="${escapeHtml(banner)}" alt="" loading="lazy" data-blurup /></div>` : ''}
+    <div class="rel-hero-inner" data-parallax="0.45">
+      ${icon
+        ? `<img class="rel-hero-icon" src="${escapeHtml(icon)}" alt="${escapeHtml(p.name)}" loading="lazy" />`
+        : '<div class="rel-hero-icon rel-hero-icon-fb" aria-hidden="true">🎮</div>'}
+      <div class="rel-hero-body">
+        <div class="rel-hero-chips">
+          <span class="rel-chip rel-chip-star">★ Destacado</span>
+          ${releaseStatusChip(p)}
+          ${version ? `<span class="rel-chip rel-chip-ver">v${escapeHtml(version)}</span>` : ''}
+          ${releaseDateChip(p)}
+        </div>
+        <h4 class="rel-hero-name">${escapeHtml(p.name)}</h4>
+        ${p.genre ? `<p class="rel-hero-genre">${escapeHtml(p.genre)}</p>` : ''}
+        ${p.description ? `<p class="rel-hero-desc">${escapeHtml(p.description)}</p>` : ''}
+        <div class="rel-hero-actions">
+          <button type="button" class="btn btn-primary" data-rel-action="details" data-rel-slug="${escapeHtml(p.slug)}">Ver detalles →</button>
+          ${itchUrl ? `<a class="btn btn-ghost" href="${escapeHtml(itchUrl)}" target="_blank" rel="noopener">Ver en itch.io ↗</a>` : ''}
+        </div>
+      </div>
+    </div>
+  </article>`;
+}
+
+function releaseCardItemHtml(p, index) {
+  const dim = releaseFilterKey(p) === 'cancelled' ? ' is-dim' : '';
+  return `
+  <article class="release-card glass-card rel-card${dim}" style="--i:${index}" data-slug="${escapeHtml(p.slug)}" role="button" tabindex="0" aria-label="${escapeHtml(p.name)} — ver detalles">
+    ${releaseMediaMarkup(p)}
+    ${releaseStatusChip(p)}
+    ${releaseBodyMarkup(p)}
+  </article>`;
+}
+
+// Cuenta, filtros, destacado y tarjetas. Se vuelve a pintar cada vez que
+// llega la versión de itch.io: por eso el filtro vive en el módulo y no se
+// pierde entre renders.
+function renderReleasesChrome(items) {
+  const list = Array.isArray(items) ? items : [];
+
+  const count = document.getElementById('rel-count');
+  if (count) {
+    count.textContent = list.length
+      ? `${list.length} ${list.length === 1 ? 'lanzamiento' : 'lanzamientos'}`
+      : 'Sin lanzamientos';
+  }
+
+  const filters = document.getElementById('rel-filters');
+  if (filters) {
+    const opts = releasesAvailableFilters(list);
+    if (!opts.some((o) => o.key === releasesFilter)) releasesFilter = 'all';
+    filters.innerHTML = opts.map((f) => `
+      <button type="button" class="rel-filter${f.key === releasesFilter ? ' is-active' : ''}" data-rel-filter="${escapeHtml(f.key)}" aria-pressed="${f.key === releasesFilter ? 'true' : 'false'}">${escapeHtml(f.label)}</button>`).join('');
+  }
+
+  const visible = releasesFiltered(list);
+  const featured = pickFeaturedRelease(visible);
+
+  const heroBox = document.getElementById('rel-hero');
+  if (heroBox) {
+    heroBox.innerHTML = featured ? featuredReleaseHtml(featured) : '';
+    heroBox.classList.toggle('hidden', !featured);
+    if (featured) {
+      sweepBlurUp(heroBox);
+      bindHeroParallax(heroBox.querySelector('.rel-hero'));
+    }
+  }
+
+  const cardsBox = document.getElementById('rel-cards');
+  const emptyBox = document.getElementById('rel-cards-empty');
+  const rest = featured ? visible.filter((p) => p !== featured) : visible;
+  if (cardsBox) {
+    cardsBox.innerHTML = rest.map((p, i) => releaseCardItemHtml(p, i)).join('');
+    sweepBlurUp(cardsBox);
+  }
+  if (emptyBox) {
+    const showEmpty = !rest.length;
+    emptyBox.classList.toggle('hidden', !showEmpty);
+    if (showEmpty) {
+      // Tres vacíos distintos: sin nada publicado, filtro sin resultados, o
+      // un solo juego que ya está en el destacado.
+      const copy = !list.length
+        ? ['🚀', 'Todavía no hay lanzamientos anunciados', 'Cuando anunciemos un juego, aparece acá.']
+        : !visible.length
+          ? ['🔍', 'No hay lanzamientos con este estado', 'Probá con otro estado o volvé a «Todos».']
+          : ['⭐', 'Este es el único lanzamiento por ahora', 'Cuando anunciemos el próximo juego, aparece acá al lado del destacado.'];
+      emptyBox.innerHTML = `
+        <span class="rel-empty-ico" aria-hidden="true">${copy[0]}</span>
+        <p class="rel-empty-title">${copy[1]}</p>
+        <p class="rel-empty-sub">${copy[2]}</p>`;
+    }
+  }
+}
+
+function setReleasesFilter(key) {
+  releasesFilter = RELEASE_FILTERS.some((f) => f.key === key) ? key : 'all';
+  try { localStorage.setItem('ows_releases_filter', releasesFilter); } catch (_) {}
+  renderReleasesChrome(releasesCache);
+}
+
+// Mientras el servidor despierta: esqueletos con shimmer en vez del vacío.
+function releasesSkeletonHtml() {
+  const hero = `
+    <div class="rel-hero rel-hero-fallback rel-skel-hero" aria-hidden="true">
+      <div class="rel-hero-inner">
+        <div class="rel-shimmer rel-skel-icon"></div>
+        <div class="rel-hero-body">
+          <div class="rel-shimmer rel-skel-line" style="width:150px;height:18px"></div>
+          <div class="rel-shimmer rel-skel-line" style="width:min(420px,70%);height:32px"></div>
+          <div class="rel-shimmer rel-skel-line" style="width:min(520px,88%);height:14px"></div>
+          <div class="rel-shimmer rel-skel-line" style="width:190px;height:38px;border-radius:999px"></div>
+        </div>
+      </div>
+    </div>`;
+  const cards = [0, 1, 2].map(() => `
+    <div class="rel-card rel-skel" aria-hidden="true">
+      <div class="release-media rel-shimmer"></div>
+      <div class="rel-skel-body">
+        <div class="rel-shimmer rel-skel-line" style="width:60%;height:16px"></div>
+        <div class="rel-shimmer rel-skel-line" style="width:38%;height:10px"></div>
+        <div class="rel-shimmer rel-skel-line" style="width:85%;height:12px"></div>
+        <div class="rel-shimmer rel-skel-line" style="width:45%;height:12px"></div>
+      </div>
+    </div>`).join('');
+  return { hero, cards };
+}
+
+// ═══════════════════════════════════════════
+// P2 · blur-up, paralaje y transición al modal
+// ═══════════════════════════════════════════
+
+// ── Blur-up: las portadas entran desenfocadas y se definen al cargar ──
+// El evento `load` no burbujea, así que se escucha en captura desde el
+// documento: alcanza también a las imágenes que se pinten más adelante.
+function blurUpSettle(img) {
+  if (!img || img.dataset.blurDone === '1') return;
+  img.dataset.blurDone = '1';
+  const lista = () => img.classList.add('is-loaded');
+  // Si ya está en caché el evento load no vuelve a llegar: se resuelve acá.
+  if (img.complete && img.naturalWidth > 0) { lista(); return; }
+  // Red de seguridad: si el evento load se retrasa (pestaña en 2º plano,
+  // carga muy lenta), se revisa de nuevo antes de dejarla invisible.
+  setTimeout(() => { if (img.complete || img.naturalWidth > 0) lista(); }, 700);
+}
+document.addEventListener('load', (e) => {
+  const t = e.target;
+  if (t && t.tagName === 'IMG' && t.hasAttribute('data-blurup')) {
+    t.classList.add('is-loaded');
+    blurUpSettle(t);
+  }
+}, true);
+document.addEventListener('error', (e) => {
+  const t = e.target;
+  if (t && t.tagName === 'IMG' && t.hasAttribute('data-blurup')) {
+    // Rota: se muestra igual y el .release-media-empty tapa el hueco.
+    t.classList.add('is-loaded');
+    blurUpSettle(t);
+  }
+}, true);
+function sweepBlurUp(scope) {
+  (scope || document).querySelectorAll('img[data-blurup]').forEach(blurUpSettle);
+}
+
+// ── Paralaje de la ficha: banner y contenido se desplazan con el mouse ──
+// Se saltea con "menos movimiento" o en pantallas táctiles (pointer: coarse).
+// Ojo con el marcador: se llama hero-parallax y no parallax para no pisar
+// el atributo que lleva la profundidad de cada capa.
+function bindHeroParallax(hero) {
+  if (!hero || hero.dataset.heroParallax === '1') return;
+  hero.dataset.heroParallax = '1';
+  const reposo = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    || window.matchMedia('(hover: none)').matches;
+  if (reposo()) return;
+  let px = 0, py = 0, raf = 0;
+  const apply = () => {
+    raf = 0;
+    hero.querySelectorAll('[data-parallax]').forEach((el) => {
+      const depth = parseFloat(el.getAttribute('data-parallax')) || 0.5;
+      el.style.transform = `translate3d(${(-px * depth * 100).toFixed(2)}px, ${(-py * depth * 60).toFixed(2)}px, 0)`;
+    });
+  };
+  const programar = () => { if (!raf) raf = requestAnimationFrame(apply); };
+  hero.addEventListener('pointermove', (e) => {
+    const r = hero.getBoundingClientRect();
+    px = (e.clientX - r.left) / Math.max(1, r.width) - 0.5;
+    py = (e.clientY - r.top) / Math.max(1, r.height) - 0.5;
+    programar();
+  });
+  hero.addEventListener('pointerleave', () => { px = 0; py = 0; programar(); });
+}
+
+// ── Transición compartida tarjeta → modal (FLIP simplificado) ──
+// La portada de origen vuela hasta el banner del modal, así se ve de un
+// vistazo de qué juego se abrió el detalle. El destino es un contenedor
+// propio (.rd-hero-flip) porque la imagen de adentro ya tiene su animación.
+function releaseFlipSource(card) {
+  if (!card || !card.querySelector) return null;
+  return card.querySelector('.release-media')
+    || card.querySelector('.rel-hero-banner')
+    || card;
+}
+
+function flipReleaseCover(fromEl) {
+  if (!fromEl || !fromEl.getBoundingClientRect) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const target = document.querySelector('#release-modal-body .rd-hero-flip');
+  if (!target) return;
+  const to = target.getBoundingClientRect();
+  const from = fromEl.getBoundingClientRect();
+  if (!to.width || !from.width || !from.height) return;
+  const dx = from.left - to.left;
+  const dy = from.top - to.top;
+  const sx = from.width / to.width;
+  const sy = from.height / to.height;
+  target.style.transformOrigin = 'top left';
+  target.style.transition = 'none';
+  target.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
+  void target.offsetWidth; // fuerza el layout para tomar el estado inicial
+  const limpiar = () => {
+    target.style.transition = '';
+    target.style.transform = '';
+    target.style.transformOrigin = '';
+    target.removeEventListener('transitionend', limpiar);
+  };
+  // El "ir" va en rAF, con un timeout de respaldo: si la pestaña está en
+  // segundo plano rAF se frena y la portada quedaría congelada en el aire.
+  let arranco = false;
+  const arrancar = () => {
+    if (arranco) return;
+    arranco = true;
+    target.style.transition = 'transform 0.42s cubic-bezier(0.22, 0.8, 0.32, 1)';
+    target.style.transform = 'none';
+    target.addEventListener('transitionend', limpiar);
+    setTimeout(limpiar, 800);
+  };
+  requestAnimationFrame(arrancar);
+  setTimeout(arrancar, 48);
 }
 
 // Aviso + reintento manual cuando se pintó la lista local por falta de servidor.
 function appendReleasesRetryNote() {
-  const grid = document.getElementById('releases-grid');
-  if (!grid) return;
-  grid.insertAdjacentHTML('beforeend', `
+  // Nota al pie del bloque nuevo; si no existe (versión vieja del HTML),
+  // se cae al dock como antes.
+  const slot = document.getElementById('rel-retry') || document.getElementById('releases-grid');
+  if (!slot) return;
+  slot.insertAdjacentHTML('beforeend', `
     <div class="releases-retry-note">
       <span>Sin respuesta del servidor: se muestra la lista local.</span>
       <button type="button" class="btn btn-ghost btn-sm" data-releases-retry>Reintentar</button>
@@ -2124,7 +2481,7 @@ async function enrichReleasesWithItch(projects) {
 
 let rdCloseTimer = 0;
 
-function openReleaseModal(project) {
+function openReleaseModal(project, originEl) {
   const modal = document.getElementById('release-modal');
   const body = document.getElementById('release-modal-body');
   if (!modal || !body || !project) return;
@@ -2141,7 +2498,7 @@ function openReleaseModal(project) {
   body.innerHTML = `
     <header class="rd-hero">
       ${banner
-        ? `<img src="${escapeHtml(banner)}" alt="${escapeHtml(p.name)} — Banner" class="rd-hero-img" />`
+        ? `<div class="rd-hero-flip"><img src="${escapeHtml(banner)}" alt="${escapeHtml(p.name)} — Banner" class="rd-hero-img" /></div>`
         : `<div class="rm-notice" style="position:absolute;inset:auto 26px 90px;max-width:520px"><span class="rm-notice-ico">🎮</span><div class="rm-notice-main"><b>${escapeHtml(p.name)}</b><p>Vista previa del lanzamiento.</p></div></div>`}
       <div class="rd-hero-shade" aria-hidden="true"></div>
       <div class="rd-hero-inner">
@@ -2214,6 +2571,9 @@ function openReleaseModal(project) {
   if (rdc) rdc.scrollTop = 0;
   const rdb = modal.querySelector('.rd-progress i');
   if (rdb) rdb.style.width = '0%';
+  // La portada viaja desde la tarjeta (o del dock) hasta acá: continuidad
+  // visual entre la sección y el detalle.
+  flipReleaseCover(originEl);
   document.body.style.overflow = 'hidden';
   loadReleaseModalVersions(slug, token);
   // Tamaño en disco del juego instalado (solo desktop): va bajo "Desinstalar".
@@ -5516,6 +5876,14 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.7': [
+    'Lanzamientos completamente rediseñado: ficha destacada del juego con su banner, y debajo el catálogo en tarjetas con portada, estado, versión y plataformas.',
+    'Filtros por estado y contador de lanzamientos, para ver rápido qué hay disponible y qué viene.',
+    'Animaciones nuevas: las tarjetas entran en escala, la portada se agranda al pasar el cursor y la ficha tiene un efecto de profundidad al mover el mouse.',
+    'Al abrir un juego la portada vuela desde la tarjeta hasta el detalle, y se ve de un vistazo de qué juego es.',
+    'Mientras el servidor despierta, la sección muestra esqueletos de carga en vez de quedarse en blanco.',
+    'El acceso rápido de iconos se mantiene igual: pasar el cursor para ver el nombre, 1 clic para la info rápida y 2 clics para los detalles.',
+  ],
   '3.4.6': [
     '⚡ Noticias Rápidas: una sección nueva al pie de Noticias, con avisos cortos que se publican al instante.',
     'Las noticias rápidas recién publicadas llevan el tag ✨ Nuevo, que se borra solo a los 3 días.',

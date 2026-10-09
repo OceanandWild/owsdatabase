@@ -1647,7 +1647,7 @@
               <!-- 3 · Elementos -->
               <div class="ev-section">
                 <div class="ev-section-title">🧱 Elementos del informe</div>
-                <p class="form-hint">Armá el informe con elementos: se muestran en el orden en que los agregás y se ven en la vista previa, en las tarjetas y en el detalle.</p>
+                <p class="form-hint">Armá el informe con elementos: se muestran en el orden en que los agregás y se ven en la vista previa, en las tarjetas y en el detalle. En los textos podés resaltar con <b>**negrita**</b>, <i>*cursiva*</i>, <b>==resaltado==</b> y <b>`código`</b>.</p>
                 <div class="repb-palette" id="repb-palette" role="group" aria-label="Agregar un elemento"></div>
                 <div id="rep-blocks" class="repb-list"></div>
                 <div id="rep-blocks-empty" class="repb-empty">
@@ -1935,7 +1935,16 @@
         </div>
         <div class="field-group">
           <label for="rep-upd-note">¿Qué cambió? * <span class="newsadm-count" id="rep-upd-count">0/2000</span></label>
+          <div class="rep-fmt-bar" role="group" aria-label="Formato de la nota">
+            <button type="button" class="rep-fmt" data-adm-ev="click" data-adm="repNoteFormat" data-adm-a0="s:bold" data-adm-a1="s:rep-upd-note" title="Negrita"><b>B</b></button>
+            <button type="button" class="rep-fmt" data-adm-ev="click" data-adm="repNoteFormat" data-adm-a0="s:italic" data-adm-a1="s:rep-upd-note" title="Cursiva"><i>I</i></button>
+            <button type="button" class="rep-fmt is-mark" data-adm-ev="click" data-adm="repNoteFormat" data-adm-a0="s:mark" data-adm-a1="s:rep-upd-note" title="Resaltado: para lo que tiene que saltar a la vista">🖍️ Resaltar</button>
+            <button type="button" class="rep-fmt" data-adm-ev="click" data-adm="repNoteFormat" data-adm-a0="s:code" data-adm-a1="s:rep-upd-note" title="Código, rutas o valores literales">&lt;/&gt; Código</button>
+            <button type="button" class="rep-fmt is-list" data-adm-ev="click" data-adm="repNoteFormat" data-adm-a0="s:list" data-adm-a1="s:rep-upd-note" title="Viñetas: una por línea">• Lista</button>
+            <button type="button" class="rep-fmt is-clear" data-adm-ev="click" data-adm="repNoteClearFormat" data-adm-a0="s:rep-upd-note" title="Quitar el formato del texto">✕ Sin formato</button>
+          </div>
           <textarea id="rep-upd-note" class="inc-quick-note" rows="5" maxlength="2000" placeholder="Contá la novedad: qué se avanzó, qué se decidió, qué falta…" data-adm-ev="input" data-adm="updateReportUpdatePreview"></textarea>
+          <p class="form-hint">Seleccioná un texto y usá los botones (o escribí las marcas a mano): <b>**negrita**</b>, <i>*cursiva*</i>, <b>==resaltado==</b>, <b>`código`</b> y líneas que empiecen con <b>•</b> o <b>-</b>. Se ve aplicado en la vista previa de abajo.</p>
         </div>
       </div>
 
@@ -1977,7 +1986,7 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="admin-app.js?v=6"></script>
+  <script src="admin-app.js?v=7"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

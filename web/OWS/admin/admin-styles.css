@@ -3470,6 +3470,49 @@ body {
 .rep-blk-image figcaption { font-size: 0.7rem; color: var(--text-muted); margin-top: 5px; }
 .rep-blk-div { border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 
+/* ── Formato de texto: barra de herramientas y marcas dibujadas ── */
+.rep-fmt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 2px 0 7px; }
+.rep-fmt {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 9px; border-radius: 8px; cursor: pointer;
+  font-size: 0.73rem; font-weight: 700; line-height: 1.1;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: color .15s ease, border-color .15s ease, background .15s ease, transform .1s ease;
+}
+.rep-fmt:hover { color: var(--gold-light); border-color: var(--gold); background: var(--gold-dim); }
+.rep-fmt:active { transform: scale(0.97); }
+.rep-fmt b { font-size: 0.84rem; font-weight: 800; }
+.rep-fmt.is-clear { margin-left: auto; }
+.rep-fmt.is-clear:hover { color: #fca5a5; border-color: rgba(248, 113, 113, 0.5); background: rgba(248, 113, 113, 0.1); }
+
+/* Marcas dentro de notas, líneas de tiempo, elementos y descripciones */
+.inc-last-text mark, .inc-tl-text mark, .inc-card-text mark,
+.modal-about-text mark, .rep-blk mark, .rep-blk-hl mark {
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.32), rgba(245, 158, 11, 0.32));
+  color: #ffeec2; padding: 0 3px; border-radius: 4px; font-weight: 600;
+}
+.inc-last-text code, .inc-tl-text code, .inc-card-text code,
+.modal-about-text code, .rep-blk code, .rep-blk-hl code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em; color: #ffe9b8;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 4px; border-radius: 5px;
+}
+.inc-last-text strong, .inc-tl-text strong, .inc-card-text strong,
+.modal-about-text strong, .rep-blk strong, .rep-blk-hl strong { color: var(--gold-light); }
+
+.rep-blk-hl {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem; line-height: 1.45; font-weight: 600;
+  color: #ffe6b3;
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(245, 158, 11, 0.04));
+  border-left: 3px solid var(--rep-accent, var(--gold));
+}
+
 /* ── ⚡ Noticias Rápidas: filas del panel admin ──
    Mismo aspecto que la lista pública del Hub (punto + texto + tag), con
    las acciones de administración a la derecha. */

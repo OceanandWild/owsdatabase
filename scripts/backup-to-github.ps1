@@ -10,10 +10,59 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$DEV_WEB = "C:\Users\hachi\OneDrive\Escritorio\Ocean and Wild Studios"
-$DEV_UNITY = "C:\Users\hachi\OneDrive\Escritorio\OWS Unity"
-$BACKUP_WEB = "C:\Users\hachi\OneDrive\Escritorio\owsrecover"
-$BACKUP_UNITY = "C:\Users\hachi\OneDrive\Escritorio\owsrecover-unity"
+# ── Rutas auto-detectadas ────────────────────────────────────────────────────
+# Las rutas NO se hardcodean: la PC vieja (usuario "hachi") tenía el workspace
+# en OneDrive y los proyectos web en una carpeta hermana ("Ocean and Wild
+# Studios"). Ahora todo vive junto en el workspace:
+#   <workspace>/web/<Proyecto>          → proyectos web (OWS, OWS Store, …)
+#   <workspace>/scripts/backup-…ps1     → este script
+#   <hermano del workspace>/OWS Recover → repo de backup (owsrecover)
+# Las rutas viejas quedan como FALLBACK para no romper otra máquina.
+$legacyPaths = @{
+    DEV_WEB      = 'C:\Users\hachi\OneDrive\Escritorio\Ocean and Wild Studios'
+    DEV_UNITY    = 'C:\Users\hachi\OneDrive\Escritorio\OWS Unity'
+    BACKUP_WEB   = 'C:\Users\hachi\OneDrive\Escritorio\owsrecover'
+    BACKUP_UNITY = 'C:\Users\hachi\OneDrive\Escritorio\owsrecover-unity'
+}
+
+function Resolve-OWSPath([string[]]$candidates) {
+    foreach ($c in $candidates) {
+        if ($c -and (Test-Path $c)) { return (Resolve-Path $c).Path }
+    }
+    return $null
+}
+
+function Get-OWSRepoRoot([string[]]$candidates) {
+    foreach ($c in $candidates) {
+        if ($c -and (Test-Path (Join-Path $c '.git'))) { return (Resolve-Path $c).Path }
+    }
+    return $null
+}
+
+$workspaceRoot = Split-Path -Parent $PSScriptRoot
+$parentOfWorkspace = Split-Path -Parent $workspaceRoot
+
+$DEV_UNITY = Resolve-OWSPath @($workspaceRoot, $legacyPaths.DEV_UNITY)
+$DEV_WEB   = Resolve-OWSPath @((Join-Path $workspaceRoot 'web'), $legacyPaths.DEV_WEB)
+
+# Repo de backup: se identifica por tener .git (owsrecover / "OWS Recover").
+$BACKUP_WEB = Get-OWSRepoRoot @(
+    (Join-Path $parentOfWorkspace 'owsrecover'),
+    (Join-Path $parentOfWorkspace 'OWS Recover')
+)
+if (-not $BACKUP_WEB) { $BACKUP_WEB = $legacyPaths.BACKUP_WEB }
+
+# Dónde se guardan los proyectos web DENTRO del repo de backup. El repo usa
+# "web/<Proyecto>", no la raíz: si se escribiera en la raíz quedaría una
+# segunda copia del proyecto fuera de lugar.
+$WEB_SUBDIR = 'web'
+
+# Segundo repo (Unity). Si no existe en esta máquina, el paso se skipea.
+$BACKUP_UNITY = Get-OWSRepoRoot @(
+    (Join-Path $parentOfWorkspace 'owsrecover-unity'),
+    (Join-Path $parentOfWorkspace 'OWS Versions')
+)
+if (-not $BACKUP_UNITY) { $BACKUP_UNITY = $legacyPaths.BACKUP_UNITY }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 0. RESOLVER VERSION + TIMESTAMP URUGUAY
@@ -70,7 +119,7 @@ if ($OnlyFile) {
     $onlyFileName = Split-Path $onlyFileClean -Leaf
     $onlyProjectFolder = Split-Path $onlyFileClean -Parent
     if (-not $onlyProjectFolder) { $onlyProjectFolder = "." }
-    $onlyDestFolder = Join-Path $BACKUP_WEB $onlyProjectFolder
+    $onlyDestFolder = Join-Path (Join-Path $BACKUP_WEB $WEB_SUBDIR) $onlyProjectFolder
     $onlyDestFile = Join-Path $onlyDestFolder $onlyFileName
     New-Item -ItemType Directory -Path $onlyDestFolder -Force | Out-Null
     Copy-Item -Path $onlyFileSrc -Destination $onlyDestFile -Force
@@ -78,7 +127,7 @@ if ($OnlyFile) {
 } else {
     foreach ($proj in $webProjects) {
         $src = $proj.FullName
-        $dest = Join-Path $BACKUP_WEB $proj.Name
+        $dest = Join-Path (Join-Path $BACKUP_WEB $WEB_SUBDIR) $proj.Name
 
         Write-Host "   Sincronizando: $($proj.Name)" -ForegroundColor DarkGray
         New-Item -ItemType Directory -Path $dest -Force | Out-Null
@@ -92,12 +141,25 @@ if ($OnlyFile) {
         & robocopy $robocopyArgs | Out-Null
     }
 
-    # Sincronizar scripts y secrets específicamente
-    Write-Host "   Sincronizando scripts y secrets..." -ForegroundColor DarkGray
-    New-Item -ItemType Directory -Path (Join-Path $BACKUP_WEB "OWS Store\scripts") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $BACKUP_WEB "secrets") -Force | Out-Null
-    & robocopy "`"$DEV_WEB\OWS Store\scripts`"" "`"$BACKUP_WEB\OWS Store\scripts`"" /E /NFL /NDL /NP /R:1 /W:1 | Out-Null
-    & robocopy "`"$DEV_WEB\secrets`"" "`"$BACKUP_WEB\secrets`"" /E /NFL /NDL /NP /R:1 /W:1 | Out-Null
+    # Sincronizar scripts: se recorren los proyectos web detectados y se copia
+    # la carpeta "scripts" de cada uno (antes estaba hardcodeada a "OWS Store",
+    # que ya no es el único proyecto con scripts).
+    Write-Host "   Sincronizando scripts..." -ForegroundColor DarkGray
+    foreach ($proj in $webProjects) {
+        $projScripts = Join-Path $proj.FullName 'scripts'
+        if (-not (Test-Path $projScripts)) { continue }
+        $destScripts = Join-Path (Join-Path (Join-Path $BACKUP_WEB $WEB_SUBDIR) $proj.Name) 'scripts'
+        New-Item -ItemType Directory -Path $destScripts -Force | Out-Null
+        & robocopy "`"$projScripts`"" "`"$destScripts`"" /E /NFL /NDL /NP /R:1 /W:1 | Out-Null
+    }
+    # Secrets: solo si existen en el origen (no todas las PCs los tienen).
+    $srcSecrets = Join-Path $DEV_WEB 'secrets'
+    if (Test-Path $srcSecrets) {
+        Write-Host "   Sincronizando secrets..." -ForegroundColor DarkGray
+        $destSecrets = Join-Path $BACKUP_WEB 'secrets'
+        New-Item -ItemType Directory -Path $destSecrets -Force | Out-Null
+        & robocopy "`"$srcSecrets`"" "`"$destSecrets`"" /E /NFL /NDL /NP /R:1 /W:1 | Out-Null
+    }
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -148,6 +210,12 @@ Write-Host "   BACKUP_STATUS.json escrito con $($statusProjects.Count) proyectos
 # ─────────────────────────────────────────────────────────────────────────────
 Write-Host ">> Sincronizando proyectos Unity..." -ForegroundColor Yellow
 
+# El repo secundario (owsrecover-unity) no existe en todas las PCs. Sin él
+# NO se puede continuar: el paso sincroniza Unity dentro de ese repo.
+if (-not $BACKUP_UNITY -or -not (Test-Path $BACKUP_UNITY)) {
+    Write-Host "   SKIP: no existe el repo de Unity ($BACKUP_UNITY) en esta PC." -ForegroundColor DarkGray
+} else {
+
 $unityProjects = @("Animaciones", "Bomberman", "Stupid Zombies", "Tower Defense")
 $includeUnityDirs = @("Assets", "ProjectSettings", "UserSettings")
 
@@ -173,6 +241,8 @@ foreach ($proj in $unityProjects) {
             }
         }
     }
+}
+
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -206,6 +276,9 @@ if ($status) {
 # 5. SUBIR CAMBIOS DE UNITY A GITHUB
 # ─────────────────────────────────────────────────────────────────────────────
 Write-Host ">> Subiendo actualizaciones Unity a GitHub..." -ForegroundColor Green
+if (-not $BACKUP_UNITY -or -not (Test-Path $BACKUP_UNITY)) {
+    Write-Host "   SKIP: sin repo de Unity en esta PC." -ForegroundColor DarkGray
+} else {
 Set-Location $BACKUP_UNITY
 git add .
 $statusUnity = git status --porcelain
@@ -216,6 +289,7 @@ if ($statusUnity) {
     Write-Host "   ¡Unity subido con éxito!" -ForegroundColor Green
 } else {
     Write-Host "   Sin cambios en proyectos Unity." -ForegroundColor DarkGray
+}
 }
 
 Write-Host ""

@@ -1,0 +1,23 @@
+OWS Hub 3.4.11 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.11
+Plataforma: Windows (NSIS + MSI) y Android (APK)
+Fecha: 2026-10-11
+
+Cambios:
+- El Hub ya no anuncia una versión equivocada. La versión que se veía en la barra lateral salía de un texto fijo en el código y no se actualizaba al publicar: installabas una versión nueva y el Hub seguía mostrándote la anterior.
+- Por eso el Gestor pedía actualizar una y otra vez algo que ya tenías instalado, y el modal de novedades comparaba contra un número que no era el real. Ahora la versión se lee siempre del binario.
+- El valor inicial en el HTML queda solo como respaldo para cuando no hay app de escritorio (por ejemplo, en el navegador).
+- Las actualizaciones de la 3.4.9 y la 3.4.10 sí se aplicaban: lo que fallaba era el número que se mostraba, no la instalación.
+
+=== ENGLISH ===
+Version: 3.4.11
+Platform: Windows (NSIS + MSI) and Android (APK)
+Date: 2026-10-11
+
+Changes:
+- The Hub no longer reports the wrong version. The version shown in the sidebar came from a hardcoded string in the code that was never bumped on release: you could install a new version and the Hub would still show you the previous one.
+- That is why the Updates manager kept asking you to install something you already had, and the release notes modal compared against a number that was not the real one. The version is now always read from the binary.
+- The initial HTML value is now only a fallback for when there is no desktop app (for example, in the browser).
+- The 3.4.9 and 3.4.10 updates did apply: what was failing was the number being displayed, not the installation.

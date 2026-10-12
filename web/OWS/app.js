@@ -734,6 +734,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // recién instalada. Va acá (y no dentro del bloque de sesión) para que
   // las novedades aparezcan siempre, haya sesión o no.
   try { bindHubUpdateFlow(); } catch (_) {}
+  // La etiqueta de versión se toma del binario, no del texto fijo del HTML.
+  // Va antes de que nada más la lea.
+  try { syncHubVersionLabelFromBinary(); } catch (_) {}
   // Si venimos de una actualización: pantalla completa al arrancar (idempotente).
   try { hubFullscreenAfterUpdate(); } catch (_) {}
 
@@ -5088,6 +5091,27 @@ function parseHubVersionFromUi() {
   return m ? m[1] : '';
 }
 
+// La versión de la barra lateral venía de un texto FIJO en el HTML
+// ("OWS Hub · v3.4.8"). Como nadie lo bumpeaba al publicar, el Hub anunciaba
+// para siempre una versión vieja: el Gestor mostraba "instalada 3.4.8" y
+// pedía actualizar aunque la app ya fuera la última, y el modal de novedades
+// comparaba contra un número que no era el real. Acá se escribe siempre con
+// la versión del binario, así el HTML queda solo como valor inicial de
+// respaldo para cuando no hay binario (navegador).
+function syncHubVersionLabelFromBinary() {
+  if (owsEnvironment() !== 'desktop') return;
+  try {
+    tauriUpdaterCheck({ quiet: true, cacheMs: 60000 }).then((u) => {
+      const v = u && u.currentVersion ? String(u.currentVersion).replace(/^[vV]/, '') : '';
+      if (!v) return;
+      owsHubLocalVersion = v;
+      owsHubVersionChecked = true;
+      const el = document.querySelector('.nav-version');
+      if (el) el.textContent = 'OWS Hub · v' + v;
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 // ── Updater de Tauri (plugin updater v2) ──────────────────────
 // check: no necesita argumentos → devuelve { version, currentVersion, ... }
 // download_and_install: sin onEventFn el pluginRust hace todo y muestra el
@@ -5996,6 +6020,11 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.11': [
+    'El Hub ya no anuncia una versión equivocada: la de la barra lateral salía de un texto fijo que no se actualizaba al publicar.',
+    'El Gestor ya no pide instalar una y otra vez algo que ya tenés, y el modal de novedades compara contra la versión real.',
+    'La versión ahora se lee siempre del binario; el texto del HTML queda solo como respaldo para el navegador.',
+  ],
   '3.4.10': [
     'Las fechas de lanzamiento ya no se muestran un día antes: si en el Admin cargabas el 15 de octubre, el Hub mostraba el 14.',
     'El modal de novedades ahora muestra las novedades reales de la versión, en vez del texto genérico del instalador.',

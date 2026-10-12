@@ -3282,6 +3282,99 @@ body {
 
 .inc-modal-foot { font-size: 0.7rem; color: var(--text-muted); text-align: center; }
 .inc-modal-foot b { color: var(--text-main); }
+
+/* ── Nota de finalización (dropdown en el modal del informe) ──
+   Separada de la línea de tiempo a propósito: el backend la guarda como
+   última entrada con status 'resolved', y mezclada ahí se leía como una
+   nota cualquiera. Con su propio <details> y etiqueta queda claro qué es.
+   <details> nativo: funciona sin JS y es accesible por teclado. */
+.rep-resolution {
+  margin-top: 14px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.08), rgba(52, 211, 153, 0.03));
+  overflow: hidden;
+}
+.rep-resolution-sum {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+/* Safari/Chrome no respetan list-style en <summary>: se oculta el marcador. */
+.rep-resolution-sum::-webkit-details-marker { display: none; }
+.rep-resolution-sum:hover { background: rgba(52, 211, 153, 0.07); }
+.rep-resolution-sum:focus-visible { outline: 2px solid var(--success); outline-offset: -2px; }
+.rep-resolution-ico { font-size: 0.95rem; flex-shrink: 0; }
+.rep-resolution-label {
+  font-size: 0.79rem;
+  font-weight: 800;
+  color: var(--success);
+  letter-spacing: 0.01em;
+}
+.rep-resolution-time {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-family: 'Space Grotesk', ui-monospace, monospace;
+  white-space: nowrap;
+}
+.rep-resolution-caret {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+.rep-resolution[open] .rep-resolution-caret { transform: rotate(180deg); }
+.rep-resolution-body {
+  padding: 0 14px 13px 14px;
+  border-top: 1px solid rgba(52, 211, 153, 0.16);
+  padding-top: 11px;
+}
+.rep-resolution-text {
+  font-size: 0.83rem;
+  line-height: 1.6;
+  color: #e7d6b6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.rep-resolution-empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+}
+.rep-resolution-author {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* ── Fila expandible dentro de la tabla del Historial ──
+   El dropdown vive en su propio <tr> (colspan total) para no romper la
+   grilla de 6 columnas. data-adm-stop evita que el clic en la nota abra
+   el modal del informe: sólo debe desplegar/plegar. */
+.inc-row-note > td {
+  padding: 0 10px 10px 10px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 0, 16, 0.35);
+}
+.inc-row-note .rep-resolution {
+  margin-top: 0;
+}
+/* En móvil la tabla se vuelve una pila de tarjetas: la fila de la nota
+   recupera el aire que le saca el padding compacto. */
+@media (max-width: 640px) {
+  .inc-row-note > td {
+    padding: 0 12px 12px 12px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+}
+
 .inc-resolve-warn {
   font-size: 0.79rem; line-height: 1.6; color: #e7d6b6;
   padding: 11px 13px; border-radius: var(--radius-sm);

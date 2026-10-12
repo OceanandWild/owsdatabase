@@ -4485,6 +4485,7 @@ function renderReportLog() {
 
   body.innerHTML = rows.map((r) => {
     const kind = repKind(r.kind);
+    const updates = Array.isArray(r.updates) ? r.updates : [];
     return `
       <tr class="inc-row" data-adm-ev="click" data-adm="viewReport" data-adm-a0="r:${r.id}" role="button" tabindex="0" title="Ver detalle">
         <td>
@@ -4504,6 +4505,11 @@ function renderReportLog() {
         <td class="inc-row-actions" data-adm-stop="1">
           <button class="btn btn-ghost btn-mini" title="Ver detalle" data-adm-ev="click" data-adm="viewReport" data-adm-a0="r:${r.id}">👁️</button>
           <button class="btn btn-primary btn-mini" title="Reactivar el informe" data-adm-ev="click" data-adm="reopenReport" data-adm-a0="r:${r.id}">♻️</button>
+        </td>
+      </tr>
+      <tr class="inc-row-note" data-adm-stop="1">
+        <td colspan="6">
+          ${reportResolutionHtml(updates)}
         </td>
       </tr>`;
   }).join('');
@@ -4896,8 +4902,12 @@ document.addEventListener('keydown', (e) => {
 
 function reportTimelineHtml(updates) {
   const list = Array.isArray(updates) ? updates : [];
-  if (!list.length) return '<p class="inc-timeline-empty">Todavía no hay notas en este informe.</p>';
-  return `<ol class="inc-timeline">${list.slice().reverse().map((u) => {
+  // La nota de finalización (status 'resolved') NO va en la línea de tiempo:
+  // se muestra como dropdown propio en el modal, con su etiqueta. Si se
+  // deja acá queda como una nota más y no se entiende qué es.
+  const notes = list.filter((u) => u.status !== 'resolved');
+  if (!notes.length) return '<p class="inc-timeline-empty">Todavía no hay notas en este informe.</p>';
+  return `<ol class="inc-timeline">${notes.slice().reverse().map((u) => {
     const monitoring = u.status === 'monitoring';
     return `
       <li class="inc-tl-item" data-state="${escapeHtml(u.status || 'active')}">
@@ -4912,6 +4922,33 @@ function reportTimelineHtml(updates) {
         </div>
       </li>`;
   }).join('')}</ol>`;
+}
+
+// ── Nota de finalización ──────────────────────────────────────
+// El backend guarda el cierre como última entrada del array `updates` con
+// status 'resolved' (POST /ows-reports/:id/resolve). Acá se separa y se
+// muestra como dropdown propio, con su etiqueta: si se deja dentro de la
+// línea de tiempo se lee como una nota más y no se entiende qué es.
+function reportResolutionHtml(updates) {
+  const list = Array.isArray(updates) ? updates : [];
+  const close = list.filter((u) => u.status === 'resolved').pop();
+  if (!close) return '';
+  const body = String(close.body || '').trim();
+  return `
+    <details class="rep-resolution" ${'' /* cerrado por defecto: la nota se abre a demanda */}>
+      <summary class="rep-resolution-sum">
+        <span class="rep-resolution-ico" aria-hidden="true">✅</span>
+        <span class="rep-resolution-label">Nota de finalización</span>
+        <span class="rep-resolution-time" title="${escapeHtml(fmtIncidentDateTime(close.at))}">${escapeHtml(fmtIncidentClock(close.at))} · ${escapeHtml(fmtIncidentAgo(close.at))}</span>
+        <span class="rep-resolution-caret" aria-hidden="true">▾</span>
+      </summary>
+      <div class="rep-resolution-body">
+        ${body
+          ? `<p class="rep-resolution-text">${reportRichHtml(body)}</p>`
+          : '<p class="rep-resolution-empty">El informe se terminó sin nota de cierre.</p>'}
+        <span class="rep-resolution-author">👤 ${escapeHtml(close.author || '—')}</span>
+      </div>
+    </details>`;
 }
 
 function openReportModal() {
@@ -4994,8 +5031,10 @@ function viewReport(id) {
         </div>
       </div>` : ''}
 
+    ${!isLive ? reportResolutionHtml(updates) : ''}
+
     <div class="modal-about inc-tl-wrap">
-      <h4 class="modal-about-title">📜 Línea de tiempo <span class="inc-tl-count">${updates.length} ${updates.length === 1 ? 'entrada' : 'entradas'}</span></h4>
+      <h4 class="modal-about-title">📜 Línea de tiempo <span class="inc-tl-count">${updates.filter((u) => u.status !== 'resolved').length} ${updates.filter((u) => u.status !== 'resolved').length === 1 ? 'entrada' : 'entradas'}</span></h4>
       ${reportTimelineHtml(updates)}
     </div>
 

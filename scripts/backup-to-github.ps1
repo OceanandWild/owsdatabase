@@ -259,14 +259,22 @@ if (Test-Path $cleanupScript) {
 # ─────────────────────────────────────────────────────────────────────────────
 Write-Host ">> Subiendo actualizaciones Web & Secrets a GitHub..." -ForegroundColor Green
 Set-Location $BACKUP_WEB
+# git escribe avisos en stderr (p.ej. "LF will be replaced by CRLF"). Con
+# ErrorActionPreference=Stop PowerShell los sube a error y ABORTA el respaldo a
+# la mitad, dejando todo staged y sin commit. Los errores reales se detectan
+# mirando $LASTEXITCODE despues de cada comando.
+$ErrorActionPreference = "Continue"
 git add .
+if ($LASTEXITCODE -ne 0) { throw "git add fallo en Web ($BACKUP_WEB)" }
 $status = git status --porcelain
 if ($status) {
     $commitType = if ($isWip) { "WIP" } else { "Release" }
     $commitMsg = "$commitType automatico - Web & Secrets [$version | $uryCompact UY]"
     git commit -m $commitMsg
+    if ($LASTEXITCODE -ne 0) { throw "git commit fallo en Web ($BACKUP_WEB)" }
     git pull origin main --no-rebase -s recursive -X ours --quiet
     git push origin main
+    if ($LASTEXITCODE -ne 0) { throw "git push fallo en Web ($BACKUP_WEB)" }
     Write-Host "   ¡Web & Secrets subidos con éxito!" -ForegroundColor Green
 } else {
     Write-Host "   Sin cambios en proyectos Web." -ForegroundColor DarkGray
@@ -280,17 +288,22 @@ if (-not $BACKUP_UNITY -or -not (Test-Path $BACKUP_UNITY)) {
     Write-Host "   SKIP: sin repo de Unity en esta PC." -ForegroundColor DarkGray
 } else {
 Set-Location $BACKUP_UNITY
+$ErrorActionPreference = "Continue"
 git add .
+if ($LASTEXITCODE -ne 0) { throw "git add fallo en Unity ($BACKUP_UNITY)" }
 $statusUnity = git status --porcelain
 if ($statusUnity) {
     git commit -m "Backup automatico - Unity [$(Get-Date -Format 'yyyy-MM-dd HH:mm')]"
+    if ($LASTEXITCODE -ne 0) { throw "git commit fallo en Unity ($BACKUP_UNITY)" }
     git pull origin main --no-rebase -s recursive -X ours --quiet
     git push origin main
+    if ($LASTEXITCODE -ne 0) { throw "git push fallo en Unity ($BACKUP_UNITY)" }
     Write-Host "   ¡Unity subido con éxito!" -ForegroundColor Green
 } else {
     Write-Host "   Sin cambios en proyectos Unity." -ForegroundColor DarkGray
 }
 }
+$ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "=== RESPALDO COMPLETADO CORRECTAMENTE ===" -ForegroundColor Cyan

@@ -5091,21 +5091,29 @@ function parseHubVersionFromUi() {
   return m ? m[1] : '';
 }
 
-// La versión de la barra lateral venía de un texto FIJO en el HTML
-// ("OWS Hub · v3.4.8"). Como nadie lo bumpeaba al publicar, el Hub anunciaba
-// para siempre una versión vieja: el Gestor mostraba "instalada 3.4.8" y
-// pedía actualizar aunque la app ya fuera la última, y el modal de novedades
-// comparaba contra un número que no era el real. Acá se escribe siempre con
-// la versión del binario, así el HTML queda solo como valor inicial de
-// respaldo para cuando no hay binario (navegador).
+// Versión del binario, SIN red: la expone el núcleo de Tauri y ya viene
+// compilada en el ejecutable. Es la única fuente confiable. El chequeo del
+// updater pega al CDN de GitHub y con la red lenta se cae (por eso la 3.4.11
+// seguia mostrando 3.4.10 teniendo el binario en 3.4.11: se uso el texto del
+// HTML, que era viejo). El permiso core:app:allow-version ya viene incluido
+// en core:default.
+function hubBinaryVersion() {
+  return Promise.resolve()
+    .then(() => tauriInvoke('plugin:app|version', {}, 4000))
+    .then((v) => {
+      const s = String(v == null ? '' : v).trim().replace(/^[vV]/, '');
+      return /^\d+(\.\d+)*$/.test(s) ? s : '';
+    })
+    .catch(() => '');
+}
+
+// Escribe la versión real en la barra lateral. El HTML queda como valor
+// inicial de respaldo (navegador), nunca como la fuente de verdad.
 function syncHubVersionLabelFromBinary() {
   if (owsEnvironment() !== 'desktop') return;
   try {
-    tauriUpdaterCheck({ quiet: true, cacheMs: 60000 }).then((u) => {
-      const v = u && u.currentVersion ? String(u.currentVersion).replace(/^[vV]/, '') : '';
+    hubLocalVersion().then((v) => {
       if (!v) return;
-      owsHubLocalVersion = v;
-      owsHubVersionChecked = true;
       const el = document.querySelector('.nav-version');
       if (el) el.textContent = 'OWS Hub · v' + v;
     }).catch(() => {});
@@ -5163,15 +5171,23 @@ function tauriUpdaterCheck(opts) {
 }
 
 async function hubLocalVersion() {
-  if (owsHubVersionChecked) return owsHubLocalVersion;
+  // Si ya se resolvio y dio algo usable se reusa; si fallo, se reintenta.
+  if (owsHubVersionChecked && owsHubLocalVersion) return owsHubLocalVersion;
+  // 1) Binario: la version compilada en el ejecutable. Sin red, nunca falla.
+  //    Es la unica fuente confiable: el updater pega al CDN de GitHub y con
+  //    la red lenta se cae, y ahi se terminaba usando el texto del HTML.
+  let v = await hubBinaryVersion();
+  // 2) Updater: depende de la red.
+  if (!v) {
+    const fromTauri = await tauriUpdaterCheck({ quiet: true, cacheMs: 60000 });
+    if (fromTauri && fromTauri.currentVersion) {
+      v = String(fromTauri.currentVersion).replace(/^[vV]/, '');
+    }
+  }
+  // 3) HTML: ultimo respaldo (navegador).
+  if (!v) v = parseHubVersionFromUi();
+  owsHubLocalVersion = v || '';
   owsHubVersionChecked = true;
-  // En desktop el updater conoce la versión real del binario (más fiable que
-  // el texto del HTML, que puede quedar desfasado si el binario no se
-  // reconstruyó). Si no hay updater, se usa la del frontend.
-  const fromTauri = await tauriUpdaterCheck({ quiet: true, cacheMs: 60000 });
-  owsHubLocalVersion = (fromTauri && fromTauri.currentVersion)
-    ? String(fromTauri.currentVersion).replace(/^[vV]/, '')
-    : parseHubVersionFromUi();
   return owsHubLocalVersion;
 }
 
@@ -6020,6 +6036,10 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.12': [
+    'La versión se lee ahora del binario, sin depender de internet. Antes, con la red lenta, el Hub caía a un número viejo y seguía anunciándose como una versión anterior a la instalada.',
+    'El CI escribe la versión en el HTML al compilar, así que el valor de respaldo ya no queda desfasado.',
+  ],
   '3.4.11': [
     'El Hub ya no anuncia una versión equivocada: la de la barra lateral salía de un texto fijo que no se actualizaba al publicar.',
     'El Gestor ya no pide instalar una y otra vez algo que ya tenés, y el modal de novedades compara contra la versión real.',

@@ -16332,6 +16332,39 @@ async function fetchGithubReleaseForPlatform(owner, repo, platform) {
 // POR PLATAFORMA (windows y android tienen releases distintas) con ventana
 // fresca + ventana stale: si GitHub falla se sirve lo último bueno marcando
 // `stale:true` (mejor una versión de hace horas que un error).
+// El body de la release de GitHub del Hub lo escribe publish-release.ps1 y es
+// SIEMPRE el texto generico del instalador ("Instalador de Windows (NSIS)..."),
+// no un changelog: por eso el modal de novedades mostraba ese placeholder en
+// vez de lo que cambio. El changelog real vive en ows_project_changelogs, que
+// se carga por API al publicar la version. Se arma una lista con esa info y se
+// usa como `notes`; si la version no tiene entrada, se cae al body de la release.
+async function owsHubChangelogNotes(version) {
+  const ver = String(version || '').trim();
+  if (!ver) return '';
+  try {
+    const { rows } = await pool.query(
+      `SELECT adiciones, mejoras, arreglos, rendimiento, otros
+         FROM ows_project_changelogs
+        WHERE project_slug = $1 AND version = $2
+        LIMIT 1`,
+      ['owshub', ver]
+    );
+    if (!rows.length) return '';
+    const row = rows[0];
+    const asArray = (v) => (Array.isArray(v) ? v : (typeof v === 'string' && v.trim() ? [v] : []));
+    const bullets = [
+      ...asArray(row.arreglos).map((t) => `Arreglado: ${t}`),
+      ...asArray(row.mejoras).map((t) => `Mejorado: ${t}`),
+      ...asArray(row.adiciones).map((t) => `Nuevo: ${t}`),
+      ...asArray(row.rendimiento).map((t) => `Rendimiento: ${t}`),
+      ...asArray(row.otros).map((t) => String(t)),
+    ].map((s) => String(s).trim()).filter(Boolean);
+    return bullets.join('\n');
+  } catch (_) {
+    return '';
+  }
+}
+
 async function getOwsHubUpdateRelease(platform) {
   const plat = normalizeOwsUpdatePlatform(platform);
   if (!globalThis.__owsHubUpdateReleaseCache) globalThis.__owsHubUpdateReleaseCache = {};
@@ -16352,6 +16385,9 @@ async function getOwsHubUpdateRelease(platform) {
     // Los tags de Android son "android-v3.3.5": para comparar y mostrar la
     // versión se usa siempre el número ("3.3.5"), como en Windows.
     const version = tag.replace(/^(android|windows|win)[-_]/i, '').replace(/^[vV]/, '');
+    // Changelog real de esa version (OWS Store) por delante del texto generico
+    // de la release de GitHub.
+    const changelogNotes = await owsHubChangelogNotes(version);
     cache.payload = {
       ok: true,
       stale: false,
@@ -16359,7 +16395,7 @@ async function getOwsHubUpdateRelease(platform) {
       tag,
       platform: plat,
       version,
-      notes: String(release?.body || '').trim(),
+      notes: changelogNotes || String(release?.body || '').trim(),
       name: String(release?.name || tag).trim(),
       published_at: release?.published_at || release?.created_at || null,
       html_url: String(release?.html_url || releasesUrl),

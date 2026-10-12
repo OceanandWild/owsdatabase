@@ -5110,10 +5110,16 @@ function tauriUpdaterCheck(opts) {
   }
   const promise = (async () => {
     try {
-      const upd = await tauriInvoke('plugin:updater|check', {}, 8000);
+      // El chequeo pega al CDN de GitHub (latest.json). Con 8 s una red lenta o
+      // un cache frio daba timeout y el probe volvia null: el Hub_thenesia
+      // "no trae el actualizador" y empujaba al instalador manual aunque el
+      // updater estivesseperfecto.
+      const upd = await tauriInvoke('plugin:updater|check', {}, 20000);
       if (!upd || typeof upd !== 'object') return null;
       return {
-        available: String(upd.version || '') !== String(upd.currentVersion || ''),
+        // Sin version no se puede afirmar que haya update: una comparacion
+        // ingenua de strings daba true con ambos vacios.
+        available: !!upd.version && String(upd.version) !== String(upd.currentVersion || ''),
         version: String(upd.version || '').replace(/^[vV]/, ''),
         currentVersion: String(upd.currentVersion || '').replace(/^[vV]/, ''),
         date: upd.date || '',
@@ -5121,8 +5127,10 @@ function tauriUpdaterCheck(opts) {
       };
     } catch (err) {
       // Hub viejo sin plugin updater, o sin red: la UI degrada a la
-      // versión del HTML y al link de releases.
+      // versión del HTML y al link de releases. Un fallo NO se cachea: si se
+      // guardara, la UI quedaria 60 s mintiendo sobre el updater.
       if (!(opts && opts.quiet)) console.warn('[OWS] updater check falló:', (err && err.message) || err);
+      try { owsHubUpdaterProbe = null; } catch (_) {}
       return null;
     }
   })();
@@ -5253,6 +5261,9 @@ async function loadUpdatesManager(opts) {
       if (tauriUpd.notes && !hub.notes) hub.notes = tauriUpd.notes;
     }
     hub.can_self_update = !!(tauriUpd && tauriUpd.available);
+    // El probe puede fallar por red sin que al Hub le falte el updater: sin
+    // distinguirlos la UI acusa al updater de algo que no es.
+    hub.updater_probe_ok = !!tauriUpd;
 
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const counts = data.counts || {};
@@ -5733,7 +5744,11 @@ function renderHubUpdateCard() {
     } else if (hasUpdate && isAndroid) {
       hint.textContent = 'La actualización baja el APK y lo instala con el mismo paso de siempre.';
     } else if (hasUpdate && inDesktop && !hub.can_self_update) {
-      hint.textContent = 'Tu versión del Hub no trae el actualizador: cerrá el Hub y usá el instalador.';
+      // "No pude comprobarlo" y "no lo tenés" son cosas distintas: la primera
+      // se arregla reintentando, la segunda no.
+      hint.textContent = hub.updater_probe_ok
+        ? 'Esta versión del Hub no trae el actualizador: cerrá el Hub y usá el instalador.'
+        : 'No se pudo comprobar la actualización automática (se cortó la consulta). Tocá «Buscar actualizaciones» otra vez, o cerrá el Hub y usá el instalador.';
     } else if (hasUpdate && !inDesktop) {
       hint.textContent = 'Instalá el Hub y desde ahí aplicás la actualización sin pasos extra.';
     } else {
@@ -5885,7 +5900,7 @@ function closeHubRestartModal() {
 // ANTES de llamar.
 async function doHubInstall() {
   if (!hubPendingInstall) { closeHubRestartModal(); return; }
-  const { rid, bytesRid } = hubPendingInstall;
+  const { rid, bytesRid, version } = hubPendingInstall;
   hubPendingInstall = null;
   closeHubRestartModal();
   // Al volver a arrancar (proceso nuevo) el Hub se abre en pantalla completa.
@@ -5900,8 +5915,14 @@ async function doHubInstall() {
   } catch (err) {
     try { localStorage.removeItem(HUB_FULLSCREEN_KEY); } catch (_) {}
     hubUpdToastHide();
-    showToast('No se pudo reiniciar el Hub: ' + String((err && err.message) || err));
     hubUpdateBusy = false;
+    // No un toast genérico: el toast se iba y el usuario veía el Hub igual,
+    // sin entender por qué la actualización no se había aplicado. El modal
+    // además ofrece el instalador, que es el camino que sí funciona.
+    showToast('No se pudo aplicar la actualización: ' + String((err && err.message) || err));
+    let current = '';
+    try { current = String(await hubLocalVersion() || '').replace(/^[vV]/, ''); } catch (_) { current = ''; }
+    openHubUpdateFailedModal(String(version || ''), current || 'la anterior');
     renderHubUpdateCard();
   }
 }
@@ -5975,6 +5996,12 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.9': [
+    'Las fechas de lanzamiento ya no se muestran un día antes: si en el Admin cargabas el 15 de octubre, el Hub mostraba el 14.',
+    'La fecha estimada y la confirmada se interpretan en hora local, así que coinciden con lo que se cargó.',
+    'Los cruces de mes y de año también se veían mal antes: el 1 de enero aparecía como 31 de diciembre del año anterior.',
+    'Las fechas que sí traen hora (la publicación de una build o de una noticia) no cambian: siguen en hora local.',
+  ],
   '3.4.8': [
     'La ficha destacada de Lanzamientos ya no deja franjas vacías en los bordes al mover el mouse sobre la portada.',
     'El velo de lectura va en su propia capa: el texto mantiene el contraste mientras la portada se mueve.',
@@ -6115,7 +6142,7 @@ function hubChangelogSave(version, notes) {
   } catch (_) {}
 }
 
-function showHubChangelogOnBoot() {
+async function showHubChangelogOnBoot() {
   let data = null;
   try {
     const raw = localStorage.getItem(HUB_CHANGELOG_KEY);
@@ -6130,6 +6157,16 @@ function showHubChangelogOnBoot() {
     return;
   }
   try { localStorage.removeItem(HUB_CHANGELOG_KEY); } catch (_) {}
+  const target = String(data.version || '').replace(/^[vV]/, '');
+  // El registro se escribe antes de instalar: puede que al arrancar la
+  // version sea otra y la instalacion no se haya aplicado. Se verifica contra
+  // la version real antes de celebrar un update que no ocurrio.
+  let current = '';
+  try { current = String(await hubLocalVersion() || '').replace(/^[vV]/, ''); } catch (_) { current = ''; }
+  if (target && current && current !== target) {
+    openHubUpdateFailedModal(target, current);
+    return;
+  }
   openHubChangelogModal(data.version, data.notes);
 }
 
@@ -6138,6 +6175,13 @@ function openHubChangelogModal(version, notes) {
   if (!modal) return;
   const verEl = document.getElementById('hub-changelog-ver');
   if (verEl) verEl.textContent = 'v' + String(version || '').replace(/^[vV]/, '');
+  // Estado normal: se restaura por si el modal anterior fue el de "no se aplicó".
+  const titleEl0 = document.getElementById('hub-changelog-title');
+  if (titleEl0) titleEl0.textContent = '¡Actualizaste a esta versión!';
+  const subEl0 = document.getElementById('hub-changelog-sub');
+  if (subEl0) subEl0.textContent = 'Esto es lo nuevo en OWS Hub. Se muestra una sola vez por versión.';
+  const installEl0 = document.getElementById('hub-changelog-install');
+  if (installEl0) installEl0.classList.add('hidden');
   // La versión destacada (lanzamiento) lleva aro dorado + píldora ✨.
   try {
     const card = modal.querySelector('.hub-changelog-card');
@@ -6170,6 +6214,42 @@ function openHubChangelogModal(version, notes) {
 function closeHubChangelogModal() {
   const modal = document.getElementById('hub-changelog-modal');
   if (modal) modal.classList.add('hidden');
+}
+
+// El registro de novedades se escribe ANTES de instalar, pero la instalación
+// puede no aplicarse: instalador bloqueado por el proceso abierto, falta de
+// permisos, cierre a mitad. Si al arrancar seguimos en la versión anterior,
+// mostrar "¡Actualizaste!" seria mentira y dejaria al usuario creyendo que
+// quedo al dia mientras la app sigue vieja (y el updoder volveria a pedir lo
+// mismo sin explicar por que).
+function openHubUpdateFailedModal(target, current) {
+  const modal = document.getElementById('hub-changelog-modal');
+  if (!modal) return;
+  const verEl = document.getElementById('hub-changelog-ver');
+  if (verEl) verEl.textContent = 'v' + target;
+  const titleEl = document.getElementById('hub-changelog-title');
+  if (titleEl) titleEl.textContent = 'La actualización no se aplicó';
+  const subEl = document.getElementById('hub-changelog-sub');
+  if (subEl) {
+    subEl.textContent = 'La descarga terminó, pero el Hub sigue en la v' + current +
+      '. Suele pasar cuando el instalador no puede reemplazar la app porque el proceso quedó abierto.';
+  }
+  const body = document.getElementById('hub-changelog-body');
+  if (body) {
+    body.innerHTML = '<ul class="hub-changelog-list">' +
+      '<li>Cerrá el Hub por completo, incluido el ícono de la bandeja del sistema, y volvé a abrirlo.</li>' +
+      '<li>Si sigue igual, ejecutá el instalador de la v' + escapeHtml(target) +
+      ' encima de la anterior: reemplaza la versión vieja sin perder tus datos.</li>' +
+      '</ul>';
+    body.classList.remove('hidden');
+  }
+  const installEl = document.getElementById('hub-changelog-install');
+  if (installEl) {
+    installEl.textContent = '⬇ Descargar instalador v' + target;
+    installEl.href = OWS_HUB_RELEASES_URL;
+    installEl.classList.remove('hidden');
+  }
+  modal.classList.remove('hidden');
 }
 
 // ── Flujo completo ──────────────────────────────────────────────
@@ -6233,7 +6313,7 @@ async function runHubSelfUpdate(btn) {
     // 5) Aviso de 5 s y, al terminar, instalar + reiniciar. El toaster se
     //    queda un instante mas con la barra llena: si se esconde en el acto,
     //    el 100% no se llega a ver y parece que la descarga quedo a mitad.
-    hubPendingInstall = { rid: upd.rid, bytesRid: bytesRid };
+    hubPendingInstall = { rid: upd.rid, bytesRid: bytesRid, version: version };
     clearTimeout(hubUpdHideTimer);
     hubUpdHideTimer = setTimeout(() => hubUpdToastHide(), 900);
     if (!openHubRestartModal(version)) { await doHubInstall(); return; }

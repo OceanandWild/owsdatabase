@@ -806,11 +806,12 @@
       <button class="modal-close" data-close="hub-changelog-modal" aria-label="Cerrar">&times;</button>
       <div class="hub-changelog-head">
         <span class="hub-changelog-badge" id="hub-changelog-ver">v—</span>
-        <h3 class="hub-changelog-title">¡Actualizaste a esta versión!</h3>
-        <p class="hub-changelog-sub">Esto es lo nuevo en OWS Hub. Se muestra una sola vez por versión.</p>
+        <h3 class="hub-changelog-title" id="hub-changelog-title">¡Actualizaste a esta versión!</h3>
+        <p class="hub-changelog-sub" id="hub-changelog-sub">Esto es lo nuevo en OWS Hub. Se muestra una sola vez por versión.</p>
       </div>
       <div class="hub-changelog-body" id="hub-changelog-body"></div>
       <div class="hub-changelog-actions">
+        <a class="btn btn-ghost btn-block hidden" id="hub-changelog-install" target="_blank" rel="noopener">⬇ Descargar el instalador</a>
         <button type="button" class="btn btn-primary btn-block" data-close="hub-changelog-modal">¡Genial, empezar!</button>
       </div>
     </div>

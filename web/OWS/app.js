@@ -1989,10 +1989,24 @@ function closeReleasesDock() {
   syncReleasesSpotlight();
 }
 
+// Las columnas DATE del backend (expected_date / confirmed_date) llegan como
+// 'YYYY-MM-DD', sin hora ni zona. new Date('2026-10-15') las interpreta como
+// medianoche UTC y, al formatear en hora local (UTC-3 en Uruguay), el día se
+// muestra corrido hacia atrás (15 oct -> "14 oct 2026"). Las fechas con hora
+// (TIMESTAMP/TIMESTAMPTZ, released_at, published_at...) sí traen zona: para esas
+// se mantiene el parseo normal.
+function parseDateValue(value) {
+  const s = String(value == null ? '' : value).trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function formatReleaseDate(value) {
   if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
+  const d = parseDateValue(value);
+  if (!d) return null;
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 

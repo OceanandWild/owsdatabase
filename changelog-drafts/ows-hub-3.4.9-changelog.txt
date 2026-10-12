@@ -1,0 +1,24 @@
+OWS Hub 3.4.9 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.9
+Plataforma: Windows (NSIS + MSI) y Android (APK)
+Fecha: 2026-10-11
+
+Cambios:
+- Las fechas de lanzamiento ya no se muestran un día antes. La fecha estimada y la fecha confirmada de cada proyecto aparebian corridas: si en el Admin cargabas el 15 de octubre, el Hub mostraba el 14.
+- El motivo era que el backend guarda esas fechas sin hora ni zona, porque son fechas de calendario, y el Hub las leia como medianoche UTC. Al dibujarlas en hora local eso las hacia retroceder un dia, y en los cruces de mes y de anio el error era mas notorio todavia.
+- Ahora las fechas que no traen hora se interpretan en hora local, asi que coinciden con lo que se cargo en el Admin.
+- Las fechas que si traen horario no cambian: la fecha de publicacion de una build o de una noticia se sigue mostrando en hora local, como corresponde.
+
+
+=== ENGLISH ===
+Version: 3.4.9
+Platform: Windows (NSIS + MSI) and Android (APK)
+Date: 2026-10-11
+
+Changes:
+- Release dates no longer show up a day early. The expected and confirmed dates for each project were shifted: if you entered October 15 in the Admin, the Hub displayed October 14.
+- The reason is that the backend stores those dates without a time or timezone, because they are calendar dates, while the Hub read them as UTC midnight. Rendering them in local time moved them back a day, and across month and year boundaries the error was even more noticeable.
+- Dates that carry no time are now interpreted in local time, so they match what was entered in the Admin.
+- Dates that do carry a time are unchanged: a build's or a news post's publish date is still displayed in local time, as it should be.

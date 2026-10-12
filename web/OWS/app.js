@@ -5996,6 +5996,12 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.10': [
+    'Las fechas de lanzamiento ya no se muestran un día antes: si en el Admin cargabas el 15 de octubre, el Hub mostraba el 14.',
+    'El modal de novedades ahora muestra las novedades reales de la versión, en vez del texto genérico del instalador.',
+    'Si la actualización se descarga pero no llega a aplicarse, el Hub te lo dice al volver a abrir y te ofrece el instalador, en vez de festejar un cambio que no ocurrió.',
+    'El Hub ya no dice que tu versión "no trae el actualizador" cuando lo que pasó es que se cortó la consulta: ahora distingue las dos cosas y te deja reintentar.',
+  ],
   '3.4.9': [
     'Las fechas de lanzamiento ya no se muestran un día antes: si en el Admin cargabas el 15 de octubre, el Hub mostraba el 14.',
     'La fecha estimada y la confirmada se interpretan en hora local, así que coinciden con lo que se cargó.',

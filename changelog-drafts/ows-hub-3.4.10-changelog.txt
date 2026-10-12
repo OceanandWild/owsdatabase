@@ -1,0 +1,25 @@
+OWS Hub 3.4.10 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.10
+Plataforma: Windows (NSIS + MSI) y Android (APK)
+Fecha: 2026-10-11
+
+Cambios:
+- Las fechas de lanzamiento ya no se muestran un día antes: si en el Admin cargabas el 15 de octubre, el Hub mostraba el 14. Esto venía de la 3.4.9, que algunos no llegaron a instalar porque la actualización automática no se aplicó; por eso vuelve a aparecer en esta lista.
+- El modal de novedades mostraba el texto genérico del instalador en vez de las novedades reales. Ahora muestra de verdad qué cambió en cada versión.
+- Si la actualización se descarga pero no llega a aplicarse (el instalador no puede reemplazar la app porque el proceso quedó abierto), al volver a abrir el Hub te lo dice y te ofrece el instalador, en lugar de festejar un cambio que no ocurrió.
+- El Hub ya no afirma que tu versión "no trae el actualizador" cuando lo que pasó fue que se cortó la consulta. Ahora distingue las dos cosas y te deja reintentar.
+- Al consultar si hay versión nueva hay más margen antes de rendirse, y un corte de conexión ya no queda cacheado haciendo que el Hub crea que no puede auto-actualizarse durante un minuto.
+
+=== ENGLISH ===
+Version: 3.4.10
+Platform: Windows (NSIS + MSI) and Android (APK)
+Date: 2026-10-11
+
+Changes:
+- Release dates no longer show up a day early: if you entered October 15 in the Admin, the Hub displayed October 14. This came in 3.4.9, which some people never got installed because the automatic update did not apply; that is why it shows up again in this list.
+- The release notes modal showed the generic installer text instead of the real notes. It now shows what actually changed in each version.
+- If the update downloads but fails to apply (the installer cannot replace the app because the process was still open), the Hub now tells you when you reopen it and offers you the installer, instead of celebrating a change that did not happen.
+- The Hub no longer claims your version "has no updater" when what actually happened was the lookup being cut short. It now tells the two apart and lets you retry.
+- Checking for a new version now waits longer before giving up, and a dropped connection is no longer cached, which used to make the Hub believe it could not self-update for a minute.

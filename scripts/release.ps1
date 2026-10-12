@@ -1,4 +1,4 @@
-# OWS Store - Universal Release Script
+﻿# OWS Store - Universal Release Script
 # Usage: .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM
 # Optional release mode:
 #   -optionalMode windows-optional | android-optional | both-optional
@@ -30,7 +30,20 @@ param(
 )
 
 # ── Config ────────────────────────────────────────────────────────────────────
-$GH       = "C:\Program Files\GitHub CLI\gh.exe"
+# gh.exe no siempre esta en "C:\Program Files\GitHub CLI": instalado con
+# `winget install --scope user` queda dentro de WinGet\Packages, con el hash del
+# paquete en la ruta. Se resuelve en vez de hardcodear una sola ubicacion.
+$GH_FALLBACK = "C:\Program Files\GitHub CLI\gh.exe"
+function Resolve-GhPath {
+    $cmd = Get-Command gh -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    if (Test-Path $GH_FALLBACK) { return $GH_FALLBACK }
+    $hit = Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages" -Filter "gh.exe" -Recurse -ErrorAction SilentlyContinue |
+           Select-Object -First 1 -ExpandProperty FullName
+    if ($hit) { return $hit }
+    return $GH_FALLBACK
+}
+$GH       = Resolve-GhPath
 $API      = "https://owsdatabase.onrender.com"
 $TOKEN    = $env:OWS_ADMIN_SECRET
 $ORG      = "OceanandWild"

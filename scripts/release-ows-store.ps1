@@ -1,4 +1,4 @@
-# OWS Store - Tauri Release Helper
+﻿# OWS Store - Tauri Release Helper
 # Usage:
 #   powershell.exe -ExecutionPolicy Bypass -File "scripts\release-ows-store.ps1" -owsVersion 2026.7.19-t1400 [-cargoVersion 0.1.0]
 #
@@ -19,7 +19,19 @@ $DIST_INDEX = Join-Path $OWS_STORE_DIR "dist\index.html"
 $UPDATER_KEY = Join-Path $OWS_STORE_DIR "src-tauri\updater-keys.json"
 $MANIFEST_JSON = Join-Path $ROOT "ows-store-tauri-update.json"
 
-$GH = "C:\Program Files\GitHub CLI\gh.exe"
+# gh.exe no siempre esta en "C:\Program Files\GitHub CLI": instalado con
+# `winget install --scope user` queda dentro de WinGet\Packages. Se resuelve.
+$GH_FALLBACK = "C:\Program Files\GitHub CLI\gh.exe"
+function Resolve-GhPath {
+    $cmd = Get-Command gh -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    if (Test-Path $GH_FALLBACK) { return $GH_FALLBACK }
+    $hit = Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages" -Filter "gh.exe" -Recurse -ErrorAction SilentlyContinue |
+           Select-Object -First 1 -ExpandProperty FullName
+    if ($hit) { return $hit }
+    return $GH_FALLBACK
+}
+$GH = Resolve-GhPath
 
 function Write-Step($msg) { Write-Host "`n>>> $msg" -ForegroundColor Cyan }
 function Write-OK($msg)   { Write-Host "    OK: $msg" -ForegroundColor Green }

@@ -1,4 +1,4 @@
-# Script de Respaldo Automatizado OWS
+﻿# Script de Respaldo Automatizado OWS
 # Ubicación: $BACKUP_WEB\..\Ocean and Wild Studios\scripts\backup-to-github.ps1
 # Lanzador: $BACKUP_WEB\..\Ocean and Wild Studios\OWS Store\scripts\ejecutar-backup.bat
 

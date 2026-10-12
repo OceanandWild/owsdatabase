@@ -24257,6 +24257,10 @@ app.post('/ows-store/projects', async (req, res) => {
 
 // Actualizar versio\u0301n ra\u0301pidamente (Patch)
 app.patch('/ows-store/projects/:slug/version', async (req, res) => {
+  // Sin este guard cualquiera podia cambiar la version de cualquier proyecto y
+  // encolar push de actualizacion a todos los usuarios. Los dos llamadores
+  // oficiales (release.ps1 y release-ows-store.ps1) ya mandan x-ows-admin-token.
+  if (!requireOwsStoreAdmin(req, res)) return;
   const { slug } = req.params;
   const { version, changelog = '', platform = 'all', platforms = null } = req.body || {};
   if (!version) return res.status(400).json({ error: 'Version requerida' });

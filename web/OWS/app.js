@@ -1992,15 +1992,14 @@ function closeReleasesDock() {
   syncReleasesSpotlight();
 }
 
-// Las columnas DATE del backend (expected_date / confirmed_date) llegan como
-// 'YYYY-MM-DD', sin hora ni zona. new Date('2026-10-15') las interpreta como
-// medianoche UTC y, al formatear en hora local (UTC-3 en Uruguay), el día se
-// muestra corrido hacia atrás (15 oct -> "14 oct 2026"). Las fechas con hora
-// (TIMESTAMP/TIMESTAMPTZ, released_at, published_at...) sí traen zona: para esas
-// se mantiene el parseo normal.
+// Las fechas de calendario (expected_date / confirmed_date) son columnas DATE:
+// en la base no tienen hora ni zona, pero el backend las devuelve como
+// "2026-10-15T00:00:00.000Z" — medianoche UTC. new Date() sobre eso, formateado
+// en hora local (UTC-3 en Uruguay), retrocede un dia: 15 oct se veia como 14.
+// Se parte la parte de la fecha (sin la hora) y se arma en hora local.
 function parseDateValue(value) {
   const s = String(value == null ? '' : value).trim();
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]|$)/.exec(s);
   if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
@@ -6036,6 +6035,11 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.13': [
+    'Las fechas de lanzamiento ya se muestran en el día correcto: si cargabas el 15 de octubre en el Admin, el Hub mostraba el 14.',
+    'Se toma solo la parte de la fecha, sin la hora, así que coincide con lo que cargaste.',
+    'Las fechas que sí tienen hora (publicación de una build o de una noticia) no cambian.',
+  ],
   '3.4.12': [
     'La versión se lee ahora del binario, sin depender de internet. Antes, con la red lenta, el Hub caía a un número viejo y seguía anunciándose como una versión anterior a la instalada.',
     'El CI escribe la versión en el HTML al compilar, así que el valor de respaldo ya no queda desfasado.',

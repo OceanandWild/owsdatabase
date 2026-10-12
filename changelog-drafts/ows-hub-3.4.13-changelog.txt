@@ -1,0 +1,23 @@
+OWS Hub 3.4.13 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.13
+Plataforma: Windows (NSIS + MSI) y Android (APK)
+Fecha: 2026-10-11
+
+Cambios:
+- Las fechas de lanzamiento ya se muestran en el día correcto. Si en el Admin cargabas el 15 de octubre, el Hub mostraba el 14.
+- El arreglo venía desde la 3.4.9 pero no llegaba a aplicarse: el backend devuelve las fechas de calendario como medianoche en UTC (15 de octubre 00:00 UTC), y al pintarlas en hora local de Uruguay retrocedían un día.
+- Ahora se toma solo la parte de la fecha, sin la hora, y se muestra tal como la cargaste.
+- Las fechas que sí tienen hora (cuándo se publicó una build o una noticia) no cambian: esas siguen mostrándose en hora local, como corresponde.
+
+=== ENGLISH ===
+Version: 3.4.13
+Platform: Windows (NSIS + MSI) and Android (APK)
+Date: 2026-10-11
+
+Changes:
+- Release dates are now shown on the correct day. If you entered October 15 in the Admin, the Hub was displaying October 14.
+- The fix had been in place since 3.4.9 but never took effect: the backend returns calendar dates as UTC midnight (October 15 00:00 UTC), and rendering them in Uruguay local time moved them back a day.
+- Now only the date part is taken, without the time, and it is displayed exactly as you entered it.
+- Dates that do carry a time (when a build or a news post was published) are unchanged: those are still shown in local time, as they should be.

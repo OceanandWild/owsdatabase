@@ -14847,6 +14847,23 @@ function normalizeProjectCreatedAt(v) {
   return { value: d.toISOString() };
 }
 
+// Las columnas DATE (expected_date / confirmed_date) vuelven de node-pg como
+// Date de medianoche UTC. Si se dejan como Date y se pasan con String(), al
+// cliente le llega "Thu Oct 15 2026 00:00:00 GMT+0000 (...)": el front no la
+// reconoce como fecha y la parsea como UTC, con lo cual en hora local (UTC-3)
+// el trailer se apagaría el 14 a las 21:00. Se normaliza a YYYY-MM-DD, que es
+// lo que parseDateValue del front arma en hora local del dia correcto.
+function toPlainDateString(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'string') {
+    const s = v.trim();
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+  }
+  const d = (v instanceof Date) ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
 function mapOwsLaunchProjectRow(row, latestRelease) {
   const adminOnly = row.admin_only === true || String(row.admin_only || '').toLowerCase() === 'true' || Number(row.admin_only) === 1;
   // Permanencia del estado: true = permanente, false = temporal, null = no aplica
@@ -14915,8 +14932,8 @@ function mapOwsLaunchProjectRow(row, latestRelease) {
     trailerUrl: String(_meta.trailer_url || '').trim(),
     trailer_title: String(_meta.trailer_title || '').trim(),
     trailerTitle: String(_meta.trailer_title || '').trim(),
-    trailer_until: String(_meta.trailer_until || row.confirmed_date || row.expected_date || '').trim(),
-    trailerUntil: String(_meta.trailer_until || row.confirmed_date || row.expected_date || '').trim(),
+    trailer_until: toPlainDateString(_meta.trailer_until || row.confirmed_date || row.expected_date),
+    trailerUntil: toPlainDateString(_meta.trailer_until || row.confirmed_date || row.expected_date),
     // ── Release oficial (tabla ows_project_releases): manda sobre itch ──
     // has_release = hay build descargable; sin release el Hub NO ofrece
     // descarga y el modal muestra el estado del proyecto en su lugar.

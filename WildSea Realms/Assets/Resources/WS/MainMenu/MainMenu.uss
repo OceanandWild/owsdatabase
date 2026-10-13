@@ -1,0 +1,220 @@
+/* WILDSEA REALMS · MainMenu v0.3 — hero a la izquierda + panel de universos, ES.
+   Requisitos de WSMainMenuUI.cs: .ws-root(--ready), .ws-bubble--1..6,
+   .ws-btn (--primary/--secondary/--danger, --d1..d4), .ws-modal-overlay(--visible), .ws-toast(--visible). */
+
+/* ── Raíz ───────────────────────────────────────── */
+/* absolute + tamaño explícito (inline por WSMainMenuUI.FitRoot): la raíz del panel
+   no garantiza altura, así que flex-grow por sí solo no llega a pantalla completa. */
+.ws-root { position: absolute; left: 0; top: 0; flex-direction: column; align-items: center; overflow: hidden; opacity: 0; transition-property: opacity; transition-duration: 0.35s; transition-timing-function: ease-out; }
+.ws-root--ready { opacity: 1; }
+
+/* ── Fondo: color + viñeta suave + burbujas ── */
+.ws-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #062033; }
+/* Capa extra del fundido de loop (la crea WSMainMenuUI por código): disuelve
+   0.8 s entre el final y el inicio del vídeo para que el repeat no dé un salto. */
+.ws-bg-video { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0; }
+.ws-vignette { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgba(2, 10, 22, 0.35); }
+.ws-bubble { position: absolute; bottom: -80px; border-width: 1px; border-color: rgba(190, 230, 255, 0.22); border-radius: 999px; background-color: rgba(190, 245, 255, 0.05); opacity: 0; }
+.ws-bubble--1 { left: 8%; width: 22px; height: 22px; }
+.ws-bubble--2 { left: 20%; width: 12px; height: 12px; }
+.ws-bubble--3 { left: 38%; width: 30px; height: 30px; }
+.ws-bubble--4 { left: 62%; width: 16px; height: 16px; }
+.ws-bubble--5 { left: 78%; width: 26px; height: 26px; }
+.ws-bubble--6 { left: 91%; width: 10px; height: 10px; }
+
+/* ── Barra superior ─────────────────────────────── */
+.ws-topbar { flex-direction: row; align-items: center; justify-content: flex-end; width: 100%; padding-left: 44px; padding-right: 44px; padding-top: 26px; padding-bottom: 6px; opacity: 0; transition-property: opacity; transition-duration: 0.5s; }
+.ws-root--ready .ws-topbar { opacity: 1; }
+.ws-brand { flex-direction: row; align-items: center; }
+.ws-brand-mark { width: 34px; height: 34px; margin-right: 12px; border-radius: 9px; border-width: 1px; border-color: rgba(255, 215, 90, 0.55); background-color: rgba(255, 215, 90, 0.12); align-items: center; justify-content: center; }
+.ws-brand-glyph { color: #FFD75A; font-size: 18px; -unity-font-style: bold; }
+.ws-kicker { color: rgba(190, 245, 255, 0.75); font-size: 13px; -unity-font-style: bold; letter-spacing: 4px; }
+.ws-version { color: rgba(200, 235, 248, 0.6); font-size: 12px; letter-spacing: 2px; }
+
+/* ── Núcleo: hero + showcase ────────────────────── */
+/* v0.3: sin panel de universos, el hero ocupa el centro. Sin padding lateral. */
+.ws-main { flex-grow: 1; flex-direction: row; align-items: center; justify-content: center; width: 100%; }
+/* 900 = ancho del titulo; 90 de aire antes del panel de botones */
+.ws-hero { width: 900px; margin-right: 90px; flex-shrink: 0; align-items: center; }
+
+.ws-titleblock { align-items: center; opacity: 0; translate: 0 -26px; transition-property: opacity, translate; transition-duration: 0.6s; transition-timing-function: ease-out; }
+.ws-root--ready .ws-titleblock { opacity: 1; translate: 0 0; }
+.ws-title { -unity-font-style: bold; -unity-text-align: middle-center; }
+.ws-title--top { font-size: 92px; color: #FFD75A; letter-spacing: 10px; text-shadow: 0px 6px 0px rgba(40, 24, 2, 0.55); }
+.ws-title--bottom { margin-top: -6px; font-size: 46px; color: #5FE3D0; letter-spacing: 24px; text-shadow: 0px 4px 0px rgba(2, 30, 32, 0.6); }
+.ws-divider { flex-direction: row; align-items: center; width: 300px; margin-top: 18px; margin-bottom: 2px; }
+.ws-divider-line { height: 2px; flex-grow: 1; border-radius: 2px; background-color: rgba(255, 215, 90, 0.75); }
+.ws-divider-dot { width: 9px; height: 9px; margin-left: 10px; margin-right: 10px; border-radius: 2px; background-color: #FFD75A; rotate: 45deg; }
+.ws-subtitle { margin-top: 14px; color: #D8F6FF; font-size: 18px; -unity-font-style: bold; letter-spacing: 2px; -unity-text-align: middle-center; width: 100%; }
+
+/* ── Botones ────────────────────────────────────── */
+/* Derecha: panel vertical con los 4 botones apilados.
+   Panel real USS (color + borde + radio): sin sprite, sin deformaciones,
+   sin manchas si el import falla. */
+.ws-buttons {
+    width: 300px; height: 444px; flex-shrink: 0;
+    flex-direction: column; align-items: center; justify-content: center;
+    background-color: rgba(7, 32, 52, 0.88);
+    border-width: 1px; border-color: rgba(95, 227, 208, 0.3); border-radius: 22px;
+    margin: 0;
+}
+.ws-buttons > .btn { margin-top: 8px; margin-bottom: 8px; flex-shrink: 0; }
+.ws-buttons-row { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; margin-top: 12px; }
+.ws-buttons-row > .ws-btn { width: 194px; }
+.ws-btn { height: 56px; border-width: 2px; border-color: rgba(190, 230, 255, 0.28); border-radius: 14px; background-color: rgba(9, 42, 66, 0.78); color: #DFF3FF; font-size: 17px; -unity-font-style: bold; letter-spacing: 2px; -unity-text-align: middle-center; opacity: 0; translate: 0 16px; transition-property: opacity, translate, scale, border-color, background-color; transition-duration: 0.18s; transition-timing-function: ease-out; }
+.ws-root--ready .ws-btn { opacity: 1; translate: 0 0; }
+.ws-btn--d1 { transition-delay: 0.10s; } .ws-btn--d2 { transition-delay: 0.17s; } .ws-btn--d3 { transition-delay: 0.24s; } .ws-btn--d4 { transition-delay: 0.31s; }
+.ws-btn--primary { width: 100%; max-width: 640px; height: 74px; border-color: #FFD75A; border-radius: 16px; background-color: #E9A81A; color: #062033; font-size: 24px; letter-spacing: 4px; }
+.ws-btn--primary:hover { background-color: #FFC94A; border-color: #FFF3C4; scale: 1.02; transition-delay: 0s; }
+.ws-btn--secondary:hover { border-color: #5FE3D0; background-color: rgba(13, 58, 88, 0.92); color: #FFFFFF; scale: 1.03; transition-delay: 0s; }
+.ws-btn--danger { border-color: rgba(255, 150, 160, 0.3); background-color: rgba(46, 22, 34, 0.6); color: #FFC9D0; }
+.ws-btn--danger:hover { border-color: rgba(255, 150, 160, 0.85); background-color: rgba(74, 26, 40, 0.8); color: #FFE7EB; scale: 1.03; transition-delay: 0s; }
+.ws-btn:active { scale: 0.97; transition-delay: 0s; }
+.ws-btn:focus { border-color: #FFD75A; transition-delay: 0s; }
+
+/* ── Showcase de universos ──────────────────────── */
+.ws-showcase { width: 440px; margin-left: 56px; padding-left: 24px; padding-right: 24px; padding-top: 22px; padding-bottom: 20px; border-radius: 22px; border-width: 1px; border-color: rgba(95, 227, 208, 0.3); background-color: rgba(7, 32, 52, 0.82); opacity: 0; translate: 34px 0; transition-property: opacity, translate; transition-duration: 0.55s; transition-delay: 0.18s; transition-timing-function: ease-out; }
+.ws-root--ready .ws-showcase { opacity: 1; translate: 0 0; }
+.ws-showcase-head { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.ws-showcase-kicker { color: rgba(95, 227, 208, 0.9); font-size: 13px; -unity-font-style: bold; letter-spacing: 4px; }
+.ws-showcase-count { padding-left: 10px; padding-right: 10px; padding-top: 4px; padding-bottom: 4px; border-radius: 8px; border-width: 1px; border-color: rgba(255, 215, 90, 0.45); background-color: rgba(255, 215, 90, 0.12); color: #FFD75A; font-size: 11px; -unity-font-style: bold; letter-spacing: 2px; }
+.ws-uni { flex-direction: row; align-items: center; padding-left: 12px; padding-right: 12px; padding-top: 10px; padding-bottom: 10px; margin-bottom: 10px; border-radius: 14px; border-width: 1px; border-color: rgba(190, 230, 255, 0.10); background-color: rgba(255, 255, 255, 0.035); }
+.ws-uni-tile { width: 44px; height: 44px; margin-right: 14px; border-radius: 13px; border-width: 1px; align-items: center; justify-content: center; }
+.ws-uni-tile-label { font-size: 20px; -unity-font-style: bold; }
+.ws-uni--space .ws-uni-tile { background-color: rgba(255, 215, 90, 0.14); border-color: rgba(255, 215, 90, 0.5); }
+.ws-uni--space .ws-uni-tile-label { color: #FFD75A; }
+.ws-uni--abyss .ws-uni-tile { background-color: rgba(95, 227, 208, 0.14); border-color: rgba(95, 227, 208, 0.5); }
+.ws-uni--abyss .ws-uni-tile-label { color: #5FE3D0; }
+.ws-uni--jungle .ws-uni-tile { background-color: rgba(140, 255, 140, 0.12); border-color: rgba(140, 255, 140, 0.45); }
+.ws-uni--jungle .ws-uni-tile-label { color: #8CFF8C; }
+.ws-uni--mystery .ws-uni-tile { background-color: rgba(153, 153, 179, 0.14); border-color: rgba(153, 153, 179, 0.45); }
+.ws-uni--mystery .ws-uni-tile-label { color: #B9B9CF; }
+.ws-uni-text { flex-grow: 1; }
+.ws-uni-name { color: #FFFFFF; font-size: 17px; -unity-font-style: bold; letter-spacing: 2px; }
+.ws-uni-tag { margin-top: 2px; color: rgba(190, 230, 255, 0.6); font-size: 13px; white-space: normal; }
+.ws-uni-pill { padding-left: 10px; padding-right: 10px; padding-top: 5px; padding-bottom: 5px; border-radius: 8px; border-width: 1px; font-size: 10px; -unity-font-style: bold; letter-spacing: 1.5px; }
+.ws-uni-pill--active { background-color: rgba(255, 215, 90, 0.14); border-color: rgba(255, 215, 90, 0.5); color: #FFD75A; }
+.ws-uni-pill--soon { background-color: rgba(190, 230, 255, 0.07); border-color: rgba(190, 230, 255, 0.25); color: rgba(200, 235, 248, 0.75); }
+.ws-showcase-foot { margin-top: 4px; padding-top: 14px; border-top-width: 1px; border-top-color: rgba(190, 230, 255, 0.14); }
+.ws-showcase-note { color: rgba(190, 230, 255, 0.55); font-size: 13px; white-space: normal; -unity-text-align: middle-left; }
+
+/* ── Pie ────────────────────────────────────────── */
+.ws-footer { flex-direction: column; align-items: center; width: 100%; padding-bottom: 22px; opacity: 0; transition-property: opacity; transition-duration: 0.5s; transition-delay: 0.25s; }
+.ws-root--ready .ws-footer { opacity: 1; }
+.ws-toast-slot { align-items: center; justify-content: center; width: 100%; height: 36px; margin-bottom: 6px; }
+.ws-toast { padding-left: 20px; padding-right: 20px; padding-top: 6px; padding-bottom: 6px; border-radius: 10px; background-color: #FFB648; color: #062033; font-size: 14px; -unity-font-style: bold; letter-spacing: 3px; opacity: 0; translate: 0 8px; transition-property: opacity, translate; transition-duration: 0.25s; }
+.ws-toast--visible { opacity: 1; translate: 0 0; }
+.ws-footer-row { flex-direction: row; align-items: center; justify-content: flex-end; width: 100%; padding-left: 44px; padding-right: 44px; }
+.ws-hint { color: rgba(190, 230, 255, 0.55); font-size: 14px; letter-spacing: 2px; }
+.ws-keys { flex-direction: row; align-items: center; }
+.ws-keyhint { flex-direction: row; align-items: center; margin-right: 18px; }
+.ws-keyhint--last { margin-right: 0; }
+.ws-key { margin-right: 6px; padding-left: 9px; padding-right: 9px; padding-top: 4px; padding-bottom: 4px; border-radius: 7px; border-width: 1px; border-color: rgba(190, 230, 255, 0.3); background-color: rgba(255, 255, 255, 0.05); color: rgba(223, 243, 255, 0.85); font-size: 11px; -unity-font-style: bold; letter-spacing: 1.5px; }
+.ws-key-label { color: rgba(190, 230, 255, 0.5); font-size: 12px; letter-spacing: 1px; }
+
+/* ── Modales ────────────────────────────────────── */
+.ws-modal-overlay { position: absolute; left: 0; top: 0; right: 0; bottom: 0; align-items: center; justify-content: center; background-color: rgba(2, 10, 20, 0.86); opacity: 0; transition-property: opacity; transition-duration: 0.22s; }
+.ws-modal-overlay--visible { opacity: 1; }
+/* El fondo/borde/relleno los aporta el sprite .ws-glass (ver final del file). */
+.ws-modal-card { align-items: center; width: 660px; max-width: 92%; padding-left: 46px; padding-right: 46px; padding-top: 36px; padding-bottom: 34px; opacity: 0; translate: 0 18px; transition-property: opacity, translate; transition-duration: 0.25s; transition-timing-function: ease-out; }
+.ws-modal-overlay--visible .ws-modal-card { opacity: 1; translate: 0 0; }
+.ws-modal-accent { width: 84px; height: 4px; margin-bottom: 18px; border-radius: 999px; background-color: #FFD75A; }
+.ws-modal-icon { font-size: 44px; margin-bottom: 8px; }
+.ws-modal-title { font-size: 26px; -unity-font-style: bold; letter-spacing: 6px; color: #EAF7FF; margin-bottom: 20px; }
+.ws-modal-title--gold { color: #FFD75A; }
+/* Solo layout: el fondo y el texto los pone .btn (final del file) */
+.ws-modal-accept { margin-top: 22px; }
+
+/* Cómo jugar: pasos */
+.ws-steps { width: 100%; margin-bottom: 26px; }
+.ws-step { flex-direction: row; align-items: flex-start; margin-top: 10px; }
+.ws-step-num { width: 30px; height: 30px; margin-right: 14px; border-radius: 10px; border-width: 1px; border-color: rgba(255, 215, 90, 0.5); background-color: rgba(255, 215, 90, 0.12); color: #FFD75A; font-size: 15px; -unity-font-style: bold; -unity-text-align: middle-center; flex-shrink: 0; }
+.ws-step-text { flex-grow: 1; color: #C7E4F4; font-size: 16px; white-space: normal; -unity-text-align: middle-left; }
+
+/* Opciones */
+.ws-opt-sub { color: rgba(176, 207, 224, 0.85); font-size: 15px; margin-top: -8px; margin-bottom: 16px; }
+.ws-opt-row { flex-direction: row; align-items: center; width: 100%; min-height: 64px; margin-top: 8px; margin-bottom: 0; padding-left: 16px; padding-right: 12px; padding-top: 10px; padding-bottom: 10px; border-radius: 12px; border-width: 1px; border-color: rgba(190, 230, 255, 0.10); background-color: rgba(255, 255, 255, 0.035); }
+.ws-opt-label { flex-grow: 1; color: #D8F6FF; font-size: 16px; -unity-font-style: bold; letter-spacing: 1px; white-space: normal; }
+/* Grupo de control a la derecha, ancho fijo: todos los bordes derechos quedan alineados */
+.ws-opt-control { width: 196px; flex-shrink: 0; flex-direction: row; align-items: center; justify-content: flex-end; }
+.ws-opt-toggle { width: 104px; height: 44px; padding: 0; border-width: 2px; border-color: rgba(255, 215, 90, 0.4); border-radius: 22px; background-color: rgba(11, 58, 90, 0.9); color: #EAF7FF; font-size: 16px; -unity-font-style: bold; -unity-text-align: middle-center; transition-property: border-color, background-color; transition-duration: 0.15s; }
+.ws-opt-toggle:hover { border-color: #FFD75A; background-color: rgba(16, 74, 112, 0.95); }
+.ws-opt-step { width: 48px; height: 44px; flex-shrink: 0; padding: 0; border-width: 2px; border-color: rgba(255, 215, 90, 0.4); border-radius: 11px; background-color: rgba(11, 58, 90, 0.9); color: #FFD75A; font-size: 24px; -unity-font-style: bold; -unity-text-align: middle-center; transition-property: border-color, background-color; transition-duration: 0.15s; }
+.ws-opt-step:hover { border-color: #FFD75A; background-color: rgba(16, 74, 112, 0.95); }
+.ws-opt-value { width: 76px; flex-shrink: 0; margin-left: 8px; margin-right: 8px; color: #FFD75A; font-size: 18px; -unity-font-style: bold; -unity-text-align: middle-center; }
+.ws-opt-close { margin-top: 22px; }
+
+/* ══ SPRITES (título + botón universal) ═══════════════════════════
+   Los paneles (.ws-buttons, .ws-glass) son USS puro, sin sprite.
+   Ratios de origen (recortados):
+      WS_logo_title      1969x621  ratio 3.171
+      WS_btn_universal   2007x700  ratio 2.867                         */
+
+/* ── Título ─────────────────────────────────────────────────────── */
+/* contain NO recorta (solo deja bandas si sobra caja). Si REALMS sigue sin verse
+   con esto, el problema es el import del sprite (Tight vs FullRect), no el layout. */
+.ws-title-logo {
+    background-image: url("project://database/Assets/_WildSea/Art/UI/logo/WS_logo_title.png");
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    -unity-background-image-tint-color: #FFFFFF;
+    width: 900px;
+    height: 320px;
+    flex-shrink: 0;
+}
+
+/* ── Panel de cristal (modales) ────────────────────────────────────
+   Panel real USS: fondo sólido + borde oro + radio. Sin background-image
+   a propósito — el sprite WS_panel_glass en modo Multiple resolvía a un
+   recorte fantasma de 21x24 estirado (= la mancha amarilla). */
+.ws-glass {
+    background-color: rgba(8, 32, 52, 0.97);
+    border-width: 2px; border-color: rgba(255, 215, 90, 0.85); border-radius: 22px;
+}
+
+/* ── Botón universal ───────────────────────────────────────────────
+   Un sprite para los 4. Estados y variantes = solo tint. */
+.btn {
+    background-image: url("project://database/Assets/_WildSea/Art/UI/btn/WS_btn_universal.png");
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    -unity-background-image-tint-color: #FFFFFF;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    color: #DFF3FF;
+    font-size: 15px;
+    letter-spacing: 2px;
+    margin: 0;
+    opacity: 0; translate: 0 16px;
+    transition-property: opacity, translate, scale, -unity-background-image-tint-color;
+    transition-duration: 0.18s;
+    transition-timing-function: ease-out;
+}
+.ws-root--ready .btn { opacity: 1; translate: 0 0; }
+
+/* Tamaños: el ancho siempre = alto x 2.867 para no deformar la capsula */
+.btn--lg { height: 92px; width: 264px; font-size: 22px; letter-spacing: 4px; }
+.btn--sm { height: 68px; width: 195px; font-size: 14px; letter-spacing: 1px; }
+.btn--md { height: 84px; width: 240px; font-size: 17px; letter-spacing: 2px; }
+
+/* Variantes (tinte).
+   El CTA NO se tiñe de oro a propósito: el relleno del sprite es teal oscuro y
+   multiplicado por #FFD75A da oliva/marrón, con el texto #062033 encima se ve
+   turbio. Se distingue por tamaño (264x92 vs 195x68) y por la línea gold que
+   el sprite ya trae. El rojo sí funciona: teal x #FF9AA6 = rojo limpio. */
+.btn--primary { color: #FFFFFF; font-size: 23px; letter-spacing: 5px; }
+.btn--danger  { -unity-background-image-tint-color: #FF9AA6; color: #4A1A22; }
+
+/* Estados: van DESPUES de las variantes para ganarles la cascada */
+.btn:hover  { -unity-background-image-tint-color: #FFF3C4; scale: 1.02; }
+.btn:active { -unity-background-image-tint-color: #7FA6BC; scale: 0.98; }
+.btn:disabled { -unity-background-image-tint-color: #4A5560; opacity: 0.55; }
+
+.btn--primary:hover { -unity-background-image-tint-color: #FFF3C4; }
+.btn--primary:active { -unity-background-image-tint-color: #7FA6BC; }
+.btn--danger:hover { -unity-background-image-tint-color: #FFC9D0; }
+.btn--danger:active { -unity-background-image-tint-color: #B05765; }

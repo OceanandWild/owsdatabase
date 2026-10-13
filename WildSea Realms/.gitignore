@@ -1,0 +1,48 @@
+# Unity - carpetas generadas, nunca se versionan
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Los .meta SÍ se versionan (sin ellos Unity pierde el GUID de cada asset).
+!/[Aa]ssets/**/*.meta
+
+# Soluciones y proyectos autogenerados por Unity
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Reportes de crash
+sysinfo.txt
+crashlytics-build.properties
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# IDE
+.vs/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db

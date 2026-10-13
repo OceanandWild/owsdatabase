@@ -16,6 +16,10 @@ win-unpacked/
 *.mov
 *.mkv
 *.avi
+
+# Excepcion: video de fondo del Main Menu de WildSea Realms. Es asset de juego,
+# no video de referencia: si queda fuera, el menu se abre sin fondo en un clone.
+!WildSea Realms/Assets/Resources/WS/MainMenu/menu_bg.mp4
 .env
 secrets/
 .agent/

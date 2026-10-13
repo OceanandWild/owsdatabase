@@ -1,0 +1,135 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Style src="MainMenu.uss" />
+    <!-- WILDSEA REALMS - MainMenu v0.4 (solo titulo centrado; sin marca OWS, sin panel de
+     universos, sin botones, sin hint). Estilo: MainMenu.uss, logica: WSMainMenuUI.cs.
+     Names que toca el C#: menu-root, bubble-1..6, toast, modal-*, btn-how-close,
+     btn-options-close, opt-*.
+     Los btn-enter / btn-how / btn-options / btn-quit se quitaron: WSMainMenuUI los
+     busca con Q<Button>() y es null-safe, asi que volver a ponerlos en el UXML los
+     reactiva sin tocar C#. ENTER sigue llevando al Hub desde Update(). -->
+    <ui:VisualElement name="menu-root" class="ws-root" picking-mode="Ignore">
+
+        <!-- Fondo: color + viñeta suave + burbujas -->
+        <ui:VisualElement name="menu-background" class="ws-bg" picking-mode="Ignore">
+            <ui:VisualElement class="ws-vignette" picking-mode="Ignore" />
+            <ui:VisualElement name="bubble-1" class="ws-bubble ws-bubble--1" picking-mode="Ignore" />
+            <ui:VisualElement name="bubble-2" class="ws-bubble ws-bubble--2" picking-mode="Ignore" />
+            <ui:VisualElement name="bubble-3" class="ws-bubble ws-bubble--3" picking-mode="Ignore" />
+            <ui:VisualElement name="bubble-4" class="ws-bubble ws-bubble--4" picking-mode="Ignore" />
+            <ui:VisualElement name="bubble-5" class="ws-bubble ws-bubble--5" picking-mode="Ignore" />
+            <ui:VisualElement name="bubble-6" class="ws-bubble ws-bubble--6" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+        <!-- Barra superior: solo version (marca OWS eliminada) -->
+        <ui:VisualElement name="menu-topbar" class="ws-topbar" picking-mode="Ignore">
+            <ui:Label name="version" text="v0.2 · Fase Menús" class="ws-version" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+        <!-- Núcleo: título a la izquierda + panel vertical de botones a la derecha -->
+        <ui:VisualElement name="menu-main" class="ws-main" picking-mode="Ignore">
+            <ui:VisualElement class="ws-hero" picking-mode="Ignore">
+                <ui:VisualElement name="title-block" class="ws-titleblock" picking-mode="Ignore">
+                    <ui:VisualElement name="title-logo" class="ws-title-logo" picking-mode="Ignore" />
+                    <ui:Label name="subtitle" text="Cada universo juega distinto." class="ws-subtitle" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Derecha: panel vertical con los 4 botones apilados (layout referencia) -->
+            <ui:VisualElement name="menu-buttons" class="ws-buttons">
+                <ui:Button name="btn-enter" text="▸  ENTRAR" class="btn btn--md btn--primary" />
+                <ui:Button name="btn-how" text="CÓMO JUGAR" class="btn btn--md" />
+                <ui:Button name="btn-options" text="OPCIONES" class="btn btn--md" />
+                <ui:Button name="btn-quit" text="SALIR" class="btn btn--md btn--danger" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Pie: toast + atajos de teclado (hint "Un mazo..." eliminado) -->
+        <ui:VisualElement name="menu-footer" class="ws-footer" picking-mode="Ignore">
+            <ui:VisualElement class="ws-toast-slot" picking-mode="Ignore">
+                <ui:Label name="toast" text="" class="ws-toast" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="ws-footer-row" picking-mode="Ignore">
+                <ui:VisualElement class="ws-keys" picking-mode="Ignore">
+                    <ui:VisualElement class="ws-keyhint" picking-mode="Ignore">
+                        <ui:Label text="ENTER" class="ws-key" picking-mode="Ignore" />
+                        <ui:Label text="Jugar" class="ws-key-label" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="ws-keyhint ws-keyhint--last" picking-mode="Ignore">
+                        <ui:Label text="ESC" class="ws-key" picking-mode="Ignore" />
+                        <ui:Label text="Cerrar" class="ws-key-label" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Modales -->
+        <ui:VisualElement name="modal-overlay" class="ws-modal-overlay" picking-mode="Position" style="display: none;">
+            <ui:VisualElement name="modal-how-card" class="ws-modal-card ws-glass">
+                <ui:VisualElement class="ws-modal-accent" picking-mode="Ignore" />
+                <ui:Label text="🧭" class="ws-modal-icon" picking-mode="Ignore" />
+                <ui:Label text="CÓMO JUGAR" class="ws-modal-title" picking-mode="Ignore" />
+                <ui:VisualElement name="modal-how-body" class="ws-steps" picking-mode="Ignore">
+                    <ui:VisualElement class="ws-step" picking-mode="Ignore">
+                        <ui:Label text="1" class="ws-step-num" picking-mode="Ignore" />
+                        <ui:Label text="Pulsa ENTRAR y elige tu universo." class="ws-step-text" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="ws-step" picking-mode="Ignore">
+                        <ui:Label text="2" class="ws-step-num" picking-mode="Ignore" />
+                        <ui:Label text="Cada universo tiene sus modos y sus propias cartas." class="ws-step-text" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="ws-step" picking-mode="Ignore">
+                        <ui:Label text="3" class="ws-step-num" picking-mode="Ignore" />
+                        <ui:Label text="ESPACIO: Estrella gana el primero en obtener 1 Estrella. Galaxia gana el primero en completar 1 Galaxia." class="ws-step-text" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="ws-step" picking-mode="Ignore">
+                        <ui:Label text="4" class="ws-step-num" picking-mode="Ignore" />
+                        <ui:Label text="Duelos y más universos llegan en las Fases 2 y 3." class="ws-step-text" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Button name="btn-how-close" text="ENTENDIDO" class="btn btn--lg btn--primary ws-modal-accept" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="modal-options-card" class="ws-modal-card ws-glass" style="display: none;">
+                <ui:VisualElement class="ws-modal-accent" picking-mode="Ignore" />
+                <ui:Label text="⚙️" class="ws-modal-icon" picking-mode="Ignore" />
+                <ui:Label text="OPCIONES" class="ws-modal-title ws-modal-title--gold" picking-mode="Ignore" />
+                <ui:Label text="Los cambios se guardan solos." class="ws-opt-sub" picking-mode="Ignore" />
+                <ui:VisualElement class="ws-opt-row" picking-mode="Ignore">
+                    <ui:Label text="🌐 IDIOMA" class="ws-opt-label" picking-mode="Ignore" />
+                    <ui:VisualElement class="ws-opt-control" picking-mode="Ignore">
+                        <ui:Button name="opt-lang" text="ES" class="ws-opt-toggle" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="ws-opt-row" picking-mode="Ignore">
+                    <ui:Label text="🎵 MÚSICA" class="ws-opt-label" picking-mode="Ignore" />
+                    <ui:VisualElement class="ws-opt-control" picking-mode="Ignore">
+                        <ui:Button name="opt-music-minus" text="-" class="ws-opt-step" />
+                        <ui:Label name="opt-music-value" text="70%" class="ws-opt-value" picking-mode="Ignore" />
+                        <ui:Button name="opt-music-plus" text="+" class="ws-opt-step" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="ws-opt-row" picking-mode="Ignore">
+                    <ui:Label text="🔊 EFECTOS" class="ws-opt-label" picking-mode="Ignore" />
+                    <ui:VisualElement class="ws-opt-control" picking-mode="Ignore">
+                        <ui:Button name="opt-sfx-minus" text="-" class="ws-opt-step" />
+                        <ui:Label name="opt-sfx-value" text="100%" class="ws-opt-value" picking-mode="Ignore" />
+                        <ui:Button name="opt-sfx-plus" text="+" class="ws-opt-step" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="ws-opt-row" picking-mode="Ignore">
+                    <ui:Label text="⛶ PANTALLA COMPLETA" class="ws-opt-label" picking-mode="Ignore" />
+                    <ui:VisualElement class="ws-opt-control" picking-mode="Ignore">
+                        <ui:Button name="opt-fullscreen" text="SÍ" class="ws-opt-toggle" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="ws-opt-row" picking-mode="Ignore">
+                    <ui:Label text="✨ REDUCIR DESTELLOS" class="ws-opt-label" picking-mode="Ignore" />
+                    <ui:VisualElement class="ws-opt-control" picking-mode="Ignore">
+                        <ui:Button name="opt-flash" text="NO" class="ws-opt-toggle" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Button name="btn-options-close" text="CERRAR" class="btn btn--lg btn--primary ws-modal-accept" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

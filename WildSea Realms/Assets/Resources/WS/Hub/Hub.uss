@@ -1,0 +1,108 @@
+/* WILDSEA REALMS - Hub minimalista: 4 cards a pantalla completa + Volver abajo.
+   Cada card es una pila de capas: fondo del Universo > tinte > grano >
+   borde de acento > contenido. El fondo y el borde los colorea
+   WSUniverseHubUI.cs desde UniverseDef; el grano es una pieza de Art/UI. */
+
+/* ---------------------------------------------------------------- raíz
+   El padding-bottom reserva la franja del footer, que va absoluto abajo. */
+.hub-root {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    flex-direction: column; overflow: hidden;
+    padding-left: 30px; padding-right: 30px; padding-top: 26px; padding-bottom: 110px;
+    opacity: 0; transition-property: opacity; transition-duration: 0.35s;
+}
+.hub-root--ready { opacity: 1; }
+
+/* Fondo del Hub: va ~85% tapado por las cards, así que es oscuro y sin foco.
+   Solo se ve en los gutters y las franjas de arriba y abajo. */
+.hub-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #04101F; background-image: url("project://database/Assets/_WildSea/Art/UI/bg/WS_bg_hub_deep.jpg"); background-size: cover; background-position: center; background-repeat: no-repeat; transition-property: background-color; transition-duration: 0.4s; }
+/* Tinte del Universo activo: capa propia para que la imagen siga viéndose
+   por debajo cuando el código cambia el color (hover / selección). */
+.hub-tint { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0); transition-property: background-color; transition-duration: 0.4s; }
+.hub-vignette { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgba(2, 8, 18, 0.35); }
+
+/* ---------------------------------------------------------------- fila de cards
+   flex-grow + max-width: se reparten el ancho y ocupan todo el alto libre. */
+.hub-cards { flex-direction: row; align-items: stretch; justify-content: center; flex-grow: 1; width: 100%; min-height: 0; }
+
+/* ---------------------------------------------------------------- card
+   SIN marco de arte encima: WS_panel_universe_card.png es opaco y tapaba el
+   fondo entero. La decoración es fondo + tinte + grano + borde de acento. */
+.uni-card {
+    position: relative; flex-grow: 1; flex-shrink: 1; flex-basis: 0;
+    max-width: 460px; margin-left: 9px; margin-right: 9px;
+    border-radius: 24px; overflow: hidden;
+    opacity: 0; translate: 0 28px; scale: 0.97;
+    transition-property: opacity, translate, scale; transition-duration: 0.32s;
+    transition-timing-function: ease-out;
+}
+.hub-root--ready .uni-card { opacity: 1; translate: 0 0; scale: 1; }
+.uni-card--d1 { transition-delay: 0.06s; }
+.uni-card--d2 { transition-delay: 0.12s; }
+.uni-card--d3 { transition-delay: 0.18s; }
+.uni-card--d4 { transition-delay: 0.24s; }
+.uni-card:hover { scale: 1.025; }
+.uni-card.uni-card--selected { scale: 1.035; }
+
+/* Fondo propio del Universo: la clase sale de UniverseDef.id.
+   Verticales (1536x2752, 1:1.79) para calzar con la card (~1:2): el recorte de
+   `cover` queda en ~12% de los lados, no en el 67% que había con los apaisados. */
+.uni-card-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-size: cover; background-position: center; }
+.uni-card--space  .uni-card-bg { background-image: url("project://database/Assets/_WildSea/Art/UI/bg/WS_bg_card_space.jpg"); }
+.uni-card--abyss  .uni-card-bg { background-image: url("project://database/Assets/_WildSea/Art/UI/bg/WS_bg_card_abyss.jpg"); }
+.uni-card--jungle .uni-card-bg { background-image: url("project://database/Assets/_WildSea/Art/UI/bg/WS_bg_card_jungle.jpg"); }
+.uni-card--teased .uni-card-bg { background-image: url("project://database/Assets/_WildSea/Art/UI/bg/WS_bg_card_teased.jpg"); }
+
+.uni-card-tint     { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgba(3, 12, 24, 0.30); }
+.uni-card-grain    { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0.07; background-image: url("project://database/Assets/_WildSea/Art/UI/bg/WS_overlay_grain.png"); background-size: 256px 256px; }
+
+/* Borde de acento: el color lo inyecta el código (UniverseDef.accentColor). */
+.uni-card-glow { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 24px; border-width: 2px; }
+.uni-card.uni-card--selected .uni-card-glow { border-width: 4px; }
+
+/* Estados apagados: mismo esqueleto, sin robarle foco al Universo activo. */
+.uni-card--locked .uni-card-bg  { opacity: 0.30; }
+.uni-card--locked .uni-card-tint { background-color: rgba(5, 11, 20, 0.74); }
+.uni-card--locked .uni-card-glow { opacity: 0.55; }
+.uni-card--locked .uni-icon      { opacity: 0.45; }
+.uni-card--locked .uni-name      { color: #9DB0C4; }
+.uni-card--teased .uni-card-bg   { opacity: 0.42; }
+.uni-card--teased .uni-card-tint  { background-color: rgba(7, 9, 20, 0.62); }
+.uni-card--teased .uni-card-glow  { opacity: 0.65; }
+
+/* ---------------------------------------------------------------- contenido de la card */
+.uni-card-body { flex-grow: 1; width: 100%; align-items: center; justify-content: center; padding-left: 18px; padding-right: 18px; padding-bottom: 14px; }
+.uni-icon { font-size: 96px; margin-bottom: 18px; text-shadow: 0px 4px 14px rgba(0, 0, 0, 0.9); }
+.uni-name { font-size: 30px; -unity-font-style: bold; letter-spacing: 4px; color: #FFFFFF; text-shadow: 0px 3px 12px rgba(0, 0, 0, 0.95); }
+.uni-rule { width: 74px; height: 2px; margin-top: 12px; margin-bottom: 12px; background-color: rgba(255, 255, 255, 0.38); }
+.uni-tag { font-size: 16px; color: rgba(238, 249, 255, 0.88); -unity-text-align: middle-center; white-space: normal; text-shadow: 0px 2px 8px rgba(0, 0, 0, 0.9); }
+.uni-badges { font-size: 13px; color: #FFD75A; margin-top: 14px; letter-spacing: 1px; -unity-text-align: middle-center; white-space: normal; text-shadow: 0px 2px 8px rgba(0, 0, 0, 0.9); }
+.uni-state { margin-top: 16px; padding-left: 18px; padding-right: 18px; padding-top: 7px; padding-bottom: 7px; border-radius: 10px; font-size: 14px; -unity-font-style: bold; letter-spacing: 2px; }
+.uni-state--active { background-color: #1B7A3D; color: #FFFFFF; }
+.uni-state--locked { background-color: rgba(120, 130, 145, 0.35); color: #D5DEE7; }
+.uni-state--soon { background-color: rgba(90, 70, 160, 0.4); color: #DCD2FF; }
+
+/* ---------------------------------------------------------------- volver
+   Solo el icono, sin contenedor: sin fondo, sin borde, sin texto. Es un PNG
+   blanco puro con alfa, así el tinte de USS da el color exacto (hover dorado).
+   Va absoluto abajo con su alto reservado en el padding de la raíz. */
+.hub-footer {
+    position: absolute; left: 0; right: 0; bottom: 24px; height: 64px;
+    flex-direction: row; align-items: center; justify-content: center;
+}
+.hub-back {
+    width: 64px; height: 64px; padding-left: 0; padding-right: 0;
+    background-image: url("project://database/Assets/_WildSea/Art/UI/icon/WS_icon_chevron_left.png");
+    background-size: 100% 100%; background-position: center; background-repeat: no-repeat;
+    background-color: rgba(0, 0, 0, 0); border-width: 0; border-radius: 0;
+    -unity-background-image-tint-color: rgba(210, 234, 248, 0.80);
+    transition-property: scale; transition-duration: 0.18s; transition-timing-function: ease-out;
+}
+.hub-back:hover { scale: 1.15; -unity-background-image-tint-color: #FFD75A; }
+.hub-back:active { scale: 0.92; }
+.hub-back:focus { border-width: 0; }
+
+/* ---------------------------------------------------------------- toast
+   Fuera del flujo: solo aparece al pulsar una card bloqueada. */
+.hub-toast { position: absolute; left: 0; right: 0; bottom: 104px; padding-left: 22px; padding-right: 22px; padding-top: 8px; padding-bottom: 8px; border-radius: 10px; background-color: #FFB648; color: #062033; font-size: 15px; -unity-font-style: bold; letter-spacing: 2px; -unity-text-align: middle-center; opacity: 0; translate: 0 8px; transition-property: opacity, translate; transition-duration: 0.25s; }
+.hub-toast--visible { opacity: 1; translate: 0 0; }

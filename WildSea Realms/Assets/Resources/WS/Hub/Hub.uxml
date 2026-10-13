@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Style src="Hub.uss" />
+    <!-- WILDSEA REALMS - Hub minimalista. Solo: fondo, 4 cards a pantalla completa
+         y el botón Volver abajo. Las cards las genera WSUniverseHubUI.cs desde
+         UniverseCatalog; cada una monta su fondo y decoración en capas. -->
+    <ui:VisualElement name="hub-root" class="hub-root" picking-mode="Ignore">
+        <ui:VisualElement name="hub-background" class="hub-bg" picking-mode="Ignore">
+            <ui:VisualElement name="hub-tint" class="hub-tint" picking-mode="Ignore" />
+            <ui:VisualElement class="hub-vignette" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="hub-cards" class="hub-cards" picking-mode="Ignore" />
+        <ui:VisualElement name="hub-footer" class="hub-footer">
+            <ui:Button name="btn-back" text="" class="hub-back" />
+        </ui:VisualElement>
+        <ui:Label name="hub-toast" text="" class="hub-toast" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

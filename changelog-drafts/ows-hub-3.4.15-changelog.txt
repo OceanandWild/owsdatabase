@@ -1,0 +1,27 @@
+OWS Hub 3.4.15 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.15
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-13
+
+Cambios:
+- Actualizar el Hub ya no falla al toque con un error de tiempo agotado. Cuando GitHub tardaba en responder, la comprobación se rendía a los 15 segundos y la descarga ni siquiera llegaba a empezar.
+- La causa era el tiempo de espera, no el updater: la comprobación Give up antes de que GitHub contestara. Ahora espera bastante más y reintenta sola hasta tres veces.
+- Se distingue entre un problema de conexión y un error de verdad: si al Hub no le llega el actualizador, eso se dice una sola vez en lugar de tres.
+- La descarga ya no se interrumpe a los 15 minutos. Si sigue avanzando, termina; el corte solo se activa cuando se queda quieta durante un buen rato.
+- El aviso de descarga ahora muestra la velocidad y cuánto falta, para poder distinguir una descarga lenta de una que se quedó colgada.
+- Cuando la descarga falla por la red, el mensaje lo explica de forma clara en vez de mostrar un error técnico.
+
+=== ENGLISH ===
+Version: 3.4.15
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-13
+
+Changes:
+- Updating the Hub no longer fails right away with a timeout error. When GitHub was slow to respond, the check gave up after 15 seconds and the download never even started.
+- The cause was the wait time, not the updater: the check quit before GitHub answered. It now waits considerably longer and retries on its own up to three times.
+- Network trouble is now told apart from a real error: if the updater is genuinely missing from the Hub, that is reported once instead of three times.
+- The download is no longer cut off at 15 minutes. If it keeps moving, it finishes; the cut only triggers if it stays still for a good while.
+- The download notice now shows the speed and how much is left, so a slow download can be told apart from one that has stalled.
+- When the download fails because of the network, the message explains it clearly instead of showing a technical error.

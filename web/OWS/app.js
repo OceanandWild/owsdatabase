@@ -5305,8 +5305,10 @@ function tauriUpdaterCheck(opts) {
       // El chequeo pega al CDN de GitHub (latest.json). Con 8 s una red lenta o
       // un cache frio daba timeout y el probe volvia null: el Hub_thenesia
       // "no trae el actualizador" y empujaba al instalador manual aunque el
-      // updater estivesseperfecto.
-      const upd = await tauriInvoke('plugin:updater|check', {}, 20000);
+      // updater estivesseperfecto. Con 20 s seguiaimming dejando pasar los
+      //UNE stalls de GitHub, así que ahora usa el mismo check con reintentos
+      // que el botón de actualizar (45 s x 3).
+      const upd = await hubUpdaterCheckFresh();
       if (!upd || typeof upd !== 'object') return null;
       return {
         // Sin version no se puede afirmar que haya update: una comparacion
@@ -5373,7 +5375,7 @@ function installedMapParam() {
 // timeouts largos: la descarga del instalador puede tardar minutos).
 // OJO: Tauri v2 convierte los argumentos a camelCase, así que las claves
 // van en camelCase (rid, onEvent, updateRid, bytesRid, restartAfterInstall).
-function tauriUpdaterCall(cmd, args, timeoutMs) {
+function tauriInvokeRaw(cmd, args) {
   const core = window.__TAURI__ && window.__TAURI__.core;
   const invoke = core && typeof core.invoke === 'function'
     ? core.invoke
@@ -5381,10 +5383,13 @@ function tauriUpdaterCall(cmd, args, timeoutMs) {
         ? window.__TAURI_INTERNALS__.invoke.bind(window.__TAURI_INTERNALS__)
         : null);
   if (!invoke) return Promise.reject(new Error('WebView sin puente de Tauri'));
+  return Promise.resolve().then(() => invoke(cmd, args || {}));
+}
+
+function tauriUpdaterCall(cmd, args, timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('timeout')), Number(timeoutMs) || 15000);
-    Promise.resolve()
-      .then(() => invoke(cmd, args || {}))
+    tauriInvokeRaw(cmd, args)
       .then((v) => { clearTimeout(timer); resolve(v); })
       .catch((e) => { clearTimeout(timer); reject(e); });
   });
@@ -6196,6 +6201,13 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.15': [
+    'Actualizar el Hub ya no falla con un "timeout" al toque. Cuando GitHub tardaba en responder, la comprobación se agotaba a los 15 segundos y el Hub se rindía sin descargar nada.',
+    'La comprobación ahora espera bastante más y reintenta sola hasta tres veces, distinguiendo los problemas de conexión de los errores de verdad.',
+    'La descarga ya no se corta a los 15 minutos: si sigue avanzando, termina. El corte solo se activa si se queda quieta un rato largo.',
+    'El aviso de descarga muestra velocidad y cuánto falta, así se distingue una descarga lenta de una que se colgó.',
+    'Cuando la descarga falla por la red, el mensaje lo dice claro en vez de mostrar un error técnico.',
+  ],
   '3.4.14': [
     'Lanzamientos ya muestra el tráiler del juego destacado, arriba de la ficha, sin salir del Hub.',
     'El tráiler sale de la cartelera solo: desaparece a las 00:00 del día del lanzamiento, sin que nadie tenga que despublicarlo.',
@@ -6478,6 +6490,44 @@ function openHubUpdateFailedModal(target, current) {
   modal.classList.remove('hidden');
 }
 
+// ── Check del updater con reintentos ────────────────────────────
+// Medido contra github.com: resolver releases/latest/download/latest.json
+// falla ~25% de las veces (se queda colgado 20-45 s sin entregar el primer
+// byte) y los que salen bien llegan hasta 14,5 s. Con el timeout de 15 s el
+// botón moría con "timeout" sin llegar a descargar nada. Ahora cada intento
+// tiene 45 s y se reintenta: el chequeo es barato y suele pasar al segundo.
+// OJO: no se reusa el probe memoizado de tauriUpdaterCheck porque el `rid`
+// que devuelve `plugin:updater|check` es un recurso de esta sesión y tiene
+// que ser fresco.
+const HUB_CHECK_TIMEOUT_MS = 45 * 1000;
+const HUB_CHECK_ATTEMPTS = 3;
+
+// Solo se reintenta lo que es claramente la red: si el Hub no trae el plugin
+// updater, o no hay nada que actualizar, repetir no cambia nada.
+function hubCheckIsRetryable(err) {
+  const msg = String((err && err.message) || err || '').toLowerCase();
+  return /timeout|timed out|network|connect|econn|eai|dns|aborted|socket|reset|error sending request/.test(msg);
+}
+
+async function hubUpdaterCheckFresh() {
+  let last = null;
+  for (let i = 1; i <= HUB_CHECK_ATTEMPTS; i += 1) {
+    try {
+      // Llamada directa, sin pasar por el memo: es justamente un check fresco.
+      return await tauriUpdaterCall('plugin:updater|check', {}, HUB_CHECK_TIMEOUT_MS);
+    } catch (err) {
+      last = err;
+      if (!hubCheckIsRetryable(err)) throw err;
+      if (i < HUB_CHECK_ATTEMPTS) {
+        // Espera corta y creciente: si el primer salto fue un cold start de
+        // TLS contra GitHub, el segundo ya entra caliente.
+        await new Promise((r) => setTimeout(r, 800 * i));
+      }
+    }
+  }
+  throw last || new Error('timeout');
+}
+
 // ── Flujo completo ──────────────────────────────────────────────
 async function runHubSelfUpdate(btn) {
   if (owsEnvironment() !== 'desktop') {
@@ -6487,14 +6537,17 @@ async function runHubSelfUpdate(btn) {
   if (hubUpdateBusy) { showToast('Ya hay una actualización del Hub en curso.'); return; }
   hubUpdateBusy = true;
   if (btn) btn.disabled = true;
+  // Vive acá y no dentro del try porque el catch lo necesita para nombrar la
+  // versión que no se pudo bajar (si el check falló, queda vacío).
+  let version = '';
 
   try {
-    // 1) Check fresco: el rid tiene que ser el de esta sesión.
-    const upd = await tauriUpdaterCall('plugin:updater|check', {}, 15000);
+    // 1) Check fresco (con reintentos): el rid tiene que ser el de esta sesión.
+    const upd = await hubUpdaterCheckFresh();
     if (!upd || typeof upd !== 'object' || upd.rid === undefined || upd.rid === null) {
       throw new Error('no hay actualizaciones disponibles');
     }
-    const version = String(upd.version || '').replace(/^[vV]/, '');
+    version = String(upd.version || '').replace(/^[vV]/, '');
     if (!version || version === String(upd.currentVersion || '').replace(/^[vV]/, '')) {
       throw new Error('ya estás en la última versión');
     }
@@ -6503,31 +6556,102 @@ async function runHubSelfUpdate(btn) {
     hubUpdToastShow(version);
     let total = 0;
     let done = 0;
+    let speed = 0;           // bytes/s (media móvil, para el texto del toaster)
+    let lastTick = 0;
+    let lastBytes = 0;
+    let lastPaint = 0;
+    let lastProgressAt = Date.now();
     const ch = tauriMakeChannel();
     if (!ch) throw new Error('WebView sin canal de Tauri (reabrí el Hub)');
+
+    // El progreso llega chunk por chunk: pintar en cada evento golpea el DOM
+    // sin necesidad. Con red lenta lo que importa es que se lea "va lento,
+    // faltan N min", no un número que cambia cientos de veces por segundo.
+    // OJO: .dl-toast-info es nowrap con ellipsis, así que todo tiene que
+    // entrar en el ancho del sidebar — de ahí la ETA corta ("~24 min") y la
+    // unidad una sola vez ("1,3 / 10,7 MB").
+    const hubProgressInfo = (pct) => {
+      const bits = [];
+      if (total > 0) {
+        const got = formatMB(done).replace(/\s+[KMG]B$/, '');
+        bits.push(`${Math.round(pct)}% · ${got} / ${formatMB(total)}`);
+      } else {
+        bits.push(`${formatMB(done)} descargados`);
+      }
+      const sp = formatSpeed(speed);
+      if (sp) bits.push(sp);
+      const secs = (total > 0 && speed > 0 && done < total)
+        ? Math.round((total - done) / speed)
+        : 0;
+      if (secs > 0) {
+        const mins = Math.round(secs / 60);
+        bits.push(mins >= 1 ? `~${mins} min` : `~${secs} s`);
+      }
+      // Por debajo de ~30 KB/s la ETA puede ser media hora o más: decirlo
+      // evita que el usuario lea "0%" como una descarga colgada.
+      if (speed > 0 && speed < 30 * 1024) bits.push('lento');
+      return bits.join(' · ');
+    };
+
     ch.onmessage = (msg) => {
       try {
         const ev = (msg && msg.event) || '';
         const data = (msg && msg.data) || {};
+        const now = Date.now();
         if (ev === 'Started') {
           total = Number(data.contentLength || 0) || 0;
           done = 0;
+          speed = 0;
+          lastTick = now;
+          lastBytes = 0;
+          lastPaint = 0;
+          lastProgressAt = now;
           hubUpdToastPatch(0, total > 0 ? `0 MB / ${formatMB(total)}` : 'Conectando…', false);
         } else if (ev === 'Progress') {
           done += Number(data.chunkLength || 0) || 0;
+          lastProgressAt = now;
+          // Media móvil con ventana de 1,5 s: el número sigue el alugeo real
+          // en vez del promedio desde cero (que tarda minutos en arrancar).
+          const dt = (now - lastTick) / 1000;
+          if (dt >= 1.5) {
+            const inst = (done - lastBytes) / dt;
+            speed = speed > 0 ? (speed * 0.6 + inst * 0.4) : inst;
+            lastTick = now;
+            lastBytes = done;
+          }
+          if (now - lastPaint < 400) return;
+          lastPaint = now;
           const pct = total > 0 ? (done / total) * 100 : 0;
-          const info = total > 0
-            ? `${Math.round(pct)}% · ${formatMB(done)} / ${formatMB(total)}`
-            : `${formatMB(done)} descargados`;
-          hubUpdToastPatch(pct, info, false);
+          hubUpdToastPatch(pct, hubProgressInfo(pct), false);
         } else if (ev === 'Finished') {
-          hubUpdToastPatch(100, '100% · descargado', true);
+          lastProgressAt = Date.now();
+          hubUpdToastPatch(100, '100% · verificado ✓', true);
         }
       } catch (_) {}
     };
 
     // 3) Descargar (no instala todavía: el reinicio es un paso aparte).
-    const bytesRid = await tauriUpdaterCall('plugin:updater|download', { rid: upd.rid, onEvent: ch }, 15 * 60 * 1000);
+    //    El timeout fijo de 15 min mataba descargas legítimas en redes lentas
+    //    (11,2 MB a 7 KB/s son ~25 min). Ahora es un watchdog de estancamiento
+    //    —se rearma con cada chunk— más un tope absoluto amplio: si sigue
+    //    avanzando, el timeout no lo toca.
+    const HUB_DL_STALL_MS = 90 * 1000;
+    const HUB_DL_MAX_MS = 90 * 60 * 1000;
+    const dlStarted = Date.now();
+    const bytesRid = await new Promise((resolve, reject) => {
+      const fail = () => {
+        clearInterval(guard);
+        reject(new Error('timeout'));
+      };
+      const guard = setInterval(() => {
+        const t = Date.now();
+        if (t - dlStarted > HUB_DL_MAX_MS) fail();
+        else if (t - lastProgressAt > HUB_DL_STALL_MS) fail();
+      }, 5000);
+      tauriInvokeRaw('plugin:updater|download', { rid: upd.rid, onEvent: ch })
+        .then((v) => { clearInterval(guard); resolve(v); })
+        .catch((e) => { clearInterval(guard); reject(e); });
+    });
     hubUpdToastPatch(100, '100% · verificado ✓', true);
 
     // 4) Las novedades se guardan ahora: el reinicio borra la memoria.
@@ -6550,7 +6674,15 @@ async function runHubSelfUpdate(btn) {
   } catch (err) {
     hubUpdToastHide();
     const msg = String((err && err.message) || err);
-    showToast('No se pudo actualizar el Hub: ' + msg);
+    if (/timeout|timed out/i.test(msg)) {
+      // GitHub se cuelga de forma intermitente: esto no es que el updater esté
+      // roto ni que falte la v3.4.14. Decirlo así evita que el usuario vaya a
+      // buscar el problema en otro lado.
+      showToast('No se pudo contactar con GitHub' + (version ? ` para bajar la v${version}` : '') +
+        '. Tu internet puede estar bien: es que sus servidores responden lento. Probá de nuevo en un rato.');
+    } else {
+      showToast('No se pudo actualizar el Hub: ' + msg);
+    }
     hubUpdateBusy = false;
     renderHubUpdateCard();
   }

@@ -6196,6 +6196,12 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.14': [
+    'Lanzamientos ya muestra el tráiler del juego destacado, arriba de la ficha, sin salir del Hub.',
+    'El tráiler sale de la cartelera solo: desaparece a las 00:00 del día del lanzamiento, sin que nadie tenga que despublicarlo.',
+    'Un juego con tráiler en cartelera se lleva la ficha destacada mientras todavía no salió.',
+    'El video no se carga hasta que tocás el play: el Hub sigue arrancando igual de rápido.',
+  ],
   '3.4.13': [
     'Las fechas de lanzamiento ya se muestran en el día correcto: si cargabas el 15 de octubre en el Admin, el Hub mostraba el 14.',
     'Se toma solo la parte de la fecha, sin la hora, así que coincide con lo que cargaste.',

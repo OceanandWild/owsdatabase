@@ -14847,6 +14847,23 @@ function normalizeProjectCreatedAt(v) {
   return { value: d.toISOString() };
 }
 
+// Las columnas DATE (expected_date / confirmed_date) vuelven de node-pg como
+// Date de medianoche UTC. Si se dejan como Date y se pasan con String(), al
+// cliente le llega "Thu Oct 15 2026 00:00:00 GMT+0000 (...)": el front no la
+// reconoce como fecha y la parsea como UTC, con lo cual en hora local (UTC-3)
+// el trailer se apagaría el 14 a las 21:00. Se normaliza a YYYY-MM-DD, que es
+// lo que parseDateValue del front arma en hora local del dia correcto.
+function toPlainDateString(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'string') {
+    const s = v.trim();
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+  }
+  const d = (v instanceof Date) ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
 function mapOwsLaunchProjectRow(row, latestRelease) {
   const adminOnly = row.admin_only === true || String(row.admin_only || '').toLowerCase() === 'true' || Number(row.admin_only) === 1;
   // Permanencia del estado: true = permanente, false = temporal, null = no aplica
@@ -14905,6 +14922,18 @@ function mapOwsLaunchProjectRow(row, latestRelease) {
     // ── Instalador directo (OWS Hub): descarga sin salir del Hub ──
     installer_url: String(_itch.installer_url || '').trim(),
     installerUrl: String(_itch.installer_url || '').trim(),
+    // ── Tráiler destacado (OWS Hub) ──
+    // Vive en metadata (jsonb libre, se setea por PATCH). El Hub lo muestra
+    // como destacado y lo apaga solo cuando se cumple trailer_until.
+    // Si trailer_until no esta escrito cae a la fecha de lanzamiento
+    // (confirmada > esperada) para que el disappearing sea siempre el del
+    // lanzamiento y no una fecha cargada a mano que se desincroniza.
+    trailer_url: String(_meta.trailer_url || '').trim(),
+    trailerUrl: String(_meta.trailer_url || '').trim(),
+    trailer_title: String(_meta.trailer_title || '').trim(),
+    trailerTitle: String(_meta.trailer_title || '').trim(),
+    trailer_until: toPlainDateString(_meta.trailer_until || row.confirmed_date || row.expected_date),
+    trailerUntil: toPlainDateString(_meta.trailer_until || row.confirmed_date || row.expected_date),
     // ── Release oficial (tabla ows_project_releases): manda sobre itch ──
     // has_release = hay build descargable; sin release el Hub NO ofrece
     // descarga y el modal muestra el estado del proyecto en su lugar.
@@ -15120,27 +15149,95 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
 // Orden: (1) installer_url manual (redirect), (2) itch API con
 // ITCH_API_KEY (stream autenticado, la key nunca sale del servidor),
 // (3) fallback: redirect a la página de itch.io.
-// Uploads fijados de itch.io (canales de butler): la API de uploads solo
-// lista los clásicos (subidos por dashboard), así que los builds de canal se
-// direccionan por ID (el ID del canal es estable entre pushes; lo que cambia
-// es el build). /uploads/{id}/download los sirve igual (302 al CDN).
+// Uploads fijados de itch.io (canales de butler): el archivo que sube el canal
+// se llama siempre igual ("wilder-gambit-windows.zip"), sin version en el
+// nombre, asi que la resolucion por nombre no puede distinguir un build viejo de
+// uno nuevo y /uploads/{id}/download seguiria sirviendo el viejo para siempre.
+//
+// El pin declara a que version pertenece. Si la release oficial del proyecto ya
+// es mas nueva que el pin, el pin se ignora y se resuelve por la API (que busca
+// el archivo con la version en el nombre). Asi un pin viejo nunca bloquea un
+// build recien publicado: se auto-repara solo.
 const ITCH_PINNED_UPLOADS = {
   'wilder-gambit': {
-    windows: { id: 19612126, file: 'Wilder-Gambit-v1.0.1-Windows.zip', size: 472621971, kind: 'zip' },
-    android: { id: 19612049, file: 'wilder-gambit-v1.0.0-android.apk', size: 662547989, kind: 'apk' }
+    windows: { id: 19612126, version: '1.0.1', file: 'Wilder-Gambit-v1.0.1-Windows.zip', size: 472621971, kind: 'zip' },
+    android: { id: 19612049, version: '1.0.0', file: 'wilder-gambit-v1.0.0-android.apk', size: 662547989, kind: 'apk' }
   }
 };
-function itchPinnedUpload(slug, kind) {
+
+// "v1.0.2" / "1.0.2" / "1.0.2-beta1" -> "1.0.2-beta1" (para comparar)
+function normalizeVersionTag(v) {
+  return String(v == null ? '' : v).trim().toLowerCase().replace(/^v/, '');
+}
+
+// Compara por segmentos: true si `a` es estrictamente mas nueva que `b`.
+// Un tramo no numerico (beta, rc) pesa menos que el numero de al lado, asi que
+// 1.0.2 > 1.0.2-beta1.
+function versionIsNewerThan(a, b) {
+  const ta = normalizeVersionTag(a);
+  const tb = normalizeVersionTag(b);
+  if (!ta || !tb) return false;
+  const pa = ta.split(/[.\-+_]/);
+  const pb = tb.split(/[.\-+_]/);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    // Si una se acaba antes que la otra, esa es la version final y la que sigue
+    // trae un sufijo de pre-release: 1.0.2 > 1.0.2-beta1.
+    if (pa[i] === undefined) return true;
+    if (pb[i] === undefined) return false;
+    const na = parseInt(pa[i], 10);
+    const nb = parseInt(pb[i], 10);
+    const va = Number.isNaN(na) ? -1 : na;
+    const vb = Number.isNaN(nb) ? -1 : nb;
+    if (va !== vb) return va > vb;
+  }
+  return false;
+}
+
+function itchPinnedUpload(slug, kind, preferVersion = '') {
   const s = String(slug || '').trim().toLowerCase();
   const k = String(kind || '').trim().toLowerCase() === 'android' ? 'android' : 'windows';
   const p = (ITCH_PINNED_UPLOADS[s] || {})[k];
-  return (p && Number(p.id) > 0) ? p : null;
+  if (!p || !(Number(p.id) > 0)) return null;
+  // Hay una release oficial mas nueva que lo que este pin apunta: no fijar.
+  if (p.version && versionIsNewerThan(preferVersion, p.version)) return null;
+  return p;
 }
 
-async function resolveItchUploadDownload({ gameId, fileName, apiKey, preferVersion = '', wantExt = '', pinned = null }) {
+// itch expone en cada upload la plataforma (traits p_windows / p_android y
+// channel_name) y la version que declaro butler al subirlo (build.user_version).
+// Sin esto no hay forma de distinguir "el build de Windows nuevo" de "el .zip
+// mas viejo que quedo dando vueltas", y la resolucion terminaba sirviendo el
+// primero que encontraba la API (que viene del mas antiguo al mas nuevo).
+function itchUploadPlatformScore(u, platform) {
+  const kind = String(platform || 'windows').trim().toLowerCase() === 'android' ? 'android' : 'windows';
+  const traits = Array.isArray(u?.traits) ? u.traits.map((t) => String(t || '').toLowerCase()) : [];
+  const chan = String(u?.channel_name || '').toLowerCase();
+  const want = kind === 'android' ? ['android'] : ['windows'];
+  let score = 0;
+  if (traits.some((t) => want.some((w) => t === `p_${w}`))) score += 2;
+  if (chan && want.some((w) => chan === w || chan.includes(w))) score += 1;
+  return score;
+}
+
+function itchUploadUserVersion(u) {
+  return normalizeVersionTag(u?.build?.user_version || u?.user_version || '');
+}
+
+// El mas reciente primero: dentro de build.version (monotono por canal) y,
+// como empate, por fecha.
+function itchUploadRecency(a, b) {
+  const av = Number(a?.build?.version || 0);
+  const bv = Number(b?.build?.version || 0);
+  if (av !== bv) return bv - av;
+  const at = Date.parse(a?.updated_at || a?.created_at || '') || 0;
+  const bt = Date.parse(b?.updated_at || b?.created_at || '') || 0;
+  return bt - at;
+}
+
+async function resolveItchUploadDownload({ gameId, fileName, apiKey, preferVersion = '', wantExt = '', platform = 'windows', pinned = null }) {
   const key = String(apiKey || process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
   if (!key || !gameId) return null;
-  // Canal fijado: va directo sin listar (los builds de butler no salen en /uploads).
+  // Pin explicito (con override manual del admin): va directo sin listar.
   if (pinned && Number(pinned.id) > 0) {
     return {
       uploadId: Number(pinned.id),
@@ -15170,23 +15267,40 @@ async function resolveItchUploadDownload({ gameId, fileName, apiKey, preferVersi
   }
   if (!uploads.length) return null;
   const want = String(fileName || '').trim().toLowerCase();
-  // Versión oficial (tabla ows_project_releases): cuando hay varias builds
-  // (ej: v0.1.0 y v1.0.0 conviviendo en itch.io) se prefiere el archivo cuyo
-  // nombre la contenga ("Wilder-Gambit-v1.0.0-Windows.zip"). Sin esto el flujo
-  // heredado seguía sirviendo el primer .zip viejo aunque ya hubiera release nueva.
-  const ver = String(preferVersion || '').trim().toLowerCase().replace(/^[vV]/, '');
-  const inVer = (u) => ver && String(u?.filename || '').toLowerCase().includes(ver);
+  // Versión oficial (tabla ows_project_releases). Se busca primero en el
+  // user_version que declaró butler al subir el build y, si no, en el nombre
+  // del archivo ("Wilder-Gambit-v1.0.2-Windows.zip").
+  const ver = normalizeVersionTag(preferVersion);
   const wantRx = wantExt === '.apk' ? /\.apk$/i : (wantExt === '.zip' ? /\.zip$/i : null);
-  const inExt = (u) => !wantRx || wantRx.test(String(u?.filename || ''));
-  // Prioridad launcher: (1) match exacto, (2) versión oficial + extensión
-  // pedida, (3) versión oficial, (4) ZIP completo (juego real con _Data),
-  // (5) EXE suelto, (6) primer upload. El ZIP es el que contiene Wilder Gambit.exe + _Data.
-  const pick = (want && uploads.find((u) => String(u?.filename || '').toLowerCase() === want))
-    || (ver && uploads.find((u) => inVer(u) && inExt(u)))
-    || (ver && uploads.find(inVer))
-    || uploads.find((u) => /\.zip$/i.test(String(u?.filename || '')))
-    || uploads.find((u) => /\.exe$/i.test(String(u?.filename || '')))
-    || uploads[0];
+
+  // Prioridad (menor tier gana): (0) match exacto del archivo pedido,
+  // (1) plataforma correcta + user_version de la release oficial,
+  // (2) versión en el nombre, (3) plataforma correcta, (4) user_version,
+  // (5) extensión pedida, (6) ZIP completo (el juego con _Data),
+  // (7) EXE suelto, (8) resto. Dentro de un mismo tier gana el más reciente,
+  // así que varias builds conviviendo nunca devuelven la más vieja.
+  const tierOf = (u) => {
+    const fn = String(u?.filename || '').toLowerCase();
+    const plat = itchUploadPlatformScore(u, platform);
+    const uv = itchUploadUserVersion(u);
+    if (want && fn === want) return 0;
+    if (ver && uv === ver && plat > 0) return 1;
+    if (ver && fn.includes(ver)) return 2;
+    if (plat > 0) return 3;
+    if (ver && uv === ver) return 4;
+    if (wantRx && wantRx.test(fn)) return 5;
+    if (/\.zip$/i.test(fn)) return 6;
+    if (/\.exe$/i.test(fn)) return 7;
+    return 8;
+  };
+
+  const candidates = uploads.filter((u) => u?.id);
+  if (!candidates.length) return null;
+  const pick = candidates.slice().sort((a, b) => {
+    const t = tierOf(a) - tierOf(b);
+    if (t) return t;
+    return itchUploadRecency(a, b);
+  })[0];
   if (!pick?.id) return null;
   const filename = String(pick.filename || 'installer');
   return {
@@ -15243,7 +15357,7 @@ async function getDownloadArtifact(mapped, preferVersion = '') {
       if (apiKey && itchUrl) {
         const viaApi = await fetchItchApiInfo({ apiKey, matchUrl: itchUrl, matchSlug: slug });
         if (viaApi?.raw_id) {
-          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: itchFile, apiKey, preferVersion, pinned: itchPinnedUpload(slug, 'windows') });
+          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: itchFile, apiKey, preferVersion, platform: 'windows', pinned: itchPinnedUpload(slug, 'windows', preferVersion) });
           if (dl?.uploadId) {
             const sizeBytes = Number(dl.size || 0) || 0;
             artifact = {
@@ -15458,7 +15572,8 @@ async function launchProjectDownloadHandler(req, res) {
           fileName: mapped.itch_file,
           apiKey,
           preferVersion: officialVersion,
-          pinned: itchPinnedUpload(slug, 'windows')
+          platform: 'windows',
+          pinned: itchPinnedUpload(slug, 'windows', officialVersion)
         });
         trace.push({ step: 'itch-api-uploads', upload_id: dl?.uploadId || null, filename: dl?.filename || null, kind: dl?.kind || null, size: dl?.size || null });
         if (dl?.uploadId) {
@@ -15534,7 +15649,8 @@ app.get('/ows-launch-projects/:slug/apk-download', async (req, res) => {
           apiKey,
           preferVersion: officialVersion,
           wantExt: '.apk',
-          pinned: itchPinnedUpload(slug, 'android')
+          platform: 'android',
+          pinned: itchPinnedUpload(slug, 'android', officialVersion)
         });
         trace.push({ step: 'itch-api-uploads', upload_id: dl?.uploadId || null, filename: dl?.filename || null, size: dl?.size || null });
         if (dl?.uploadId && /\.apk$/i.test(String(dl.filename || ''))) {

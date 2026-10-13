@@ -60,5 +60,27 @@ namespace WildSea.EditorTools
             else ti.textureCompression = TextureImporterCompression.Compressed;
             ti.compressionQuality = 60;
         }
+
+        /// <summary>
+        /// Ajustes de importacion del audio de UI (Resources/WS/Audio/UI/).
+        /// Los SFX son cortos: descomprimir en memoria para que no haya delay al
+        /// primer click. El ambiente son 11 s de loop: va en streaming para no
+        /// meter ~2 MB decomprimidos en memoria solo por el fondo del menu.
+        /// El postprocessor se llama WSArtPostprocessor por historia, pero tambien
+        /// cubre el audio; no tocar el nombre porque otros scripts lo referencian.
+        /// </summary>
+        void OnPreprocessAudio()
+        {
+            string p = assetPath.Replace('\\', '/');
+            if (!p.StartsWith("Assets/Resources/WS/Audio/")) return;
+
+            bool ambient = Path.GetFileNameWithoutExtension(p).StartsWith("WS_amb_");
+            var ai = (AudioImporter)assetImporter;
+            ai.loadType = ambient ? AudioClipLoadType.Streaming
+                                  : AudioClipLoadType.DecompressOnLoad;
+            ai.forceToMono = true;
+            ai.preloadAudioData = true;
+            ai.loadInBackground = ambient;
+        }
     }
 }

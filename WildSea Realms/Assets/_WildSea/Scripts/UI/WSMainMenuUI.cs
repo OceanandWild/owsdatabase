@@ -93,7 +93,7 @@ namespace WildSea.UI
             optFull = r.Q<Button>("opt-fullscreen");
             optFlash = r.Q<Button>("opt-flash");
 
-            WireButton("btn-enter", () => OnEnterPressed?.Invoke());
+            WireButton("btn-enter", () => OnEnterPressed?.Invoke(), WSfx.Confirm);
             WireButton("btn-how", ShowHow);
             WireButton("btn-options", ShowOptions);
             WireButton("btn-quit", Quit);
@@ -102,13 +102,13 @@ namespace WildSea.UI
             if (modalOverlay != null)
                 modalOverlay.RegisterCallback<ClickEvent>(e => { if (e.target == modalOverlay) HideModal(); });
 
-            WireButton("opt-music-minus", () => { WSSave.Music -= 0.1f; RefreshOptions(); });
-            WireButton("opt-music-plus", () => { WSSave.Music += 0.1f; RefreshOptions(); });
-            WireButton("opt-sfx-minus", () => { WSSave.Sfx -= 0.1f; RefreshOptions(); });
-            WireButton("opt-sfx-plus", () => { WSSave.Sfx += 0.1f; RefreshOptions(); });
-            if (optLang != null) optLang.clicked += () => { WSSave.Lang = WSSave.Lang == "es" ? "en" : "es"; RefreshOptions(); };
-            if (optFull != null) optFull.clicked += () => { WSSave.Fullscreen = !WSSave.Fullscreen; RefreshOptions(); };
-            if (optFlash != null) optFlash.clicked += () => { WSSave.ReducedFlash = !WSSave.ReducedFlash; RefreshOptions(); ApplyFlash(); };
+            WireButton("opt-music-minus", () => { WSSave.Music -= 0.1f; RefreshOptions(); WSAudio.ApplyVolumes(); });
+            WireButton("opt-music-plus", () => { WSSave.Music += 0.1f; RefreshOptions(); WSAudio.ApplyVolumes(); });
+            WireButton("opt-sfx-minus", () => { WSSave.Sfx -= 0.1f; RefreshOptions(); WSAudio.ApplyVolumes(); });
+            WireButton("opt-sfx-plus", () => { WSSave.Sfx += 0.1f; RefreshOptions(); WSAudio.ApplyVolumes(); });
+            if (optLang != null) optLang.clicked += () => { WSAudio.Click(); WSSave.Lang = WSSave.Lang == "es" ? "en" : "es"; RefreshOptions(); };
+            if (optFull != null) optFull.clicked += () => { WSAudio.Click(); WSSave.Fullscreen = !WSSave.Fullscreen; RefreshOptions(); };
+            if (optFlash != null) optFlash.clicked += () => { WSAudio.Click(); WSSave.ReducedFlash = !WSSave.ReducedFlash; RefreshOptions(); ApplyFlash(); };
 
             int i = 0;
             foreach (var n in new[] { "btn-enter", "btn-how", "btn-options", "btn-quit" })
@@ -146,10 +146,17 @@ namespace WildSea.UI
             }
         }
 
-        void WireButton(string name, System.Action a)
+        /// <summary>
+        /// Cablea un boton y le asigna su sonido. Todo boton del menu pasa por
+        /// aca: si se olvida el sonido se ve en el diff (no hay AudioSource.Play
+        /// suelto en ningun lado).
+        /// </summary>
+        void WireButton(string name, System.Action a, WSfx s = WSfx.Click)
         {
             var b = doc.rootVisualElement.Q<Button>(name);
-            if (b != null) b.clicked += () => a();
+            if (b == null) return;
+            b.clicked += () => WSAudio.Play(s);
+            if (a != null) b.clicked += () => a();
         }
 
         void ClearStagger()
@@ -485,9 +492,12 @@ namespace WildSea.UI
                 // Con un modal abierto, Enter no debe saltar al Hub
                 bool modalOpen = modalOverlay != null && modalOverlay.style.display == DisplayStyle.Flex;
                 if (!modalOpen && root != null && root.style.display != DisplayStyle.None)
+                {
+                    WSAudio.Confirm();
                     OnEnterPressed?.Invoke();
+                }
             }
-            if (Keyboard.current.escapeKey.wasPressedThisFrame) HideModal();
+            if (Keyboard.current.escapeKey.wasPressedThisFrame) { WSAudio.Back(); HideModal(); }
         }
 
         // No se desactiva el GameObject: UIDocument.OnEnable recrea el árbol visual y

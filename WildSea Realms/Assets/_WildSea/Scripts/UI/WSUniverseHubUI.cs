@@ -70,7 +70,7 @@ namespace WildSea.UI
             toast = r.Q<Label>("hub-toast");
 
             var back = r.Q<Button>("btn-back");
-            if (back != null) back.clicked += () => OnBackPressed?.Invoke();
+            if (back != null) back.clicked += () => { WSAudio.Back(); OnBackPressed?.Invoke(); };
 
             BuildCards();
             Select(UniverseCatalog.GetById(WSSave.SelectedUniverseId));
@@ -145,6 +145,7 @@ namespace WildSea.UI
             card.RegisterCallback<ClickEvent>(_ => OnCardClicked(captured, card));
             card.RegisterCallback<PointerEnterEvent>(_ =>
             {
+                WSAudio.Hover();
                 if (captured.unlockedInV1 && hubTint != null)
                     hubTint.style.backgroundColor = new StyleColor(Tint(captured.bottomColor));
             });
@@ -184,10 +185,12 @@ namespace WildSea.UI
         {
             if (!u.unlockedInV1)
             {
+                WSAudio.Denied();
                 Shake(card);
                 ShowToast(u.isTeased ? "✦ Próximamente" : "🔒 Desbloquea en v2");
                 return;
             }
+            WSAudio.Confirm();
             Select(u);
         }
 
@@ -217,7 +220,10 @@ namespace WildSea.UI
             if (!visible) return;
             if (Screen.width != fitW || Screen.height != fitH) FitRoot();
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                WSAudio.Back();
                 OnBackPressed?.Invoke();
+            }
         }
 
         // No se desactiva el GameObject: UIDocument.OnEnable recrea el árbol visual y

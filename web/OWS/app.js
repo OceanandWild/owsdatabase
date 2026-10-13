@@ -725,6 +725,7 @@ function syncNavBadges(newsCount, eventsList) {
 document.addEventListener('DOMContentLoaded', function () {
   initStars();
   bindStaticEvents();
+  bindTrailerPlayers();
   initDownloadsManager();
   initOwsSettings();
   initOwsHubPanel();
@@ -2080,6 +2081,9 @@ function renderReleases(projects) {
   releasesLoadState = 'ready';
   try { syncReleasesSpotlight(); } catch (_) {}
   renderReleasesChrome(items);
+  // El trailer se apaga solo en su fecha de corte: hay que reprogramar el
+  // timer en cada render, no solo en el primero.
+  try { scheduleTrailerCutoff(); } catch (_) {}
 }
 
 // ═══════════════════════════════════════════
@@ -2117,15 +2121,20 @@ function releasesFiltered(items) {
   return list.filter((p) => releaseFilterKey(p) === releasesFilter);
 }
 
-// Destacado: primero lo que ya se puede jugar, después por estado. Los
-// cancelados nunca quedan destacados si hay otra cosa. El sort es estable,
-// así que los empates mantienen el orden que manda el servidor.
+// Destacado: primero lo que tiene trailer vivo, después lo que ya se puede
+// jugar, y después por estado. Los cancelados nunca quedan destacados si hay
+// otra cosa. El sort es estable, así que los empates mantienen el orden que
+// manda el servidor.
 const RELEASE_FEATURED_RANK = { launched: 0, development: 1, soon: 2, cancelled: 3 };
 function pickFeaturedRelease(items) {
   const usable = (items || []).filter((p) => releaseFilterKey(p) !== 'cancelled');
   const pool = usable.length ? usable : (items || []);
   if (!pool.length) return null;
   return pool.slice().sort((a, b) => {
+    // Un trailer en cartelera se lleva la ficha: es lo que se quiere
+    // empujar mientras el juego todavia no salio.
+    const byTrailer = Number(releaseTrailerLive(b)) - Number(releaseTrailerLive(a));
+    if (byTrailer) return byTrailer;
     const byBuild = Number(releaseHasBuild(b)) - Number(releaseHasBuild(a));
     if (byBuild) return byBuild;
     const rankA = RELEASE_FEATURED_RANK[releaseFilterKey(a)];
@@ -2146,6 +2155,152 @@ function releaseDateChip(p) {
   const label = formatReleaseDate(raw);
   if (!label) return '';
   return `<span class="rel-chip">📅 ${escapeHtml(confirmed ? `Lanzamiento: ${label}` : `Fecha estimada: ${label}`)}</span>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TRÁILER DESTACADO
+// El server manda trailer_url / trailer_title / trailer_until con cada proyecto
+// (viven en metadata). Cuando trailer_until no esta escrito, el server lo
+// resuelve contra la fecha de lanzamiento (confirmada > estimada), asi que el
+// trailer se apaga solo el dia del lanzamiento a las 00:00 sin que nadie tenga
+// que tocar el sitio ni acordarse de despublicarlo.
+//
+// El embed NO se monta al cargar: se pinta la miniatura de YouTube y el iframe
+// (youtube-nocookie, sin cookies de terceros) recien cuando el usuario le da
+// play. Cargar el embed siempre son ~1 MB extra para todo el Hub.
+// ══════════════════════════════════════════════════════════════
+
+// Saca el id de un video de YouTube desde cualquiera de sus formas de URL
+// (watch?v=, youtu.be/, /embed/, /shorts/, /live/). Vacio si no es YouTube.
+function youtubeVideoId(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  let u;
+  try { u = new URL(raw); } catch (_) { return ''; }
+  const host = u.hostname.replace(/^www\./, '').toLowerCase();
+  if (host === 'youtu.be') return (u.pathname.split('/').filter(Boolean)[0] || '').slice(0, 11);
+  const hosts = ['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com'];
+  if (hosts.indexOf(host) === -1) return '';
+  if (u.pathname === '/watch') return (u.searchParams.get('v') || '').trim().slice(0, 11);
+  const m = /^\/(?:embed|shorts|v|live)\/([A-Za-z0-9_-]{6,})/.exec(u.pathname);
+  return m ? m[1].slice(0, 11) : '';
+}
+
+function releaseTrailerUrl(p) {
+  return String((p && (p.trailer_url || p.trailerUrl)) || '').trim();
+}
+
+// Instante en que el trailer desaparece. parseDateValue arma la medianoche
+// LOCAL (no UTC), que es justo lo que pide "desaparece el 15/10 a las 00:00".
+function releaseTrailerUntil(p) {
+  return parseDateValue((p && (p.trailer_until || p.trailerUntil)) || '');
+}
+
+// ¿El trailer sigue en cartelera? Sin fecha de corte, siempre visible.
+function releaseTrailerLive(p) {
+  if (!releaseTrailerUrl(p)) return false;
+  const until = releaseTrailerUntil(p);
+  if (!until) return true;
+  return Date.now() < until.getTime();
+}
+
+// "2d 3h" / "3h 12m" / "45m" — para el chip del heroe.
+function releaseCountdownText(target) {
+  if (!target) return '';
+  const ms = target.getTime() - Date.now();
+  if (Number.isNaN(ms) || ms <= 0) return '';
+  const mins = Math.floor(ms / 60000);
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins % 60}m`;
+  return `${Math.max(1, mins % 60)}m`;
+}
+
+// Bloque del trailer. variant: 'hero' (ficha destacada) | 'modal' (detalle).
+function releaseTrailerHtml(p, variant) {
+  if (!releaseTrailerLive(p)) return '';
+  const url = releaseTrailerUrl(p);
+  if (!/^https?:\/\//i.test(url)) return '';
+  const vid = youtubeVideoId(url);
+  const title = String((p && (p.trailer_title || p.trailerTitle)) || '').trim() || `Tráiler de ${(p && p.name) || ''}`.trim();
+  const left = releaseCountdownText(releaseTrailerUntil(p));
+  const badge = left
+    ? `<span class="rel-trailer-left" title="El tráiler sale de la cartelera cuando arranca el lanzamiento">⏳ En ${escapeHtml(left)}</span>`
+    : '';
+  const frame = vid
+    ? `<iframe class="rel-trailer-frame" src="https://www.youtube-nocookie.com/embed/${escapeHtml(vid)}?autoplay=1&amp;rel=0&amp;modestbranding=1"
+             title="${escapeHtml(title)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+             allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`
+    : `<iframe class="rel-trailer-frame" src="${escapeHtml(url)}" title="${escapeHtml(title)}" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  const poster = vid
+    ? `<img class="rel-trailer-thumb" src="https://i.ytimg.com/vi/${escapeHtml(vid)}/maxresdefault.jpg" alt="" loading="lazy"
+             onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${escapeHtml(vid)}/hqdefault.jpg';" />`
+    : `<span class="rel-trailer-thumb rel-trailer-thumb-fb" aria-hidden="true">🎬</span>`;
+  return `
+  <div class="rel-trailer rel-trailer--${escapeHtml(variant || 'hero')}" data-rel-trailer>
+    <button type="button" class="rel-trailer-stage" data-trailer-play
+            aria-label="Reproducir ${escapeHtml(title || 'el tráiler')}" data-embed="${escapeHtml(frame)}">
+      ${poster}
+      <span class="rel-trailer-play" aria-hidden="true"></span>
+    </button>
+    <div class="rel-trailer-meta">
+      <b class="rel-trailer-title">${escapeHtml(title)}</b>
+      ${badge}
+    </div>
+  </div>`;
+}
+
+// El trailer se apaga solo. El Hub no refresca la lista cuando ya esta en
+// 'ready', asi que se programa un timer para el instante exacto del corte y se
+// re-pinta sin volver a pegarle al server.
+const TRAILER_CUTOFF_MAX_MS = 60 * 60 * 1000; // setTimeout revienta pasado ~24.8 dias
+let trailerCutoffTimer = 0;
+
+function nextTrailerCutoffMs() {
+  const list = Array.isArray(releasesCache) ? releasesCache : [];
+  let next = null;
+  for (const p of list) {
+    if (!releaseTrailerLive(p)) continue;
+    const until = releaseTrailerUntil(p);
+    if (!until) continue;
+    const ms = until.getTime() - Date.now();
+    if (ms > 0 && (next === null || ms < next)) next = ms;
+  }
+  return next;
+}
+
+function scheduleTrailerCutoff() {
+  if (trailerCutoffTimer) { clearTimeout(trailerCutoffTimer); trailerCutoffTimer = 0; }
+  const ms = nextTrailerCutoffMs();
+  if (ms === null) return;
+  trailerCutoffTimer = setTimeout(() => {
+    trailerCutoffTimer = 0;
+    try {
+      // Re-pinta heroe + catalogo: el trailer ya no entra en el HTML.
+      renderReleases(releasesCache);
+      // Si el modal de ese juego esta abierto se le saca el bloque a mano
+      // (re-abrirlo tiraria otra vez las consultas de versiones y descargas).
+      document.querySelectorAll('[data-rel-trailer]').forEach((n) => n.remove());
+    } catch (_) { /* si algo falla, el trailer se va en el proximo render */ }
+    scheduleTrailerCutoff();
+  }, Math.min(ms + 250, TRAILER_CUTOFF_MAX_MS));
+}
+
+// Click en el cartel → monta el iframe y arranca solo. Delegado: los bloques
+// del heroe y del modal se re-crean en cada render.
+function bindTrailerPlayers() {
+  if (document.documentElement.dataset.trailerBound) return;
+  document.documentElement.dataset.trailerBound = '1';
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest && e.target.closest('[data-trailer-play]');
+    if (!btn) return;
+    const wrap = btn.closest('[data-rel-trailer]');
+    if (!wrap) return;
+    e.preventDefault();
+    e.stopPropagation();
+    wrap.innerHTML = btn.getAttribute('data-embed') || '';
+  });
 }
 
 function featuredReleaseHtml(p) {
@@ -2174,6 +2329,7 @@ function featuredReleaseHtml(p) {
         <h4 class="rel-hero-name">${escapeHtml(p.name)}</h4>
         ${p.genre ? `<p class="rel-hero-genre">${escapeHtml(p.genre)}</p>` : ''}
         ${p.description ? `<p class="rel-hero-desc">${escapeHtml(p.description)}</p>` : ''}
+        ${releaseTrailerHtml(p, 'hero')}
         <div class="rel-hero-actions">
           <button type="button" class="btn btn-primary" data-rel-action="details" data-rel-slug="${escapeHtml(p.slug)}">Ver detalles →</button>
           ${itchUrl ? `<a class="btn btn-ghost" href="${escapeHtml(itchUrl)}" target="_blank" rel="noopener">Ver en itch.io ↗</a>` : ''}
@@ -2550,6 +2706,11 @@ function openReleaseModal(project, originEl) {
 
     <div class="rd-body">
       <div class="rd-main">
+        ${releaseTrailerHtml(p, 'modal') ? `
+        <section>
+          <h4 class="rd-sec-title">Tráiler</h4>
+          ${releaseTrailerHtml(p, 'modal')}
+        </section>` : ''}
         ${p.description ? `
         <section>
           <h4 class="rd-sec-title">Acerca del juego</h4>

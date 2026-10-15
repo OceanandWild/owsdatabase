@@ -5482,7 +5482,7 @@ function updateNewsCounters() {
   const tc = document.getElementById('news-title-count');
   const dc = document.getElementById('news-desc-count');
   if (t && tc) tc.textContent = `${t.value.length}/120`;
-  if (d && dc) dc.textContent = `${d.value.length}/500`;
+  if (d && dc) dc.textContent = `${d.value.length}/4000`;
 }
 
 function newsFormDateLabel() {

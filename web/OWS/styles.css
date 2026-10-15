@@ -755,6 +755,17 @@ body {
   background: rgba(248, 113, 113, 0.08); border: 1px solid rgba(248, 113, 113, 0.25);
   color: var(--danger); font-size: 0.8rem;
 }
+/* Carga de Noticias: spinner mientras el backend despierta (mismo
+   tratamiento que Lanzamientos, pero dentro de la grilla de noticias). */
+.news-loading {
+  grid-column: 1 / -1; width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 40px 18px; text-align: center; color: var(--text-muted);
+}
+.news-loading-title { margin: 0; font-weight: 700; color: var(--text-main); opacity: 0.85; font-size: 0.9rem; }
+.news-loading-sub { margin: 0; font-size: 0.78rem; color: var(--text-muted); }
+/* Reintento manual del estado de error: botón único, sin avisos apilados. */
+#news-retry { margin-top: 10px; }
 
 /* ── ⚡ Noticias Rápidas ─────────────────────── */
 /* Texto corto al pie de las noticias. El tag "Nuevo" se enciende solo

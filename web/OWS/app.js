@@ -246,6 +246,27 @@ function bindStaticEvents() {
       }
     });
   }
+  // Reintento del estado de error de Noticias (botón único dentro de #news-empty)
+  const newsEmpty = document.getElementById('news-empty');
+  if (newsEmpty && !newsEmpty.dataset.retryBound) {
+    newsEmpty.dataset.retryBound = '1';
+    newsEmpty.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-news-retry]')) return;
+      e.preventDefault();
+      loadDashboardNews();
+    });
+  }
+  // Reintento manual de Lanzamientos: delegado en document porque el aviso
+  // puede vivir en #rel-retry (fuera de la grilla) o dentro de #releases-grid.
+  if (!document.body.dataset.relRetryBound) {
+    document.body.dataset.relRetryBound = '1';
+    document.addEventListener('click', (e) => {
+      const retry = e.target.closest && e.target.closest('[data-releases-retry]');
+      if (!retry) return;
+      e.preventDefault();
+      loadDashboardReleases();
+    });
+  }
   const releasesGrid = document.getElementById('releases-grid');
   if (releasesGrid) {
     // Dock de iconos: 1 clic = preview abajo del icono + spotlight · 2 clics = modal con banner
@@ -275,8 +296,6 @@ function bindStaticEvents() {
       spotlight.addEventListener('click', () => closeReleasesDock());
     }
     releasesGrid.addEventListener('click', (e) => {
-      const retry = e.target.closest('[data-releases-retry]');
-      if (retry) { e.preventDefault(); loadDashboardReleases(); return; }
       const item = e.target.closest('[data-slug]');
       if (!item) return;
       // Doble clic llega como 2 clicks seguidos: el 2º abre el modal directamente
@@ -644,6 +663,18 @@ function showOwsSection(viewId, opts) {
   // el servidor en plan gratuito puede tardar y quedarse en blanco.
   if (target === 'sec-lanzamientos' && !releasesLoading && releasesLoadState !== 'ready') {
     try { loadDashboardReleases(); } catch (_) {}
+  }
+
+  // Noticias: mismo criterio que Lanzamientos. Al entrar, si nunca cargó o
+  // falló, se reintenta (el plan gratuito de Render puede estar despertando).
+  if (target === 'sec-noticias') {
+    if (!newsLoading && newsLoadState !== 'ready') { try { loadDashboardNews(); } catch (_) {} }
+    if (!quickNewsLoading && quickNewsLoadState !== 'ready') { try { loadQuickNews(); } catch (_) {} }
+  }
+
+  // Eventos: si la última carga falló, se reintenta al entrar.
+  if (target === 'sec-eventos' && !eventsLoading && eventsLoadState !== 'ready') {
+    try { loadDashboardEvents(); } catch (_) {}
   }
 
   // El Gestor de Actualizaciones es la única vista que necesita saber qué hay
@@ -1287,6 +1318,10 @@ function eventCountdown(targetIso, phase) {
 }
 
 let eventsCache = [];
+// Estado de la carga de eventos: evita encadenar fetches y permite
+// reintentar solo al entrar a la vista si la última carga falló.
+let eventsLoadState = 'idle'; // idle | loading | ready | error
+let eventsLoading = false;
 // Filtro por proyecto de la sección Eventos: 'all' o el id/nombre del proyecto.
 let eventsProjectFilter = 'all';
 
@@ -1397,7 +1432,14 @@ function renderEvents(eventsList) {
 }
 
 async function loadDashboardEvents() {
+  if (eventsLoading) return;
+  eventsLoading = true;
+  eventsLoadState = 'loading';
   const empty = document.getElementById('events-empty');
+  // Un solo aviso de error: se reemplaza en vez de apilarse en cada reintento.
+  const clearNote = () => {
+    if (empty) empty.querySelectorAll('.news-error').forEach((n) => n.remove());
+  };
   // El filtro por proyecto se arma con lo que llega del servidor.
   const filterSel = document.getElementById('events-filter-project');
   if (filterSel && !filterSel.dataset.bound) {
@@ -1405,19 +1447,23 @@ async function loadDashboardEvents() {
     filterSel.addEventListener('change', () => onEventsProjectFilter(filterSel.value));
   }
   try {
-    const res = await fetch(API_BASE + '/ows-dashboard/events?limit=30');
-    if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
-    const data = await res.json();
-    renderEvents(data.events || []);
+    const data = await fetchJsonWithRetry(API_BASE + '/ows-dashboard/events?limit=30', { timeoutsMs: [12000, 25000] });
+    clearNote();
+    eventsLoadState = 'ready';
+    renderEvents((data && data.events) || []);
   } catch (err) {
     console.error('[OWS] No se pudieron cargar los eventos:', err);
+    eventsLoadState = 'error';
     renderEvents([]);
     if (empty) {
+      clearNote();
       const note = document.createElement('p');
       note.className = 'news-error';
       note.textContent = 'No se pudieron cargar los eventos. Revisa tu conexión.';
       empty.appendChild(note);
     }
+  } finally {
+    eventsLoading = false;
   }
 }
 
@@ -1618,6 +1664,60 @@ function escapeHtml(text) {
 }
 
 let newsFeedCache = [];
+// Estado de la sección: distingue "sin noticias" de "no se pudo cargar",
+// evita encadenar cargas y habilita un único reintento automático.
+let newsLoadState = 'idle'; // idle | loading | ready | error
+let newsLoading = false;
+let newsAutoRetryTimer = 0;
+let newsAutoRetryUsed = false;
+
+function renderNewsLoading() {
+  const list = document.getElementById('news-table-body');
+  const empty = document.getElementById('news-empty');
+  if (empty) empty.classList.add('hidden');
+  if (list) {
+    list.innerHTML = `
+      <div class="news-loading" role="status" aria-live="polite">
+        <span class="releases-spinner" aria-hidden="true"></span>
+        <p class="news-loading-title">Cargando noticias…</p>
+        <p class="news-loading-sub">La primera carga puede tardar si el servidor está despertando.</p>
+      </div>`;
+  }
+  const count = document.getElementById('news-count');
+  if (count) count.textContent = 'Cargando…';
+}
+
+// Estado vacío vs error de carga: mismo bloque, con un solo botón de
+// reintento (antes los avisos de error se apilaban sin control).
+function setNewsEmptyState(mode) {
+  const empty = document.getElementById('news-empty');
+  if (!empty) return;
+  const isError = mode === 'error';
+  const icon = document.getElementById('news-empty-icon');
+  const title = document.getElementById('news-empty-title');
+  const sub = document.getElementById('news-empty-sub');
+  const retry = document.getElementById('news-retry');
+  if (icon) icon.textContent = isError ? '⚠️' : '📰';
+  if (title) title.textContent = isError ? 'No se pudieron cargar las noticias' : 'Aún no hay noticias';
+  if (sub) sub.textContent = isError
+    ? 'El servidor no respondió. Revisá tu conexión e intentalo de nuevo.'
+    : 'Las últimas novedades de OWS Hub aparecerán aquí.';
+  if (retry) retry.classList.toggle('hidden', !isError);
+  empty.classList.remove('hidden');
+}
+
+// Un reintento automático y silencioso después de fallar: cubre el arranque
+// en frío de Render (20-60s) sin obligar al usuario a tocar nada.
+// Un reintento manual/por navegación renueva el cupo.
+function scheduleNewsAutoRetry() {
+  if (newsAutoRetryTimer || newsAutoRetryUsed) return;
+  newsAutoRetryUsed = true;
+  newsAutoRetryTimer = setTimeout(() => {
+    newsAutoRetryTimer = 0;
+    if (newsLoadState !== 'error') return;
+    loadDashboardNews({ silent: true });
+  }, 20000);
+}
 
 function renderNewsTable(newsList) {
   const list = document.getElementById('news-table-body');
@@ -1625,6 +1725,14 @@ function renderNewsTable(newsList) {
   const count = document.getElementById('news-count');
   const statNews = document.getElementById('stat-news');
   if (!list || !empty) return;
+
+  // null = la carga falló: no es "sin noticias", es error de conexión.
+  if (newsList === null) {
+    list.innerHTML = '';
+    if (count) count.textContent = 'Sin conexión';
+    setNewsEmptyState('error');
+    return;
+  }
 
   const items = Array.isArray(newsList) ? newsList : [];
   newsFeedCache = items;
@@ -1639,7 +1747,7 @@ function renderNewsTable(newsList) {
 
   if (items.length === 0) {
     list.innerHTML = '';
-    empty.classList.remove('hidden');
+    setNewsEmptyState('empty');
     return;
   }
 
@@ -1753,23 +1861,27 @@ function closeNewsModal() {
   if (!newsModalIsAloneOpen()) document.body.style.overflow = '';
 }
 
-async function loadDashboardNews() {
-  const empty = document.getElementById('news-empty');
+async function loadDashboardNews(opts) {
+  if (newsLoading) return;
+  const silent = !!(opts && opts.silent);
+  // Un intento pedido por el usuario (botón o navegación) renueva el cupo
+  // del reintento automático.
+  if (!silent) newsAutoRetryUsed = false;
+  newsLoading = true;
+  newsLoadState = 'loading';
+  if (!silent) renderNewsLoading();
   try {
-    const res = await fetch(API_BASE + '/ows-dashboard/news?limit=20');
-    if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
-    const data = await res.json();
-    renderNewsTable(data.news || []);
+    const data = await fetchJsonWithRetry(API_BASE + '/ows-dashboard/news?limit=20', { timeoutsMs: [12000, 25000] });
+    const items = (data && Array.isArray(data.news)) ? data.news : [];
+    newsLoadState = 'ready';
+    renderNewsTable(items);
   } catch (err) {
     console.error('[OWS] No se pudieron cargar las noticias:', err);
-    // La tabla se mantiene vacia; se muestra el estado vacio con nota de error
-    if (empty) {
-      renderNewsTable([]);
-      const note = document.createElement('p');
-      note.className = 'news-error';
-      note.textContent = 'No se pudieron cargar las noticias. Revisa tu conexión.';
-      empty.appendChild(note);
-    }
+    newsLoadState = 'error';
+    if (!silent) renderNewsTable(null);
+    scheduleNewsAutoRetry();
+  } finally {
+    newsLoading = false;
   }
 }
 
@@ -1837,14 +1949,23 @@ function renderQuickNews(list, meta) {
   }).join('');
 }
 
+let quickNewsLoadState = 'idle'; // idle | loading | ready | error
+let quickNewsLoading = false;
+
 async function loadQuickNews() {
+  if (quickNewsLoading) return;
+  quickNewsLoading = true;
   try {
-    const res = await fetch(API_BASE + '/ows-dashboard/quick-news?limit=12');
-    if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
-    const data = await res.json();
-    renderQuickNews(data.news || [], data.meta || {});
+    const data = await fetchJsonWithRetry(API_BASE + '/ows-dashboard/quick-news?limit=12', { timeoutsMs: [12000, 25000] });
+    quickNewsLoadState = 'ready';
+    renderQuickNews((data && data.news) || [], (data && data.meta) || {});
   } catch (err) {
     console.error('[OWS] No se pudieron cargar las noticias rápidas:', err);
+    quickNewsLoadState = 'error';
+    // Sin datos el panel se aparta solo: no deja un hueco roto en la vista.
+    renderQuickNews([], {});
+  } finally {
+    quickNewsLoading = false;
   }
 }
 
@@ -1930,6 +2051,8 @@ let releasesCache = [];
 // despertaba (free tier tarda 20-60s en el primer request) y parecía rota.
 let releasesLoadState = 'idle'; // idle | loading | ready | error
 let releasesLoading = false;
+let releasesAutoRetryTimer = 0;
+let releasesAutoRetryUsed = false;
 
 function releaseStatusMeta(status) {
   return RELEASE_STATUS_META[String(status || '').trim().toLowerCase()] || RELEASE_STATUS_META.development;
@@ -1943,9 +2066,35 @@ function fetchWithTimeout(url, ms) {
   return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
+// Fetch JSON con reintentos encadenados: el backend (plan gratuito de Render)
+// puede tardar 20-60s en despertar. Se reintenta ante corte de red/timeout
+// y ante un 5xx transitorio; nunca ante un 4xx, que ya es respuesta firme.
+async function fetchJsonWithRetry(url, opts) {
+  const timeouts = Array.isArray(opts && opts.timeoutsMs) && opts.timeoutsMs.length
+    ? opts.timeoutsMs
+    : [12000, 25000];
+  let lastErr = null;
+  for (let i = 0; i < timeouts.length; i++) {
+    try {
+      const res = await fetchWithTimeout(url, timeouts[i]);
+      if (!res.ok) {
+        const err = new Error(`Error del servidor (${res.status})`);
+        if (res.status >= 400 && res.status < 500) err.noRetry = true;
+        throw err;
+      }
+      return await res.json();
+    } catch (err) {
+      lastErr = err;
+      if (err && err.noRetry) break;
+    }
+  }
+  throw lastErr || new Error('No se pudo contactar al servidor');
+}
+
 function renderReleasesLoading() {
   const grid = document.getElementById('releases-grid');
   if (!grid) return;
+  clearReleasesRetryNote();
   grid.innerHTML = `
     <div class="releases-placeholder" role="status" aria-live="polite">
       <span class="releases-spinner" aria-hidden="true"></span>
@@ -2016,6 +2165,8 @@ function formatReleaseDate(value) {
 function renderReleases(projects) {
   const grid = document.getElementById('releases-grid');
   if (!grid) return;
+  // Al pintar datos reales, el aviso de "lista local" ya no corresponde.
+  clearReleasesRetryNote();
   const items = Array.isArray(projects) ? projects : [];
   if (!items.length) {
     grid.innerHTML = '<p class="loading-note" style="color:var(--text-muted);font-size:0.85rem">Todavía no hay lanzamientos anunciados. ¡Volvé pronto! ✨</p>';
@@ -2569,66 +2720,92 @@ function flipReleaseCover(fromEl) {
   setTimeout(arrancar, 48);
 }
 
-// Aviso + reintento manual cuando se pintó la lista local por falta de servidor.
+// Aviso + reintento manual cuando se pintó la lista local por falta de
+// servidor. Es un aviso único: si ya había uno, se reemplaza (antes se
+// apilaba una copia por cada reintento fallido).
 function appendReleasesRetryNote() {
   // Nota al pie del bloque nuevo; si no existe (versión vieja del HTML),
   // se cae al dock como antes.
   const slot = document.getElementById('rel-retry') || document.getElementById('releases-grid');
   if (!slot) return;
+  clearReleasesRetryNote();
   slot.insertAdjacentHTML('beforeend', `
     <div class="releases-retry-note">
       <span>Sin respuesta del servidor: se muestra la lista local.</span>
-      <button type="button" class="btn btn-ghost btn-sm" data-releases-retry>Reintentar</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-releases-retry>↻ Reintentar</button>
     </div>`);
 }
 
-const RELEASES_FETCH_TIMEOUT_MS = 12000;
+// Quita los avisos de reintento (al recuperar datos o antes de repintar).
+function clearReleasesRetryNote() {
+  document.querySelectorAll('.releases-retry-note').forEach((n) => n.remove());
+}
 
-async function loadDashboardReleases() {
-  // Hub Epic-style: 1 request (/ows-hub/summary) en vez de 3.
-  // Fallback a /ows-launch-projects si el hub aún no está desplegado.
+const RELEASES_FETCH_TIMEOUT_MS = 12000;
+// Rescate silencioso tras caer a la lista local: más margen para el
+// arranque en frío de Render (20-60s).
+const RELEASES_RESCUE_TIMEOUT_MS = 26000;
+
+// Pide los proyectos del hub: 1 request (/ows-hub/summary) en vez de 3, con
+// fallback a /ows-launch-projects si el hub aún no está desplegado.
+async function fetchReleaseProjects(timeoutsMs) {
+  try {
+    const hub = await fetchJsonWithRetry(API_BASE + '/ows-hub/summary', { timeoutsMs });
+    if (hub && Array.isArray(hub.projects)) return hub.projects;
+    throw new Error('Respuesta inesperada de /ows-hub/summary');
+  } catch (hubErr) {
+    const data = await fetchJsonWithRetry(API_BASE + '/ows-launch-projects', { timeoutsMs });
+    if (!data || !Array.isArray(data.projects)) throw new Error('Respuesta inesperada de /ows-launch-projects');
+    return data.projects;
+  }
+}
+
+// Un rescate automático y silencioso después de caer a la lista local: si el
+// servidor terminó de despertar, la lista real reemplaza a la local sin que
+// el usuario haga nada. Una vez por caída; un reintento manual renueva el cupo.
+function scheduleReleasesAutoRetry() {
+  if (releasesAutoRetryTimer || releasesAutoRetryUsed) return;
+  releasesAutoRetryUsed = true;
+  releasesAutoRetryTimer = setTimeout(() => {
+    releasesAutoRetryTimer = 0;
+    if (releasesLoadState !== 'error') return;
+    loadDashboardReleases({ silent: true });
+  }, 15000);
+}
+
+async function loadDashboardReleases(opts) {
   // Si nada responde se pintan los datos locales en vez de dejar la vista vacía.
   if (releasesLoading) return;
+  const silent = !!(opts && opts.silent);
   releasesLoading = true;
-  releasesLoadState = 'loading';
-  renderReleasesLoading();
-  let lastErr = null;
+  if (!silent) {
+    releasesAutoRetryUsed = false;
+    releasesLoadState = 'loading';
+    renderReleasesLoading();
+  }
+  let projects = null;
   try {
-    try {
-      const hubRes = await fetchWithTimeout(API_BASE + '/ows-hub/summary', RELEASES_FETCH_TIMEOUT_MS);
-      if (hubRes.ok) {
-        const hub = await hubRes.json();
-        if (Array.isArray(hub.projects)) {
-          renderReleases(hub.projects);
-          releasesLoading = false;
-          enrichReleasesWithItch(hub.projects);
-          return;
-        }
-      }
-      throw new Error(`Hub no disponible (${hubRes.status})`);
-    } catch (hubErr) {
-      lastErr = hubErr;
-      try {
-        const res = await fetchWithTimeout(API_BASE + '/ows-launch-projects', RELEASES_FETCH_TIMEOUT_MS);
-        if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
-        const data = await res.json();
-        const projects = Array.isArray(data.projects) ? data.projects : [];
-        renderReleases(projects);
-        releasesLoading = false;
-        enrichReleasesWithItch(projects);
-        return;
-      } catch (err) {
-        lastErr = err;
-      }
-    }
-    console.error('[OWS] No se pudieron cargar los lanzamientos, usando fallback local:', lastErr);
-    renderReleases(RELEASES_FALLBACK);
-    appendReleasesRetryNote();
-    // 'error' (no 'ready') para que al volver a entrar en la vista reintente solo.
-    releasesLoadState = 'error';
+    projects = await fetchReleaseProjects(silent
+      ? [RELEASES_RESCUE_TIMEOUT_MS, RELEASES_RESCUE_TIMEOUT_MS]
+      : [RELEASES_FETCH_TIMEOUT_MS]);
+  } catch (err) {
+    if (silent) console.warn('[OWS] Rescate silencioso de lanzamientos sin respuesta:', err);
+    else console.error('[OWS] No se pudieron cargar los lanzamientos, usando fallback local:', err);
   } finally {
     releasesLoading = false;
   }
+  if (projects) {
+    renderReleases(projects);
+    enrichReleasesWithItch(projects);
+    return;
+  }
+  if (silent) return;
+  // Nada respondió: datos locales + aviso único, y rescate automático.
+  renderReleases(RELEASES_FALLBACK);
+  appendReleasesRetryNote();
+  // 'error' (no 'ready') para que al volver a entrar en la vista reintente solo.
+  releasesLoadState = 'error';
+  scheduleReleasesAutoRetry();
 }
 
 // Enriquece las tarjetas con la versión real de itch.io (cache 6h en server)

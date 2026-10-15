@@ -1,0 +1,31 @@
+OWS Hub 3.4.16 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.16
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-15
+
+Cambios:
+- Noticias ya no se queda en blanco si el servidor no responde: muestra qué pasó y un botón para reintentar en el momento.
+- El Hub ahora distingue "todavía no hay noticias" de "no se pudo conectar", en vez de mostrar las dos situaciones igual.
+- Al volver a entrar a Noticias, la sección reintenta sola: si el servidor ya está despierto, la lista aparece sin intervención.
+- Lanzamientos ya no repite el aviso de que se muestra la lista local: el mensaje aparece una sola vez por carga.
+- El botón Reintentar de Lanzamientos ahora responde de verdad; antes el aviso se quedaba aunque se tocara el botón.
+- Mientras el servidor despierta, el Hub se rescata solo: los datos reales reemplazan a los locales apenas están disponibles.
+- Eventos recibió el mismo tratamiento: aviso único y reintento automático al reingresar a la sección.
+- El panel de Admin ya acepta descripciones de noticias de hasta 4000 caracteres (antes 500).
+
+=== ENGLISH ===
+Version: 3.4.16
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-15
+
+Changes:
+- News no longer goes blank when the server does not respond: it shows what happened and a retry button to try again right away.
+- The Hub now tells "there is no news yet" apart from "could not connect", instead of showing both situations the same way.
+- Re-entering the News section retries on its own: if the server is already up, the list appears with no intervention.
+- Releases no longer repeats the "showing the local list" notice: the message appears once per load.
+- The Releases retry button now responds for real; previously the notice stayed even after pressing it.
+- While the server wakes up, the Hub rescues itself: real data replaces the local lists as soon as it becomes available.
+- Events received the same treatment: a single notice and automatic retry when re-entering the section.
+- The Admin panel now accepts news descriptions up to 4000 characters (previously 500).

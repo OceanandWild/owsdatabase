@@ -6378,6 +6378,14 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.16': [
+    'Noticias ya no se queda en blanco si el servidor no responde: ahora muestra qué pasó y un botón para reintentar en el momento.',
+    'El Hub distingue "todavía no hay noticias" de "no se pudo conectar", en vez de mostrar las dos situaciones igual.',
+    'Al volver a entrar a Noticias, la sección reintenta sola: si el servidor ya está despierto, la lista aparece sin que hagas nada.',
+    'Lanzamientos ya no repite el aviso de la lista local: aparece una sola vez por carga, y el botón Reintentar ahora sí responde.',
+    'Mientras el servidor despierta, el Hub se rescata solo: los datos reales reemplazan a los locales apenas están disponibles.',
+    'Eventos recibió el mismo tratamiento, y el Admin ya acepta descripciones de noticia de hasta 4000 caracteres (antes 500).',
+  ],
   '3.4.15': [
     'Actualizar el Hub ya no falla con un "timeout" al toque. Cuando GitHub tardaba en responder, la comprobación se agotaba a los 15 segundos y el Hub se rindía sin descargar nada.',
     'La comprobación ahora espera bastante más y reintenta sola hasta tres veces, distinguiendo los problemas de conexión de los errores de verdad.',

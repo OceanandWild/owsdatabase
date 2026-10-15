@@ -26,6 +26,7 @@ namespace WildSea.UI
         UniverseDef selected;
         int fitW = -1, fitH = -1;
         bool visible;
+        public System.Action<string, string> OnPlayRequested;
 
         const string UxmlPath = "WS/Hub/Hub";
 
@@ -192,6 +193,11 @@ namespace WildSea.UI
             }
             WSAudio.Confirm();
             Select(u);
+            if (OnPlayRequested != null)
+            {
+                string mode = (WSSave.SelectedModeId == "galaxia" && HasMode(u, "galaxia")) ? "galaxia" : (u.modes != null && u.modes.Length > 0 ? u.modes[0].id : "estrella");
+                OnPlayRequested.Invoke(u.id, mode);
+            }
         }
 
         void Select(UniverseDef u)
@@ -224,6 +230,22 @@ namespace WildSea.UI
                 WSAudio.Back();
                 OnBackPressed?.Invoke();
             }
+            if (Keyboard.current != null && (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.numpadEnterKey.wasPressedThisFrame || Keyboard.current.spaceKey.wasPressedThisFrame))
+            {
+                if (selected != null && selected.unlockedInV1)
+                {
+                    string mode = (WSSave.SelectedModeId == "galaxia" && HasMode(selected, "galaxia")) ? "galaxia" : (selected.modes != null && selected.modes.Length > 0 ? selected.modes[0].id : "estrella");
+                    WSAudio.Confirm();
+                    OnPlayRequested?.Invoke(selected.id, mode);
+                }
+            }
+        }
+
+        static bool HasMode(UniverseDef u, string id)
+        {
+            if (u.modes == null) return false;
+            foreach (var m in u.modes) if (m != null && m.id == id) return true;
+            return false;
         }
 
         // No se desactiva el GameObject: UIDocument.OnEnable recrea el árbol visual y

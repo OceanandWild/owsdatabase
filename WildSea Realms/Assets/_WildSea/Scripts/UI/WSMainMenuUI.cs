@@ -487,7 +487,8 @@ namespace WildSea.UI
             if (root != null && (Screen.width != fitW || Screen.height != fitH)) FitRoot();
             UpdateVideoCrossfade();
             if (!visible || Keyboard.current == null) return;
-            if (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.numpadEnterKey.wasPressedThisFrame)
+            if (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.numpadEnterKey.wasPressedThisFrame ||
+                Keyboard.current.spaceKey.wasPressedThisFrame)
             {
                 // Con un modal abierto, Enter no debe saltar al Hub
                 bool modalOpen = modalOverlay != null && modalOverlay.style.display == DisplayStyle.Flex;

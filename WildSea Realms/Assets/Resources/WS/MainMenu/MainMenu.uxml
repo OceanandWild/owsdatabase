@@ -12,6 +12,9 @@
         <!-- Fondo: color + viñeta suave + burbujas -->
         <ui:VisualElement name="menu-background" class="ws-bg" picking-mode="Ignore">
             <ui:VisualElement class="ws-vignette" picking-mode="Ignore" />
+            <!-- Capa ws-grain eliminada: WS_overlay_grain.png no es ruido, son 3 lineas
+                 punteadas en diagonal. Tileada a 256 px repetia el patron en cadena por
+                 toda la pantalla encima del video. El fondo queda solo con video + viñeta. -->
             <ui:VisualElement name="bubble-1" class="ws-bubble ws-bubble--1" picking-mode="Ignore" />
             <ui:VisualElement name="bubble-2" class="ws-bubble ws-bubble--2" picking-mode="Ignore" />
             <ui:VisualElement name="bubble-3" class="ws-bubble ws-bubble--3" picking-mode="Ignore" />
@@ -36,7 +39,7 @@
 
             <!-- Derecha: panel vertical con los 4 botones apilados (layout referencia) -->
             <ui:VisualElement name="menu-buttons" class="ws-buttons">
-                <ui:Button name="btn-enter" text="▸  ENTRAR" class="btn btn--md btn--primary" />
+                <ui:Button name="btn-enter" text="▸  ENTRAR" class="btn btn--lg btn--primary" />
                 <ui:Button name="btn-how" text="CÓMO JUGAR" class="btn btn--md" />
                 <ui:Button name="btn-options" text="OPCIONES" class="btn btn--md" />
                 <ui:Button name="btn-quit" text="SALIR" class="btn btn--md btn--danger" />

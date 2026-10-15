@@ -7,7 +7,7 @@ namespace WildSea.Data
     /// <summary>
     /// Catálogo v1: hardcoded para no exigir .asset en Fase 1.
     /// Fase 2: reemplazar por Resources.LoadAll&lt;UniverseDef&gt; sin tocar la UI.
-    /// Universo Espacio activo (Estrella/Galaxia). Resto bloqueados/teased.
+    /// Universo Espacio activo (Modo Clasico). Resto bloqueados/teased.
     /// </summary>
     public static class UniverseCatalog
     {
@@ -51,8 +51,13 @@ namespace WildSea.Data
             u.unlockedInV1 = true;
             u.modes = new[]
             {
-                Mode("estrella", "space", "Modo Estrella", "⭐", "Primero en obtener 1 Estrella gana.", "first_to_1_star", "deck_space_estrella"),
-                Mode("galaxia", "space", "Modo Galaxia", "🌌", "Primero en completar 1 Galaxia gana.", "first_to_1_galaxy", "deck_space_galaxia"),
+                // Un solo modo: el clasico es el unico implementado. Los modos
+                // Estrella y Galaxia quedaron postergados (ver WILDSEA-MODO-CLASICO.md
+                // seccion 0) y el Hub ya no los ofrece: entrar por ahi ejecutaba el
+                // clasico con un cartel que prometia otra cosa.
+                Mode("clasico", "space", "Modo Clasico", "✦",
+                     "El juego sortea un objetivo y los dos compiten por completarlo. Subis la escalera fusionando 3 cartas de la misma clase.",
+                     "objective_rush", "deck_space_clasico"),
             };
             return u;
         }

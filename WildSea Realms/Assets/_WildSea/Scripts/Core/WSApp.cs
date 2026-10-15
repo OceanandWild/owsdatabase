@@ -15,6 +15,7 @@ namespace WildSea.UI
     {
         WSMainMenuUI menu;
         WSUniverseHubUI hub;
+        WSGameUI game;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Bootstrap()
@@ -37,8 +38,12 @@ namespace WildSea.UI
 
             menu = Build<WSMainMenuUI>("WS_MainMenu", 0);
             hub = Build<WSUniverseHubUI>("WS_Hub", 10);
+            game = Build<WSGameUI>("WS_Game", 20);
             menu.OnEnterPressed = ShowHub;
             hub.OnBackPressed = ShowMenu;
+            hub.OnPlayRequested = (u, m) => ShowGame(u, m);
+            game.OnBackPressed = ShowHub;
+            game.Show(false);
             hub.Show(false);
             menu.Show(true);
         }
@@ -68,7 +73,8 @@ namespace WildSea.UI
             return sharedPanel;
         }
 
-        void ShowHub() { menu.Show(false); hub.Show(true); }
+        void ShowHub() { game.Show(false); hub.Show(true); }
         void ShowMenu() { hub.Show(false); menu.Show(true); }
+        void ShowGame(string universeId, string modeId) { menu.Show(false); hub.Show(false); game.StartMatch(universeId, modeId); game.Show(true); }
     }
 }

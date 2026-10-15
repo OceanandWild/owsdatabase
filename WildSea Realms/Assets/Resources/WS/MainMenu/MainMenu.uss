@@ -13,7 +13,10 @@
 /* Capa extra del fundido de loop (la crea WSMainMenuUI por código): disuelve
    0.8 s entre el final y el inicio del vídeo para que el repeat no dé un salto. */
 .ws-bg-video { position: absolute; left: 0; top: 0; right: 0; bottom: 0; opacity: 0; }
-.ws-vignette { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgba(2, 10, 22, 0.35); }
+.ws-vignette { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgba(2, 10, 22, 0.42); }
+/* .ws-grain fuera: WS_overlay_grain.png es un patron de lineas diagonales, no grano.
+   Con background-repeat: repeat cada 256 px repetia la cadena y cruzaba el video.
+   Si vuelve el grano, generar un ruido realmente seamless (o textura 1:1 sin repeat). */
 .ws-bubble { position: absolute; bottom: -80px; border-width: 1px; border-color: rgba(190, 230, 255, 0.22); border-radius: 999px; background-color: rgba(190, 245, 255, 0.05); opacity: 0; }
 .ws-bubble--1 { left: 8%; width: 22px; height: 22px; }
 .ws-bubble--2 { left: 20%; width: 12px; height: 12px; }
@@ -52,11 +55,16 @@
    Panel real USS (color + borde + radio): sin sprite, sin deformaciones,
    sin manchas si el import falla. */
 .ws-buttons {
-    width: 300px; height: 444px; flex-shrink: 0;
+    width: 324px; height: 472px; flex-shrink: 0;
     flex-direction: column; align-items: center; justify-content: center;
-    background-color: rgba(7, 32, 52, 0.88);
-    border-width: 1px; border-color: rgba(95, 227, 208, 0.3); border-radius: 22px;
+    background-image: url("project://database/Assets/_WildSea/Art/UI/panel/WS_panel_showcase.png");
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: rgba(4, 18, 34, 0.72);
+    border-width: 1px; border-color: rgba(95, 227, 208, 0.34); border-radius: 24px;
     margin: 0;
+    padding-left: 22px; padding-right: 22px; padding-top: 18px; padding-bottom: 18px;
 }
 .ws-buttons > .btn { margin-top: 8px; margin-bottom: 8px; flex-shrink: 0; }
 .ws-buttons-row { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; margin-top: 12px; }
@@ -169,8 +177,12 @@
    a propósito — el sprite WS_panel_glass en modo Multiple resolvía a un
    recorte fantasma de 21x24 estirado (= la mancha amarilla). */
 .ws-glass {
-    background-color: rgba(8, 32, 52, 0.97);
-    border-width: 2px; border-color: rgba(255, 215, 90, 0.85); border-radius: 22px;
+    background-color: rgba(8, 32, 52, 0.92);
+    background-image: url("project://database/Assets/_WildSea/Art/UI/panel/WS_panel_glass.png");
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-width: 2px; border-color: rgba(255, 215, 90, 0.88); border-radius: 22px;
 }
 
 /* ── Botón universal ───────────────────────────────────────────────

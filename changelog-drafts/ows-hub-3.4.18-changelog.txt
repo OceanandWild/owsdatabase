@@ -1,0 +1,21 @@
+OWS Hub 3.4.18 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.18
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-16
+
+Cambios:
+- El Hub ya se actualiza aunque el servidor esté caído: resuelve la última versión por la API de GitHub, por el manifiesto estático de la release (servido fuera del servidor) o desde el último dato guardado en la app.
+- La descarga del instalador apunta siempre al archivo directo de GitHub: el botón ya no depende del backend para funcionar.
+- Si la información viene del caché, Actualizaciones lo aclara con el estado "Sin conexión · última versión conocida", en vez de mostrarla como recién consultada.
+
+=== ENGLISH ===
+Version: 3.4.18
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-16
+
+Changes:
+- The Hub now updates even when the server is down: it resolves the latest version through the GitHub API, the static release manifest (served outside the server), or the last data saved in the app.
+- The installer download always points to the direct GitHub file: the button no longer depends on the backend to work.
+- When the information comes from the cache, Updates makes it clear with the "Sin conexión · última versión conocida" state, instead of presenting it as freshly fetched.

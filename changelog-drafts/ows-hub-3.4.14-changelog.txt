@@ -1,0 +1,21 @@
+OWS Hub 3.4.14 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.14
+Plataforma: Android (APK)
+Fecha: 2026-10-16
+
+Cambios:
+- La app Android ya puede actualizarse sola aunque el backend esté caído: lee el manifiesto estático del canal y descarga el APK directo desde GitHub.
+- El chequeo de actualización intenta primero el servidor, después la API de GitHub y por último el último dato guardado, en vez de fallar de una.
+- La publicación de esta misma release ya no se queda sin registrar cuando el servidor principal no responde: reintenta contra el espejo.
+
+=== ENGLISH ===
+Version: 3.4.14
+Platform: Android (APK)
+Date: 2026-10-16
+
+Changes:
+- The Android app can now update itself even when the backend is down: it reads the channel's static manifest and downloads the APK straight from GitHub.
+- The update check tries the server first, then the GitHub API, and finally the last saved data, instead of failing outright.
+- Publishing this same release no longer goes unregistered when the main server does not respond: it retries against the mirror.

@@ -1,0 +1,11 @@
+{
+  "project_slug": "owshub",
+  "package_id": "com.oceanandwild.owshub",
+  "version_name": "3.4.13",
+  "version_code": 29862895,
+  "apk_url": "https://github.com/OceanandWild/ows-hub/releases/download/android-v3.4.13/OWS-Hub-3.4.13-android.apk",
+  "sha256": "9d25a2accbe8706d3108f5c6e001624171e49940b91e27948be79aceaba585e8",
+  "size_bytes": 15510973,
+  "release_notes": "APK de OWS Hub 3.4.13",
+  "published_at": "2026-10-12T02:56:28.455Z"
+}

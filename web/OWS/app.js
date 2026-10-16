@@ -5151,11 +5151,210 @@ function readOwsHubCache() {
 
 function writeOwsHubCache(payload) {
   try { localStorage.setItem(owsHubCacheKey(), JSON.stringify({ ...payload, ts: Date.now() })); } catch (_) {}
+  return payload;
+}
+
+// Último payload bueno aunque esté vencido: es la degradación final de la UI
+// cuando ninguna fuente fresca responde.
+function readOwsHubCacheRaw() {
+  try {
+    const raw = localStorage.getItem(owsHubCacheKey());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return (parsed && parsed.tag) ? parsed : null;
+  } catch (_) { return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESILIENCIA SIN RENDER — fuentes alternativas de la release del Hub
+// ───────────────────────────────────────────────────────────────
+// El proxy del backend (/ows-store/github/...) es la fuente principal, pero
+// cuando Render no responde (suspendido, dormido, 502) la UI NO se queda sin
+// versión ni sin botón de descarga: se prueba esta cadena en orden:
+//
+//   1) proxy del backend (el failover al espejo ya actúa dentro de fetch)
+//   2) api.github.com directo (CORS abierto; 60 pedidos/h por IP sin token)
+//   3) manifiesto estático en owsdatabase, servido fuera de Render:
+//      raw.githubusercontent.com → cdn.jsdelivr.net
+//   4) último caché local, aunque esté vencido
+//   5) link genérico a la página de releases (la UI nunca se rompe)
+//
+// Los manifiestos (ows-hub-update.json, ows-hub-android-update.json) los
+// publica cada release en la raíz de owsdatabase — la misma técnica que ya
+// usa ows-store-tauri-update.json — así que no dependen ni de Render ni del
+// límite de la API de GitHub.
+// ═══════════════════════════════════════════════════════════════
+const OWS_GITHUB_API_BASE = 'https://api.github.com';
+const OWS_DBDATA_FILES = { owner: 'OceanandWild', repo: 'owsdatabase', branch: 'main' };
+const OWS_HUB_WINDOWS_MANIFEST = 'ows-hub-update.json';
+const OWS_HUB_ANDROID_MANIFEST = 'ows-hub-android-update.json';
+
+// URLs del manifiesto estático: raw primero (más fresco) y jsDelivr después
+// (infraestructura distinta, sirve aunque raw esté bloqueado en la red).
+function owsManifestUrls(fileName) {
+  const f = String(fileName || '').trim();
+  if (!f) return [];
+  const { owner, repo, branch } = OWS_DBDATA_FILES;
+  return [
+    `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${f}`,
+    `https://cdn.jsdelivr.net/gh/${owner}/${repo}@${branch}/${f}`,
+  ];
+}
+
+// Plataformas de una release de GitHub (mismo criterio que el backend): el
+// repo ows-hub publica Windows y Android mezclados y "la última" puede ser
+// de la otra plataforma.
+function owsGithubReleasePlatforms(release) {
+  const tag = String((release && (release.tag_name || release.name)) || '').trim().toLowerCase();
+  const names = (Array.isArray(release && release.assets) ? release.assets : [])
+    .map((a) => String((a && a.name) || '').toLowerCase())
+    .filter(Boolean);
+  const hasApk = names.some((n) => n.endsWith('.apk'));
+  const hasDesktop = names.some((n) => /\.(exe|msi)$/.test(n) || n === 'latest.json' || n === 'latest.yml');
+  const out = [];
+  if (hasDesktop) out.push('windows');
+  if (hasApk) out.push('android');
+  if (out.length) return out;
+  if (/android/i.test(tag)) return ['android'];
+  if (/windows/i.test(tag) || /^win[-_]/i.test(tag)) return ['windows'];
+  return ['windows'];
+}
+
+// Versión visible de una release: "android-v3.3.5" / "v3.4.17" → "3.3.5" / "3.4.17".
+function owsGithubReleaseVersion(release) {
+  return String((release && (release.tag_name || release.name)) || '')
+    .trim()
+    .replace(/^(android|windows|win)[-_]/i, '')
+    .replace(/^[vV]/, '');
+}
+
+// Nombre de archivo a partir de una URL de descarga.
+function owsFileNameFromUrl(url) {
+  const u = String(url || '');
+  const seg = (u.split('/').pop() || '').split('?')[0];
+  try { return decodeURIComponent(seg); } catch (_) { return seg; }
+}
+
+// ── Traducciones a payload (misma forma use cual use la fuente) ──
+function owsHubPayloadFromProxy(data, platform) {
+  const tag = String((data && (data.tag_name || data.name)) || '').trim();
+  if (!tag) throw new Error('sin tag');
+  const asset = pickOwsHubAsset(data && data.assets);
+  return {
+    tag,
+    platform,
+    // Los tags de Android son "android-v3.3.5": la versión se muestra
+    // siempre como "3.3.5", igual que en Windows.
+    version: tag.replace(/^(android|windows|win)[-_]/i, '').replace(/^v/i, ''),
+    assetName: asset ? String(asset.name || '') : '',
+    assetSize: asset ? Number(asset.size || 0) : 0,
+    url: (asset && asset.browser_download_url) || OWS_HUB_RELEASES_URL,
+    htmlUrl: String((data && data.html_url) || OWS_HUB_RELEASES_URL),
+    publishedAt: (data && (data.published_at || data.created_at)) || '',
+  };
+}
+
+function owsHubPayloadFromGithubRelease(release, platform) {
+  const tag = String((release && (release.tag_name || release.name)) || '').trim();
+  const asset = pickOwsHubAsset(release && release.assets);
+  return {
+    tag,
+    platform,
+    version: owsGithubReleaseVersion(release),
+    assetName: asset ? String(asset.name || '') : '',
+    assetSize: asset ? Number(asset.size || 0) : 0,
+    url: (asset && asset.browser_download_url) || OWS_HUB_RELEASES_URL,
+    htmlUrl: String((release && release.html_url) || OWS_HUB_RELEASES_URL),
+    publishedAt: (release && (release.published_at || release.created_at)) || '',
+  };
+}
+
+// latest.json (formato del updater de Tauri) → payload de la UI.
+function owsHubPayloadFromWindowsManifest(manifest) {
+  const version = String((manifest && manifest.version) || '').trim().replace(/^[vV]/, '');
+  if (!/^\d/.test(version)) throw new Error('manifiesto sin versión');
+  const platforms = (manifest && manifest.platforms) || {};
+  const target = platforms['windows-x86_64'] || platforms['windows-aarch64'] || {};
+  const url = String((target && target.url) || '').trim();
+  const tag = `v${version}`;
+  return {
+    tag,
+    platform: 'windows',
+    version,
+    assetName: url ? owsFileNameFromUrl(url) : '',
+    assetSize: 0,
+    url: url || OWS_HUB_RELEASES_URL,
+    htmlUrl: `https://github.com/${OWS_HUB_REPO.owner}/${OWS_HUB_REPO.repo}/releases/tag/${tag}`,
+    publishedAt: String((manifest && manifest.pub_date) || ''),
+  };
+}
+
+// Manifiesto Android (misma info que una fila de ows_android_releases).
+function owsHubPayloadFromAndroidManifest(manifest) {
+  const version = String((manifest && (manifest.version_name || manifest.version)) || '').trim().replace(/^[vV]/, '');
+  if (!version) throw new Error('manifiesto sin versión');
+  const url = String((manifest && (manifest.apk_url || manifest.url)) || '').trim();
+  if (!url) throw new Error('manifiesto sin apk_url');
+  return {
+    tag: `android-v${version}`,
+    platform: 'android',
+    version,
+    assetName: owsFileNameFromUrl(url),
+    assetSize: Number((manifest && manifest.size_bytes) || 0),
+    url,
+    htmlUrl: OWS_HUB_RELEASES_LIST_URL,
+    publishedAt: String((manifest && manifest.published_at) || ''),
+  };
+}
+
+// ── Fuentes individuales (cada una lanza si no puede responder) ──
+async function fetchOwsHubReleaseFromProxy(platform) {
+  const url = `${API_BASE}/ows-store/github/repos/${OWS_HUB_REPO.owner}/${OWS_HUB_REPO.repo}/releases/latest?platform=${platform}`;
+  const res = await fetchWithTimeout(url, OWS_HUB_FETCH_TIMEOUT_MS);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return owsHubPayloadFromProxy(await res.json(), platform);
+}
+
+async function fetchOwsHubReleaseFromGithubApi(platform) {
+  const { owner, repo } = OWS_HUB_REPO;
+  const url = `${OWS_GITHUB_API_BASE}/repos/${owner}/${repo}/releases?per_page=30`;
+  const res = await fetchWithTimeout(url, OWS_HUB_FETCH_TIMEOUT_MS);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const list = await res.json().catch(() => null);
+  if (!Array.isArray(list)) throw new Error('respuesta inválida');
+  const matches = list
+    .filter((r) => r && !r.draft && owsGithubReleasePlatforms(r).indexOf(platform) !== -1)
+    .sort((a, b) => {
+      // Igual que el backend: por versión y no por fecha (los tags de Android
+      // y Windows comparten número y el orden por fecha los mezcla).
+      const d = owshubCompareVersions(owsGithubReleaseVersion(a), owsGithubReleaseVersion(b));
+      if (d !== 0) return -d;
+      return String(b.published_at || b.created_at || '').localeCompare(String(a.published_at || a.created_at || ''));
+    });
+  if (!matches.length) throw new Error('sin releases de la plataforma');
+  return owsHubPayloadFromGithubRelease(matches[0], platform);
+}
+
+async function fetchOwsHubReleaseFromManifest(platform) {
+  const file = platform === 'android' ? OWS_HUB_ANDROID_MANIFEST : OWS_HUB_WINDOWS_MANIFEST;
+  let lastError = null;
+  for (const url of owsManifestUrls(file)) {
+    try {
+      const res = await fetchWithTimeout(url, OWS_HUB_FETCH_TIMEOUT_MS);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json().catch(() => null);
+      if (!data) throw new Error('JSON inválido');
+      return platform === 'android'
+        ? owsHubPayloadFromAndroidManifest(data)
+        : owsHubPayloadFromWindowsManifest(data);
+    } catch (err) { lastError = err; }
+  }
+  throw lastError || new Error('sin manifiesto');
 }
 
 // Última release del Hub de LA PLATAFORMA CORRECTA (?platform=...): nunca
-// lanza: si falla devuelve el caché (o null) para que el panel pueda degradar
-// a un link genérico a la página de releases.
+// lanza; agota la cadena de fuentes y, si todo falla, devuelve el último
+// caché (aunque esté vencido) o el link genérico a la página de releases.
 function fetchOwsHubRelease() {
   if (owsHubReleasePromise) return owsHubReleasePromise;
   const cached = readOwsHubCache();
@@ -5163,39 +5362,30 @@ function fetchOwsHubRelease() {
 
   const platform = owsUpdatesPlatform();
   owsHubReleasePromise = (async () => {
+    // 1) Proxy del backend (el failover al espejo ya actúa dentro de fetch).
     try {
-      const url = `${API_BASE}/ows-store/github/repos/${OWS_HUB_REPO.owner}/${OWS_HUB_REPO.repo}/releases/latest?platform=${platform}`;
-      const res = await fetchWithTimeout(url, OWS_HUB_FETCH_TIMEOUT_MS);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const tag = String(data.tag_name || data.name || '').trim();
-      if (!tag) throw new Error('sin tag');
-      const asset = pickOwsHubAsset(data.assets);
-      const payload = {
-        tag,
-        platform,
-        // Los tags de Android son "android-v3.3.5": la versión se muestra
-        // siempre como "3.3.5", igual que en Windows.
-        version: tag.replace(/^(android|windows|win)[-_]/i, '').replace(/^v/i, ''),
-        assetName: asset ? String(asset.name || '') : '',
-        assetSize: asset ? Number(asset.size || 0) : 0,
-        url: (asset && asset.browser_download_url) || OWS_HUB_RELEASES_URL,
-        htmlUrl: String(data.html_url || OWS_HUB_RELEASES_URL),
-        publishedAt: data.published_at || data.created_at || '',
-      };
-      writeOwsHubCache(payload);
-      return payload;
+      return writeOwsHubCache(await fetchOwsHubReleaseFromProxy(platform));
     } catch (err) {
-      console.warn('[OWS] No se pudo leer la release de OWS Hub:', err && err.message);
-      const stale = (() => {
-        try {
-          const raw = localStorage.getItem(owsHubCacheKey());
-          return raw ? JSON.parse(raw) : null;
-        } catch (_) { return null; }
-      })();
-      // Sin red ni caché: al menos la página de releases siempre sirve.
-      return stale || { tag: '', platform, version: '', assetName: '', assetSize: 0, url: OWS_HUB_RELEASES_URL, htmlUrl: OWS_HUB_RELEASES_URL, publishedAt: '' };
+      console.warn('[OWS] Release del Hub: backend no disponible:', (err && err.message) || err);
     }
+    // 2) api.github.com directo.
+    try {
+      return writeOwsHubCache(await fetchOwsHubReleaseFromGithubApi(platform));
+    } catch (err) {
+      console.warn('[OWS] Release del Hub: API de GitHub sin respuesta:', (err && err.message) || err);
+    }
+    // 3) Manifiesto estático (raw → jsDelivr).
+    try {
+      return writeOwsHubCache(await fetchOwsHubReleaseFromManifest(platform));
+    } catch (err) {
+      console.warn('[OWS] Release del Hub: manifiesto estático no disponible:', (err && err.message) || err);
+    }
+    // 4-5) Caché vencido o link genérico. Si no hay ni caché se limpia la memo
+    // para que el próximo intento (reabrir el panel, "Reintentar") vuelva a
+    // probar la cadena en vez de repetir el resultado vacío de esta vez.
+    const stale = readOwsHubCacheRaw();
+    if (!stale) owsHubReleasePromise = null;
+    return stale || { tag: '', platform, version: '', assetName: '', assetSize: 0, url: OWS_HUB_RELEASES_URL, htmlUrl: OWS_HUB_RELEASES_URL, publishedAt: '' };
   })();
 
   return owsHubReleasePromise;
@@ -5249,18 +5439,151 @@ function bootAndroidNative() {
   }).catch(() => {});
 }
 
-// Última release Android publicada para un slug (null = no hay APK).
+// ── Respaldo sin Render para releases Android ──
+// Misma cadena que la release del Hub: backend → api.github.com directo
+// (solo canales con repo conocido) → manifiesto estático (raw → jsDelivr) →
+// caché local de la última release vista. Sin backend, el canal APK del Hub
+// sigue detectando versiones y bajando el .apk directo de GitHub.
+const OWS_ANDROID_MANIFEST_FILES = {
+  [OWS_ANDROID_CHANNEL]: OWS_HUB_ANDROID_MANIFEST,
+  'ows-store': 'ows-store-android-update.json',
+};
+const OWS_ANDROID_CHANNEL_REPOS = {
+  [OWS_ANDROID_CHANNEL]: OWS_HUB_REPO,
+};
+const OWS_ANDROID_RELEASE_CACHE_KEY = 'ows_android_release_cache_v1';
+
+function readAndroidReleaseCache(slug) {
+  try {
+    const raw = localStorage.getItem(OWS_ANDROID_RELEASE_CACHE_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const rel = all && all[String(slug || '').trim()];
+    return (rel && rel.apk_url) ? rel : null;
+  } catch (_) { return null; }
+}
+
+function writeAndroidReleaseCache(slug, rel) {
+  const s = String(slug || '').trim();
+  if (!s || !rel || !rel.apk_url) return rel || null;
+  try {
+    const raw = localStorage.getItem(OWS_ANDROID_RELEASE_CACHE_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    all[s] = rel;
+    localStorage.setItem(OWS_ANDROID_RELEASE_CACHE_KEY, JSON.stringify(all));
+  } catch (_) {}
+  return rel;
+}
+
+// El asset .apk más pesado de una release de GitHub (mismo criterio que el
+// backend al registrarla).
+function pickOwsAndroidApkAsset(assets) {
+  const list = (Array.isArray(assets) ? assets : []).filter((a) =>
+    a && a.browser_download_url && String(a.name || '').toLowerCase().endsWith('.apk')
+  );
+  if (!list.length) return null;
+  return [...list].sort((a, b) => Number(b.size || 0) - Number(a.size || 0))[0];
+}
+
+async function fetchAndroidReleaseFromGithub(slug) {
+  const src = OWS_ANDROID_CHANNEL_REPOS[String(slug || '').trim()];
+  if (!src) return null;
+  const url = `${OWS_GITHUB_API_BASE}/repos/${src.owner}/${src.repo}/releases?per_page=30`;
+  const res = await fetchWithTimeout(url, OWS_HUB_FETCH_TIMEOUT_MS);
+  if (!res.ok) return null;
+  const list = await res.json().catch(() => null);
+  if (!Array.isArray(list)) return null;
+  const matches = list
+    .filter((r) => r && !r.draft && owsGithubReleasePlatforms(r).indexOf('android') !== -1)
+    .sort((a, b) => {
+      const d = owshubCompareVersions(owsGithubReleaseVersion(a), owsGithubReleaseVersion(b));
+      if (d !== 0) return -d;
+      return String(b.published_at || b.created_at || '').localeCompare(String(a.published_at || a.created_at || ''));
+    });
+  const release = matches[0];
+  if (!release) return null;
+  const asset = pickOwsAndroidApkAsset(release.assets);
+  if (!asset) return null;
+  return {
+    project_slug: String(slug || '').trim(),
+    package_id: '',
+    // La release de GitHub no trae versionCode: el cliente compara por nombre.
+    version_name: owsGithubReleaseVersion(release),
+    version_code: 0,
+    apk_url: String(asset.browser_download_url || ''),
+    sha256: '',
+    size_bytes: Number(asset.size || 0),
+    release_notes: String(release.body || '').trim(),
+    published_at: release.published_at || release.created_at || '',
+    source: 'github',
+  };
+}
+
+async function fetchAndroidReleaseFromManifest(slug) {
+  const file = OWS_ANDROID_MANIFEST_FILES[String(slug || '').trim()];
+  if (!file) return null;
+  for (const url of owsManifestUrls(file)) {
+    try {
+      const res = await fetchWithTimeout(url, OWS_HUB_FETCH_TIMEOUT_MS);
+      if (!res.ok) continue;
+      const data = await res.json().catch(() => null);
+      if (!data) continue;
+      const apkUrl = String(data.apk_url || data.url || '').trim();
+      const version = String(data.version_name || data.version || '').trim().replace(/^[vV]/, '');
+      if (!apkUrl || !version) continue;
+      return {
+        project_slug: String(slug || '').trim(),
+        package_id: String(data.package_id || ''),
+        version_name: version,
+        version_code: Number(data.version_code || 0),
+        apk_url: apkUrl,
+        sha256: String(data.sha256 || ''),
+        size_bytes: Number(data.size_bytes || data.size || 0),
+        release_notes: String(data.release_notes || data.notes || ''),
+        published_at: String(data.published_at || data.pub_date || ''),
+        source: 'manifest',
+      };
+    } catch (_) {}
+  }
+  return null;
+}
+
+// Última release Android publicada para un slug (null = no hay APK). Nunca
+// lanza: agota la cadena de respaldo y termina en el caché local.
 async function fetchAndroidRelease(slug) {
   const s = String(slug || '').trim();
   if (!s) return null;
+  // 1) Backend (el failover al espejo ya actúa dentro de fetch).
   try {
     const res = await fetch(API_BASE + '/ows-store/android/releases/' + encodeURIComponent(s) + '/latest');
-    if (!res.ok) return null;
-    const data = await res.json().catch(() => ({}));
-    const rel = (data && data.release) || null;
-    if (rel) androidReleaseCache[s] = rel;
-    return rel;
-  } catch (_) { return null; }
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const rel = (data && data.release) || null;
+      if (rel && rel.apk_url) {
+        androidReleaseCache[s] = rel;
+        return writeAndroidReleaseCache(s, rel);
+      }
+    }
+  } catch (_) {}
+  // 2) api.github.com directo (solo canales con repo conocido).
+  try {
+    const rel = await fetchAndroidReleaseFromGithub(s);
+    if (rel) {
+      androidReleaseCache[s] = rel;
+      return writeAndroidReleaseCache(s, rel);
+    }
+  } catch (_) {}
+  // 3) Manifiesto estático.
+  try {
+    const rel = await fetchAndroidReleaseFromManifest(s);
+    if (rel) {
+      androidReleaseCache[s] = rel;
+      return writeAndroidReleaseCache(s, rel);
+    }
+  } catch (_) {}
+  // 4) Caché local: sin backend, lo último visto sigue sirviendo para instalar.
+  const cached = readAndroidReleaseCache(s);
+  if (cached) androidReleaseCache[s] = cached;
+  return cached;
 }
 
 // Pinta el panel lateral + el aviso del Gestor con la misma release.
@@ -5416,6 +5739,8 @@ let updatesState = {
   loaded: false,
   loading: false,
   error: '',
+  // true = datos de respaldo (sin backend): la UI avisa "sin conexión".
+  stale: false,
   checkedAt: '',
   filter: 'all',
   // Plataforma de los datos que se están mostrando (windows | android).
@@ -5626,9 +5951,10 @@ async function loadUpdatesManager(opts) {
   updatesState.error = '';
   try { renderUpdates(); } catch (_) {}
 
+  const platform = owsUpdatesPlatform();
+  let hubVer = '';
   try {
-    const hubVer = await hubLocalVersion();
-    const platform = owsUpdatesPlatform();
+    hubVer = await hubLocalVersion();
     const params = ['platform=' + platform];
     if (hubVer) params.push('hub=' + encodeURIComponent(hubVer));
     const inst = installedMapParam();
@@ -5666,6 +5992,7 @@ async function loadUpdatesManager(opts) {
       loaded: true,
       loading: false,
       error: '',
+      stale: false,
       checkedAt: data.checked_at || new Date().toISOString(),
       filter: updatesState.filter || 'all',
       platform: data.platform || platform,
@@ -5679,10 +6006,22 @@ async function loadUpdatesManager(opts) {
         pending: pendingProjects + (hub.update_available ? 1 : 0)
       }
     };
+    writeUpdatesProjectsCache(platform, projects);
   } catch (err) {
-    updatesState.loading = false;
-    updatesState.loaded = false;
-    updatesState.error = String((err && err.message) || err);
+    // Backend caído (Render suspendido/dormido): en vez del error pelado se
+    // arma un estado degradado — tarjeta del Hub con la cadena de respaldo
+    // (GitHub / manifiesto / caché; en desktop además el updater de Tauri) y
+    // juegos con la última copia guardada. Si no hay NINGUNA señal, se cae al
+    // error de siempre para no mostrar "al día" sin datos.
+    let degraded = null;
+    try { degraded = await buildUpdatesFallbackState(platform, hubVer); } catch (_) {}
+    if (degraded) {
+      updatesState = degraded;
+    } else {
+      updatesState.loading = false;
+      updatesState.loaded = false;
+      updatesState.error = String((err && err.message) || err);
+    }
   }
   try { renderUpdates(); } catch (_) {}
   try { syncUpdatesBadge(); } catch (_) {}
@@ -5710,37 +6049,73 @@ async function loadUpdatesManagerAndroid(opts) {
     }
     const installedName = String((info && info.version) || '').trim();
     const installedCode = Number((info && info.build) || 0);
-    const res = await fetch(API_BASE + '/ows-store/android/check-update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        project_slug: OWS_ANDROID_CHANNEL,
-        package_id: 'com.oceanandwild.owshub',
-        installed_version_code: installedCode || 0,
-        installed_version_name: installedName,
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const latest = (data && data.latest) || null;
-    let updateAvailable = !!(data && data.update_available);
-    // Sin versionCode en el lado nativo se compara por nombre (3.3.6 > 3.3.5).
-    if (!installedCode && latest && latest.version_name && installedName) {
-      updateAvailable = owshubCompareVersions(latest.version_name, installedName) > 0;
+
+    // Canal del Hub: backend primero; si Render no contesta, se resuelve con
+    // la cadena de respaldo (api.github.com / manifiesto / caché) y la
+    // comparación se hace en el cliente — la actualización APK no depende de
+    // que el backend esté arriba.
+    let latest = null;
+    let updateAvailable = false;
+    let backendOk = false;
+    let backendErr = null;
+    try {
+      const res = await fetch(API_BASE + '/ows-store/android/check-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_slug: OWS_ANDROID_CHANNEL,
+          package_id: 'com.oceanandwild.owshub',
+          installed_version_code: installedCode || 0,
+          installed_version_name: installedName,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      latest = (data && data.latest) || null;
+      updateAvailable = !!(data && data.update_available);
+      backendOk = true;
+    } catch (err) {
+      backendErr = err;
+      console.warn('[OWS] Canal Android: backend no disponible, probando respaldo:', (err && err.message) || err);
+      latest = await fetchAndroidRelease(OWS_ANDROID_CHANNEL).catch(() => null);
+    }
+    // Comparación en cliente cuando el backend no pudo opinar (o no trajo
+    // versionCode): por versionCode si ambos lo tienen, si no por nombre
+    // (3.3.6 > 3.3.5).
+    if (latest && latest.version_name && installedName) {
+      const latestCode = Number(latest.version_code || 0);
+      if (latestCode > 0 && installedCode > 0) {
+        updateAvailable = latestCode > installedCode;
+      } else if (!installedCode || !backendOk) {
+        updateAvailable = owshubCompareVersions(latest.version_name, installedName) > 0;
+      }
     }
 
     // Proyectos multi-plataforma en Android: el servidor ya filtra por
     // plataforma y compara contra lo instalado (se manda installed=slug:ver
     // desde el registro local de APKs). Así Wilder Gambit y demás juegos con
     // build Android aparecen para instalar/actualizar desde el Gestor.
-    let projects = [];
+    // Si Render no contesta, se muestra la última copia guardada.
+    const projectsCache = readUpdatesProjectsCache('android');
+    let projects = projectsCache ? projectsCache.projects : [];
+    let projectsFresh = false;
     try {
       const inst = androidInstalledMapParam();
       const qs = inst ? ('?platform=android&installed=' + encodeURIComponent(inst)) : '?platform=android';
       const pres = await fetch(API_BASE + '/ows-updates/projects' + qs);
       const pdata = await pres.json().catch(() => ({}));
-      if (pres.ok && Array.isArray(pdata.projects)) projects = pdata.projects;
-    } catch (_) { projects = []; }
+      if (pres.ok && Array.isArray(pdata.projects)) {
+        projects = pdata.projects;
+        projectsFresh = true;
+        writeUpdatesProjectsCache('android', projects);
+      }
+    } catch (_) {}
+
+    // Sin canal, sin respaldo y sin copia guardada no hay nada honesto que
+    // mostrar: se conserva el error original.
+    if (!backendOk && !latest && !projects.length) {
+      throw backendErr || new Error('Sin respuesta del canal de actualizaciones');
+    }
 
     const pendingProjects = projects.filter((p) => p.update_available).length;
     updatesState = {
@@ -5749,6 +6124,7 @@ async function loadUpdatesManagerAndroid(opts) {
       loaded: true,
       loading: false,
       error: '',
+      stale: !backendOk || !projectsFresh,
       checkedAt: new Date().toISOString(),
       filter: updatesState.filter || 'all',
       hub: {
@@ -5778,6 +6154,90 @@ async function loadUpdatesManagerAndroid(opts) {
   }
   try { renderUpdates(); } catch (_) {}
   try { syncUpdatesBadge(); } catch (_) {}
+}
+
+// ── Caché local de la lista de proyectos ───────────────────────
+// Última lista vista por plataforma: con el backend caído el Gestor muestra
+// esa copia en vez de quedarse en blanco o mentir con "no hay nada".
+const UPDATES_PROJECTS_CACHE_KEY = 'ows_updates_projects_cache_v1';
+function readUpdatesProjectsCache(platform) {
+  try {
+    const raw = localStorage.getItem(UPDATES_PROJECTS_CACHE_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const entry = all && all[String(platform || 'windows')];
+    if (!entry || !Array.isArray(entry.projects) || !entry.projects.length) return null;
+    return { ts: Number(entry.ts || 0), projects: entry.projects };
+  } catch (_) { return null; }
+}
+function writeUpdatesProjectsCache(platform, projects) {
+  if (!Array.isArray(projects)) return;
+  try {
+    const raw = localStorage.getItem(UPDATES_PROJECTS_CACHE_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    all[String(platform || 'windows')] = { ts: Date.now(), projects };
+    localStorage.setItem(UPDATES_PROJECTS_CACHE_KEY, JSON.stringify(all));
+  } catch (_) {}
+}
+
+// ── Estado degradado del Gestor cuando el backend no contesta ──
+// La tarjeta del Hub se resuelve con la cadena de respaldo (proxy ya agotado
+// → api.github.com → manifiesto → caché; en desktop además el updater de
+// Tauri, que no depende del backend) y los juegos con la última copia
+// guardada. Devuelve null si no hay NINGUNA señal: en ese caso el llamador
+// conserva el error de siempre con "Reintentar".
+async function buildUpdatesFallbackState(platform, hubVer) {
+  const cache = readUpdatesProjectsCache(platform);
+  const cachedProjects = cache ? cache.projects : [];
+  const tauriUpd = await tauriUpdaterCheck({ quiet: true, cacheMs: 60000 }).catch(() => null);
+  let rel = null;
+  try { rel = await fetchOwsHubRelease(); } catch (_) { rel = null; }
+
+  const current = String(hubVer || '').replace(/^[vV]/, '');
+  const latest = String((rel && rel.version) || '').replace(/^[vV]/, '');
+  let updateAvailable = !!(latest && current) && owshubCompareVersions(latest, current) > 0;
+  // En desktop el updater de Tauri es la fuente real de "¿hay versión nueva?".
+  if (tauriUpd && String(tauriUpd.currentVersion || '') && typeof tauriUpd.available === 'boolean') {
+    updateAvailable = tauriUpd.available;
+  }
+
+  if ((!rel || !rel.tag) && !tauriUpd && !cachedProjects.length) return null;
+
+  const hub = {
+    name: 'OWS Hub',
+    current_version: current || String((tauriUpd && tauriUpd.currentVersion) || '').replace(/^[vV]/, ''),
+    latest_version: latest || String((tauriUpd && tauriUpd.version) || '').replace(/^[vV]/, ''),
+    update_available: updateAvailable,
+    can_self_update: !!(tauriUpd && tauriUpd.available),
+    updater_available: !!(tauriUpd && tauriUpd.available),
+    updater_probe_ok: !!tauriUpd,
+    notes: (tauriUpd && tauriUpd.notes) || '',
+    published_at: (rel && rel.publishedAt) || (tauriUpd && tauriUpd.date) || '',
+    html_url: (rel && rel.htmlUrl) || OWS_HUB_RELEASES_URL,
+    // Link directo al asset de GitHub: la descarga no pasa por Render.
+    installer_url: (rel && rel.url) || '',
+    installer_name: (rel && rel.assetName) || '',
+    installer_size: (rel && rel.assetSize) || 0,
+  };
+
+  const pendingProjects = cachedProjects.filter((p) => p.update_available).length;
+  return {
+    loaded: true,
+    loading: false,
+    error: '',
+    stale: true,
+    checkedAt: (cache && cache.ts) ? new Date(cache.ts).toISOString() : new Date().toISOString(),
+    filter: updatesState.filter || 'all',
+    platform,
+    hub,
+    projects: cachedProjects,
+    counts: {
+      total: cachedProjects.length,
+      installed: cachedProjects.filter((p) => p.installed).length,
+      with_build: cachedProjects.filter((p) => p.has_build).length,
+      updates: pendingProjects,
+      pending: pendingProjects + (updateAvailable ? 1 : 0),
+    },
+  };
 }
 
 // Comparador semver-lite (solo para el canal Android del Hub).
@@ -5966,9 +6426,16 @@ function renderUpdates() {
     if (updatesState.loading) meta.textContent = 'Buscando…';
     else if (updatesState.checkedAt) {
       const d = new Date(updatesState.checkedAt);
-      meta.textContent = Number.isNaN(d.getTime())
-        ? 'Revisado'
-        : ('Revisado ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }));
+      const time = Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      if (updatesState.stale) {
+        // Datos de respaldo: no se puede decir "Revisado": la lista puede ser
+        // la última copia guardada o solo la info del Hub.
+        meta.textContent = 'Sin conexión' + ((updatesState.projects || []).length
+          ? (time ? ' · copia de las ' + time : ' · última copia guardada')
+          : ' · información del Hub');
+      } else {
+        meta.textContent = Number.isNaN(d.getTime()) ? 'Revisado' : ('Revisado ' + time);
+      }
     } else meta.textContent = 'Sin revisar';
   }
 
@@ -6027,7 +6494,11 @@ function renderUpdates() {
     const sub = document.getElementById('updates-empty-sub');
     if (sub) {
       const f = updatesState.filter || 'all';
-      if (updatesState.android) {
+      if (updatesState.stale && !(updatesState.projects || []).length) {
+        // Sin backend y sin copia guardada: dejar claro que no es que "no
+        // hay nada", sino que no se pudo consultar.
+        sub.textContent = 'Sin conexión con el servidor: no se pudo consultar tus juegos. Tocá «Buscar actualizaciones» para reintentar.';
+      } else if (updatesState.android) {
         sub.textContent = 'Sin juegos con APK todavía: cuando un proyecto publique su versión Android aparecerá acá para instalarlo.';
       } else if (f === 'pending') {
         sub.textContent = 'No tenés actualizaciones pendientes. Todo lo que tenés instalado está en la última versión.';
@@ -6075,6 +6546,7 @@ function renderHubUpdateCard() {
     else if (hasUpdate) state.textContent = isAndroid
       ? 'Hay una versión nueva de OWS Hub para Android'
       : (inDesktop ? 'Hay una versión nueva para instalar' : 'Hay una versión nueva disponible');
+    else if (updatesState.stale) state.textContent = 'Sin conexión · última versión conocida';
     else if (hub.unknown) state.textContent = 'Versión del Hub sin verificar';
     else state.textContent = 'Tu OWS Hub está actualizado';
   }
@@ -6144,6 +6616,10 @@ function renderHubUpdateCard() {
         : 'No se pudo comprobar la actualización automática (se cortó la consulta). Tocá «Buscar actualizaciones» otra vez, o cerrá el Hub y usá el instalador.';
     } else if (hasUpdate && !inDesktop) {
       hint.textContent = 'Instalá el Hub y desde ahí aplicás la actualización sin pasos extra.';
+    } else if (updatesState.stale) {
+      // Datos de respaldo: el link de releases queda siempre a mano y la
+      // descarga directa apunta al asset de GitHub (sin pasar por Render).
+      hint.innerHTML = 'Sin conexión con el servidor: mostrando la última versión conocida. <a href="' + escapeHtml(hub.html_url || OWS_HUB_RELEASES_URL) + '" target="_blank" rel="noopener">Releases ↗</a>';
     } else {
       hint.innerHTML = `<a href="${escapeHtml(hub.html_url || OWS_HUB_RELEASES_URL)}" target="_blank" rel="noopener">Releases ↗</a>`;
     }

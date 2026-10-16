@@ -1,0 +1,11 @@
+{
+  "version": "3.4.17",
+  "notes": "OWS Hub v3.4.17 - instalador de Windows. Las descargas del navegador requieren esta app.",
+  "pub_date": "2026-10-16T02:30:41Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUGY5THVQVzhGaFlPaDV3OU9peHlYUk1lcGc5cWhzWUdUMkV2QXFiOEZVb3kzc1VzQStlbGpQZ2JaTERkRDJEMkh6Zk9ac1BWNEJ0MU4wN3RrM0RNdHUvNFlrREpRNVFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMTE3ODQxCWZpbGU6T1dTIEh1Yl8zLjQuMTdfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjMuNC4xNwpFaE5mbFVNSlM0eDNVQ09WTDdwdHFRem1DcGoveTY5eG45cVhUbEtRRVp1OGlLSWdmNlRLcGtXUFJwMnI1VHdZNUdRbTV1SDNkbGRaSjg4VThOZHNBUT09Cg==",
+      "url": "https://github.com/OceanandWild/ows-hub/releases/download/v3.4.17/OWS-Hub_3.4.17_x64-setup.exe"
+    }
+  }
+}

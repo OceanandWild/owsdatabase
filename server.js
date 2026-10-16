@@ -14057,6 +14057,12 @@ async function ensureOwsDashboardEventsTable() {
   await pool.query(`
     ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS starts_expected BOOLEAN NOT NULL DEFAULT FALSE
   `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (starts_expected):', err.message));
+  // Desaparición automática: cuando el evento termina, OWS muestra
+  // "Desaparece en …" (cuenta atrás en vivo) y al llegar esta fecha el evento
+  // se quita solo del feed público (la fila queda intacta para el admin).
+  await pool.query(`
+    ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
+  `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (expires_at):', err.message));
   owsDashboardEventsTableReady = true;
 }
 
@@ -14070,6 +14076,9 @@ function normalizeDashboardEventCategory(value) {
 function mapOwsDashboardEventRow(row) {
   const startsAt = row.starts_at ? new Date(row.starts_at).toISOString() : null;
   const endsAt = row.ends_at ? new Date(row.ends_at).toISOString() : null;
+  // Desaparición automática: a partir de esta fecha el evento deja de salir
+  // en el feed público (y el admin lo ve marcado como "Desaparecido").
+  const expiresAt = row.expires_at ? new Date(row.expires_at).toISOString() : null;
   const now = Date.now();
   const startTs = startsAt ? Date.parse(startsAt) : 0;
   const endTs = endsAt ? Date.parse(endsAt) : 0;
@@ -14110,6 +14119,12 @@ function mapOwsDashboardEventRow(row) {
     // fecha por confirmar, sin countdown exacto.
     starts_expected: row.starts_expected === true || String(row.starts_expected || '').toLowerCase() === 'true',
     startsExpected: row.starts_expected === true || String(row.starts_expected || '').toLowerCase() === 'true',
+    // Desaparición automática (opcional): la web muestra "Desaparece en …"
+    // cuando el evento termina y se quita solo al llegar la fecha.
+    expires_at: expiresAt,
+    expiresAt,
+    // Solo para el panel: true cuando ya se pasó la fecha de desaparición.
+    expired: Boolean(expiresAt && Date.parse(expiresAt) <= now),
     phase,
     is_active: row.is_active !== false,
     priority: Number(row.priority || 0),
@@ -14144,7 +14159,7 @@ async function resolveDashboardEventProject(body, fallbackName = 'OWS') {
 }
 
 const OWS_EVENT_COLUMNS_SELECT = `id, title, description, category, project_name, project_id,
-       image_url, link_url, starts_at, ends_at, starts_expected, is_active, priority, created_by, created_at, updated_at`;
+       image_url, link_url, starts_at, ends_at, starts_expected, expires_at, is_active, priority, created_by, created_at, updated_at`;
 
 function resolveDashboardEventDates(body = {}) {
   const rawStart = body.starts_at || body.startsAt || body.event_start || body.eventStart || body.start_date || body.startDate;
@@ -14161,10 +14176,45 @@ function resolveDashboardEventDates(body = {}) {
   return { start, end };
 }
 
+// Desaparición automática del evento ("expires_at"). Acepta el alias
+// expiresAt/removal_at; null o cadena vacía = sin desaparición automática.
+function resolveDashboardEventExpiry(body = {}) {
+  const keys = ['expires_at', 'expiresAt', 'removal_at', 'removalAt'];
+  const key = keys.find((k) => Object.prototype.hasOwnProperty.call(body, k) && body[k] !== undefined);
+  if (key === undefined) return { provided: false };
+  const raw = body[key];
+  if (raw === null || String(raw).trim() === '') return { provided: true, value: null };
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return { provided: true, error: 'expires_at invalido' };
+  return { provided: true, value: date };
+}
+
+// La desaparición tiene que caer después del fin (o del inicio si el evento
+// sigue abierto): si no, se quitaría antes de que el evento termine.
+function validateEventExpiry(expiresAt, startsAt, endsAt) {
+  if (!expiresAt) return '';
+  const expTs = new Date(expiresAt).getTime();
+  if (!Number.isFinite(expTs)) return 'expires_at invalido';
+  const endTs = endsAt ? new Date(endsAt).getTime() : 0;
+  const startTs = startsAt ? new Date(startsAt).getTime() : 0;
+  if (Number.isFinite(endTs) && endTs && expTs <= endTs) {
+    return 'La fecha de desaparición debe ser posterior al fin del evento';
+  }
+  if (!Number.isFinite(endTs) || !endTs) {
+    if (Number.isFinite(startTs) && startTs && expTs <= startTs) {
+      return 'La fecha de desaparición debe ser posterior al inicio del evento';
+    }
+  }
+  return '';
+}
+
 // Feed publico de la seccion "Eventos" del dashboard OWS
 app.get('/ows-dashboard/events', async (req, res) => {
   const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
   const includeEnded = normalizeNewsBoolean(req.query.include_ended, true);
+  // Eventos que ya cumplieron su fecha de desaparición: fuera del feed
+  // público. El panel los pide con include_expired=1 para poder editarlos.
+  const includeExpired = normalizeNewsBoolean(req.query.include_expired, false);
   const limit = Math.max(1, Math.min(100, normalizeNewsNumber(req.query.limit, 30)));
   try {
     await ensureOwsDashboardEventsTable();
@@ -14174,9 +14224,10 @@ app.get('/ows-dashboard/events', async (req, res) => {
     // sin el "e." el WHERE quedaba ambiguo (500 en el feed de Eventos).
     if (!includeInactive) where.push('e.is_active = TRUE');
     if (!includeEnded) where.push("(e.ends_at IS NULL OR e.ends_at >= NOW() - INTERVAL '2 days')");
+    if (!includeExpired) where.push('(e.expires_at IS NULL OR e.expires_at > NOW())');
     const { rows } = await pool.query(
       `SELECT e.id, e.title, e.description, e.category, e.project_name, e.project_id,
-              e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.is_active, e.priority,
+              e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.expires_at, e.is_active, e.priority,
               e.created_by, e.created_at, e.updated_at,
               p.name AS linked_project_name, p.admin_only AS linked_admin_only,
               p.watermark_enabled, p.watermark_text, p.watermark_position, p.watermark_opacity
@@ -14209,6 +14260,11 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
   const dates = resolveDashboardEventDates(req.body || {});
   if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
   if (dates.error) return res.status(400).json({ error: dates.error });
+  // Desaparición automática (opcional): cuándo se quita solo de OWS.
+  const expiry = resolveDashboardEventExpiry(req.body || {});
+  if (expiry.error) return res.status(400).json({ error: expiry.error });
+  const expiryError = validateEventExpiry(expiry.value, dates.start, dates.end);
+  if (expiryError) return res.status(400).json({ error: expiryError });
   const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
 
@@ -14219,14 +14275,14 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
     if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const { rows } = await pool.query(
       `INSERT INTO ows_dashboard_events
-         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, starts_expected, priority, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, starts_expected, expires_at, priority, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING ${OWS_EVENT_COLUMNS_SELECT}`,
-      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl, dates.start, dates.end, startsExpected, priority, adminName]
+      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl, dates.start, dates.end, startsExpected, expiry.value || null, priority, adminName]
     );
     logAdminActivity({
       action: 'create', entityType: 'dashboard_event', entityId: String(rows[0]?.id || ''),
-      entityName: title, adminName, meta: { category, project_name: proj.name, project_id: proj.pid }
+      entityName: title, adminName, meta: { category, project_name: proj.name, project_id: proj.pid, expires_at: expiry.value || null }
     });
     return res.status(201).json({ success: true, event: mapOwsDashboardEventRow(rows[0] || {}) });
   } catch (err) {
@@ -14277,6 +14333,25 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
       if (merged.error) return res.status(400).json({ error: merged.error });
       updates.starts_at = merged.start;
       updates.ends_at = merged.end;
+    }
+    // Desaparición automática: se puede fijar, corregir o quitar (cadena vacía).
+    const expiry = resolveDashboardEventExpiry(req.body || {});
+    if (expiry.provided) {
+      if (expiry.error) return res.status(400).json({ error: expiry.error });
+      if (expiry.value) {
+        // Fechas efectivas: las del update si vinieron; si no, las guardadas.
+        let effStart = updates.starts_at !== undefined ? updates.starts_at : null;
+        let effEnd = updates.ends_at !== undefined ? updates.ends_at : null;
+        if (updates.starts_at === undefined || updates.ends_at === undefined) {
+          const { rows: curRows } = await pool.query('SELECT starts_at, ends_at FROM ows_dashboard_events WHERE id = $1', [id]);
+          if (!curRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
+          if (updates.starts_at === undefined) effStart = curRows[0].starts_at || null;
+          if (updates.ends_at === undefined) effEnd = curRows[0].ends_at || null;
+        }
+        const err = validateEventExpiry(expiry.value, effStart, effEnd);
+        if (err) return res.status(400).json({ error: err });
+      }
+      updates.expires_at = expiry.value;
     }
     if (req.file && req.file.path) updates.image_url = String(req.file.path);
     else if (req.body?.image_url !== undefined) updates.image_url = String(req.body.image_url).trim();
@@ -15863,8 +15938,9 @@ app.get('/ows-hub/summary', async (req, res) => {
       ),
       pool.query(
         `SELECT id, title, description, category, project_name, project_id, image_url, link_url,
-                starts_at, ends_at, starts_expected, priority, created_by, created_at, updated_at
-           FROM ows_dashboard_events WHERE is_active = TRUE
+                starts_at, ends_at, starts_expected, expires_at, priority, created_by, created_at, updated_at
+           FROM ows_dashboard_events
+          WHERE is_active = TRUE AND (expires_at IS NULL OR expires_at > NOW())
           ORDER BY starts_at DESC LIMIT 10`
       )
     ]);

@@ -1447,34 +1447,156 @@ function setEventsStatusFilter(value) {
   renderEvents(eventsCache);
 }
 
+// ── Desaparición automática de eventos ─────────────────────────
+// El admin puede fijar cuándo se quita un evento terminado. Mientras corre la
+// cuenta atrás, la tarjeta muestra "Desaparece en …" (semanas → días → horas →
+// minutos → segundos); al llegar la fecha, la tarjeta se va sola del calendario.
+function eventExpiresAt(ev) {
+  const raw = ev && (ev.expires_at || ev.expiresAt);
+  if (!raw) return '';
+  const ts = Date.parse(raw);
+  return Number.isFinite(ts) ? new Date(ts).toISOString() : '';
+}
+
+function eventExpiresInMs(ev) {
+  const iso = eventExpiresAt(ev);
+  if (!iso) return NaN;
+  return Date.parse(iso) - Date.now();
+}
+
+// Texto largo y dinámico: "2 semanas, 3 días y 5 horas" cuando falta más de
+// una semana; "4 días y 6 horas" cuando falta menos de una semana; "5 horas,
+// 20 minutos y 9 segundos" cuando falta menos de un día, etc.
+function lapseLabel(ms) {
+  if (!Number.isFinite(ms) || ms < 0) ms = 0;
+  const total = Math.floor(ms / 1000);
+  const weeks = Math.floor(total / (7 * 86400));
+  const days = Math.floor((total % (7 * 86400)) / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  const parts = [];
+  const push = (n, one, many) => { if (n > 0) parts.push(`${n} ${n === 1 ? one : many}`); };
+  if (weeks > 0) {
+    push(weeks, 'semana', 'semanas');
+    push(days, 'día', 'días');
+    push(hours, 'hora', 'horas');
+  } else if (days > 0) {
+    push(days, 'día', 'días');
+    push(hours, 'hora', 'horas');
+    push(minutes, 'minuto', 'minutos');
+  } else if (hours > 0) {
+    push(hours, 'hora', 'horas');
+    push(minutes, 'minuto', 'minutos');
+    push(seconds, 'segundo', 'segundos');
+  } else if (minutes > 0) {
+    push(minutes, 'minuto', 'minutos');
+    push(seconds, 'segundo', 'segundos');
+  } else {
+    push(seconds, 'segundo', 'segundos');
+  }
+  if (!parts.length) return '0 minutos';
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
+}
+
+// Versión compacta para la tarjeta: "2s 3d", "4d 6h", "5h 20m", "20m 9s", "9s".
+function lapseLabelShort(ms) {
+  if (!Number.isFinite(ms) || ms < 0) ms = 0;
+  const total = Math.floor(ms / 1000);
+  const weeks = Math.floor(total / (7 * 86400));
+  const days = Math.floor((total % (7 * 86400)) / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (weeks > 0) return `${weeks}s ${days}d`;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
 // ── Cuenta atrás viva ──────────────────────────────────────────
-// El texto "Empieza en 2d 5h" se refresca cada 30 s sin volver a pedir el
-// feed. Si una cuenta atrás llega a cero, el evento pudo pasar a "En curso":
-// se recarga el feed (con enfriamiento de 2 min para no encadenar fetches).
-const EVENTS_COUNTDOWN_TICK_MS = 30000;
-let eventsCountdownTimer = null;
+// Las cuentas atrás (inicio y desaparición) se refrescan solas: cada segundo
+// si hay algo en horas/minutos/segundos, cada 15 s si faltan horas y cada 30 s
+// si falta un día o más. Sin refetch: solo se reescribe el texto. Cuando un
+// evento cumple su fecha de desaparición, la tarjeta se quita al instante y el
+// feed se recarga (con enfriamiento para no encadenar pedidos).
+const EVENTS_TICK_FAST_MS = 1000;
+const EVENTS_TICK_MID_MS = 15000;
+const EVENTS_TICK_SLOW_MS = 30000;
+let eventsTickTimer = null;
 let eventsLastCountdownReload = 0;
+let eventsLastGoneReload = 0;
+
+function eventsTickIntervalMs() {
+  let interval = EVENTS_TICK_SLOW_MS;
+  document.querySelectorAll('[data-ev-expiry]').forEach((el) => {
+    const ms = Date.parse(el.getAttribute('data-ev-expiry') || '') - Date.now();
+    if (!Number.isFinite(ms) || ms <= 0) return;
+    if (ms < 3600000) interval = EVENTS_TICK_FAST_MS;
+    else if (ms < 86400000 && interval > EVENTS_TICK_MID_MS) interval = EVENTS_TICK_MID_MS;
+  });
+  return interval;
+}
 
 function refreshEventCountdowns() {
-  const nodes = document.querySelectorAll('[data-ev-countdown]');
-  let anyExpired = false;
-  nodes.forEach((el) => {
+  let anyStartExpired = false;
+  document.querySelectorAll('[data-ev-countdown]').forEach((el) => {
     const iso = el.getAttribute('data-ev-countdown') || '';
     const phase = el.getAttribute('data-ev-phase') || '';
     const text = eventCountdown(iso, phase);
-    if (!text) { anyExpired = true; return; }
+    if (!text) { anyStartExpired = true; return; }
     if (el.textContent !== text) el.textContent = text;
   });
-  if (anyExpired && eventsLoadState === 'ready' && !eventsLoading && Date.now() - eventsLastCountdownReload > 120000) {
+
+  let anyGone = false;
+  document.querySelectorAll('[data-ev-expiry]').forEach((el) => {
+    const iso = el.getAttribute('data-ev-expiry') || '';
+    const ms = Date.parse(iso) - Date.now();
+    if (!Number.isFinite(ms)) return;
+    if (ms <= 0) {
+      // Se cumplió la fecha: el evento desaparece de OWS.
+      anyGone = true;
+      const card = el.closest('.event-card');
+      if (card) card.remove();
+      return;
+    }
+    const text = `🗑️ Desaparece en ${lapseLabelShort(ms)}`;
+    if (el.textContent !== text) el.textContent = text;
+    const long = `Desaparece de OWS en ${lapseLabel(ms)}`;
+    if (el.getAttribute('title') !== long) el.setAttribute('title', long);
+  });
+
+  const grid = document.getElementById('events-grid');
+  if (anyGone) {
+    if (grid && !grid.children.length) {
+      const empty = document.getElementById('events-empty');
+      if (empty) empty.classList.remove('hidden');
+    }
+    if (eventsLoadState === 'ready' && !eventsLoading && Date.now() - eventsLastGoneReload > 15000) {
+      eventsLastGoneReload = Date.now();
+      loadDashboardEvents();
+    }
+  } else if (anyStartExpired && eventsLoadState === 'ready' && !eventsLoading && Date.now() - eventsLastCountdownReload > 120000) {
     eventsLastCountdownReload = Date.now();
     loadDashboardEvents();
   }
 }
 
-function startEventsCountdownTicker() {
-  if (eventsCountdownTimer) return;
-  eventsCountdownTimer = setInterval(refreshEventCountdowns, EVENTS_COUNTDOWN_TICK_MS);
+function scheduleEventsTick() {
+  if (eventsTickTimer) clearTimeout(eventsTickTimer);
+  eventsTickTimer = setTimeout(() => {
+    refreshEventCountdowns();
+    scheduleEventsTick();
+  }, eventsTickIntervalMs());
 }
+
+function startEventsCountdownTicker() {
+  if (eventsTickTimer) return;
+  scheduleEventsTick();
+}
+
 
 // Opciones del filtro: una por proyecto presente entre los eventos.
 // El estado (eventsProjectFilter) manda: el select solo lo refleja.
@@ -1562,13 +1684,31 @@ function renderEvents(eventsList) {
     const img = escapeHtml(ev.image_url || ev.cover_url || '');
     const phaseClass = ev.phase === 'active' ? 'ev-active' : ev.phase === 'ended' ? 'ev-ended' : 'ev-upcoming';
     const expected = eventShowsExpectedDate(ev);
+    // Desaparición automática: cuenta atrás viva sobre la tarjeta.
+    const expiryIso = eventExpiresAt(ev);
+    const expiresIn = eventExpiresInMs(ev);
+    const disappearing = Boolean(expiryIso) && Number.isFinite(expiresIn) && expiresIn > 0;
+    const expiryAttr = disappearing ? ` data-ev-expiry="${escapeHtml(expiryIso)}"` : '';
+    const expiryShort = disappearing ? lapseLabelShort(expiresIn) : '';
+    const expiryLong = disappearing ? `Desaparece de OWS en ${lapseLabel(expiresIn)}` : '';
     const phaseBadge = ev.phase === 'active'
       ? '<span class="ev-badge ev-badge-live">● En curso</span>'
       : ev.phase === 'ended'
-        ? '<span class="ev-badge ev-badge-ended">Finalizado</span>'
+        ? (disappearing
+            ? `<span class="ev-badge ev-badge-expiry"${expiryAttr} title="${escapeHtml(expiryLong)}">🗑️ Desaparece en ${escapeHtml(expiryShort)}</span>`
+            : '<span class="ev-badge ev-badge-ended">Finalizado</span>')
         : expected
           ? '<span class="ev-badge ev-badge-expected" title="Fecha esperada de inicio, todavía por confirmar">🕰️ Fecha por confirmar</span>'
           : `<span class="ev-badge ev-badge-soon" data-ev-countdown="${escapeHtml(ev.starts_at || '')}" data-ev-phase="${escapeHtml(ev.phase || '')}">${escapeHtml(eventCountdown(ev.starts_at, ev.phase)) || 'Próximamente'}</span>`;
+    // En curso con desaparición: se avisa en el cuerpo (el badge lo ocupa "En curso").
+    const expiryNote = disappearing && ev.phase === 'active'
+      ? `<span class="event-card-note"${expiryAttr} title="${escapeHtml(expiryLong)}">🗑️ Se quita en ${escapeHtml(expiryShort)}</span>`
+      : '';
+    // Programados: marcador invisible para que la tarjeta también se vaya sola
+    // si la fecha de desaparición llega mientras el evento sigue programado.
+    const expiryMarker = disappearing && ev.phase !== 'active' && ev.phase !== 'ended'
+      ? `<span class="ev-expiry-marker"${expiryAttr} style="display:none" aria-hidden="true">${escapeHtml(expiryShort)}</span>`
+      : '';
     const dateRange = escapeHtml(formatEventRange(ev.starts_at, ev.ends_at));
     const dateLine = expected
       ? `<span class="event-card-date is-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada: ${dateRange} <span class="ev-date-note">(por confirmar)</span></span>`
@@ -1589,6 +1729,8 @@ function renderEvents(eventsList) {
           <h4 class="event-card-title">${escapeHtml(ev.title)}</h4>
           ${ev.description ? `<p class="event-card-desc">${escapeHtml(ev.description)}</p>` : ''}
           ${dateLine}
+          ${expiryNote}
+          ${expiryMarker}
         </div>
       </article>
     `;
@@ -1642,6 +1784,14 @@ function openEventModal(ev) {
     ? new Date(ev.starts_at).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '—';
   const countdownText = (!expected && ev.phase !== 'ended') ? eventCountdown(ev.starts_at, ev.phase) : '';
+  // Desaparición automática: fecha exacta + cuenta atrás larga y dinámica.
+  const expiryIso = eventExpiresAt(ev);
+  const expiresIn = eventExpiresInMs(ev);
+  const expiryActive = Boolean(expiryIso) && Number.isFinite(expiresIn) && expiresIn > 0;
+  const expiryLong = expiryActive ? `Desaparece de OWS en ${lapseLabel(expiresIn)}` : '';
+  const expiryValue = expiryActive
+    ? `${new Date(expiryIso).toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} <span class="ev-date-note">🗑️ Desaparece en ${escapeHtml(lapseLabel(expiresIn))}</span>`
+    : 'Se queda en el calendario';
   const phaseText = ev.phase === 'active'
     ? 'En curso'
     : ev.phase === 'ended'
@@ -1662,6 +1812,7 @@ function openEventModal(ev) {
       <div class="data-row"><dt>Fin</dt><dd>${escapeHtml(ev.ends_at ? new Date(ev.ends_at).toLocaleString('es-ES') : '—')}</dd></div>
       <div class="data-row"><dt>Estado</dt><dd>${phaseText}</dd></div>
       ${countdownText ? `<div class="data-row"><dt>Cuenta atrás</dt><dd>${escapeHtml(countdownText)}</dd></div>` : ''}
+      ${ev.phase === 'ended' ? `<div class="data-row"><dt>Desaparición</dt><dd>${expiryValue}</dd></div>` : ''}
     </dl>
     ${ev.link_url || ev.linkUrl ? `<div style="padding:0 28px 28px"><a class="btn btn-primary btn-block" href="${escapeHtml(ev.link_url || ev.linkUrl)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">Ver más detalles ↗</a></div>` : ''}
   `;

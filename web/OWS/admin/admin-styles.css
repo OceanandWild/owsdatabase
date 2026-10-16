@@ -1297,6 +1297,18 @@ input.is-expected {
   background: rgba(251, 191, 36, 0.16); color: var(--gold-light);
   border-color: rgba(251, 191, 36, 0.45);
 }
+/* Desaparición automática: naranja mientras corre, gris cuando ya cayó */
+.ev-chip-expiry {
+  background: rgba(249, 115, 22, 0.16); color: #fdba74;
+  border-color: rgba(249, 115, 22, 0.42);
+}
+.ev-chip-gone {
+  background: rgba(100, 116, 139, 0.2); color: #cbd5e1;
+  border-color: rgba(100, 116, 139, 0.45);
+}
+#event-autohide-section .ev-switch-row { margin-bottom: 10px; }
+#event-expires-fields .field-group { margin-bottom: 0; }
+#event-expires-fields .ev-quick-dates { margin-top: 8px; }
 .status-watermark {
   background: rgba(56, 189, 248, 0.15); color: #7dd3fc;
   border: 1px solid rgba(56, 189, 248, 0.42);

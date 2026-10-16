@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=12" />
+  <link rel="stylesheet" href="admin-styles.css?v=13" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -388,7 +388,7 @@
                 </div>
                 <div class="field-group">
                   <label for="event-end">Fin <span class="opt-tag">opcional</span></label>
-                  <input type="datetime-local" id="event-end" data-adm-ev="change" data-adm="updateEventLivePreview" />
+                  <input type="datetime-local" id="event-end" data-adm-ev="change" data-adm="onEventEndChange" />
                 </div>
               </div>
               <div class="ev-quick-dates">
@@ -398,6 +398,28 @@
                 <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:clear-end">Sin fin</button>
               </div>
               <p class="ev-duration-hint" id="event-duration-hint">Elegí inicio y fin para ver la duración.</p>
+            </div>
+
+            <div class="ev-section" id="event-autohide-section">
+              <div class="ev-section-title">🗑️ Desaparición automática</div>
+              <label class="ev-switch-row" for="event-auto-hide">
+                <input type="checkbox" id="event-auto-hide" data-adm-ev="change" data-adm="onEventAutoHideToggle" />
+                <span class="ev-switch"></span>
+                <span id="event-auto-hide-label">El evento queda en OWS para siempre</span>
+              </label>
+              <div id="event-expires-fields" class="hidden">
+                <div class="field-group">
+                  <label for="event-expires">Se quita de OWS el <span class="opt-tag" id="event-expires-tag">después del fin</span></label>
+                  <input type="datetime-local" id="event-expires" data-adm-ev="change" data-adm="updateEventLivePreview" />
+                  <div class="ev-quick-dates">
+                    <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventExpiryQuick" data-adm-a0="s:fin">Al terminar</button>
+                    <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventExpiryQuick" data-adm-a0="s:1d">Fin + 1 día</button>
+                    <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventExpiryQuick" data-adm-a0="s:7d">Fin + 7 días</button>
+                    <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventExpiryQuick" data-adm-a0="s:30d">Fin + 30 días</button>
+                  </div>
+                  <p class="form-hint" id="event-expires-hint">Cuando el evento termine, en OWS se muestra <b>“Desaparece en …”</b> con semanas, días, horas, minutos y segundos, y al llegar la fecha se quita solo del calendario. La fecha tiene que ser posterior al fin.</p>
+                </div>
+              </div>
             </div>
 
             <div class="ev-section">
@@ -2028,7 +2050,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="../ows-api-failover.js?v=1"></script>
-  <script src="admin-app.js?v=8"></script>
+  <script src="admin-app.js?v=9"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

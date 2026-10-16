@@ -7,6 +7,7 @@ Fecha: 2026-10-16
 
 Cambios:
 - Los eventos con fecha tentativa se publican como "Fecha esperada de inicio" (por confirmar): se muestran sin cuenta atrás exacta y, cuando la fecha se confirma, vuelven al formato normal.
+- Los eventos terminados pueden avisar cuánto les queda antes de irse: se muestra "Desaparece en …" con la cuenta atrás viva —semanas, días y horas; días, horas y minutos; o horas, minutos y segundos, según cuánto falte— y, al llegar la fecha, el evento se quita solo del calendario.
 - Cada proyecto estrena su propia marca de agua sobre las portadas de sus eventos y noticias, con su texto, su posición en la imagen y su opacidad (por defecto, el nombre del proyecto).
 - Nueva barra de estados en Eventos: Todos, En curso, Próximos y Finalizados, con el conteo de cada grupo y combinable con el filtro por proyecto.
 - La cuenta atrás de los próximos eventos se actualiza sola mientras navegás: ya no queda congelada en el tiempo que faltaba cuando abriste la página, y al llegar a cero el evento pasa a mostrarse en curso.
@@ -19,6 +20,7 @@ Date: 2026-10-16
 
 Changes:
 - Events with a tentative date are published as an "Expected start date" (to be confirmed): they show without an exact countdown, and once the date is confirmed they go back to the normal format.
+- Finished events can announce how long they have left before leaving: a live "Disappears in …" countdown shows weeks, days and hours; days, hours and minutes; or hours, minutes and seconds depending on the remaining time, and once the date arrives the event leaves the calendar on its own.
 - Every project gets its own watermark on the covers of its events and news, with its own text, position on the image and opacity (the project name by default).
 - New status bar in Events: All, Ongoing, Upcoming and Finished, with the count of each group and combinable with the project filter.
 - The countdown for upcoming events refreshes on its own while you browse: it no longer stays frozen at the time remaining when you opened the page, and once it reaches zero the event shows as ongoing.

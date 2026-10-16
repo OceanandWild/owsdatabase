@@ -638,6 +638,19 @@ body {
 .event-card-date.is-expected .ev-date-note { font-style: italic; opacity: 0.85; }
 .ev-date-note { font-style: italic; opacity: 0.85; }
 
+/* Desaparición automática: aviso ámbar sobre el evento que ya terminó.
+   Se actualiza solo (segundos → minutos → horas → días → semanas) y al
+   llegar a cero la tarjeta se va del calendario. */
+.ev-badge-expiry {
+  background: rgba(8, 0, 16, 0.66); color: #fdba74;
+  border: 1px solid rgba(249, 115, 22, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.event-card-note {
+  font-size: 0.72rem; font-weight: 600; color: #fdba74;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Modules grid ──────────────────────────── */
 .modules-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;

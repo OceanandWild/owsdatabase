@@ -6184,7 +6184,15 @@ function setEventQuickDate(mode) {
   } else if (mode === 'clear-end') {
     endEl.value = '';
   }
+  syncEventAutoHideWithDates();
   updateEventLivePreview();
+}
+
+// Cambió el fin: se refresca la duración y se ofrece/actualiza la
+// desaparición automática (con sugerencia de fin + 7 días).
+function onEventEndChange() {
+  updateEventLivePreview();
+  syncEventAutoHideWithDates();
 }
 
 function updateEventDurationHint() {
@@ -6224,6 +6232,10 @@ function updateEventLivePreview() {
   const when = startEl && startEl.value
     ? (expected ? '🕰️ Fecha esperada: ' : '') + formatEventDate(new Date(startEl.value).toISOString()) + (endEl && endEl.value ? ' → ' + formatEventDate(new Date(endEl.value).toISOString()) : '')
     : 'Sin fecha todavía';
+  const expiryValue = readEventExpiryValue();
+  const expiryText = expiryValue
+    ? ` · 🗑️ ${escapeHtml(formatEventExpiryCountdown(expiryValue))}`
+    : '';
   box.innerHTML = `
     <div class="ev-live-banner">${src ? `<img src="${escapeHtml(src)}" alt="" data-adm-err="rm" />` : '<span>🗓️</span>'}
       <span class="ev-chip ${cat.cls}">${cat.icon} ${cat.label}</span>
@@ -6231,11 +6243,12 @@ function updateEventLivePreview() {
     <div class="ev-live-body">
       <div class="ev-live-title">${escapeHtml(title)}</div>
       <div class="ev-live-desc">${escapeHtml(desc)}</div>
-      <div class="ev-live-meta">📁 ${escapeHtml(proj)} · 🕒 ${escapeHtml(when)}</div>
+      <div class="ev-live-meta">📁 ${escapeHtml(proj)} · 🕒 ${escapeHtml(when)}${expiryText}</div>
     </div>`;
   const vis = document.getElementById('event-visible-label');
   const visBox = document.getElementById('event-visible');
   if (vis && visBox) vis.textContent = visBox.checked ? 'Visible en OWS' : 'Oculto (solo admin)';
+  updateEventExpiryHint();
 }
 
 // ── Fecha esperada de inicio ──────────────────────────────
@@ -6267,6 +6280,205 @@ function focusEventForm() {
   if (tab && tab.classList.contains('hidden') && typeof switchAdminTab === 'function') switchAdminTab('events');
   resetEventForm();
   openFormModal('event');
+}
+
+// ── Desaparición automática del evento ────────────────────────────
+// Cuando el evento tiene inicio y fin, el formulario pide también cuándo se
+// quita solo de OWS: al terminar, la web muestra "Desaparece en …" con
+// cuenta atrás viva (semanas → días → horas → minutos → segundos) y al llegar
+// la fecha el evento desaparece del calendario público.
+const EVENT_EXPIRY_QUICK_MS = {
+  'fin': 0,
+  '1d': 24 * 3600 * 1000,
+  '7d': 7 * 24 * 3600 * 1000,
+  '30d': 30 * 24 * 3600 * 1000
+};
+// Valor sugerido en automático: si el admin no lo tocó, se recalcula al
+// cambiar el fin; si lo escribió a mano, se respeta.
+let eventExpiryAutoValue = '';
+
+function eventAutoHideEls() {
+  return {
+    toggle: document.getElementById('event-auto-hide'),
+    label: document.getElementById('event-auto-hide-label'),
+    fields: document.getElementById('event-expires-fields'),
+    date: document.getElementById('event-expires'),
+    tag: document.getElementById('event-expires-tag'),
+    hint: document.getElementById('event-expires-hint')
+  };
+}
+
+function eventAutoHideIsOn() {
+  const el = eventAutoHideEls();
+  return !!(el.toggle && el.toggle.checked);
+}
+
+// Sugerencia por defecto cuando el evento ya tiene fin: fin + 7 días.
+function suggestEventExpiry() {
+  const endEl = document.getElementById('event-end');
+  if (!endEl || !endEl.value) return '';
+  const end = new Date(endEl.value);
+  if (Number.isNaN(end.getTime())) return '';
+  const suggested = new Date(end.getTime() + EVENT_EXPIRY_QUICK_MS['7d']);
+  return localDatetimeValue(suggested.toISOString());
+}
+
+function formatEventExpiryCountdown(iso) {
+  if (!iso) return '';
+  const ms = new Date(iso).getTime() - Date.now();
+  if (!Number.isFinite(ms)) return '';
+  if (ms <= 0) return 'Desaparecido';
+  return 'Desaparece en ' + lapseLabel(ms, false);
+}
+
+// Cuenta atrás dinámica, igual que en OWS: semanas + días + horas cuando
+// falta más de una semana; días + horas (y minutos) cuando falta menos de
+// una semana; horas, minutos y segundos cuando falta menos de un día.
+function lapseLabel(ms, withSeconds) {
+  if (!Number.isFinite(ms) || ms < 0) ms = 0;
+  const total = Math.floor(ms / 1000);
+  const weeks = Math.floor(total / (7 * 86400));
+  const days = Math.floor((total % (7 * 86400)) / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  const parts = [];
+  const push = (n, one, many) => { if (n > 0) parts.push(`${n} ${n === 1 ? one : many}`); };
+  if (weeks > 0) {
+    push(weeks, 'semana', 'semanas');
+    push(days, 'día', 'días');
+    push(hours, 'hora', 'horas');
+  } else if (days > 0) {
+    push(days, 'día', 'días');
+    push(hours, 'hora', 'horas');
+    push(minutes, 'minuto', 'minutos');
+  } else if (hours > 0) {
+    push(hours, 'hora', 'horas');
+    push(minutes, 'minuto', 'minutos');
+    if (withSeconds !== false) push(seconds, 'segundo', 'segundos');
+  } else if (minutes > 0) {
+    push(minutes, 'minuto', 'minutos');
+    push(seconds, 'segundo', 'segundos');
+  } else {
+    push(seconds, 'segundo', 'segundos');
+  }
+  if (!parts.length) return '0 minutos';
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
+}
+
+function onEventAutoHideToggle() {
+  const el = eventAutoHideEls();
+  const on = !!(el.toggle && el.toggle.checked);
+  if (el.fields) el.fields.classList.toggle('hidden', !on);
+  if (el.label) el.label.textContent = on ? '🗑️ Se quita solo de OWS' : 'El evento queda en OWS para siempre';
+  if (on && el.date) {
+    if (!el.date.value) {
+      const suggested = suggestEventExpiry();
+      if (suggested) { el.date.value = suggested; eventExpiryAutoValue = suggested; }
+    }
+    if (!el.date.value && el.hint) {
+      el.hint.innerHTML = '⏳ Poné una fecha de inicio y fin para que OWS pueda avisar <b>“Desaparece en …”</b>. La fecha de desaparición debe ser posterior al fin.';
+    }
+  }
+  updateEventExpiryHint();
+  updateEventLivePreview();
+}
+
+function setEventExpiryQuick(mode) {
+  const endEl = document.getElementById('event-end');
+  const el = eventAutoHideEls();
+  const key = String(mode || '').replace(/^s:/, '');
+  const offset = EVENT_EXPIRY_QUICK_MS[key] ?? 0;
+  if (!endEl || !endEl.value) {
+    showToast('⚠️ Primero elegí la fecha de fin del evento');
+    return;
+  }
+  const end = new Date(endEl.value);
+  if (Number.isNaN(end.getTime())) return showToast('⚠️ La fecha de fin no es válida');
+  const target = new Date(end.getTime() + (key === 'fin' ? 2 * 3600 * 1000 : offset));
+  const value = localDatetimeValue(target.toISOString());
+  if (el.date) el.date.value = value;
+  eventExpiryAutoValue = '';
+  onEventAutoHideToggle();
+  updateEventExpiryHint();
+  updateEventLivePreview();
+}
+
+function updateEventExpiryHint() {
+  const el = eventAutoHideEls();
+  if (!el.hint) return;
+  const endEl = document.getElementById('event-end');
+  const endValue = endEl && endEl.value ? new Date(endEl.value) : null;
+  if (!eventAutoHideIsOn()) return;
+  if (!el.date || !el.date.value) {
+    el.hint.innerHTML = '⏳ Falta la fecha: cuando el evento termine, OWS mostrará <b>“Desaparece en …”</b> y después lo quitará solo.';
+    return;
+  }
+  const value = new Date(el.date.value);
+  if (Number.isNaN(value.getTime())) {
+    el.hint.innerHTML = '⚠️ La fecha de desaparición no es válida.';
+    return;
+  }
+  if (endValue && !Number.isNaN(endValue.getTime()) && value <= endValue) {
+    el.hint.innerHTML = '⚠️ La desaparición tiene que ser <b>posterior al fin</b> del evento.';
+    return;
+  }
+  const day = formatEventDate(value.toISOString());
+  el.hint.innerHTML = `🗑️ Se quita solo el <b>${escapeHtml(day)}</b> (${escapeHtml(formatEventExpiryCountdown(el.date.value))}). En OWS, al terminar el evento se ve “Desaparece en …” con la cuenta atrás viva.`;
+}
+
+// Al cambiar el fin: si no había desaparición y ahora hay fin, se ofrece el
+// bloque con la fecha sugerida. Si el bloque ya está, se recalcula la
+// sugerencia (solo si el admin no la cambió a mano).
+function syncEventAutoHideWithDates() {
+  const endEl = document.getElementById('event-end');
+  const el = eventAutoHideEls();
+  const hasEnd = !!(endEl && endEl.value && !Number.isNaN(new Date(endEl.value).getTime()));
+  if (!hasEnd) {
+    if (el.toggle) el.toggle.checked = false;
+    if (el.date) el.date.value = '';
+    eventExpiryAutoValue = '';
+    onEventAutoHideToggle();
+    return;
+  }
+  if (el.toggle && !el.toggle.checked) {
+    el.toggle.checked = true;
+    eventExpiryAutoValue = '';
+  }
+  if (el.date && (!el.date.value || (eventExpiryAutoValue && el.date.value === eventExpiryAutoValue))) {
+    const suggested = suggestEventExpiry();
+    if (suggested) { el.date.value = suggested; eventExpiryAutoValue = suggested; }
+  }
+  onEventAutoHideToggle();
+}
+
+// Devuelve el valor listo para guardar: ISO, o '' cuando está apagado.
+function readEventExpiryValue() {
+  const el = eventAutoHideEls();
+  if (!el.toggle || !el.toggle.checked) return '';
+  const raw = el.date ? el.date.value : '';
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString();
+}
+
+// Chequeos previos al guardado. Devuelve el mensaje de error o ''.
+function validateEventExpiryBeforeSave() {
+  const el = eventAutoHideEls();
+  if (!el.toggle || !el.toggle.checked) return '';
+  const endEl = document.getElementById('event-end');
+  const endValue = endEl && endEl.value ? new Date(endEl.value) : null;
+  if (!endValue || Number.isNaN(endValue.getTime())) {
+    return 'Con desaparición automática hace falta la fecha de fin del evento';
+  }
+  const raw = el.date ? el.date.value : '';
+  if (!raw) return 'Falta la fecha en la que el evento desaparece de OWS';
+  const value = new Date(raw);
+  if (Number.isNaN(value.getTime())) return 'La fecha de desaparición no es válida';
+  if (value <= endValue) return 'La desaparición tiene que ser posterior al fin del evento';
+  return '';
 }
 
 function onEventsSearch(v) {
@@ -6332,7 +6544,7 @@ async function loadAdminEvents() {
   const list = document.getElementById('events-list');
   if (!list) return;
   try {
-    const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&limit=100');
+    const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&include_expired=1&limit=100');
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     eventsCache = data.events || [];
@@ -6399,6 +6611,12 @@ function renderAdminEvents() {
       : `<span class="ev-card-fallback">${cat.icon}</span>`;
     const dates = `${formatEventDate(ev.starts_at)}${ev.ends_at ? ' → ' + formatEventDate(ev.ends_at) : ''}`;
     const expected = ev.starts_expected === true || ev.startsExpected === true;
+    const expiryIso = ev.expires_at || ev.expiresAt || '';
+    const expiryChip = expiryIso
+      ? (ev.expired === true
+          ? '<span class="ev-chip ev-chip-gone" title="Ya desapareció del calendario público">🗑️ Desaparecido</span>'
+          : `<span class="ev-chip ev-chip-expiry" title="Se quita solo de OWS el ${escapeHtml(formatEventDate(expiryIso))}">🗑️ ${escapeHtml(formatEventExpiryCountdown(expiryIso))}</span>`)
+      : '';
     const prio = Number(ev.priority || 0);
     if (eventsView === 'list') {
       return `
@@ -6410,6 +6628,7 @@ function renderAdminEvents() {
         </div>
         <span class="ev-chip ${cat.cls}">${cat.icon} ${cat.label}</span>
         ${expected ? '<span class="ev-chip ev-chip-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Esperada</span>' : ''}
+        ${expiryChip}
         <span class="ev-chip ${phm.cls}">${phm.label}</span>
         <div class="ev-card-actions">
           <button class="btn btn-ghost btn-mini" title="Editar" data-adm-ev="click" data-adm="editEvent" data-adm-a0="r:${ev.id}">✏️</button>
@@ -6433,11 +6652,13 @@ function renderAdminEvents() {
           <span>🕒 ${expected ? '🕰️ ' : ''}${escapeHtml(dates)}</span>
           <span>⏳ ${escapeHtml(eventCountdown(ev))}</span>
           ${expected ? '<span title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada de inicio</span>' : ''}
+          ${expiryIso ? `<span title="Se quita solo de OWS el ${escapeHtml(formatEventDate(expiryIso))}">🗑️ ${escapeHtml(formatEventExpiryCountdown(expiryIso))}</span>` : ''}
           ${prio ? `<span>★ Prioridad ${prio}</span>` : ''}
         </div>
         ${prog !== null ? `<div class="ev-progress"><div class="ev-progress-bar" style="width:${prog}%"></div></div>` : ''}
         <div class="ev-card-foot">
           <span class="ev-chip ${phm.cls}">${phm.label}</span>
+          ${expiryChip}
           <div class="ev-card-actions">
             <button class="btn btn-ghost btn-mini" title="Editar" data-adm-ev="click" data-adm="editEvent" data-adm-a0="r:${ev.id}">✏️</button>
             <button class="btn btn-ghost btn-mini" title="Duplicar" data-adm-ev="click" data-adm="duplicateEvent" data-adm-a0="r:${ev.id}">⧉</button>
@@ -6467,6 +6688,14 @@ async function saveEvent(e) {
   if (!title) return showToast('⚠️ El título es obligatorio');
   if (!startsAt) return showToast('⚠️ La fecha de inicio es obligatoria');
   if (endsAt && new Date(endsAt) < new Date(startsAt)) return showToast('⚠️ El fin no puede ser anterior al inicio');
+  // Desaparición automática: si está activada, la fecha es obligatoria y
+  // tiene que caer después del fin (si no, el evento se quitaría antes).
+  const expiryIssue = validateEventExpiryBeforeSave();
+  if (expiryIssue) {
+    const el = eventAutoHideEls();
+    if (el.date) el.date.focus();
+    return showToast(`⚠️ ${expiryIssue}`);
+  }
 
   const btn = document.getElementById('btn-save-event');
   btn.disabled = true;
@@ -6484,6 +6713,9 @@ async function saveEvent(e) {
     fd.append('starts_at', new Date(startsAt).toISOString());
     fd.append('starts_expected', eventStartIsExpected() ? 'true' : 'false');
     if (endsAt) fd.append('ends_at', new Date(endsAt).toISOString());
+    // Desaparición automática: ISO cuando está activada; vacío = no se quita
+    // (así, al editar y apagarla, el backend limpia la fecha anterior).
+    fd.append('expires_at', readEventExpiryValue());
     if (linkUrl) fd.append('link_url', linkUrl);
     fd.append('priority', String(priority));
     if (eventImageFile) fd.append('image', eventImageFile);
@@ -6533,7 +6765,7 @@ async function editEvent(id) {
   try {
     let item = eventsCache.find((ev) => Number(ev.id) === Number(id));
     if (!item) {
-      const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&limit=100');
+      const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&include_expired=1&limit=100');
       const data = await res.json();
       item = (data.events || []).find((ev) => Number(ev.id) === Number(id));
     }
@@ -6552,6 +6784,13 @@ async function editEvent(id) {
     const expBox = document.getElementById('event-start-expected');
     if (expBox) expBox.checked = item.starts_expected === true || item.startsExpected === true;
     onEventStartModeChange();
+    // Desaparición automática: se restaura tal cual estaba guardada.
+    const autoEls = eventAutoHideEls();
+    const itemExpiry = item.expires_at || item.expiresAt || '';
+    if (autoEls.toggle) autoEls.toggle.checked = Boolean(itemExpiry);
+    if (autoEls.date) autoEls.date.value = itemExpiry ? localDatetimeValue(itemExpiry) : '';
+    eventExpiryAutoValue = '';
+    onEventAutoHideToggle();
     document.getElementById('event-link').value = item.link_url || '';
     document.getElementById('event-priority').value = item.priority || 0;
     const range = document.getElementById('event-priority-range');
@@ -6595,6 +6834,12 @@ async function duplicateEvent(id) {
     if (src.ends_at) {
       const e = new Date(src.ends_at);
       fd.append('ends_at', new Date(e.getTime() + 7 * 24 * 3600 * 1000).toISOString());
+    }
+    // Desaparición automática: la copia también corre una semana.
+    const srcExpiry = src.expires_at || src.expiresAt || '';
+    if (srcExpiry) {
+      const x = new Date(srcExpiry);
+      fd.append('expires_at', new Date(x.getTime() + 7 * 24 * 3600 * 1000).toISOString());
     }
     if (src.link_url) fd.append('link_url', src.link_url);
     fd.append('priority', String(src.priority || 0));
@@ -6642,6 +6887,12 @@ function resetEventForm() {
   if (expTag) expTag.classList.add('hidden');
   const startEl = document.getElementById('event-start');
   if (startEl) startEl.classList.remove('is-expected');
+  // Desaparición automática: vuelve a su estado base (apagada, sin fecha).
+  const autoEls = eventAutoHideEls();
+  if (autoEls.toggle) autoEls.toggle.checked = false;
+  if (autoEls.date) autoEls.date.value = '';
+  eventExpiryAutoValue = '';
+  onEventAutoHideToggle();
   const fi = document.getElementById('event-image');
   if (fi) fi.value = '';
   renderEventImagePreview('');

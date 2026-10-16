@@ -4,6 +4,7 @@ dotenv.config();
 // 1Ã¯Ã‚Â¸Ã‚ÂÃ¢Ã†â€™Ã‚Â£ Después el resto
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import pg from "pg";
 import multer from "multer";
 import bcrypt from "bcrypt";
@@ -231,6 +232,18 @@ pool.query(`
 `).catch(err => console.error('Error ensuring column is_edited exists:', err));
 
 const app = express();
+
+// Compresión de respuestas (gzip/Brotli). El plan free de Render incluye
+// 5 GB de bandwidth de salida al mes: comprimir el texto (JSON, HTML, JS,
+// CSS) recorta ~70% del consumo sin cambiar ninguna respuesta.
+app.use(compression({
+  filter: (req, res) => {
+    // Descargas de archivos (instaladores, zips): no se comprimen.
+    if (String(res.getHeader('Content-Disposition') || '').startsWith('attachment')) return false;
+    return compression.filter(req, res);
+  }
+}));
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
@@ -7334,7 +7347,7 @@ app.post('/floret/products/:id/mark-sold-out', async (req, res) => {
 });
 
 // Servir archivos estáticos de Ocean Pay
-app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
+app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay'), { maxAge: '1h' }));
 
 // ===== OWS ADMIN PANEL SYSTEM (STRICT VERIFICATION & LOCKOUT) =====
 const adminLockouts = new Map();
@@ -8075,7 +8088,7 @@ app.get('/ocean-pay/index.html', (_req, res) => {
 });
 
 // Servir archivos estáticos de Ocean Pay
-app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
+app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay'), { maxAge: '1h' }));
 
 // Script compartido para bloqueo por rework/indisponibilidad (consumible por cualquier proyecto)
 app.get('/shared/ows-project-guard.js', (_req, res) => {
@@ -8102,8 +8115,8 @@ app.get('/a-wild-question-game', (_req, res) => {
     res.status(404).send('Archivo no encontrado');
   }
 });
-app.use('/a-wild-question-game', express.static(join(__dirname, 'A Wild Question Game')));
-app.use('/ows-spaces/assets', express.static(join(__dirname, 'OWS Spaces', 'assets')));
+app.use('/a-wild-question-game', express.static(join(__dirname, 'A Wild Question Game'), { maxAge: '1h' }));
+app.use('/ows-spaces/assets', express.static(join(__dirname, 'OWS Spaces', 'assets'), { maxAge: '1d' }));
 
 // OWS Spaces - SPA: sirve la página desde el propio backend para que
 // página y API compartan origen (http://<host>:<PORT>/ows-spaces).
@@ -8151,7 +8164,7 @@ const cleanOldWildTransferFiles = () => {
 // Limpiar cada 6 horas
 setInterval(cleanOldWildTransferFiles, 6 * 60 * 60 * 1000);
 
-app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer')));
+app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer'), { maxAge: '1h' }));
 
 // ===== WEB/OWS FRONTEND (desarrollo local) =====
 // Sirve web/OWS en http://localhost:3000/ows para no usar file:// (que causa
@@ -8160,7 +8173,7 @@ app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer')));
 try {
   const owsWebDir = join(__dirname, 'web', 'OWS');
   if (fs.existsSync(owsWebDir)) {
-    app.use('/ows', express.static(owsWebDir));
+    app.use('/ows', express.static(owsWebDir, { maxAge: '1h' }));
     app.get('/ows', (_req, res) => res.sendFile(join(owsWebDir, 'index.html')));
     console.log('[OWS] Sirviendo frontend local en /ows ->', owsWebDir);
   }

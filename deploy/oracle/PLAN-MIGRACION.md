@@ -1,6 +1,6 @@
 # Plan de migración — Backend OWS: Render → Oracle Cloud Always Free
 
-- **Estado:** ⚠️ **BLOQUEADO por tarjeta** (actualizado 2026-10-15): no hay tarjeta ni para la verificación de identidad de Oracle. **Plan activo: §10 — "Render optimizado" (sin tarjeta, $0).** Este documento queda como referencia para cuando exista tarjeta o créditos de estudiante.
+- **Estado:** ⚠️ **BLOQUEADO por tarjeta** (actualizado 2026-10-15): no hay tarjeta ni para la verificación de identidad de Oracle. **Plan activo: §10 — "Render optimizado" (sin tarjeta, sin PC, $0).** Este documento queda como referencia para cuando exista una tarjeta.
 - **Fecha:** 2026-10-15
 - **Base:** commit `9049544` de `owsdatabase`
 - **Costo objetivo:** US$ 0/mes
@@ -384,19 +384,44 @@ bloqueada. No hace falta igual: el camino sin tarjeta ya estaba encaminado y es 
 ### 10.2 Tareas pendientes (cuando Render vuelva del reset de ciclo)
 1. [ ] Verificar que deployaron `9049544` y `031bcb9` (si no: Manual Deploy → Deploy latest commit).
 2. [ ] Auditoría de descargas: proyectos sin `installer_url` directa → asignar GitHub Releases o
-   Cloudinary. Ídem `apk-download`.
-3. [ ] Medir consumo real: Render Dashboard → Bandwidth (primer mes con descargas afuera de Render).
-4. [ ] Si se necesita el ecosistema vivo ANTES del reset: levantar `server.js` en la PC del estudio
-   + Tailscale Funnel (sujeto a que la DB sea accesible desde afuera). Coordinar con el usuario.
+   Cloudinary. Ídem `apk-download`. (Clave: sin esto, el 5 GB vuelve a consumirse.)
+3. [ ] Configurar pinger externo gratis (UptimeRobot cada 5 min → `/ecoconsole/health`) para que el
+   servicio **nunca duerma**: las 750 h/mes alcanzan para 24/7 (730 h) → 24/7 real, sin PC.
+4. [ ] Medir consumo real: Render Dashboard → Bandwidth (primer mes con descargas afuera de Render).
+5. [ ] Nota: NO se puede levantar el servicio antes del reset sin PC encendida (descartada por el
+   usuario) ni tarjeta (descartada) → solo esperar el reinicio de ciclo (fecha en Render → Billing).
 
-### 10.3 Salidas si algún día Render no alcanza (siempre sin tarjeta)
-- **Anexo A** — PC + Tailscale Funnel (única ruta sin tarjeta para sacar el backend de Render).
-- **Créditos de estudiante** — ver final del Anexo A (desbloquea Azure $100 sin tarjeta + dominio).
-- Oracle (secciones 1-9) queda como referencia para cuando exista una tarjeta.
+### 10.3 Barrido completo de alternativas (verificado 2026-10-15) — conclusión
+No existe plataforma que sea a la vez: gratis + sin tarjeta + 24/7 sin PC + sin límites + capaz de
+correr este backend. Las candidatas fallan en algo:
+
+| Plataforma | Por qué queda descartada |
+|---|---|
+| Oracle · Google · AWS · Azure | piden tarjeta solo para verificar identidad (filtro anti-abuso) |
+| Northflank (2 servicios always-on) | pide tarjeta al registrarse |
+| Koyeb | desde feb-2026 pide tarjeta + retención US$29 |
+| Fly.io | eliminó el free tier (2024) |
+| Railway | free = US$1/mes de crédito (no alcanza para 24/7) |
+| Hugging Face Spaces | Docker ahora requiere plan PRO (cambio 2026) |
+| Back4App Containers | free = ~1 hora de vida por deploy (para pruebas) |
+| SnapDeploy | 100 h/mes y solo despierta con visita humana |
+| ngrok | 1 GB/mes, 20k requests/mes y página intersticial |
+| Qoddi · Sevalla | el free solo permite sitios estáticos |
+| Serv00 | ToS prohíbe usos fuera de "website hosting" y archivos de juegos |
+| Cloudflare Workers · Deno · Leapcell · Vercel · Netlify | no corren este stack (sin fs, sin socket.io real, serverless) |
+| PC + túnel (Tailscale) | el usuario no puede mantener la PC encendida 24/7 |
+
+**Conclusión:** Render Free ES la solución práctica — con el pinger (§10.2.3) queda 24/7 sin PC, y
+con las descargas afuera (§10.2.2) el límite de 5 GB deja de importar aunque los proyectos crezcan
+enormemente. $0, sin tarjeta, sin PC. Si algún día aparece una tarjeta, Oracle (secciones 1-9) sigue
+siendo el upgrade natural (10 TB/mes).
 
 ---
 
-## Anexo A — Alternativa sin tarjeta: PC del estudio + Tailscale Funnel
+## Anexo A — (DESCARTADO 2026-10-15) PC del estudio + Tailscale Funnel
+
+> ❌ Descartado: el usuario no puede mantener la PC encendida 24/7. Queda documentado por si en
+> el futuro existe una PC (o Raspberry Pi) que pueda quedar siempre encendida.
 
 **Cómo funcionaría:** `server.js` corre en la PC del estudio (Node local) y se publica a internet
 con **Tailscale Funnel**: URL fija `https://<pc>.<tailnet>.ts.net` con HTTPS válido — sin abrir
@@ -413,16 +438,12 @@ puertos del router (anda incluso detrás de NAT/CGNAT).
   `https://<pc>.<tailnet>.ts.net/api/health` + override en la web → migrar clientes (Fase 5).
 - En Windows: dejar Node + Funnel como servicio (NSSM o tarea de inicio) para arranque automático.
 
-⚠️ **Descartados (verificado 2026-10-15):** ngrok free (1 GB/mes, 20k requests/mes, página
-intersticial y dominio único auto-asignado) · SnapDeploy (100 h/mes) · Back4App (60 min por
-deploy) · Railway free ($1/mes de crédito) · Koyeb (desde feb-2026 pide tarjeta con retención de
-$29) · Fly.io (sin free desde 2024). De los PaaS con free real y sin tarjeta, **Render es
-prácticamente el único que sirve este stack**.
+⚠️ **Descartados:** ver la tabla completa del barrido en §10.3 (ngrok, SnapDeploy, Back4App,
+Railway, HF Spaces, Serv00, Northflank, etc.).
 
-**Créditos de estudiante (si aplica):** con email de institución educativa, el **GitHub Student
-Developer Pack** incluye créditos cloud sin tarjeta (p. ej. Azure for Students US$100/año) y un
-dominio gratis ~1 año. Si alguien del estudio es estudiante, avisar: podría desbloquear una VM
-"de verdad" sin pagar nada.
+**Créditos de estudiante (no aplica):** nadie del estudio tiene email de estudiante (consultado
+2026-10-15). Si eso cambia, el **GitHub Student Developer Pack** incluye créditos cloud sin tarjeta
+(p. ej. Azure for Students US$100/año) y dominio gratis ~1 año.
 
 ## Anexo B — Checklist de variables de entorno (34)
 

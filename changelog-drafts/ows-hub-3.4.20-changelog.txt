@@ -6,8 +6,8 @@ Plataforma: Windows (NSIS + MSI)
 Fecha: 2026-10-16
 
 Cambios:
-- Eventos con fecha tentativa: al crear o editar un evento podés marcar que el inicio todavía no está confirmado. En OWS se publica como "Fecha esperada de inicio" (por confirmar), sin prometer una cuenta atrás exacta.
-- Cada proyecto puede llevar su propia marca de agua en las portadas de sus eventos y noticias: texto libre (si lo dejás vacío usa el nombre del proyecto), posición en la imagen, opacidad y un interruptor para activarla o apagarla. Se configura en el Admin, en la ficha del proyecto.
+- Los eventos con fecha tentativa se publican como "Fecha esperada de inicio" (por confirmar): se muestran sin cuenta atrás exacta y, cuando la fecha se confirma, vuelven al formato normal.
+- Cada proyecto estrena su propia marca de agua sobre las portadas de sus eventos y noticias, con su texto, su posición en la imagen y su opacidad (por defecto, el nombre del proyecto).
 - Nueva barra de estados en Eventos: Todos, En curso, Próximos y Finalizados, con el conteo de cada grupo y combinable con el filtro por proyecto.
 - La cuenta atrás de los próximos eventos se actualiza sola mientras navegás: ya no queda congelada en el tiempo que faltaba cuando abriste la página, y al llegar a cero el evento pasa a mostrarse en curso.
 - Los eventos de proyectos internos no exponen su marca de agua ni su nombre: se siguen viendo como "Proyecto interno".
@@ -18,8 +18,8 @@ Platform: Windows (NSIS + MSI)
 Date: 2026-10-16
 
 Changes:
-- Events with a tentative date: when creating or editing an event you can mark the start as not yet confirmed. On OWS it's published as an "Expected start date" (to be confirmed), without promising an exact countdown.
-- Every project can carry its own watermark on the covers of its events and news: free text (if left empty it uses the project name), position on the image, opacity, and a switch to turn it on or off. Configured in the Admin, on the project card.
+- Events with a tentative date are published as an "Expected start date" (to be confirmed): they show without an exact countdown, and once the date is confirmed they go back to the normal format.
+- Every project gets its own watermark on the covers of its events and news, with its own text, position on the image and opacity (the project name by default).
 - New status bar in Events: All, Ongoing, Upcoming and Finished, with the count of each group and combinable with the project filter.
 - The countdown for upcoming events refreshes on its own while you browse: it no longer stays frozen at the time remaining when you opened the page, and once it reaches zero the event shows as ongoing.
 - Events from internal projects don't expose their watermark or name: they still show as "Proyecto interno" (internal project).

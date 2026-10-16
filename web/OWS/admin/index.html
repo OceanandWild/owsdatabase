@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=11" />
+  <link rel="stylesheet" href="admin-styles.css?v=12" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -188,6 +188,7 @@
                 <label for="news-project">Proyecto <span class="opt-tag">etiqueta de la tarjeta</span></label>
                 <input type="text" id="news-project" list="news-project-list" placeholder="OWS" autocomplete="off" data-adm-ev="input" data-adm="updateNewsPreview" />
                 <datalist id="news-project-list"></datalist>
+                <p class="form-hint">Si el nombre coincide con un proyecto del catálogo, la noticia hereda su <b>💧 marca de agua</b> sobre la imagen (se configura en Proyectos).</p>
               </div>
               <div class="newsadm-preview">
                 <span class="newsadm-preview-label">Vista previa · así se verá en el dashboard</span>
@@ -376,8 +377,14 @@
               <div class="ev-section-title">⏰ Tiempo</div>
               <div class="field-row">
                 <div class="field-group">
-                  <label for="event-start">Inicio *</label>
+                  <label for="event-start">Inicio del evento * <span class="opt-tag hidden" id="event-start-expected-tag">fecha esperada</span></label>
                   <input type="datetime-local" id="event-start" required data-adm-ev="change" data-adm="updateEventLivePreview" />
+                  <label class="ev-switch-row ev-expected-row" for="event-start-expected" title="Marcá esta opción cuando todavía no estés seguro de la fecha">
+                    <input type="checkbox" id="event-start-expected" data-adm-ev="change" data-adm="onEventStartModeChange" />
+                    <span class="ev-switch"></span>
+                    <span>🕰️ Todavía no estoy seguro — es la <b>fecha esperada de inicio</b></span>
+                  </label>
+                  <p class="form-hint" id="event-start-hint">Si la fecha es estimada, activá la opción: en OWS se muestra como <b>fecha esperada</b> (por confirmar) y sin cuenta atrás exacta.</p>
                 </div>
                 <div class="field-group">
                   <label for="event-end">Fin <span class="opt-tag">opcional</span></label>
@@ -732,7 +739,7 @@
               </div>
               <div class="field-group">
                 <label for="proj-name">Nombre *</label>
-                <input type="text" id="proj-name" placeholder="ej: Wilder Gambit" required />
+                <input type="text" id="proj-name" placeholder="ej: Wilder Gambit" required data-adm-ev="input" data-adm="updateProjectWatermarkPreview" />
               </div>
             </div>
             <div class="field-group">
@@ -779,6 +786,40 @@
               <label for="proj-created">Fecha real de creación <span class="opt-tag">opcional</span></label>
               <input type="date" id="proj-created" />
               <p class="form-hint">Si el proyecto nació antes de cargarlo acá, poné el día verdadero: es el que queda como creación y se muestra en el listado. Vacío = hoy.</p>
+            </div>
+            <div class="field-group proj-watermark-block">
+              <label>💧 Marca de agua en eventos y noticias <span class="opt-tag">opcional</span></label>
+              <label class="ev-switch-row" for="proj-watermark-enabled">
+                <input type="checkbox" id="proj-watermark-enabled" data-adm-ev="change" data-adm="onProjectWatermarkToggle" />
+                <span class="ev-switch"></span>
+                <span id="proj-watermark-label">Sin marca de agua</span>
+              </label>
+              <div id="proj-watermark-fields" class="hidden">
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="proj-watermark-text">Texto <span class="opt-tag">vacío = nombre del proyecto</span></label>
+                    <input type="text" id="proj-watermark-text" maxlength="60" placeholder="ej: Wilder Gambit" autocomplete="off" data-adm-ev="input" data-adm="updateProjectWatermarkPreview" />
+                  </div>
+                  <div class="field-group">
+                    <label for="proj-watermark-position">Posición en la imagen</label>
+                    <select id="proj-watermark-position" data-adm-ev="change" data-adm="updateProjectWatermarkPreview">
+                      <option value="bottom-right">Abajo a la derecha</option>
+                      <option value="bottom-left">Abajo a la izquierda</option>
+                      <option value="top-right">Arriba a la derecha</option>
+                      <option value="top-left">Arriba a la izquierda</option>
+                      <option value="center">Centro</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label for="proj-watermark-opacity">Opacidad <span class="char-count" id="proj-watermark-opacity-label">35%</span></label>
+                  <input type="range" id="proj-watermark-opacity" min="5" max="100" value="35" data-adm-ev="input" data-adm="updateProjectWatermarkPreview" />
+                </div>
+                <div class="proj-watermark-preview" aria-hidden="true">
+                  <span class="proj-watermark-sample" id="proj-watermark-sample">Marca de agua</span>
+                </div>
+                <p class="form-hint">Se dibuja sobre la portada de los <b>eventos</b> y las <b>noticias</b> de este proyecto en OWS Hub. En los eventos de proyectos <b>solo-admin</b> no se muestra (el proyecto aparece como “Proyecto interno”).</p>
+              </div>
             </div>
             <div class="field-group">
               <label for="proj-icon">Icono — pega una URL o sube un archivo (se sube a Cloudinary)</label>
@@ -1987,7 +2028,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="../ows-api-failover.js?v=1"></script>
-  <script src="admin-app.js?v=7"></script>
+  <script src="admin-app.js?v=8"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

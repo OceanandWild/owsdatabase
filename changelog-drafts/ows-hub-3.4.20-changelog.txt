@@ -1,0 +1,25 @@
+OWS Hub 3.4.20 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.20
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-16
+
+Cambios:
+- Eventos con fecha tentativa: al crear o editar un evento podés marcar que el inicio todavía no está confirmado. En OWS se publica como "Fecha esperada de inicio" (por confirmar), sin prometer una cuenta atrás exacta.
+- Cada proyecto puede llevar su propia marca de agua en las portadas de sus eventos y noticias: texto libre (si lo dejás vacío usa el nombre del proyecto), posición en la imagen, opacidad y un interruptor para activarla o apagarla. Se configura en el Admin, en la ficha del proyecto.
+- Nueva barra de estados en Eventos: Todos, En curso, Próximos y Finalizados, con el conteo de cada grupo y combinable con el filtro por proyecto.
+- La cuenta atrás de los próximos eventos se actualiza sola mientras navegás: ya no queda congelada en el tiempo que faltaba cuando abriste la página, y al llegar a cero el evento pasa a mostrarse en curso.
+- Los eventos de proyectos internos no exponen su marca de agua ni su nombre: se siguen viendo como "Proyecto interno".
+
+=== ENGLISH ===
+Version: 3.4.20
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-16
+
+Changes:
+- Events with a tentative date: when creating or editing an event you can mark the start as not yet confirmed. On OWS it's published as an "Expected start date" (to be confirmed), without promising an exact countdown.
+- Every project can carry its own watermark on the covers of its events and news: free text (if left empty it uses the project name), position on the image, opacity, and a switch to turn it on or off. Configured in the Admin, on the project card.
+- New status bar in Events: All, Ongoing, Upcoming and Finished, with the count of each group and combinable with the project filter.
+- The countdown for upcoming events refreshes on its own while you browse: it no longer stays frozen at the time remaining when you opened the page, and once it reaches zero the event shows as ongoing.
+- Events from internal projects don't expose their watermark or name: they still show as "Proyecto interno" (internal project).

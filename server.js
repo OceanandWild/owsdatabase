@@ -13649,12 +13649,22 @@ async function ensureOwsDashboardNewsTable() {
   owsDashboardNewsTableReady = true;
 }
 
-function mapOwsDashboardNewsRow(row) {
+function mapOwsDashboardNewsRow(row, watermarkMap) {
+  const projectName = String(row.project_name || 'OWS');
+  // Marca de agua del proyecto: se resuelve por nombre (las noticias guardan
+  // el nombre, no el id) contra el catálogo de proyectos.
+  let projectWatermark = null;
+  if (watermarkMap && typeof watermarkMap.get === 'function') {
+    const wm = watermarkMap.get(projectName.trim().toLowerCase());
+    if (wm) projectWatermark = { ...wm, text: wm.text || projectName };
+  }
   return {
     id: Number(row.id || 0),
     title: String(row.title || ''),
     description: String(row.description || ''),
-    project_name: String(row.project_name || 'OWS'),
+    project_name: projectName,
+    project_watermark: projectWatermark,
+    projectWatermark: projectWatermark,
     image_url: String(row.image_url || ''),
     is_active: row.is_active !== false,
     priority: Number(row.priority || 0),
@@ -13670,6 +13680,7 @@ app.get('/ows-dashboard/news', async (req, res) => {
   const limit = Math.max(1, Math.min(100, normalizeNewsNumber(req.query.limit, 20)));
   try {
     await ensureOwsDashboardNewsTable();
+    const watermarks = await getProjectWatermarksByName();
     const values = [limit];
     const where = [];
     if (!includeInactive) where.push('is_active = TRUE');
@@ -13681,7 +13692,7 @@ app.get('/ows-dashboard/news', async (req, res) => {
         LIMIT $1`,
       values
     );
-    return res.json({ success: true, news: rows.map(mapOwsDashboardNewsRow) });
+    return res.json({ success: true, news: rows.map((r) => mapOwsDashboardNewsRow(r, watermarks)) });
   } catch (err) {
     console.error('Error en GET /ows-dashboard/news:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -14040,6 +14051,12 @@ async function ensureOwsDashboardEventsTable() {
   await pool.query(`
     ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS project_id BIGINT
   `).catch((err) => console.log(' Aviso: migración ows_dashboard_events:', err.message));
+  // Fecha esperada de inicio: el admin puede marcar el comienzo como
+  // "todavía no confirmado" (fecha tentativa). La web lo muestra como
+  // "Fecha esperada de inicio" y sin cuenta atrás exacta.
+  await pool.query(`
+    ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS starts_expected BOOLEAN NOT NULL DEFAULT FALSE
+  `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (starts_expected):', err.message));
   owsDashboardEventsTableReady = true;
 }
 
@@ -14062,6 +14079,13 @@ function mapOwsDashboardEventRow(row) {
   // El nombre vivo del proyecto manda sobre el guardado: si se renombró el
   // proyecto, el evento muestra el nombre nuevo.
   const linkedName = String(row.linked_project_name || '').trim();
+  // Marca de agua del proyecto vinculado (solo proyectos públicos: los
+  // solo-admin se muestran como "Proyecto interno" y no deben filtrarse).
+  let projectWatermark = null;
+  if (row.linked_admin_only !== true) {
+    const wm = buildProjectWatermark(row);
+    if (wm) projectWatermark = { ...wm, text: wm.text || linkedName || String(row.project_name || 'OWS') };
+  }
   return {
     id: Number(row.id || 0),
     title: String(row.title || ''),
@@ -14072,6 +14096,8 @@ function mapOwsDashboardEventRow(row) {
     // este flag para no mostrar el nombre de los proyectos internos.
     project_is_admin: row.linked_admin_only === true,
     project_name: linkedName || String(row.project_name || 'OWS'),
+    project_watermark: projectWatermark,
+    projectWatermark: projectWatermark,
     image_url: String(row.image_url || ''),
     imageUrl: String(row.image_url || ''),
     link_url: String(row.link_url || ''),
@@ -14080,6 +14106,10 @@ function mapOwsDashboardEventRow(row) {
     ends_at: endsAt,
     startsAt,
     endsAt,
+    // Inicio tentativo ("fecha esperada de inicio"): visible en la web como
+    // fecha por confirmar, sin countdown exacto.
+    starts_expected: row.starts_expected === true || String(row.starts_expected || '').toLowerCase() === 'true',
+    startsExpected: row.starts_expected === true || String(row.starts_expected || '').toLowerCase() === 'true',
     phase,
     is_active: row.is_active !== false,
     priority: Number(row.priority || 0),
@@ -14114,7 +14144,7 @@ async function resolveDashboardEventProject(body, fallbackName = 'OWS') {
 }
 
 const OWS_EVENT_COLUMNS_SELECT = `id, title, description, category, project_name, project_id,
-       image_url, link_url, starts_at, ends_at, is_active, priority, created_by, created_at, updated_at`;
+       image_url, link_url, starts_at, ends_at, starts_expected, is_active, priority, created_by, created_at, updated_at`;
 
 function resolveDashboardEventDates(body = {}) {
   const rawStart = body.starts_at || body.startsAt || body.event_start || body.eventStart || body.start_date || body.startDate;
@@ -14146,9 +14176,10 @@ app.get('/ows-dashboard/events', async (req, res) => {
     if (!includeEnded) where.push("(e.ends_at IS NULL OR e.ends_at >= NOW() - INTERVAL '2 days')");
     const { rows } = await pool.query(
       `SELECT e.id, e.title, e.description, e.category, e.project_name, e.project_id,
-              e.image_url, e.link_url, e.starts_at, e.ends_at, e.is_active, e.priority,
+              e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.is_active, e.priority,
               e.created_by, e.created_at, e.updated_at,
-              p.name AS linked_project_name, p.admin_only AS linked_admin_only
+              p.name AS linked_project_name, p.admin_only AS linked_admin_only,
+              p.watermark_enabled, p.watermark_text, p.watermark_position, p.watermark_opacity
          FROM ows_dashboard_events e
          LEFT JOIN ows_launch_projects p ON p.id = e.project_id
         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
@@ -14173,6 +14204,8 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
   const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
   const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
   const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
+  // Inicio tentativo: el admin marca la fecha como "por confirmar".
+  const startsExpected = normalizeNewsBoolean(req.body?.starts_expected ?? req.body?.startsExpected, false);
   const dates = resolveDashboardEventDates(req.body || {});
   if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
   if (dates.error) return res.status(400).json({ error: dates.error });
@@ -14186,10 +14219,10 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
     if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const { rows } = await pool.query(
       `INSERT INTO ows_dashboard_events
-         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, priority, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, starts_expected, priority, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING ${OWS_EVENT_COLUMNS_SELECT}`,
-      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl, dates.start, dates.end, priority, adminName]
+      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl, dates.start, dates.end, startsExpected, priority, adminName]
     );
     logAdminActivity({
       action: 'create', entityType: 'dashboard_event', entityId: String(rows[0]?.id || ''),
@@ -14230,6 +14263,11 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
     if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    // Inicio tentativo ("fecha esperada de inicio"): se puede prender/apagar
+    // sin tocar las fechas.
+    if (req.body?.starts_expected !== undefined || req.body?.startsExpected !== undefined) {
+      updates.starts_expected = normalizeNewsBoolean(req.body.starts_expected ?? req.body.startsExpected, false);
+    }
     if (req.body?.starts_at !== undefined || req.body?.ends_at !== undefined) {
       const { rows: currentRows } = await pool.query('SELECT starts_at, ends_at FROM ows_dashboard_events WHERE id = $1', [id]);
       if (!currentRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
@@ -14777,6 +14815,25 @@ async function ensureOwsLaunchProjectsTable() {
     ALTER TABLE ows_launch_projects
     ADD COLUMN IF NOT EXISTS status_permanent BOOLEAN DEFAULT NULL
   `);
+  // ── Marca de agua del proyecto (eventos y noticias) ──
+  // Se dibuja sobre las imágenes de los eventos y noticias asociados al
+  // proyecto en OWS Hub: texto, posición y opacidad, configurables en Admin.
+  await pool.query(`
+    ALTER TABLE ows_launch_projects
+    ADD COLUMN IF NOT EXISTS watermark_enabled BOOLEAN NOT NULL DEFAULT FALSE
+  `).catch((err) => console.log(' Aviso: migración watermark (enabled):', err.message));
+  await pool.query(`
+    ALTER TABLE ows_launch_projects
+    ADD COLUMN IF NOT EXISTS watermark_text TEXT NOT NULL DEFAULT ''
+  `).catch((err) => console.log(' Aviso: migración watermark (text):', err.message));
+  await pool.query(`
+    ALTER TABLE ows_launch_projects
+    ADD COLUMN IF NOT EXISTS watermark_position VARCHAR(20) NOT NULL DEFAULT 'bottom-right'
+  `).catch((err) => console.log(' Aviso: migración watermark (position):', err.message));
+  await pool.query(`
+    ALTER TABLE ows_launch_projects
+    ADD COLUMN IF NOT EXISTS watermark_opacity INTEGER NOT NULL DEFAULT 35
+  `).catch((err) => console.log(' Aviso: migración watermark (opacity):', err.message));
   // Seed del unico proyecto OWS confirmado hasta ahora (icono y banner
   // subidos a Cloudinary para que sirvan publicos en cualquier cliente).
   await pool.query(`
@@ -14837,6 +14894,62 @@ async function ensureOwsLaunchProjectsTable() {
     console.error('[itch] backfill de defaults falló:', e?.message || e);
   }
   owsLaunchProjectsTableReady = true;
+}
+
+/* ── Marca de agua por proyecto (eventos y noticias) ──
+   Cada proyecto puede tener su propia marca de agua: texto (por defecto, el
+   nombre del proyecto), posición (esquinas o centro) y opacidad (5-100 %).
+   El backend la adjunta como `project_watermark` en los eventos y noticias
+   del feed público; OWS Hub la dibuja encima de la imagen. */
+const OWS_WATERMARK_POSITIONS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center']);
+
+function normalizeWatermarkPosition(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return OWS_WATERMARK_POSITIONS.has(raw) ? raw : 'bottom-right';
+}
+
+function normalizeWatermarkOpacity(value) {
+  let n = Number(value);
+  if (!Number.isFinite(n)) n = 35;
+  return Math.max(5, Math.min(100, Math.round(n)));
+}
+
+// Construye el objeto público de marca de agua desde una fila (proyecto o
+// join de evento). Devuelve null si el proyecto no la tiene activada.
+function buildProjectWatermark(row) {
+  const enabled = row?.watermark_enabled === true
+    || String(row?.watermark_enabled || '').toLowerCase() === 'true'
+    || Number(row?.watermark_enabled) === 1;
+  if (!enabled) return null;
+  return {
+    enabled: true,
+    text: String(row?.watermark_text || '').trim(),
+    position: normalizeWatermarkPosition(row?.watermark_position),
+    opacity: normalizeWatermarkOpacity(row?.watermark_opacity)
+  };
+}
+
+// Mapa nombre-de-proyecto (minúscula) → marca de agua. Las noticias guardan
+// el nombre del proyecto como texto, así que se resuelve por nombre.
+async function getProjectWatermarksByName() {
+  const map = new Map();
+  try {
+    await ensureOwsLaunchProjectsTable();
+    const { rows } = await pool.query(
+      `SELECT name, watermark_enabled, watermark_text, watermark_position, watermark_opacity
+         FROM ows_launch_projects
+        WHERE watermark_enabled = TRUE`
+    );
+    rows.forEach((r) => {
+      const wm = buildProjectWatermark(r);
+      if (!wm) return;
+      const key = String(r.name || '').trim().toLowerCase();
+      if (key) map.set(key, wm);
+    });
+  } catch (err) {
+    console.error('Aviso: marcas de agua de proyectos:', err.message);
+  }
+  return map;
 }
 
 // Fecha real de creación de un proyecto. Acepta 'YYYY-MM-DD' (día exacto,
@@ -14906,6 +15019,16 @@ function mapOwsLaunchProjectRow(row, latestRelease) {
     linkUrl: String(row.link_url || ''),
     banner_url: String((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
     bannerUrl: String((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
+    // ── Marca de agua (eventos y noticias del proyecto) ──
+    watermark_enabled: buildProjectWatermark(row) !== null,
+    watermarkEnabled: buildProjectWatermark(row) !== null,
+    watermark_text: String(row.watermark_text || ''),
+    watermarkText: String(row.watermark_text || ''),
+    watermark_position: normalizeWatermarkPosition(row.watermark_position),
+    watermarkPosition: normalizeWatermarkPosition(row.watermark_position),
+    watermark_opacity: normalizeWatermarkOpacity(row.watermark_opacity),
+    watermarkOpacity: normalizeWatermarkOpacity(row.watermark_opacity),
+    watermark: buildProjectWatermark(row) || { enabled: false, text: '', position: 'bottom-right', opacity: 35 },
     priority: Number(row.priority || 0),
     is_active: row.is_active !== false,
     status_feedback: String(row.status_feedback || ''),
@@ -15449,6 +15572,7 @@ app.get('/ows-launch-projects', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id, slug, name, description, status, icon_url, genre, platforms,
               expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
+              watermark_enabled, watermark_text, watermark_position, watermark_opacity,
               created_at, updated_at
          FROM ows_launch_projects
         ${includeHidden ? '' : 'WHERE is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE'}
@@ -15726,6 +15850,7 @@ app.get('/ows-hub/summary', async (req, res) => {
       pool.query(
         `SELECT id, slug, name, description, status, icon_url, genre, platforms,
                 expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
+                watermark_enabled, watermark_text, watermark_position, watermark_opacity,
                 created_at, updated_at
            FROM ows_launch_projects
           WHERE is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE
@@ -15737,8 +15862,8 @@ app.get('/ows-hub/summary', async (req, res) => {
           ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT 5`
       ),
       pool.query(
-        `SELECT id, title, description, category, project_name, image_url, link_url,
-                starts_at, ends_at, priority, created_by, created_at, updated_at
+        `SELECT id, title, description, category, project_name, project_id, image_url, link_url,
+                starts_at, ends_at, starts_expected, priority, created_by, created_at, updated_at
            FROM ows_dashboard_events WHERE is_active = TRUE
           ORDER BY starts_at DESC LIMIT 10`
       )
@@ -15747,11 +15872,13 @@ app.get('/ows-hub/summary', async (req, res) => {
     try { relMap = await getLatestReleasesMapByProjectIds(projRes.rows.map((r) => Number(r.id))); } catch (_) { relMap = {}; }
     const projects = projRes.rows.map((r) => mapOwsLaunchProjectRow(r, relMap[Number(r.id)] || null));
     const featured = projects[0] || null;
+    // Marcas de agua por nombre: las noticias del resumen también las llevan.
+    const summaryWatermarks = await getProjectWatermarksByName();
     return res.json({
       success: true,
       featured,
       projects,
-      news: newsRes.rows.map(mapOwsDashboardNewsRow),
+      news: newsRes.rows.map((r) => mapOwsDashboardNewsRow(r, summaryWatermarks)),
       events: evRes.rows.map(mapOwsDashboardEventRow),
       counts: { projects: projects.length, news: newsRes.rows.length, events: evRes.rows.length }
     });
@@ -15788,21 +15915,30 @@ app.post('/ows-launch-projects', async (req, res) => {
   const createdAtNorm = normalizeProjectCreatedAt(req.body?.created_at ?? req.body?.createdAt ?? '');
   if (createdAtNorm.error) return res.status(400).json({ error: createdAtNorm.error });
   const createdAt = createdAtNorm.empty ? null : createdAtNorm.value;
+  // Marca de agua del proyecto (se dibuja en eventos y noticias del proyecto)
+  const watermarkEnabled = normalizeNewsBoolean(req.body?.watermark_enabled ?? req.body?.watermarkEnabled ?? req.body?.watermark?.enabled, false);
+  const watermarkText = String(req.body?.watermark_text ?? req.body?.watermarkText ?? req.body?.watermark?.text ?? '').trim().slice(0, 60);
+  const watermarkPosition = normalizeWatermarkPosition(req.body?.watermark_position ?? req.body?.watermarkPosition ?? req.body?.watermark?.position);
+  const watermarkOpacity = normalizeWatermarkOpacity(req.body?.watermark_opacity ?? req.body?.watermarkOpacity ?? req.body?.watermark?.opacity);
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
   try {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
       `INSERT INTO ows_launch_projects
-         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority, admin_only, status_feedback, status_permanent, metadata, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, COALESCE($16::timestamptz, NOW()))
+         (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority, admin_only, status_feedback, status_permanent, metadata,
+          watermark_enabled, watermark_text, watermark_position, watermark_opacity, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb,
+               $16, $17, $18, $19, COALESCE($20::timestamptz, NOW()))
        RETURNING id, slug, name, description, status, icon_url, genre, platforms,
-                 expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata, created_at, updated_at`,
+                 expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
+                 watermark_enabled, watermark_text, watermark_position, watermark_opacity, created_at, updated_at`,
       [slug, name, description, status, iconUrl, genre, platforms, expectedDate, confirmedDate, linkUrl, priority, adminOnly, statusFeedback, statusPermanent,
-       (req.body?.metadata && typeof req.body.metadata === 'object') ? req.body.metadata : {}, createdAt]
+       (req.body?.metadata && typeof req.body.metadata === 'object') ? req.body.metadata : {},
+       watermarkEnabled, watermarkText, watermarkPosition, watermarkOpacity, createdAt]
     );
     logAdminActivity({
       action: 'create', entityType: 'launch_project', entityId: slug,
-      entityName: name, adminName, meta: { status, platforms, admin_only: adminOnly, created_at: rows[0]?.created_at || null }
+      entityName: name, adminName, meta: { status, platforms, admin_only: adminOnly, watermark: watermarkEnabled, created_at: rows[0]?.created_at || null }
     });
     // Celebración automática de nacimiento:
     //  - solo-admin → 'welcome' (Bienvenidas 🌱, pronto será grande)
@@ -15874,6 +16010,21 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
       const _v = req.body.status_permanent ?? req.body.statusPermanent ?? req.body.is_permanent;
       updates.status_permanent = (_v === null || _v === undefined || _v === '') ? null : normalizeNewsBoolean(_v, false);
     }
+    // Marca de agua (eventos y noticias): acepta campos planos o el objeto
+    // `watermark` completo. Apagarla no borra el texto guardado.
+    const wmRaw = req.body?.watermark && typeof req.body.watermark === 'object' ? req.body.watermark : null;
+    if (req.body?.watermark_enabled !== undefined || req.body?.watermarkEnabled !== undefined || wmRaw?.enabled !== undefined) {
+      updates.watermark_enabled = normalizeNewsBoolean(req.body.watermark_enabled ?? req.body.watermarkEnabled ?? wmRaw.enabled, false);
+    }
+    if (req.body?.watermark_text !== undefined || req.body?.watermarkText !== undefined || wmRaw?.text !== undefined) {
+      updates.watermark_text = String(req.body.watermark_text ?? req.body.watermarkText ?? wmRaw.text ?? '').trim().slice(0, 60);
+    }
+    if (req.body?.watermark_position !== undefined || req.body?.watermarkPosition !== undefined || wmRaw?.position !== undefined) {
+      updates.watermark_position = normalizeWatermarkPosition(req.body.watermark_position ?? req.body.watermarkPosition ?? wmRaw.position);
+    }
+    if (req.body?.watermark_opacity !== undefined || req.body?.watermarkOpacity !== undefined || wmRaw?.opacity !== undefined) {
+      updates.watermark_opacity = normalizeWatermarkOpacity(req.body.watermark_opacity ?? req.body.watermarkOpacity ?? wmRaw.opacity);
+    }
     // Corrección de la fecha real de creación (vacío = no se toca).
     if (req.body?.created_at !== undefined || req.body?.createdAt !== undefined) {
       const norm = normalizeProjectCreatedAt(req.body.created_at ?? req.body.createdAt ?? '');
@@ -15895,7 +16046,8 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
           SET ${setSql}, updated_at = NOW()
         WHERE id = $1
         RETURNING id, slug, name, description, status, icon_url, genre, platforms,
-                  expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata, created_at, updated_at`,
+                  expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
+                  watermark_enabled, watermark_text, watermark_position, watermark_opacity, created_at, updated_at`,
       [id, ...keys.map((k) => updates[k])]
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });

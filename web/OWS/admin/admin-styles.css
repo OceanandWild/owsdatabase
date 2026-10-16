@@ -1270,6 +1270,68 @@ body {
 .ev-switch-row input:checked + .ev-switch { background: linear-gradient(135deg, #34d399, #10b981); }
 .ev-switch-row input:checked + .ev-switch::after { transform: translateX(18px); }
 
+/* ── Fecha esperada de inicio (por confirmar) ───────────────────
+   El switch de "todavía no estoy seguro" cambia el tono del bloque de
+   fecha: ámbar = estimada, verde = confirmada. */
+.ev-expected-row {
+  margin: 2px 0 10px; padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.06);
+}
+.ev-expected-row span:last-child { font-size: 0.78rem; font-weight: 600; color: var(--gold-light); }
+.ev-expected-row input:checked ~ span:last-child { color: #9ca3af; }
+.ev-expected-row input:checked + .ev-switch { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+.ev-expected-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 3px 9px; border-radius: 999px;
+  background: rgba(251, 191, 36, 0.16); color: var(--gold-light);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+}
+input.is-expected {
+  border-color: rgba(251, 191, 36, 0.65) !important;
+  background: rgba(251, 191, 36, 0.07) !important;
+}
+.ev-chip-expected {
+  background: rgba(251, 191, 36, 0.16); color: var(--gold-light);
+  border-color: rgba(251, 191, 36, 0.45);
+}
+.status-watermark {
+  background: rgba(56, 189, 248, 0.15); color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.42);
+}
+/* ── Marca de agua del proyecto (preview del formulario) ─────── */
+.proj-watermark-block {
+  border: 1px dashed rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.05);
+  border-radius: var(--radius-sm); padding: 12px;
+}
+.proj-watermark-block > label:first-child { color: #7dd3fc; }
+.proj-watermark-preview {
+  position: relative; height: 92px; margin-top: 10px;
+  border-radius: var(--radius-sm); overflow: hidden;
+  border: 1px solid var(--gold-border);
+  background:
+    linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+}
+.proj-watermark-preview.is-off { opacity: 0.45; }
+.proj-watermark-preview.is-off .proj-watermark-sample { display: none; }
+.proj-watermark-sample {
+  position: absolute; z-index: 1;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.95); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px; padding: 3px 9px;
+  max-width: 88%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.proj-watermark-sample.pw-top-left     { top: 8px; left: 8px; }
+.proj-watermark-sample.pw-top-right    { top: 8px; right: 8px; }
+.proj-watermark-sample.pw-bottom-left  { bottom: 8px; left: 8px; }
+.proj-watermark-sample.pw-bottom-right { bottom: 8px; right: 8px; }
+.proj-watermark-sample.pw-center       { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
 .ev-live-section { border-style: dashed; border-color: rgba(251, 191, 36, 0.4); }
 .ev-live-card {
   background: rgba(8, 0, 16, 0.6);

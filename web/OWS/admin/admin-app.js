@@ -5452,6 +5452,19 @@ function fillNewsProjectList() {
       if (p) names.add(p);
     });
   }
+  // Nombres del catálogo de proyectos: así se puede escribir un proyecto nuevo
+  // (sin noticias ni eventos todavía) y su marca de agua se hereda igual.
+  const catalogSources = [
+    typeof projectsCache !== 'undefined' ? projectsCache : null,
+    typeof manageProjectsCache !== 'undefined' ? manageProjectsCache : null
+  ];
+  catalogSources.forEach((src) => {
+    if (!Array.isArray(src)) return;
+    src.forEach((p) => {
+      const n = String((p && p.name) || '').trim();
+      if (n) names.add(n);
+    });
+  });
   dl.innerHTML = [...names].sort().map((n) => `<option value="${escapeHtml(n)}"></option>`).join('');
 }
 
@@ -5932,6 +5945,7 @@ function formatEventDate(iso) {
 
 function eventCountdown(ev) {
   const now = Date.now();
+  const expected = !!(ev && (ev.starts_expected === true || ev.startsExpected === true));
   const s = ev.starts_at ? Date.parse(ev.starts_at) : NaN;
   const e = ev.ends_at ? Date.parse(ev.ends_at) : NaN;
   const fmt = (ms) => {
@@ -5946,7 +5960,7 @@ function eventCountdown(ev) {
   };
   if (Number.isFinite(e) && now > e) return 'Finalizó';
   if (Number.isFinite(s) && Number.isFinite(e) && now >= s) return 'Termina ' + fmt(e - now).replace('en ', 'en ');
-  if (Number.isFinite(s) && now < s) return 'Empieza ' + fmt(s - now);
+  if (Number.isFinite(s) && now < s) return (expected ? '🕰️ Esperada ' : 'Empieza ') + fmt(s - now);
   if (Number.isFinite(e) && now <= e) return 'Termina ' + fmt(e - now);
   return 'Sin horario';
 }
@@ -6206,8 +6220,9 @@ function updateEventLivePreview() {
   const sel = readEventProjectSelection();
   const proj = sel.project_name || 'OWS';
   const src = currentEventImageSrc('');
+  const expected = eventStartIsExpected();
   const when = startEl && startEl.value
-    ? formatEventDate(new Date(startEl.value).toISOString()) + (endEl && endEl.value ? ' → ' + formatEventDate(new Date(endEl.value).toISOString()) : '')
+    ? (expected ? '🕰️ Fecha esperada: ' : '') + formatEventDate(new Date(startEl.value).toISOString()) + (endEl && endEl.value ? ' → ' + formatEventDate(new Date(endEl.value).toISOString()) : '')
     : 'Sin fecha todavía';
   box.innerHTML = `
     <div class="ev-live-banner">${src ? `<img src="${escapeHtml(src)}" alt="" data-adm-err="rm" />` : '<span>🗓️</span>'}
@@ -6221,6 +6236,30 @@ function updateEventLivePreview() {
   const vis = document.getElementById('event-visible-label');
   const visBox = document.getElementById('event-visible');
   if (vis && visBox) vis.textContent = visBox.checked ? 'Visible en OWS' : 'Oculto (solo admin)';
+}
+
+// ── Fecha esperada de inicio ──────────────────────────────
+// El admin puede marcar el inicio como "todavía no confirmado": en OWS se
+// publica como fecha esperada de inicio (por confirmar), sin prometer una
+// cuenta atrás exacta. Desmarcar = fecha confirmada.
+function eventStartIsExpected() {
+  const box = document.getElementById('event-start-expected');
+  return !!(box && box.checked);
+}
+
+function onEventStartModeChange() {
+  const expected = eventStartIsExpected();
+  const tag = document.getElementById('event-start-expected-tag');
+  const hint = document.getElementById('event-start-hint');
+  const startEl = document.getElementById('event-start');
+  if (tag) tag.classList.toggle('hidden', !expected);
+  if (hint) {
+    hint.innerHTML = expected
+      ? 'Se publica como <b>fecha esperada de inicio</b>: en OWS muestra “por confirmar” y no promete cuenta atrás. Cuando la fecha sea segura, desmarcá la opción.'
+      : 'Si la fecha es estimada, activá la opción: en OWS se muestra como <b>fecha esperada</b> (por confirmar) y sin cuenta atrás exacta.';
+  }
+  if (startEl) startEl.classList.toggle('is-expected', expected);
+  updateEventLivePreview();
 }
 
 function focusEventForm() {
@@ -6359,6 +6398,7 @@ function renderAdminEvents() {
       ? `<img src="${escapeHtml(ev.image_url)}" alt="" loading="lazy" data-adm-err="rm" />`
       : `<span class="ev-card-fallback">${cat.icon}</span>`;
     const dates = `${formatEventDate(ev.starts_at)}${ev.ends_at ? ' → ' + formatEventDate(ev.ends_at) : ''}`;
+    const expected = ev.starts_expected === true || ev.startsExpected === true;
     const prio = Number(ev.priority || 0);
     if (eventsView === 'list') {
       return `
@@ -6366,9 +6406,10 @@ function renderAdminEvents() {
         <div class="ev-row-thumb">${img}</div>
         <div class="ev-row-main">
           <div class="ev-row-title">${escapeHtml(ev.title)}</div>
-          <div class="ev-row-sub">${escapeHtml(ev.project_name || 'OWS')} · ${escapeHtml(dates)} · ⏳ ${escapeHtml(eventCountdown(ev))}${prio ? ` · ★ ${prio}` : ''}</div>
+          <div class="ev-row-sub">${escapeHtml(ev.project_name || 'OWS')} · ${expected ? '🕰️ ' : ''}${escapeHtml(dates)} · ⏳ ${escapeHtml(eventCountdown(ev))}${prio ? ` · ★ ${prio}` : ''}</div>
         </div>
         <span class="ev-chip ${cat.cls}">${cat.icon} ${cat.label}</span>
+        ${expected ? '<span class="ev-chip ev-chip-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Esperada</span>' : ''}
         <span class="ev-chip ${phm.cls}">${phm.label}</span>
         <div class="ev-card-actions">
           <button class="btn btn-ghost btn-mini" title="Editar" data-adm-ev="click" data-adm="editEvent" data-adm-a0="r:${ev.id}">✏️</button>
@@ -6389,8 +6430,9 @@ function renderAdminEvents() {
         ${ev.description ? `<div class="ev-card-desc" title="${escapeHtml(ev.description)}">${escapeHtml(ev.description)}</div>` : ''}
         <div class="ev-card-meta">
           <span>📁 ${escapeHtml(ev.project_name || 'OWS')}${ev.project_is_admin ? ' 🛡️ solo admin' : ''}</span>
-          <span>🕒 ${escapeHtml(dates)}</span>
+          <span>🕒 ${expected ? '🕰️ ' : ''}${escapeHtml(dates)}</span>
           <span>⏳ ${escapeHtml(eventCountdown(ev))}</span>
+          ${expected ? '<span title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada de inicio</span>' : ''}
           ${prio ? `<span>★ Prioridad ${prio}</span>` : ''}
         </div>
         ${prog !== null ? `<div class="ev-progress"><div class="ev-progress-bar" style="width:${prog}%"></div></div>` : ''}
@@ -6440,6 +6482,7 @@ async function saveEvent(e) {
     else fd.append('project_id', '');
     fd.append('project_name', proj.project_name || 'OWS');
     fd.append('starts_at', new Date(startsAt).toISOString());
+    fd.append('starts_expected', eventStartIsExpected() ? 'true' : 'false');
     if (endsAt) fd.append('ends_at', new Date(endsAt).toISOString());
     if (linkUrl) fd.append('link_url', linkUrl);
     fd.append('priority', String(priority));
@@ -6506,6 +6549,9 @@ async function editEvent(id) {
     selectEventProject(item);
     document.getElementById('event-start').value = localDatetimeValue(item.starts_at);
     document.getElementById('event-end').value = localDatetimeValue(item.ends_at);
+    const expBox = document.getElementById('event-start-expected');
+    if (expBox) expBox.checked = item.starts_expected === true || item.startsExpected === true;
+    onEventStartModeChange();
     document.getElementById('event-link').value = item.link_url || '';
     document.getElementById('event-priority').value = item.priority || 0;
     const range = document.getElementById('event-priority-range');
@@ -6545,6 +6591,7 @@ async function duplicateEvent(id) {
     fd.append('project_name', src.project_name || 'OWS');
     const s = src.starts_at ? new Date(src.starts_at) : new Date();
     fd.append('starts_at', new Date(s.getTime() + 7 * 24 * 3600 * 1000).toISOString());
+    fd.append('starts_expected', (src.starts_expected === true || src.startsExpected === true) ? 'true' : 'false');
     if (src.ends_at) {
       const e = new Date(src.ends_at);
       fd.append('ends_at', new Date(e.getTime() + 7 * 24 * 3600 * 1000).toISOString());
@@ -6589,10 +6636,16 @@ function resetEventForm() {
   if (pl) pl.textContent = '0';
   const vis = document.getElementById('event-visible');
   if (vis) vis.checked = true;
+  const expBox = document.getElementById('event-start-expected');
+  if (expBox) expBox.checked = false;
+  const expTag = document.getElementById('event-start-expected-tag');
+  if (expTag) expTag.classList.add('hidden');
+  const startEl = document.getElementById('event-start');
+  if (startEl) startEl.classList.remove('is-expected');
   const fi = document.getElementById('event-image');
   if (fi) fi.value = '';
   renderEventImagePreview('');
-  updateEventLivePreview();
+  onEventStartModeChange();
   try { closeFormModal(); } catch (_) {}
 }
 
@@ -7481,9 +7534,13 @@ function renderAdminProjectsList() {
   list.innerHTML = notice + projectsCache.map((p) => {
     const meta = launchStatusMeta(p.status);
     const latestVer = (p.latest_release && p.latest_release.version) || (p.latestRelease && p.latestRelease.version) || p.itch_version || p.itchVersion || '';
+    const wmRow = (p.watermark && typeof p.watermark === 'object') ? p.watermark : {};
+    const wmOn = p.watermark_enabled === true || p.watermarkEnabled === true || wmRow.enabled === true;
+    const wmText = String(p.watermark_text || p.watermarkText || wmRow.text || '').trim();
     const chips = [
       `<span class="status-pill ${meta.cls}">${meta.label}</span>`,
       (p.has_release || p.hasRelease || latestVer) ? `<span class="status-pill status-on">📦 v${escapeHtml(latestVer || '?')}</span>` : '<span class="status-pill">📦 sin versión</span>',
+      wmOn ? `<span class="status-pill status-watermark" title="Marca de agua en eventos y noticias${wmText ? ': ' + escapeHtml(wmText) : ' (usa el nombre del proyecto)'}">💧 Marca de agua</span>` : '',
       p.is_active ? '' : '<span class="status-pill status-off">Oculto</span>'
     ].filter(Boolean).join(' ');
     const platforms = (p.platforms || []).map((x) => escapeHtml(x)).join(', ') || '—';
@@ -7515,6 +7572,65 @@ function renderAdminProjectsList() {
       </div>
     `;
   }).join('');
+}
+
+// ── Marca de agua del proyecto (eventos y noticias) ──────────────
+// Cada proyecto puede tener su propia marca de agua: texto (vacío = nombre
+// del proyecto), posición en la imagen y opacidad. OWS Hub la dibuja sobre
+// las portadas de los eventos y noticias asociados al proyecto.
+const PROJECT_WATERMARK_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'];
+
+function projectWatermarkEls() {
+  return {
+    enabled: document.getElementById('proj-watermark-enabled'),
+    text: document.getElementById('proj-watermark-text'),
+    position: document.getElementById('proj-watermark-position'),
+    opacity: document.getElementById('proj-watermark-opacity'),
+    label: document.getElementById('proj-watermark-label'),
+    fields: document.getElementById('proj-watermark-fields'),
+    sample: document.getElementById('proj-watermark-sample')
+  };
+}
+
+function onProjectWatermarkToggle() {
+  const el = projectWatermarkEls();
+  const on = !!(el.enabled && el.enabled.checked);
+  if (el.fields) el.fields.classList.toggle('hidden', !on);
+  if (el.label) el.label.textContent = on ? '💧 Marca de agua activada' : 'Sin marca de agua';
+  updateProjectWatermarkPreview();
+}
+
+function updateProjectWatermarkPreview() {
+  const el = projectWatermarkEls();
+  const on = !!(el.enabled && el.enabled.checked);
+  let opacity = Number(el.opacity ? el.opacity.value : 35);
+  if (!Number.isFinite(opacity)) opacity = 35;
+  opacity = Math.max(5, Math.min(100, Math.round(opacity)));
+  const opacityLabel = document.getElementById('proj-watermark-opacity-label');
+  if (opacityLabel) opacityLabel.textContent = `${opacity}%`;
+  if (!el.sample) return;
+  const nameEl = document.getElementById('proj-name');
+  const fallbackName = (nameEl && nameEl.value.trim()) || 'Nombre del proyecto';
+  el.sample.textContent = (el.text && el.text.value.trim()) || fallbackName;
+  const pos = el.position && PROJECT_WATERMARK_POSITIONS.includes(el.position.value) ? el.position.value : 'bottom-right';
+  el.sample.className = `proj-watermark-sample pw-${pos}`;
+  el.sample.style.opacity = String(opacity / 100);
+  const preview = el.sample.parentElement;
+  if (preview) preview.classList.toggle('is-off', !on);
+}
+
+function readProjectWatermarkFields() {
+  const el = projectWatermarkEls();
+  let opacity = Number(el.opacity ? el.opacity.value : 35);
+  if (!Number.isFinite(opacity)) opacity = 35;
+  opacity = Math.max(5, Math.min(100, Math.round(opacity)));
+  const pos = el.position && PROJECT_WATERMARK_POSITIONS.includes(el.position.value) ? el.position.value : 'bottom-right';
+  return {
+    enabled: !!(el.enabled && el.enabled.checked),
+    text: el.text ? el.text.value.trim().slice(0, 60) : '',
+    position: pos,
+    opacity
+  };
 }
 
 async function saveProject(e) {
@@ -7571,6 +7687,12 @@ async function saveProject(e) {
     // banner_url vive en metadata (merge en el servidor)
     const bannerUrl = document.getElementById('proj-banner').value.trim();
     if (bannerUrl) payload.metadata = { banner_url: bannerUrl };
+    // Marca de agua del proyecto (eventos y noticias)
+    const wm = readProjectWatermarkFields();
+    payload.watermark_enabled = wm.enabled;
+    payload.watermark_text = wm.text;
+    payload.watermark_position = wm.position;
+    payload.watermark_opacity = wm.opacity;
 
     btn.textContent = '💾 Guardando…';
     let res;
@@ -7626,6 +7748,14 @@ async function editProject(id) {
   document.getElementById('proj-expected').value = p.expected_date ? String(p.expected_date).slice(0, 10) : '';
   document.getElementById('proj-confirmed').value = p.confirmed_date ? String(p.confirmed_date).slice(0, 10) : '';
   document.getElementById('proj-created').value = p.created_at ? String(p.created_at).slice(0, 10) : '';
+  // Marca de agua (eventos y noticias del proyecto)
+  const wmSource = (p.watermark && typeof p.watermark === 'object') ? p.watermark : {};
+  const wmEls = projectWatermarkEls();
+  if (wmEls.enabled) wmEls.enabled.checked = !!(p.watermark_enabled === true || p.watermarkEnabled === true || wmSource.enabled === true);
+  if (wmEls.text) wmEls.text.value = String(p.watermark_text || p.watermarkText || wmSource.text || '');
+  if (wmEls.position) wmEls.position.value = String(p.watermark_position || p.watermarkPosition || wmSource.position || 'bottom-right');
+  if (wmEls.opacity) wmEls.opacity.value = String(Number(p.watermark_opacity || p.watermarkOpacity || wmSource.opacity || 35));
+  onProjectWatermarkToggle();
   clearProjectImageFiles();
   const title = document.querySelector('#tab-projects .form-title');
   if (title) title.textContent = `Editando proyecto: ${p.name}`;
@@ -7650,6 +7780,13 @@ function resetProjectForm() {
   document.getElementById('proj-expected').value = '';
   document.getElementById('proj-confirmed').value = '';
   document.getElementById('proj-created').value = '';
+  // Marca de agua: vuelve a su estado base (apagada, 35 %, abajo a la derecha)
+  const wmEls = projectWatermarkEls();
+  if (wmEls.enabled) wmEls.enabled.checked = false;
+  if (wmEls.text) wmEls.text.value = '';
+  if (wmEls.position) wmEls.position.value = 'bottom-right';
+  if (wmEls.opacity) wmEls.opacity.value = '35';
+  onProjectWatermarkToggle();
   clearProjectImageFiles();
   const btn = document.querySelector('#tab-projects .form-title');
   if (btn) btn.textContent = 'Nuevo proyecto OWS';

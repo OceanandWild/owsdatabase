@@ -224,7 +224,7 @@ function bindStaticEvents() {
   if (eventsGrid) {
     const openFromCard = (card) => {
       const idx = Number(card.getAttribute('data-ev-idx'));
-      const ev = eventsCache[idx];
+      const ev = eventsRenderList[idx] || eventsCache[idx];
       if (ev) openEventModal(ev);
     };
     eventsGrid.addEventListener('click', (e) => {
@@ -806,6 +806,8 @@ document.addEventListener('DOMContentLoaded', function () {
     loadDashboardNews();
     loadQuickNews();
     loadDashboardEvents();
+    // Cuenta atrás de eventos viva (30 s): sin refetch salvo que expire una.
+    try { startEventsCountdownTicker(); } catch (_) {}
     loadDashboardReleases();
     checkOwsPopups();
     updateAdminVisibility();
@@ -1329,6 +1331,9 @@ function eventCountdown(targetIso, phase) {
 }
 
 let eventsCache = [];
+// Eventos tal como se pintaron (tras filtro por proyecto + estado y orden).
+// El modal se abre por índice, así que este array es el que manda.
+let eventsRenderList = [];
 // Estado de la carga de eventos: evita encadenar fetches y permite
 // reintentar solo al entrar a la vista si la última carga falló.
 let eventsLoadState = 'idle'; // idle | loading | ready | error
@@ -1349,6 +1354,126 @@ function eventProjectKey(ev) {
   if (!ev) return 'ows';
   if (ev.project_id != null) return `id:${Number(ev.project_id)}`;
   return `name:${String(ev.project_name || 'OWS').trim().toLowerCase()}`;
+}
+
+// ── Fecha esperada de inicio ───────────────────────────────────
+// El admin puede publicar el inicio como tentativo: se muestra "Fecha
+// esperada: … (por confirmar)" y NO se promete cuenta atrás exacta.
+function eventStartsExpected(ev) {
+  return !!(ev && (ev.starts_expected === true || ev.startsExpected === true));
+}
+
+// Solo los eventos que todavía no empezaron muestran la fecha como esperada:
+// una vez en curso (o terminado) manda la fecha real.
+function eventShowsExpectedDate(ev) {
+  if (!eventStartsExpected(ev)) return false;
+  return ev.phase !== 'active' && ev.phase !== 'ended';
+}
+
+// ── Marca de agua del proyecto (eventos y noticias) ────────────
+// El backend adjunta `project_watermark` cuando el proyecto la tiene
+// activada en el Admin. Se dibuja como chip sobre la portada del evento o
+// de la noticia; es solo decorativa (no captura el click de la tarjeta).
+const WATERMARK_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'];
+
+function watermarkPosition(value) {
+  const pos = String(value || '').trim().toLowerCase();
+  return WATERMARK_POSITIONS.includes(pos) ? pos : 'bottom-right';
+}
+
+function watermarkChip(item, opts) {
+  const wm = (item && (item.project_watermark || item.projectWatermark)) || null;
+  if (!wm || wm.enabled === false) return '';
+  const text = String(wm.text || '').trim();
+  if (!text) return '';
+  let opacity = Number(wm.opacity);
+  if (!Number.isFinite(opacity)) opacity = 35;
+  opacity = Math.max(5, Math.min(100, Math.round(opacity)));
+  const big = opts && opts.big ? ' wm-big' : '';
+  return `<span class="img-watermark wm-${watermarkPosition(wm.position)}${big}" style="opacity:${(opacity / 100).toFixed(2)}" aria-hidden="true">${escapeHtml(text)}</span>`;
+}
+
+// ── Chips de estado de la sección Eventos ──────────────────────
+// Todos / En curso / Próximos / Finalizados, con el conteo en vivo.
+// El filtro por proyecto del select se combina con estos chips.
+let eventsStatusFilter = 'all';
+
+function eventStatusKey(ev) {
+  const phase = String((ev && ev.phase) || '').trim().toLowerCase();
+  if (phase === 'active') return 'live';
+  if (phase === 'ended') return 'ended';
+  return 'upcoming';
+}
+
+function eventsStatusCounts(list) {
+  const counts = { all: 0, live: 0, upcoming: 0, ended: 0 };
+  (Array.isArray(list) ? list : []).forEach((ev) => {
+    counts.all += 1;
+    const key = eventStatusKey(ev);
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return counts;
+}
+
+function updateEventsStatusFilter(list) {
+  const box = document.getElementById('events-status-filter');
+  if (!box) return;
+  const counts = eventsStatusCounts(list);
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = String(val); };
+  set('ev-count-all', counts.all);
+  set('ev-count-live', counts.live);
+  set('ev-count-upcoming', counts.upcoming);
+  set('ev-count-ended', counts.ended);
+  box.querySelectorAll('[data-evstatus]').forEach((btn) => {
+    const key = btn.getAttribute('data-evstatus') || 'all';
+    const active = key === eventsStatusFilter;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.classList.toggle('is-empty', key !== 'all' && !counts[key]);
+  });
+  if (!box.dataset.bound) {
+    box.dataset.bound = '1';
+    box.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-evstatus]');
+      if (btn) setEventsStatusFilter(btn.getAttribute('data-evstatus'));
+    });
+  }
+}
+
+function setEventsStatusFilter(value) {
+  const next = ['all', 'live', 'upcoming', 'ended'].includes(String(value)) ? String(value) : 'all';
+  if (next === eventsStatusFilter) return;
+  eventsStatusFilter = next;
+  renderEvents(eventsCache);
+}
+
+// ── Cuenta atrás viva ──────────────────────────────────────────
+// El texto "Empieza en 2d 5h" se refresca cada 30 s sin volver a pedir el
+// feed. Si una cuenta atrás llega a cero, el evento pudo pasar a "En curso":
+// se recarga el feed (con enfriamiento de 2 min para no encadenar fetches).
+const EVENTS_COUNTDOWN_TICK_MS = 30000;
+let eventsCountdownTimer = null;
+let eventsLastCountdownReload = 0;
+
+function refreshEventCountdowns() {
+  const nodes = document.querySelectorAll('[data-ev-countdown]');
+  let anyExpired = false;
+  nodes.forEach((el) => {
+    const iso = el.getAttribute('data-ev-countdown') || '';
+    const phase = el.getAttribute('data-ev-phase') || '';
+    const text = eventCountdown(iso, phase);
+    if (!text) { anyExpired = true; return; }
+    if (el.textContent !== text) el.textContent = text;
+  });
+  if (anyExpired && eventsLoadState === 'ready' && !eventsLoading && Date.now() - eventsLastCountdownReload > 120000) {
+    eventsLastCountdownReload = Date.now();
+    loadDashboardEvents();
+  }
+}
+
+function startEventsCountdownTicker() {
+  if (eventsCountdownTimer) return;
+  eventsCountdownTimer = setInterval(refreshEventCountdowns, EVENTS_COUNTDOWN_TICK_MS);
 }
 
 // Opciones del filtro: una por proyecto presente entre los eventos.
@@ -1386,8 +1511,13 @@ function renderEvents(eventsList) {
   if (statEvents) statEvents.textContent = items.length;
   eventsCache = items;
   renderEventsProjectFilter();
+  updateEventsStatusFilter(items);
+  const totalCount = items.length;
   if (eventsProjectFilter && eventsProjectFilter !== 'all') {
     items = items.filter((ev) => eventProjectKey(ev) === eventsProjectFilter);
+  }
+  if (eventsStatusFilter !== 'all') {
+    items = items.filter((ev) => eventStatusKey(ev) === eventsStatusFilter);
   }
   // Orden: activos primero, luego próximos, luego terminados; por prioridad y fecha
   const phaseRank = { active: 0, upcoming: 1, ended: 2 };
@@ -1401,26 +1531,48 @@ function renderEvents(eventsList) {
 
   try {
     const newsEl = document.getElementById('stat-news');
-    syncNavBadges(newsEl ? newsEl.textContent : 0, items);
+    syncNavBadges(newsEl ? newsEl.textContent : 0, totalCount);
   } catch (_) {}
+  const noteEl = document.getElementById('events-status-note');
+  if (noteEl) {
+    const narrowed = (eventsProjectFilter && eventsProjectFilter !== 'all') || eventsStatusFilter !== 'all';
+    noteEl.textContent = narrowed && totalCount ? `Mostrando ${items.length} de ${totalCount}` : '';
+  }
   if (items.length === 0) {
+    eventsRenderList = [];
     grid.innerHTML = '';
+    const emptyTitle = empty.querySelector('.events-empty-title');
+    const emptySub = empty.querySelector('.events-empty-sub');
+    const filtered = totalCount > 0;
+    if (emptyTitle) emptyTitle.textContent = filtered ? 'No hay eventos con este filtro' : 'No hay eventos programados';
+    if (emptySub) {
+      emptySub.textContent = filtered
+        ? 'Probá con otro estado o volvé a "Todos" para ver el calendario completo.'
+        : 'Cuando haya actualizaciones, lanzamientos o eventos, aparecerán aquí.';
+    }
     empty.classList.remove('hidden');
     return;
   }
   empty.classList.add('hidden');
+  eventsRenderList = items;
 
   grid.innerHTML = items.map((ev, evIdx) => {
     const meta = eventCategoryMeta(ev.category);
     const hasImg = Boolean(ev.image_url || ev.cover_url);
     const img = escapeHtml(ev.image_url || ev.cover_url || '');
     const phaseClass = ev.phase === 'active' ? 'ev-active' : ev.phase === 'ended' ? 'ev-ended' : 'ev-upcoming';
+    const expected = eventShowsExpectedDate(ev);
     const phaseBadge = ev.phase === 'active'
       ? '<span class="ev-badge ev-badge-live">● En curso</span>'
       : ev.phase === 'ended'
         ? '<span class="ev-badge ev-badge-ended">Finalizado</span>'
-        : `<span class="ev-badge ev-badge-soon">${escapeHtml(eventCountdown(ev.starts_at, ev.phase)) || 'Próximamente'}</span>`;
+        : expected
+          ? '<span class="ev-badge ev-badge-expected" title="Fecha esperada de inicio, todavía por confirmar">🕰️ Fecha por confirmar</span>'
+          : `<span class="ev-badge ev-badge-soon" data-ev-countdown="${escapeHtml(ev.starts_at || '')}" data-ev-phase="${escapeHtml(ev.phase || '')}">${escapeHtml(eventCountdown(ev.starts_at, ev.phase)) || 'Próximamente'}</span>`;
     const dateRange = escapeHtml(formatEventRange(ev.starts_at, ev.ends_at));
+    const dateLine = expected
+      ? `<span class="event-card-date is-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada: ${dateRange} <span class="ev-date-note">(por confirmar)</span></span>`
+      : `<span class="event-card-date">📅 ${dateRange}</span>`;
     return `
       <article class="event-card glass-card ${phaseClass} ${hasImg ? '' : 'ev-noimg'}" data-ev-idx="${evIdx}" role="button" tabindex="0">
         <div class="event-card-media">
@@ -1428,6 +1580,7 @@ function renderEvents(eventsList) {
             ? `<img src="${img}" alt="${escapeHtml(ev.title)}" class="event-card-img" loading="lazy" />`
             : `<div class="event-card-img-fallback"><span>${meta.icon}</span></div>`}
           <div class="event-card-gradient"></div>
+          ${hasImg ? watermarkChip(ev) : ''}
           <span class="ev-badge ev-badge-cat ${meta.cls}">${meta.icon} ${meta.label}</span>
           ${phaseBadge}
         </div>
@@ -1435,7 +1588,7 @@ function renderEvents(eventsList) {
           <span class="event-card-project">${escapeHtml(eventProjectLabel(ev))}</span>
           <h4 class="event-card-title">${escapeHtml(ev.title)}</h4>
           ${ev.description ? `<p class="event-card-desc">${escapeHtml(ev.description)}</p>` : ''}
-          <span class="event-card-date">📅 ${dateRange}</span>
+          ${dateLine}
         </div>
       </article>
     `;
@@ -1484,8 +1637,18 @@ function openEventModal(ev) {
   if (!modal || !body || !ev) return;
   const meta = eventCategoryMeta(ev.category);
   const hasImg = Boolean(ev.image_url || ev.cover_url);
+  const expected = eventShowsExpectedDate(ev);
+  const startsText = ev.starts_at
+    ? new Date(ev.starts_at).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—';
+  const countdownText = (!expected && ev.phase !== 'ended') ? eventCountdown(ev.starts_at, ev.phase) : '';
+  const phaseText = ev.phase === 'active'
+    ? 'En curso'
+    : ev.phase === 'ended'
+      ? 'Finalizado'
+      : (expected ? 'Próximamente · fecha por confirmar' : 'Próximamente');
   body.innerHTML = `
-    ${hasImg ? `<img src="${escapeHtml(ev.image_url || ev.cover_url || '')}" alt="${escapeHtml(ev.title)}" class="modal-banner" />` : ''}
+    ${hasImg ? `<div class="modal-banner-wrap"><img src="${escapeHtml(ev.image_url || ev.cover_url || '')}" alt="${escapeHtml(ev.title)}" class="modal-banner" />${watermarkChip(ev, { big: true })}</div>` : ''}
     <div class="modal-head">
       <div class="modal-head-info">
         <span class="ev-badge ev-badge-cat ${meta.cls}" style="align-self:flex-start">${meta.icon} ${meta.label}</span>
@@ -1495,9 +1658,10 @@ function openEventModal(ev) {
     </div>
     ${ev.description ? `<div class="modal-about"><p class="modal-about-text">${escapeHtml(ev.description)}</p></div>` : ''}
     <dl class="modal-data">
-      <div class="data-row"><dt>Inicio</dt><dd>${escapeHtml(ev.starts_at ? new Date(ev.starts_at).toLocaleString('es-ES') : '—')}</dd></div>
+      <div class="data-row"><dt>${expected ? 'Fecha esperada de inicio' : 'Inicio'}</dt><dd>${escapeHtml(startsText)}${expected ? ' <span class="ev-date-note">(por confirmar)</span>' : ''}</dd></div>
       <div class="data-row"><dt>Fin</dt><dd>${escapeHtml(ev.ends_at ? new Date(ev.ends_at).toLocaleString('es-ES') : '—')}</dd></div>
-      <div class="data-row"><dt>Estado</dt><dd>${ev.phase === 'active' ? 'En curso' : ev.phase === 'ended' ? 'Finalizado' : 'Próximamente'}</dd></div>
+      <div class="data-row"><dt>Estado</dt><dd>${phaseText}</dd></div>
+      ${countdownText ? `<div class="data-row"><dt>Cuenta atrás</dt><dd>${escapeHtml(countdownText)}</dd></div>` : ''}
     </dl>
     ${ev.link_url || ev.linkUrl ? `<div style="padding:0 28px 28px"><a class="btn btn-primary btn-block" href="${escapeHtml(ev.link_url || ev.linkUrl)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">Ver más detalles ↗</a></div>` : ''}
   `;
@@ -1773,7 +1937,7 @@ function renderNewsTable(newsList) {
     const media = String(item.image_url || '').trim();
     const title = escapeHtml(item.title);
     const visual = media
-      ? `<img src="${escapeHtml(media)}" alt="" loading="lazy" />`
+      ? `<img src="${escapeHtml(media)}" alt="" loading="lazy" />${watermarkChip(item)}`
       : `<span class="news-card-fallback" aria-hidden="true">📰</span>`;
     return `
     <article class="news-card${idx === 0 ? ' is-featured' : ''}" data-news-idx="${idx}" role="button" tabindex="0" aria-label="Leer noticia: ${title}">
@@ -1824,7 +1988,7 @@ function openNewsModal(item) {
 
   body.innerHTML = `
     <div class="nm-media${media ? '' : ' is-hidden'}">
-      ${media ? `<img src="${escapeHtml(media)}" alt="${escapeHtml(item.title)}" />` : ''}
+      ${media ? `<img src="${escapeHtml(media)}" alt="${escapeHtml(item.title)}" />${watermarkChip(item)}` : ''}
     </div>
     <div class="nm-content">
       <div class="nm-meta">

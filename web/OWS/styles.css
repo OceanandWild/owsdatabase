@@ -596,6 +596,48 @@ body {
 }
 .events-filter select option { background: #150826; color: var(--text-main); }
 
+/* Chips de estado (sección Eventos): todos / en curso / próximos / finalizados */
+.ev-status-filter {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+.ev-status-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: inherit; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--text-muted); background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09); border-radius: 999px;
+  padding: 7px 14px; cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+.ev-status-chip:hover { color: var(--text-main); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.06); }
+.ev-status-chip:focus-visible { outline: 2px solid rgba(251, 191, 36, 0.6); outline-offset: 2px; }
+.ev-status-chip b {
+  font-size: 0.7rem; font-weight: 800; color: var(--gold-light);
+  background: rgba(255,255,255,0.07); border-radius: 999px; padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.ev-status-chip.is-active {
+  color: var(--text-main); border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(245, 158, 11, 0.14);
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.14);
+}
+.ev-status-chip[data-evstatus="live"].is-active { border-color: rgba(52, 211, 153, 0.55); background: rgba(16, 185, 129, 0.16); box-shadow: 0 0 18px rgba(16, 185, 129, 0.16); }
+.ev-status-chip[data-evstatus="live"].is-active b { color: #6ee7b7; }
+.ev-status-chip[data-evstatus="ended"].is-active { border-color: rgba(148, 163, 184, 0.5); background: rgba(148, 163, 184, 0.14); box-shadow: none; }
+.ev-status-chip[data-evstatus="ended"].is-active b { color: #cbd5e1; }
+.ev-status-chip.is-empty { opacity: 0.5; }
+.ev-status-chip .ev-status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.ev-status-filter-note { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
+
+/* Fecha esperada (por confirmar): badge ámbar en la tarjeta */
+.ev-badge-expected {
+  background: rgba(8, 0, 16, 0.66); color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+}
+.event-card-date.is-expected { color: #fcd34d; }
+.event-card-date.is-expected .ev-date-note { font-style: italic; opacity: 0.85; }
+.ev-date-note { font-style: italic; opacity: 0.85; }
+
 /* ── Modules grid ──────────────────────────── */
 .modules-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;
@@ -1857,6 +1899,43 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 .events-empty-sub { margin-top: 4px; font-size: 0.82rem; color: var(--text-muted); }
 .event-modal-card { max-width: 640px; }
 
+/* ── Marca de agua del proyecto (eventos y noticias) ────────────
+   El backend manda `project_watermark` cuando el proyecto la tiene
+   activada. Se dibuja como chip encima de la imagen, con la posición y
+   la opacidad elegidas en el Admin. Cada contexto corre el chip para no
+   pisar los badges que ya viven en esa esquina. */
+.img-watermark {
+  position: absolute; z-index: 3;
+  display: inline-block; max-width: 78%;
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.96);
+  background: rgba(6, 0, 14, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px; padding: 3px 10px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  pointer-events: none; user-select: none;
+}
+.img-watermark.wm-top-left     { top: 12px; left: 12px; }
+.img-watermark.wm-top-right    { top: 12px; right: 12px; }
+.img-watermark.wm-bottom-left  { bottom: 12px; left: 12px; }
+.img-watermark.wm-bottom-right { bottom: 12px; right: 12px; }
+.img-watermark.wm-center       { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+/* Variante para banners con la marca centrada y más grande (modal) */
+.img-watermark.wm-center.wm-big { font-size: 0.72rem; padding: 5px 16px; max-width: 86%; }
+
+/* Eventos: categoría arriba-izquierda, estado abajo-derecha → se corre el chip */
+.event-card-media .img-watermark.wm-top-left     { top: 44px; }
+.event-card-media .img-watermark.wm-bottom-right { bottom: 44px; }
+
+/* Noticias: fecha abajo-izquierda, proyecto arriba-derecha → se corre el chip */
+.news-card-media .img-watermark.wm-bottom-left { left: 76px; bottom: 14px; }
+.news-card-media .img-watermark.wm-top-right   { top: 50px; }
+
+/* Modal de noticia: la imagen no tiene chips propios, va centrada y visible */
+.nm-media .img-watermark { font-size: 0.68rem; padding: 5px 14px; }
+
 /* ── Modals ────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 9000;
@@ -1883,6 +1962,12 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
   aspect-ratio: 16 / 9; object-fit: cover; object-position: center;
   border-bottom: 1px solid rgba(245, 158, 11, 0.25);
 }
+/* Envoltorio del banner: permite superponer la marca de agua del proyecto */
+.modal-banner-wrap {
+  position: relative; margin: -28px -28px 18px; overflow: hidden;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+}
+.modal-banner-wrap .modal-banner { margin: 0; width: 100%; border-bottom: none; }
 .modal-icon {
   width: 68px; height: 68px; flex-shrink: 0; border-radius: 16px; object-fit: cover;
   border: 1px solid rgba(245, 158, 11, 0.35);

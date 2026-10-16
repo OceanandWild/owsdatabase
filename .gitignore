@@ -21,6 +21,8 @@ win-unpacked/
 # no video de referencia: si queda fuera, el menu se abre sin fondo en un clone.
 !WildSea Realms/Assets/Resources/WS/MainMenu/menu_bg.mp4
 .env
+deploy/oracle/.env
+deploy/oracle/.env.*
 secrets/
 .agent/
 .cursor/

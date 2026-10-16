@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Hub — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -253,6 +253,11 @@
           <a href="#/lanzamientos" class="nav-link" data-view="sec-lanzamientos" data-keys="lanzamientos juegos releases wilder gambit">
             <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 2 5 6 5 10l3 3-4 1c-1 2-2 3-4 4-2-1-3-2-4-4l-4-1 3-3c0-4 2-8 5-10Z"/><circle cx="12" cy="10" r="2"/></svg></span>
             <span class="nav-txt">Lanzamientos</span>
+          </a>
+          <a href="#/changelogs" class="nav-link" data-view="sec-changelogs" data-keys="changelogs notas versiones parches cambios novedades proyectos">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 17h4"/></svg></span>
+            <span class="nav-txt">Changelogs</span>
+            <span class="nav-tag-new hidden" id="nav-cl-new">✨ Nuevo</span>
           </a>
           <a href="#/eventos" class="nav-link" data-view="sec-eventos" data-keys="eventos calendario fechas torneos">
             <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
@@ -511,11 +516,32 @@
         </div>
       </section>
 
-      <!-- 04 · Eventos -->
+      <!-- 04 · Changelogs de Proyectos -->
+      <section id="sec-changelogs" class="page-section ows-view" aria-label="Changelogs de Proyectos">
+        <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Changelogs</span></div>
+        <div class="section-head">
+          <span class="section-index">04</span>
+          <div class="section-titles">
+            <h3 class="section-title">Changelogs de Proyectos <span class="cl-new hidden" id="cl-new-tag" title="Sección recién estrenada">✨ Nuevo</span></h3>
+            <p class="section-sub">Las notas de cada versión publicada de nuestros juegos: desplegá un proyecto y tocá una versión.</p>
+          </div>
+          <span class="section-meta" id="cl-count">—</span>
+        </div>
+        <div id="cl-list" class="cl-list">
+          <p class="loading-note">Cargando changelogs…</p>
+        </div>
+        <div id="cl-empty" class="events-empty hidden">
+          <span class="events-empty-icon">📜</span>
+          <p class="events-empty-title">Todavía no hay changelogs</p>
+          <p class="events-empty-sub">Cuando un proyecto lanzado publique las notas de su versión, van a aparecer acá.</p>
+        </div>
+      </section>
+
+      <!-- 05 · Eventos -->
       <section id="sec-eventos" class="page-section ows-view" aria-label="Eventos">
         <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Eventos</span></div>
         <div class="section-head">
-          <span class="section-index">04</span>
+          <span class="section-index">05</span>
           <div class="section-titles">
             <h3 class="section-title">Eventos</h3>
             <p class="section-sub">Actualizaciones, lanzamientos y novedades con fecha</p>
@@ -542,11 +568,11 @@
         </div>
       </section>
 
-      <!-- 05 · Gestor de Descargas -->
+      <!-- 06 · Gestor de Descargas -->
       <section id="sec-descargas" class="page-section ows-view" aria-label="Gestor de Descargas">
         <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Descargas</span></div>
         <div class="section-head">
-          <span class="section-index">05</span>
+          <span class="section-index">06</span>
           <div class="section-titles">
             <h3 class="section-title">Gestor de Descargas</h3>
             <p class="section-sub">Tus juegos descargándose y listos para jugar</p>
@@ -617,7 +643,7 @@
            ═══════════════════════════════════════════ -->
       <section id="sec-actualizaciones" class="page-section ows-view" aria-label="Gestor de Actualizaciones">
         <div class="section-head">
-          <span class="section-index">06</span>
+          <span class="section-index">07</span>
           <div class="section-titles">
             <h3 class="section-title">Gestor de Actualizaciones</h3>
             <p class="section-sub">OWS Hub y tus juegos, siempre en la última versión</p>
@@ -756,6 +782,14 @@
     </div>
   </div>
 
+  <!-- Changelog de una versión (notas completas del proyecto) -->
+  <div id="pcl-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Notas de la versión">
+    <div class="modal-card glass-card pcl-card">
+      <button class="modal-close" data-close="pcl-modal" aria-label="Cerrar">&times;</button>
+      <div id="pcl-modal-body"></div>
+    </div>
+  </div>
+
   <!-- Anuncio emergente de Eventos (aparece una sola vez por usuario) -->
   <div id="announce-modal" class="modal-overlay hidden">
     <div class="modal-card glass-card announce-card">
@@ -844,6 +878,6 @@
        espejo owsdatabase2 (ver ows-api-failover.js). -->
   <script src="ows-api-failover.js?v=1"></script>
   <script src="library.js?v=4"></script>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

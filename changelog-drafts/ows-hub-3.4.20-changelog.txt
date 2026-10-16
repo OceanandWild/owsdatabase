@@ -12,6 +12,8 @@ Cambios:
 - Nueva barra de estados en Eventos: Todos, En curso, Próximos y Finalizados, con el conteo de cada grupo y combinable con el filtro por proyecto.
 - La cuenta atrás de los próximos eventos se actualiza sola mientras navegás: ya no queda congelada en el tiempo que faltaba cuando abriste la página, y al llegar a cero el evento pasa a mostrarse en curso.
 - Los eventos de proyectos internos no exponen su marca de agua ni su nombre: se siguen viendo como "Proyecto interno".
+- Nueva sección "Changelogs de Proyectos": los juegos ya lanzados aparecen con su icono y su nombre, se despliegan con una animación para ver todas las versiones publicadas y, al tocar una, se abre el detalle con la fecha, la plataforma, el peso del archivo y el changelog completo de esa versión.
+- La sección nueva se destaca con un distintivo "Nuevo" en el menú y en su título, que se apaga solo con el correr de los días.
 
 === ENGLISH ===
 Version: 3.4.20
@@ -25,3 +27,5 @@ Changes:
 - New status bar in Events: All, Ongoing, Upcoming and Finished, with the count of each group and combinable with the project filter.
 - The countdown for upcoming events refreshes on its own while you browse: it no longer stays frozen at the time remaining when you opened the page, and once it reaches zero the event shows as ongoing.
 - Events from internal projects don't expose their watermark or name: they still show as "Proyecto interno" (internal project).
+- New "Project Changelogs" section: launched games appear with their icon and name, expand with an animation to show every published version and, when you click a version, its details open with the date, platform, file size and the full changelog for that version.
+- The new section is highlighted with a "New" badge in the menu and its title, which turns itself off as the days go by.

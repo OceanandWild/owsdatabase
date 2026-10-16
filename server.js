@@ -15964,6 +15964,230 @@ app.get('/ows-hub/summary', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════
+// CHANGELOGS DE PROYECTOS (sección pública de OWS Hub)
+// ═══════════════════════════════════════════════
+// Notas de cada versión publicada, SOLO de proyectos lanzados (status
+// 'launched', activos y públicos). La web lista el proyecto con su nombre e
+// icono, lo despliega con animación y abre cada versión en un modal con sus
+// datos (fecha, canal, plataforma, archivo/peso) y el contenido del changelog.
+// Fuentes:
+//   • ows_project_releases   → versión + notas que carga el admin al publicar.
+//   • ows_project_changelogs → notas estructuradas (Nuevo / Mejoras / Arreglos
+//     / Rendimiento / Otros) cuando el proyecto las tiene (OWS Store).
+// El tag "Nuevo" de la sección viaja con fecha de vencimiento (hora de
+// Uruguay) y el front lo apaga solo: no depende de un nuevo deploy.
+const OWS_PROJECT_CHANGELOGS_NEW_UNTIL = '2026-10-18T00:00:00-03:00';
+const OWS_PROJECT_CHANGELOGS_NEW_UNTIL_MS = Date.parse(OWS_PROJECT_CHANGELOGS_NEW_UNTIL);
+
+// Clave para comparar versiones: "v1.0.2" y "1.0.2" son la misma versión.
+function changelogVersionKey(value) {
+  return String(value || '').trim().toLowerCase().replace(/^v/, '');
+}
+
+// Notas en texto libre → líneas limpias (sin viñetas repetidas ni vacíos).
+function changelogNoteLines(notes) {
+  return String(notes || '')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-*•·]\s*/, '').trim())
+    .filter(Boolean);
+}
+
+// Los TEXT[] de ows_project_changelogs pueden llegar como array o string.
+function changelogTextArray(value) {
+  if (Array.isArray(value)) return value.map((t) => String(t || '').trim()).filter(Boolean);
+  const raw = String(value ?? '').trim();
+  return raw ? [raw] : [];
+}
+
+// Orden del historial: más nueva primero; a igual fecha, versión más alta.
+function compareChangelogVersions(a, b) {
+  const ta = Number(a.released_ms || 0);
+  const tb = Number(b.released_ms || 0);
+  if (ta !== tb) return tb - ta;
+  const pa = changelogVersionKey(a.version).split(/[.\-+_]/).map((n) => parseInt(n, 10) || 0);
+  const pb = changelogVersionKey(b.version).split(/[.\-+_]/).map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const va = pa[i] || 0;
+    const vb = pb[i] || 0;
+    if (va !== vb) return vb - va;
+  }
+  return 0;
+}
+
+app.get('/ows-hub/project-changelogs', async (req, res) => {
+  const limitPerProject = Math.max(1, Math.min(60, normalizeNewsNumber(req.query.limit, 30)));
+  try {
+    await ensureOwsProjectReleasesTable();
+    // Solo proyectos YA LANZADOS y públicos: los que están en desarrollo, los
+    // ocultos y los de Gestión (solo-admin) no entran al changelog público.
+    const { rows: projRows } = await pool.query(
+      `SELECT id, slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date,
+              link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
+              watermark_enabled, watermark_text, watermark_position, watermark_opacity, created_at, updated_at
+         FROM ows_launch_projects
+        WHERE LOWER(status) = 'launched' AND is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE
+        ORDER BY priority DESC, name ASC`
+    );
+
+    const projects = [];
+    let totalVersions = 0;
+    if (projRows.length) {
+      const ids = projRows.map((r) => Number(r.id)).filter((n) => n > 0);
+      const slugKeys = projRows.map((r) => String(r.slug || '').trim().toLowerCase()).filter(Boolean);
+      const [relRes, clRes] = await Promise.all([
+        pool.query(
+          `SELECT id, project_id, version, file_label, size_label, installer_url, itch_url, channel, platform, notes, is_active, released_at, created_at
+             FROM ows_project_releases
+            WHERE project_id = ANY($1::bigint[]) AND is_active = TRUE
+            ORDER BY released_at DESC NULLS LAST, id DESC`,
+          [ids]
+        ),
+        pool.query(
+          `SELECT project_slug, version, adiciones, mejoras, arreglos, rendimiento, otros, published_at
+             FROM ows_project_changelogs
+            WHERE LOWER(project_slug) = ANY($1::text[])`,
+          [slugKeys]
+        ).catch(() => ({ rows: [] }))
+      ]);
+
+      const relByProject = new Map();
+      relRes.rows.forEach((row) => {
+        const pid = Number(row.project_id || 0);
+        if (!relByProject.has(pid)) relByProject.set(pid, []);
+        relByProject.get(pid).push(row);
+      });
+      const clBySlug = new Map();
+      clRes.rows.forEach((row) => {
+        const key = String(row.project_slug || '').trim().toLowerCase();
+        if (!clBySlug.has(key)) clBySlug.set(key, []);
+        clBySlug.get(key).push(row);
+      });
+
+      projRows.forEach((projRow) => {
+        const pid = Number(projRow.id || 0);
+        const slugKey = String(projRow.slug || '').trim().toLowerCase();
+        const versions = new Map();
+
+        const versionEntry = (versionRaw) => {
+          const key = changelogVersionKey(versionRaw);
+          if (!key) return null;
+          let entry = versions.get(key);
+          if (!entry) {
+            entry = {
+              version: String(versionRaw || '').trim(),
+              released_at: null,
+              released_ms: 0,
+              channel: '',
+              platforms: [],
+              file_label: '',
+              size_label: '',
+              notes: '',
+              notes_lines: [],
+              sections: { adiciones: [], mejoras: [], arreglos: [], rendimiento: [], otros: [] },
+            };
+            versions.set(key, entry);
+          }
+          return entry;
+        };
+
+        // 1) Releases del gestor: una entrada por versión, con sus plataformas.
+        (relByProject.get(pid) || []).forEach((row) => {
+          const entry = versionEntry(row.version);
+          if (!entry) return;
+          const releasedIso = row.released_at ? new Date(row.released_at).toISOString() : null;
+          const releasedMs = releasedIso ? Date.parse(releasedIso) : 0;
+          if (releasedMs && releasedMs > entry.released_ms) {
+            entry.released_ms = releasedMs;
+            entry.released_at = releasedIso;
+          } else if (!entry.released_at && releasedIso) {
+            entry.released_at = releasedIso;
+            entry.released_ms = releasedMs;
+          }
+          if (!entry.channel) entry.channel = normalizeReleaseChannel(row.channel);
+          const plat = normalizeOwsReleasePlatform(row.platform);
+          if (!entry.platforms.includes(plat)) entry.platforms.push(plat);
+          if (!entry.file_label) entry.file_label = String(row.file_label || '').trim();
+          if (!entry.size_label) entry.size_label = String(row.size_label || '').trim();
+          const notes = String(row.notes || '').trim();
+          // La fila con notas manda: si esta está vacía, se conserva la anterior.
+          if (notes.length > entry.notes.length) {
+            entry.notes = notes;
+            entry.notes_lines = changelogNoteLines(notes);
+          }
+        });
+
+        // 2) Changelog estructurado (OWS Store), si el proyecto lo tiene.
+        (clBySlug.get(slugKey) || []).forEach((row) => {
+          const entry = versionEntry(row.version);
+          if (!entry) return;
+          const publishedIso = row.published_at ? new Date(row.published_at).toISOString() : null;
+          const publishedMs = publishedIso ? Date.parse(publishedIso) : 0;
+          if (publishedMs && publishedMs > entry.released_ms) {
+            entry.released_ms = publishedMs;
+            entry.released_at = publishedIso;
+          }
+          entry.sections = {
+            adiciones: changelogTextArray(row.adiciones),
+            mejoras: changelogTextArray(row.mejoras),
+            arreglos: changelogTextArray(row.arreglos),
+            rendimiento: changelogTextArray(row.rendimiento),
+            otros: changelogTextArray(row.otros),
+          };
+        });
+
+        const list = [...versions.values()].sort(compareChangelogVersions).slice(0, limitPerProject);
+        if (!list.length) return; // Proyecto lanzado pero sin notas publicadas.
+        const now = Date.now();
+        const NEW_MS = 7 * 24 * 3600 * 1000;
+        list.forEach((v, i) => {
+          v.is_latest = i === 0;
+          v.is_new = Boolean(v.released_ms && (now - v.released_ms) <= NEW_MS);
+          // Resumen de una línea para la lista desplegable.
+          v.summary = String(
+            v.notes_lines[0]
+            || v.sections.adiciones[0]
+            || v.sections.mejoras[0]
+            || v.sections.arreglos[0]
+            || ''
+          ).trim().slice(0, 180);
+          delete v.released_ms;
+        });
+        totalVersions += list.length;
+        const mapped = mapOwsLaunchProjectRow(projRow, null);
+        projects.push({
+          id: mapped.id,
+          slug: mapped.slug,
+          name: mapped.name,
+          description: mapped.description,
+          genre: mapped.genre,
+          icon_url: mapped.icon_url,
+          banner_url: mapped.banner_url,
+          platforms: mapped.platforms,
+          status: mapped.status,
+          link_url: mapped.link_url,
+          priority: mapped.priority,
+          versions: list,
+        });
+      });
+    }
+
+    return res.json({
+      success: true,
+      projects,
+      meta: {
+        total: projects.length,
+        versions: totalVersions,
+        has_new: Date.now() < OWS_PROJECT_CHANGELOGS_NEW_UNTIL_MS,
+        new_until: OWS_PROJECT_CHANGELOGS_NEW_UNTIL,
+      },
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-hub/project-changelogs:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Crear proyecto OWS (admin)
 app.post('/ows-launch-projects', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;

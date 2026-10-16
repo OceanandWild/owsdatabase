@@ -185,7 +185,7 @@ function bindStaticEvents() {
   });
 
   // Modales: cerrar al click en overlay o botón [data-close]
-  ['event-modal', 'release-modal', 'announce-modal', 'news-modal'].forEach((id) => {
+  ['event-modal', 'release-modal', 'announce-modal', 'news-modal', 'pcl-modal'].forEach((id) => {
     const overlay = document.getElementById(id);
     if (!overlay) return;
     overlay.addEventListener('click', (e) => {
@@ -193,6 +193,7 @@ function bindStaticEvents() {
         if (id === 'event-modal') closeEventModal();
         else if (id === 'release-modal') closeReleaseModal();
         else if (id === 'news-modal') closeNewsModal();
+        else if (id === 'pcl-modal') closeProjectChangelogModal();
         else closeAnnounceModal();
       }
     });
@@ -205,6 +206,7 @@ function bindStaticEvents() {
       else if (id === 'release-modal') closeReleaseModal();
       else if (id === 'news-modal') closeNewsModal();
       else if (id === 'hub-changelog-modal') closeHubChangelogModal();
+      else if (id === 'pcl-modal') closeProjectChangelogModal();
       else closeAnnounceModal();
     });
   });
@@ -265,6 +267,46 @@ function bindStaticEvents() {
       if (!e.target.closest('[data-news-retry]')) return;
       e.preventDefault();
       loadDashboardNews();
+    });
+  }
+  // Changelogs de Proyectos: delegación en la lista (sobrevive a re-renders).
+  // Un clic en la cabecera despliega el proyecto; uno en una versión abre el modal.
+  const clList = document.getElementById('cl-list');
+  if (clList && !clList.dataset.bound) {
+    clList.dataset.bound = '1';
+    clList.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cl-retry]')) {
+        e.preventDefault();
+        loadProjectChangelogs();
+        return;
+      }
+      const verBtn = e.target.closest('[data-pcl-slug]');
+      if (verBtn) {
+        e.preventDefault();
+        openProjectChangelogModal(verBtn.getAttribute('data-pcl-slug'), verBtn.getAttribute('data-pcl-ver'));
+        return;
+      }
+      const head = e.target.closest('[data-cl-toggle]');
+      if (head) {
+        e.preventDefault();
+        toggleProjectChangelog(head.getAttribute('data-cl-toggle'));
+      }
+    });
+  }
+  // Modal del changelog: salto directo al proyecto dentro de Lanzamientos.
+  const pclBody = document.getElementById('pcl-modal-body');
+  if (pclBody && !pclBody.dataset.bound) {
+    pclBody.dataset.bound = '1';
+    pclBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pcl-goto-release]');
+      if (!btn) return;
+      e.preventDefault();
+      const slug = btn.getAttribute('data-pcl-goto-release');
+      closeProjectChangelogModal();
+      showOwsSection('sec-lanzamientos');
+      const proj = (typeof releasesCache !== 'undefined' ? releasesCache : [])
+        .find((x) => String(x.slug) === String(slug));
+      if (proj) setTimeout(() => { try { openReleaseModal(proj); } catch (_) {} }, 280);
     });
   }
   // Reintento manual de Lanzamientos: delegado en document porque el aviso
@@ -595,12 +637,13 @@ function filterSideNav(q) {
 }
 
 // ── Router de vistas: una sección visible a la vez ──
-const OWS_VIEWS = ['view-inicio', 'sec-modulos', 'sec-noticias', 'sec-lanzamientos', 'sec-eventos', 'sec-descargas', 'sec-actualizaciones'];
+const OWS_VIEWS = ['view-inicio', 'sec-modulos', 'sec-noticias', 'sec-lanzamientos', 'sec-changelogs', 'sec-eventos', 'sec-descargas', 'sec-actualizaciones'];
 const OWS_VIEW_ROUTES = {
   'inicio': 'view-inicio',
   'modulos': 'sec-modulos',
   'noticias': 'sec-noticias',
   'lanzamientos': 'sec-lanzamientos',
+  'changelogs': 'sec-changelogs',
   'eventos': 'sec-eventos',
   'descargas': 'sec-descargas',
   'actualizaciones': 'sec-actualizaciones',
@@ -609,6 +652,7 @@ const OWS_VIEW_ROUTES = {
   'sec-modulos': 'sec-modulos',
   'sec-noticias': 'sec-noticias',
   'sec-lanzamientos': 'sec-lanzamientos',
+  'sec-changelogs': 'sec-changelogs',
   'sec-eventos': 'sec-eventos',
   'sec-descargas': 'sec-descargas',
   'sec-actualizaciones': 'sec-actualizaciones',
@@ -620,6 +664,7 @@ const OWS_VIEW_TITLES = {
   'sec-modulos': 'Módulos',
   'sec-noticias': 'Noticias',
   'sec-lanzamientos': 'Lanzamientos',
+  'sec-changelogs': 'Changelogs',
   'sec-eventos': 'Eventos',
   'sec-descargas': 'Descargas',
   'sec-actualizaciones': 'Actualizaciones',
@@ -686,6 +731,11 @@ function showOwsSection(viewId, opts) {
   // Eventos: si la última carga falló, se reintenta al entrar.
   if (target === 'sec-eventos' && !eventsLoading && eventsLoadState !== 'ready') {
     try { loadDashboardEvents(); } catch (_) {}
+  }
+
+  // Changelogs de Proyectos: mismo criterio (el servidor puede estar despertando).
+  if (target === 'sec-changelogs' && !pclLoading && pclLoadState !== 'ready') {
+    try { loadProjectChangelogs(); } catch (_) {}
   }
 
   // El Gestor de Actualizaciones es la única vista que necesita saber qué hay
@@ -809,6 +859,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Cuenta atrás de eventos viva (30 s): sin refetch salvo que expire una.
     try { startEventsCountdownTicker(); } catch (_) {}
     loadDashboardReleases();
+    loadProjectChangelogs();
+    syncProjectChangelogsTag();
     checkOwsPopups();
     updateAdminVisibility();
     // Gestor de Actualizaciones: se consulta al entrar para tener el badge
@@ -8211,6 +8263,320 @@ function renderSetupSummary() {
     <dl class="setup-summary-row"><dt>📰 Noticias en inicio</dt><dd>${on(s.showNews)}</dd></dl>
   `;
   if (window.gsap) { try { gsap.fromTo(box, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 }); } catch (_) {} }
+}
+
+// ═══════════════════════════════════════════════
+// CHANGELOGS DE PROYECTOS — proyectos ya lanzados
+// ═══════════════════════════════════════════════
+// Lista desplegable por proyecto (icono + nombre): al abrir muestra sus
+// versiones y cada una se abre en un modal con los datos y el changelog
+// completo. Solo proyectos lanzados; el servidor entrega `new_until` para que
+// el tag "Nuevo" de la sección se apague solo (18/10/2026 00:00, hora UY).
+
+const PCL_NEW_UNTIL_FALLBACK = Date.parse('2026-10-18T00:00:00-03:00');
+
+let pclCache = [];
+let pclLoadState = 'idle'; // idle | loading | ready | error
+let pclLoading = false;
+let pclNewUntil = PCL_NEW_UNTIL_FALLBACK;
+let pclTagTimer = 0;
+
+function pclTagAlive() {
+  const until = Number.isFinite(pclNewUntil) ? pclNewUntil : PCL_NEW_UNTIL_FALLBACK;
+  return Number.isFinite(until) ? Date.now() < until : false;
+}
+
+// Muestra u oculta el tag "Nuevo" (menú + sección) y programa el apagado.
+function syncProjectChangelogsTag() {
+  const alive = pclTagAlive();
+  ['nav-cl-new', 'cl-new-tag'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !alive);
+  });
+  if (pclTagTimer) { clearTimeout(pclTagTimer); pclTagTimer = 0; }
+  if (!alive) return;
+  const until = Number.isFinite(pclNewUntil) ? pclNewUntil : PCL_NEW_UNTIL_FALLBACK;
+  const wait = until - Date.now() + 1000;
+  if (wait > 0) {
+    pclTagTimer = setTimeout(() => { try { syncProjectChangelogsTag(); } catch (_) {} }, Math.min(wait, 2147000000));
+  }
+}
+
+function pclPlatformLabel(platform) {
+  const p = String(platform || '').toLowerCase();
+  if (p === 'android') return '🤖 Android';
+  if (p === 'all') return '🌐 Todas';
+  return '🪟 Windows';
+}
+
+function pclVersionLabel(version) {
+  return String(version || '').trim().replace(/^[vV]/, '');
+}
+
+function pclVersionCountLabel(n) {
+  const total = Number(n) || 0;
+  return total === 1 ? '1 versión' : `${total} versiones`;
+}
+
+// Igual que el anterior, pero para la frase del modal ("publicada(s)").
+function pclPublishedCountLabel(n) {
+  const total = Number(n) || 0;
+  return total === 1 ? '1 versión publicada' : `${total} versiones publicadas`;
+}
+
+function pclFindProject(slug) {
+  const key = String(slug || '').trim();
+  return pclCache.find((p) => String(p.slug || '').trim() === key) || null;
+}
+
+function pclFindVersion(slug, version) {
+  const p = pclFindProject(slug);
+  if (!p) return null;
+  const key = String(version || '').trim().toLowerCase().replace(/^v/, '');
+  return (p.versions || []).find((v) => String(v.version || '').trim().toLowerCase().replace(/^v/, '') === key) || null;
+}
+
+function renderProjectChangelogsLoading() {
+  const list = document.getElementById('cl-list');
+  const empty = document.getElementById('cl-empty');
+  const count = document.getElementById('cl-count');
+  if (empty) empty.classList.add('hidden');
+  if (count) count.textContent = 'Cargando…';
+  if (list) {
+    list.innerHTML = `
+      <div class="cl-placeholder" role="status" aria-live="polite">
+        <span class="releases-spinner" aria-hidden="true"></span>
+        <p class="cl-placeholder-title">Cargando changelogs…</p>
+        <p class="cl-placeholder-sub">La primera carga puede tardar si el servidor está despertando.</p>
+      </div>`;
+  }
+}
+
+function renderProjectChangelogsError() {
+  const list = document.getElementById('cl-list');
+  const empty = document.getElementById('cl-empty');
+  const count = document.getElementById('cl-count');
+  if (empty) empty.classList.add('hidden');
+  if (count) count.textContent = 'Sin conexión';
+  if (list) {
+    list.innerHTML = `
+      <div class="cl-placeholder is-error" role="status">
+        <span class="cl-placeholder-ico" aria-hidden="true">⚠️</span>
+        <p class="cl-placeholder-title">No se pudieron cargar los changelogs</p>
+        <p class="cl-placeholder-sub">El servidor puede estar despertando. Probá de nuevo en unos segundos.</p>
+        <button type="button" class="btn btn-ghost btn-sm" data-cl-retry>↻ Reintentar</button>
+      </div>`;
+  }
+}
+
+function renderProjectChangelogs() {
+  const list = document.getElementById('cl-list');
+  const empty = document.getElementById('cl-empty');
+  const count = document.getElementById('cl-count');
+  if (!list) return;
+  const items = (Array.isArray(pclCache) ? pclCache : [])
+    .filter((p) => p && String(p.slug || '').trim() && Array.isArray(p.versions) && p.versions.length);
+  if (count) {
+    count.textContent = items.length
+      ? `${items.length} ${items.length === 1 ? 'proyecto' : 'proyectos'}`
+      : 'Sin changelogs';
+  }
+  if (!items.length) {
+    list.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+  list.innerHTML = items.map((p) => {
+    const slug = String(p.slug).trim();
+    const versions = p.versions;
+    const latest = versions[0] || {};
+    const icon = String(p.icon_url || '').trim();
+    const latestWhen = formatReleaseDate(latest.released_at) || '';
+    const versionsHtml = versions.map((v) => {
+      const bits = [];
+      if (Array.isArray(v.platforms) && v.platforms.length) {
+        bits.push(v.platforms.map(pclPlatformLabel).join(' · '));
+      }
+      if (v.channel && v.channel !== 'stable') bits.push(v.channel);
+      if (v.size_label) bits.push(`💾 ${v.size_label}`);
+      const peek = String(v.summary || '').trim();
+      return `
+        <li class="cl-version-item">
+          <button type="button" class="cl-version" data-pcl-slug="${escapeHtml(slug)}" data-pcl-ver="${escapeHtml(v.version)}" aria-haspopup="dialog" title="Ver el changelog completo de esta versión">
+            <span class="cl-ver-line">
+              <span class="cl-ver-tag">v${escapeHtml(pclVersionLabel(v.version))}</span>
+              ${v.is_latest ? '<span class="cl-ver-pill cl-ver-latest">✨ Última</span>' : (v.is_new ? '<span class="cl-ver-pill cl-ver-new">Nuevo</span>' : '')}
+              <span class="cl-ver-when">${escapeHtml(formatReleaseDate(v.released_at) || 'Sin fecha')}</span>
+              <span class="cl-ver-cta">Ver notas →</span>
+            </span>
+            ${bits.length ? `<span class="cl-ver-meta">${escapeHtml(bits.join(' · '))}</span>` : ''}
+            ${peek ? `<span class="cl-ver-peek">${escapeHtml(peek)}</span>` : ''}
+          </button>
+        </li>`;
+    }).join('');
+    return `
+      <article class="cl-project glass-card" data-cl-project="${escapeHtml(slug)}">
+        <button type="button" class="cl-head" data-cl-toggle="${escapeHtml(slug)}" aria-expanded="false" aria-controls="cl-body-${escapeHtml(slug)}">
+          <span class="cl-ico">
+            ${icon ? `<img src="${escapeHtml(icon)}" alt="" class="cl-ico-img" loading="lazy" />` : '<span class="cl-ico-emoji" aria-hidden="true">🎮</span>'}
+          </span>
+          <span class="cl-titles">
+            <span class="cl-name">${escapeHtml(p.name)} <span class="cl-status">🎮 Lanzado</span></span>
+            <span class="cl-sub">${escapeHtml([p.genre, pclVersionCountLabel(versions.length)].filter(Boolean).join(' · '))}</span>
+          </span>
+          <span class="cl-latest">${latest.version ? `Última: <b>v${escapeHtml(pclVersionLabel(latest.version))}</b>` : ''}${latestWhen ? `<small>${escapeHtml(latestWhen)}</small>` : ''}</span>
+          <span class="cl-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </button>
+        <div class="cl-body" id="cl-body-${escapeHtml(slug)}" role="region" aria-label="Versiones de ${escapeHtml(p.name)}">
+          <div class="cl-body-inner">
+            <ul class="cl-versions">${versionsHtml}</ul>
+            ${p.link_url ? `<a class="cl-project-link" href="${escapeHtml(p.link_url)}" target="_blank" rel="noopener">Ver proyecto ↗</a>` : ''}
+          </div>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+// Abre/cierra el cuerpo de un proyecto con animación (max-height medida).
+function pclSetBodyOpen(card, open) {
+  if (!card) return;
+  const body = card.querySelector('.cl-body');
+  const head = card.querySelector('.cl-head');
+  if (!body) return;
+  if (open) {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    card.classList.add('is-open');
+    if (head) head.setAttribute('aria-expanded', 'true');
+    // Al terminar la animación se suelta el límite: si el contenido cambia de
+    // alto (resize, texto que reflowea) nada queda recortado.
+    const release = (e) => {
+      if (e.target !== body) return;
+      body.removeEventListener('transitionend', release);
+      if (card.classList.contains('is-open')) body.style.maxHeight = 'none';
+    };
+    body.addEventListener('transitionend', release);
+  } else {
+    if (body.style.maxHeight === 'none') body.style.maxHeight = body.scrollHeight + 'px';
+    void body.offsetHeight; // reflow: registra la altura real antes de ir a 0
+    card.classList.remove('is-open');
+    body.style.maxHeight = '0px';
+    if (head) head.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function toggleProjectChangelog(slug) {
+  const list = document.getElementById('cl-list');
+  if (!list) return;
+  const key = String(slug || '').trim();
+  const card = Array.from(list.querySelectorAll('.cl-project'))
+    .find((c) => c.getAttribute('data-cl-project') === key);
+  if (!card) return;
+  const willOpen = !card.classList.contains('is-open');
+  // Dropdown: se despliega uno por vez; los demás se pliegan con animación.
+  list.querySelectorAll('.cl-project.is-open').forEach((other) => {
+    if (other !== card) pclSetBodyOpen(other, false);
+  });
+  pclSetBodyOpen(card, willOpen);
+}
+
+// ── Modal con los datos y el changelog de una versión ──
+function openProjectChangelogModal(slug, version) {
+  const p = pclFindProject(slug);
+  const v = pclFindVersion(slug, version);
+  const modal = document.getElementById('pcl-modal');
+  const body = document.getElementById('pcl-modal-body');
+  if (!modal || !body || !p || !v) return;
+  const icon = String(p.icon_url || '').trim();
+  const ver = `v${pclVersionLabel(v.version)}`;
+  const date = v.released_at ? parseDateValue(v.released_at) : null;
+  const whenLong = date ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  const chips = [];
+  if (Array.isArray(v.platforms) && v.platforms.length) v.platforms.forEach((pl) => chips.push(pclPlatformLabel(pl)));
+  if (v.channel) chips.push(v.channel);
+  if (v.size_label) chips.push(`💾 ${v.size_label}`);
+  if (v.file_label) chips.push(`📦 ${v.file_label}`);
+
+  // Contenido: secciones estructuradas (si el proyecto las tiene) + notas.
+  const secs = (v.sections && typeof v.sections === 'object') ? v.sections : {};
+  const sectionDefs = [
+    ['adiciones', '✨ Nuevo', 'cl-sec-new'],
+    ['mejoras', '🛠️ Mejoras', 'cl-sec-improve'],
+    ['arreglos', '🐞 Arreglos', 'cl-sec-fix'],
+    ['rendimiento', '⚡ Rendimiento', 'cl-sec-perf'],
+    ['otros', '📌 Otros', 'cl-sec-other'],
+  ];
+  const sectionsHtml = sectionDefs.map(([key, label, cls]) => {
+    const arr = Array.isArray(secs[key]) ? secs[key] : [];
+    if (!arr.length) return '';
+    return `<div class="cl-sec ${cls}"><h4 class="cl-sec-title">${label}</h4><ul class="cl-sec-list">${arr.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul></div>`;
+  }).join('');
+  const notesLines = Array.isArray(v.notes_lines) ? v.notes_lines : [];
+  const notesHtml = notesLines.length
+    ? `<div class="cl-notes"><p class="cl-notes-title">📝 Notas de la versión</p>${notesLines.map((l) => `<p class="cl-note-line">${escapeHtml(l)}</p>`).join('')}</div>`
+    : '';
+  const noNotesHtml = (!sectionsHtml && !notesHtml)
+    ? '<div class="cl-notes"><p class="cl-note-line cl-note-empty">Esta versión todavía no tiene notas publicadas.</p></div>'
+    : '';
+
+  body.innerHTML = `
+    <div class="pcl-head">
+      <span class="pcl-ico">${icon ? `<img src="${escapeHtml(icon)}" alt="" class="pcl-ico-img" />` : '<span class="pcl-ico-emoji" aria-hidden="true">🎮</span>'}</span>
+      <div class="pcl-head-info">
+        <span class="pcl-project">${escapeHtml(p.name)}</span>
+        <h3 class="pcl-version">${escapeHtml(ver)} ${v.is_latest ? '<span class="cl-ver-pill cl-ver-latest">✨ Última</span>' : (v.is_new ? '<span class="cl-ver-pill cl-ver-new">Nuevo</span>' : '')}</h3>
+        <span class="pcl-sub">📅 ${escapeHtml(whenLong || 'Sin fecha')} · ${escapeHtml(pclPublishedCountLabel((p.versions || []).length))}</span>
+      </div>
+    </div>
+    ${chips.length ? `<div class="pcl-chips">${chips.map((c) => `<span class="pcl-chip">${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+    ${sectionsHtml}
+    ${notesHtml}
+    ${noNotesHtml}
+    <div class="pcl-foot">
+      ${p.link_url ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(p.link_url)}" target="_blank" rel="noopener">Ver proyecto ↗</a>` : ''}
+      <button type="button" class="btn btn-primary btn-sm" data-pcl-goto-release="${escapeHtml(p.slug)}">Ver en Lanzamientos 🚀</button>
+    </div>
+  `;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProjectChangelogModal() {
+  const modal = document.getElementById('pcl-modal');
+  if (modal) modal.classList.add('hidden');
+  // Solo se libera el scroll si no queda ningún otro modal abierto.
+  try {
+    if (!document.querySelector('.modal-overlay:not(.hidden), .release-overlay:not(.hidden), .news-modal-overlay:not(.hidden)')) {
+      document.body.style.overflow = '';
+    }
+  } catch (_) { document.body.style.overflow = ''; }
+}
+
+async function loadProjectChangelogs(opts) {
+  if (pclLoading) return;
+  const silent = !!(opts && opts.silent);
+  pclLoading = true;
+  if (!silent) {
+    pclLoadState = 'loading';
+    renderProjectChangelogsLoading();
+  }
+  try {
+    const data = await fetchJsonWithRetry(API_BASE + '/ows-hub/project-changelogs', { timeoutsMs: [12000, 25000] });
+    pclCache = (data && Array.isArray(data.projects)) ? data.projects : [];
+    const until = data && data.meta && data.meta.new_until ? Date.parse(data.meta.new_until) : NaN;
+    if (Number.isFinite(until)) pclNewUntil = until;
+    syncProjectChangelogsTag();
+    pclLoadState = 'ready';
+    renderProjectChangelogs();
+  } catch (err) {
+    console.error('[OWS] No se pudieron cargar los changelogs de proyectos:', err);
+    pclLoadState = 'error';
+    if (!silent) renderProjectChangelogsError();
+  } finally {
+    pclLoading = false;
+  }
 }
 
 // ═══════════════════════════════════════════════

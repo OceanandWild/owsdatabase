@@ -24,6 +24,17 @@ if (window.location.protocol === 'file:') {
   console.info('[OWS] Abierto como archivo local (file://). Para desarrollo, sirve la carpeta por HTTP. API: ' + API_BASE);
 }
 
+// Reescribe URLs de la API hacia la base sana actual (failover ows-api-failover.js):
+// si owsdatabase.onrender.com no responde, los links de descarga usan el espejo.
+// URLs de otros hosts (GitHub, Cloudinary, itch.io) quedan intactas.
+function apiUrl(url) {
+  try {
+    const fo = window.OWS_API_FAILOVER;
+    if (fo && typeof fo.preferredUrl === 'function') return fo.preferredUrl(String(url));
+  } catch (_) {}
+  return String(url);
+}
+
 // Same token keys as Ocean Pay — SSO via shared localStorage
 const TOKEN_KEY = 'ocean_pay_token';
 const USER_KEY  = 'ocean_pay_user';
@@ -3189,7 +3200,7 @@ function releaseVersionsHtml(p, releases) {
       html += `<div id="rm-apk-slot" data-apk-slug="${safeSlug}"><p class="loading-note"><span class="btn-spinner"></span> Buscando APK para Android…</p></div>`;
       html += progressMarkup;
     } else {
-      const direct = `${API_BASE}/ows-launch-projects/${encodeURIComponent(slug)}/download`;
+      const direct = apiUrl(`${API_BASE}/ows-launch-projects/${encodeURIComponent(slug)}/download`);
       html += `<a class="btn btn-primary btn-block rm-dl-btn" href="${escapeHtml(direct)}" download="${escapeHtml(art.file && /\.zip$/i.test(art.file) ? art.file : safeSlug + '.zip')}" data-hub-action="download-browser" data-slug="${safeSlug}" style="text-align:center;text-decoration:none;display:block">⬇ Descargar ${art.isZip ? 'ZIP' : 'build'}${effVer ? ` (v${escapeHtml(effVer)})` : ''}</a>`;
       const sizeHint = art.size ? ` de ${escapeHtml(art.size)}` : '';
       html += `<p class="loading-note" style="text-align:center;font-size:0.78rem">ZIP oficial de Windows${sizeHint}: trae el juego completo, así que la descarga puede tardar varios minutos. No cierres esta ventana.</p>`;
@@ -3834,7 +3845,7 @@ async function startBrowserDownloadManaged(slug, opts) {
   const proj = getDownloadProject(slug);
   const s = String(slug || '').trim() || 'juego';
   const name = (proj && proj.name) || s;
-  const url = (opts && opts.url) || `${API_BASE}/ows-launch-projects/${encodeURIComponent(s)}/download`;
+  const url = apiUrl((opts && opts.url) || `${API_BASE}/ows-launch-projects/${encodeURIComponent(s)}/download`);
   // Lo que se baja es el ZIP (el .exe va dentro): el nombre real lo manda
   // el servidor, acá solo se usa de suggestion si no hay dato.
   const projArt = releaseArtifact(proj, null);

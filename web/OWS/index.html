@@ -833,7 +833,10 @@
   <!-- Toasts de anuncios de Eventos (arriba por defecto, una sola vez) -->
   <div id="announce-toasts" class="announce-toasts" aria-live="polite"></div>
 
-  <script src="library.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <!-- Failover de API: si owsdatabase (principal) no responde, se usa solo el
+       espejo owsdatabase2 (ver ows-api-failover.js). -->
+  <script src="ows-api-failover.js?v=1"></script>
+  <script src="library.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

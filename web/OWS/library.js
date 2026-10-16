@@ -123,7 +123,10 @@
 
   function downloadUrlFor(slug) {
     const base = (typeof API_BASE !== 'undefined' && API_BASE) || 'https://owsdatabase.onrender.com';
-    return `${base}/ows-launch-projects/${encodeURIComponent(slug)}/download`;
+    const url = `${base}/ows-launch-projects/${encodeURIComponent(slug)}/download`;
+    // Si la principal está caída, el link apunta al espejo (ows-api-failover.js).
+    const fo = window.OWS_API_FAILOVER;
+    return (fo && typeof fo.preferredUrl === 'function') ? fo.preferredUrl(url) : url;
   }
 
   function findProject(slug) {

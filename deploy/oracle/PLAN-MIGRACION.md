@@ -416,6 +416,25 @@ con las descargas afuera (§10.2.2) el límite de 5 GB deja de importar aunque l
 enormemente. $0, sin tarjeta, sin PC. Si algún día aparece una tarjeta, Oracle (secciones 1-9) sigue
 siendo el upgrade natural (10 TB/mes).
 
+### 10.4 Failover anti-suspensión → espejo `owsdatabase2` (implementado 2026-10-15)
+Los clientes web del ecosistema ahora caen solos al espejo `https://owsdatabase2.onrender.com`
+cuando la principal no responde, y vuelven solos cuando se recupera. No hay que tocar cada
+endpoint: `web/OWS/ows-api-failover.js` envuelve `window.fetch` una sola vez.
+- **Cubre:** Hub web (owshub.netlify.app), OWS Hub desktop y Android (llegan vía `sync:app`),
+  Ocean Pay web y el panel admin local (se puede publicar noticias aunque la principal esté
+  caída). Los links de descarga también apuntan a la base sana (`preferredUrl`).
+- **Mecánica:** error de red/CORS o HTTP 502/503/504 → se reintenta contra la otra base; sonda a
+  `/ecoconsole/health` cada 45 s para volver a la principal; la pestaña recuerda la última base
+  sana (sessionStorage). `?api=` / `localStorage.ows_api_base` siguen mandando (override = pruebas,
+  no se toca). Verificado con tests en sandbox (7/7).
+- **Requisitos del espejo:** mismo código (`main`), mismas envs (Anexo B — sin reemplazar secretos;
+  p. ej. `JWT_SECRET` idéntico para que los tokens sirvan en ambos) y **la MISMA base de datos**.
+  Idealmente el espejo vive en OTRA cuenta/workspace de Render (una suspensión de bandwidth no
+  voltea los dos).
+- **OWS Store:** mismo failover inline en su `index.html` (toma efecto en su próximo build).
+  Otras apps propias (OWS News, WildTransfer, Ocean Pay desktop): pueden incluir el mismo módulo
+  antes de su primer fetch.
+
 ---
 
 ## Anexo A — (DESCARTADO 2026-10-15) PC del estudio + Tailscale Funnel

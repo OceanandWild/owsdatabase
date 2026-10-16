@@ -1,6 +1,6 @@
 # Plan de migración — Backend OWS: Render → Oracle Cloud Always Free
 
-- **Estado:** listo para ejecutar (requiere: cuenta Oracle del usuario + ventana de trabajo)
+- **Estado:** ⚠️ **BLOQUEADO por tarjeta** (actualizado 2026-10-15): no hay tarjeta ni para la verificación de identidad de Oracle. **Plan activo: §10 — "Render optimizado" (sin tarjeta, $0).** Este documento queda como referencia para cuando exista tarjeta o créditos de estudiante.
 - **Fecha:** 2026-10-15
 - **Base:** commit `9049544` de `owsdatabase`
 - **Costo objetivo:** US$ 0/mes
@@ -365,12 +365,64 @@ los clientes actualizaron) se decide si apagarlo. No hay apuro: cuesta $0.
 
 ---
 
-## Anexo A — Plan B (sin tarjeta): PC + túnel
+## 10. Plan activo (2026-10-15): "Render optimizado" — sin tarjeta, $0
 
-Si Oracle pide tarjeta y no hay: correr `server.js` en la PC del estudio + **Cloudflare Tunnel**
-(necesita dominio, ~$10/año) o **Tailscale Funnel** (gratis, URL fija `*.ts.net`, pero el plan
-Personal es para uso no comercial y tiene límites de bandwidth no publicados). Sirve como
-emergencia, no como solución definitiva. Este anexo queda documentado por si acaso.
+**Motivo:** no hay tarjeta disponible ni para la verificación de identidad de Oracle → migración
+bloqueada. No hace falta igual: el camino sin tarjeta ya estaba encaminado y es este.
+
+### 10.1 Por qué Render Free alcanza (incluso para proyectos grandes)
+- El límite de 5 GB/mes se lo comían las **descargas de juegos que pasaban por el backend**
+  (installers/APKs sin URL directa, vía API de itch) — principal sospechoso ya identificado.
+- Esas descargas van **directo desde GitHub Releases / Cloudinary**: gratis y sin tope práctico.
+  El handler de descargas ya soporta redirigir (302 ≈ 0 bytes de bandwidth); Hub y APKs ya lo usan.
+  Falta la auditoría de los proyectos que todavía no tienen URL directa.
+- La API es liviana y ya está comprimida (`9049544`: −73% medido). Con las descargas afuera, el
+  consumo esperado es una fracción del 5 GB mensual.
+- Crecimiento: archivos mayores a 2 GB (tope por archivo de GitHub Releases) → dividir en partes
+  o usar Cloudinary / Hugging Face (hosting grande gratuito).
+
+### 10.2 Tareas pendientes (cuando Render vuelva del reset de ciclo)
+1. [ ] Verificar que deployaron `9049544` y `031bcb9` (si no: Manual Deploy → Deploy latest commit).
+2. [ ] Auditoría de descargas: proyectos sin `installer_url` directa → asignar GitHub Releases o
+   Cloudinary. Ídem `apk-download`.
+3. [ ] Medir consumo real: Render Dashboard → Bandwidth (primer mes con descargas afuera de Render).
+4. [ ] Si se necesita el ecosistema vivo ANTES del reset: levantar `server.js` en la PC del estudio
+   + Tailscale Funnel (sujeto a que la DB sea accesible desde afuera). Coordinar con el usuario.
+
+### 10.3 Salidas si algún día Render no alcanza (siempre sin tarjeta)
+- **Anexo A** — PC + Tailscale Funnel (única ruta sin tarjeta para sacar el backend de Render).
+- **Créditos de estudiante** — ver final del Anexo A (desbloquea Azure $100 sin tarjeta + dominio).
+- Oracle (secciones 1-9) queda como referencia para cuando exista una tarjeta.
+
+---
+
+## Anexo A — Alternativa sin tarjeta: PC del estudio + Tailscale Funnel
+
+**Cómo funcionaría:** `server.js` corre en la PC del estudio (Node local) y se publica a internet
+con **Tailscale Funnel**: URL fija `https://<pc>.<tailnet>.ts.net` con HTTPS válido — sin abrir
+puertos del router (anda incluso detrás de NAT/CGNAT).
+
+- **Pros:** $0, sin tarjeta, sin dominio, sin límite de bandwidth publicado (uso razonable);
+  URL estable; los clientes se migran igual que en la Fase 5 (y se puede probar antes con el
+  override `?api=` sin tocar nada).
+- **Contras:** la PC debe quedar encendida 24/7 para el servicio; el plan free de Tailscale está
+  pensado para **uso personal (no comercial)** — usarlo para la producción del estudio es zona
+  gris de sus términos; no sirve para servir descargas pesadas (eso sigue en GitHub/Cloudinary).
+- **Pasos:** cuenta Tailscale (login con Google/GitHub, sin tarjeta) → instalar la app en la PC →
+  `tailscale funnel 3000` (mapea HTTPS 443 → puerto local 3000) → probar
+  `https://<pc>.<tailnet>.ts.net/api/health` + override en la web → migrar clientes (Fase 5).
+- En Windows: dejar Node + Funnel como servicio (NSSM o tarea de inicio) para arranque automático.
+
+⚠️ **Descartados (verificado 2026-10-15):** ngrok free (1 GB/mes, 20k requests/mes, página
+intersticial y dominio único auto-asignado) · SnapDeploy (100 h/mes) · Back4App (60 min por
+deploy) · Railway free ($1/mes de crédito) · Koyeb (desde feb-2026 pide tarjeta con retención de
+$29) · Fly.io (sin free desde 2024). De los PaaS con free real y sin tarjeta, **Render es
+prácticamente el único que sirve este stack**.
+
+**Créditos de estudiante (si aplica):** con email de institución educativa, el **GitHub Student
+Developer Pack** incluye créditos cloud sin tarjeta (p. ej. Azure for Students US$100/año) y un
+dominio gratis ~1 año. Si alguien del estudio es estudiante, avisar: podría desbloquear una VM
+"de verdad" sin pagar nada.
 
 ## Anexo B — Checklist de variables de entorno (34)
 

@@ -3888,3 +3888,98 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
   .nav-tag-new, .cl-new { animation: none; }
   .cl-project-hub::before { animation: none; }
 }
+
+/* ── Modal de Evento a pantalla completa (rework 3.4.30) ────────────────
+   El evento se lee como una ficha de pantalla completa: banner franco
+   arriba, columna de lectura centrada y cada dato en su propia fila suelta
+   (nada acoplado). La cuenta atrás de desaparición corre en vivo: el modal
+   la refresca con el ticker de eventos (data-ev-modal-expiry en app.js). */
+#event-modal { padding: 0; }
+#event-modal .event-modal-card {
+  width: 100%; height: 100%; max-width: none; max-height: none;
+  margin: 0; padding: 0 0 46px; border-radius: 0; border: 0;
+  overflow-y: auto; overflow-x: hidden;
+  background: linear-gradient(180deg, #0c0518 0%, #07000f 100%);
+  box-shadow: none;
+  animation: rdCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#event-modal .modal-close {
+  position: fixed; top: 16px; right: 18px; z-index: 40;
+  width: 46px; height: 46px; font-size: 1.5rem;
+  background: rgba(12, 4, 22, 0.75); border-color: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, border-color 0.2s, color 0.2s;
+}
+#event-modal .modal-close:hover {
+  background: rgba(245, 158, 11, 0.2); border-color: var(--gold-border); color: var(--gold-light);
+  transform: rotate(90deg) scale(1.08);
+}
+
+/* Banner franco: ancho completo, con tope de alto para no comerse la ficha */
+#event-modal .modal-banner-wrap {
+  margin: 0 0 30px; max-height: min(52vh, 520px);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+}
+#event-modal .modal-banner {
+  width: 100%; height: min(52vh, 520px); max-width: none; margin: 0;
+  aspect-ratio: auto; object-fit: cover;
+}
+/* La marca de agua se corre para no pisar la categoría (arriba-izquierda)
+   ni el botón de cierre (arriba-derecha). */
+#event-modal .modal-banner-wrap .img-watermark.wm-top-left { top: 46px; }
+#event-modal .modal-banner-wrap .img-watermark.wm-top-right { top: 74px; }
+
+/* Columna de lectura centrada: cada bloque con su propio espacio */
+#event-modal .modal-head,
+#event-modal .modal-about,
+#event-modal .modal-data,
+#event-modal .ev-modal-link {
+  width: 100%; max-width: 940px; margin-inline: auto;
+  padding-inline: clamp(20px, 4vw, 44px);
+}
+#event-modal .modal-head { margin-bottom: 28px; padding-right: clamp(70px, 8vw, 96px); gap: 18px; }
+#event-modal .modal-head-info { gap: 12px; }
+#event-modal .modal-title { font-size: clamp(1.5rem, 3vw, 2.1rem); line-height: 1.16; }
+#event-modal .modal-tagline { font-size: 0.92rem; margin-top: 2px; }
+#event-modal .modal-about { margin-bottom: 28px; }
+#event-modal .modal-about-text { font-size: 0.96rem; line-height: 1.75; margin-bottom: 0; }
+
+/* Datos: cada fila es su propia tarjeta (sin acoplarse a la anterior) */
+#event-modal .modal-data { display: flex; flex-direction: column; gap: 12px; }
+#event-modal .data-row {
+  align-items: flex-start; gap: 22px;
+  padding: 16px 20px; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+#event-modal .data-row:last-child { border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+#event-modal .data-row dt {
+  flex: 0 0 auto; padding-top: 3px;
+  font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase;
+}
+#event-modal .data-row dd { font-size: 0.92rem; line-height: 1.55; }
+#event-modal .ev-countdown-live { font-variant-numeric: tabular-nums; }
+
+/* Desaparición: fecha exacta arriba y la cuenta viva abajo, en su chip */
+#event-modal .data-row-expiry dd { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+#event-modal .ev-expiry-when { color: var(--text-main); }
+#event-modal .ev-expiry-note {
+  display: inline-flex; align-items: center;
+  font-size: 0.78rem; font-weight: 700; font-style: italic;
+  color: #fbbf24; background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 999px; padding: 5px 14px;
+  font-variant-numeric: tabular-nums;
+}
+#event-modal .ev-modal-link { margin-top: 26px; }
+#event-modal .ev-modal-link .btn-block { text-align: center; }
+
+@media (max-width: 640px) {
+  #event-modal .event-modal-card { padding-bottom: 34px; }
+  #event-modal .modal-close { top: 10px; right: 10px; width: 40px; height: 40px; font-size: 1.3rem; }
+  #event-modal .modal-banner-wrap { margin-bottom: 22px; max-height: 32vh; }
+  #event-modal .modal-banner { height: 32vh; }
+  #event-modal .modal-head { margin-bottom: 20px; padding-right: clamp(56px, 16vw, 76px); }
+  #event-modal .data-row { flex-direction: column; gap: 6px; padding: 14px 16px; }
+  #event-modal .data-row dd { text-align: left; width: 100%; }
+  #event-modal .data-row-expiry dd { align-items: flex-start; }
+}

@@ -1616,11 +1616,15 @@ let eventsLastGoneReload = 0;
 
 function eventsTickIntervalMs() {
   let interval = EVENTS_TICK_SLOW_MS;
-  document.querySelectorAll('[data-ev-expiry]').forEach((el) => {
-    const ms = Date.parse(el.getAttribute('data-ev-expiry') || '') - Date.now();
+  document.querySelectorAll('[data-ev-expiry], [data-ev-modal-expiry]').forEach((el) => {
+    const inModal = el.hasAttribute('data-ev-modal-expiry');
+    const iso = el.getAttribute('data-ev-expiry') || el.getAttribute('data-ev-modal-expiry') || '';
+    const ms = Date.parse(iso) - Date.now();
     if (!Number.isFinite(ms) || ms <= 0) return;
-    if (ms < 3600000) interval = EVENTS_TICK_FAST_MS;
-    else if (ms < 86400000 && interval > EVENTS_TICK_MID_MS) interval = EVENTS_TICK_MID_MS;
+    // El modal muestra la cuenta larga con segundos: late cada segundo
+    // mientras falte menos de un día; si falta más, alcanza el paso medio.
+    if (ms < 3600000 || (inModal && ms < 86400000)) interval = EVENTS_TICK_FAST_MS;
+    else if ((ms < 86400000 || inModal) && interval > EVENTS_TICK_MID_MS) interval = EVENTS_TICK_MID_MS;
   });
   return interval;
 }
@@ -1651,6 +1655,22 @@ function refreshEventCountdowns() {
     if (el.textContent !== text) el.textContent = text;
     const long = `Desaparece de OWS en ${lapseLabel(ms)}`;
     if (el.getAttribute('title') !== long) el.setAttribute('title', long);
+  });
+
+  // Modal de evento abierto: la cuenta atrás de desaparición corre en vivo
+  // (etiqueta larga con segundos). Si la fecha se cumple estando el modal
+  // abierto, el evento sale de OWS y el modal se cierra solo.
+  document.querySelectorAll('[data-ev-modal-expiry]').forEach((el) => {
+    const iso = el.getAttribute('data-ev-modal-expiry') || '';
+    const ms = Date.parse(iso) - Date.now();
+    if (!Number.isFinite(ms)) return;
+    if (ms <= 0) {
+      anyGone = true;
+      closeEventModal();
+      return;
+    }
+    const text = `🗑️ Desaparece en ${lapseLabel(ms)}`;
+    if (el.textContent !== text) el.textContent = text;
   });
 
   const grid = document.getElementById('events-grid');
@@ -1869,14 +1889,17 @@ function openEventModal(ev) {
     ? new Date(ev.starts_at).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '—';
   const countdownText = (!expected && ev.phase !== 'ended') ? eventCountdown(ev.starts_at, ev.phase) : '';
-  // Desaparición automática: fecha exacta + cuenta atrás larga y dinámica.
+  // Desaparición automática: fecha exacta + cuenta atrás larga que corre en
+  // vivo mientras el modal esté abierto (data-ev-modal-expiry la refresca).
   const expiryIso = eventExpiresAt(ev);
   const expiresIn = eventExpiresInMs(ev);
   const expiryActive = Boolean(expiryIso) && Number.isFinite(expiresIn) && expiresIn > 0;
-  const expiryLong = expiryActive ? `Desaparece de OWS en ${lapseLabel(expiresIn)}` : '';
+  const expiryWhen = expiryActive
+    ? new Date(expiryIso).toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : '';
   const expiryValue = expiryActive
-    ? `${new Date(expiryIso).toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} <span class="ev-date-note">🗑️ Desaparece en ${escapeHtml(lapseLabel(expiresIn))}</span>`
-    : 'Se queda en el calendario';
+    ? `<span class="ev-expiry-when">${escapeHtml(expiryWhen)}</span><span class="ev-expiry-note" data-ev-modal-expiry="${escapeHtml(expiryIso)}">🗑️ Desaparece en ${escapeHtml(lapseLabel(expiresIn))}</span>`
+    : '<span class="ev-expiry-when">Se queda en el calendario</span>';
   const phaseText = ev.phase === 'active'
     ? 'En curso'
     : ev.phase === 'ended'
@@ -1896,19 +1919,31 @@ function openEventModal(ev) {
       <div class="data-row"><dt>${expected ? 'Fecha esperada de inicio' : 'Inicio'}</dt><dd>${escapeHtml(startsText)}${expected ? ' <span class="ev-date-note">(por confirmar)</span>' : ''}</dd></div>
       <div class="data-row"><dt>Fin</dt><dd>${escapeHtml(ev.ends_at ? new Date(ev.ends_at).toLocaleString('es-ES') : '—')}</dd></div>
       <div class="data-row"><dt>Estado</dt><dd>${phaseText}</dd></div>
-      ${countdownText ? `<div class="data-row"><dt>Cuenta atrás</dt><dd>${escapeHtml(countdownText)}</dd></div>` : ''}
-      ${ev.phase === 'ended' ? `<div class="data-row"><dt>Desaparición</dt><dd>${expiryValue}</dd></div>` : ''}
+      ${countdownText ? `<div class="data-row"><dt>Cuenta atrás</dt><dd><span class="ev-countdown-live" data-ev-countdown="${escapeHtml(ev.starts_at || '')}" data-ev-phase="${escapeHtml(ev.phase || '')}">${escapeHtml(countdownText)}</span></dd></div>` : ''}
+      ${ev.phase === 'ended' ? `<div class="data-row data-row-expiry"><dt>Desaparición</dt><dd>${expiryValue}</dd></div>` : ''}
     </dl>
-    ${ev.link_url || ev.linkUrl ? `<div style="padding:0 28px 28px"><a class="btn btn-primary btn-block" href="${escapeHtml(ev.link_url || ev.linkUrl)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">Ver más detalles ↗</a></div>` : ''}
+    ${ev.link_url || ev.linkUrl ? `<div class="ev-modal-link"><a class="btn btn-primary btn-block" href="${escapeHtml(ev.link_url || ev.linkUrl)}" target="_blank" rel="noopener">Ver más detalles ↗</a></div>` : ''}
   `;
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+  const card = modal.querySelector('.event-modal-card');
+  if (card) card.scrollTop = 0;
+  // La cuenta atrás del modal se refresca con el ticker de eventos; se
+  // reprograma para que el primer latido use la cadencia correcta (1 s).
+  try { scheduleEventsTick(); } catch (_) {}
 }
 
 function closeEventModal() {
   const modal = document.getElementById('event-modal');
   if (modal) {
     modal.classList.add('hidden');
+    // El ticker solo refresca la ficha mientras está abierta: al cerrarla se
+    // sueltan sus cuentas (sin estados viejos colgados en segundo plano).
+    modal.querySelectorAll('[data-ev-modal-expiry], [data-ev-countdown]').forEach((el) => {
+      el.removeAttribute('data-ev-modal-expiry');
+      el.removeAttribute('data-ev-countdown');
+      el.removeAttribute('data-ev-phase');
+    });
     document.body.style.overflow = '';
   }
 }

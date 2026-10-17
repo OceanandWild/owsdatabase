@@ -18,6 +18,8 @@ Cambios:
 - La sección Noticias se rediseñó por completo en formato compacto: cada noticia es una fila breve con su miniatura, fecha, proyecto y titular, para recorrer todo el feed de un vistazo.
 - Las noticias pueden incluir un banner ancho que aparece como portada al abrirlas y se funde hacia el contenido.
 - Al abrir una noticia ahora puede reproducirse una animación de entrada (fundido, subida, zoom, lateral, desenfoque o volteo), con su duración y retardo propios, o una animación personalizada.
+- La ficha de cada evento pasó a pantalla completa: el banner toma todo el ancho y la información se reparte con aire, cada dato en su propia fila en vez de amontonarse.
+- La cuenta atrás de desaparición dentro de la ficha del evento corre en vivo —semanas, días, horas, minutos y segundos—, y si la fecha se cumple con la ficha abierta, el evento se retira y la ficha se cierra sola.
 
 === ENGLISH ===
 Version: 3.4.30
@@ -37,3 +39,5 @@ Changes:
 - The News section was fully redesigned into a compact layout: each news item is a short row with its thumbnail, date, project and headline, so the whole feed can be scanned at a glance.
 - News items can now include a wide banner that appears as the cover when opened, fading into the content.
 - Opening a news item can now play an entrance animation (fade, rise, zoom, slide, blur or flip), with its own duration and delay, or a custom animation.
+- Each event's card is now fullscreen: the banner takes the full width and the information gets room to breathe, every data point on its own row instead of piling up.
+- The disappearance countdown inside the event card now runs live —weeks, days, hours, minutes and seconds—, and if the date arrives while the card is open, the event is retired and the card closes itself.

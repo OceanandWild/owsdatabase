@@ -4721,3 +4721,118 @@ input.is-expected {
   .ws-live-right .btn { width: 100%; justify-content: center; min-height: 40px; }
   .ws-live-title, .ws-live-proj, .ws-live-since { overflow-wrap: anywhere; min-width: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   NOTICIAS — banner + animación de entrada + editor masivo
+   El formulario suma un banner ancho (franja del lector) y una
+   animación de entrada; el editor masivo aplica ambos a varias
+   noticias de una sola vez.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Sub-bloque del formulario (banner) */
+.newsadm-subsec {
+  margin-top: 6px; padding-top: 14px;
+  border-top: 1px dashed rgba(245, 158, 11, 0.22);
+}
+.newsadm-subsec-head { font-size: 0.85rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+.ev-dropzone-sm { padding: 12px 12px; }
+
+/* Chips de la lista */
+.newsadm-hasbanner { color: #c4b5fd; }
+.newsadm-hasanim { color: #7dd3fc; }
+
+/* Animación de entrada: controles del formulario */
+.newsanim-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; align-items: end; }
+.newsanim-grid .field-group { margin-bottom: 10px; }
+.newsanim-grid input[type="range"] { width: 100%; accent-color: var(--gold); cursor: pointer; }
+
+/* Escenario de prueba de la animación */
+.newsanim-stage-wrap { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+.newsanim-stage {
+  flex: 1; min-height: 96px; display: flex; align-items: center; justify-content: center;
+  padding: 10px; border-radius: var(--radius-md);
+  background: rgba(8, 0, 16, 0.55);
+  border: 1px dashed rgba(245, 158, 11, 0.3);
+  overflow: hidden;
+}
+.newsanim-mini {
+  display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+  width: min(320px, 100%); padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, rgba(30, 11, 52, 0.9), rgba(11, 4, 22, 0.95));
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.newsanim-mini-media { font-size: 1.2rem; }
+.newsanim-mini-title { font-weight: 700; font-size: 0.92rem; color: var(--text-main); }
+.newsanim-mini-text { font-size: 0.76rem; color: var(--text-muted); }
+
+/* Presets del escenario: se activan al probar (is-playing + anim-*) */
+.newsanim-stage.is-playing.anim-fade .newsanim-mini { animation: naFade var(--anim-dur, 0.9s) ease both; animation-delay: var(--anim-delay, 0s); }
+.newsanim-stage.is-playing.anim-rise .newsanim-mini { animation: naRise var(--anim-dur, 0.9s) cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--anim-delay, 0s); }
+.newsanim-stage.is-playing.anim-zoom .newsanim-mini { animation: naZoom var(--anim-dur, 0.9s) cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--anim-delay, 0s); }
+.newsanim-stage.is-playing.anim-slide .newsanim-mini { animation: naSlide var(--anim-dur, 0.9s) cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--anim-delay, 0s); }
+.newsanim-stage.is-playing.anim-blur .newsanim-mini { animation: naBlur var(--anim-dur, 0.9s) ease both; animation-delay: var(--anim-delay, 0s); }
+.newsanim-stage.is-playing.anim-flip .newsanim-mini { animation: naFlip var(--anim-dur, 0.9s) cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--anim-delay, 0s); }
+@keyframes naFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes naRise { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+@keyframes naZoom { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes naSlide { from { opacity: 0; transform: translateX(-38px); } to { opacity: 1; transform: none; } }
+@keyframes naBlur { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }
+@keyframes naFlip { from { opacity: 0; transform: perspective(700px) rotateX(-18deg) translateY(18px); } to { opacity: 1; transform: none; } }
+
+/* Editor masivo */
+.newsbulk-card {
+  width: min(940px, calc(100vw - 32px));
+  max-width: min(940px, calc(100vw - 32px));
+}
+.newsbulk-body {
+  padding: 18px 20px 22px;
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.35) transparent;
+}
+.newsbulk-body::-webkit-scrollbar { width: 6px; }
+.newsbulk-body::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.3); border-radius: 99px; }
+.newsbulk-body { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.newsbulk-col { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.newsbulk-col-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.82rem; font-weight: 700; color: var(--text-main);
+  margin-bottom: 6px;
+}
+.newsbulk-col-head > span:first-child { min-width: 0; }
+.newsbulk-col-head b { color: var(--gold-light); }
+.newsbulk-col-actions { display: inline-flex; gap: 6px; }
+.newsbulk-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: min(56vh, 520px); overflow-y: auto; padding-right: 4px;
+}
+.newsbulk-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; cursor: pointer;
+  background: rgba(8, 0, 16, 0.5);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.newsbulk-item:hover { border-color: rgba(251, 191, 36, 0.5); }
+.newsbulk-item.is-checked { border-color: rgba(251, 191, 36, 0.75); background: rgba(245, 158, 11, 0.08); }
+.newsbulk-item input { accent-color: var(--gold); width: 16px; height: 16px; flex-shrink: 0; }
+.newsbulk-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.newsbulk-item-main b { font-size: 0.86rem; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.newsbulk-item-main span { font-size: 0.72rem; color: var(--text-muted); }
+.newsbulk-item-flags { font-size: 0.85rem; flex-shrink: 0; letter-spacing: 2px; }
+.newsbulk-times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.newsbulk-apply { margin-top: 10px; }
+
+@media (max-width: 760px) {
+  .newsanim-grid { grid-template-columns: 1fr 1fr; }
+  .newsbulk-body { grid-template-columns: 1fr; }
+  .newsbulk-list { max-height: 34vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .newsanim-stage.is-playing .newsanim-mini { animation: none !important; }
+}

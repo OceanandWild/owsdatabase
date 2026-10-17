@@ -185,7 +185,7 @@ function bindStaticEvents() {
   });
 
   // Modales: cerrar al click en overlay o botón [data-close]
-  ['event-modal', 'release-modal', 'announce-modal', 'news-modal', 'pcl-modal'].forEach((id) => {
+  ['event-modal', 'release-modal', 'announce-modal', 'news-modal', 'pcl-modal', 'upd-detail-modal'].forEach((id) => {
     const overlay = document.getElementById(id);
     if (!overlay) return;
     overlay.addEventListener('click', (e) => {
@@ -194,6 +194,7 @@ function bindStaticEvents() {
         else if (id === 'release-modal') closeReleaseModal();
         else if (id === 'news-modal') closeNewsModal();
         else if (id === 'pcl-modal') closeProjectChangelogModal();
+        else if (id === 'upd-detail-modal') closeUpdatesDetail();
         else closeAnnounceModal();
       }
     });
@@ -207,6 +208,7 @@ function bindStaticEvents() {
       else if (id === 'news-modal') closeNewsModal();
       else if (id === 'hub-changelog-modal') closeHubChangelogModal();
       else if (id === 'pcl-modal') closeProjectChangelogModal();
+      else if (id === 'upd-detail-modal') closeUpdatesDetail();
       else closeAnnounceModal();
     });
   });
@@ -259,9 +261,9 @@ function bindStaticEvents() {
       }
     });
     // Spotlight visual de Noticias: pasa la posición del cursor a CSS
-    // (--mx/--my) para el foco de luz sobre la imagen. Solo estético.
+    // (--mx/--my) para el foco de luz sobre la fila. Solo estético.
     newsGrid.addEventListener('pointermove', (e) => {
-      const card = e.target.closest('.news-card');
+      const card = e.target.closest('.news-row');
       if (!card) return;
       const rect = card.getBoundingClientRect();
       card.style.setProperty('--mx', `${Math.max(0, Math.round(e.clientX - rect.left))}px`);
@@ -289,6 +291,13 @@ function bindStaticEvents() {
         loadProjectChangelogs();
         return;
       }
+      // Versiones del Hub: el changelog vive en la app, no en el backend.
+      const hubVer = e.target.closest('[data-hub-ver]');
+      if (hubVer) {
+        e.preventDefault();
+        openHubVersionChangelogModal(hubVer.getAttribute('data-hub-ver'));
+        return;
+      }
       const verBtn = e.target.closest('[data-pcl-slug]');
       if (verBtn) {
         e.preventDefault();
@@ -307,6 +316,14 @@ function bindStaticEvents() {
   if (pclBody && !pclBody.dataset.bound) {
     pclBody.dataset.bound = '1';
     pclBody.addEventListener('click', (e) => {
+      // Ficha del Hub: su puerta de vuelta al Gestor de Actualizaciones.
+      const hubUpd = e.target.closest('[data-hub-goto-updates]');
+      if (hubUpd) {
+        e.preventDefault();
+        closeProjectChangelogModal();
+        showOwsSection('sec-actualizaciones');
+        return;
+      }
       const btn = e.target.closest('[data-pcl-goto-release]');
       if (!btn) return;
       e.preventDefault();
@@ -752,6 +769,13 @@ function showOwsSection(viewId, opts) {
   if (target === 'sec-actualizaciones') {
     try { ensureUpdatesManager(); } catch (_) {}
   }
+
+  // Esa misma vista aprovecha todo el ancho del contenido (grilla + modal);
+  // el resto de las secciones mantiene el contenedor angosto de siempre.
+  try {
+    const pc = document.querySelector('.page-container');
+    if (pc) pc.classList.toggle('page-container-wide', target === 'sec-actualizaciones');
+  } catch (_) {}
 
   // Sube al inicio del contenido (las vistas ya no hacen scroll entre sí)
   try {
@@ -2058,12 +2082,12 @@ let newsLoading = false;
 let newsAutoRetryTimer = 0;
 let newsAutoRetryUsed = false;
 
-// ── Esqueletos de carga: espejan la grilla real de noticias ──
+// ── Esqueletos de carga: filas compactas que espejan el feed real ──
 function renderNewsSkeleton(count) {
-  const n = Math.max(1, Math.min(Number(count) || 4, 6));
+  const n = Math.max(1, Math.min(Number(count) || 5, 8));
   let html = '';
   for (let k = 0; k < n; k++) {
-    html += `<div class="news-skeleton" aria-hidden="true"></div>`;
+    html += `<div class="news-skeleton" style="--i:${k}" aria-hidden="true"></div>`;
   }
   html += `
     <div class="news-loading-copy" role="status" aria-live="polite">
@@ -2077,7 +2101,7 @@ function renderNewsLoading() {
   const list = document.getElementById('news-table-body');
   const empty = document.getElementById('news-empty');
   if (empty) empty.classList.add('hidden');
-  if (list) list.innerHTML = renderNewsSkeleton(4);
+  if (list) list.innerHTML = renderNewsSkeleton(5);
   const count = document.getElementById('news-count');
   if (count) { count.classList.remove('is-live'); count.textContent = 'Cargando…'; }
 }
@@ -2152,30 +2176,36 @@ function renderNewsTable(newsList) {
     const raw = item.published_at || item.created_at;
     const d = raw ? new Date(raw) : null;
     const valid = d && !Number.isNaN(d.getTime());
-    const day = valid ? d.getDate() : '•';
-    const mon = valid ? d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '') : '—';
+    const day = valid ? String(d.getDate()).padStart(2, '0') : '•';
+    const mon = valid ? d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '').toUpperCase() : '—';
     const year = valid ? d.getFullYear() : '';
     const media = String(item.image_url || '').trim();
+    const banner = String(item.banner_url || '').trim();
     const title = escapeHtml(item.title);
-    const visual = media
-      ? `<img src="${escapeHtml(media)}" alt="" loading="lazy" />${watermarkChip(item)}`
-      : `<span class="news-card-fallback" aria-hidden="true">📰</span>`;
+    const anim = newsAnimOf(item);
+    const flags = [
+      banner ? '<span class="news-row-flag" title="Con banner">🖼️</span>' : '',
+      (anim.preset && anim.preset !== 'none') ? '<span class="news-row-flag" title="Entrada animada">🎬</span>' : ''
+    ].join('');
     return `
-    <article class="news-card${idx === 0 ? ' is-featured' : ''}" style="--i:${idx}" data-news-idx="${idx}" role="button" tabindex="0" aria-label="Leer noticia: ${title}">
-      <div class="news-card-media">
-        ${visual}
-        <span class="news-card-scan" aria-hidden="true"></span>
-        <span class="news-card-date"><b>${day}</b><span>${escapeHtml(mon)}</span>${year ? `<i>${year}</i>` : ''}</span>
-        <span class="news-card-project">${escapeHtml(item.project_name || 'OWS')}</span>
+    <article class="news-row${idx === 0 ? ' is-latest' : ''}" style="--i:${idx}" data-news-idx="${idx}" role="button" tabindex="0" aria-label="Leer noticia: ${title}">
+      <span class="news-row-scan" aria-hidden="true"></span>
+      <span class="news-row-rail" aria-hidden="true"></span>
+      <div class="news-row-thumb">
+        ${media ? `<img src="${escapeHtml(media)}" alt="" loading="lazy" />${watermarkChip(item)}` : '<span class="news-row-emoji" aria-hidden="true">📰</span>'}
       </div>
-      <div class="news-card-body">
-        ${idx === 0 ? '<span class="news-card-kicker">Última noticia</span>' : ''}
-        <h4 class="news-card-title">${title}</h4>
-        ${item.description ? `<p class="news-card-desc">${escapeHtml(item.description)}</p>` : ''}
-        <span class="news-card-cta">Leer noticia <i aria-hidden="true">→</i></span>
+      <div class="news-row-main">
+        <div class="news-row-meta">
+          <span class="news-row-date"><b>${day}</b><span>${escapeHtml(mon)}</span>${year ? `<i>${year}</i>` : ''}</span>
+          <span class="news-row-project">${escapeHtml(item.project_name || 'OWS')}</span>
+          ${idx === 0 ? '<span class="news-row-latest">Última</span>' : ''}
+          ${flags}
+        </div>
+        <h4 class="news-row-title">${title}</h4>
+        ${item.description ? `<p class="news-row-desc">${escapeHtml(item.description)}</p>` : ''}
       </div>
-    </article>
-  `;
+      <span class="news-row-cta">Leer <i aria-hidden="true">→</i></span>
+    </article>`;
   }).join('');
 }
 
@@ -2183,7 +2213,7 @@ function renderNewsTable(newsList) {
 // Sin imagen / imagen horizontal → banner arriba + contenido debajo.
 // Imagen vertical → el modal se redistribuye: contenido a la izquierda
 // y la imagen a la derecha (sticky, alto completo).
-const NEWS_MODAL_SIBLINGS = ['event-modal', 'release-modal', 'announce-modal', 'updates-modal', 'hub-changelog-modal', 'hub-restart-modal'];
+const NEWS_MODAL_SIBLINGS = ['event-modal', 'release-modal', 'announce-modal', 'upd-detail-modal', 'hub-changelog-modal', 'hub-restart-modal'];
 
 function newsModalIsAloneOpen() {
   return NEWS_MODAL_SIBLINGS.some((id) => {
@@ -2192,12 +2222,72 @@ function newsModalIsAloneOpen() {
   });
 }
 
+// ── Animación de entrada por noticia (se configura desde Admin) ──
+// El editor guarda { preset, duration, delay, custom? }. Acá se traduce a
+// variables CSS del modal; "custom" además inyecta CSS propio (por código).
+const NEWS_ANIM_PRESETS = ['none', 'fade', 'rise', 'zoom', 'slide', 'blur', 'flip', 'custom'];
+const NEWS_ANIM_KEYFRAMES = {
+  fade: 'nmAnimFade',
+  rise: 'nmAnimRise',
+  zoom: 'nmAnimZoom',
+  slide: 'nmAnimSlide',
+  blur: 'nmAnimBlur',
+  flip: 'nmAnimFlip'
+};
+
+function newsAnimOf(item) {
+  let cfg = item && (item.animation || item.animation_config);
+  if (typeof cfg === 'string') {
+    try { cfg = JSON.parse(cfg); } catch (_) { cfg = null; }
+  }
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) {
+    return { preset: 'none', duration: 0.9, delay: 0.15, custom: '' };
+  }
+  const presetRaw = String(cfg.preset || '').trim().toLowerCase();
+  const preset = NEWS_ANIM_PRESETS.includes(presetRaw) ? presetRaw : 'none';
+  const duration = Math.min(4, Math.max(0.2, Number(cfg.duration) || 0.9));
+  const delay = Math.min(3, Math.max(0, Number(cfg.delay) || 0));
+  return { preset, duration, delay, custom: String(cfg.custom || cfg.custom_css || '').trim() };
+}
+
+function clearNewsModalAnim(modal) {
+  if (!modal) return;
+  modal.classList.remove('nm-anim-set', 'nm-anim-custom');
+  modal.style.removeProperty('--nm-anim');
+  modal.style.removeProperty('--nm-dur');
+  modal.style.removeProperty('--nm-delay');
+  const injected = modal.querySelector('#nm-anim-custom-style');
+  if (injected) injected.remove();
+}
+
+function applyNewsModalAnim(modal, item) {
+  clearNewsModalAnim(modal);
+  const cfg = newsAnimOf(item);
+  if (cfg.custom) {
+    const body = document.getElementById('news-modal-body');
+    if (body) {
+      const style = document.createElement('style');
+      style.id = 'nm-anim-custom-style';
+      style.textContent = cfg.custom;
+      body.appendChild(style);
+      modal.classList.add('nm-anim-custom');
+    }
+  }
+  if (NEWS_ANIM_KEYFRAMES[cfg.preset]) {
+    modal.classList.add('nm-anim-set');
+    modal.style.setProperty('--nm-anim', NEWS_ANIM_KEYFRAMES[cfg.preset]);
+    modal.style.setProperty('--nm-dur', `${cfg.duration}s`);
+    modal.style.setProperty('--nm-delay', `${cfg.delay}s`);
+  }
+}
+
 function openNewsModal(item) {
   const modal = document.getElementById('news-modal');
   const body = document.getElementById('news-modal-body');
   if (!modal || !body || !item) return;
 
   const media = String(item.image_url || '').trim();
+  const banner = String(item.banner_url || '').trim();
   const raw = item.published_at || item.created_at;
   const d = raw ? new Date(raw) : null;
   const valid = d && !Number.isNaN(d.getTime());
@@ -2209,8 +2299,11 @@ function openNewsModal(item) {
     : '<p>Esta noticia no tiene contenido adicional.</p>';
 
   body.innerHTML = `
-    <div class="nm-media${media ? '' : ' is-hidden'}">
-      ${media ? `<img src="${escapeHtml(media)}" alt="${escapeHtml(item.title)}" />${watermarkChip(item)}` : ''}
+    <div class="nm-banner${banner ? '' : ' is-hidden'}">
+      ${banner ? `<img src="${escapeHtml(banner)}" alt="" /><span class="nm-banner-fade" aria-hidden="true"></span>${watermarkChip(item)}` : ''}
+    </div>
+    <div class="nm-media${(media && !banner) ? '' : ' is-hidden'}">
+      ${(media && !banner) ? `<img src="${escapeHtml(media)}" alt="${escapeHtml(item.title)}" />${watermarkChip(item)}` : ''}
     </div>
     <div class="nm-content">
       <div class="nm-meta">
@@ -2230,8 +2323,10 @@ function openNewsModal(item) {
   document.body.style.overflow = 'hidden';
   const scroller = modal.querySelector('.news-modal');
   if (scroller) scroller.scrollTop = 0;
+  applyNewsModalAnim(modal, item);
 
-  if (!media) {
+  // Con banner propio la franja manda arriba: no se usa el modo vertical.
+  if (banner || !media) {
     modal.classList.add('is-noimg');
     return;
   }
@@ -2255,6 +2350,7 @@ function closeNewsModal() {
   if (!modal || modal.classList.contains('hidden')) return;
   modal.classList.add('hidden');
   modal.classList.remove('is-vertical', 'is-noimg');
+  clearNewsModalAnim(modal);
   if (!newsModalIsAloneOpen()) document.body.style.overflow = '';
 }
 
@@ -6731,74 +6827,107 @@ function updatesFilterProjects() {
   return sorted;
 }
 
-function updatesRowHtml(p) {
+// Ítem compacto de un juego (rework): botón que abre el modal de detalle.
+// A la izquierda el icono y el nombre; a la derecha el flujo de versiones.
+function updatesItemHtml(p) {
   const slug = String(p.slug || '');
   const safeSlug = escapeHtml(slug);
-  const inDesktop = owsEnvironment() === 'desktop';
   const st = updatesStatusLabel(p);
   const icon = String(p.icon_url || '')
-    ? `<img class="upd-row-icon" src="${escapeHtml(p.icon_url)}" alt="" loading="lazy" />`
-    : `<span class="upd-row-icon upd-row-icon-fallback" aria-hidden="true">🎮</span>`;
+    ? `<img class="upd-item-img" src="${escapeHtml(p.icon_url)}" alt="" loading="lazy" />`
+    : `<span class="upd-item-emoji" aria-hidden="true">🎮</span>`;
 
-  // Flujo de versiones en celdas con etiqueta: se lee de un vistazo qué hay
-  // instalada y qué hay disponible, incluso cuando son la misma versión.
-  const verCells = [];
-  verCells.push(`<span class="upd-ver-cell"><small>Instalada</small><b class="upd-ver-chip upd-ver-old">${p.installed_version ? 'v' + escapeHtml(p.installed_version) : '—'}</b></span>`);
-  if (p.latest_version) {
-    verCells.push(`<span class="upd-ver-arrow" aria-hidden="true">→</span>`);
-    verCells.push(`<span class="upd-ver-cell"><small>${p.update_available ? 'Nueva' : 'Última'}</small><b class="upd-ver-chip upd-ver-new">v${escapeHtml(p.latest_version)}</b></span>`);
-  }
-
-  const metaBits = [];
-  if (p.size_label) metaBits.push(`<span class="upd-meta-bit">📦 ${escapeHtml(p.size_label)}</span>`);
+  // Línea de contexto: estado + pistas livianas (sin datos internos).
+  const sub = [st.text];
+  if (p.has_build && p.size_label) sub.push(p.size_label);
   if (p.released_at) {
     const d = formatReleaseDate(p.released_at);
-    if (d) metaBits.push(`<span class="upd-meta-bit">🗓️ ${escapeHtml(d)}</span>`);
+    if (d) sub.push(d);
   }
-  if (p.prerelease) metaBits.push(`<span class="upd-chip-pre">${escapeHtml(p.channel || 'beta')}</span>`);
 
-  const actions = [];
-  const inAndroid = owsEnvironment() === 'android';
-  if (p.has_build) {
-    if (inDesktop) {
-      // Si la release es beta/alpha el botón lo dice: nada de prometer una
-      // versión "nueva" sin advertir que es un canal de prueba.
-      const chTag = p.prerelease ? ` <span class="upd-chip-pre">${escapeHtml(p.channel || 'beta')}</span>` : '';
-      const label = p.update_available
-        ? `⬇ Actualizar${p.latest_version ? ' a v' + escapeHtml(p.latest_version) : ''}`
-        : `⬇ Instalar${p.latest_version ? ' v' + escapeHtml(p.latest_version) : ''}`;
-      actions.push(`<button class="btn btn-primary btn-sm" data-upd-action="${p.update_available ? 'update' : 'install'}" data-slug="${safeSlug}">${label}</button>${chTag}`);
-      if (p.installed) {
-        actions.push(`<button class="btn btn-ghost btn-sm" data-upd-action="play" data-slug="${safeSlug}">▶ Jugar</button>`);
-      }
-    } else if (inAndroid) {
-      // App Android: instalar/actualizar el APK directo (canal ows_android_releases).
-      const chTag = p.prerelease ? ` <span class="upd-chip-pre">${escapeHtml(p.channel || 'beta')}</span>` : '';
-      const label = p.update_available
-        ? `⬇ Actualizar${p.latest_version ? ' a v' + escapeHtml(p.latest_version) : ''}`
-        : (p.installed ? `⬇ Reinstalar${p.latest_version ? ' v' + escapeHtml(p.latest_version) : ''}` : `⬇ Instalar APK${p.latest_version ? ' v' + escapeHtml(p.latest_version) : ''}`);
-      actions.push(`<button class="btn btn-primary btn-sm" data-upd-action="${p.update_available ? 'apk-update' : 'apk-install'}" data-slug="${safeSlug}">📲 ${label}</button>${chTag}`);
-    } else {
-      actions.push(`<button class="btn btn-ghost btn-sm" data-upd-action="goto-releases" data-slug="${safeSlug}">Ver en Lanzamientos ↗</button>`);
+  // Flujo instalada → disponible (o guion cuando no hay build que ofrecer).
+  let versHtml = '';
+  if (p.has_build || p.latest_version) {
+    versHtml = `<span class="upd-vers-old">${p.installed_version ? 'v' + escapeHtml(p.installed_version) : '—'}</span>`;
+    if (p.latest_version) {
+      versHtml += `<span class="upd-vers-arrow" aria-hidden="true">→</span><span class="upd-vers-new">v${escapeHtml(p.latest_version)}</span>`;
     }
+  } else {
+    versHtml = '<span class="upd-vers-none">—</span>';
   }
-  actions.push(`<button class="btn btn-ghost btn-sm" data-upd-action="changelog" data-slug="${safeSlug}">📜 Historial</button>`);
+
+  const preChip = p.prerelease ? `<span class="upd-chip-pre">${escapeHtml(p.channel || 'beta')}</span>` : '';
 
   return `
-    <div class="upd-row" data-slug="${safeSlug}" data-kind="${escapeHtml(p.kind || '')}">
-      <div class="upd-row-media">${icon}</div>
-      <div class="upd-row-main">
-        <div class="upd-row-top">
-          <b class="upd-row-name">${escapeHtml(p.name || slug)}</b>
-          <span class="upd-status ${st.cls}">${escapeHtml(st.text)}</span>
-        </div>
-        <div class="upd-row-vers">${verCells.join('')}</div>
-        ${p.notes ? `<p class="upd-row-notes">${escapeHtml(p.notes)}</p>` : ''}
-        ${metaBits.length ? `<p class="upd-row-meta">${metaBits.join('')}</p>` : ''}
-        ${!p.has_build ? `<p class="upd-row-notes upd-row-na">Todavía no hay versión descargable de este juego.</p>` : ''}
-      </div>
-      <div class="upd-row-actions">${actions.join('')}</div>
-    </div>`;
+    <button type="button" class="upd-item" data-kind="${escapeHtml(p.kind || '')}" data-upd-select="${safeSlug}" aria-haspopup="dialog" title="Ver el detalle de ${escapeHtml(p.name || slug)}">
+      <span class="upd-item-ico" aria-hidden="true">${icon}</span>
+      <span class="upd-item-main">
+        <span class="upd-item-name">${escapeHtml(p.name || slug)} ${preChip}</span>
+        <span class="upd-item-sub">${escapeHtml(sub.join(' · '))}</span>
+      </span>
+      <span class="upd-item-side">
+        <span class="upd-item-vers">${versHtml}</span>
+        <span class="upd-item-chevron" aria-hidden="true">›</span>
+      </span>
+    </button>`;
+}
+
+// Estado del Hub (tarjeta→fila y modal comparten el mismo criterio).
+function hubUpdateState() {
+  const hub = updatesState.hub || {};
+  const hasUpdate = !!hub.update_available;
+  const inDesktop = owsEnvironment() === 'desktop';
+  const isAndroid = owsEnvironment() === 'android';
+  if (updatesState.loading && !updatesState.loaded) return { key: 'loading', text: 'Buscando la última versión…' };
+  if (updatesState.error) return { key: 'error', text: 'No se pudo consultar la release del Hub' };
+  if (hasUpdate) {
+    return { key: 'pending', text: isAndroid
+      ? 'Hay una versión nueva de OWS Hub para Android'
+      : (inDesktop ? 'Hay una versión nueva para instalar' : 'Hay una versión nueva disponible') };
+  }
+  if (updatesState.stale) return { key: 'ok', text: 'Sin conexión · última versión conocida' };
+  if (hub.unknown) return { key: 'unknown', text: 'Versión del Hub sin verificar' };
+  return { key: 'ok', text: 'Tu OWS Hub está actualizado' };
+}
+
+// Primera fila del listado: el Hub, a todo el ancho y destacado.
+function updatesHubItemHtml() {
+  const hub = updatesState.hub || {};
+  const ui = hubUpdateState();
+
+  let versHtml;
+  if (hub.update_available) {
+    versHtml = `<span class="upd-vers-old">${hub.current_version ? 'v' + escapeHtml(hub.current_version) : '—'}</span>` +
+      `<span class="upd-vers-arrow" aria-hidden="true">→</span>` +
+      `<span class="upd-vers-new">${hub.latest_version ? 'v' + escapeHtml(hub.latest_version) : '—'}</span>`;
+  } else {
+    const one = hub.latest_version ? 'v' + escapeHtml(hub.latest_version) : (hub.current_version ? 'v' + escapeHtml(hub.current_version) : '—');
+    versHtml = `<span class="upd-vers-old">${one}</span>`;
+  }
+
+  const plat = updatesState.platform || owsUpdatesPlatform();
+  const sub = [ui.text, owsPlatformLabel(plat)];
+  if (hub.installer_size) sub.push(formatMB(hub.installer_size));
+  if (hub.published_at) {
+    const d = formatReleaseDate(hub.published_at);
+    if (d) sub.push(d);
+  }
+
+  return `
+    <button type="button" class="upd-item upd-item-hub" data-state="${ui.key}" data-upd-select="hub" aria-haspopup="dialog" title="Ver el detalle de OWS Hub">
+      <span class="upd-item-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+        <img class="upd-item-hub-img" src="img/ows-hub-icon.png" alt="" loading="lazy" onerror="this.style.display='none'" />
+      </span>
+      <span class="upd-item-main">
+        <span class="upd-item-name">OWS Hub <span class="upd-item-tag">Launcher</span></span>
+        <span class="upd-item-sub">${escapeHtml(sub.join(' · '))}</span>
+      </span>
+      <span class="upd-item-side">
+        <span class="upd-item-vers">${versHtml}</span>
+        <span class="upd-item-chevron" aria-hidden="true">›</span>
+      </span>
+    </button>`;
 }
 
 function renderUpdates() {
@@ -6853,7 +6982,8 @@ function renderUpdates() {
     el.textContent = String(counts[el.getAttribute('data-upd-count')] || 0);
   });
 
-  renderHubUpdateCard();
+  // Si el modal de detalle está abierto, sus datos también se refrescan.
+  try { refreshUpdatesDetailIfOpen(); } catch (_) {}
 
   // Filtros (sincroniza el chip activo con el estado)
   document.querySelectorAll('[data-upd-filter]').forEach((chip) => {
@@ -6874,8 +7004,15 @@ function renderUpdates() {
   }
 
   const visible = updatesFilterProjects();
-  if (!visible.length) {
-    list.innerHTML = '';
+  const hubPending = !!((updatesState.hub || {}).update_available);
+  // El listado: el Hub va siempre primero (la fila insignia del gestor) y
+  // debajo los juegos que pasen el filtro.
+  let html = '';
+  try { html = updatesHubItemHtml(); } catch (_) {}
+  list.innerHTML = html + visible.map(updatesItemHtml).join('');
+  if (!visible.length && !hubPending) {
+    // No queda ningún juego para mostrar y el Hub tampoco tiene pendientes:
+    // el aviso de "todo al día" va debajo de la fila del Hub.
     empty.classList.remove('hidden');
     const sub = document.getElementById('updates-empty-sub');
     if (sub) {
@@ -6894,122 +7031,274 @@ function renderUpdates() {
         sub.textContent = 'Nada para mostrar con este filtro.';
       }
     }
-    return;
+  } else {
+    empty.classList.add('hidden');
   }
-  empty.classList.add('hidden');
-  list.innerHTML = visible.map(updatesRowHtml).join('');
 }
 
-// Tarjeta del OWS Hub: versión local → última, estado y acciones.
-function renderHubUpdateCard() {
-  const card = document.getElementById('upd-hub-card');
-  const state = document.getElementById('upd-hub-state');
-  const cur = document.getElementById('upd-hub-current');
-  const latest = document.getElementById('upd-hub-latest');
-  const notes = document.getElementById('upd-hub-notes');
-  const actions = document.getElementById('upd-hub-actions');
-  const hint = document.getElementById('upd-hub-hint');
-  if (!card) return;
+// ── Modal de detalle del Gestor ────────────────────────────────
+// Izquierda: solo datos públicos (identidad, versiones, fecha, peso, canal
+// y notas). Derecha: puerta a la sección de Changelogs. El historial de
+// versiones completo vive allá, no acá.
+let updDetailOpenFor = ''; // '' | 'hub' | slug
 
+function updDetailSideHtml(slug, isHub) {
+  const sub = isHub
+    ? 'Las notas de cada versión publicada: el launcher y todos tus juegos, versión por versión.'
+    : 'El changelog completo de todas las versiones publicadas de este proyecto.';
+  return `
+    <aside class="upd-detail-side">
+      <span class="upd-detail-side-ico" aria-hidden="true">📚</span>
+      <b class="upd-detail-side-title">Changelogs</b>
+      <p class="upd-detail-side-sub">${escapeHtml(sub)}</p>
+      <button type="button" class="btn btn-ghost btn-sm" data-upd-detail-goto-changelogs="${escapeHtml(slug)}">Ir a Changelogs ↗</button>
+    </aside>`;
+}
+
+function updatesHubDetailHtml() {
   const hub = updatesState.hub || {};
-
+  const ui = hubUpdateState();
   const inDesktop = owsEnvironment() === 'desktop';
   const isAndroid = owsEnvironment() === 'android';
-  const hasUpdate = !!hub.update_available;
+  const stCls = { pending: 'upd-st-update', ok: 'upd-st-ok', loading: 'upd-st-install' }[ui.key] || 'upd-st-none';
+  const plat = updatesState.platform || owsUpdatesPlatform();
 
-  if (updatesState.loading && !updatesState.loaded) card.dataset.state = 'loading';
-  else if (updatesState.error) card.dataset.state = 'error';
-  else if (hasUpdate) card.dataset.state = 'pending';
-  else if (hub.unknown) card.dataset.state = 'unknown';
-  else card.dataset.state = 'ok';
-
-  if (cur) cur.textContent = hub.current_version ? ('v' + hub.current_version) : '—';
-  if (latest) latest.textContent = hub.latest_version ? ('v' + hub.latest_version) : '—';
-
-  if (state) {
-    if (updatesState.loading && !updatesState.loaded) state.textContent = 'Buscando la última versión…';
-    else if (updatesState.error) state.textContent = 'No se pudo consultar la release del Hub';
-    else if (hasUpdate) state.textContent = isAndroid
-      ? 'Hay una versión nueva de OWS Hub para Android'
-      : (inDesktop ? 'Hay una versión nueva para instalar' : 'Hay una versión nueva disponible');
-    else if (updatesState.stale) state.textContent = 'Sin conexión · última versión conocida';
-    else if (hub.unknown) state.textContent = 'Versión del Hub sin verificar';
-    else state.textContent = 'Tu OWS Hub está actualizado';
+  const vers = [];
+  vers.push(`<span class="upd-ver-cell"><small>Instalada</small><b class="upd-ver-chip upd-ver-old">${hub.current_version ? 'v' + escapeHtml(hub.current_version) : '—'}</b></span>`);
+  if (hub.latest_version) {
+    vers.push('<span class="upd-ver-arrow" aria-hidden="true">→</span>');
+    vers.push(`<span class="upd-ver-cell"><small>${hub.update_available ? 'Nueva' : 'Última'}</small><b class="upd-ver-chip upd-ver-new">v${escapeHtml(hub.latest_version)}</b></span>`);
   }
 
-  if (notes) {
-    const raw = String(hub.notes || '').trim();
-    if (raw) {
-      // Las notas de GitHub vienen en Markdown: se muestran con el
-      // mini-markdown (negritas y links), siempre HTML escapado.
-      notes.innerHTML = hubMdInline(hubMdEscape(raw));
-      notes.classList.remove('hidden', 'is-open');
-      // El bloque se recorta con un degradado y se despliega con el boton:
-      // antes tenia scroll interno y la barra cortaba el texto a mitad.
-      const more = document.getElementById('upd-hub-notes-more');
-      if (more) {
-        const desborda = notes.scrollHeight > notes.clientHeight + 6;
-        more.classList.toggle('hidden', !desborda);
-        more.textContent = 'Ver todas las novedades';
-        more.setAttribute('aria-expanded', 'false');
-      }
+  const bits = [`<span class="upd-detail-bit">${plat === 'android' ? '🤖' : '🪟'} ${escapeHtml(owsPlatformLabel(plat))}</span>`];
+  if (hub.published_at) {
+    const d = formatReleaseDate(hub.published_at);
+    if (d) bits.push(`<span class="upd-detail-bit">🗓️ Publicada ${escapeHtml(d)}</span>`);
+  }
+  if (hub.installer_size) bits.push(`<span class="upd-detail-bit">📦 ${escapeHtml(formatMB(hub.installer_size))}</span>`);
+
+  // Notas de la release en Markdown básico (siempre HTML escapado primero).
+  const rawNotes = String(hub.notes || '').trim();
+  const notesHtml = rawNotes
+    ? hubMdInline(hubMdEscape(rawNotes))
+    : `<p class="upd-detail-na">${updatesState.error ? 'No se pudieron consultar las novedades de la versión.' : 'La última versión no trae notas publicadas.'}</p>`;
+
+  // Acciones: exactamente el mismo flujo del Hub de siempre.
+  const actions = [];
+  if (hubUpdateBusy) {
+    actions.push('<button class="btn btn-primary btn-sm" disabled>⬇ Actualizando…</button>');
+  } else if (hub.update_available) {
+    if (isAndroid) {
+      actions.push(`<button class="btn btn-primary btn-sm" data-upd-detail-action="hub-apk">⬇ Actualizar APK${hub.latest_version ? ' v' + escapeHtml(hub.latest_version) : ''}</button>`);
+    } else if (inDesktop && hub.can_self_update) {
+      actions.push(`<button class="btn btn-primary btn-sm" data-upd-detail-action="hub-install">⬇ Descargar v${escapeHtml(hub.latest_version || '')}</button>`);
     } else {
-      notes.innerHTML = '';
-      notes.classList.add('hidden');
-      notes.classList.remove('is-open');
-      const more = document.getElementById('upd-hub-notes-more');
-      if (more) more.classList.add('hidden');
+      const href = hub.installer_url || hub.html_url || OWS_HUB_RELEASES_URL;
+      const dl = inDesktop ? '' : ' download';
+      actions.push(`<a class="btn btn-primary btn-sm" href="${escapeHtml(href)}" target="_blank" rel="noopener"${dl}>⬇ Descargar instalador</a>`);
     }
+  } else if (!hub.unknown && !updatesState.error && !(updatesState.loading && !updatesState.loaded)) {
+    actions.push('<span class="upd-detail-ok">✓ Al día</span>');
   }
 
-  if (actions) {
-    const btns = [];
-    if (hubUpdateBusy) {
-      // Mientras baja o espera el reinicio: el botón no se puede tocar dos veces.
-      btns.push(`<button class="btn btn-primary btn-sm" disabled>⬇ Actualizando…</button>`);
-    } else if (hasUpdate) {
-      if (isAndroid) {
-        // Misma acción nativa que los juegos: baja el APK y abre el instalador.
-        btns.push(`<button class="btn btn-primary btn-sm" data-upd-action="hub-apk">⬇ Actualizar APK${hub.latest_version ? ' v' + escapeHtml(hub.latest_version) : ''}</button>`);
-      } else if (inDesktop && hub.can_self_update) {
-        // Acción única y simple: descargar. El progreso vive en el toaster.
-        btns.push(`<button class="btn btn-primary btn-sm" data-upd-action="hub-install">⬇ Descargar v${escapeHtml(hub.latest_version || '')}</button>`);
-      } else {
-        const href = hub.installer_url || hub.html_url || OWS_HUB_RELEASES_URL;
-        const dl = inDesktop ? '' : ' download';
-        btns.push(`<a class="btn btn-primary btn-sm" href="${escapeHtml(href)}" target="_blank" rel="noopener"${dl}>⬇ Descargar instalador</a>`);
+  // Pista contextual (mismos criterios que antes, ahora dentro del modal).
+  let hint;
+  if (updatesState.error) {
+    hint = 'Revisá tu conexión y tocá «Buscar actualizaciones».';
+  } else if (updatesState.loading && !updatesState.loaded) {
+    hint = 'Consultando la última release publicada…';
+  } else if (hub.update_available && isAndroid) {
+    hint = 'La actualización baja el APK y lo instala con el mismo paso de siempre.';
+  } else if (hub.update_available && inDesktop && !hub.can_self_update) {
+    // "No pude comprobarlo" y "no lo tenés" son cosas distintas: la primera
+    // se arregla reintentando, la segunda no.
+    hint = hub.updater_probe_ok
+      ? 'Esta versión del Hub no trae el actualizador: cerrá el Hub y usá el instalador.'
+      : 'No se pudo comprobar la actualización automática (se cortó la consulta). Tocá «Buscar actualizaciones» otra vez, o cerrá el Hub y usá el instalador.';
+  } else if (hub.update_available && !inDesktop) {
+    hint = 'Instalá el Hub y desde ahí aplicás la actualización sin pasos extra.';
+  } else if (updatesState.stale) {
+    hint = 'Sin conexión con el servidor: mostrando la última versión conocida. ' +
+      `<a href="${escapeHtml(hub.html_url || OWS_HUB_RELEASES_URL)}" target="_blank" rel="noopener">Releases ↗</a>`;
+  } else {
+    hint = `<a href="${escapeHtml(hub.html_url || OWS_HUB_RELEASES_URL)}" target="_blank" rel="noopener">Releases ↗</a>`;
+  }
+
+  return `
+    <div class="upd-detail-main">
+      <header class="upd-detail-head">
+        <span class="upd-detail-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#7dd3fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          <img src="img/ows-hub-icon.png" alt="" loading="lazy" onerror="this.style.display='none'" />
+        </span>
+        <span class="upd-detail-titles">
+          <b class="upd-detail-title">OWS Hub <span class="upd-item-tag">Launcher</span></b>
+          <span class="upd-detail-sub">El launcher del ecosistema</span>
+        </span>
+        <span class="upd-status ${stCls}">${escapeHtml(ui.text)}</span>
+      </header>
+      <div class="upd-detail-vers">${vers.join('')}</div>
+      ${bits.length ? `<div class="upd-detail-meta">${bits.join('')}</div>` : ''}
+      <div class="upd-detail-notes">
+        <span class="upd-detail-label">Novedades de la versión</span>
+        ${notesHtml}
+      </div>
+      <footer class="upd-detail-foot">
+        ${actions.length ? `<div class="upd-detail-actions">${actions.join('')}</div>` : ''}
+        <p class="upd-detail-hint">${hint}</p>
+      </footer>
+    </div>
+    ${updDetailSideHtml('hub', true)}`;
+}
+
+function updatesProjectDetailHtml(slug) {
+  const p = (updatesState.projects || []).find((x) => String(x.slug) === String(slug));
+  if (!p) return '';
+  const inDesktop = owsEnvironment() === 'desktop';
+  const inAndroid = owsEnvironment() === 'android';
+  const st = updatesStatusLabel(p);
+  const name = p.name || slug;
+  const icon = String(p.icon_url || '').trim()
+    ? `<img src="${escapeHtml(p.icon_url)}" alt="" loading="lazy" />`
+    : '<span aria-hidden="true">🎮</span>';
+  const preChip = p.prerelease ? `<span class="upd-chip-pre">${escapeHtml(p.channel || 'beta')}</span>` : '';
+
+  const vers = [];
+  vers.push(`<span class="upd-ver-cell"><small>Instalada</small><b class="upd-ver-chip upd-ver-old">${p.installed_version ? 'v' + escapeHtml(p.installed_version) : '—'}</b></span>`);
+  if (p.latest_version) {
+    vers.push('<span class="upd-ver-arrow" aria-hidden="true">→</span>');
+    vers.push(`<span class="upd-ver-cell"><small>${p.update_available ? 'Nueva' : 'Última'}</small><b class="upd-ver-chip upd-ver-new">v${escapeHtml(p.latest_version)}</b></span>`);
+  }
+
+  const bits = [];
+  if (p.has_build) bits.push(`<span class="upd-detail-bit">${inAndroid ? '🤖 Android' : '🪟 Windows'}</span>`);
+  if (p.size_label) bits.push(`<span class="upd-detail-bit">📦 ${escapeHtml(p.size_label)}</span>`);
+  if (p.released_at) {
+    const d = formatReleaseDate(p.released_at);
+    if (d) bits.push(`<span class="upd-detail-bit">🗓️ ${escapeHtml(d)}</span>`);
+  }
+
+  const notesHtml = !p.has_build
+    ? '<p class="upd-detail-na">Todavía no hay una versión descargable de este juego.</p>'
+    : (p.notes
+      ? `<p>${escapeHtml(p.notes)}</p>`
+      : `<p class="upd-detail-na">${p.installed && !p.update_available ? 'Estás en la última versión publicada.' : 'La última versión no trae notas publicadas.'}</p>`);
+
+  // Acciones: mismo flujo que el gestor de siempre (desktop / Android / web).
+  const actions = [];
+  if (p.has_build) {
+    if (inDesktop) {
+      const label = p.update_available
+        ? `⬇ Actualizar${p.latest_version ? ' a v' + escapeHtml(p.latest_version) : ''}`
+        : `⬇ Instalar${p.latest_version ? ' v' + escapeHtml(p.latest_version) : ''}`;
+      actions.push(`<button class="btn btn-primary btn-sm" data-upd-detail-action="${p.update_available ? 'update' : 'install'}" data-slug="${escapeHtml(slug)}">${label}</button>`);
+      if (p.installed) {
+        actions.push(`<button class="btn btn-ghost btn-sm" data-upd-detail-action="play" data-slug="${escapeHtml(slug)}">▶ Jugar</button>`);
       }
-    } else if (!hub.unknown && !updatesState.error) {
-      btns.push(`<span class="upd-hub-ok">✓ Al día</span>`);
+    } else if (inAndroid) {
+      // App Android: instalar/actualizar el APK directo.
+      const label = p.update_available
+        ? `⬇ Actualizar${p.latest_version ? ' a v' + escapeHtml(p.latest_version) : ''}`
+        : (p.installed ? `⬇ Reinstalar${p.latest_version ? ' v' + escapeHtml(p.latest_version) : ''}` : `⬇ Instalar APK${p.latest_version ? ' v' + escapeHtml(p.latest_version) : ''}`);
+      actions.push(`<button class="btn btn-primary btn-sm" data-upd-detail-action="${p.update_available ? 'apk-update' : 'apk-install'}" data-slug="${escapeHtml(slug)}">📲 ${label}</button>`);
+    } else {
+      actions.push(`<button class="btn btn-ghost btn-sm" data-upd-detail-action="goto-releases" data-slug="${escapeHtml(slug)}">Ver en Lanzamientos ↗</button>`);
     }
-    if (hub.published_at) {
-      const d = formatReleaseDate(hub.published_at);
-      if (d) btns.push(`<span class="upd-hub-date">Publicada ${escapeHtml(d)}</span>`);
-    }
-    actions.innerHTML = btns.join('');
   }
 
-  if (hint) {
-    if (updatesState.error) {
-      hint.textContent = 'Revisá tu conexión y tocá "Buscar actualizaciones".';
-    } else if (hasUpdate && isAndroid) {
-      hint.textContent = 'La actualización baja el APK y lo instala con el mismo paso de siempre.';
-    } else if (hasUpdate && inDesktop && !hub.can_self_update) {
-      // "No pude comprobarlo" y "no lo tenés" son cosas distintas: la primera
-      // se arregla reintentando, la segunda no.
-      hint.textContent = hub.updater_probe_ok
-        ? 'Esta versión del Hub no trae el actualizador: cerrá el Hub y usá el instalador.'
-        : 'No se pudo comprobar la actualización automática (se cortó la consulta). Tocá «Buscar actualizaciones» otra vez, o cerrá el Hub y usá el instalador.';
-    } else if (hasUpdate && !inDesktop) {
-      hint.textContent = 'Instalá el Hub y desde ahí aplicás la actualización sin pasos extra.';
-    } else if (updatesState.stale) {
-      // Datos de respaldo: el link de releases queda siempre a mano y la
-      // descarga directa apunta al asset de GitHub (sin pasar por Render).
-      hint.innerHTML = 'Sin conexión con el servidor: mostrando la última versión conocida. <a href="' + escapeHtml(hub.html_url || OWS_HUB_RELEASES_URL) + '" target="_blank" rel="noopener">Releases ↗</a>';
-    } else {
-      hint.innerHTML = `<a href="${escapeHtml(hub.html_url || OWS_HUB_RELEASES_URL)}" target="_blank" rel="noopener">Releases ↗</a>`;
+  let hint;
+  if (!p.has_build) hint = 'Cuando el proyecto publique una build va a aparecer acá para instalarla.';
+  else if (inDesktop || inAndroid) hint = 'La descarga y el progreso los maneja el Gestor de Descargas.';
+  else hint = 'Desde el navegador podés consultar el detalle; para instalar usá OWS Hub.';
+
+  return `
+    <div class="upd-detail-main">
+      <header class="upd-detail-head">
+        <span class="upd-detail-ico" aria-hidden="true">${icon}</span>
+        <span class="upd-detail-titles">
+          <b class="upd-detail-title">${escapeHtml(name)} ${preChip}</b>
+          <span class="upd-detail-sub">${escapeHtml(p.genre || 'Juego del ecosistema')}</span>
+        </span>
+        <span class="upd-status ${st.cls}">${escapeHtml(st.text)}</span>
+      </header>
+      <div class="upd-detail-vers">${vers.join('')}</div>
+      ${bits.length ? `<div class="upd-detail-meta">${bits.join('')}</div>` : ''}
+      <div class="upd-detail-notes">
+        <span class="upd-detail-label">Novedades de la última versión</span>
+        ${notesHtml}
+      </div>
+      <footer class="upd-detail-foot">
+        ${actions.length ? `<div class="upd-detail-actions">${actions.join('')}</div>` : ''}
+        <p class="upd-detail-hint">${hint}</p>
+      </footer>
+    </div>
+    ${updDetailSideHtml(slug, false)}`;
+}
+
+function openUpdatesDetail(sel) {
+  const key = String(sel || '').trim();
+  if (!key) return;
+  const modal = document.getElementById('upd-detail-modal');
+  const body = document.getElementById('upd-detail-body');
+  if (!modal || !body) return;
+  const html = key === 'hub' ? updatesHubDetailHtml() : updatesProjectDetailHtml(key);
+  if (!html) return;
+  updDetailOpenFor = key;
+  body.innerHTML = html;
+  modal.classList.remove('hidden');
+  try { document.body.style.overflow = 'hidden'; } catch (_) {}
+}
+
+function closeUpdatesDetail() {
+  updDetailOpenFor = '';
+  const modal = document.getElementById('upd-detail-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  modal.classList.add('hidden');
+  // Solo se libera el scroll si no queda ningún otro modal abierto.
+  try {
+    if (!document.querySelector('.modal-overlay:not(.hidden), .release-overlay:not(.hidden), .news-modal-overlay:not(.hidden)')) {
+      document.body.style.overflow = '';
     }
-  }
+  } catch (_) { document.body.style.overflow = ''; }
+}
+
+// Con el modal abierto, una recarga del gestor re-pinta sus datos en sitio.
+function refreshUpdatesDetailIfOpen() {
+  if (!updDetailOpenFor) return;
+  const modal = document.getElementById('upd-detail-modal');
+  const body = document.getElementById('upd-detail-body');
+  if (!modal || !body || modal.classList.contains('hidden')) return;
+  const html = updDetailOpenFor === 'hub' ? updatesHubDetailHtml() : updatesProjectDetailHtml(updDetailOpenFor);
+  if (html) body.innerHTML = html;
+}
+
+// Lleva a la sección de Changelogs, abre la ficha del destino y la deja
+// destacada unos segundos. El Hub tiene su propia ficha ahí (ows_hub), así
+// que se trata igual que a un juego.
+function goToUpdatesProjectChangelogs(slug) {
+  const key = String(slug || '').trim();
+  const target = key === 'hub' ? 'ows_hub' : key;
+  closeUpdatesDetail();
+  showOwsSection('sec-changelogs', { smooth: true });
+  if (!target) return;
+  let tries = 0;
+  const find = () => {
+    const list = document.getElementById('cl-list');
+    const card = list ? Array.from(list.querySelectorAll('.cl-project')).find((c) => c.getAttribute('data-cl-project') === target) : null;
+    if (card) {
+      if (!card.classList.contains('is-open')) toggleProjectChangelog(target);
+      try { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+      card.classList.remove('is-flash');
+      void card.offsetWidth;
+      card.classList.add('is-flash');
+      setTimeout(() => card.classList.remove('is-flash'), 1700);
+      return;
+    }
+    // La sección puede estar cargando (el servidor puede estar despertando):
+    // se reintenta hasta ~25 s; si la carga falló, se corta (queda Reintentar).
+    if (tries++ < 60 && pclLoadState !== 'error') setTimeout(find, 400);
+  };
+  setTimeout(find, 80);
 }
 
 // Badge del menú: cuántas actualizaciones hay (Hub + juegos).
@@ -7178,7 +7467,7 @@ async function doHubInstall() {
     let current = '';
     try { current = String(await hubLocalVersion() || '').replace(/^[vV]/, ''); } catch (_) { current = ''; }
     openHubUpdateFailedModal(String(version || ''), current || 'la anterior');
-    renderHubUpdateCard();
+    refreshUpdatesDetailIfOpen();
   }
 }
 
@@ -7434,6 +7723,19 @@ function hubChangelogHtml(version, notes) {
   }
   const raw = String(notes || '').trim();
   return raw ? hubMdLite(raw) : '';
+}
+
+// Versiones del Hub con changelog cargado, de la más nueva a la más vieja.
+function hubChangelogVersions() {
+  return Object.keys(HUB_CHANGELOGS).sort((a, b) => {
+    const pa = String(a).split('.').map((n) => Number(n) || 0);
+    const pb = String(b).split('.').map((n) => Number(n) || 0);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+      const d = (pb[i] || 0) - (pa[i] || 0);
+      if (d) return d;
+    }
+    return 0;
+  });
 }
 
 // Se escribe antes de reiniciar y se lee al arrancar: como solo se
@@ -7747,7 +8049,7 @@ async function runHubSelfUpdate(btn) {
     if (!openHubRestartModal(version)) { await doHubInstall(); return; }
     // hubUpdateBusy sigue en true: la descarga está hecha pero la instalación
     // pendiente, así que el botón no debe volver a activarse.
-    renderHubUpdateCard();
+    refreshUpdatesDetailIfOpen();
     return;
   } catch (err) {
     hubUpdToastHide();
@@ -7762,7 +8064,7 @@ async function runHubSelfUpdate(btn) {
       showToast('No se pudo actualizar el Hub: ' + msg);
     }
     hubUpdateBusy = false;
-    renderHubUpdateCard();
+    refreshUpdatesDetailIfOpen();
   }
 }
 
@@ -7773,7 +8075,7 @@ async function runProjectUpdate(slug) {
   const name = (proj && proj.name) || slug;
   const row = (updatesState.projects || []).find((p) => String(p.slug) === String(slug));
   const version = String((row && row.latest_version) || (proj && (proj.itch_version || proj.itchVersion)) || '');
-  closeUpdatesModal();
+  closeUpdatesDetail();
   showDownloadToastStarted(name);
   // Cambia a Descargas para que el progreso de esta actualización se vea de una.
   showOwsSection('sec-descargas', { smooth: true });
@@ -7782,98 +8084,19 @@ async function runProjectUpdate(slug) {
   try { loadUpdatesManager({ force: true }); } catch (_) {}
 }
 
-// ── Modal de historial de versiones ─────────────────────────────
-let updatesModalToken = 0;
-
-async function openUpdatesChangelog(slug) {
-  const row = (updatesState.projects || []).find((p) => String(p.slug) === String(slug));
-  const proj = getDownloadProject(slug);
-  const name = (row && row.name) || (proj && proj.name) || slug;
-  const installed = String((row && row.installed_version) || '').trim();
-  const modal = document.getElementById('updates-modal');
-  const body = document.getElementById('updates-modal-body');
-  if (!modal || !body) return;
-  const token = ++updatesModalToken;
-  body.innerHTML = `
-    <h3 class="form-title">📜 Historial de versiones — ${escapeHtml(name)}</h3>
-    <p class="form-hint">Builds de <b>${owsPlatformLabel(updatesState.platform || owsUpdatesPlatform())}</b> · ${installed ? `Tenés <b>v${escapeHtml(installed)}</b> instalada.` : 'Todavía no lo instalaste.'}</p>
-    <div id="upd-changelog-list" class="upd-changelog"><p class="loading-note">Cargando historial…</p></div>`;
-  modal.classList.remove('hidden');
-  try { document.body.style.overflow = 'hidden'; } catch (_) {}
-
-  const box = document.getElementById('upd-changelog-list');
-  try {
-    const params = ['platform=' + owsUpdatesPlatform()];
-    if (installed) params.push('installed=' + encodeURIComponent(installed));
-    const qs = '?' + params.join('&');
-    const res = await fetchWithTimeout(API_BASE + '/ows-updates/projects/' + encodeURIComponent(slug) + '/releases' + qs, UPDATES_FETCH_TIMEOUT_MS);
-    const data = await res.json().catch(() => ({}));
-    if (token !== updatesModalToken || !box) return;
-    const list = Array.isArray(data.releases) ? data.releases : [];
-    if (!list.length) {
-      box.innerHTML = `<p class="loading-note">Este proyecto todavía no tiene versiones publicadas.</p>`;
-      return;
-    }
-    box.innerHTML = list.map((r) => {
-      const when = r.released_at ? formatReleaseDate(r.released_at) : '—';
-      const isCurrent = installed && String(r.version) === installed;
-      const plat = String(r.platform || 'all');
-      return `
-        <div class="upd-changelog-item">
-          <div class="upd-changelog-top">
-            <span class="upd-ver-chip upd-ver-new">v${escapeHtml(r.version || '?')}</span>
-            <span class="upd-changelog-channel">${escapeHtml(r.channel || 'stable')}</span>
-            ${plat !== 'all' && plat !== owsUpdatesPlatform() ? `<span class="upd-changelog-channel">${plat === 'android' ? '🤖 Android' : '🪟 Windows'}</span>` : ''}
-            ${isCurrent ? '<span class="upd-chip-current">Tu versión</span>' : ''}
-            <span class="upd-changelog-date">${escapeHtml(when)}</span>
-          </div>
-          ${r.file_label || r.size_label ? `<p class="upd-changelog-file">📦 ${escapeHtml([r.file_label, r.size_label].filter(Boolean).join(' · '))}</p>` : ''}
-          ${r.notes ? `<p class="upd-changelog-notes">${escapeHtml(r.notes)}</p>` : ''}
-        </div>`;
-    }).join('');
-  } catch (err) {
-    if (token !== updatesModalToken || !box) return;
-    box.innerHTML = `<p class="loading-note">⚠️ ${escapeHtml(String((err && err.message) || err))}</p>`;
-  }
-}
-
-function closeUpdatesModal() {
-  const modal = document.getElementById('updates-modal');
-  if (!modal || modal.classList.contains('hidden')) return;
-  updatesModalToken += 1; // invalida responses en vuelo
-  modal.classList.add('hidden');
-  try { document.body.style.overflow = ''; } catch (_) {}
-}
-
-// Delegación de clicks del Gestor (sobrevive a re-renders).
+// ── Delegación de clicks del Gestor ────────────────────────────
 function bindUpdatesManager() {
   const list = document.getElementById('updates-list');
   if (list && !list.dataset.bound) {
     list.dataset.bound = '1';
     list.addEventListener('click', (e) => {
+      // Filas del listado: abren el modal de detalle del proyecto/Hub.
+      const row = e.target.closest('[data-upd-select]');
+      if (row) { openUpdatesDetail(row.getAttribute('data-upd-select')); return; }
+      // El resto vive dentro del aviso de error (reintentar).
       const btn = e.target.closest('[data-upd-action]');
       if (!btn) return;
-      const action = btn.getAttribute('data-upd-action');
-      const slug = btn.getAttribute('data-slug') || '';
-      if (action === 'refresh') loadUpdatesManager({ force: true });
-      else if (action === 'apk-install' || action === 'apk-update') runProjectApkInstall(slug);
-      else if (action === 'update' || action === 'install') runProjectUpdate(slug);
-      else if (action === 'changelog') openUpdatesChangelog(slug);
-      else if (action === 'goto-releases') { showOwsSection('sec-lanzamientos', { smooth: true }); }
-      else if (action === 'play' && window.OWSHubLibrary) {
-        window.OWSHubLibrary.launch(slug).catch((err) => showToast('No se pudo lanzar: ' + ((err && err.message) || err)));
-      }
-    });
-  }
-  // Acciones de la tarjeta del Hub (no viven dentro de #updates-list).
-  const hubCard = document.getElementById('upd-hub-card');
-  if (hubCard && !hubCard.dataset.bound) {
-    hubCard.dataset.bound = '1';
-    hubCard.addEventListener('click', (e) => {
-      const apk = e.target.closest('[data-upd-action="hub-apk"]');
-      if (apk) { runHubAndroidUpdate(apk); return; }
-      const btn = e.target.closest('[data-upd-action="hub-install"]');
-      if (btn) runHubSelfUpdate(btn);
+      if (btn.getAttribute('data-upd-action') === 'refresh') loadUpdatesManager({ force: true });
     });
   }
   const filters = document.getElementById('upd-filters');
@@ -7882,18 +8105,6 @@ function bindUpdatesManager() {
     filters.addEventListener('click', (e) => {
       const chip = e.target.closest('[data-upd-filter]');
       if (chip) setUpdatesFilter(chip.getAttribute('data-upd-filter'));
-    });
-  }
-  // Desplegar/plegar las novedades del Hub.
-  const notesMore = document.getElementById('upd-hub-notes-more');
-  if (notesMore && !notesMore.dataset.bound) {
-    notesMore.dataset.bound = '1';
-    notesMore.addEventListener('click', () => {
-      const notes = document.getElementById('upd-hub-notes');
-      if (!notes) return;
-      const open = notes.classList.toggle('is-open');
-      notesMore.textContent = open ? 'Ver menos' : 'Ver todas las novedades';
-      notesMore.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
   }
   const btnRefresh = document.getElementById('btn-updates-refresh');
@@ -7906,11 +8117,26 @@ function bindUpdatesManager() {
     btnGoto.dataset.bound = '1';
     btnGoto.addEventListener('click', () => showOwsSection('sec-lanzamientos', { smooth: true }));
   }
-  const modal = document.getElementById('updates-modal');
-  if (modal && !modal.dataset.bound) {
-    modal.dataset.bound = '1';
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal || e.target.closest('[data-close="updates-modal"]')) closeUpdatesModal();
+  // Acciones del modal de detalle (delegación: el cuerpo se re-renderiza).
+  const detailBody = document.getElementById('upd-detail-body');
+  if (detailBody && !detailBody.dataset.bound) {
+    detailBody.dataset.bound = '1';
+    detailBody.addEventListener('click', (e) => {
+      // Puerta a Changelogs: navega a la sección (y abre la ficha del juego).
+      const goto = e.target.closest('[data-upd-detail-goto-changelogs]');
+      if (goto) { goToUpdatesProjectChangelogs(goto.getAttribute('data-upd-detail-goto-changelogs')); return; }
+      const btn = e.target.closest('[data-upd-detail-action]');
+      if (!btn) return;
+      const action = btn.getAttribute('data-upd-detail-action');
+      const slug = btn.getAttribute('data-slug') || '';
+      if (action === 'hub-install') runHubSelfUpdate(btn);
+      else if (action === 'hub-apk') runHubAndroidUpdate(btn);
+      else if (action === 'apk-install' || action === 'apk-update') runProjectApkInstall(slug);
+      else if (action === 'update' || action === 'install') runProjectUpdate(slug);
+      else if (action === 'goto-releases') { closeUpdatesDetail(); showOwsSection('sec-lanzamientos', { smooth: true }); }
+      else if (action === 'play' && window.OWSHubLibrary) {
+        window.OWSHubLibrary.launch(slug).catch((err) => showToast('No se pudo lanzar: ' + ((err && err.message) || err)));
+      }
     });
   }
   // Aviso de "actualizar desde la app" (navegador).
@@ -7948,7 +8174,7 @@ function bindHubUpdateFlow() {
       hubPendingInstall = null;
       hubUpdateBusy = false;
       showToast('Actualización descargada. Volvé a pulsar Descargar para instalarla.');
-      renderHubUpdateCard();
+      refreshUpdatesDetailIfOpen();
     });
   }
   const chModal = document.getElementById('hub-changelog-modal');
@@ -8375,6 +8601,80 @@ function pclFindVersion(slug, version) {
   return (p.versions || []).find((v) => String(v.version || '').trim().toLowerCase().replace(/^v/, '') === key) || null;
 }
 
+// Ficha del propio OWS Hub dentro de Changelogs: va siempre primera y se
+// distingue con un marco animado. Sus versiones salen del changelog que ya
+// vive en la app (HUB_CHANGELOGS), así que no depende del servidor.
+const PCL_HUB_SLUG = 'ows_hub';
+
+function hubChangelogProjectHtml() {
+  const versions = hubChangelogVersions();
+  if (!versions.length) return '';
+  const versionsHtml = versions.map((ver, i) => {
+    const items = HUB_CHANGELOGS[ver] || [];
+    const peek = String(items[0] || '').trim();
+    return `
+      <li class="cl-version-item">
+        <button type="button" class="cl-version" data-hub-ver="${escapeHtml(ver)}" aria-haspopup="dialog" title="Ver el changelog completo de esta versión">
+          <span class="cl-ver-line">
+            <span class="cl-ver-tag">v${escapeHtml(ver)}</span>
+            ${i === 0 ? '<span class="cl-ver-pill cl-ver-latest">✨ Última</span>' : ''}
+            <span class="cl-ver-when">${items.length} ${items.length === 1 ? 'cambio' : 'cambios'}</span>
+            <span class="cl-ver-cta">Ver notas →</span>
+          </span>
+          ${peek ? `<span class="cl-ver-peek">${escapeHtml(peek)}</span>` : ''}
+        </button>
+      </li>`;
+  }).join('');
+  return `
+    <article class="cl-project cl-project-hub glass-card" data-cl-project="${PCL_HUB_SLUG}">
+      <button type="button" class="cl-head" data-cl-toggle="${PCL_HUB_SLUG}" aria-expanded="false" aria-controls="cl-body-${PCL_HUB_SLUG}">
+        <span class="cl-ico cl-ico-hub"><img src="img/ows-hub-icon.png" alt="" class="cl-ico-img" /></span>
+        <span class="cl-titles">
+          <span class="cl-name">OWS Hub <span class="cl-status cl-status-hub">🖥️ Launcher</span></span>
+          <span class="cl-sub">El launcher del ecosistema · ${pclVersionCountLabel(versions.length)}</span>
+        </span>
+        <span class="cl-latest">Última: <b>v${escapeHtml(versions[0])}</b></span>
+        <span class="cl-chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </button>
+      <div class="cl-body" id="cl-body-${PCL_HUB_SLUG}" role="region" aria-label="Versiones de OWS Hub">
+        <div class="cl-body-inner">
+          <ul class="cl-versions">${versionsHtml}</ul>
+        </div>
+      </div>
+    </article>`;
+}
+
+// Modal con el changelog completo de una versión del Hub, dentro de la
+// sección Changelogs (mismo modal que usan los proyectos; los datos salen
+// de HUB_CHANGELOGS, así que no depende del servidor).
+function openHubVersionChangelogModal(version) {
+  const key = String(version || '').trim().replace(/^[vV]/, '');
+  const items = HUB_CHANGELOGS[key];
+  const modal = document.getElementById('pcl-modal');
+  const body = document.getElementById('pcl-modal-body');
+  if (!modal || !body || !items || !items.length) return;
+  const versions = hubChangelogVersions();
+  const isLatest = versions[0] === key;
+  body.innerHTML = `
+    <div class="pcl-head">
+      <span class="pcl-ico"><img src="img/ows-hub-icon.png" alt="" class="pcl-ico-img" /></span>
+      <div class="pcl-head-info">
+        <span class="pcl-project">OWS Hub</span>
+        <h3 class="pcl-version">v${escapeHtml(key)} ${isLatest ? '<span class="cl-ver-pill cl-ver-latest">✨ Última</span>' : ''}</h3>
+        <span class="pcl-sub">🖥️ Launcher del ecosistema · ${escapeHtml(pclPublishedCountLabel(versions.length))}</span>
+      </div>
+    </div>
+    <div class="cl-notes"><p class="cl-notes-title">📝 Notas de la versión</p>${hubChangelogHtml(key, '')}</div>
+    <div class="pcl-foot">
+      <button type="button" class="btn btn-ghost btn-sm" data-hub-goto-updates>Ver en Actualizaciones ⬆</button>
+    </div>
+  `;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
 function renderProjectChangelogsLoading() {
   const list = document.getElementById('cl-list');
   const empty = document.getElementById('cl-empty');
@@ -8382,7 +8682,7 @@ function renderProjectChangelogsLoading() {
   if (empty) empty.classList.add('hidden');
   if (count) count.textContent = 'Cargando…';
   if (list) {
-    list.innerHTML = `
+    list.innerHTML = hubChangelogProjectHtml() + `
       <div class="cl-placeholder" role="status" aria-live="polite">
         <span class="releases-spinner" aria-hidden="true"></span>
         <p class="cl-placeholder-title">Cargando changelogs…</p>
@@ -8398,7 +8698,7 @@ function renderProjectChangelogsError() {
   if (empty) empty.classList.add('hidden');
   if (count) count.textContent = 'Sin conexión';
   if (list) {
-    list.innerHTML = `
+    list.innerHTML = hubChangelogProjectHtml() + `
       <div class="cl-placeholder is-error" role="status">
         <span class="cl-placeholder-ico" aria-hidden="true">⚠️</span>
         <p class="cl-placeholder-title">No se pudieron cargar los changelogs</p>
@@ -8415,18 +8715,21 @@ function renderProjectChangelogs() {
   if (!list) return;
   const items = (Array.isArray(pclCache) ? pclCache : [])
     .filter((p) => p && String(p.slug || '').trim() && Array.isArray(p.versions) && p.versions.length);
+  // El propio OWS Hub encabeza la lista siempre (sus datos son locales).
+  const hubHtml = hubChangelogProjectHtml();
+  const total = items.length + (hubHtml ? 1 : 0);
   if (count) {
-    count.textContent = items.length
-      ? `${items.length} ${items.length === 1 ? 'proyecto' : 'proyectos'}`
+    count.textContent = total
+      ? `${total} ${total === 1 ? 'proyecto' : 'proyectos'}`
       : 'Sin changelogs';
   }
-  if (!items.length) {
+  if (!total) {
     list.innerHTML = '';
     if (empty) empty.classList.remove('hidden');
     return;
   }
   if (empty) empty.classList.add('hidden');
-  list.innerHTML = items.map((p) => {
+  list.innerHTML = hubHtml + items.map((p) => {
     const slug = String(p.slug).trim();
     const versions = p.versions;
     const latest = versions[0] || {};

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=13" />
+  <link rel="stylesheet" href="admin-styles.css?v=14" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -124,6 +124,7 @@
         </div>
         <div class="page-head-actions">
         <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openNewsForm">＋ Nueva noticia</button>
+        <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openNewsBulkEditor" title="Banners y animaciones para varias noticias a la vez">🧩 Editor masivo</button>
         <button class="btn btn-ghost btn-sm newsadm-refresh" data-adm-ev="click" data-adm="loadAdminNews" data-adm-a0="b:1" title="Recargar noticias">↻ Actualizar</button>
         </div>
       </div>
@@ -178,6 +179,67 @@
               <div class="field-group news-url-group">
                 <label for="news-img-url">…o pegá una URL de imagen <span class="opt-tag">opcional</span></label>
                 <input type="url" id="news-img-url" placeholder="https://…" autocomplete="off" data-adm-ev="input" data-adm="updateNewsPreview" />
+              </div>
+
+              <div class="newsadm-subsec">
+                <div class="newsadm-subsec-head"><span>🎏 Banner de la noticia <span class="opt-tag">opcional</span></span></div>
+                <p class="form-hint">Franja ancha que se muestra arriba al <b>abrir la noticia</b> en el Hub. Ideal 1920×600. Si hay banner, reemplaza a la portada en el lector.</p>
+                <div class="ev-dropzone ev-dropzone-sm" id="news-banner-dropzone" data-adm-drop="news-banner-file" data-adm-drop-not="news-banner-file">
+                  <div class="ev-dropzone-inner">
+                    <span class="ev-dropzone-icon">🎏</span>
+                    <span class="ev-dropzone-text"><b>Arrastrá el banner</b> o hacé clic para elegir <small>PNG · JPG · WEBP · GIF — hasta 15 MB</small></span>
+                  </div>
+                  <input type="file" id="news-banner-file" class="hidden" accept="image/png,image/jpeg,image/webp,image/gif" />
+                </div>
+                <div id="news-banner-preview" class="ev-preview hidden"></div>
+                <div class="field-group news-url-group">
+                  <label for="news-banner-url">…o pegá una URL de banner</label>
+                  <input type="url" id="news-banner-url" placeholder="https://…" autocomplete="off" data-adm-ev="input" data-adm="updateNewsBannerPreview" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 2b · Animación de entrada (se reproduce al abrir la noticia en el Hub) -->
+            <div class="ev-section newsadm-sec">
+              <div class="ev-section-title">🎬 Animación de entrada</div>
+              <p class="form-hint">Se reproduce al <b>abrir la noticia</b> en el Hub. Elegí un preset o escribilo <b>por código</b> (CSS propio apuntando a <code>#news-modal</code>).</p>
+              <div class="newsanim-grid">
+                <div class="field-group">
+                  <label for="news-anim-preset">Preset</label>
+                  <select id="news-anim-preset" data-adm-ev="change" data-adm="syncNewsAnimControls">
+                    <option value="none">Ninguna (entrada estándar)</option>
+                    <option value="fade">Fade · aparecer</option>
+                    <option value="rise">Subida · desde abajo</option>
+                    <option value="zoom">Zoom · acercar</option>
+                    <option value="slide">Lateral · desde la izquierda</option>
+                    <option value="blur">Blur · enfocar</option>
+                    <option value="flip">Flip · voltear</option>
+                    <option value="custom">Personalizada · por código</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label for="news-anim-dur">Duración <span class="newsadm-count" id="news-anim-dur-val">0.9s</span></label>
+                  <input type="range" id="news-anim-dur" min="0.3" max="3" step="0.1" value="0.9" data-adm-ev="input|change" data-adm="syncNewsAnimControls" />
+                </div>
+                <div class="field-group">
+                  <label for="news-anim-delay">Retardo <span class="newsadm-count" id="news-anim-delay-val">0.2s</span></label>
+                  <input type="range" id="news-anim-delay" min="0" max="1.5" step="0.1" value="0.2" data-adm-ev="input|change" data-adm="syncNewsAnimControls" />
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="news-anim-css">Código CSS personalizado <span class="opt-tag">opcional</span></label>
+                <textarea id="news-anim-css" rows="5" spellcheck="false" placeholder="@keyframes miEntrada { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }&#10;#news-modal .nm-content { animation: miEntrada 0.9s ease both; }"></textarea>
+                <p class="form-hint">Usá selectores que empiecen con <code>#news-modal</code> para no afectar al resto del Hub.</p>
+              </div>
+              <div class="newsanim-stage-wrap">
+                <div class="newsanim-stage" id="newsanim-stage" aria-hidden="true">
+                  <div class="newsanim-mini">
+                    <span class="newsanim-mini-media">🎏</span>
+                    <span class="newsanim-mini-title">Tu titular</span>
+                    <span class="newsanim-mini-text">Así entra el contenido al abrir la noticia…</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="previewNewsAnim">▶ Probar animación</button>
               </div>
             </div>
 
@@ -2047,10 +2109,83 @@
     </div>
   </div>
 
+  <!-- Editor masivo de Noticias: banner y/o animación a varias noticias de una vez -->
+  <div id="news-bulk-modal" class="devmodal-overlay hidden" data-adm-overlay-id="news-bulk-modal" data-adm-overlay-fn="closeNewsBulkEditor">
+    <div class="devmodal-card formmodal-card newsbulk-card glass-card" role="dialog" aria-modal="true" aria-labelledby="news-bulk-title">
+      <div class="formmodal-head">
+        <div class="formmodal-titles">
+          <span class="formmodal-eyebrow">Noticias · Editor masivo</span>
+          <span class="formmodal-title" id="news-bulk-title">🧩 Banners y animaciones en masa</span>
+        </div>
+        <button class="devmodal-close" data-adm-ev="click" data-adm="closeNewsBulkEditor" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="newsbulk-body">
+        <div class="newsbulk-col">
+          <div class="newsbulk-col-head">
+            <span>1 · Elegí las noticias <b id="news-bulk-count">0</b></span>
+            <span class="newsbulk-col-actions">
+              <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="newsBulkSelectAll">Todas</button>
+              <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="newsBulkSelectNone">Ninguna</button>
+            </span>
+          </div>
+          <div id="news-bulk-list" class="newsbulk-list"></div>
+        </div>
+        <div class="newsbulk-col">
+          <div class="newsbulk-col-head"><span>2 · Qué aplicar</span></div>
+
+          <div class="field-group">
+            <label for="news-bulk-banner-mode">Banner</label>
+            <select id="news-bulk-banner-mode" data-adm-ev="change" data-adm="syncNewsBulkControls">
+              <option value="keep">No cambiar</option>
+              <option value="set">Establecer URL de banner</option>
+              <option value="clear">Quitar banner</option>
+            </select>
+          </div>
+          <div class="field-group hidden" id="news-bulk-banner-url-group">
+            <label for="news-bulk-banner-url">URL del banner</label>
+            <input type="url" id="news-bulk-banner-url" placeholder="https://…" autocomplete="off" />
+          </div>
+
+          <div class="field-group">
+            <label for="news-bulk-anim-preset">Animación de entrada</label>
+            <select id="news-bulk-anim-preset" data-adm-ev="change" data-adm="syncNewsBulkControls">
+              <option value="">No cambiar</option>
+              <option value="none">Quitar animación (entrada estándar)</option>
+              <option value="fade">Fade · aparecer</option>
+              <option value="rise">Subida · desde abajo</option>
+              <option value="zoom">Zoom · acercar</option>
+              <option value="slide">Lateral · desde la izquierda</option>
+              <option value="blur">Blur · enfocar</option>
+              <option value="flip">Flip · voltear</option>
+              <option value="custom">Personalizada · por código</option>
+            </select>
+          </div>
+          <div class="newsbulk-times hidden" id="newsbulk-times">
+            <div class="field-group">
+              <label for="news-bulk-anim-dur">Duración <span class="newsadm-count" id="news-bulk-dur-val">0.9s</span></label>
+              <input type="range" id="news-bulk-anim-dur" min="0.3" max="3" step="0.1" value="0.9" data-adm-ev="input|change" data-adm="syncNewsBulkControls" />
+            </div>
+            <div class="field-group">
+              <label for="news-bulk-anim-delay">Retardo <span class="newsadm-count" id="news-bulk-delay-val">0.2s</span></label>
+              <input type="range" id="news-bulk-anim-delay" min="0" max="1.5" step="0.1" value="0.2" data-adm-ev="input|change" data-adm="syncNewsBulkControls" />
+            </div>
+          </div>
+          <div class="field-group hidden" id="news-bulk-css-group">
+            <label for="news-bulk-anim-css">CSS personalizado <span class="opt-tag">opcional</span></label>
+            <textarea id="news-bulk-anim-css" rows="4" spellcheck="false" placeholder="#news-modal .nm-content { animation: miEntrada 0.9s ease both; }"></textarea>
+          </div>
+
+          <div id="news-bulk-alert" class="alert-box hidden"></div>
+          <button type="button" class="btn btn-primary newsbulk-apply" data-adm-ev="click" data-adm="applyNewsBulkEdits">🎬 Aplicar cambios a las seleccionadas</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <script src="../ows-api-failover.js?v=1"></script>
-  <script src="admin-app.js?v=9"></script>
+  <script src="admin-app.js?v=10"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

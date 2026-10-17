@@ -1,0 +1,39 @@
+OWS Hub 3.4.30 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.30
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-17
+
+Cambios:
+- La sección Actualizaciones se rehizo para aprovechar todo el ancho de la pantalla, con un listado compacto que ahora muestra todos los proyectos de un vistazo.
+- Cada proyecto aparece con su icono y su nombre, y a la derecha su versión instalada, la última publicada y su estado; OWS Hub va primero, destacado, como la fila insignia del gestor.
+- Tocar cualquier fila abre una ficha nueva con los datos públicos de la actualización: versión instalada y disponible, fecha de publicación, peso, plataforma, canal y las novedades de la versión.
+- Las acciones (actualizar, instalar, reiniciar, jugar) viven ahora dentro de esa ficha, así el listado queda limpio y de lectura rápida.
+- Del lado derecho de la ficha quedó un acceso directo a la sección de Changelogs: te lleva allí y abre la ficha del proyecto —o la del propio launcher— y la deja destacada para que la encuentres al instante.
+- El historial de versiones que vivía dentro del gestor se retiró: ahora ese recorrido completo vive en Changelogs, en un solo lugar para todos los proyectos.
+- La actualización del propio Hub conserva el flujo de siempre —descarga con progreso, cuenta regresiva y reinicio—: solo cambió el botón de lugar y ahora vive en la ficha de OWS Hub.
+- OWS Hub se suma a la sección Changelogs: su ficha encabeza la lista con todas las versiones publicadas del launcher y el changelog completo de cada una, de la más nueva a la más vieja.
+- La ficha del launcher se distingue del resto con un marco animado, y cada versión muestra cuántos cambios trae y un adelanto de sus notas.
+- La sección Noticias se rediseñó por completo en formato compacto: cada noticia es una fila breve con su miniatura, fecha, proyecto y titular, para recorrer todo el feed de un vistazo.
+- Las noticias pueden incluir un banner ancho que aparece como portada al abrirlas y se funde hacia el contenido.
+- Al abrir una noticia ahora puede reproducirse una animación de entrada (fundido, subida, zoom, lateral, desenfoque o volteo), con su duración y retardo propios, o una animación personalizada.
+
+=== ENGLISH ===
+Version: 3.4.30
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-17
+
+Changes:
+- The Updates section was reworked to use the full width of the screen, with a compact list that now shows every project at a glance.
+- Each project appears with its icon and name, and its installed version, the latest published one and its status on the right; OWS Hub goes first, highlighted, as the manager's flagship row.
+- Clicking any row opens a new card with the public update data: installed and available version, release date, size, platform, channel and the release notes.
+- The actions (update, install, restart, play) now live inside that card, keeping the list clean and quick to read.
+- On the right side of the card there is a direct shortcut to the Changelogs section: it takes you there and opens the project's —or the launcher's own— card, highlighting it so you spot it instantly.
+- The version history that used to live inside the manager was retired: that full timeline now lives in Changelogs, a single place for every project.
+- Updating OWS Hub itself keeps its usual flow —progress download, countdown and restart—: only the button moved, and now lives in the OWS Hub card.
+- OWS Hub joins the Changelogs section: its card heads the list with every published version of the launcher and the full changelog of each one, newest first.
+- The launcher's card stands out from the rest with an animated frame, and every version shows its change count and a preview of its notes.
+- The News section was fully redesigned into a compact layout: each news item is a short row with its thumbnail, date, project and headline, so the whole feed can be scanned at a glance.
+- News items can now include a wide banner that appears as the cover when opened, fading into the content.
+- Opening a news item can now play an entrance animation (fade, rise, zoom, slide, blur or flip), with its own duration and delay, or a custom animation.

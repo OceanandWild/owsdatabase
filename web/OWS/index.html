@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Hub — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=12" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -442,12 +442,12 @@
           <span class="section-index">02</span>
           <div class="section-titles">
             <h3 class="section-title">Últimas Noticias</h3>
-            <p class="section-sub">Tocá una tarjeta para leer la noticia completa</p>
+            <p class="section-sub">Un vistazo compacto: tocá una noticia para leerla completa</p>
           </div>
           <span class="section-meta news-live-pill" id="news-count">Sin noticias</span>
         </div>
         <div class="news-panel glass-card">
-          <div id="news-table-body" class="news-grid"></div>
+          <div id="news-table-body" class="news-feed"></div>
           <div id="news-empty" class="news-empty">
             <span class="news-empty-icon" id="news-empty-icon">📰</span>
             <p class="news-empty-title" id="news-empty-title">Aún no hay noticias</p>
@@ -523,7 +523,7 @@
           <span class="section-index">04</span>
           <div class="section-titles">
             <h3 class="section-title">Changelogs de Proyectos <span class="cl-new hidden" id="cl-new-tag" title="Sección recién estrenada">✨ Nuevo</span></h3>
-            <p class="section-sub">Las notas de cada versión publicada de nuestros juegos: desplegá un proyecto y tocá una versión.</p>
+            <p class="section-sub">Las notas de cada versión publicada del launcher y de nuestros juegos: desplegá una ficha y tocá una versión.</p>
           </div>
           <span class="section-meta" id="cl-count">—</span>
         </div>
@@ -636,10 +636,13 @@
       </section>
 
       <!-- ═══════════════════════════════════════════
-           GESTOR DE ACTUALIZACIONES
-           OWS Hub (launcher) + proyectos instalados.
-           El backend decide qué hay para actualizar (GET /ows-updates/check);
-           esta sección solo pinta el plan y ejecuta la actualización.
+           GESTOR DE ACTUALIZACIONES (rework)
+           Un solo listado compacto: OWS Hub arriba, destacado, y debajo
+           cada proyecto (icono + nombre a la izquierda, versión y estado a
+           la derecha). Tocar un ítem abre su modal de detalle con los datos
+           públicos (versiones, fecha, peso, notas) y las acciones; las notas
+           de todas las versiones viven en la sección Changelogs.
+           El backend decide el plan (GET /ows-updates/check).
            ═══════════════════════════════════════════ -->
       <section id="sec-actualizaciones" class="page-section ows-view" aria-label="Gestor de Actualizaciones">
         <div class="section-head">
@@ -652,48 +655,6 @@
             <span class="upd-platform-chip" id="updates-platform-chip" data-platform="windows" title="Plataforma de las versiones que se muestran">🪟 Versiones de Windows</span>
             <span class="section-meta" id="updates-checked">Sin revisar</span>
             <button id="btn-updates-refresh" class="btn btn-ghost btn-sm" type="button">↻ Buscar actualizaciones</button>
-          </div>
-        </div>
-
-        <!-- Tarjeta del OWS Hub (auto-actualización).
-             Layout nuevo: identidad a la izquierda, flujo de versiones a la
-             derecha, novedades plegables en el medio y acciones al pie.
-             El progreso NO vive acá: queda en el toaster (#hub-upd-toaster)
-             mientras baja y después en el modal de reinicio. -->
-        <div class="upd-hub-card" id="upd-hub-card" data-state="loading">
-          <div class="upd-hub-grid">
-            <div class="upd-hub-col upd-hub-col-id">
-              <div class="upd-hub-id">
-              <div class="upd-hub-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-              </div>
-              <div class="upd-hub-titles">
-                <p class="upd-hub-kicker">Launcher del ecosistema</p>
-                <p class="upd-hub-name">OWS Hub</p>
-                <p class="upd-hub-state" id="upd-hub-state">Buscando la última versión…</p>
-              </div>
-            </div>
-            <div class="upd-hub-version-flow">
-              <span class="upd-ver-cell">
-                <small>Instalada</small>
-                <b class="upd-ver-chip upd-ver-old" id="upd-hub-current">—</b>
-              </span>
-              <span class="upd-ver-arrow" aria-hidden="true">→</span>
-              <span class="upd-ver-cell">
-                <small>Disponible</small>
-                <b class="upd-ver-chip upd-ver-new" id="upd-hub-latest">—</b>
-              </span>
-            </div>
-            </div>
-            <div class="upd-hub-col upd-hub-col-notes">
-              <p class="upd-hub-notes-label">Novedades de esta versión</p>
-              <div class="upd-hub-notes" id="upd-hub-notes"></div>
-          <button class="upd-hub-notes-more hidden" id="upd-hub-notes-more" type="button" aria-expanded="false">Ver todas las novedades</button>
-            </div>
-
-          <div class="upd-hub-foot">
-            <div class="upd-hub-actions" id="upd-hub-actions"></div>
-            <p class="upd-hub-hint" id="upd-hub-hint"></p>
           </div>
         </div>
 
@@ -743,7 +704,8 @@
           <button type="button" class="upd-chip" data-upd-filter="unavailable" role="tab" aria-selected="false">Sin build <i class="upd-chip-n" data-upd-count="unavailable">0</i></button>
         </div>
 
-        <!-- Lista -->
+        <!-- Listado compacto: OWS Hub primero (destacado) y, debajo, cada
+             proyecto. Cada ítem abre su modal de detalle con las acciones. -->
         <div id="updates-list" class="upd-list">
           <p class="loading-note">Cargando estado de actualizaciones…</p>
         </div>
@@ -811,11 +773,17 @@
     </div>
   </div>
 
-  <!-- Changelog de un proyecto (historial de versiones del Gestor) -->
-  <div id="updates-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
-    <div class="modal-card glass-card updates-modal-card">
-      <button class="modal-close" data-close="updates-modal" aria-label="Cerrar">&times;</button>
-      <div id="updates-modal-body"></div>
+  <!-- Detalle de actualización del Gestor (rework):
+       · izquierda: datos públicos del proyecto o de OWS Hub — identidad,
+         flujo de versiones (instalada → disponible), fecha, peso, canal,
+         plataforma y notas de la versión.
+       · derecha: acceso directo a la sección de Changelogs, donde se
+         consultan las notas de todas las versiones publicadas.
+       Nada de datos internos del backend: solo lo público. -->
+  <div id="upd-detail-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Detalle de actualización">
+    <div class="modal-card glass-card upd-detail-card">
+      <button class="modal-close" data-close="upd-detail-modal" aria-label="Cerrar">&times;</button>
+      <div id="upd-detail-body"></div>
     </div>
   </div>
 
@@ -885,6 +853,6 @@
        espejo owsdatabase2 (ver ows-api-failover.js). -->
   <script src="ows-api-failover.js?v=1"></script>
   <script src="library.js?v=4"></script>
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

@@ -5436,7 +5436,12 @@ let newsCache = [];
 let newsFilter = 'all';
 let newsSearchTerm = '';
 let newsImgFile = null;
+let newsBannerFile = null;
 let newsFormDate = null;
+
+// Presets de animación de entrada (deben coincidir con el Hub y el server).
+const NEWS_ANIM_PRESETS = ['none', 'fade', 'rise', 'zoom', 'slide', 'blur', 'flip', 'custom'];
+const NEWS_ANIM_LABELS = { none: 'estándar', fade: 'Fade', rise: 'Subida', zoom: 'Zoom', slide: 'Lateral', blur: 'Blur', flip: 'Flip', custom: 'CSS propio' };
 
 function fillNewsProjectList() {
   const dl = document.getElementById('news-project-list');
@@ -5584,6 +5589,16 @@ function newsSortDate(n) {
   return Number.isFinite(t) ? t : 0;
 }
 
+// Chip de la animación configurada para una noticia (leído en la lista).
+function newsAnimBadge(n) {
+  const anim = (n && n.animation) || {};
+  const preset = String(anim.preset || '').toLowerCase();
+  const custom = String(anim.custom || '');
+  if ((!preset || preset === 'none') && !custom) return '';
+  const label = NEWS_ANIM_LABELS[preset] || 'Animada';
+  return `<span class="newsadm-date newsadm-hasanim" title="Animación de entrada al abrir la noticia">🎬 ${escapeHtml(label)}</span>`;
+}
+
 function renderNewsList() {
   const list = document.getElementById('news-list');
   if (!list) return;
@@ -5618,6 +5633,8 @@ function renderNewsList() {
         <span class="newsadm-date">📅 ${escapeHtml(formatNewsAdminDate(n.published_at || n.created_at))}</span>
         <span class="status-pill ${on ? 'status-on' : 'status-off'}">${on ? 'Activa' : 'Oculta'}</span>
         ${media ? '<span class="newsadm-date newsadm-hasimg">🖼 Con imagen</span>' : ''}
+        ${String(n.banner_url || '').trim() ? '<span class="newsadm-date newsadm-hasbanner">🎏 Banner</span>' : ''}
+        ${newsAnimBadge(n)}
       </div>
       <div class="newsadm-item-body">
         ${media ? `<div class="newsadm-item-media"><img src="${escapeHtml(media)}" alt="" loading="lazy" data-adm-err="rm" /></div>` : ''}
@@ -5668,11 +5685,15 @@ async function saveNews(e) {
     fd.append('description', description);
     fd.append('project_name', project_name);
     fd.append('image_url', image_url);
+    const bannerUrlEl = document.getElementById('news-banner-url');
+    fd.append('banner_url', bannerUrlEl ? bannerUrlEl.value.trim() : '');
+    fd.append('animation_config', JSON.stringify(newsAnimFromForm()));
     if (editingNewsId) {
       const item = newsCache.find((n) => Number(n.id) === Number(editingNewsId));
       fd.append('is_active', item && item.is_active === false ? 'false' : 'true');
     }
     if (newsImgFile) fd.append('image', newsImgFile, newsImgFile.name || 'noticia.jpg');
+    if (newsBannerFile) fd.append('banner', newsBannerFile, newsBannerFile.name || 'banner.jpg');
     const res = await fetch(API_BASE + (editingNewsId ? `/ows-dashboard/news/${editingNewsId}` : '/ows-dashboard/news'), {
       method: editingNewsId ? 'PATCH' : 'POST',
       headers: adminHeaders(),
@@ -5710,6 +5731,13 @@ function editNews(id) {
   if (fileEl) fileEl.value = '';
   const imgUrlEl = document.getElementById('news-img-url');
   if (imgUrlEl) imgUrlEl.value = item.image_url || '';
+  newsBannerFile = null;
+  const bannerFileEl = document.getElementById('news-banner-file');
+  if (bannerFileEl) bannerFileEl.value = '';
+  const bannerUrlFieldEl = document.getElementById('news-banner-url');
+  if (bannerUrlFieldEl) bannerUrlFieldEl.value = item.banner_url || '';
+  renderNewsBannerPreview(item.banner_url || '');
+  newsAnimToForm(item.animation || {}, true);
   newsFormDate = item.published_at || item.created_at || null;
   renderNewsImagePreview(item.image_url || '');
   updateNewsCounters();
@@ -5738,6 +5766,13 @@ function resetNewsForm() {
   if (fileEl) fileEl.value = '';
   const imgUrlEl = document.getElementById('news-img-url');
   if (imgUrlEl) imgUrlEl.value = '';
+  newsBannerFile = null;
+  const resetBannerFileEl = document.getElementById('news-banner-file');
+  if (resetBannerFileEl) resetBannerFileEl.value = '';
+  const resetBannerUrlEl = document.getElementById('news-banner-url');
+  if (resetBannerUrlEl) resetBannerUrlEl.value = '';
+  renderNewsBannerPreview('');
+  newsAnimToForm({});
   renderNewsImagePreview('');
   updateNewsCounters();
   updateNewsPreview();
@@ -5821,6 +5856,322 @@ function removeNewsImage() {
   renderNewsImagePreview('');
   updateNewsPreview();
 }
+
+// ── Banner de la noticia (franja ancha que se ve al abrirla en el Hub) ──
+function currentNewsBannerSrc(fallback) {
+  if (newsBannerFile) {
+    try { return URL.createObjectURL(newsBannerFile); } catch (_) { return ''; }
+  }
+  const urlEl = document.getElementById('news-banner-url');
+  const typed = urlEl ? urlEl.value.trim() : '';
+  if (typed) return typed;
+  return String(fallback || '');
+}
+
+function renderNewsBannerPreview(existingUrl) {
+  const preview = document.getElementById('news-banner-preview');
+  if (!preview) return;
+  const src = currentNewsBannerSrc(existingUrl);
+  if (!src) {
+    preview.innerHTML = '';
+    preview.classList.add('hidden');
+    return;
+  }
+  preview.innerHTML = `
+    <img src="${escapeHtml(src)}" alt="banner" data-adm-err="closest:.ev-preview|hidden" />
+    <button type="button" class="btn btn-danger btn-mini ev-preview-remove" data-adm-ev="click" data-adm="removeNewsBanner">✕ Quitar</button>`;
+  preview.classList.remove('hidden');
+}
+
+function updateNewsBannerPreview() { renderNewsBannerPreview(); }
+
+function removeNewsBanner() {
+  newsBannerFile = null;
+  const fi = document.getElementById('news-banner-file');
+  if (fi) fi.value = '';
+  const urlEl = document.getElementById('news-banner-url');
+  if (urlEl) urlEl.value = '';
+  renderNewsBannerPreview('');
+}
+
+function setupNewsBannerPreview() {
+  const input = document.getElementById('news-banner-file');
+  if (!input || input.dataset.bound) return;
+  input.dataset.bound = '1';
+  const accept = (f) => {
+    if (!f) return false;
+    if (!/^image\//.test(f.type)) { showToast('⚠️ Solo se aceptan imágenes'); return false; }
+    if (f.size > 15 * 1024 * 1024) { showToast('⚠️ El banner supera los 15 MB'); return false; }
+    return true;
+  };
+  const applyFile = (f) => {
+    if (!accept(f)) return;
+    newsBannerFile = f;
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    input.files = dt.files;
+    const urlEl = document.getElementById('news-banner-url');
+    if (urlEl) urlEl.value = '';
+    renderNewsBannerPreview();
+  };
+  input.addEventListener('change', () => {
+    applyFile(input.files && input.files[0] ? input.files[0] : null);
+  });
+  const zone = document.getElementById('news-banner-dropzone');
+  if (zone) {
+    ['dragenter', 'dragover'].forEach((evt) => zone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      zone.classList.add('ev-dropzone-active');
+    }));
+    ['dragleave', 'drop'].forEach((evt) => zone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      zone.classList.remove('ev-dropzone-active');
+    }));
+    zone.addEventListener('drop', (e) => {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) applyFile(f);
+    });
+  }
+  const urlInput = document.getElementById('news-banner-url');
+  if (urlInput && !urlInput.dataset.bound) {
+    urlInput.dataset.bound = '1';
+    urlInput.addEventListener('input', () => {
+      if (urlInput.value.trim()) {
+        newsBannerFile = null;
+        input.value = '';
+      }
+      renderNewsBannerPreview();
+    });
+  }
+}
+
+// ── Animación de entrada del formulario (preset + tiempos + CSS propio) ──
+function syncNewsAnimControls() {
+  const dur = document.getElementById('news-anim-dur');
+  const delay = document.getElementById('news-anim-delay');
+  const durVal = document.getElementById('news-anim-dur-val');
+  const delayVal = document.getElementById('news-anim-delay-val');
+  if (dur && durVal) durVal.textContent = `${Number(dur.value).toFixed(1)}s`;
+  if (delay && delayVal) delayVal.textContent = `${Number(delay.value).toFixed(1)}s`;
+}
+
+function newsAnimFromForm() {
+  const presetEl = document.getElementById('news-anim-preset');
+  const durEl = document.getElementById('news-anim-dur');
+  const delayEl = document.getElementById('news-anim-delay');
+  const cssEl = document.getElementById('news-anim-css');
+  const preset = presetEl ? presetEl.value : 'none';
+  const custom = cssEl ? cssEl.value.trim() : '';
+  if ((!preset || preset === 'none') && !custom) return {};
+  const cfg = {
+    preset: preset || 'none',
+    duration: durEl ? Number(durEl.value) : 0.9,
+    delay: delayEl ? Number(delayEl.value) : 0.2
+  };
+  if (custom) cfg.custom = custom.slice(0, 6000);
+  return cfg;
+}
+
+function newsAnimToForm(cfg, replay) {
+  const c = (cfg && typeof cfg === 'object' && !Array.isArray(cfg)) ? cfg : {};
+  const presetRaw = String(c.preset || '').trim().toLowerCase();
+  const preset = NEWS_ANIM_PRESETS.includes(presetRaw) ? presetRaw : 'none';
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('news-anim-preset', preset);
+  const dur = Number(c.duration);
+  set('news-anim-dur', Number.isFinite(dur) ? Math.min(3, Math.max(0.3, dur)) : 0.9);
+  const delay = Number(c.delay);
+  set('news-anim-delay', Number.isFinite(delay) ? Math.min(1.5, Math.max(0, delay)) : 0.2);
+  set('news-anim-css', String(c.custom || c.custom_css || ''));
+  syncNewsAnimControls();
+  if (replay) previewNewsAnim();
+}
+
+// Reproduce la animación elegida en el mini-escenario del formulario.
+function previewNewsAnim() {
+  const stage = document.getElementById('newsanim-stage');
+  if (!stage) return;
+  const mini = stage.querySelector('.newsanim-mini');
+  if (!mini) return;
+  const cfg = newsAnimFromForm();
+  const preset = cfg.preset || 'none';
+  // CSS propio: en la vista previa se reapunta #news-modal al escenario.
+  let styleEl = document.getElementById('newsanim-custom-style');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'newsanim-custom-style';
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = cfg.custom ? cfg.custom.replace(/#news-modal\b/g, '#newsanim-stage') : '';
+  stage.classList.remove('is-playing', 'anim-fade', 'anim-rise', 'anim-zoom', 'anim-slide', 'anim-blur', 'anim-flip');
+  void stage.offsetWidth; // reflow: reinicia las animaciones
+  if (preset && preset !== 'none' && preset !== 'custom') stage.classList.add(`anim-${preset}`);
+  stage.style.setProperty('--anim-dur', `${(cfg.duration || 0.9).toFixed(1)}s`);
+  stage.style.setProperty('--anim-delay', `${(cfg.delay || 0).toFixed(1)}s`);
+  stage.classList.add('is-playing');
+}
+
+// ── Editor masivo: banner y animación para varias noticias a la vez ──
+let newsBulkSelection = new Set();
+
+function openNewsBulkEditor() {
+  newsBulkSelection = new Set();
+  ['news-bulk-banner-url', 'news-bulk-anim-css'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const mode = document.getElementById('news-bulk-banner-mode');
+  if (mode) mode.value = 'keep';
+  const preset = document.getElementById('news-bulk-anim-preset');
+  if (preset) preset.value = '';
+  hideAlert('news-bulk-alert');
+  renderNewsBulkList();
+  syncNewsBulkControls();
+  const modal = document.getElementById('news-bulk-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    try { document.body.style.overflow = 'hidden'; } catch (_) {}
+  }
+}
+
+function closeNewsBulkEditor() {
+  const modal = document.getElementById('news-bulk-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  modal.classList.add('hidden');
+  try { document.body.style.overflow = ''; } catch (_) {}
+}
+
+function renderNewsBulkList() {
+  const list = document.getElementById('news-bulk-list');
+  if (!list) return;
+  const items = visibleNews();
+  if (!items.length) {
+    list.innerHTML = '<div class="newsadm-empty"><span class="newsadm-empty-icon">📰</span><p><b>No hay noticias para editar</b></p><p>Creá alguna desde el formulario y volvé a intentar.</p></div>';
+    updateNewsBulkCount();
+    return;
+  }
+  list.innerHTML = items.map((n) => {
+    const id = Number(n.id);
+    const anim = n.animation || {};
+    const hasAnim = (anim.preset && anim.preset !== 'none') || anim.custom;
+    const flags = `${String(n.banner_url || '').trim() ? '🎏' : ''}${hasAnim ? '🎬' : ''}`;
+    return `
+    <label class="newsbulk-item${newsBulkSelection.has(id) ? ' is-checked' : ''}">
+      <input type="checkbox" value="${id}" ${newsBulkSelection.has(id) ? 'checked' : ''} data-adm-ev="change" data-adm="toggleNewsBulkItem" data-adm-a0="r:${id}" data-adm-a1="ev" />
+      <span class="newsbulk-item-main">
+        <b>${escapeHtml(n.title || '(sin título)')}</b>
+        <span>${escapeHtml(formatNewsAdminDate(n.published_at || n.created_at))} · ${escapeHtml(n.project_name || 'OWS')}${n.is_active ? '' : ' · oculta'}</span>
+      </span>
+      <span class="newsbulk-item-flags">${flags}</span>
+    </label>`;
+  }).join('');
+  updateNewsBulkCount();
+}
+
+function toggleNewsBulkItem(id, e) {
+  const on = !!(e && e.target && e.target.checked);
+  if (on) newsBulkSelection.add(Number(id));
+  else newsBulkSelection.delete(Number(id));
+  const label = e && e.target ? e.target.closest('.newsbulk-item') : null;
+  if (label) label.classList.toggle('is-checked', on);
+  updateNewsBulkCount();
+}
+
+function updateNewsBulkCount() {
+  const el = document.getElementById('news-bulk-count');
+  if (el) el.textContent = String(newsBulkSelection.size);
+}
+
+function newsBulkSelectAll() {
+  visibleNews().forEach((n) => newsBulkSelection.add(Number(n.id)));
+  renderNewsBulkList();
+}
+
+function newsBulkSelectNone() {
+  newsBulkSelection = new Set();
+  renderNewsBulkList();
+}
+
+function syncNewsBulkControls() {
+  const mode = document.getElementById('news-bulk-banner-mode');
+  const urlGroup = document.getElementById('news-bulk-banner-url-group');
+  if (mode && urlGroup) urlGroup.classList.toggle('hidden', mode.value !== 'set');
+  const preset = document.getElementById('news-bulk-anim-preset');
+  const presetVal = preset ? preset.value : '';
+  const times = document.getElementById('newsbulk-times');
+  const cssGroup = document.getElementById('news-bulk-css-group');
+  if (times) times.classList.toggle('hidden', !presetVal);
+  if (cssGroup) cssGroup.classList.toggle('hidden', presetVal !== 'custom');
+  const dur = document.getElementById('news-bulk-anim-dur');
+  const delay = document.getElementById('news-bulk-anim-delay');
+  const durVal = document.getElementById('news-bulk-dur-val');
+  const delayVal = document.getElementById('news-bulk-delay-val');
+  if (dur && durVal) durVal.textContent = `${Number(dur.value).toFixed(1)}s`;
+  if (delay && delayVal) delayVal.textContent = `${Number(delay.value).toFixed(1)}s`;
+}
+
+async function applyNewsBulkEdits() {
+  hideAlert('news-bulk-alert');
+  const ids = Array.from(newsBulkSelection.values());
+  if (!ids.length) {
+    showAlert('news-bulk-alert', 'Elegí al menos una noticia de la lista.', 'error');
+    return;
+  }
+  const mode = document.getElementById('news-bulk-banner-mode');
+  const modeVal = mode ? mode.value : 'keep';
+  const presetEl = document.getElementById('news-bulk-anim-preset');
+  const presetVal = presetEl ? presetEl.value : '';
+  const body = { ids };
+  if (modeVal === 'set') {
+    const urlEl = document.getElementById('news-bulk-banner-url');
+    const url = urlEl ? urlEl.value.trim() : '';
+    if (!url) {
+      showAlert('news-bulk-alert', 'Pegá la URL del banner o cambiá la opción a "No cambiar".', 'error');
+      return;
+    }
+    body.banner_url = url;
+  } else if (modeVal === 'clear') {
+    body.banner_url = '';
+  }
+  if (presetVal) {
+    const durEl = document.getElementById('news-bulk-anim-dur');
+    const delayEl = document.getElementById('news-bulk-anim-delay');
+    const cssEl = document.getElementById('news-bulk-anim-css');
+    const cfg = {
+      preset: presetVal,
+      duration: durEl ? Number(durEl.value) : 0.9,
+      delay: delayEl ? Number(delayEl.value) : 0.2
+    };
+    const custom = cssEl ? cssEl.value.trim() : '';
+    if (custom) cfg.custom = custom.slice(0, 6000);
+    body.animation_config = cfg;
+  }
+  if (body.banner_url === undefined && !body.animation_config) {
+    showAlert('news-bulk-alert', 'No elegiste ningún cambio para aplicar.', 'error');
+    return;
+  }
+  try {
+    const res = await fetch(API_BASE + '/ows-dashboard/news/bulk-config', {
+      method: 'POST',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast(`✔ Cambios aplicados a ${data.updated ?? ids.length} noticias`);
+    closeNewsBulkEditor();
+    loadAdminNews();
+  } catch (err) {
+    showAlert('news-bulk-alert', err.message || 'Error al aplicar los cambios.', 'error');
+  }
+}
+
+// Escape cierra el editor masivo (el form-modal ya tiene su propio atajo).
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const modal = document.getElementById('news-bulk-modal');
+  if (modal && !modal.classList.contains('hidden')) closeNewsBulkEditor();
+});
 
 // Atajos del formulario: Ctrl/Cmd + Enter publica, Enter en el titular
 // salta al resumen (flujo rápido de creación).
@@ -12829,6 +13180,7 @@ if (!window._paxDayTimer) {
 document.addEventListener('DOMContentLoaded', async () => {
   setupEventImagePreview();
   setupNewsImagePreview();
+  setupNewsBannerPreview();
   setupNewsFormShortcuts();
   setupProjectImageInputs();
   // Sesiones de trabajo: el campo de % admite decimales y el reloj arranca

@@ -9,10 +9,11 @@
 
 1. **Un asset por generación.** Las grillas multi-frame salen irregulares: normalizar SIEMPRE con el pipeline ImageMagick del workspace (regla 6): `-extent` → `-crop CxR@ +repage +adjoin` → `-trim +repage -gravity center -extent`.
 2. **Pivote y escala fijos.** Personaje: celda 256×256, pivote centro. Armas/VFX: celda 256×256, pivote centro. El personaje de la hoja base mira hacia **arriba (N)** y el juego rota el sprite; alternativa recomendada si el generador mezcla direcciones: **generar por dirección (S, N, E) y el oeste con flip horizontal**.
-3. **Fondo plano puro** (blanco o transparente): el pipeline lo recorta. **Sin sombras horneadas** — las luces y sombras las pone el motor.
+3. **Fondo plano puro**: blanco o transparente en imágenes; **chroma verde #00FF00 en videos** (los frames se extraen por key). **Sin sombras horneadas** — las luces y sombras las pone el motor.
 4. **Crudo vs importado:** crudo a `_art-source/`; lo normalizado se importa a `Assets/_WildWeapon/Art/`.
 5. **Nombres:** `ww_<asset>_<anim>_<dir>_##.png` (ej: `ww_portador_run_S_00.png`). Las armas mantienen la convención existente: `katana_00..23.png`.
 6. **Intensidad de glow:** contenida. Los sets existentes (Chain Scythe rojo, Tiger naranja, Zeus azul) marcan el techo — lo nuevo no debe brillar más que ellos.
+7. **Animaciones = video.** Los assets animados se generan como **video corto** (4 / 6 / 8 s según la tabla final) y de ahí se extraen los frames (ffmpeg → ImageMagick). Reglas de video: cámara **fija cenital estrictamente perpendicular**, fondo **chroma verde plano (#00FF00)** sin gradientes, sujeto centrado y **fijo en el centro del cuadro** (sin desplazamiento), sin cortes, diseño consistente (**sin morphing ni flicker**). Loops: primer y último frame idénticos. Los estáticos (pisos, props, muros, katana en mano, render) siguen siendo imágenes.
 
 **Paleta maestra (ancla de todo):**
 - Cian neón `#00F3FF` · magenta eléctrico `#BC13FE` · navy/negro `#050510`
@@ -25,37 +26,36 @@
 
 ## 1. Portador (reemplaza el cuadrado blanco)
 
-### 1.1 Hoja base v0 — idle (variante A: 4 frames) y run (variante B: 6 frames)
-Generar **una vez por animación y por dirección** (S, N, E; oeste = flip). Van dos variantes del mismo prompt base:
+### 1.1 Video base — idle y run (por dirección)
+> Generar **una vez por animación y por dirección** (S, N, E; oeste = flip). Duración: **4 s** cada uno, loop perfecto. La carrera es "en el lugar": el personaje **nunca se mueve del centro del cuadro**.
 
 ```
-Top-down (bird's-eye) orthographic sprite of a futuristic duelist for a 2D arena PVP game,
-seen from directly above (head crown, shoulders and arms visible, foreshortened),
-character faces UP in every frame.
+Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
+seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Action: [ELEGIR: "gentle breathing idle, weight shifting subtly" / "full sprint cycle IN PLACE, 2 complete strides"].
 
 Art direction:
-- Compact readable silhouette; dark tactical armor (#050510 base) with metal joints.
-- NEUTRAL design for skin recoloring: body in cold greys, ONLY energy accents in cyan (#00F3FF).
-- Combat stance, weapon held forward (weapon sprite is layered separately, out of frame).
-- Consistent top light, subtle cyan rim light. No projected floor shadows.
-- Style: painted AAA game sprite, clean; matches the game's dark weapons with energy glow.
+- Compact readable silhouette; dark tactical armor (#050510) with cold grey body (neutral for skin recoloring) and cyan (#00F3FF) energy accents.
+- No face visible (crown of helmet only); weapon held forward but NOT visible (layered separately in the game).
+- Even top light, subtle cyan rim light, NO projected floor shadow.
+- Painted AAA game look matching the existing dark-metal arsenal. Character design stays perfectly consistent across the whole video (no morphing, no flicker).
 
-Technical output requirements:
-- VARIANT A: 4 frames in one horizontal row (idle breathing loop: 2 up, 2 down).
-- VARIANT B: 6 frames in one horizontal row (run cycle: contact, pass, up, contact, pass, up).
-- Same cell size, character centered, uniform spacing. Cell 256x256. Flat pure white background.
-- Pivot: body center (navel), identical across all frames.
+Camera & background:
+- LOCKED top-down camera: no movement, no zoom, no roll, no parallax. Subject centered and fixed at the center of the frame.
+- Isolated on a FLAT PURE chroma green background (#00FF00), no gradient, no lighting variation, no props, no shadows.
+
+Technical:
+- Duration: 4 seconds, smooth high framerate. Seamless loop: first and last frame identical.
 
 Negative constraints:
-- NO 3/4 view, NO oblique birds-eye, NO perspective: strictly perpendicular top view.
-- Face not visible (only crown/helmet), no text, no watermark, no scene background, no baked shadows, no weapon effects.
+- No camera movement or shake, no cuts or transitions, no zoom, no text, no watermark, no lens flare, no motion blur, no other characters, no background objects, no 3/4 or oblique view.
 ```
 
-### 1.2 Otras animaciones (misma plantilla que 1.1, cambiando solo la acción)
-- **Dash (3 frames):** cuerpo inclinado en la dirección, estela corta cian detrás, sin arma.
-- **Hit (2 frames):** retroceso seco, cabeza atrás, chispas mínimas.
-- **KO (6 frames):** desplome hacia el costado, casco suelto al final (queda como pieza de piso).
-- **Win (4 frames):** puño al aire, pose breve (para el cierre de ronda).
+### 1.2 Otras animaciones (mismo video base, cambiando solo Action + duración)
+- **Dash — 4 s, one-shot:** "explosive dash burst: sharp forward lunge lean with a brief slide, then settle to ready stance; stays centered".
+- **Hit — 4 s, one-shot:** "short hit reaction: sharp recoil with head snap backward, then recover to stance".
+- **KO — 6 s, one-shot:** "collapse: balance breaks, falls sideways onto the ground, settles; last 2 seconds completely still".
+- **Win — 4 s, one-shot:** "brief victory: fist raised with a sharp nod, then hold the pose".
 
 ### 1.3 Nota de skins (para producción)
 El cuerpo en grises fríos es a propósito: el recolor por tinte (HSV) cubre las skins base del doc (sección 7). El acento cian queda fijo en v0; las variantes de acento llegan con las skins épicas.
@@ -66,23 +66,27 @@ El cuerpo en grises fríos es a propósito: el recolor por tinte (HSV) cubre las
 
 > **Arma común:** VFX grisáceo y básico. La intensidad de VFX escala con la rareza — la Katana no lleva glow de color (eso se reserva a tiers superiores).
 
-### 2.1 Hoja de tajo M1 — 24 frames, grilla 6×4, celda 256×256 (igual que los sets existentes)
+### 2.1 Video del tajo M1 — 4 s, one-shot
+> El VFX grisáceo y básico de arma común. De acá salen los 24 frames (6×4, 256 px).
+
 ```
-Top-down weapon slash VFX sprite sheet for "Katana", the STARTER/common weapon of a 2D arena PVP game.
-Design intent: a common weapon must read clean and honest — minimal, desaturated VFX, no neon glow.
+Top-down weapon slash VFX animation for "Katana", the STARTER/common weapon of a 2D arena PVP game.
+Design intent: a common weapon reads clean and honest — minimal, desaturated VFX, no neon glow.
 
-Art direction:
-- Iaido crescent cut in plain steel grey/off-white: a thin matte blade arc, sweeping left→right across the cell.
-- NO colored glow, NO neon edge, NO bloom: just a soft grey motion smear and a few grey dust particles.
-- The arc grows, peaks mid-sequence and fades quickly; the effect sits at HALF the visual intensity of the colored sets (they are the ceiling).
-- Flat pure white background. No character, no hand, no sword body: only the cutting effect.
+Action & art direction:
+- A single iaido crescent cut in plain steel grey/off-white, sweeping left→right across the frame ONCE, slow and readable (~2 seconds).
+- Thin matte arc, soft grey motion smear, a few grey dust particles; NO colored glow, NO bloom.
+- Nothing visible during the first and last second of the video.
 
-Technical output requirements:
-- Exactly 24 frames, 6 columns x 4 rows grid, cell 256x256, uniform spacing.
-- Arc is continuous and readable as one motion when played at ~60 fps.
+Camera & background:
+- LOCKED perpendicular top-down camera, no movement of any kind. Effect centered.
+- Flat pure chroma green background (#00FF00), no gradient, no other elements.
+
+Technical:
+- Duration: 4 seconds, smooth high framerate.
 
 Negative constraints:
-- No colored energy, no cyan/magenta/neon, no text, no watermark, no environment, no character, no camera shake marks, no double cuts.
+- No colored energy, no cyan/magenta/neon, no character, no hand, no sword body, no camera movement, no text, no watermark, no motion blur.
 ```
 
 ### 2.2 Katana "en mano" (cenital, para el pivote de apuntado)
@@ -167,67 +171,75 @@ subtle rim light. Strict orthographic top view. 256x256 cell each, flat white ba
 No text, no watermark, no perspective, no characters.
 ```
 
-### 3.4 Hazards (telegrafiado, legible)
+### 3.4 Hazards (video, telegrafiado y legible)
 ```
-Situational top-down VFX sprite sheet, 6 frames, cell 256x256, flat white background:
+Locked top-down game VFX animation, effect centered, flat pure chroma green background (#00FF00),
+no camera movement, smooth high framerate, seamless loop (first = last frame).
 [VARIANTE]:
-- Nebula: falling debris telegraph — growing dark shadow circle with a faint magenta rim, then impact flash.
-- Leviatán: electrified border pulse — teal lightning crawling along a straight edge strip.
-- Bóveda: shower of golden MayhemCoins — 5-6 coins falling with warm sparkle, adding up frames 1..6.
-Style: high readability, muted glow. No text, no watermark, no characters, no perspective.
+- Nebula — 6 s loop: falling debris telegraph — a growing dark shadow circle, impact flash, dust settles, resets.
+- Leviatán — 4 s loop: electrified border pulse — teal lightning crawling along a straight horizontal strip.
+- Bóveda — 6 s loop: shower of golden MayhemCoins falling from the top of the frame with warm sparkle.
+Style: high readability, muted glow. No text, no watermark, no characters, no gradient background.
 ```
 
 ---
 
 ## 4. Pickups y VFX genéricos
 
-### 4.1 Orbes
+### 4.1 Orbes (video, 4 s loop)
 ```
-Top-down pickup orb sprite sheet, 4 frames (hover bob + pulse), cell 128x128, flat white background.
-- ADRENALINA: cyan energy sphere with electric arcs inside, calm pulse.
-- MAYHEMCOIN: gold coin with a stylized "W", soft warm glow, slow spin.
-Style: premium arcade, readable at small size. No text, no watermark, no perspective.
+Top-down pickup orb game animation, 4 seconds, seamless loop, centered, locked camera,
+flat pure chroma green background (#00FF00).
+[VARIANTE]:
+- ADRENALINA: cyan energy sphere with electric arcs inside, calm hover bob and pulse.
+- MAYHEMCOIN: gold coin with a stylized "W", slow spin with soft warm sparkle.
+Style: premium arcade, readable at small size. No text, no watermark, no perspective, no motion blur.
 ```
 
-### 4.2 Dash / impacto / KO
+### 4.2 VFX de impacto (video, one-shot, 4 s cada uno)
 ```
-Top-down VFX sprite sheet, flat pure white background:
-- DASH TRAIL: 3 frames, teardrop motion streak, white core fading to cyan, cell 128x128.
-- HIT IMPACT: 6 frames, radial white burst with small sparks, NEUTRAL color (tintable in engine), cell 128x128.
-- KO BURST: 8 frames, white flash ring expanding with dark shards flying out, cell 256x256.
-No text, no watermark, no characters, no perspective, no environment.
+Locked top-down game VFX animation, 4 seconds, effect centered, flat pure chroma green background (#00FF00),
+no camera movement, smooth high framerate. The effect happens in the middle of the video, nothing at start/end.
+[VARIANTE]:
+- DASH TRAIL: teardrop motion streak, white core fading to cyan.
+- HIT IMPACT: radial white burst with small sparks, NEUTRAL color (tintable in engine).
+- KO BURST: white flash ring expanding with dark shards flying out.
+No text, no watermark, no characters, no perspective, no motion blur.
 ```
 
 ---
 
-## 5. Ambiente (vida barata por tema)
+## 5. Ambiente (video, 8 s loop por tema)
 
 ```
-Tiny ambient particle sprite sheet, 4 variants in one row, cell 32x32, flat white background:
+Locked top-down ambient particle animation for a 2D PVP arena, 8 seconds, seamless loop,
+flat pure chroma green background (#00FF00), no camera movement.
+[VARIANTE por tema]:
 - Nebula: drifting dark dust motes with a cyan glint.
-- Leviatán: bioluminescent teal dots, soft glow halo.
-- Bóveda: gold sparkles, warm twinkle.
-One sheet per theme. No text, no watermark, no perspective.
+- Leviatán: bioluminescent teal dots with soft glow halos.
+- Bóveda: warm gold sparkles, slow twinkle.
+No text, no watermark, no perspective, no motion blur.
 ```
 
 ---
 
 ## 6. Checklist de producción
 
-| Asset | Grilla | Celda | Destino |
+| Asset | Formato | Duración | Destino |
 |---|---|---|---|
-| Portador idle/run (por dirección) | 1×4 / 1×6 | 256 | `Art/Characters/` |
-| Portador dash / hit / KO | 1×3 / 1×2 / 1×6 | 256 | `Art/Characters/` |
-| Katana tajo M1 | 6×4 (24) | 256 | `Art/Weapons/Katana/` |
-| Katana en mano | 1×1 | 128 | `Art/Weapons/Katana/` |
-| Katana render | 1×1 | 1024 | `_art-source/` (ficha/tienda) |
-| Pisos de arena (×3) | tileable | 512 | `Art/Arenas/<tema>/` |
-| Props y muros | 1×1 | 512 / 256 | `Art/Arenas/<tema>/` |
-| Hazards | 1×6 | 256 | `Art/VFX/` |
-| Orbes | 1×4 | 128 | `Art/Pickups/` |
-| Dash / impacto / KO | varias | 128–256 | `Art/VFX/` |
-| Partículas ambientales | 1×4 | 32 | `Art/VFX/` |
+| Portador idle / run | video → hoja | 4 s loop | `Art/Characters/` |
+| Portador dash / hit / win | video → hoja | 4 s one-shot | `Art/Characters/` |
+| Portador KO | video → hoja | 6 s one-shot | `Art/Characters/` |
+| Katana tajo M1 | video → hoja 6×4 (24) | 4 s one-shot | `Art/Weapons/Katana/` |
+| Katana en mano | imagen | — | `Art/Weapons/Katana/` |
+| Katana render | imagen | — | `_art-source/` (ficha/tienda) |
+| Pisos de arena (×3) | imagen tileable | — | `Art/Arenas/<tema>/` |
+| Props y muros | imagen | — | `Art/Arenas/<tema>/` |
+| Hazards (×3) | video → hoja | 4–6 s loop | `Art/VFX/` |
+| Orbes | video → hoja | 4 s loop | `Art/Pickups/` |
+| Dash trail / impacto / KO burst | video → hoja | 4 s one-shot | `Art/VFX/` |
+| Partículas ambientales | video → hoja | 8 s loop | `Art/VFX/` |
 
 **Orden sugerido de producción:** 1) Portador idle+run → 2) Katana (tajo + en mano) → 3) Piso Bóveda Dorada + props → 4) orbes y VFX → 5) los otros 2 pisos + hazards + ambiente.
 
-> Cuando haya arte nuevo, se normaliza con el pipeline y se integra al builder de F0 (`F0SceneBuilder`) para reemplazar los rectángulos por sprites reales.
+> Cuando haya videos/arte nuevo: los videos se convierten a frames (ffmpeg), se normalizan con el pipeline (ImageMagick) y se integran al builder de F0 (`F0SceneBuilder`) para reemplazar los rectángulos por sprites reales.

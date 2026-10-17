@@ -110,7 +110,7 @@ Presentation render of a futuristic katana for a premium 2D action game card art
 Art direction:
 - Plain forged steel katana: light grey blade, dark grey fittings — NO glowing core, NO neon (common weapon).
 - Dramatic diagonal composition, centered, sword only. Restrained rim light, no bloom.
-- Style match: same family as the existing arsenal renders (dark metal + glowing core + light motion smear behind).
+- Style match: same family as the existing arsenal renders (dark metal + light motion smear behind).
 - Pure white background, no environment.
 
 Technical output requirements:

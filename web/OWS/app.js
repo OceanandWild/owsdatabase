@@ -7253,7 +7253,7 @@ const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
   '3.4.20': [
     'Los eventos con fecha tentativa se publican como "Fecha esperada de inicio" (por confirmar): se muestran sin cuenta atrás exacta y, cuando la fecha se confirma, vuelven al formato normal.',
-    'Los eventos terminados pueden avisar cuánto les queda antes de irse: se muestra "Desaparece en …" con la cuenta atrás viva y, al llegar la fecha, el evento se quita solo del calendario.',
+    'Los eventos terminados pueden avisar cuánto les queda antes de irse: se muestra "Desaparece en …" con la cuenta atrás viva —semanas, días y horas; días, horas y minutos; o horas, minutos y segundos, según cuánto falte— y, al llegar la fecha, el evento se quita solo del calendario.',
     'Cada proyecto estrena su propia marca de agua sobre las portadas de sus eventos y noticias, con su texto, su posición en la imagen y su opacidad (por defecto, el nombre del proyecto).',
     'Nueva barra de estados en Eventos: Todos, En curso, Próximos y Finalizados, con el conteo de cada grupo y combinable con el filtro por proyecto.',
     'La cuenta atrás de los próximos eventos se actualiza sola mientras navegás: ya no queda congelada en el tiempo que faltaba cuando abriste la página, y al llegar a cero el evento pasa a mostrarse en curso.',

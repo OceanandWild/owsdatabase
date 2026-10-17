@@ -26,13 +26,13 @@
 
 ## 1. Portador (reemplaza el cuadrado blanco)
 
-### 1.1 Video base — idle y run (por dirección)
-> Generar **una vez por animación y por dirección** (S, N, E; oeste = flip). Duración: **4 s** cada uno, loop perfecto. La carrera es "en el lugar": el personaje **nunca se mueve del centro del cuadro**.
+> Se genera **una vez por animación y por dirección** (S/N/E; oeste = flip horizontal de E). Cada prompt va completo: copiar y pegar directo.
 
+### 1.1 Idle — 4 s, loop
 ```
 Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
 seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
-Action: [ELEGIR: "gentle breathing idle, weight shifting subtly" / "full sprint cycle IN PLACE, 2 complete strides"].
+Action: gentle breathing idle — the chest rises and falls subtly, weight shifts side to side, arms steady; calm and ready.
 
 Art direction:
 - Compact readable silhouette; dark tactical armor (#050510) with cold grey body (neutral for skin recoloring) and cyan (#00F3FF) energy accents.
@@ -51,13 +51,122 @@ Negative constraints:
 - No camera movement or shake, no cuts or transitions, no zoom, no text, no watermark, no lens flare, no motion blur, no other characters, no background objects, no 3/4 or oblique view.
 ```
 
-### 1.2 Otras animaciones (mismo video base, cambiando solo Action + duración)
-- **Dash — 4 s, one-shot:** "explosive dash burst: sharp forward lunge lean with a brief slide, then settle to ready stance; stays centered".
-- **Hit — 4 s, one-shot:** "short hit reaction: sharp recoil with head snap backward, then recover to stance".
-- **KO — 6 s, one-shot:** "collapse: balance breaks, falls sideways onto the ground, settles; last 2 seconds completely still".
-- **Win — 4 s, one-shot:** "brief victory: fist raised with a sharp nod, then hold the pose".
+### 1.2 Run — 4 s, loop
+```
+Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
+seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Action: full sprint cycle IN PLACE — 2 complete strides, arms pumping; the character stays fixed at the center of the frame (no forward translation).
 
-### 1.3 Nota de skins (para producción)
+Art direction:
+- Compact readable silhouette; dark tactical armor (#050510) with cold grey body (neutral for skin recoloring) and cyan (#00F3FF) energy accents.
+- No face visible (crown of helmet only); weapon held forward but NOT visible (layered separately in the game).
+- Even top light, subtle cyan rim light, NO projected floor shadow.
+- Painted AAA game look matching the existing dark-metal arsenal. Character design stays perfectly consistent across the whole video (no morphing, no flicker).
+
+Camera & background:
+- LOCKED top-down camera: no movement, no zoom, no roll, no parallax. Subject centered and fixed at the center of the frame.
+- Isolated on a FLAT PURE chroma green background (#00FF00), no gradient, no lighting variation, no props, no shadows.
+
+Technical:
+- Duration: 4 seconds, smooth high framerate. Seamless loop: first and last frame identical.
+
+Negative constraints:
+- No camera movement or shake, no cuts or transitions, no zoom, no text, no watermark, no lens flare, no motion blur, no other characters, no background objects, no 3/4 or oblique view.
+```
+
+### 1.3 Dash — 4 s, one-shot
+```
+Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
+seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Action: explosive dash burst — sharp forward lunge lean with a brief slide, then settle back to the ready stance; the character stays centered, motion is conveyed only by the body.
+
+Art direction:
+- Compact readable silhouette; dark tactical armor (#050510) with cold grey body (neutral for skin recoloring) and cyan (#00F3FF) energy accents.
+- No face visible (crown of helmet only); weapon held forward but NOT visible (layered separately in the game).
+- Even top light, subtle cyan rim light, NO projected floor shadow.
+- Painted AAA game look matching the existing dark-metal arsenal. Character design stays perfectly consistent across the whole video (no morphing, no flicker).
+
+Camera & background:
+- LOCKED top-down camera: no movement, no zoom, no roll, no parallax. Subject centered and fixed at the center of the frame.
+- Isolated on a FLAT PURE chroma green background (#00FF00), no gradient, no lighting variation, no props, no shadows.
+
+Technical:
+- Duration: 4 seconds, smooth high framerate. One-shot: starts and ends in the ready stance.
+
+Negative constraints:
+- No camera movement or shake, no cuts or transitions, no zoom, no text, no watermark, no lens flare, no motion blur, no other characters, no background objects, no 3/4 or oblique view.
+```
+
+### 1.4 Hit — 4 s, one-shot
+```
+Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
+seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Action: short hit reaction — sharp recoil with a head snap backward and a quick stagger, then recover to the ready stance.
+
+Art direction:
+- Compact readable silhouette; dark tactical armor (#050510) with cold grey body (neutral for skin recoloring) and cyan (#00F3FF) energy accents.
+- No face visible (crown of helmet only); weapon held forward but NOT visible (layered separately in the game).
+- Even top light, subtle cyan rim light, NO projected floor shadow.
+- Painted AAA game look matching the existing dark-metal arsenal. Character design stays perfectly consistent across the whole video (no morphing, no flicker).
+
+Camera & background:
+- LOCKED top-down camera: no movement, no zoom, no roll, no parallax. Subject centered and fixed at the center of the frame.
+- Isolated on a FLAT PURE chroma green background (#00FF00), no gradient, no lighting variation, no props, no shadows.
+
+Technical:
+- Duration: 4 seconds, smooth high framerate. One-shot: starts and ends in the ready stance.
+
+Negative constraints:
+- No camera movement or shake, no cuts or transitions, no zoom, no text, no watermark, no lens flare, no motion blur, no other characters, no background objects, no 3/4 or oblique view.
+```
+
+### 1.5 KO — 6 s, one-shot
+```
+Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
+seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Action: collapse — the balance breaks, the character falls sideways onto the ground and settles; the last 2 seconds are completely still.
+
+Art direction:
+- Compact readable silhouette; dark tactical armor (#050510) with cold grey body (neutral for skin recoloring) and cyan (#00F3FF) energy accents.
+- No face visible (crown of helmet only); weapon held forward but NOT visible (layered separately in the game).
+- Even top light, subtle cyan rim light, NO projected floor shadow.
+- Painted AAA game look matching the existing dark-metal arsenal. Character design stays perfectly consistent across the whole video (no morphing, no flicker).
+
+Camera & background:
+- LOCKED top-down camera: no movement, no zoom, no roll, no parallax. Subject centered and fixed at the center of the frame.
+- Isolated on a FLAT PURE chroma green background (#00FF00), no gradient, no lighting variation, no props, no shadows.
+
+Technical:
+- Duration: 6 seconds, smooth high framerate. One-shot: ends with the character lying completely still.
+
+Negative constraints:
+- No camera movement or shake, no cuts or transitions, no zoom, no text, no watermark, no lens flare, no motion blur, no other characters, no background objects, no 3/4 or oblique view.
+```
+
+### 1.6 Win — 4 s, one-shot
+```
+Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
+seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Action: brief victory — the fist rises with a sharp nod, then holds the pose.
+
+Art direction:
+- Compact readable silhouette; dark tactical armor (#050510) with cold grey body (neutral for skin recoloring) and cyan (#00F3FF) energy accents.
+- No face visible (crown of helmet only); weapon held forward but NOT visible (layered separately in the game).
+- Even top light, subtle cyan rim light, NO projected floor shadow.
+- Painted AAA game look matching the existing dark-metal arsenal. Character design stays perfectly consistent across the whole video (no morphing, no flicker).
+
+Camera & background:
+- LOCKED top-down camera: no movement, no zoom, no roll, no parallax. Subject centered and fixed at the center of the frame.
+- Isolated on a FLAT PURE chroma green background (#00FF00), no gradient, no lighting variation, no props, no shadows.
+
+Technical:
+- Duration: 4 seconds, smooth high framerate. One-shot: holds the final pose.
+
+Negative constraints:
+- No camera movement or shake, no cuts or transitions, no zoom, no text, no watermark, no lens flare, no motion blur, no other characters, no background objects, no 3/4 or oblique view.
+```
+
+### 1.7 Nota de skins (para producción)
 El cuerpo en grises fríos es a propósito: el recolor por tinte (HSV) cubre las skins base del doc (sección 7). El acento cian queda fijo en v0; las variantes de acento llegan con las skins épicas.
 
 ---
@@ -150,14 +259,38 @@ subtle engraved coin motifs, light wear. Elegant, muted, readable under characte
 PERFECTLY TILEABLE (edges match). Strict orthographic top view. No text, no watermark, no characters.
 ```
 
-### 3.2 Coberturas y props (un objeto por generación, centrado, fondo plano)
+### 3.2 Coberturas y props (uno por generación, centrado, fondo plano)
+**Chatarra Nebula — bloque de chatarra (512×512)**
 ```
 Single game prop for a top-down 2D PVP arena, seen from directly above, centered, flat pure white background.
-[VARIANTE]:
-- Chatarra Nebula: heavy scrap-metal cover block (crate), welded plates, small cyan light, worn edges.
-- Chatarra Nebula: central rotating pillar: tall column seen from above as a large circular armored drum.
-- Fosa Leviatán: carved stone pedestal ring on a raised circular platform, teal glow runes.
-- Bóveda Dorada: golden pedestal with velvet top and faint coin engravings, warm glow.
+Subject: heavy scrap-metal cover block (crate), welded plates, small cyan light, worn edges.
+Style: dark metal/gothic sci-fi matching the game's weapons, painted AAA, subtle rim light.
+Technical: 512x512 PNG, transparent or flat white background, object centered, no cast shadows.
+Negative: no perspective view, no text, no watermark, no scene.
+```
+
+**Chatarra Nebula — pilar central (512×512)**
+```
+Single game prop for a top-down 2D PVP arena, seen from directly above, centered, flat pure white background.
+Subject: central rotating pillar — tall column seen from above as a large circular armored drum, radial metal ribs, thin cyan light seams.
+Style: dark metal/gothic sci-fi matching the game's weapons, painted AAA, subtle rim light.
+Technical: 512x512 PNG, transparent or flat white background, object centered, no cast shadows.
+Negative: no perspective view, no text, no watermark, no scene.
+```
+
+**Fosa Leviatán — pedestal tallado (512×512)**
+```
+Single game prop for a top-down 2D PVP arena, seen from directly above, centered, flat pure white background.
+Subject: carved stone pedestal ring on a raised circular platform, teal glow runes.
+Style: dark metal/gothic sci-fi matching the game's weapons, painted AAA, subtle rim light.
+Technical: 512x512 PNG, transparent or flat white background, object centered, no cast shadows.
+Negative: no perspective view, no text, no watermark, no scene.
+```
+
+**Bóveda Dorada — pedestal dorado (512×512)**
+```
+Single game prop for a top-down 2D PVP arena, seen from directly above, centered, flat pure white background.
+Subject: golden pedestal with velvet top and faint coin engravings, warm glow.
 Style: dark metal/gothic sci-fi matching the game's weapons, painted AAA, subtle rim light.
 Technical: 512x512 PNG, transparent or flat white background, object centered, no cast shadows.
 Negative: no perspective view, no text, no watermark, no scene.
@@ -171,53 +304,110 @@ subtle rim light. Strict orthographic top view. 256x256 cell each, flat white ba
 No text, no watermark, no perspective, no characters.
 ```
 
-### 3.4 Hazards (video, telegrafiado y legible)
+### 3.4 Hazards (video — uno por tema)
+**Nebula — 6 s, loop**
 ```
-Locked top-down game VFX animation, effect centered, flat pure chroma green background (#00FF00),
-no camera movement, smooth high framerate, seamless loop (first = last frame).
-[VARIANTE]:
-- Nebula — 6 s loop: falling debris telegraph — a growing dark shadow circle, impact flash, dust settles, resets.
-- Leviatán — 4 s loop: electrified border pulse — teal lightning crawling along a straight horizontal strip.
-- Bóveda — 6 s loop: shower of golden MayhemCoins falling from the top of the frame with warm sparkle.
-Style: high readability, muted glow. No text, no watermark, no characters, no gradient background.
+Locked top-down game VFX animation of an arena hazard, effect centered,
+flat pure chroma green background (#00FF00), no camera movement, smooth high framerate.
+Action: a falling-debris telegraph — a dark shadow circle grows on the ground, an impact flash hits and dust settles, then the shadow clears and the cycle resets.
+Duration: 6 seconds. Seamless loop: first and last frame identical.
+Style: high readability, muted glow. No text, no watermark, no characters, no gradient background, no camera movement.
+```
+
+**Leviatán — 4 s, loop**
+```
+Locked top-down game VFX animation of an arena hazard, effect centered,
+flat pure chroma green background (#00FF00), no camera movement, smooth high framerate.
+Action: an electrified border pulse — teal lightning crawls along a straight horizontal strip, crackling and fading, looping seamlessly.
+Duration: 4 seconds. Seamless loop: first and last frame identical.
+Style: high readability, muted glow. No text, no watermark, no characters, no gradient background, no camera movement.
+```
+
+**Bóveda — 6 s, loop**
+```
+Locked top-down game VFX animation of an arena hazard, effect centered,
+flat pure chroma green background (#00FF00), no camera movement, smooth high framerate.
+Action: a shower of golden MayhemCoins falling from the top of the frame with warm sparkles, landing and settling briefly, then the cycle resets.
+Duration: 6 seconds. Seamless loop: first and last frame identical.
+Style: high readability, muted glow. No text, no watermark, no characters, no gradient background, no camera movement.
 ```
 
 ---
 
 ## 4. Pickups y VFX genéricos
 
-### 4.1 Orbes (video, 4 s loop)
+### 4.1 Orbes (video — uno por variante)
+**Adrenalina — 4 s, loop**
 ```
-Top-down pickup orb game animation, 4 seconds, seamless loop, centered, locked camera,
-flat pure chroma green background (#00FF00).
-[VARIANTE]:
-- ADRENALINA: cyan energy sphere with electric arcs inside, calm hover bob and pulse.
-- MAYHEMCOIN: gold coin with a stylized "W", slow spin with soft warm sparkle.
+Top-down pickup orb game animation, centered, locked camera,
+flat pure chroma green background (#00FF00), smooth high framerate.
+Action: a cyan energy sphere with electric arcs inside — calm hover bob and pulse.
+Duration: 4 seconds. Seamless loop: first and last frame identical.
 Style: premium arcade, readable at small size. No text, no watermark, no perspective, no motion blur.
 ```
 
-### 4.2 VFX de impacto (video, one-shot, 4 s cada uno)
+**MayhemCoin — 4 s, loop**
+```
+Top-down pickup orb game animation, centered, locked camera,
+flat pure chroma green background (#00FF00), smooth high framerate.
+Action: a gold coin with a stylized "W" — slow spin with soft warm sparkle.
+Duration: 4 seconds. Seamless loop: first and last frame identical.
+Style: premium arcade, readable at small size. No text, no watermark, no perspective, no motion blur.
+```
+
+### 4.2 VFX de impacto (video — uno por efecto)
+**Dash trail — 4 s, one-shot**
 ```
 Locked top-down game VFX animation, 4 seconds, effect centered, flat pure chroma green background (#00FF00),
 no camera movement, smooth high framerate. The effect happens in the middle of the video, nothing at start/end.
-[VARIANTE]:
-- DASH TRAIL: teardrop motion streak, white core fading to cyan.
-- HIT IMPACT: radial white burst with small sparks, NEUTRAL color (tintable in engine).
-- KO BURST: white flash ring expanding with dark shards flying out.
+Action: a teardrop motion streak — white core fading to cyan.
+No text, no watermark, no characters, no perspective, no motion blur.
+```
+
+**Hit impact — 4 s, one-shot**
+```
+Locked top-down game VFX animation, 4 seconds, effect centered, flat pure chroma green background (#00FF00),
+no camera movement, smooth high framerate. The effect happens in the middle of the video, nothing at start/end.
+Action: a radial white burst with small sparks, NEUTRAL color (tintable in the engine).
+No text, no watermark, no characters, no perspective, no motion blur.
+```
+
+**KO burst — 4 s, one-shot**
+```
+Locked top-down game VFX animation, 4 seconds, effect centered, flat pure chroma green background (#00FF00),
+no camera movement, smooth high framerate. The effect happens in the middle of the video, nothing at start/end.
+Action: a white flash ring expanding with dark shards flying out.
 No text, no watermark, no characters, no perspective, no motion blur.
 ```
 
 ---
 
-## 5. Ambiente (video, 8 s loop por tema)
+## 5. Ambiente (video — uno por tema)
 
+**Nebula — 8 s, loop**
 ```
-Locked top-down ambient particle animation for a 2D PVP arena, 8 seconds, seamless loop,
-flat pure chroma green background (#00FF00), no camera movement.
-[VARIANTE por tema]:
-- Nebula: drifting dark dust motes with a cyan glint.
-- Leviatán: bioluminescent teal dots with soft glow halos.
-- Bóveda: warm gold sparkles, slow twinkle.
+Locked top-down ambient particle animation for a 2D PVP arena, seamless loop,
+flat pure chroma green background (#00FF00), no camera movement, smooth high framerate.
+Action: drifting dark dust motes with a cyan glint.
+Duration: 8 seconds. Seamless loop: first and last frame identical.
+No text, no watermark, no perspective, no motion blur.
+```
+
+**Leviatán — 8 s, loop**
+```
+Locked top-down ambient particle animation for a 2D PVP arena, seamless loop,
+flat pure chroma green background (#00FF00), no camera movement, smooth high framerate.
+Action: bioluminescent teal dots with soft glow halos drifting slowly.
+Duration: 8 seconds. Seamless loop: first and last frame identical.
+No text, no watermark, no perspective, no motion blur.
+```
+
+**Bóveda — 8 s, loop**
+```
+Locked top-down ambient particle animation for a 2D PVP arena, seamless loop,
+flat pure chroma green background (#00FF00), no camera movement, smooth high framerate.
+Action: warm gold sparkles with a slow twinkle.
+Duration: 8 seconds. Seamless loop: first and last frame identical.
 No text, no watermark, no perspective, no motion blur.
 ```
 

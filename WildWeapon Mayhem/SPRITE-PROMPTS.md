@@ -28,7 +28,8 @@
 ## 1. Portador (reemplaza el cuadrado blanco)
 
 > Se genera **una vez por animación y por dirección** (S/N/E; oeste = flip horizontal de E). Cada prompt va completo: copiar y pegar directo.
-> **Flujo:** primero la **imagen maestra (§1.0)**; después los videos, usando esa imagen como **referencia**.
+> **Flujo:** primero la **imagen maestra (§1.0)**; después los videos, usando esa imagen como **referencia**. Cada video usa el maestro de **su misma dirección**.
+> **Plan v1 (recomendado):** idle, run, dash y hit en las 3 direcciones (N/S/E); KO y win en una sola dirección (N) — se reproducen tal cual.
 
 ### 1.0 Imagen maestra de referencia — estática (bloquea el diseño)
 > Esta imagen define al personaje: es la **referencia** de los videos §1.1–§1.6 y de las skins futuras. El maestro de abajo mira hacia **arriba (N)**; para S y E se generan variantes con la misma cámara (bloque al final de esta sección), y cada una es la referencia de los videos de su dirección.

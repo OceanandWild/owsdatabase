@@ -14,6 +14,7 @@
 5. **Nombres:** `ww_<asset>_<anim>_<dir>_##.png` (ej: `ww_portador_run_S_00.png`). Las armas mantienen la convención existente: `katana_00..23.png`.
 6. **Intensidad de glow:** contenida. Los sets existentes (Chain Scythe rojo, Tiger naranja, Zeus azul) marcan el techo — lo nuevo no debe brillar más que ellos.
 7. **Animaciones = video.** Los assets animados se generan como **video corto** (4 / 6 / 8 s según la tabla final) y de ahí se extraen los frames (ffmpeg → ImageMagick). Reglas de video: cámara **fija cenital estrictamente perpendicular**, fondo **chroma verde plano (#00FF00)** sin gradientes, sujeto centrado y **fijo en el centro del cuadro** (sin desplazamiento), sin cortes, diseño consistente (**sin morphing ni flicker**). Loops: primer y último frame idénticos. Los estáticos (pisos, props, muros, katana en mano, render) siguen siendo imágenes.
+8. **Referencia primero (portador).** Antes de animar, generar la **imagen maestra** (§1.0) y usarla como **referencia** en todos los videos del portador (image-to-video). Así el diseño queda on-model entre animaciones y direcciones.
 
 **Paleta maestra (ancla de todo):**
 - Cian neón `#00F3FF` · magenta eléctrico `#BC13FE` · navy/negro `#050510`
@@ -27,11 +28,46 @@
 ## 1. Portador (reemplaza el cuadrado blanco)
 
 > Se genera **una vez por animación y por dirección** (S/N/E; oeste = flip horizontal de E). Cada prompt va completo: copiar y pegar directo.
+> **Flujo:** primero la **imagen maestra (§1.0)**; después los videos, usando esa imagen como **referencia**.
+
+### 1.0 Imagen maestra de referencia — estática (bloquea el diseño)
+> Esta imagen define al personaje: es la **referencia** de los videos §1.1–§1.6 y de las skins futuras. Vista cenital, pose de reposo, sin arma (el arma se superpone en el engine).
+
+```
+Single character reference illustration for a 2D arena PVP game: a futuristic duelist,
+seen from directly above in a strict top-down orthographic view (bird's-eye), character faces UP
+(away from the camera), standing in a neutral ready combat stance.
+
+Art direction:
+- Compact readable silhouette; dark tactical armor (#050510) with cold grey body (neutral for skin recoloring) and cyan (#00F3FF) energy accents.
+- No face visible (crown of helmet only). No weapon in hands (weapons are layered in the game engine).
+- Even top light, subtle cyan rim light, NO projected floor shadow.
+- Painted AAA game look matching the game's dark-metal arsenal (gothic sci-fi, worn edges).
+- This image LOCKS the character design: proportions, armor shapes, colors and camera must match it exactly in all animations.
+
+Technical:
+- Centered, filling most of the frame, on a FLAT PURE chroma green background (#00FF00), no gradient, no props, no shadows.
+- Square 1024x1024.
+
+Negative constraints:
+- No 3/4 or oblique view, no perspective, no face, no weapon, no text, no watermark, no scene background, no other characters.
+```
+
+### 1.0b Ilustración de presentación (opcional — ficha / tienda)
+```
+Full-body character illustration (premium key art) of a futuristic duelist for a 2D arena PVP game.
+Three-quarter view showing the armor design clearly: dark tactical armor (#050510) with cold grey body panels
+and cyan (#00F3FF) energy accents; no face visible (crown of helmet only); no weapon.
+Style: painted AAA key art matching the game's dark-metal arsenal (gothic sci-fi, worn edges), subtle cyan rim light.
+Composition: centered hero pose, clean; moody navy backdrop (#050510) with a faint cyan glow.
+Negative: no text, no watermark, no other characters, no scene props, no logo.
+```
 
 ### 1.1 Idle — 4 s, loop
 ```
 Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
 seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Use the attached reference image as the exact character design and camera: same proportions, same armor shapes, same colors, same top-down view. Keep the design identical across every frame — no redesign.
 Action: gentle breathing idle — the chest rises and falls subtly, weight shifts side to side, arms steady; calm and ready.
 
 Art direction:
@@ -45,7 +81,7 @@ Camera & background:
 - Isolated on a FLAT PURE chroma green background (#00FF00), no gradient, no lighting variation, no props, no shadows.
 
 Technical:
-- Duration: 4 seconds, smooth high framerate. Seamless loop: first and last frame identical.
+- Duration: 4 seconds, smooth high framerate. Seamless loop: first and last frame identical; the first frame must match the reference image.
 
 Negative constraints:
 - No camera movement or shake, no cuts or transitions, no zoom, no text, no watermark, no lens flare, no motion blur, no other characters, no background objects, no 3/4 or oblique view.
@@ -55,6 +91,7 @@ Negative constraints:
 ```
 Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
 seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Use the attached reference image as the exact character design and camera: same proportions, same armor shapes, same colors, same top-down view. Keep the design identical across every frame — no redesign.
 Action: full sprint cycle IN PLACE — 2 complete strides, arms pumping; the character stays fixed at the center of the frame (no forward translation).
 
 Art direction:
@@ -78,6 +115,7 @@ Negative constraints:
 ```
 Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
 seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Use the attached reference image as the exact character design and camera: same proportions, same armor shapes, same colors, same top-down view. Keep the design identical across every frame — no redesign.
 Action: explosive dash burst — sharp forward lunge lean with a brief slide, then settle back to the ready stance; the character stays centered, motion is conveyed only by the body.
 
 Art direction:
@@ -101,6 +139,7 @@ Negative constraints:
 ```
 Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
 seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Use the attached reference image as the exact character design and camera: same proportions, same armor shapes, same colors, same top-down view. Keep the design identical across every frame — no redesign.
 Action: short hit reaction — sharp recoil with a head snap backward and a quick stagger, then recover to the ready stance.
 
 Art direction:
@@ -124,6 +163,7 @@ Negative constraints:
 ```
 Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
 seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Use the attached reference image as the exact character design and camera: same proportions, same armor shapes, same colors, same top-down view. Keep the design identical across every frame — no redesign.
 Action: collapse — the balance breaks, the character falls sideways onto the ground and settles; the last 2 seconds are completely still.
 
 Art direction:
@@ -147,6 +187,7 @@ Negative constraints:
 ```
 Top-down (bird's-eye) game animation of a futuristic duelist for a 2D arena PVP game,
 seen from directly above with a LOCKED perpendicular camera, character faces UP in every frame.
+Use the attached reference image as the exact character design and camera: same proportions, same armor shapes, same colors, same top-down view. Keep the design identical across every frame — no redesign.
 Action: brief victory — the fist rises with a sharp nod, then holds the pose.
 
 Art direction:
@@ -417,6 +458,7 @@ No text, no watermark, no perspective, no motion blur.
 
 | Asset | Formato | Duración | Destino |
 |---|---|---|---|
+| Portador — imagen maestra (§1.0) | imagen | — | `_art-source/` (referencia de animación) |
 | Portador idle / run | video → hoja | 4 s loop | `Art/Characters/` |
 | Portador dash / hit / win | video → hoja | 4 s one-shot | `Art/Characters/` |
 | Portador KO | video → hoja | 6 s one-shot | `Art/Characters/` |

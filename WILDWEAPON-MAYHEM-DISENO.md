@@ -1,7 +1,7 @@
 # ⚔️ WILDWEAPON MAYHEM — Documento de Diseño (v1: Duelos de Armas PVP)
 
 > Reboot del proyecto para Unity 2D. La versión Electron fue retirada del workspace (ver sección 12: migración).
-> Este documento define el nuevo juego desde cero: **duelos de armas 1v1**, **economía nueva sin gacha**, y un plan de reuso del arsenal ya producido.
+> Este documento define el nuevo juego desde cero: **duelos de armas 1v1 con carga de 2 armas** (portador simple + habilidades por arma), **economía nueva sin gacha**, y un plan de reuso del arsenal ya producido.
 > Motor: **Unity 6000 URP 2D + UI Toolkit** (estándar actual del estudio).
 > Slug: `wildweapon-mayhem` · Carpeta: `WildWeapon Mayhem/` · Repo de releases: `OceanandWild/wildweapon-mayhem`
 > Estado: **propuesta v1 para aprobación** · 2026-10-17
@@ -12,25 +12,26 @@
 
 - **Título:** WILDWEAPON MAYHEM
 - **Tagline:** *Un arma. Un rival. Sin excusas.*
-- **Género:** Duelos de armas 1v1 (arena de acción top-down, kit completo por arma)
+- **Género:** Duelos de armas 1v1 (arena de acción top-down con **carga de armas**: 2 slots en v1)
 - **Vista:** 2D cenital · canvas de diseño 1920×1080
 - **Plataformas v1:** Windows (principal) · WebGL testeable · Android fase 1B (táctil)
 - **Sesión:** duelo best-of-3 ≈ 2–4 min · sesión diaria online ≈ 5–15 min
 - **Modos v1:** Online 1v1 (sala con código) · Local 1v1 · Entrenamiento (tutorial + bots)
+- **Carga de duelo:** 2 armas equipadas por portador (3 con el **Mayhem Game Pass**, futuro)
 - **Pilares:**
-  1. **El arma es el personaje.** Tu kit entero sale del arma; dominarla ES la curva de skill.
+  1. **Tu carga, tu kit.** Cada arma trae sus propias habilidades; combinás 2 (y pronto 3 con el Game Pass) y el **cambio en combate** es la curva de skill.
   2. **Duelo corto y reñido.** Rounds de ~60–75 s, sin downtime, best-of-3 siempre al filo.
   3. **Espectáculo contundente.** VFX/SFX del arsenal existente (ya producidos) como identidad de golpe.
   4. **Justo por diseño.** Cero pay-to-win: todo se desbloquea jugando; el pago es decorativo.
-- **Lo que NO es v1:** sin ranked con temporadas, sin 2v2, sin gacha, sin modo historia, sin móvil final, sin espectador/replays. Todo eso queda en el roadmap (sección 11) con los enchufes listos.
+- **Lo que NO es v1:** sin ranked con temporadas, sin 2v2, sin gacha, sin poderes/elementos, sin 3er slot (llega con el Game Pass), sin modo historia, sin móvil final, sin espectador/replays. Todo eso queda en el roadmap (sección 11) con los enchufes listos.
 
 ---
 
 ## 1. Concepto
 
-El **Mayhem** es el torneo de portadores: las armas son reliquias nacidas del Rift y las arenas son fragmentos de mundos colapsados. No hay ejércitos ni hordas: hay dos portadores, un fragmento de arena, y un arma que define quién sos dentro del ring.
+El **Mayhem** es el torneo de portadores: las armas son reliquias nacidas del Rift y las arenas son fragmentos de mundos colapsados. No hay ejércitos ni hordas: hay dos portadores, un fragmento de arena, y una **carga de armas** que define quién sos dentro del ring.
 
-El juego es un **duelo de armas 1v1 en vista cenital**: te movés libremente por una arena cerrada, apuntás con el mouse, y tu arma te da un ataque básico + dos habilidades (Q/E) + una definitiva (R). Cada arma es un kit cerrado, legible y con tiempos distintos (alcance, movilidad, control, timing). El punto de entrada es jugar; el punto de dominio es entender los timings de todos los kits.
+El juego es un **duelo de armas 1v1 en vista cenital**: te movés libremente por una arena cerrada y apuntás con el mouse. Tu **portador** es mínimo (un sprite simple al inicio; las animaciones llegan después) — lo que define tu estilo de pelea es la **carga de armas**: antes del duelo equipás **2 armas** (la tercera llega con el **Mayhem Game Pass**) y en combate las intercambiás sobre la marcha. El arma activa te da ataque básico (M1) + habilidades (Q/E) + definitiva (R), y cada arma mantiene sus propios cooldowns: el dominio real es saber **cuándo cambiar y encadenar kits**. Próximamente también entran **poderes y elementos** que otorgan habilidades extra (ver sección 3.4).
 
 **Loop de sesión:**
 ```
@@ -72,17 +73,20 @@ A los 75 s, la ronda entra en **Overdrive** de forma permanente:
 | Knockback | 120 px/s cosmético | el KO es por HP, no por knockback (ver decisión abierta #2) |
 | Fricción de frenado | decae a 0 en 0.15 s | control quirúrgico |
 
-### 2.4 Ataques
-- **M1 (básico):** melee 90 px de arco 120° → 12 dmg, cadencia 0.35 s. Armas a distancia: proyectil 14 dmg, cadencia 0.5 s.
-- **Q:** cd 6 s · animación ~0.5 s (windup 0.15 s → active → recovery).
-- **E:** cd 9 s · animación ~0.7 s.
-- **R (definitiva):** consume **medidor de Adrenalina** 0–100. Se carga +8 por golpe dado, +5 por daño recibido, +25 por orbe de la Bóveda Dorada. Se resetea entre rondas (no arrastra).
+### 2.4 Ataques y cambio de arma
+- **M1 (básico):** del **arma activa**. Melee 90 px de arco 120° → 12 dmg, cadencia 0.35 s. Armas a distancia: proyectil 14 dmg, cadencia 0.5 s.
+- **Q / E (habilidades del arma activa):** Q cd 6 s · E cd 9 s · animación ~0.5 / 0.7 s (windup → active → recovery).
+- **Cambio de arma (swap):** tecla **X** (o rueda del mouse) · 0.5 s de cambio · cada arma conserva **cooldowns independientes** (podés castear con una, cambiar, y seguir con la otra).
+- **R (definitiva del arma activa):** consume el **medidor de Adrenalina** 0–100 (compartido por el portador). Se carga +8 por golpe dado, +5 por daño recibido, +25 por orbe de la Bóveda Dorada. Se resetea entre rondas.
 - **Castigo de canalización:** si te golpean durante el windup de Q/E/R, el daño recibido es ×1.25. Las habilidades se castigan: usarlas mal duele.
 - **Root parcial:** durante Q/E/R podés moverte al 40% (el juego mantiene ritmo; el castigo es de timing, no de inmovilidad total).
+- **Cadenas de swap (la salsa):** ej. Chain Scythe E tira al rival → swap → Zeus Axe Q en el punto de caída. El diseño premia preparar el golpe con un arma y cobrarlo con la otra.
 
 ---
 
-## 3. Arsenal — el arma es el personaje
+## 3. Arsenal — armas equipables (2 slots · 3 con Game Pass)
+
+**Cómo funciona la carga:** antes del duelo armás tu loadout con **2 armas** (v1). Con el **Mayhem Game Pass** (futuro) se habilita el **3er slot**. Las armas de la carga están disponibles en combate con cooldowns independientes (swap con X): no hay arma "de reserva muerta" — la segunda siempre suma.
 
 **Roster de lanzamiento (6 armas).** Cinco tienen arte y SFX ya producidos (en `_art-source/`); la Katana se produce mínima como arma inicial.
 
@@ -100,6 +104,16 @@ A los 75 s, la ronda entra en **Overdrive** de forma permanente:
 **Temporada 1+ (roster completo a 13, ya definido):** Ion Pistols (poke a distancia), Mantis Blades (dps cuerpo a cuerpo), Volt Daggers (burst móvil), Mirage Rifle (zona con ecos holográficos), Nebula Glaive (control de espacio), Vortex Cannon (gravedad), Aether Pike (duelista híbrido).
 
 **Regla de diseño (no se rompe):** ninguna arma tiene ventaja de stats; las diferencias son alcance, movilidad, control y timing. Todas desbloqueables jugando — ninguna exclusiva de pago.
+
+**Cargas legales en v1:** cualquier par de armas distintas es válido. Los pares rotos se vigilan con telemetría y se ajustan por números antes que por prohibiciones.
+
+### 3.4 Poderes y elementos (próximamente)
+
+Después de v1, el portador suma una capa más: **Poderes** (1 slot) y **Elementos** (Fuego, Hielo, Tormenta, Rift).
+
+- Un **Poder** otorga 1 habilidad activa extra (tecla F) y/o pasivas que modifican el comportamiento de tus armas.
+- Un **Elemento** tiñe tus habilidades de arma (variantes de VFX + efectos: quemadura, ralentización, voltaje, empuje) — sin multiplicar el esfuerzo de arte: recolor + parámetros.
+- Regla de balance: Poder/Elemento agrega **opciones**, no stats crudos; el daño total esperado por ronda no sube con la capa nueva.
 
 ---
 
@@ -133,7 +147,7 @@ A los 75 s, la ronda entra en **Overdrive** de forma permanente:
 
 ### 5.1 Online 1v1 (v1, casual)
 - Sala con **código de 5 caracteres** (mismo patrón que WildMind).
-- Flujo: elegir arma → arena (o aleatoria) → best-of-3 → resultado → **rematch 1-tap**.
+- Flujo: armar carga (2 armas) → arena (o aleatoria) → best-of-3 → resultado → **rematch 1-tap**.
 - Sin matchmaking automático en v1 (cola simple en Fase 3 si la demanda aparece).
 
 ### 5.2 Local 1v1 (couch)
@@ -142,7 +156,7 @@ A los 75 s, la ronda entra en **Overdrive** de forma permanente:
 - Pausa/selección con UI compartida (UI Toolkit).
 
 ### 5.3 Entrenamiento
-- **Tutorial:** mover → dash → M1 → Q/E/R → cargar adrenalina → ganar una ronda contra bot Fácil.
+- **Tutorial:** mover → dash → M1 → **swap de arma** → Q/E/R → cargar adrenalina → ganar una ronda contra bot Fácil.
 - **Dummy:** HP infinito, muestra DPS del kit en tiempo real.
 - **Bots (Fácil / Normal / Difícil):** 3 arquetipos simples (perseguidor, zoner, trapper). Los difíciles llevan skins de personajes de la era anterior (Aegis Constructor, Prime Riftlord) como guiño.
 
@@ -153,6 +167,7 @@ A los 75 s, la ronda entra en **Overdrive** de forma permanente:
 | Apuntar | mouse | stick der | drag-to-aim |
 | Ataque básico | Click izq (o mantener) | RT | botón A |
 | Q / E | Q / E | LB / RB | botones B / C |
+| Cambiar arma | X (o rueda) | Click LS / LT | botón dedicado |
 | Dash | Shift o Espacio | B | botón D |
 | Definitiva (R) | R | Y | botón E (aparece con adrenalina llena) |
 
@@ -160,7 +175,7 @@ A los 75 s, la ronda entra en **Overdrive** de forma permanente:
 
 ## 6. Netcode (host-autoritativo, patrón Rumble/WildMind)
 
-- **Simulación:** host a 60 Hz fixed-step. Los clientes mandan **inputs** (~30 Hz); el host integra y difunde **snapshots** (20 Hz, arrays compactos `[id,x,y,angle,hp,state]`).
+- **Simulación:** host a 60 Hz fixed-step. Los clientes mandan **inputs** (~30 Hz, incluyen el `swap` de arma); el host integra y difunde **snapshots** (20 Hz, arrays compactos `[id,x,y,angle,hp,state]`).
 - **Interpolación:** clientes renderizan a `ahora − 100 ms`; el jugador propio además usa **predicción local** con reconciliación suave (15% por frame).
 - **Eventos discretos** (hit, ult, KO, hazard) viajan inmediatos: los momentos importantes se sienten punchy aunque la posición interpole.
 - **Relay:** `server.js` con prefijo `wildweapon:*` y guardia estricta: solo el host emite snapshots y resultados; los clientes solo emiten inputs. Mismo bloque passthrough que `wildmind:brawl-*`.
@@ -188,7 +203,7 @@ A los 75 s, la ronda entra en **Overdrive** de forma permanente:
 | Moneda | Origen | Usos |
 |---|---|---|
 | **MayhemCoins (MC)** — blanda | Victorias (60) · derrotas (25) · rachas · misiones · maestría | Armas T2/T3 (1.500 / 2.500 MC) · skins comunes (800) · emotes (300–600) |
-| **Tides** — premium (vía Ocean Pay) | Compra directa | Pase Mayhem · skins épicas/míticas · packs de fundador |
+| **Tides** — premium (vía Ocean Pay) | Compra directa | Mayhem Game Pass · skins épicas/míticas · packs de fundador |
 
 ### 7.2 Maestría de arma (1–20)
 XP por ronda jugada con el arma (bonus por victoria). Recompensas **solo cosméticas**:
@@ -202,10 +217,11 @@ XP por ronda jugada con el arma (bonus por victoria). Recompensas **solo cosmét
 | 16 | **Firma**: efecto de kill exclusivo del arma |
 | 20 | Título de portador |
 
-### 7.3 Temporadas (10 semanas)
+### 7.3 Temporadas (10 semanas) y Mayhem Game Pass
 - **Serie de Duelos:** 5 placements → división: Bronce · Plata · Oro · Rift · **Mayhem**.
 - Progresión por divisiones con recompensas por temporada (MC + banner + skin temática).
-- **Pase Mayhem:** track gratis + track Tides (499), 30 niveles, solo cosméticos.
+- **Mayhem Game Pass** (futuro, post-v1): habilita el **3er slot de arma** + track de cosméticos (track gratis + track Tides de 499). El cosmético es decorativo; el 3er slot es la promesa de valor principal del pase.
+  > ⚠️ Balance: el 3er slot es una ventaja de opciones. Ver mitigación recomendada en decisión abierta #4 (también desbloqueable por mérito; el Game Pass lo entrega al instante).
 
 ### 7.4 Misiones
 - 3 diarias (30–60 MC c/u): "ganá 2 duelos", "usá 5 definitivas", "ganá sin perder una ronda".
@@ -234,10 +250,10 @@ Propuesta: los dueños históricos de los packs **Zeus Axe Founder** y **Tiger G
 **A producir (Fase 0–1):**
 | Asset | Spec | Nota |
 |---|---|---|
-| **Portador** (1 personaje base) | Top-down 4 direcciones + flip · frame 256 px · 8 anims: idle, run, dash, M1, Q, E, R, hit/death | Un solo personaje; skins por recolor + accesorios (economía barata de producir) |
+| **Portador** (1 personaje base) | **v0: sprite simple (1–2 frames) para el prototipo** — las animaciones se producen después (F1+): 4 direcciones + flip · frame 256 px · 8 anims (idle, run, dash, M1, Q, E, R, hit/death) | Un solo personaje; skins por recolor + accesorios. Nada de esto bloquea F0 |
 | 3 arenas | Tilesets 1920×1080 + props (coberturas, pilares) | Temas: Nebula / Abyss / Dorada |
 | VFX genéricos | Impacto neutro, escudo, marcador de zona, indicador de hazard | Se combinan con los VFX de arma existentes |
-| UI Toolkit | Menú, Arsenal (usa renders), HUD (HP, adrenalina, cooldowns), Resultados, Rank | Estándar del estudio |
+| UI Toolkit | Menú, Arsenal (usa renders), HUD (HP, adrenalina, cooldowns **por arma**, indicador de arma activa), Resultados, Rank | Estándar del estudio |
 | SFX UI/ambiente | Click, navegación, KO, ambiente por arena | Algunos reusables del ecosistema |
 
 **Regla técnica house (obligatoria):** los spritesheets se normalizan con el pipeline ImageMagick antes de importar a Unity (extent → crop por grilla → trim/extent centrado). No recortar frame a frame.
@@ -247,7 +263,7 @@ Propuesta: los dueños históricos de los packs **Zeus Axe Founder** y **Tiger G
 ## 9. Tecnología y pipeline
 
 - **Unity 6000 URP 2D.** UI 100% con **UI Toolkit**. Gameplay con sprites + física propia (sin Rigidbody en el duelo: el tick fixed-step manda).
-- **Data-driven (ScriptableObjects):** `WeaponDef`, `AbilityDef`, `ArenaDef`, `SeasonDef`, `CosmeticDef`, `BotDef`.
+- **Data-driven (ScriptableObjects):** `WeaponDef`, `AbilityDef`, `LoadoutDef` (2–3 slots), `ArenaDef`, `SeasonDef`, `CosmeticDef`, `BotDef`, `PowerDef`/`ElementDef` (ganchos futuros).
   → Agregar un arma nueva = crear 1 asset + meter VFX/SFX. Cero código de UI (patrón ya validado en WildSea: "añadir un Universo = 1 asset").
 - **Escenas:** `Boot → MainMenu → Arsenal → Lobby → Arena → Results`.
 - **Input System:** teclado/mouse, gamepad, táctil (fase 1B).
@@ -287,13 +303,15 @@ WildWeapon Mayhem/
 
 | Fase | Contenido | Criterio de salida |
 |---|---|---|
-| **F0 — Prototipo local** (1–2 sem) | Arena gris, movimiento + dash, Katana completa, HP/rondas/Overdrive, local 2P | *"El duelo ya es divertido en gris"* |
+| **F0 — Prototipo local** (1–2 sem) | Arena gris, movimiento + dash, portador sprite simple, **swap de 2 armas** (Katana + arma gris), HP/rondas/Overdrive, local 2P | *"El duelo ya es divertido en gris"* |
 | **F1 — Vertical slice** (4–6 sem) | 3 armas reales (Katana, Zeus Axe, Chain Scythe) con VFX/SFX existentes, 1 arena themed, bots, HUD + resultados | *"Se ve y suena a WildWeapon"* |
 | **F2 — Online + contenido** (6–8 sem) | Relay `wildweapon:*`, salas con código, 6 armas, 3 arenas, balance pass v1 | *"10 duelos online sin bugs críticos"* |
 | **F3 — Meta y economía** (4–6 sem) | Ocean Pay, MC/Tides, maestrías, misiones, temporada, tienda, Legacy Founders | *"Loop de sesión diaria completo"* |
 | **F4 — Release** (2 sem) | Build Windows (+ Android eval), trailer, OWS Store bump + changelog, backup release | *"Publicado y detectado por la Store"* |
 
 *(Estimaciones orientativas, no compromiso. Los gates son los criterios, no las fechas.)*
+
+**Post-v1 (Temporada 1+):** poderes y elementos, 3er slot vía Mayhem Game Pass, ranked completo, 2v2 y espectador — los ganchos quedan en `LoadoutDef`/`PowerDef` desde F0.
 
 ---
 
@@ -325,12 +343,14 @@ La versión Electron fue **retirada del workspace** (2026-10-17) por decisión d
 
 1. **Vista:** cenital (recomendada — reusa el 100% del arte existente y simplifica netcode) vs lateral de plataformas (estilo Rumble/Brawlhalla — cambiaría arte y netcode).
 2. **Condición de muerte:** HP clásico (recomendado) vs barra porcentual con knockback tipo Smash.
-3. **Portadores:** 1 personaje base (recomendado) vs varios personajes con hitboxes distintas.
-4. **Local 2P por teclado:** apuntado asistido para P2 (recomendado) vs teclado obliga a gamepad.
-5. **Gacha:** fuera de v1 (recomendado); reevaluar como "Rituales" en v2 solo si la economía lo pide.
-6. **Legacy:** aceptar propuesta de Legacy Founders (sección 7.5) vs otra compensación.
-7. **OWS Store:** ¿marcar la ficha como `coming_soon` ahora con noticia de rework, o recién en F4?
-8. **Ranked:** v2 (recomendado) vs adelantar la Serie de Duelos a v1.
+3. **Esquema de la carga:** swap de arma activa (recomendado — un kit a la vez, cooldowns independientes, cadenas de swap) vs los dos kits vivos a la vez en teclas separadas (más opciones, más carga mental y más HUD).
+4. **3er slot (Mayhem Game Pass):** dar por mérito además del pase (recomendado por balance) vs exclusivo del Game Pass.
+5. **Pares de armas:** permitir cualquier combinación (recomendado) vs vetos puntuales si la telemetría detecta un par roto.
+6. **Local 2P por teclado:** apuntado asistido para P2 (recomendado) vs teclado obliga a gamepad.
+7. **Gacha:** fuera de v1 (recomendado); reevaluar como "Rituales" en v2 solo si la economía lo pide.
+8. **Legacy:** aceptar propuesta de Legacy Founders (sección 7.5) vs otra compensación.
+9. **OWS Store:** ¿marcar la ficha como `coming_soon` ahora con noticia de rework, o recién en F4?
+10. **Ranked:** v2 (recomendado) vs adelantar la Serie de Duelos a v1.
 
 ---
 

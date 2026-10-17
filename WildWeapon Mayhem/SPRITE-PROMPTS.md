@@ -31,7 +31,7 @@
 > **Flujo:** primero la **imagen maestra (§1.0)**; después los videos, usando esa imagen como **referencia**.
 
 ### 1.0 Imagen maestra de referencia — estática (bloquea el diseño)
-> Esta imagen define al personaje: es la **referencia** de los videos §1.1–§1.6 y de las skins futuras. Vista cenital, pose de reposo, sin arma (el arma se superpone en el engine).
+> Esta imagen define al personaje: es la **referencia** de los videos §1.1–§1.6 y de las skins futuras. El maestro de abajo mira hacia **arriba (N)**; para S y E se generan variantes con la misma cámara (bloque al final de esta sección), y cada una es la referencia de los videos de su dirección.
 
 ```
 Single character reference illustration for a 2D arena PVP game: a futuristic duelist,
@@ -52,6 +52,13 @@ Technical:
 Negative constraints:
 - No 3/4 or oblique view, no perspective, no face, no weapon, no text, no watermark, no scene background, no other characters.
 ```
+
+**Variantes por dirección** (misma cámara y encuadre — solo cambia hacia dónde mira; generar cada variante con el **maestro N como referencia** y agregando esta línea al prompt: `Same character, same armor, same camera position and framing as the reference image — only the facing direction changes.`):
+- **S — mira hacia abajo:** cambiar `character faces UP` → `character faces DOWN` y `(away from the camera)` → `(toward the camera)`. Se ve el frente: pecho y visor.
+- **E — mira a la derecha:** reemplazar la línea de orientación por `character faces RIGHT (east) — side profile`.
+- **O (izquierda):** NO se genera — flip horizontal de los frames de E en el pipeline (regla 6).
+
+Los videos (§1.1–§1.6) de cada dirección usan **su** maestro como `attached reference image`; en los prompts de video, cambiar además `character faces UP in every frame` por la dirección correspondiente.
 
 ### 1.0b Ilustración de presentación (opcional — ficha / tienda)
 ```

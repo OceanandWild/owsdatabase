@@ -1215,61 +1215,140 @@ input:focus, select:focus {
 }
 
 /* =========================================
-   TOASTER PERSISTENTE — AVISO OCEAN PAY
+   AVISO A PANTALLA COMPLETA — OCEAN PAY
    (indisponible desde OWS Hub 3.4.20)
-   Fijo arriba, sin cierre y sin auto-ocultado.
+   Sin cierre y sin auto-ocultado: no se
+   puede descartar. Cubre toda la pantalla.
    ========================================= */
-.op-announce-toaster {
+.op-down {
   position: fixed;
-  top: 14px;
-  left: 0;
-  right: 0;
-  z-index: 5000;
-  display: flex;
-  justify-content: center;
-  padding: 0 16px;
-  pointer-events: none;
-}
-
-.op-announce-toaster-pill {
+  inset: 0;
+  z-index: 6000;
   display: flex;
   align-items: center;
-  gap: 12px;
-  max-width: 860px;
-  padding: 12px 22px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(9, 20, 40, 0.94), rgba(34, 16, 62, 0.94));
-  border: 1px solid rgba(0, 242, 254, 0.45);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55), 0 0 22px rgba(0, 242, 254, 0.22);
+  justify-content: center;
+  padding: 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(0, 242, 254, 0.14), transparent 42%),
+    radial-gradient(circle at 82% 88%, rgba(168, 85, 247, 0.16), transparent 46%),
+    linear-gradient(160deg, #070b16 0%, #0a1226 55%, #100b24 100%);
+}
+
+.op-down-card {
+  width: 100%;
+  max-width: 620px;
+  padding: 52px 40px 46px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.86), rgba(30, 18, 56, 0.72));
+  border: 1px solid var(--border-color);
+  border-radius: 28px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6), 0 0 46px rgba(0, 242, 254, 0.12);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  animation:
-    toasterDrop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s both,
-    toasterGlow 3.2s ease-in-out 1.7s infinite;
+  animation: opDownIn 0.8s cubic-bezier(0.22, 1.2, 0.36, 1) both;
 }
 
-.op-announce-toaster-icon {
-  font-size: 1.25rem;
+.op-down-emblem {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, rgba(0, 242, 254, 0.28), rgba(79, 172, 254, 0.08) 60%, transparent 72%);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  box-shadow: 0 0 34px rgba(0, 242, 254, 0.25), inset 0 0 24px rgba(0, 242, 254, 0.12);
+  animation: opDownFloat 4.2s ease-in-out infinite;
+}
+
+.op-down-emblem-wave {
+  font-size: 2.7rem;
   line-height: 1;
-  flex-shrink: 0;
 }
 
-.op-announce-toaster-text {
-  font-size: 0.84rem;
-  font-weight: 500;
-  line-height: 1.45;
-  color: #e2e8f0;
+.op-down-emblem-tool {
+  position: absolute;
+  right: -6px;
+  bottom: -4px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0b1a33, #1b1440);
+  border: 1px solid rgba(0, 242, 254, 0.45);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
 }
 
-.op-announce-toaster-text b {
+.op-down-chip {
+  display: inline-block;
+  padding: 6px 16px;
+  margin-bottom: 16px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary-cyan);
+  background: rgba(0, 242, 254, 0.08);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  animation: opDownPulse 2.6s ease-in-out infinite;
+}
+
+.op-down-title {
+  margin-bottom: 14px;
+  font-size: clamp(1.6rem, 4.6vw, 2.3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--primary-cyan);
+  background: linear-gradient(120deg, #7dd3fc 0%, #00f2fe 38%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.op-down-text {
+  max-width: 46ch;
+  margin: 0 auto;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #cbd5e1;
+}
+
+.op-down-text b {
   color: var(--primary-cyan);
   font-weight: 800;
 }
 
-@keyframes toasterDrop {
+.op-down-bar {
+  width: 148px;
+  height: 5px;
+  margin: 26px auto 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.op-down-bar i {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4facfe, #00f2fe, #a855f7);
+  animation: opDownBar 2.4s ease-in-out infinite;
+}
+
+@keyframes opDownIn {
   from {
     opacity: 0;
-    transform: translateY(-170%) scale(0.94);
+    transform: translateY(26px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -1277,47 +1356,69 @@ input:focus, select:focus {
   }
 }
 
-@keyframes toasterGlow {
+@keyframes opDownFloat {
   0%, 100% {
-    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55), 0 0 22px rgba(0, 242, 254, 0.22);
+    transform: translateY(0);
   }
   50% {
-    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55), 0 0 38px rgba(0, 242, 254, 0.45);
+    transform: translateY(-6px);
   }
 }
 
-/* Espacio reservado para que el aviso fijo no tape el contenido */
-.screen-center {
-  padding-top: 92px;
+@keyframes opDownPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(0, 242, 254, 0);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(0, 242, 254, 0.35);
+  }
 }
 
-.dashboard-container {
-  padding-top: 104px;
+@keyframes opDownBar {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
 }
 
 @media (max-width: 600px) {
-  .op-announce-toaster {
-    top: 10px;
-    padding: 0 10px;
+  .op-down {
+    padding: 18px;
   }
 
-  .op-announce-toaster-pill {
-    gap: 9px;
-    padding: 10px 14px;
-    border-radius: 14px;
+  .op-down-card {
+    padding: 38px 22px 34px;
+    border-radius: 22px;
   }
 
-  .op-announce-toaster-text {
-    font-size: 0.76rem;
+  .op-down-emblem {
+    width: 82px;
+    height: 82px;
+    margin-bottom: 18px;
   }
 
-  .dashboard-container {
-    padding-top: 132px;
+  .op-down-emblem-wave {
+    font-size: 2.3rem;
+  }
+
+  .op-down-emblem-tool {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .op-announce-toaster-pill {
+  .op-down-card,
+  .op-down-emblem,
+  .op-down-chip {
     animation: none;
+  }
+
+  .op-down-bar i {
+    animation: none;
+    width: 100%;
   }
 }

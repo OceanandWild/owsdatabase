@@ -256,6 +256,8 @@ Propuesta: los dueños históricos de los packs **Zeus Axe Founder** y **Tiger G
 | UI Toolkit | Menú, Arsenal (usa renders), HUD (HP, adrenalina, cooldowns **por arma**, indicador de arma activa), Resultados, Rank | Estándar del estudio |
 | SFX UI/ambiente | Click, navegación, KO, ambiente por arena | Algunos reusables del ecosistema |
 
+**Intensidad de VFX por rareza:** las armas comunes (Katana) usan VFX grisáceo sin glow; los acentos de color (cyan/magenta) se reservan a tiers superiores y el efecto firma a las épicas. El gameplay no cambia: solo el espectáculo visual acompaña la rareza.
+
 **Regla técnica house (obligatoria):** los spritesheets se normalizan con el pipeline ImageMagick antes de importar a Unity (extent → crop por grilla → trim/extent centrado). No recortar frame a frame.
 
 ---

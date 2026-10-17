@@ -16,7 +16,7 @@
 
 **Paleta maestra (ancla de todo):**
 - Cian neón `#00F3FF` · magenta eléctrico `#BC13FE` · navy/negro `#050510`
-- Metales oscuros con rim light · acento cian = Katana/energía neutral
+- Metales oscuros con rim light · **Katana = acero gris SIN glow** (arma común); el color neón se reserva para armas de tier superior
 - Alto contraste, siluetas legibles a tamaño chico, bloom contenido.
 
 **Resumen de assets de esta tanda:** portador (idle/run/dash/hit/KO), Katana (tajo + en mano + render), 3 pisos de arena + props + muros + hazards, 2 orbes, 4 VFX, 6 partículas ambientales.
@@ -64,14 +64,17 @@ El cuerpo en grises fríos es a propósito: el recolor por tinte (HSV) cubre las
 
 ## 2. Katana (arma inicial)
 
+> **Arma común:** VFX grisáceo y básico. La intensidad de VFX escala con la rareza — la Katana no lleva glow de color (eso se reserva a tiers superiores).
+
 ### 2.1 Hoja de tajo M1 — 24 frames, grilla 6×4, celda 256×256 (igual que los sets existentes)
 ```
-Top-down weapon slash VFX sprite sheet for "Katana", the starter weapon of a 2D arena PVP game.
+Top-down weapon slash VFX sprite sheet for "Katana", the STARTER/common weapon of a 2D arena PVP game.
+Design intent: a common weapon must read clean and honest — minimal, desaturated VFX, no neon glow.
 
 Art direction:
-- Iaido crescent cut: a white-hot core blade arc with a cyan energy edge (#00F3FF), sweeping left→right across the cell.
-- The arc grows, peaks mid-sequence and fades with small spark particles at the tip.
-- Glow intensity capped at the level of the existing red/orange sets (no overbloom).
+- Iaido crescent cut in plain steel grey/off-white: a thin matte blade arc, sweeping left→right across the cell.
+- NO colored glow, NO neon edge, NO bloom: just a soft grey motion smear and a few grey dust particles.
+- The arc grows, peaks mid-sequence and fades quickly; the effect sits at HALF the visual intensity of the colored sets (they are the ceiling).
 - Flat pure white background. No character, no hand, no sword body: only the cutting effect.
 
 Technical output requirements:
@@ -79,16 +82,17 @@ Technical output requirements:
 - Arc is continuous and readable as one motion when played at ~60 fps.
 
 Negative constraints:
-- No text, no watermark, no environment, no character, no camera shake marks, no double cuts.
+- No colored energy, no cyan/magenta/neon, no text, no watermark, no environment, no character, no camera shake marks, no double cuts.
 ```
 
 ### 2.2 Katana "en mano" (cenital, para el pivote de apuntado)
 ```
-Single top-down sprite of a futuristic katana, seen from directly above, blade pointing UP.
+Single top-down sprite of a simple steel katana, seen from directly above, blade pointing UP.
 
 Art direction:
-- Dark navy saya/handle with magenta cord wrap (#BC13FE), silver-black blade with a thin cyan energy edge.
-- Consistent with the game's premium dark-metal weapon style; subtle rim light.
+- Plain steel blade (light grey, brushed texture), dark grey handle with simple black cord wrap.
+- No energy edge, no glow, no colored accents: a clean common weapon that reads instantly.
+- Subtle rim light only.
 
 Technical output requirements:
 - 1 sprite, 128x128 PNG. Pivot at the handle base (touching character center); delivery: transparent or flat white background.
@@ -104,8 +108,8 @@ Mismo formato que los renders existentes (Chain Scythe, Zeus Axe, Tiger Gloves).
 Presentation render of a futuristic katana for a premium 2D action game card art.
 
 Art direction:
-- Dark gothic sci-fi metal (black steel, layered plates) with a cyan energy core (#00F3FF).
-- Dramatic diagonal composition, centered, sword only. Strong rim light, controlled bloom.
+- Plain forged steel katana: light grey blade, dark grey fittings — NO glowing core, NO neon (common weapon).
+- Dramatic diagonal composition, centered, sword only. Restrained rim light, no bloom.
 - Style match: same family as the existing arsenal renders (dark metal + glowing core + light motion smear behind).
 - Pure white background, no environment.
 

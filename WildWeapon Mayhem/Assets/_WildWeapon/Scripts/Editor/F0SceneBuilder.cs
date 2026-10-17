@@ -45,7 +45,7 @@ namespace WildWeapon.EditorTools
             EnsureFolders();
             var white = EnsureWhiteSprite();
             var katana = EnsureWeapon(KatanaPath, "Katana", 12f, 0.35f, 0.95f, 120f,
-                new Color(0.85f, 0.87f, 0.95f), new Vector2(0.80f, 0.10f), 0.55f);
+                new Color(0.80f, 0.81f, 0.83f), new Vector2(0.80f, 0.10f), 0.55f);
             var hacha = EnsureWeapon(AxePath, "Hacha Gris", 14f, 0.50f, 1.05f, 90f,
                 new Color(0.62f, 0.65f, 0.70f), new Vector2(0.55f, 0.22f), 0.50f);
 

@@ -258,6 +258,15 @@ function bindStaticEvents() {
         openNewsFromCard(e.target.closest('[data-news-idx]'));
       }
     });
+    // Spotlight visual de Noticias: pasa la posición del cursor a CSS
+    // (--mx/--my) para el foco de luz sobre la imagen. Solo estético.
+    newsGrid.addEventListener('pointermove', (e) => {
+      const card = e.target.closest('.news-card');
+      if (!card) return;
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${Math.max(0, Math.round(e.clientX - rect.left))}px`);
+      card.style.setProperty('--my', `${Math.max(0, Math.round(e.clientY - rect.top))}px`);
+    }, { passive: true });
   }
   // Reintento del estado de error de Noticias (botón único dentro de #news-empty)
   const newsEmpty = document.getElementById('news-empty');
@@ -2049,20 +2058,28 @@ let newsLoading = false;
 let newsAutoRetryTimer = 0;
 let newsAutoRetryUsed = false;
 
+// ── Esqueletos de carga: espejan la grilla real de noticias ──
+function renderNewsSkeleton(count) {
+  const n = Math.max(1, Math.min(Number(count) || 4, 6));
+  let html = '';
+  for (let k = 0; k < n; k++) {
+    html += `<div class="news-skeleton" aria-hidden="true"></div>`;
+  }
+  html += `
+    <div class="news-loading-copy" role="status" aria-live="polite">
+      <p class="news-loading-title">Cargando noticias…</p>
+      <p class="news-loading-sub">La primera carga puede tardar si el servidor está despertando.</p>
+    </div>`;
+  return html;
+}
+
 function renderNewsLoading() {
   const list = document.getElementById('news-table-body');
   const empty = document.getElementById('news-empty');
   if (empty) empty.classList.add('hidden');
-  if (list) {
-    list.innerHTML = `
-      <div class="news-loading" role="status" aria-live="polite">
-        <span class="releases-spinner" aria-hidden="true"></span>
-        <p class="news-loading-title">Cargando noticias…</p>
-        <p class="news-loading-sub">La primera carga puede tardar si el servidor está despertando.</p>
-      </div>`;
-  }
+  if (list) list.innerHTML = renderNewsSkeleton(4);
   const count = document.getElementById('news-count');
-  if (count) count.textContent = 'Cargando…';
+  if (count) { count.classList.remove('is-live'); count.textContent = 'Cargando…'; }
 }
 
 // Estado vacío vs error de carga: mismo bloque, con un solo botón de
@@ -2107,7 +2124,7 @@ function renderNewsTable(newsList) {
   // null = la carga falló: no es "sin noticias", es error de conexión.
   if (newsList === null) {
     list.innerHTML = '';
-    if (count) count.textContent = 'Sin conexión';
+    if (count) { count.classList.remove('is-live'); count.textContent = 'Sin conexión'; }
     setNewsEmptyState('error');
     return;
   }
@@ -2116,6 +2133,7 @@ function renderNewsTable(newsList) {
   newsFeedCache = items;
 
   if (count) {
+    count.classList.toggle('is-live', items.length > 0);
     count.textContent = items.length > 0
       ? `${items.length} ${items.length === 1 ? 'noticia' : 'noticias'}`
       : 'Sin noticias';
@@ -2143,9 +2161,10 @@ function renderNewsTable(newsList) {
       ? `<img src="${escapeHtml(media)}" alt="" loading="lazy" />${watermarkChip(item)}`
       : `<span class="news-card-fallback" aria-hidden="true">📰</span>`;
     return `
-    <article class="news-card${idx === 0 ? ' is-featured' : ''}" data-news-idx="${idx}" role="button" tabindex="0" aria-label="Leer noticia: ${title}">
+    <article class="news-card${idx === 0 ? ' is-featured' : ''}" style="--i:${idx}" data-news-idx="${idx}" role="button" tabindex="0" aria-label="Leer noticia: ${title}">
       <div class="news-card-media">
         ${visual}
+        <span class="news-card-scan" aria-hidden="true"></span>
         <span class="news-card-date"><b>${day}</b><span>${escapeHtml(mon)}</span>${year ? `<i>${year}</i>` : ''}</span>
         <span class="news-card-project">${escapeHtml(item.project_name || 'OWS')}</span>
       </div>
@@ -2153,7 +2172,7 @@ function renderNewsTable(newsList) {
         ${idx === 0 ? '<span class="news-card-kicker">Última noticia</span>' : ''}
         <h4 class="news-card-title">${title}</h4>
         ${item.description ? `<p class="news-card-desc">${escapeHtml(item.description)}</p>` : ''}
-        <span class="news-card-cta">Leer noticia →</span>
+        <span class="news-card-cta">Leer noticia <i aria-hidden="true">→</i></span>
       </div>
     </article>
   `;
@@ -2307,7 +2326,7 @@ function renderQuickNews(list, meta) {
   }
 
   empty.classList.add('hidden');
-  box.innerHTML = items.map((item) => {
+  box.innerHTML = items.map((item, qi) => {
     const isNew = !!item.is_new;
     const tag = String(item.tag || '').trim();
     const link = String(item.link_url || '').trim();
@@ -2322,8 +2341,8 @@ function renderQuickNews(list, meta) {
       </span>
       ${link ? '<span class="qnews-item-cta" aria-hidden="true">↗</span>' : ''}`;
     return link
-      ? `<a class="qnews-item${isNew ? ' is-new' : ''}" href="${escapeHtml(link)}" target="_blank" rel="noopener">${body}</a>`
-      : `<div class="qnews-item${isNew ? ' is-new' : ''}">${body}</div>`;
+      ? `<a class="qnews-item${isNew ? ' is-new' : ''}" style="--i:${Math.min(qi, 10)}" href="${escapeHtml(link)}" target="_blank" rel="noopener">${body}</a>`
+      : `<div class="qnews-item${isNew ? ' is-new' : ''}" style="--i:${Math.min(qi, 10)}">${body}</div>`;
   }).join('');
 }
 
@@ -7232,6 +7251,17 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.20': [
+    'Los eventos con fecha tentativa se publican como "Fecha esperada de inicio" (por confirmar): se muestran sin cuenta atrás exacta y, cuando la fecha se confirma, vuelven al formato normal.',
+    'Los eventos terminados pueden avisar cuánto les queda antes de irse: se muestra "Desaparece en …" con la cuenta atrás viva y, al llegar la fecha, el evento se quita solo del calendario.',
+    'Cada proyecto estrena su propia marca de agua sobre las portadas de sus eventos y noticias, con su texto, su posición en la imagen y su opacidad (por defecto, el nombre del proyecto).',
+    'Nueva barra de estados en Eventos: Todos, En curso, Próximos y Finalizados, con el conteo de cada grupo y combinable con el filtro por proyecto.',
+    'La cuenta atrás de los próximos eventos se actualiza sola mientras navegás: ya no queda congelada en el tiempo que faltaba cuando abriste la página, y al llegar a cero el evento pasa a mostrarse en curso.',
+    'Los eventos de proyectos internos no exponen su marca de agua ni su nombre: se siguen viendo como "Proyecto interno".',
+    'Nueva sección "Changelogs de Proyectos": los juegos ya lanzados aparecen con su icono y su nombre, se despliegan con una animación para ver todas las versiones publicadas y, al tocar una, se abre el detalle con la fecha, la plataforma, el peso del archivo y el changelog completo de esa versión.',
+    'La sección nueva se destaca con un distintivo "Nuevo" en el menú y en su título, que se apaga solo con el correr de los días.',
+    'El panel del "Launcher del ecosistema" (OWS Hub) en la sección de Actualizaciones se rehizo por completo: ahora organiza identidad, estado y versiones en una columna y las novedades en otra, con una presentación visual renovada y animaciones según el estado.'
+  ],
   '3.4.16': [
     'Noticias ya no se queda en blanco si el servidor no responde: ahora muestra qué pasó y un botón para reintentar en el momento.',
     'El Hub distingue "todavía no hay noticias" de "no se pudo conectar", en vez de mostrar las dos situaciones igual.',
@@ -7399,7 +7429,7 @@ function hubChangelogHtml(version, notes) {
   const items = HUB_CHANGELOGS[key];
   if (items && items.length) {
     return '<ul class="hub-changelog-list">' +
-      items.map((t) => '<li>' + hubMdInline(hubMdEscape(t)) + '</li>').join('') +
+      items.map((t, i) => '<li style="--i:' + i + '">' + hubMdInline(hubMdEscape(t)) + '</li>').join('') +
       '</ul>';
   }
   const raw = String(notes || '').trim();
@@ -7450,9 +7480,13 @@ async function showHubChangelogOnBoot() {
 function openHubChangelogModal(version, notes) {
   const modal = document.getElementById('hub-changelog-modal');
   if (!modal) return;
+  const card = modal.querySelector('.hub-changelog-card');
+  // Estado normal: se restaura por si el modal anterior fue el de "no se aplicó".
+  if (card) card.dataset.state = 'update';
+  const iconEl = document.getElementById('hub-changelog-icon');
+  if (iconEl) iconEl.textContent = '🚀';
   const verEl = document.getElementById('hub-changelog-ver');
   if (verEl) verEl.textContent = 'v' + String(version || '').replace(/^[vV]/, '');
-  // Estado normal: se restaura por si el modal anterior fue el de "no se aplicó".
   const titleEl0 = document.getElementById('hub-changelog-title');
   if (titleEl0) titleEl0.textContent = '¡Actualizaste a esta versión!';
   const subEl0 = document.getElementById('hub-changelog-sub');
@@ -7461,7 +7495,6 @@ function openHubChangelogModal(version, notes) {
   if (installEl0) installEl0.classList.add('hidden');
   // La versión destacada (lanzamiento) lleva aro dorado + píldora ✨.
   try {
-    const card = modal.querySelector('.hub-changelog-card');
     const hot = String(version || '').replace(/^[vV]/, '') === HUB_CHANGELOG_HIGHLIGHT;
     if (card) card.classList.toggle('is-highlight', hot);
     let pill = modal.querySelector('.hub-changelog-hot');
@@ -7469,8 +7502,8 @@ function openHubChangelogModal(version, notes) {
       pill = document.createElement('p');
       pill.className = 'hub-changelog-hot';
       pill.textContent = '✨ Novedad destacada';
-      const head = card.querySelector('.hub-changelog-head');
-      if (head) head.appendChild(pill);
+      const hero = card.querySelector('.hub-changelog-hero');
+      if (hero) hero.appendChild(pill);
     }
     if (!hot && pill) pill.remove();
   } catch (_) {}
@@ -7502,6 +7535,12 @@ function closeHubChangelogModal() {
 function openHubUpdateFailedModal(target, current) {
   const modal = document.getElementById('hub-changelog-modal');
   if (!modal) return;
+  const card = modal.querySelector('.hub-changelog-card');
+  if (card) { card.classList.remove('is-highlight'); card.dataset.state = 'error'; }
+  const failedPill = modal.querySelector('.hub-changelog-hot');
+  if (failedPill) failedPill.remove();
+  const iconEl = document.getElementById('hub-changelog-icon');
+  if (iconEl) iconEl.textContent = '⚠️';
   const verEl = document.getElementById('hub-changelog-ver');
   if (verEl) verEl.textContent = 'v' + target;
   const titleEl = document.getElementById('hub-changelog-title');
@@ -7514,8 +7553,8 @@ function openHubUpdateFailedModal(target, current) {
   const body = document.getElementById('hub-changelog-body');
   if (body) {
     body.innerHTML = '<ul class="hub-changelog-list">' +
-      '<li>Cerrá el Hub por completo, incluido el ícono de la bandeja del sistema, y volvé a abrirlo.</li>' +
-      '<li>Si sigue igual, ejecutá el instalador de la v' + escapeHtml(target) +
+      '<li style="--i:0">Cerrá el Hub por completo, incluido el ícono de la bandeja del sistema, y volvé a abrirlo.</li>' +
+      '<li style="--i:1">Si sigue igual, ejecutá el instalador de la v' + escapeHtml(target) +
       ' encima de la anterior: reemplaza la versión vieja sin perder tus datos.</li>' +
       '</ul>';
     body.classList.remove('hidden');

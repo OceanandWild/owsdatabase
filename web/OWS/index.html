@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Hub — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=9" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -336,7 +336,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.4.17</span>
+          <span class="nav-version">OWS Hub · v3.4.20</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>
@@ -438,13 +438,13 @@
       <!-- 02 · Noticias -->
       <section id="sec-noticias" class="page-section ows-view" aria-label="Últimas Noticias">
         <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Noticias</span></div>
-        <div class="section-head">
+        <div class="section-head news-section-head">
           <span class="section-index">02</span>
           <div class="section-titles">
             <h3 class="section-title">Últimas Noticias</h3>
             <p class="section-sub">Tocá una tarjeta para leer la noticia completa</p>
           </div>
-          <span class="section-meta" id="news-count">Sin noticias</span>
+          <span class="section-meta news-live-pill" id="news-count">Sin noticias</span>
         </div>
         <div class="news-panel glass-card">
           <div id="news-table-body" class="news-grid"></div>
@@ -457,11 +457,11 @@
         </div>
 
         <!-- ⚡ Noticias Rápidas: texto corto, al pie de las noticias -->
-        <div class="qnews-panel glass-card" id="qnews-panel">
+        <div class="qnews-panel news-qnews-scope glass-card" id="qnews-panel">
           <div class="qnews-head">
             <div class="qnews-head-text">
               <h4 class="qnews-title">
-                ⚡ Noticias Rápidas
+                <span class="qnews-bolt" aria-hidden="true">⚡</span> Noticias Rápidas
                 <span class="qnews-new hidden" id="qnews-new" title="Sección recién estrenada">✨ Nuevo</span>
               </h4>
               <p class="qnews-sub">Lo que se cuenta en una línea. Se actualiza al instante.</p>
@@ -661,8 +661,9 @@
              El progreso NO vive acá: queda en el toaster (#hub-upd-toaster)
              mientras baja y después en el modal de reinicio. -->
         <div class="upd-hub-card" id="upd-hub-card" data-state="loading">
-          <div class="upd-hub-top">
-            <div class="upd-hub-id">
+          <div class="upd-hub-grid">
+            <div class="upd-hub-col upd-hub-col-id">
+              <div class="upd-hub-id">
               <div class="upd-hub-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
               </div>
@@ -672,7 +673,7 @@
                 <p class="upd-hub-state" id="upd-hub-state">Buscando la última versión…</p>
               </div>
             </div>
-            <div class="upd-hub-vers">
+            <div class="upd-hub-version-flow">
               <span class="upd-ver-cell">
                 <small>Instalada</small>
                 <b class="upd-ver-chip upd-ver-old" id="upd-hub-current">—</b>
@@ -683,10 +684,12 @@
                 <b class="upd-ver-chip upd-ver-new" id="upd-hub-latest">—</b>
               </span>
             </div>
-          </div>
-
-          <div class="upd-hub-notes" id="upd-hub-notes"></div>
+            </div>
+            <div class="upd-hub-col upd-hub-col-notes">
+              <p class="upd-hub-notes-label">Novedades de esta versión</p>
+              <div class="upd-hub-notes" id="upd-hub-notes"></div>
           <button class="upd-hub-notes-more hidden" id="upd-hub-notes-more" type="button" aria-expanded="false">Ver todas las novedades</button>
+            </div>
 
           <div class="upd-hub-foot">
             <div class="upd-hub-actions" id="upd-hub-actions"></div>
@@ -842,11 +845,15 @@
     </div>
   </div>
 
-  <!-- Novedades de la versión nueva (una vez por versión) -->
-  <div id="hub-changelog-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
-    <div class="glass-card modal-card hub-changelog-card">
-      <button class="modal-close" data-close="hub-changelog-modal" aria-label="Cerrar">&times;</button>
-      <div class="hub-changelog-head">
+  <!-- Novedades de la versión nueva (rework 3.4.20: una vez por versión).
+       Hero con emblema + versión, cuerpo con las novedades en tarjetas y
+       pie con la acción principal. El estado lo maneja app.js vía
+       data-state="update" | "error". -->
+  <div id="hub-changelog-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="hub-changelog-title">
+    <div class="glass-card modal-card hub-changelog-card" data-state="update">
+      <button class="modal-close hcl-close" data-close="hub-changelog-modal" aria-label="Cerrar">&times;</button>
+      <div class="hub-changelog-hero">
+        <span class="hub-changelog-icon" id="hub-changelog-icon" aria-hidden="true">🚀</span>
         <span class="hub-changelog-badge" id="hub-changelog-ver">v—</span>
         <h3 class="hub-changelog-title" id="hub-changelog-title">¡Actualizaste a esta versión!</h3>
         <p class="hub-changelog-sub" id="hub-changelog-sub">Esto es lo nuevo en OWS Hub. Se muestra una sola vez por versión.</p>
@@ -878,6 +885,6 @@
        espejo owsdatabase2 (ver ows-api-failover.js). -->
   <script src="ows-api-failover.js?v=1"></script>
   <script src="library.js?v=4"></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

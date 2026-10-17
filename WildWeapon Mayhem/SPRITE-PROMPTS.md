@@ -54,7 +54,7 @@ Negative constraints:
 ```
 
 **Variantes por dirección** (misma cámara y encuadre — solo cambia hacia dónde mira; generar cada variante con el **maestro N como referencia** y agregando esta línea al prompt: `Same character, same armor, same camera position and framing as the reference image — only the facing direction changes.`):
-- **S — mira hacia abajo:** cambiar `character faces UP` → `character faces DOWN` y `(away from the camera)` → `(toward the camera)`. Se ve el frente: pecho y visor.
+- **S — mira hacia abajo:** cambiar `character faces UP` → `character faces DOWN` y `(away from the camera)` → `(toward the camera)`; en Art direction, reemplazar `No face visible (crown of helmet only)` → `No human face: closed opaque visor (no exposed skin)`. Se ve el frente: pecho y visor.
 - **E — mira a la derecha:** reemplazar la línea de orientación por `character faces RIGHT (east) — side profile`.
 - **O (izquierda):** NO se genera — flip horizontal de los frames de E en el pipeline (regla 6).
 

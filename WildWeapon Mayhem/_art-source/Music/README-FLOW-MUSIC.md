@@ -60,3 +60,14 @@ the track can loop seamlessly. Purely instrumental, no vocals, no lyrics.
 > Nota: el script `_art-source/_tools/generate-music.py` queda como camino alternativo
 > si algún día habilitás billing en la Gemini API (Lyria 3.5: $0.08/canción,
 > clip 30 s: $0.04). Mismos nombres de archivo, misma integración.
+
+---
+
+## Estado
+
+- **2026-10-17**: las 4 pistas se generaron en **Flow Music** (tier propio) y se importaron
+  a `Assets/_WildWeapon/Audio/Music/`. El builder cablea por defecto la **V1** de cada tema;
+  para pasar a una V2: renombrar el par (v2 → v1) o pedirle al agente el swap.
+- Los MP3 de esta carpeta (`ww_music_*.mp3`) son el **source of truth** y van al repo
+  (misma convención que `_art-source/SFX/`).
+- Cada pista lleva watermark **SynthID** (imperceptible).

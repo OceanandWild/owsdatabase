@@ -1843,6 +1843,11 @@ namespace WildWeapon.EditorTools
 
         private static void BuildArenaScene(MapCatalog catalog, GameObject playerPrefab, EnemyBot[] bots, GameObject spawnVfx)
         {
+            // Misma precaucion que en el selector: usar una referencia fresca del
+            // catalogo para que la arena resuelva bien el mapa por defecto.
+            var fresh = AssetDatabase.LoadAssetAtPath<MapCatalog>(CatalogPath);
+            if (fresh != null) catalog = fresh;
+
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var defaultMap = catalog != null && catalog.Count > 0 ? catalog.Get(0) : null;
 
@@ -1941,6 +1946,11 @@ namespace WildWeapon.EditorTools
             digitRt.sizeDelta = new Vector2(480f, 480f);
             count.digit = digit;
             pvp.countdown = count;
+
+            // Releer el catalogo justo antes de usarlo: el armado de la escena toca el
+            // AssetDatabase y puede dejar obsoleta la referencia cargada al principio.
+            var freshCatalog = AssetDatabase.LoadAssetAtPath<MapCatalog>(CatalogPath);
+            if (freshCatalog != null && freshCatalog.Count > 0) catalog = freshCatalog;
 
             var bootGo = new GameObject("GameBootstrap");
             var boot = bootGo.AddComponent<GameBootstrap>();
@@ -2071,7 +2081,6 @@ namespace WildWeapon.EditorTools
 
             var canvasGo = MenuCanvas("MapSelectCanvas", camGo.GetComponent<Camera>());
             var controller = canvasGo.AddComponent<MapSelectController>();
-            controller.catalog = catalog;
 
             BuildBackdrop(canvasGo.transform);
 
@@ -2110,6 +2119,16 @@ namespace WildWeapon.EditorTools
             float[] rowY = { 172f, -26f, -224f };
             string[] rowNames = { "CHICAS", "MEDIANAS", "GRANDES" };
             string[] rowCounts = { "DUELOS RAPIDOS", "ESTANDAR", "SUPERVIVENCIA" };
+
+            // Las escenas anteriores del build borran y recrean assets (clips, controllers)
+            // y pueden dejar obsoleta la referencia cargada al inicio. El catalogo se
+            // relee aca, en el punto de uso: si no, el selector se guardaba sin tarjetas.
+            var mapCatalog = AssetDatabase.LoadAssetAtPath<MapCatalog>(CatalogPath);
+            if (mapCatalog != null && mapCatalog.Count > 0) catalog = mapCatalog;
+            if (catalog == null || catalog.Count == 0)
+                Debug.LogError($"[WildWeapon] El selector de arenas no encontro el catalogo ({CatalogPath}).");
+            else
+                controller.catalog = catalog;
 
             var cards = new MapSelectCard[catalog != null ? catalog.Count : 0];
             for (int i = 0; i < cards.Length; i++)

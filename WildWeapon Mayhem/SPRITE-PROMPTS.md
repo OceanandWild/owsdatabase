@@ -483,3 +483,326 @@ No text, no watermark, no perspective, no motion blur.
 **Orden sugerido de producción:** 1) Portador idle+run → 2) Katana (tajo + en mano) → 3) Piso Bóveda Dorada + props → 4) orbes y VFX → 5) los otros 2 pisos + hazards + ambiente.
 
 > Cuando haya videos/arte nuevo: los videos se convierten a frames (ffmpeg), se normalizan con el pipeline (ImageMagick) y se integran al builder de F0 (`F0SceneBuilder`) para reemplazar los rectángulos por sprites reales.
+
+
+---
+
+## 7. Logo del título y estallido del menú (regenerados)
+
+> Assets del arte del menú reworkeado (oct 2026). Transparencia real, sin fondo horneado.
+> Nota: el texto exacto del prompt usado no quedó registrado; abajo va qué es cada pieza y cómo se monta.
+
+| Asset | Tamaño | Destino | Notas |
+|---|---|---|---|
+| `ww_logo.png` | 1024×1024 (alfa, bbox ~1005×941) | `Assets/_WildWeapon/Art/Sprites/` | Logo del título (katana + hacha cruzadas sobre el estallido). Reemplaza al anterior en el mismo path. |
+| `ww_logo_burst.png` | 1024×1024 → canvas 1152×1152 | `Assets/_WildWeapon/Art/Sprites/` | Anillo de impacto cómic con centro hueco. **Normalizar antes de importar:** `magick ww_logo_burst.png -background none -gravity center -extent 1152x1152 ww_logo_burst.png` (deja ~80 px de margen para que al girar no se corte ninguna punta). |
+
+**Montaje en el builder** (`WildWeaponBuilder.BuildMenuLogo`):
+
+- `Logo/Glow` — halo suave que late por detrás (soft circle naranja).
+- `Logo/Burst` — el estallido; gira 360° por ciclo de idle y entra con rebote en la intro.
+- `Logo/LogoImage` — el logo; lleva un `Mask` (alpha) para que el brillo quede recortado a la silueta.
+- `Logo/LogoImage/Shine` — barra de brillo diagonal que barre el logo: una vez al aterrizar (intro) y dos veces por vuelta de idle.
+
+Clips del menú: `Menu_Intro` (~1.65 s, caída + rebote + barrido) y `Menu_Idle` (12 s en loop, respiración + giro del estallido + 2 barridos).
+
+---
+
+## 8. Tarjetas de modo del menú (skin + emblemas, oct 2026)
+
+> Rework visual de la fila de tarjetas (`01 DUELO · 02 PVP · 03 SUPERVIVENCIA · 04 SALIR`): paneles biselados con glow y emblema fantasma por modo. Generado con Aura (imagen cuadrada/landscape + transparencia), normalizado con ImageMagick y cableado en el builder.
+
+| Asset | Tamaño final | Destino | Notas |
+|---|---|---|---|
+| `ww_menu_card_skin.png` | 1024×461 (20:9) | `Assets/_WildWeapon/Art/Sprites/` | Panel oscuro biselado con borde fino y líneas de luz arriba/abajo. Se generó con glow cian y se **desaturó a gris** para tintarlo por acento en runtime. |
+| `ww_icon_duel.png` | 512×512 | idem | Katanas cruzadas. |
+| `ww_icon_pvp.png` | 512×512 | idem | Globo terráqueo con órbita y nodos de jugador. |
+| `ww_icon_survival.png` | 512×512 | idem | Calavera frontal en emblema. |
+| `ww_icon_exit.png` | 512×512 | idem | Puerta entreabierta con flecha de salida. |
+
+**Prompts (esencia, en inglés):** panel "flat straight-on ultra-wide card, dark navy glass, chamfered corners, thin steel border, cyan rim light, subtle diagonal weave, transparent background"; íconos "bold minimal flat vector glyph, light grey/white with subtle bevel, centered, transparent background" (la misma cola de estilo para los cuatro). Los nombres se pasan **sin `.png`** a `generate_images`.
+
+**Normalización (ImageMagick):**
+
+```powershell
+# Skin: neutralizar glow (gris) + trim + encuadre exacto 20:9 (como la tarjeta 320x144)
+magick ww_menu_card_skin.png -modulate 100,0,100 -fuzz 8% -trim +repage -resize 1024x461! ww_menu_card_skin.png
+# Iconos: trim + reencuadre centrado en 512 (llenan ~78% del marco)
+magick ww_icon_*.png -fuzz 8% -trim +repage -resize 400x400 -background none -gravity center -extent 512x512 ww_icon_*.png
+```
+
+**Montaje en el builder** (`WildWeaponBuilder.ModeCard`):
+
+- `Frame` — el skin (Image simple, estirado a la tarjeta); reemplaza al panel sólido. Si el sprite falta, cae al `Panel` viejo.
+- `Mark` — el emblema del modo, fantasma detrás de los textos (120-ish px), raycast off.
+- En `MenuModeCard`: el skin es gris neutro y `frame.color` se tintea con el acento del modo (reposo mezclado al 28%, resaltado acento pleno); el emblema sube de alfa 0.14 a 0.40 y escala 0.96→1.07 al resaltar.
+- `ArtSpec` nuevos en la lista `Art` (skin 1024, íconos 512, PPU 512 estándar del set).
+- Menú dev para iterar escenas sin el diálogo modal: **WildWeapon > Dev > Reconstruir escenas (silencioso)** (`WildWeaponDevMenu.cs`, llama a `BuildAllSilent`).
+
+---
+
+## 9. Franja de info del menú (skin + chips, oct 2026)
+
+> Segundo pase del rework del menú: la franja que muestra el detalle del modo (`Título + bajada + 3 fichas`) deja los paneles planos y pasa a placa biselada con skin propia, y las fichas ganan un chip biselado. Los emblemas de §8 se reutilizan como marca fantasma detrás de las fichas (cambia con el modo activo).
+
+A diferencia de §8 (Aura), esta tanda se generó con **Google Flow (Nano Banana 2.1)**, que rinde bien el estilo "consola de acero" y no consumió puntos; las piezas llegan como JPG sobre fondo blanco plano y se recortan con ImageMagick (key + trim), como los props de §3.2.
+
+| Asset | Tamaño final | Destino | Notas |
+|---|---|---|---|
+| `ww_menu_info_skin.png` | 1024×120 (8.53:1) | `Assets/_WildWeapon/Art/Sprites/` | Placa ultra-ancha biselada: cuerpo de vidrio gris con tejido diagonal sutil y brillo, borde fino claro, líneas de acento arriba/abajo, esquinas chamferadas. **Desaturada a gris** para el tint por acento en runtime. |
+| `ww_menu_chip_skin.png` | 512×94 (5.45:1) | idem | Chip compacto a juego (mismo lenguaje): chamfer chico, borde claro, highlight superior. También en gris neutro. |
+
+Ambas calzan exactas al hueco de UI (franja 1180×138 y chip 186×34) para evitar estirados raros sin 9-slice.
+
+**Prompts (esencia, en inglés):** "ONE single ultra-wide [information banner plate / small chip plate], flat straight-on orthographic view, axis-aligned, aspect ~8:1 [~5.5:1], deep navy glass with subtle diagonal weave and faint sheen, crisp chamfered corners, thin light steel border, faint accent lines on top/bottom edges, premium tactical game HUD style, on a completely flat pure white background with clear margins, no shadow, no text, no icons". Misma cola de estilo en ambas para que la familia se lea igual.
+
+**Normalización (ImageMagick):**
+
+```powershell
+# Key del fondo blanco + trim de la placa (las piezas salen como JPG sin alpha)
+magick ww_info_raw.jpg -fuzz 8% -transparent white -trim +repage ww_info_keyed.png
+# Encuadre exacto al hueco (1024x120 = 8.53:1) y gris neutro para tint por acento
+magick ww_info_keyed.png -background none -resize 1024x120! ww_menu_info_skin.png
+magick ww_menu_info_skin.png -modulate 100,0,100 ww_menu_info_skin.png
+# Chip (hueco 186x34 = 5.45:1), mismo tratamiento
+magick ww_chip_raw.jpg -fuzz 8% -transparent white -trim +repage -background none -resize 512x94! ww_menu_chip_skin.png
+magick ww_menu_chip_skin.png -modulate 100,0,100 ww_menu_chip_skin.png
+```
+
+**Montaje en el builder** (`WildWeaponBuilder.ModeInfoStrip`):
+
+- `Bg` — el skin de la franja estirado al rect (1180×138); si el sprite falta, cae al `Panel` viejo.
+- Chips — cada ficha usa el chip skin como fondo (186×34); el label queda encima; fallback a `Panel` translúcido.
+- `MenuModeInfo` — `frame` y `bg` de cada chip se tintean por modo (`Lerp(FrameTint, acento, 0.30)` y `Lerp(ChipTint, acento, 0.5)`), y la marca fantasma detrás de las fichas cambia de emblema según el modo (alfa 0.16).
+- `ArtSpec` nuevos en la lista `Art` (info 1024, chip 512, PPU 512 estándar del set).
+- Verificación: reconstrucción con **WildWeapon > Dev > Reconstruir escenas (silencioso)** + captura en play (la franja queda en gris acero con tinte frío en DUELO; los chips salen casi neutros).
+
+---
+
+## 10. Modal PVP del menú (placa + botón + regla + radar, oct 2026)
+
+> Tercer pase del rework del menú: el overlay de emparejamiento (`PvpQuickmatchPanel`, hasta ahora un panel plano con `Outline`) pasa a placa con skin propia y deja de ser una caja gris. Como la UI del overlay se arma por código, las piezas se inyectan con el componente **`PvpOverlaySkin`** que el builder cuelga de `MenuCanvas` en `MainMenu`; si alguna pieza falta, el overlay cae al look plano anterior.
+
+Generado con **Google Flow (Nano Banana 2.1, 0 puntos)**, mismo lenguaje "consola de acero" que §9. Ojo con el recorte: este lote tiene interiores claros (el vidrio del radar y el acero de la regla), así que el key se hace por **floodfill desde las 4 esquinas** en vez de `-transparent white` liso, para no agujerear el centro.
+
+| Asset | Tamaño final | Destino | Notas |
+|---|---|---|---|
+| `ww_pvp_panel_skin.png` | 900×380 (2.37:1) | `Assets/_WildWeapon/Art/Sprites/` | Placa del modal: vidrio navy con tejido diagonal, esquinas chamferadas, borde acero fino y ticks en las esquinas. Gris neutro para tint. |
+| `ww_pvp_button_skin.png` | 320×64 (5:1) | idem | Botón de cancelar: bisel con highlight superior y tapas laterales. Gris neutro. |
+| `ww_pvp_rule.png` | 340×16 (21:1) | idem | Regla divisoria bajo el título, con rombo central y puntas anguladas. Gris neutro. |
+| `ww_pvp_radar.png` | 256×256 | idem | Scope circular de búsqueda (anillos, sweep, blips, bisel con marcas). Gris neutro: el acento lo pone el código. |
+
+**Prompts (esencia, en inglés):** misma cola de estilo que §9 — "ONE single … flat straight-on orthographic view, axis-aligned, aspect ratio about X to 1, deep navy glass body with subtle diagonal weave, crisp chamfered corners, thin light steel border, premium tactical game HUD style matching a family of dark metal UI plates, isolated on a completely flat uniform pure white background with clear margins, no shadow, no text, no icons". Variantes: botón "compact wide button plate, gentle raised bevel, soft top highlight, tiny accent ticks at the ends"; regla "extremely long and thin horizontal divider ornament, narrow steel line, small diamond shape in the exact center, tiny angled end tips"; radar "circular radar scope dial, three thin concentric rings, soft wedge-shaped scan sweep, small square blips, thin outer bezel with tick marks".
+
+**Normalización (ImageMagick):**
+
+```powershell
+# Key por floodfill desde las 4 esquinas (preserva el vidrio claro del radar y el acero de la regla)
+magick ww_pvp_panel_raw.jpg -alpha set -fuzz 9% -fill none -floodfill +0+0 white -floodfill +1375+0 white -floodfill +0+767 white -floodfill +1375+767 white -trim +repage panel_keyed.png
+# Encuadre EXACTO al hueco de UI + gris neutro para el tint por acento (mismo tratamiento en las 4)
+magick panel_keyed.png  -background none -resize 900x380! -modulate 100,0,100 ww_pvp_panel_skin.png
+magick button_keyed.png -background none -resize 320x64!  -modulate 100,0,100 ww_pvp_button_skin.png
+magick rule_keyed.png   -background none -resize 340x16!  -modulate 100,0,100 ww_pvp_rule.png
+magick radar_keyed.png  -background none -resize 256x256! -modulate 100,0,100 ww_pvp_radar.png
+```
+
+**Montaje (overlay por código + `PvpOverlaySkin`):**
+
+- `PvpOverlaySkin` — componente nuevo (`Scripts/UI/`) con `panel`, `button`, `rule`, `radar` (vía `Spr(...)`) y `shine` (`EnsureShine()`, la veta de §7); el builder lo completa en `BuildMenuScene`.
+- `PvpQuickmatchPanel` busca el skin con `FindFirstObjectByType<PvpOverlaySkin>()` y arma el modal: placa con `RectMask2D` (recorta el barrido de luz), radar fantasma girando por detrás del contenido (34°/s conectando → 120 buscando → 300 al encontrar rival; alfa 0.10→0.18→0.30), regla bajo el título, estado con best-fit + pulso suave, bajada y botón con `MenuButtonFx` (hover heredado del menú).
+- Tints por acento: placa `Lerp(Steel, violeta, 0.26)`, regla 0.55, botón 0.42 — mismo criterio que §8/§9 (acero frío + acento del modo).
+- `ArtSpec` nuevos en la lista `Art` (panel 1024; button/rule/radar 512; PPU 512 estándar del set). Crudos en `_art-source/Menu/`.
+- Verificación: reconstrucción con **WildWeapon > Dev > Reconstruir escenas (silencioso)** sin "Falta arte", `.meta` con `spritePixelsToUnits: 512` + `alphaIsTransparency: 1`, GUIDs presentes en `MainMenu.unity` (1 por pieza) y capturas en play de "CONECTANDO…" y "SIN CONEXION".
+
+---
+
+## 10. HUD de partida 1v1 (rework oct 2026)
+
+> Tercer pase del rework de UI: el HUD **OnGUI** de F0 (`HudDebug`) se reemplaza por un **canvas uGUI** con placas biseladas propias. Misma familia visual que el menú (§8/§9) pero con piezas dedicadas para las placas de jugador, el marcador de ronda y la barra de vida. Tanda generada con **Google Flow (Nano Banana 2.1, 0 puntos)**; las piezas llegan como JPG sobre fondo blanco plano y se recortan con ImageMagick (key + trim), igual que §9.
+
+**Nueva jerarquía** (la arma `WildWeaponBuilder.BuildMatchHud`, canvas `MatchHudCanvas` dentro de `Mode_Duelo`, sortingOrder 50 — debajo de la cuenta regresiva PvP que va en 60):
+
+- `RoundBanner` — placa 384×64 arriba al centro: "RONDA n" (izq) + reloj mm:ss (der).
+- `OverdriveBanner` — misma placa, teñida roja y pulsante: "¡OVERDRIVE! DAÑO ×1.5".
+- `PanelJ1` / `PanelJ2` — placas 420×118 (una por lado, espejadas): tag "J1 · VOS/· RIVAL", marcas de ronda (pips), canal de vida 396×24 y chips de arma 186×34 (`ww_menu_chip_skin`).
+- `Status` — placa 640×120 para los anuncios ("RONDA n", "GANA Jx…"), con entrada de fundido + desliz; el texto se auto-ajusta (best fit 22–40).
+- `Footer` — controles, texto plano.
+
+`MatchHud` (runtime) actualiza todo: el acento de cada placa sale del **color del personaje** (`visual.paintColor`), la vida baja al toque y vuelve suave (con destello blanco al recibir daño), la marca de ronda nueva entra con un pop y el anuncio central se tinta con el color del ganador.
+
+| Asset | Tamaño final | Destino | Notas |
+|---|---|---|---|
+| `ww_hud_panel_skin` | 1024×288 (3.56:1) | `Assets/_WildWeapon/Art/Sprites/` | Placa de jugador (hueco 420×118): vidrio gris biselado + borde fino claro. Desaturada a gris para el tinte por personaje. |
+| `ww_hud_round_plate` | 1024×171 (6:1) | idem | Placa del marcador (hueco 384×64) con divisor fino al medio (ronda / reloj). También se usa para el banner de Overdrive (teñida). |
+| `ww_hud_status_plate` | 1024×192 (5.33:1) | idem | Placa de anuncios (hueco 640×120), más alta, con marco interno sutil. |
+| `ww_hud_hp_track` | 1024×62 (16.5:1) | idem | Canal de vida vacío (hueco 396×24): interior hundido + labio claro. |
+| `ww_hud_hp_fill` | 1024×48 (21.3:1) | idem | Relleno sólido claro (ancho variable = Hp01): se tintea de rojo→verde en runtime. |
+| `ww_hud_pip` | 256×256 | idem | Marca de ronda ganada (rombo biselado, 20×20 en pantalla). |
+
+**Prompts (inglés, un solo renglón, cola de estilo compartida):** *"ONE single [pieza] for a 2D fighting game HUD, flat straight-on orthographic view, perfectly axis-aligned, aspect ratio about [X:1], [descripción], crisp chamfered corners, thin light steel border, muted neutral grey, premium tactical game HUD style, dark-steel gothic sci-fi, no text, no letters, no numbers, no icons, no watermark, no shadow, on a completely flat pure white background with clear margins."* — descripciones: panel = "ultra-wide beveled steel nameplate, dark navy-grey glass body with a subtle diagonal weave and faint sheen, a slim brighter highlight line along the top edge"; round plate = "ultra-wide beveled steel plate with a faint thin vertical divider line in the exact center"; status = "beveled announcement banner plate with a faint inner frame line near the edge"; track = "extremely long and thin shallow recessed channel, dark inset interior, a slim light steel rim with beveled highlight along the top edge, completely empty inside"; fill = "extremely long and thin solid light grey metal bar with a lighter highlight along the top edge and a slightly darker bottom edge, perfectly uniform along its length"; pip = "small round-win marker badge: a bold chamfered diamond emblem with a subtle inner bevel and a thin darker outline".
+
+**Normalización (ImageMagick):**
+
+```powershell
+# Key del fondo blanco + trim (las piezas salen como JPG sin alpha)
+magick ww_hud_panel_skin_raw.jpg -fuzz 8% -transparent white -trim +repage keyed.png
+magick identify keyed.png
+# Encuadre EXACTO al hueco + gris neutro para el tinte por personaje
+magick keyed.png -background none -resize 1024x288! ww_hud_panel_skin.png
+magick ww_hud_panel_skin.png -modulate 100,0,100 ww_hud_panel_skin.png
+# Preview sobre fondo oscuro para revisar halo/encuadre
+magick -size 1024x288 xc:'#191f2b' ww_hud_panel_skin.png -composite preview.png
+```
+
+**Montaje en el builder** (`WildWeaponBuilder.BuildMatchHud` / `HudPlayerPanel`):
+
+- `ArtSpec` nuevos en la lista `Art` (panel/round/status/track/fill 1024, pip 256; PPU 512 estándar del set).
+- Si falta un skin, el código cae a paneles/colores planos (mismo patrón que el menú).
+- Verificación: **WildWeapon > Dev > Reconstruir escenas (silencioso)** + play de la escena Arena (modo DUELO por defecto) con captura; probar daño (`DuelManager.Instance.Players[0].Health.TakeDamage(...)`) para ver la barra bajar.
+
+**Notas de tanda (Flow):** el filtro de política de Flow bloqueó tres prompts por falsos positivos de vocabulario ("health-bar trough", "solid bar strip", "badge/marker"). Se resolvieron reformulando: el canal de vida quedó como "horizontal gauge rail" y la marca de ronda como "a square rotated exactly 45 degrees to form a diamond". Verificado en play (capturas, oct 2026): HUD completo en duelo, drenaje de vida con tinte rojo, pip de J2 al ganar ronda, anuncio "RONDA n: GANA Jx" con placa, banner ¡OVERDRIVE! pulsante y pie de controles.
+
+---
+
+## 11. Arenas: 12 mapas + plataformas + props compartidos (rework oct 2026)
+
+> Cuarto pase de contenido: el juego pasa de **1 arena** a **12** (4 chicas 16×9, 4 medianas 20×11, 4 grandes 24×13). Tanda generada con **Google Flow (Nano Banana 2.1, 0 puntos)**.
+>
+> **Alcance aprobado ("arte de arena + props compartidos")**: 1 fondo por mapa (piso + decoración horneada, un solo sprite estirado al área) + set de plataformas (chica/mediana/grande, 9-slice) + 5 props compartidos nuevos = **19 piezas**. Las **plataformas y los peligros son código**, no arte: los dibuja `MapGenerator` (`MapPlatform`) y `ArenaHazard`, y su sombra/anillo salen procedurales (`EnsurePlatShadow` / `EnsureRing`).
+
+**Cómo funciona cada pieza en el juego**
+
+- **Fondo** → `MapDef.floorSprite` con `floorSingle = true`: un único sprite estirado a `arenaSize`. Trae el piso y la decoración horneada; el motor agrega encima los obstáculos (con collider), la decoración suelta, las plataformas y los peligros. Por eso el **centro del cuadro debe quedar relativamente limpio y oscuro** y **no** llevar personajes, criaturas, textos ni sombras proyectadas.
+- **Plataformas** → `ww_plat_chica/mediana/grande` son **9-slice** (borde configurado en el `ArtSpec`: 96/110/130 px a PPU 320): se estiran a la huella del deck sin deformar las puntas. La lógica es *one-way* (`HeightBody` + `PlatformSurface`): se camina por debajo sin collider, se sube saltando desde abajo, se aterriza arriba y **no** se baja a través del deck (hay que caminar hasta el borde).
+- **Props** → obstáculos compartidos entre temas (`MapProp` con `tint` por mapa). Los que declaran `height` (cajas, barriles, contenedores, chatarra, tubería, escombro) tienen **techo pisable**: se puede saltar encima y dejan de bloquear a esa altura.
+
+**Tabla de los 12 mapas** (el id manda el nombre del asset y del fondo):
+
+| # | id | Nombre / bajada | Tamaño | Acento | Decoración horneada del fondo | Peligros (código) |
+|---|---|---|---|---|---|---|
+| 1 | `duela` | Duela de Chatarra · DUELO SOBRE TABLAS ROTAS | chica 16×9 | naranja óxido `#FF8C33` | tablones hundidos, sierras oxidadas, pilas de chatarra, clavos | Prensa (DERRUMBE) |
+| 2 | `neon` | Balcón de Neón · LUZ QUE CORTA | chica | magenta `#FF59D9` | pavimento mojado, balcones de hotel, carteles de neón, cables | Cartel de neón (ARCO) |
+| 3 | `camara` | Cámara Fría · NO TE CONGELES | chica | hielo `#8CD9FF` | cámara de congelados, ganchos, cajas apiladas, escarcha | Escarcha (FRIO) |
+| 4 | `eco` | Pozo del Eco · EL POZO RESPONDE | chica | verde agua `#4DFFD9` | pozo seco, piedra tallada, musgo, ecos en el agua | Eco del pozo (ONDA) |
+| 5 | `leviatan` | Fosa Leviatán · ALGO GRANDE MURIÓ ACÁ | mediana 20×11 | verde ácido `#B3D95A` | costillas gigantes, charcos de ácido, huesos, arena oscura | Charco de ácido (ZONA) · Costillas (DERRUMBE) |
+| 6 | `boveda` | Bóveda Dorada · LLUVIA DE MAYHEMCOINS | mediana | dorado `#FFCC40` | bóveda de banco, lingotes, cajas fuertes, puerta blindada | Lluvia dorada (MONEDAS) · Puerta blindada (DERRUMBE) |
+| 7 | `nebula` | Chatarra Nebulosa · VIENTO Y CABLE PELADO | mediana | azul acero `#99BFFF` | desguace orbital, turbinas, paneles flotando, cables | Turbina (VENDAVAL) · Cable pelado (ARCO) |
+| 8 | `vivero` | Vivero Mutante · LAS ESPORAS NO PERDONAN | mediana | verde `#80FF80` | invernadero, enredaderas, macetas gigantes, esporas | Nube de esporas (ZONA) · Raíces vivas (ZONA) |
+| 9 | `templo` | Templo Hundido · EL AGUA SUBE Y BAJA | grande 24×13 | cian `#59E6F2` | templo inundado, columnas caídas, estatuas sumergidas | Inundación (ZONA) · Columna (DERRUMBE) · Marea (ONDA) |
+| 10 | `domo` | Domo de Hielo · FRENAR ES MORIR | grande | hielo | domo polar, grietas, ventisca, témpanos | Ventisca (FRIO) · Témpano (DERRUMBE) · Ráfaga (VENDAVAL) |
+| 11 | `mercado` | Mercado del Caos · OFERTAS QUE EXPLOTAN | grande | naranja `#FF9933` | mercado nocturno, puestos, toneles de aceite, monedas | Tonel de aceite (FUEGO) · Lluvia de monedas (MONEDAS) · Puesto que se cae (DERRUMBE) |
+| 12 | `nucleo` | Núcleo Overdrive · TOCÁ EL NÚCLEO Y CORRÉ | grande | violeta `#B873FF` | reactor, cables, plasma, fosas de escoria | Pulso de plasma (ONDA) · Cables del núcleo (ARCO) · Fosa de escoria (FUEGO) |
+
+**Prompts (inglés, un solo renglón).** Cola de estilo compartida para los **fondos**: *"ONE single top-down arena floor for a 2D arena fighting game, perfectly flat straight-down orthographic view, aspect ratio about [16:9 / 20:11 / 24:13], [tema], [piso + decoración horneada], the middle of the arena stays fairly clean and dark so characters read against it, corners and edges sinking into deep shadow, high contrast painterly comic style, dark moody palette, [acento] accents, no characters, no creatures, no letters, no numbers, no text, no watermark, no logo, no UI, no frame or border around the image, no cast shadows of characters, no vignette overlay."* — temas:
+
+- `duela`: *"a wrecked scrapyard wood-plank floor: broken timber boards nailed over rusted metal sheets, scattered saw blades, bolts and small piles of scrap, oil stains"*
+- `neon`: *"a rain-slicked neon alley pavement: wet dark asphalt with puddle reflections, glowing pink and cyan sign light spilling from above, thin cables and a fire escape ladder along the lower edge"*
+- `camara`: *"a refrigerated cold-storage room floor: frost-covered concrete tiles, hanging meat hooks in the corners, stacked pale crates, icy mist creeping from the edges"*
+- `eco`: *"a dried-up stone well floor: carved stone tiles forming a circle, moss in the cracks, faint glowing turquoise runes, wet stone"*
+- `leviatan`: *"a beast graveyard floor: colossal fossil ribs arching across the ground, dark sand, acid pools glowing acid green, scattered bones"*
+- `boveda`: *"a bank vault floor: polished golden granite tiles with inlaid steel lines, scattered gold ingots and coins, heavy safe boxes along the edges"*
+- `nebula`: *"an orbital scrap-dealer floor: riveted steel plates with bolts, turbine vents cut into the deck, scattered hull panels and a floor cable running across"*
+- `vivero`: *"an overgrown greenhouse floor: cracked ceramic tiles with weeds pushing through, giant flower pots, creeping vines, glowing spores drifting"*
+- `templo`: *"a flooded ancient temple floor: wet carved stone slabs, shallow dark water with reflections, fallen columns lying across the ground, sunken stone faces"*
+- `domo`: *"a polar ice dome floor: thick cracked ice with frosty fractures, snow drifts, frozen machinery half buried, cold blue glow from the cracks"*
+- `mercado`: *"a night market street floor: cobblestone with wooden planks, oil barrels, overturned market stalls, scattered coins, embers"*
+- `nucleo`: *"a reactor core chamber floor: dark industrial grating over a violet reactor glow, thick cables running across, scorch marks, molten slag pits at the edges"*
+
+Cola de las **plataformas** (9-slice): *"ONE single flat elevated platform slab piece for a top-down 2D arena, perfectly flat straight-down orthographic view, aspect ratio about 3.2:1, a long rectangular [material] deck plate: perfectly straight horizontal top and bottom edges with a thin bright rim highlight along the top edge, a uniform repeating surface texture across the whole middle band so it can be stretched horizontally without distortion, identical decorative cap detail at both the left and right end, a thin dark outline around the whole silhouette, dark moody palette, [acento] accent light, no text, no letters, no numbers, no watermark, isolated on a completely flat pure white background with clear margins."* — materiales: `chica` = *"thin riveted steel catwalk plate"*; `mediana` = *"beveled steel and concrete deck plate"*; `grande` = *"thick industrial platform plate with bolted edge trims"*.
+
+Cola de los **props** (mismo patrón que §3): *"ONE single [prop] for a top-down 2D arena fighting game, flat straight-down orthographic view, aspect ratio about 1:1, [descripción], thick dark outline, painterly comic style, dark moody palette, no text, no watermark, no ground shadow, isolated on a completely flat pure white background with clear margins."*
+
+| Asset | Tamaño final | Props / descripción |
+|---|---|---|
+| `ww_prop_chatarra` | 512 px | pila de chapa retorcida, engranajes y tubos rotos |
+| `ww_prop_tuberia` | 512 px | tramo de caño industrial con bridas y una válvula |
+| `ww_prop_contenedor` | 512 px | contenedor metálico chico con puertas y remaches |
+| `ww_prop_totem` | 512 px | tótem de chapa con carteles apilados y una antena |
+| `ww_prop_escombro` | 512 px | montículo de escombros con ladrillos y varillas |
+
+**Normalización (ImageMagick)**
+
+```powershell
+# Fondos: llenan el cuadro, no se keyean (van sin alpha real, se estiran al área de arena)
+magick raw.png -resize 2048x -strip ww_map_duela_bg.png
+
+# Plataformas: key del blanco + trim + encuadre exacto del 9-slice (el borde lo pone el ArtSpec)
+magick ww_plat_mediana_raw.jpg -fuzz 8% -transparent white -trim +repage -background none -resize 1024x320! ww_plat_mediana.png
+
+# Props: key + trim + lado máximo
+magick ww_prop_tuberia_raw.jpg -fuzz 8% -transparent white -trim +repage -background none -resize 512x512 ww_prop_tuberia.png
+```
+
+**Tanda generada (18-oct-2026, Flow / Nano Banana 2.1, 16:9 y 1:1, x2 por prompt)**
+
+Las 19 piezas salieron en un solo proyecto de Flow; se generaron **2 variantes por prompt** y se eligió una de cada par revisando un contact sheet (`magick montage`) por tamaño. Elección final:
+
+| Pieza | Variante | Pieza | Variante |
+|---|---|---|---|
+| duela | `a` | nebula | `a` |
+| neon | `b` | vivero | `a` |
+| camara | `b` | templo | `a` |
+| eco | `a` | domo | `a` |
+| leviatan | `a` | mercado | `a` |
+| boveda | `b` | nucleo | `a` |
+| plat_chica | `b` (chapa de catwalk) | plat_mediana | `a` (paneles acero+hormigón) |
+| plat_grande | `a` (diamantada con remaches) | | |
+| chatarra | `b` | totem | `b` |
+| tuberia | `b` | escombro | `a` |
+| contenedor | `b` | | |
+
+Notas de la tanda: el tile de resultado en Flow trae `flow-grid-tile-container[aria-label]` con una descripción automática del contenido (ej. *"Steel catwalk platform slab"*, *"Metal shipping container prop"*), que es la forma confiable de asignar cada imagen nueva a su prompt cuando hay varias generaciones en vuelo (los pares de plataformas se distinguen por ese label). Los crudos quedaron en `_art-source/Maps/`; los 20 PNG en `Assets/_WildWeapon/Art/Sprites/` y el builder los levanta por nombre (`ww_map_<id>_bg`, `ww_plat_chica/mediana/grande`, `ww_prop_chatarra/tuberia/contenedor/totem/escombro`).
+
+Crudos en `_art-source/Maps/`; importados a `Assets/_WildWeapon/Art/Sprites/` (PPU 512 estándar, plataformas PPU 320 con borde 9-slice).
+
+**Montaje en el builder** (`WildWeaponBuilder`): `BuildMapDefs()` crea/actualiza los **12 `MapDef`** (`Data/Maps/Map_<id>.asset`) desde la tabla `MapThemes()` y arma el **`MapCatalog`** (`Data/Maps/MapCatalog.asset`); `BuildMapSelectScene(catalog)` genera la escena **MapSelect** (3 filas × 4 tarjetas + ficha del mapa + JUGAR/VOLVER) y el `MainMenu` manda Duelo/Supervivencia ahí (`GameSession.SelectedMap` → `GameBootstrap` resuelve el `MapDef` del catálogo; en PVP online el mapa sale de la semilla del server, `seed % count`, para que los dos clientes jueguen la misma arena).
+
+**Verificación**: **WildWeapon > Dev > Reconstruir escenas (silencioso)** sin "Falta arte", play desde MainMenu → modo → selector (12 tarjetas con acento y vista previa) → JUGAR → la arena elegida; saltar sobre una plataforma (sube, aterriza arriba, no la atraviesa al bajar) y pisar un peligro en piso vs. parado arriba de un deck (arriba no llega: `maxHeight`).
+
+---
+
+## 12. Plataformas por mapa: 12 slabs propios + layouts 3/5/9 (rework oct 2026)
+
+> Quinto pase de contenido: se retiran las 3 plataformas compartidas de §11 (`ww_plat_chica/mediana/grande`) y **cada mapa estrena su propio sprite de plataforma** (`ww_plat_<id>`, 1024×320, 9-slice). Además se redefinieron los layouts por tamaño (**chico = 3 decks, mediano = 5, grande = 9**) y se vaciaron **temporalmente** los peligros, la decoración y los obstáculos: vuelven más adelante, ahora la arena es piso + plataformas. Tanda generada con **Google Flow (Nano Banana 2.1, 0 puntos)**, x1 por prompt (16:9).
+
+**Las 12 piezas** (material del slab / acento):
+
+| id | Material | Acento |
+|---|---|---|
+| `duela` | tablones de madera sobre marco de acero oxidado | óxido |
+| `neon` | hormigón mojado + acero con franja de neón | magenta/cian |
+| `camara` | acero helado esmerilado | hielo |
+| `eco` | piedra tallada con musgo y runas | turquesa |
+| `leviatan` | hueso fósil | verde ácido |
+| `boveda` | mármol dorado con molduras de bronce | dorado |
+| `nebula` | acero orbital remachado | azul acero |
+| `vivero` | cerámica agrietada con enredaderas | verde |
+| `templo` | piedra de templo tallada y húmeda | cian |
+| `domo` | hielo agrietado | hielo |
+| `mercado` | tablones de puesto sobre cajones | naranja |
+| `nucleo` | rejilla industrial sobre brillo de reactor | violeta |
+
+**Prompt base** (inglés, un renglón; mismos remates que la cola de §11, cambia el material):
+
+*"ONE single flat elevated platform slab piece for a top-down 2D arena game, perfectly flat straight-down orthographic view, aspect ratio about 3.2:1, a long rectangular **[material]**, perfectly straight horizontal top and bottom edges with a thin bright rim highlight along the top edge, a uniform repeating **[texture]** across the whole middle band so it can be stretched horizontally without distortion, identical decorative **[cap]** detail at both the left and right end, a thin dark outline around the whole silhouette, dark moody palette, **[accent]** accent light, no text, no letters, no numbers, no watermark, isolated on a completely flat pure white background with clear margins."*
+
+Ejemplos de material: `wooden planks over rusted steel frame`, `frosted icy steel`, `carved mossy stone with turquoise runes`, `fossil bone`, `golden marble with brass trim`, `riveted orbital steel`, `cracked ice`, `industrial grating over violet reactor glow`.
+
+**Normalización (ImageMagick)**
+
+```powershell
+# Slab por mapa: key del blanco + trim + encuadre exacto del 9-slice (borde 110 px por ArtSpec)
+magick plat_<id>_raw.jpg -fuzz 8% -transparent white -trim +repage -background none -resize 1024x320! ww_plat_<id>.png
+```
+
+**Montaje en el juego**
+
+- `MapDef.platformSprite`: **un solo** sprite por mapa; todos los decks de la arena usan ese arte. El enum `MapPlatformSize` quedó **descriptivo** (etiqueta del deck: Baja/Media/Alta), ya no elige arte.
+- `MapGenerator.Platform()` usa `sprite.border` (9-slice → `SpriteDrawMode.Sliced`) y estira a la huella de `MapPlatform.size`; sombra procedural igual que antes.
+- Layouts por tamaño (`MapThemes()`): **chico 3** decks (1 central + 1 par espejado), **mediano 5** (1 + 2 pares), **grande 9** (1 + 4 pares). El central va `mirrored = false` (no se duplica sobre sí mismo); los pares se espejan a 180° en duelo/PVP (`mirroredForDuel`).
+- Alturas 0.55/0.95/1.35 (Baja/Media/Alta): el salto llega a ~1.6, así que la Alta se sube desde otro deck y las demás se suben del piso.
+- `ww_plat_chica/mediana/grande` quedaron obsoletas: `CleanupLegacy()` las borra (PNG + meta) al reconstruir escenas.
+- Sin peligros/decoración/obstáculos por ahora: `MapThemes()` ya no declara esas listas, los contadores quedan en 0 y `Fill()` es null-safe (`Obstacles()/Decor()` devuelven vacío, `def.hazards` queda `[]`). La ficha del selector muestra la **cuenta real de decks** (3/5/9 en duelo; sin espejo en Supervivencia).
+- Crudos de esta tanda en `_art-source/Maps/plat_<id>_raw.jpg` (junto a los crudos previos `plat_chica_a/mediana_b/grande_a`, que quedan como archivo).
+
+**Verificación (18-oct-2026)**: `Reconstruir escenas (silencioso)` sin "Falta arte"; render de los 12 mapas en modo espejo (960×540) con las cuentas exactas **3/5/9** y el arte propio de cada mapa; duelo jugado desde el menú (Duela de Chatarra) con sus 3 decks y sombras; ficha del selector: "CHICA · 16x9 · 3 PLATAFORMAS · 0 PELIGROS".

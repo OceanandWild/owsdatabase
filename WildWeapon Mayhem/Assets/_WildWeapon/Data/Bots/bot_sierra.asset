@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11d9be6043ec2a443a29b830d950e61b, type: 3}
+  m_Name: bot_sierra
+  m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.BotDef
+  displayName: Dron Sierra
+  weapon: {fileID: 11400000, guid: 16e20401de5800e4fafa4f6029030a2a, type: 2}
+  hp: 30
+  moveSpeed: 3
+  windup: 0.15
+  recover: 0.25
+  bodyRadius: 0.36
+  visualScale: 0.95
+  animSpeed: 1.3
+  tint: {r: 1, g: 0.88, b: 0.25, a: 1}
+  deathVfx: {fileID: 2022120792361809869, guid: 2cec5616d6326ce41b4d7e8c5a00c43a, type: 3}

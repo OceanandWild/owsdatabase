@@ -1,0 +1,1497 @@
+fileFormatVersion: 2
+guid: aeeef93dc7346c848b376e5b1e16a86b
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 7963238448797807046
+    second: rig_kn_head_paint_0
+  - first:
+      213: -3024358051794468750
+    second: rig_kn_head_paint_1
+  - first:
+      213: -6338165648781679088
+    second: rig_kn_head_paint_2
+  - first:
+      213: -3204119251915609322
+    second: rig_kn_head_paint_3
+  - first:
+      213: -4583164202220922715
+    second: rig_kn_head_paint_4
+  - first:
+      213: 1119159238717707369
+    second: rig_kn_head_paint_5
+  - first:
+      213: 4305875139388605101
+    second: rig_kn_head_paint_6
+  - first:
+      213: 1890888584061524284
+    second: rig_kn_head_paint_7
+  - first:
+      213: -6129843153717712135
+    second: rig_kn_head_paint_8
+  - first:
+      213: -208686191834401263
+    second: rig_kn_head_paint_9
+  - first:
+      213: -6891915968836559831
+    second: rig_kn_head_paint_10
+  - first:
+      213: -6881373807226618065
+    second: rig_kn_head_paint_11
+  - first:
+      213: 5297358410283459998
+    second: rig_kn_head_paint_12
+  - first:
+      213: -3200880994268594680
+    second: rig_kn_head_paint_13
+  - first:
+      213: 639317394513513844
+    second: rig_kn_head_paint_14
+  - first:
+      213: -2950855995662351628
+    second: rig_kn_head_paint_15
+  - first:
+      213: -113180190479613480
+    second: rig_kn_head_paint_16
+  - first:
+      213: 7687688130352018578
+    second: rig_kn_head_paint_17
+  - first:
+      213: -1468735794829132865
+    second: rig_kn_head_paint_18
+  - first:
+      213: 4621638969469370664
+    second: rig_kn_head_paint_19
+  - first:
+      213: 8358429713864317068
+    second: rig_kn_head_paint_20
+  - first:
+      213: 7003629275729055212
+    second: rig_kn_head_paint_21
+  - first:
+      213: -7704297034436579659
+    second: rig_kn_head_paint_22
+  - first:
+      213: -9204185640133129166
+    second: rig_kn_head_paint_23
+  - first:
+      213: 9198163528127732781
+    second: rig_kn_head_paint_24
+  - first:
+      213: 3066557859655740807
+    second: rig_kn_head_paint_25
+  - first:
+      213: 6379349862473391757
+    second: rig_kn_head_paint_26
+  - first:
+      213: -7664817115126491770
+    second: rig_kn_head_paint_27
+  - first:
+      213: 1950571519066595543
+    second: rig_kn_head_paint_28
+  - first:
+      213: 5920710873793387440
+    second: rig_kn_head_paint_29
+  - first:
+      213: -4404629083594476242
+    second: rig_kn_head_paint_30
+  - first:
+      213: -6875147803955858552
+    second: rig_kn_head_paint_31
+  - first:
+      213: -3258132628370106976
+    second: rig_kn_head_paint_32
+  - first:
+      213: 6984130928314398184
+    second: rig_kn_head_paint_33
+  - first:
+      213: 7971667061281182964
+    second: rig_kn_head_paint_34
+  - first:
+      213: -7324819286861154969
+    second: rig_kn_head_paint_35
+  - first:
+      213: 1420220498655089157
+    second: rig_kn_head_paint_36
+  - first:
+      213: 6326521211113657204
+    second: rig_kn_head_paint_37
+  - first:
+      213: -5812358160173382719
+    second: rig_kn_head_paint_38
+  - first:
+      213: -2577270974856519710
+    second: rig_kn_head_paint_39
+  - first:
+      213: 7654818349478910557
+    second: rig_kn_head_paint_40
+  - first:
+      213: -8767976543094533883
+    second: rig_kn_head_paint_41
+  - first:
+      213: -6282950176542005014
+    second: rig_kn_head_paint_42
+  - first:
+      213: 6573247730684732638
+    second: rig_kn_head_paint_43
+  - first:
+      213: 2062604150643465155
+    second: rig_kn_head_paint_44
+  - first:
+      213: 627968235541381530
+    second: rig_kn_head_paint_45
+  - first:
+      213: -4529914416298401849
+    second: rig_kn_head_paint_46
+  - first:
+      213: 6597525670735219417
+    second: rig_kn_head_paint_47
+  - first:
+      213: -461581075765613577
+    second: rig_kn_head_paint_48
+  - first:
+      213: -8726548817421758474
+    second: rig_kn_head_paint_49
+  - first:
+      213: -5042441024688153986
+    second: rig_kn_head_paint_50
+  - first:
+      213: 9221139228235254231
+    second: rig_kn_head_paint_51
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 9
+  spritePivot: {x: 0.5, y: 0.04}
+  spritePixelsToUnits: 512
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 512
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: rig_kn_head_paint_0
+      rect:
+        serializedVersion: 2
+        x: 252
+        y: 782
+        width: 117
+        height: 52
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6c1735a9d2b138e60800000000000000
+      internalID: 7963238448797807046
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_1
+      rect:
+        serializedVersion: 2
+        x: 255
+        y: 762
+        width: 119
+        height: 50
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 270c23920625706d0800000000000000
+      internalID: -3024358051794468750
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_2
+      rect:
+        serializedVersion: 2
+        x: 138
+        y: 496
+        width: 71
+        height: 89
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 016e8c86cef4a08a0800000000000000
+      internalID: -6338165648781679088
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_3
+      rect:
+        serializedVersion: 2
+        x: 146
+        y: 577
+        width: 454
+        height: 202
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 61b649b348ea883d0800000000000000
+      internalID: -3204119251915609322
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_4
+      rect:
+        serializedVersion: 2
+        x: 195
+        y: 506
+        width: 82
+        height: 82
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5a8d553d0745560c0800000000000000
+      internalID: -4583164202220922715
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_5
+      rect:
+        serializedVersion: 2
+        x: 231
+        y: 129
+        width: 412
+        height: 488
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9649dd6e56d088f00800000000000000
+      internalID: 1119159238717707369
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_6
+      rect:
+        serializedVersion: 2
+        x: 157
+        y: 234
+        width: 220
+        height: 265
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: da2817230aa81cb30800000000000000
+      internalID: 4305875139388605101
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_7
+      rect:
+        serializedVersion: 2
+        x: 220
+        y: 234
+        width: 6
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c3914da1629cd3a10800000000000000
+      internalID: 1890888584061524284
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_8
+      rect:
+        serializedVersion: 2
+        x: 176
+        y: 220
+        width: 8
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9faabc5012c6eeaa0800000000000000
+      internalID: -6129843153717712135
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_9
+      rect:
+        serializedVersion: 2
+        x: 135
+        y: 193
+        width: 21
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1167e22a3099a1df0800000000000000
+      internalID: -208686191834401263
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_10
+      rect:
+        serializedVersion: 2
+        x: 187
+        y: 201
+        width: 8
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 92c97a7f0fefa50a0800000000000000
+      internalID: -6891915968836559831
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_11
+      rect:
+        serializedVersion: 2
+        x: 205
+        y: 180
+        width: 17
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f2f749d3bf27080a0800000000000000
+      internalID: -6881373807226618065
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_12
+      rect:
+        serializedVersion: 2
+        x: 166
+        y: 180
+        width: 9
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e95afd4586ff38940800000000000000
+      internalID: 5297358410283459998
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_13
+      rect:
+        serializedVersion: 2
+        x: 234
+        y: 177
+        width: 8
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 80e3258d1bf2493d0800000000000000
+      internalID: -3200880994268594680
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_14
+      rect:
+        serializedVersion: 2
+        x: 179
+        y: 163
+        width: 11
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 47dc4b678cf4fd800800000000000000
+      internalID: 639317394513513844
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_15
+      rect:
+        serializedVersion: 2
+        x: 244
+        y: 161
+        width: 6
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4f2c6333b147c07d0800000000000000
+      internalID: -2950855995662351628
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_16
+      rect:
+        serializedVersion: 2
+        x: 262
+        y: 160
+        width: 8
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8d10ad66737ed6ef0800000000000000
+      internalID: -113180190479613480
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_17
+      rect:
+        serializedVersion: 2
+        x: 360
+        y: 152
+        width: 7
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2947e999f9720ba60800000000000000
+      internalID: 7687688130352018578
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_18
+      rect:
+        serializedVersion: 2
+        x: 201
+        y: 148
+        width: 10
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fbbfe4883900e9be0800000000000000
+      internalID: -1468735794829132865
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_19
+      rect:
+        serializedVersion: 2
+        x: 217
+        y: 134
+        width: 9
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 821035ff72c532040800000000000000
+      internalID: 4621638969469370664
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_20
+      rect:
+        serializedVersion: 2
+        x: 273
+        y: 140
+        width: 7
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c88d3f63a8b1ff370800000000000000
+      internalID: 8358429713864317068
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_21
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 143
+        width: 7
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ced4b5e28b3e13160800000000000000
+      internalID: 7003629275729055212
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_22
+      rect:
+        serializedVersion: 2
+        x: 390
+        y: 138
+        width: 6
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5beef429aa6d41590800000000000000
+      internalID: -7704297034436579659
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_23
+      rect:
+        serializedVersion: 2
+        x: 241
+        y: 123
+        width: 10
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 23c0d191de9244080800000000000000
+      internalID: -9204185640133129166
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_24
+      rect:
+        serializedVersion: 2
+        x: 316
+        y: 129
+        width: 7
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d2cd100bef076af70800000000000000
+      internalID: 9198163528127732781
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_25
+      rect:
+        serializedVersion: 2
+        x: 345
+        y: 111
+        width: 8
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 78d66f3402a9e8a20800000000000000
+      internalID: 3066557859655740807
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_26
+      rect:
+        serializedVersion: 2
+        x: 401
+        y: 125
+        width: 7
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d8ed9a296e0088850800000000000000
+      internalID: 6379349862473391757
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_27
+      rect:
+        serializedVersion: 2
+        x: 420
+        y: 121
+        width: 6
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6851d88917911a590800000000000000
+      internalID: -7664817115126491770
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_28
+      rect:
+        serializedVersion: 2
+        x: 250
+        y: 99
+        width: 11
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7d065f64672d11b10800000000000000
+      internalID: 1950571519066595543
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_29
+      rect:
+        serializedVersion: 2
+        x: 273
+        y: 101
+        width: 9
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0bb5f32ab279a2250800000000000000
+      internalID: 5920710873793387440
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_30
+      rect:
+        serializedVersion: 2
+        x: 326
+        y: 114
+        width: 6
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e253ff86f2d9fd2c0800000000000000
+      internalID: -4404629083594476242
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_31
+      rect:
+        serializedVersion: 2
+        x: 373
+        y: 96
+        width: 9
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 88377e69f719690a0800000000000000
+      internalID: -6875147803955858552
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_32
+      rect:
+        serializedVersion: 2
+        x: 441
+        y: 104
+        width: 8
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0a5d3e603a9c8c2d0800000000000000
+      internalID: -3258132628370106976
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_33
+      rect:
+        serializedVersion: 2
+        x: 455
+        y: 111
+        width: 6
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8e5bff6631e9ce060800000000000000
+      internalID: 6984130928314398184
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_34
+      rect:
+        serializedVersion: 2
+        x: 465
+        y: 104
+        width: 18
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4f4d85fd4fc01ae60800000000000000
+      internalID: 7971667061281182964
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_35
+      rect:
+        serializedVersion: 2
+        x: 302
+        y: 98
+        width: 6
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 765f5bacaa3095a90800000000000000
+      internalID: -7324819286861154969
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_36
+      rect:
+        serializedVersion: 2
+        x: 356
+        y: 96
+        width: 6
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5029015d403a5b310800000000000000
+      internalID: 1420220498655089157
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_37
+      rect:
+        serializedVersion: 2
+        x: 402
+        y: 83
+        width: 6
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 473576ca5815cc750800000000000000
+      internalID: 6326521211113657204
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_38
+      rect:
+        serializedVersion: 2
+        x: 285
+        y: 80
+        width: 7
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1c3c58b6c0b565fa0800000000000000
+      internalID: -5812358160173382719
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_39
+      rect:
+        serializedVersion: 2
+        x: 316
+        y: 60
+        width: 14
+        height: 28
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2ef90cd04b1bb3cd0800000000000000
+      internalID: -2577270974856519710
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_40
+      rect:
+        serializedVersion: 2
+        x: 331
+        y: 79
+        width: 6
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d5a15dc5bb06b3a60800000000000000
+      internalID: 7654818349478910557
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_41
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 84
+        width: 6
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 50194ede9c3e15680800000000000000
+      internalID: -8767976543094533883
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_42
+      rect:
+        serializedVersion: 2
+        x: 430
+        y: 72
+        width: 11
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ae86cb95a1a7ec8a0800000000000000
+      internalID: -6282950176542005014
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_43
+      rect:
+        serializedVersion: 2
+        x: 463
+        y: 70
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ed42b180cfdd83b50800000000000000
+      internalID: 6573247730684732638
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_44
+      rect:
+        serializedVersion: 2
+        x: 488
+        y: 76
+        width: 8
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3cb995ffb87df9c10800000000000000
+      internalID: 2062604150643465155
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_45
+      rect:
+        serializedVersion: 2
+        x: 348
+        y: 56
+        width: 7
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a914ca978cdf6b800800000000000000
+      internalID: 627968235541381530
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_46
+      rect:
+        serializedVersion: 2
+        x: 413
+        y: 72
+        width: 6
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7cfdc91c6d28221c0800000000000000
+      internalID: -4529914416298401849
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_47
+      rect:
+        serializedVersion: 2
+        x: 452
+        y: 66
+        width: 7
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9da81b074ae1f8b50800000000000000
+      internalID: 6597525670735219417
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_48
+      rect:
+        serializedVersion: 2
+        x: 368
+        y: 39
+        width: 8
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7fba2f705722899f0800000000000000
+      internalID: -461581075765613577
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_49
+      rect:
+        serializedVersion: 2
+        x: 397
+        y: 34
+        width: 29
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6ff8876f51215e680800000000000000
+      internalID: -8726548817421758474
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_50
+      rect:
+        serializedVersion: 2
+        x: 444
+        y: 32
+        width: 9
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e7a1b92aa96a50ab0800000000000000
+      internalID: -5042441024688153986
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_kn_head_paint_51
+      rect:
+        serializedVersion: 2
+        x: 470
+        y: 31
+        width: 28
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7d9c16bb54118ff70800000000000000
+      internalID: 9221139228235254231
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      rig_kn_head_paint_0: 7963238448797807046
+      rig_kn_head_paint_1: -3024358051794468750
+      rig_kn_head_paint_10: -6891915968836559831
+      rig_kn_head_paint_11: -6881373807226618065
+      rig_kn_head_paint_12: 5297358410283459998
+      rig_kn_head_paint_13: -3200880994268594680
+      rig_kn_head_paint_14: 639317394513513844
+      rig_kn_head_paint_15: -2950855995662351628
+      rig_kn_head_paint_16: -113180190479613480
+      rig_kn_head_paint_17: 7687688130352018578
+      rig_kn_head_paint_18: -1468735794829132865
+      rig_kn_head_paint_19: 4621638969469370664
+      rig_kn_head_paint_2: -6338165648781679088
+      rig_kn_head_paint_20: 8358429713864317068
+      rig_kn_head_paint_21: 7003629275729055212
+      rig_kn_head_paint_22: -7704297034436579659
+      rig_kn_head_paint_23: -9204185640133129166
+      rig_kn_head_paint_24: 9198163528127732781
+      rig_kn_head_paint_25: 3066557859655740807
+      rig_kn_head_paint_26: 6379349862473391757
+      rig_kn_head_paint_27: -7664817115126491770
+      rig_kn_head_paint_28: 1950571519066595543
+      rig_kn_head_paint_29: 5920710873793387440
+      rig_kn_head_paint_3: -3204119251915609322
+      rig_kn_head_paint_30: -4404629083594476242
+      rig_kn_head_paint_31: -6875147803955858552
+      rig_kn_head_paint_32: -3258132628370106976
+      rig_kn_head_paint_33: 6984130928314398184
+      rig_kn_head_paint_34: 7971667061281182964
+      rig_kn_head_paint_35: -7324819286861154969
+      rig_kn_head_paint_36: 1420220498655089157
+      rig_kn_head_paint_37: 6326521211113657204
+      rig_kn_head_paint_38: -5812358160173382719
+      rig_kn_head_paint_39: -2577270974856519710
+      rig_kn_head_paint_4: -4583164202220922715
+      rig_kn_head_paint_40: 7654818349478910557
+      rig_kn_head_paint_41: -8767976543094533883
+      rig_kn_head_paint_42: -6282950176542005014
+      rig_kn_head_paint_43: 6573247730684732638
+      rig_kn_head_paint_44: 2062604150643465155
+      rig_kn_head_paint_45: 627968235541381530
+      rig_kn_head_paint_46: -4529914416298401849
+      rig_kn_head_paint_47: 6597525670735219417
+      rig_kn_head_paint_48: -461581075765613577
+      rig_kn_head_paint_49: -8726548817421758474
+      rig_kn_head_paint_5: 1119159238717707369
+      rig_kn_head_paint_50: -5042441024688153986
+      rig_kn_head_paint_51: 9221139228235254231
+      rig_kn_head_paint_6: 4305875139388605101
+      rig_kn_head_paint_7: 1890888584061524284
+      rig_kn_head_paint_8: -6129843153717712135
+      rig_kn_head_paint_9: -208686191834401263
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

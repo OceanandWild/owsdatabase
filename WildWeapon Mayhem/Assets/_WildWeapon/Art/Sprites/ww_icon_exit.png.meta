@@ -1,0 +1,743 @@
+fileFormatVersion: 2
+guid: 7a70a01d8627f1b49a10b34773f35688
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -8440591778972489123
+    second: ww_icon_exit_0
+  - first:
+      213: -6192976889103650474
+    second: ww_icon_exit_1
+  - first:
+      213: 6142967909426176659
+    second: ww_icon_exit_2
+  - first:
+      213: 938811264717070850
+    second: ww_icon_exit_3
+  - first:
+      213: 4852005508245750304
+    second: ww_icon_exit_4
+  - first:
+      213: 1695596707195447638
+    second: ww_icon_exit_5
+  - first:
+      213: -5221000156629359533
+    second: ww_icon_exit_6
+  - first:
+      213: -196190445543395997
+    second: ww_icon_exit_7
+  - first:
+      213: 5938323870933229162
+    second: ww_icon_exit_8
+  - first:
+      213: 6901010993520546272
+    second: ww_icon_exit_9
+  - first:
+      213: 7118421450492768794
+    second: ww_icon_exit_10
+  - first:
+      213: -7926418755768409823
+    second: ww_icon_exit_11
+  - first:
+      213: -1383088613620434077
+    second: ww_icon_exit_12
+  - first:
+      213: -5102034133542809415
+    second: ww_icon_exit_13
+  - first:
+      213: -4217961239908260523
+    second: ww_icon_exit_14
+  - first:
+      213: -2681903518420961698
+    second: ww_icon_exit_15
+  - first:
+      213: 8482100759616380279
+    second: ww_icon_exit_16
+  - first:
+      213: 1062565767895766231
+    second: ww_icon_exit_17
+  - first:
+      213: -7150395085576281312
+    second: ww_icon_exit_18
+  - first:
+      213: -872628367529513114
+    second: ww_icon_exit_19
+  - first:
+      213: 2933368424085708582
+    second: ww_icon_exit_20
+  - first:
+      213: -6828120032190406088
+    second: ww_icon_exit_21
+  - first:
+      213: 7082264284124696905
+    second: ww_icon_exit_22
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 9
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 512
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 512
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ww_icon_exit_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 997
+        height: 1008
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d5a23484f7efcda80800000000000000
+      internalID: -8440591778972489123
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_1
+      rect:
+        serializedVersion: 2
+        x: 372
+        y: 1008
+        width: 49
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 651f5c6c4502e0aa0800000000000000
+      internalID: -6192976889103650474
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_2
+      rect:
+        serializedVersion: 2
+        x: 830
+        y: 663
+        width: 66
+        height: 57
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 392a8fb44c4304550800000000000000
+      internalID: 6142967909426176659
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_3
+      rect:
+        serializedVersion: 2
+        x: 904
+        y: 649
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 202a8980fd3570d00800000000000000
+      internalID: 938811264717070850
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_4
+      rect:
+        serializedVersion: 2
+        x: 901
+        y: 629
+        width: 10
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0220a3f7d49c55340800000000000000
+      internalID: 4852005508245750304
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_5
+      rect:
+        serializedVersion: 2
+        x: 898
+        y: 577
+        width: 23
+        height: 28
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 659e4b6b838f78710800000000000000
+      internalID: 1695596707195447638
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_6
+      rect:
+        serializedVersion: 2
+        x: 936
+        y: 593
+        width: 9
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 35429d305084b87b0800000000000000
+      internalID: -5221000156629359533
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_7
+      rect:
+        serializedVersion: 2
+        x: 902
+        y: 437
+        width: 53
+        height: 37
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 36d6f0944ddf64df0800000000000000
+      internalID: -196190445543395997
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_8
+      rect:
+        serializedVersion: 2
+        x: 833
+        y: 394
+        width: 64
+        height: 42
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a6e9238191a296250800000000000000
+      internalID: 5938323870933229162
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_9
+      rect:
+        serializedVersion: 2
+        x: 144
+        y: 333
+        width: 11
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0e19bdb7fe055cf50800000000000000
+      internalID: 6901010993520546272
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_10
+      rect:
+        serializedVersion: 2
+        x: 146
+        y: 175
+        width: 29
+        height: 53
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a12742e1896b9c260800000000000000
+      internalID: 7118421450492768794
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_11
+      rect:
+        serializedVersion: 2
+        x: 544
+        y: 141
+        width: 83
+        height: 50
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1212e693324bff190800000000000000
+      internalID: -7926418755768409823
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_12
+      rect:
+        serializedVersion: 2
+        x: 776
+        y: 149
+        width: 49
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 36b344cdb384ecce0800000000000000
+      internalID: -1383088613620434077
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_13
+      rect:
+        serializedVersion: 2
+        x: 120
+        y: 135
+        width: 17
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9b0534ebcfee139b0800000000000000
+      internalID: -5102034133542809415
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_14
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 149
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 555e6ea999ac675c0800000000000000
+      internalID: -4217961239908260523
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_15
+      rect:
+        serializedVersion: 2
+        x: 526
+        y: 125
+        width: 15
+        height: 33
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e56f5a695f6f7cad0800000000000000
+      internalID: -2681903518420961698
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_16
+      rect:
+        serializedVersion: 2
+        x: 810
+        y: 137
+        width: 13
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 77d510663b976b570800000000000000
+      internalID: 8482100759616380279
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_17
+      rect:
+        serializedVersion: 2
+        x: 584
+        y: 121
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7d4dae9afedfebe00800000000000000
+      internalID: 1062565767895766231
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_18
+      rect:
+        serializedVersion: 2
+        x: 600
+        y: 127
+        width: 7
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 023e688dd81b4cc90800000000000000
+      internalID: -7150395085576281312
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_19
+      rect:
+        serializedVersion: 2
+        x: 144
+        y: 93
+        width: 17
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 66f69748f1dc3e3f0800000000000000
+      internalID: -872628367529513114
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_20
+      rect:
+        serializedVersion: 2
+        x: 185
+        y: 73
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 62fd9f04a0b65b820800000000000000
+      internalID: 2933368424085708582
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_21
+      rect:
+        serializedVersion: 2
+        x: 690
+        y: 60
+        width: 13
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 832ef85f105ad31a0800000000000000
+      internalID: -6828120032190406088
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_exit_22
+      rect:
+        serializedVersion: 2
+        x: 354
+        y: 51
+        width: 9
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 94150bcc7d1494260800000000000000
+      internalID: 7082264284124696905
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      ww_icon_exit_0: -8440591778972489123
+      ww_icon_exit_1: -6192976889103650474
+      ww_icon_exit_10: 7118421450492768794
+      ww_icon_exit_11: -7926418755768409823
+      ww_icon_exit_12: -1383088613620434077
+      ww_icon_exit_13: -5102034133542809415
+      ww_icon_exit_14: -4217961239908260523
+      ww_icon_exit_15: -2681903518420961698
+      ww_icon_exit_16: 8482100759616380279
+      ww_icon_exit_17: 1062565767895766231
+      ww_icon_exit_18: -7150395085576281312
+      ww_icon_exit_19: -872628367529513114
+      ww_icon_exit_2: 6142967909426176659
+      ww_icon_exit_20: 2933368424085708582
+      ww_icon_exit_21: -6828120032190406088
+      ww_icon_exit_22: 7082264284124696905
+      ww_icon_exit_3: 938811264717070850
+      ww_icon_exit_4: 4852005508245750304
+      ww_icon_exit_5: 1695596707195447638
+      ww_icon_exit_6: -5221000156629359533
+      ww_icon_exit_7: -196190445543395997
+      ww_icon_exit_8: 5938323870933229162
+      ww_icon_exit_9: 6901010993520546272
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

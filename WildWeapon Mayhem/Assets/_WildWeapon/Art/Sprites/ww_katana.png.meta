@@ -1,0 +1,951 @@
+fileFormatVersion: 2
+guid: 6a0f2ca2703e0d441806f68009fe9b5c
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -5280499983988174189
+    second: ww_katana_0
+  - first:
+      213: -5146170178511900726
+    second: ww_katana_1
+  - first:
+      213: 4985273143329169207
+    second: ww_katana_2
+  - first:
+      213: -8300725674822809686
+    second: ww_katana_3
+  - first:
+      213: 5740548845528927970
+    second: ww_katana_4
+  - first:
+      213: -3115380269889714047
+    second: ww_katana_5
+  - first:
+      213: -300622236823618758
+    second: ww_katana_6
+  - first:
+      213: -3603896813177633724
+    second: ww_katana_7
+  - first:
+      213: 5398383536833708808
+    second: ww_katana_8
+  - first:
+      213: 4416171587598356248
+    second: ww_katana_9
+  - first:
+      213: -3286640035548905659
+    second: ww_katana_10
+  - first:
+      213: -7362437435109610644
+    second: ww_katana_11
+  - first:
+      213: -1184036233526953643
+    second: ww_katana_12
+  - first:
+      213: 4459680351610168425
+    second: ww_katana_13
+  - first:
+      213: -7844072567321000174
+    second: ww_katana_14
+  - first:
+      213: -3669418709894363746
+    second: ww_katana_15
+  - first:
+      213: -2648243901682471791
+    second: ww_katana_16
+  - first:
+      213: -3385624817823559124
+    second: ww_katana_17
+  - first:
+      213: 3103339750569910370
+    second: ww_katana_18
+  - first:
+      213: 6694844247340391758
+    second: ww_katana_19
+  - first:
+      213: -6479887876124673055
+    second: ww_katana_20
+  - first:
+      213: -912661761187283201
+    second: ww_katana_21
+  - first:
+      213: -2175885338021297586
+    second: ww_katana_22
+  - first:
+      213: -6263970517235879031
+    second: ww_katana_23
+  - first:
+      213: 8454566855127632389
+    second: ww_katana_24
+  - first:
+      213: -7531231388220332400
+    second: ww_katana_25
+  - first:
+      213: -6462567725654339534
+    second: ww_katana_26
+  - first:
+      213: 736111037937374043
+    second: ww_katana_27
+  - first:
+      213: 1987512780697586371
+    second: ww_katana_28
+  - first:
+      213: 4268308611799911818
+    second: ww_katana_29
+  - first:
+      213: 8126879658896742564
+    second: ww_katana_30
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 9
+  spritePivot: {x: 0.1, y: 0.5}
+  spritePixelsToUnits: 512
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 1024
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ww_katana_0
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 647
+        width: 51
+        height: 35
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 392dde9ed35e7b6b0800000000000000
+      internalID: -5280499983988174189
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_1
+      rect:
+        serializedVersion: 2
+        x: 130
+        y: 680
+        width: 31
+        height: 37
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: acfe61cfc712598b0800000000000000
+      internalID: -5146170178511900726
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_2
+      rect:
+        serializedVersion: 2
+        x: 216
+        y: 631
+        width: 574
+        height: 355
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 73f1e60c28f3f2540800000000000000
+      internalID: 4985273143329169207
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_3
+      rect:
+        serializedVersion: 2
+        x: 518
+        y: 671
+        width: 13
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aa7c8365af5edcc80800000000000000
+      internalID: -8300725674822809686
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_4
+      rect:
+        serializedVersion: 2
+        x: 586
+        y: 671
+        width: 21
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2eec781a2c68aaf40800000000000000
+      internalID: 5740548845528927970
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_5
+      rect:
+        serializedVersion: 2
+        x: 616
+        y: 686
+        width: 13
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 18886f88622f3c4d0800000000000000
+      internalID: -3115380269889714047
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_6
+      rect:
+        serializedVersion: 2
+        x: 628
+        y: 693
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a3b7b8a1ba9f3dbf0800000000000000
+      internalID: -300622236823618758
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_7
+      rect:
+        serializedVersion: 2
+        x: 820
+        y: 687
+        width: 17
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 444826351f26cfdc0800000000000000
+      internalID: -3603896813177633724
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_8
+      rect:
+        serializedVersion: 2
+        x: 838
+        y: 675
+        width: 25
+        height: 33
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8034a429939eaea40800000000000000
+      internalID: 5398383536833708808
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_9
+      rect:
+        serializedVersion: 2
+        x: 862
+        y: 659
+        width: 129
+        height: 113
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 81f09f939a4694d30800000000000000
+      internalID: 4416171587598356248
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_10
+      rect:
+        serializedVersion: 2
+        x: 12
+        y: 47
+        width: 1012
+        height: 589
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 54fb7801d428362d0800000000000000
+      internalID: -3286640035548905659
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_11
+      rect:
+        serializedVersion: 2
+        x: 350
+        y: 337
+        width: 21
+        height: 33
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c6be04f192e53d990800000000000000
+      internalID: -7362437435109610644
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_12
+      rect:
+        serializedVersion: 2
+        x: 366
+        y: 318
+        width: 9
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5593f63a155719fe0800000000000000
+      internalID: -1184036233526953643
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_13
+      rect:
+        serializedVersion: 2
+        x: 374
+        y: 325
+        width: 11
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9646381c6a7f3ed30800000000000000
+      internalID: 4459680351610168425
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_14
+      rect:
+        serializedVersion: 2
+        x: 378
+        y: 340
+        width: 31
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 21702784f81442390800000000000000
+      internalID: -7844072567321000174
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_15
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 279
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e950390ff1b931dc0800000000000000
+      internalID: -3669418709894363746
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_16
+      rect:
+        serializedVersion: 2
+        x: 388
+        y: 310
+        width: 43
+        height: 33
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 19c2f91d33c8f3bd0800000000000000
+      internalID: -2648243901682471791
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_17
+      rect:
+        serializedVersion: 2
+        x: 398
+        y: 289
+        width: 16
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c2251ee7a28d301d0800000000000000
+      internalID: -3385624817823559124
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_18
+      rect:
+        serializedVersion: 2
+        x: 408
+        y: 353
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 260a11a9f07411b20800000000000000
+      internalID: 3103339750569910370
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_19
+      rect:
+        serializedVersion: 2
+        x: 412
+        y: 255
+        width: 39
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e4d9a454f5dd8ec50800000000000000
+      internalID: 6694844247340391758
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_20
+      rect:
+        serializedVersion: 2
+        x: 462
+        y: 261
+        width: 9
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1eb7a3ffe40d216a0800000000000000
+      internalID: -6479887876124673055
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_21
+      rect:
+        serializedVersion: 2
+        x: 464
+        y: 333
+        width: 17
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ffe7954b6f29553f0800000000000000
+      internalID: -912661761187283201
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_22
+      rect:
+        serializedVersion: 2
+        x: 472
+        y: 351
+        width: 7
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e42824b30d3bdc1e0800000000000000
+      internalID: -2175885338021297586
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_23
+      rect:
+        serializedVersion: 2
+        x: 510
+        y: 317
+        width: 7
+        height: 16
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 983b2a4a008e119a0800000000000000
+      internalID: -6263970517235879031
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_24
+      rect:
+        serializedVersion: 2
+        x: 514
+        y: 303
+        width: 15
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 50a8ca1b2c7a45570800000000000000
+      internalID: 8454566855127632389
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_25
+      rect:
+        serializedVersion: 2
+        x: 542
+        y: 333
+        width: 17
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 096eadf54f0bb7790800000000000000
+      internalID: -7531231388220332400
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_26
+      rect:
+        serializedVersion: 2
+        x: 556
+        y: 327
+        width: 11
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2301877c4e85056a0800000000000000
+      internalID: -6462567725654339534
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_27
+      rect:
+        serializedVersion: 2
+        x: 566
+        y: 333
+        width: 9
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b535083c611373a00800000000000000
+      internalID: 736111037937374043
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_28
+      rect:
+        serializedVersion: 2
+        x: 586
+        y: 289
+        width: 131
+        height: 83
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3ca47000850159b10800000000000000
+      internalID: 1987512780697586371
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_29
+      rect:
+        serializedVersion: 2
+        x: 688
+        y: 261
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a8d031661141c3b30800000000000000
+      internalID: 4268308611799911818
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_katana_30
+      rect:
+        serializedVersion: 2
+        x: 710
+        y: 303
+        width: 29
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4a853e0edf978c070800000000000000
+      internalID: 8126879658896742564
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      ww_katana_0: -5280499983988174189
+      ww_katana_1: -5146170178511900726
+      ww_katana_10: -3286640035548905659
+      ww_katana_11: -7362437435109610644
+      ww_katana_12: -1184036233526953643
+      ww_katana_13: 4459680351610168425
+      ww_katana_14: -7844072567321000174
+      ww_katana_15: -3669418709894363746
+      ww_katana_16: -2648243901682471791
+      ww_katana_17: -3385624817823559124
+      ww_katana_18: 3103339750569910370
+      ww_katana_19: 6694844247340391758
+      ww_katana_2: 4985273143329169207
+      ww_katana_20: -6479887876124673055
+      ww_katana_21: -912661761187283201
+      ww_katana_22: -2175885338021297586
+      ww_katana_23: -6263970517235879031
+      ww_katana_24: 8454566855127632389
+      ww_katana_25: -7531231388220332400
+      ww_katana_26: -6462567725654339534
+      ww_katana_27: 736111037937374043
+      ww_katana_28: 1987512780697586371
+      ww_katana_29: 4268308611799911818
+      ww_katana_3: -8300725674822809686
+      ww_katana_30: 8126879658896742564
+      ww_katana_4: 5740548845528927970
+      ww_katana_5: -3115380269889714047
+      ww_katana_6: -300622236823618758
+      ww_katana_7: -3603896813177633724
+      ww_katana_8: 5398383536833708808
+      ww_katana_9: 4416171587598356248
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5cb2b1781e713246842c25a23907cec, type: 3}
+  m_Name: Map_boveda
+  m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.MapDef
+  mapId: boveda
+  displayName: Boveda Dorada
+  subtitle: LLUVIA DE MAYHEMCOINS
+  sizeClass: 1
+  accent: {r: 1, g: 0.8, b: 0.25, a: 1}
+  previewSprite: {fileID: 21300000, guid: fb12ac1a1a649d7498bc6b4f096dffe3, type: 3}
+  decorNote: 'Boveda de banco: lingotes, cajas fuertes y una puerta que baja como guillotina'
+  arenaSize: {x: 20, y: 11}
+  backgroundColor: {r: 0.09, g: 0.07, b: 0.03, a: 1}
+  floorSprite: {fileID: 21300000, guid: fb12ac1a1a649d7498bc6b4f096dffe3, type: 3}
+  floorSingle: 1
+  floorTileSize: 4.5
+  floorTint: {r: 1, g: 0.97, b: 0.88, a: 1}
+  wallSprite: {fileID: 21300000, guid: 486d6aea2a44c4a4599b3f23c70f9c56, type: 3}
+  wallThickness: 0.8
+  wallTileSize: 1.6
+  wallTint: {r: 1, g: 0.92, b: 0.72, a: 1}
+  platformSprite: {fileID: 21300000, guid: b4fb789b55143f342b3f6097bbdd14ff, type: 3}
+  platformShadow: {fileID: 21300000, guid: 0cd746471763c594b90f98a9037d1686, type: 3}
+  platformTint: 1
+  platforms:
+  - name: Media
+    sizeClass: 1
+    center: {x: 0, y: 0}
+    size: {x: 4.8, y: 2.2}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 7, y: 2.6}
+    size: {x: 3.6, y: 2.2}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 6.8, y: -2.9}
+    size: {x: 3.6, y: 2}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  obstacles: []
+  obstacleCount: 0
+  minObstacleSpacing: 2.2
+  decor: []
+  decorCount: 0
+  hazards: []
+  seed: 1185
+  randomSeedEachMatch: 1
+  mirroredForDuel: 1
+  spawnClearRadius: 2.6
+  p1Spawn: {x: -6, y: 0}
+  p2Spawn: {x: 6, y: 0}
+  botSpawnPoints: 14

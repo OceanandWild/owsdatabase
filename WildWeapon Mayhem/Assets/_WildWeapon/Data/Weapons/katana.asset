@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a9868dda75b16c4b98b4ac32ef39f4b, type: 3}
+  m_Name: katana
+  m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.WeaponDef
+  displayName: Katana
+  damage: 12
+  cadence: 0.35
+  range: 1.15
+  arcDegrees: 120
+  sprite: {fileID: 21300000, guid: 6a0f2ca2703e0d441806f68009fe9b5c, type: 3}
+  spriteLength: 1.15
+  color: {r: 1, g: 1, b: 1, a: 1}
+  bladeSize: {x: 0.8, y: 0.1}
+  bladeOffset: 0
+  swingStyle: 0
+  swingAngle: 150
+  swingDuration: 0.13
+  swingVfx: {fileID: 8790097822554376104, guid: 7eab9b02c5a3ae3469c95e56afc4de8b, type: 3}
+  hitVfx: {fileID: 7757364701247747684, guid: 072773ecb6e42894b9f52208d1ea1b4d, type: 3}
+  trail: 1
+  trailColor: {r: 0.45, g: 0.9, b: 1, a: 1}
+  shakeOnHit: 0.08
+  abilityQ: {fileID: 11400000, guid: 0e4d3b9ca4b936d4893077a3ffa4b1b7, type: 2}
+  abilityE: {fileID: 11400000, guid: 93806a6d14cbe9641a87b16ddc460832, type: 2}
+  abilityR: {fileID: 11400000, guid: 9264ec3380653314982218fb67973ac0, type: 2}

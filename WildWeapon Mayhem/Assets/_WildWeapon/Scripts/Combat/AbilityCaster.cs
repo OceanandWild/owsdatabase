@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -26,6 +27,9 @@ namespace WildWeapon
         public const float AdrenalinePerHit = 8f;
         public const float AdrenalinePerDamageTaken = 5f;
         public const float AdrenalineMax = 100f;
+
+        /// <summary>PVP: avisa cuando el portador lanza una habilidad (se reenvia por red).</summary>
+        public event Action<int, AbilityKind> CastStarted;
 
         private struct SlotState { public float cooldown; }
         private readonly SlotState[][] _slots = new SlotState[2][];
@@ -156,7 +160,39 @@ namespace WildWeapon
 
             _slots[w][slot].cooldown = def.cooldown;
             _cast = StartCoroutine(CastRoutine(def, slot));
+            CastStarted?.Invoke(slot, def.kind);
             return true;
+        }
+
+        /// <summary>PVP: reproduce el cast del rival que llego por red (solo visual, sin dano).</summary>
+        public void PlayRemoteCast(AbilityKind kind)
+        {
+            if (visual != null) visual.PlayCast(kind);
+
+            var def = FindAbilityByKind(kind);
+            if (def == null) return;
+
+            if (def.castVfx != null)
+            {
+                float size = def.kind == AbilityKind.DashSlash ? 1f : Mathf.Max(0.5f, def.radius);
+                var fx = Instantiate(def.castVfx, transform.position, Quaternion.identity);
+                fx.transform.localScale = new Vector3(size, size, 1f);
+            }
+            if (kind == AbilityKind.CircularSlash || kind == AbilityKind.RadialBurst)
+                StartCoroutine(SpinRoutine(Mathf.Max(0.12f, def.castDuration * 0.35f)));
+        }
+
+        private AbilityDef FindAbilityByKind(AbilityKind kind)
+        {
+            if (loadout == null || loadout.weapons == null) return null;
+            foreach (var weapon in loadout.weapons)
+            {
+                if (weapon == null || weapon.def == null) continue;
+                if (weapon.def.abilityQ != null && weapon.def.abilityQ.kind == kind) return weapon.def.abilityQ;
+                if (weapon.def.abilityE != null && weapon.def.abilityE.kind == kind) return weapon.def.abilityE;
+                if (weapon.def.abilityR != null && weapon.def.abilityR.kind == kind) return weapon.def.abilityR;
+            }
+            return null;
         }
 
         private IEnumerator CastRoutine(AbilityDef def, int slot)
@@ -347,6 +383,7 @@ namespace WildWeapon
         private bool ValidTarget(PlayerHealth target, int myTeam)
         {
             if (target == null || target == health || target.IsDead || target.team == myTeam) return false;
+            if (!PlayerHealth.SameLevel(health, target)) return false;   // no se golpea a traves de un deck
             return true;
         }
 
@@ -413,6 +450,7 @@ namespace WildWeapon
                 {
                     if (target == null || target == _owner || target.IsDead || target.team == myTeam) continue;
                     if (_hit.Contains(target)) continue;
+                    if (!PlayerHealth.SameLevel(_owner, target)) continue;   // proyectiles a la altura del caster
                     if (Vector2.Distance(transform.position, target.transform.position) > 0.45f + target.bodyRadius) continue;
 
                     _hit.Add(target);

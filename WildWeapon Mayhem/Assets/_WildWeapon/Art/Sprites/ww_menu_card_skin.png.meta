@@ -1,0 +1,2251 @@
+fileFormatVersion: 2
+guid: deac0925a48c426438d386e075ab9119
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -700050357605280897
+    second: ww_menu_card_skin_0
+  - first:
+      213: 5993851616234664976
+    second: ww_menu_card_skin_1
+  - first:
+      213: 7830967912027311592
+    second: ww_menu_card_skin_2
+  - first:
+      213: -2642460752120132561
+    second: ww_menu_card_skin_3
+  - first:
+      213: 4077600183158534094
+    second: ww_menu_card_skin_4
+  - first:
+      213: -1988147260992597485
+    second: ww_menu_card_skin_5
+  - first:
+      213: 2613357589468357254
+    second: ww_menu_card_skin_6
+  - first:
+      213: -5256205762787778783
+    second: ww_menu_card_skin_7
+  - first:
+      213: 34604678514577823
+    second: ww_menu_card_skin_8
+  - first:
+      213: -8198067652632926527
+    second: ww_menu_card_skin_9
+  - first:
+      213: -6899852315931880841
+    second: ww_menu_card_skin_10
+  - first:
+      213: -6661084340125947114
+    second: ww_menu_card_skin_11
+  - first:
+      213: -886437517601457975
+    second: ww_menu_card_skin_12
+  - first:
+      213: 1577645535861516021
+    second: ww_menu_card_skin_13
+  - first:
+      213: 5855145801322608209
+    second: ww_menu_card_skin_14
+  - first:
+      213: 7255313429980768883
+    second: ww_menu_card_skin_15
+  - first:
+      213: -8606005309888871752
+    second: ww_menu_card_skin_16
+  - first:
+      213: -1419741196514963917
+    second: ww_menu_card_skin_17
+  - first:
+      213: 5420530025056442783
+    second: ww_menu_card_skin_18
+  - first:
+      213: -4060096759163336025
+    second: ww_menu_card_skin_19
+  - first:
+      213: 871240638616024414
+    second: ww_menu_card_skin_20
+  - first:
+      213: -2066162370105426898
+    second: ww_menu_card_skin_21
+  - first:
+      213: 3196100712381166162
+    second: ww_menu_card_skin_22
+  - first:
+      213: -8009472094744121236
+    second: ww_menu_card_skin_23
+  - first:
+      213: 2533632787526714310
+    second: ww_menu_card_skin_24
+  - first:
+      213: -7086273348947608060
+    second: ww_menu_card_skin_25
+  - first:
+      213: 1150677043126991635
+    second: ww_menu_card_skin_26
+  - first:
+      213: 5021882818944966489
+    second: ww_menu_card_skin_27
+  - first:
+      213: -488492840842030622
+    second: ww_menu_card_skin_28
+  - first:
+      213: 5904485156979691188
+    second: ww_menu_card_skin_29
+  - first:
+      213: -5413005752677026034
+    second: ww_menu_card_skin_30
+  - first:
+      213: 7318470278227103274
+    second: ww_menu_card_skin_31
+  - first:
+      213: -8342346414248491444
+    second: ww_menu_card_skin_32
+  - first:
+      213: -8749176065085786944
+    second: ww_menu_card_skin_33
+  - first:
+      213: -7063743288537475792
+    second: ww_menu_card_skin_34
+  - first:
+      213: 5419147371407813306
+    second: ww_menu_card_skin_35
+  - first:
+      213: 7346335568949263679
+    second: ww_menu_card_skin_36
+  - first:
+      213: 2478169924250592757
+    second: ww_menu_card_skin_37
+  - first:
+      213: 4446182908744501552
+    second: ww_menu_card_skin_38
+  - first:
+      213: 1375506651597886869
+    second: ww_menu_card_skin_39
+  - first:
+      213: -2363875068698803011
+    second: ww_menu_card_skin_40
+  - first:
+      213: 1193193568177145602
+    second: ww_menu_card_skin_41
+  - first:
+      213: -5448197730263428493
+    second: ww_menu_card_skin_42
+  - first:
+      213: -7835168798635189600
+    second: ww_menu_card_skin_43
+  - first:
+      213: -1146983203959579295
+    second: ww_menu_card_skin_44
+  - first:
+      213: 7866811120106292790
+    second: ww_menu_card_skin_45
+  - first:
+      213: 2194841248294167620
+    second: ww_menu_card_skin_46
+  - first:
+      213: -39049996757776794
+    second: ww_menu_card_skin_47
+  - first:
+      213: 5854771594666556500
+    second: ww_menu_card_skin_48
+  - first:
+      213: -4166956566918457791
+    second: ww_menu_card_skin_49
+  - first:
+      213: -8135264691236450886
+    second: ww_menu_card_skin_50
+  - first:
+      213: -4031579462838918523
+    second: ww_menu_card_skin_51
+  - first:
+      213: -3435566052442428300
+    second: ww_menu_card_skin_52
+  - first:
+      213: -5520404260975269757
+    second: ww_menu_card_skin_53
+  - first:
+      213: -6113650470956416716
+    second: ww_menu_card_skin_54
+  - first:
+      213: 1996554250555807341
+    second: ww_menu_card_skin_55
+  - first:
+      213: -3508064884915490948
+    second: ww_menu_card_skin_56
+  - first:
+      213: 6044443737372842310
+    second: ww_menu_card_skin_57
+  - first:
+      213: 8476523192105810401
+    second: ww_menu_card_skin_58
+  - first:
+      213: -4786374291958743260
+    second: ww_menu_card_skin_59
+  - first:
+      213: 7372694834397396397
+    second: ww_menu_card_skin_60
+  - first:
+      213: 5445810902458344742
+    second: ww_menu_card_skin_61
+  - first:
+      213: -5809987891130969233
+    second: ww_menu_card_skin_62
+  - first:
+      213: 5199970183134978426
+    second: ww_menu_card_skin_63
+  - first:
+      213: 4908150529693422879
+    second: ww_menu_card_skin_64
+  - first:
+      213: 2870160811786784874
+    second: ww_menu_card_skin_65
+  - first:
+      213: -1729504392426952297
+    second: ww_menu_card_skin_66
+  - first:
+      213: -8716613683626045803
+    second: ww_menu_card_skin_67
+  - first:
+      213: 6998326951311059063
+    second: ww_menu_card_skin_68
+  - first:
+      213: 4582382020570350834
+    second: ww_menu_card_skin_69
+  - first:
+      213: -1174199509130172305
+    second: ww_menu_card_skin_70
+  - first:
+      213: 3559628633157482300
+    second: ww_menu_card_skin_71
+  - first:
+      213: -3039836501385563998
+    second: ww_menu_card_skin_72
+  - first:
+      213: -6327099928994859063
+    second: ww_menu_card_skin_73
+  - first:
+      213: -6395858506481597916
+    second: ww_menu_card_skin_74
+  - first:
+      213: 5167674073956084357
+    second: ww_menu_card_skin_75
+  - first:
+      213: -973384657463116813
+    second: ww_menu_card_skin_76
+  - first:
+      213: 3523210312857881496
+    second: ww_menu_card_skin_77
+  - first:
+      213: 632916008020584158
+    second: ww_menu_card_skin_78
+  - first:
+      213: -3391893844139766919
+    second: ww_menu_card_skin_79
+  - first:
+      213: -7562694208802561133
+    second: ww_menu_card_skin_80
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 9
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 512
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 1024
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ww_menu_card_skin_0
+      rect:
+        serializedVersion: 2
+        x: 350
+        y: 783
+        width: 320
+        height: 153
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f735d06a8ebe846f0800000000000000
+      internalID: -700050357605280897
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_1
+      rect:
+        serializedVersion: 2
+        x: 684
+        y: 895
+        width: 37
+        height: 44
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0147116c9407e2350800000000000000
+      internalID: 5993851616234664976
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_2
+      rect:
+        serializedVersion: 2
+        x: 720
+        y: 893
+        width: 29
+        height: 49
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8edced363df2dac60800000000000000
+      internalID: 7830967912027311592
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_3
+      rect:
+        serializedVersion: 2
+        x: 750
+        y: 877
+        width: 69
+        height: 63
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f2cc7f042f7145bd0800000000000000
+      internalID: -2642460752120132561
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_4
+      rect:
+        serializedVersion: 2
+        x: 798
+        y: 759
+        width: 719
+        height: 230
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ecf6b3533cb869830800000000000000
+      internalID: 4077600183158534094
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_5
+      rect:
+        serializedVersion: 2
+        x: 826
+        y: 929
+        width: 9
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 312de5b899ea864e0800000000000000
+      internalID: -1988147260992597485
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_6
+      rect:
+        serializedVersion: 2
+        x: 878
+        y: 911
+        width: 21
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6822557a1e2844420800000000000000
+      internalID: 2613357589468357254
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_7
+      rect:
+        serializedVersion: 2
+        x: 902
+        y: 919
+        width: 9
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 12f5ca215b43e07b0800000000000000
+      internalID: -5256205762787778783
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_8
+      rect:
+        serializedVersion: 2
+        x: 648
+        y: 887
+        width: 39
+        height: 41
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f919d6295c0fa7000800000000000000
+      internalID: 34604678514577823
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_9
+      rect:
+        serializedVersion: 2
+        x: 740
+        y: 898
+        width: 13
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1c6a138b7ec9a3e80800000000000000
+      internalID: -8198067652632926527
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_10
+      rect:
+        serializedVersion: 2
+        x: 858
+        y: 913
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 772593a20ecce30a0800000000000000
+      internalID: -6899852315931880841
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_11
+      rect:
+        serializedVersion: 2
+        x: 1032
+        y: 915
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 61b20e7a5131f83a0800000000000000
+      internalID: -6661084340125947114
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_12
+      rect:
+        serializedVersion: 2
+        x: 1040
+        y: 913
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9c839c736cdb2b3f0800000000000000
+      internalID: -886437517601457975
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_13
+      rect:
+        serializedVersion: 2
+        x: 100
+        y: 768
+        width: 191
+        height: 141
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5f6a182914ce4e510800000000000000
+      internalID: 1577645535861516021
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_14
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 895
+        width: 13
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 15634fb9518a14150800000000000000
+      internalID: 5855145801322608209
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_15
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 897
+        width: 7
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 37aef10df1d00b460800000000000000
+      internalID: 7255313429980768883
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_16
+      rect:
+        serializedVersion: 2
+        x: 244
+        y: 895
+        width: 11
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8b2c2f864c3519880800000000000000
+      internalID: -8606005309888871752
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_17
+      rect:
+        serializedVersion: 2
+        x: 1360
+        y: 893
+        width: 25
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 33eccb467e01c4ce0800000000000000
+      internalID: -1419741196514963917
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_18
+      rect:
+        serializedVersion: 2
+        x: 264
+        y: 774
+        width: 119
+        height: 110
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f9914dda657993b40800000000000000
+      internalID: 5420530025056442783
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_19
+      rect:
+        serializedVersion: 2
+        x: 662
+        y: 839
+        width: 51
+        height: 53
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7aaca544283a7a7c0800000000000000
+      internalID: -4060096759163336025
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_20
+      rect:
+        serializedVersion: 2
+        x: 712
+        y: 871
+        width: 25
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e55b79aaeb4471c00800000000000000
+      internalID: 871240638616024414
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_21
+      rect:
+        serializedVersion: 2
+        x: 734
+        y: 855
+        width: 27
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e2c369975448353e0800000000000000
+      internalID: -2066162370105426898
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_22
+      rect:
+        serializedVersion: 2
+        x: 744
+        y: 873
+        width: 7
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2523adb0aa4da5c20800000000000000
+      internalID: 3196100712381166162
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_23
+      rect:
+        serializedVersion: 2
+        x: 750
+        y: 877
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c607f5ad093a8d090800000000000000
+      internalID: -8009472094744121236
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_24
+      rect:
+        serializedVersion: 2
+        x: 750
+        y: 829
+        width: 57
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6c300d3b895492320800000000000000
+      internalID: 2533632787526714310
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_25
+      rect:
+        serializedVersion: 2
+        x: 694
+        y: 855
+        width: 18
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 40ef8ae0fef78ad90800000000000000
+      internalID: -7086273348947608060
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_26
+      rect:
+        serializedVersion: 2
+        x: 1402
+        y: 861
+        width: 31
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 31bf7c69ca608ff00800000000000000
+      internalID: 1150677043126991635
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_27
+      rect:
+        serializedVersion: 2
+        x: 54
+        y: 817
+        width: 47
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 95f1ad611df41b540800000000000000
+      internalID: 5021882818944966489
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_28
+      rect:
+        serializedVersion: 2
+        x: 740
+        y: 823
+        width: 15
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2e11a4279568839f0800000000000000
+      internalID: -488492840842030622
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_29
+      rect:
+        serializedVersion: 2
+        x: 790
+        y: 829
+        width: 11
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4be475b87f1f0f150800000000000000
+      internalID: 5904485156979691188
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_30
+      rect:
+        serializedVersion: 2
+        x: 790
+        y: 815
+        width: 9
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e073a8082f321e4b0800000000000000
+      internalID: -5413005752677026034
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_31
+      rect:
+        serializedVersion: 2
+        x: 1438
+        y: 813
+        width: 19
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a2e0bf071fd609560800000000000000
+      internalID: 7318470278227103274
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_32
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 59
+        width: 1523
+        height: 760
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c460779c2280a3c80800000000000000
+      internalID: -8342346414248491444
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_33
+      rect:
+        serializedVersion: 2
+        x: 446
+        y: 781
+        width: 17
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0c4363359bea49680800000000000000
+      internalID: -8749176065085786944
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_34
+      rect:
+        serializedVersion: 2
+        x: 1454
+        y: 805
+        width: 17
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0359c2687ea88fd90800000000000000
+      internalID: -7063743288537475792
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_35
+      rect:
+        serializedVersion: 2
+        x: 1504
+        y: 799
+        width: 15
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aba214a82dda43b40800000000000000
+      internalID: 5419147371407813306
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_36
+      rect:
+        serializedVersion: 2
+        x: 352
+        y: 769
+        width: 17
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f3db904074d63f560800000000000000
+      internalID: 7346335568949263679
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_37
+      rect:
+        serializedVersion: 2
+        x: 134
+        y: 247
+        width: 31
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5f5630c8a6a346220800000000000000
+      internalID: 2478169924250592757
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_38
+      rect:
+        serializedVersion: 2
+        x: 160
+        y: 109
+        width: 499
+        height: 161
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 03901227cc304bd30800000000000000
+      internalID: 4446182908744501552
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_39
+      rect:
+        serializedVersion: 2
+        x: 1223
+        y: 255
+        width: 12
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 595ddaa0308c61310800000000000000
+      internalID: 1375506651597886869
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_40
+      rect:
+        serializedVersion: 2
+        x: 1252
+        y: 141
+        width: 51
+        height: 117
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: db44ecc3624d13fd0800000000000000
+      internalID: -2363875068698803011
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_41
+      rect:
+        serializedVersion: 2
+        x: 1322
+        y: 254
+        width: 31
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 207ca7b7a331f8010800000000000000
+      internalID: 1193193568177145602
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_42
+      rect:
+        serializedVersion: 2
+        x: 1382
+        y: 237
+        width: 9
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3721f85b70d1464b0800000000000000
+      internalID: -5448197730263428493
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_43
+      rect:
+        serializedVersion: 2
+        x: 854
+        y: 111
+        width: 303
+        height: 134
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0aa102a7d73e34390800000000000000
+      internalID: -7835168798635189600
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_44
+      rect:
+        serializedVersion: 2
+        x: 868
+        y: 226
+        width: 13
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 16d56ac5ad81510f0800000000000000
+      internalID: -1146983203959579295
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_45
+      rect:
+        serializedVersion: 2
+        x: 1240
+        y: 241
+        width: 13
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 636470998078c2d60800000000000000
+      internalID: 7866811120106292790
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_46
+      rect:
+        serializedVersion: 2
+        x: 1431
+        y: 227
+        width: 10
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 444e2fe8c74a57e10800000000000000
+      internalID: 2194841248294167620
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_47
+      rect:
+        serializedVersion: 2
+        x: 72
+        y: 151
+        width: 93
+        height: 86
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 666c5ce1c34457ff0800000000000000
+      internalID: -39049996757776794
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_48
+      rect:
+        serializedVersion: 2
+        x: 1192
+        y: 233
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 45cb525deb3504150800000000000000
+      internalID: 5854771594666556500
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_49
+      rect:
+        serializedVersion: 2
+        x: 1360
+        y: 203
+        width: 51
+        height: 35
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1461852741ffb26c0800000000000000
+      internalID: -4166956566918457791
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_50
+      rect:
+        serializedVersion: 2
+        x: 1464
+        y: 223
+        width: 9
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: abdc215addbb91f80800000000000000
+      internalID: -8135264691236450886
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_51
+      rect:
+        serializedVersion: 2
+        x: 1176
+        y: 213
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 582e9b9b6d3fc08c0800000000000000
+      internalID: -4031579462838918523
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_52
+      rect:
+        serializedVersion: 2
+        x: 1182
+        y: 191
+        width: 39
+        height: 38
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 47c27c1b0ea6250d0800000000000000
+      internalID: -3435566052442428300
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_53
+      rect:
+        serializedVersion: 2
+        x: 1192
+        y: 219
+        width: 7
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3882400b2959363b0800000000000000
+      internalID: -5520404260975269757
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_54
+      rect:
+        serializedVersion: 2
+        x: 688
+        y: 194
+        width: 7
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4314eb5c943f72ba0800000000000000
+      internalID: -6113650470956416716
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_55
+      rect:
+        serializedVersion: 2
+        x: 1160
+        y: 207
+        width: 9
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d66dc2f338f25bb10800000000000000
+      internalID: 1996554250555807341
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_56
+      rect:
+        serializedVersion: 2
+        x: 1240
+        y: 207
+        width: 11
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c7f279dd299d05fc0800000000000000
+      internalID: -3508064884915490948
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_57
+      rect:
+        serializedVersion: 2
+        x: 46
+        y: 161
+        width: 19
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 64951f6ed8d22e350800000000000000
+      internalID: 6044443737372842310
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_58
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 166
+        width: 15
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1e9b3d3cee8a2a570800000000000000
+      internalID: 8476523192105810401
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_59
+      rect:
+        serializedVersion: 2
+        x: 664
+        y: 161
+        width: 9
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 42fbcb5d0f1639db0800000000000000
+      internalID: -4786374291958743260
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_60
+      rect:
+        serializedVersion: 2
+        x: 680
+        y: 129
+        width: 111
+        height: 76
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dad3d91c3e2115660800000000000000
+      internalID: 7372694834397396397
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_61
+      rect:
+        serializedVersion: 2
+        x: 784
+        y: 145
+        width: 24
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 625aaf2a928639b40800000000000000
+      internalID: 5445810902458344742
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_62
+      rect:
+        serializedVersion: 2
+        x: 788
+        y: 165
+        width: 15
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f6351dfabc6ce5fa0800000000000000
+      internalID: -5809987891130969233
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_63
+      rect:
+        serializedVersion: 2
+        x: 818
+        y: 153
+        width: 19
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a712268b4510a2840800000000000000
+      internalID: 5199970183134978426
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_64
+      rect:
+        serializedVersion: 2
+        x: 852
+        y: 165
+        width: 7
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f15958af6e04d1440800000000000000
+      internalID: 4908150529693422879
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_65
+      rect:
+        serializedVersion: 2
+        x: 1120
+        y: 141
+        width: 124
+        height: 61
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a605cc23d0cd4d720800000000000000
+      internalID: 2870160811786784874
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_66
+      rect:
+        serializedVersion: 2
+        x: 1234
+        y: 157
+        width: 15
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 799e9eb1be09ff7e0800000000000000
+      internalID: -1729504392426952297
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_67
+      rect:
+        serializedVersion: 2
+        x: 1302
+        y: 155
+        width: 25
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 59e092f890e580780800000000000000
+      internalID: -8716613683626045803
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_68
+      rect:
+        serializedVersion: 2
+        x: 1340
+        y: 147
+        width: 25
+        height: 52
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 77820f2984d0f1160800000000000000
+      internalID: 6998326951311059063
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_69
+      rect:
+        serializedVersion: 2
+        x: 1362
+        y: 153
+        width: 81
+        height: 41
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2f48b315b24e79f30800000000000000
+      internalID: 4582382020570350834
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_70
+      rect:
+        serializedVersion: 2
+        x: 1454
+        y: 158
+        width: 17
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f68abd284c764bfe0800000000000000
+      internalID: -1174199509130172305
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_71
+      rect:
+        serializedVersion: 2
+        x: 88
+        y: 151
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c3739a3d167566130800000000000000
+      internalID: 3559628633157482300
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_72
+      rect:
+        serializedVersion: 2
+        x: 838
+        y: 141
+        width: 9
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2a0b5a7cec450d5d0800000000000000
+      internalID: -3039836501385563998
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_73
+      rect:
+        serializedVersion: 2
+        x: 846
+        y: 145
+        width: 7
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9c7bcd11320a138a0800000000000000
+      internalID: -6327099928994859063
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_74
+      rect:
+        serializedVersion: 2
+        x: 1288
+        y: 141
+        width: 19
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 422018733985d37a0800000000000000
+      internalID: -6395858506481597916
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_75
+      rect:
+        serializedVersion: 2
+        x: 1406
+        y: 142
+        width: 17
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 58ae525d03447b740800000000000000
+      internalID: 5167674073956084357
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_76
+      rect:
+        serializedVersion: 2
+        x: 712
+        y: 129
+        width: 7
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3fb781eafc7dd72f0800000000000000
+      internalID: -973384657463116813
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_77
+      rect:
+        serializedVersion: 2
+        x: 734
+        y: 113
+        width: 11
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 89b03eedc15f4e030800000000000000
+      internalID: 3523210312857881496
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_78
+      rect:
+        serializedVersion: 2
+        x: 750
+        y: 97
+        width: 15
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ed6a9b681c198c800800000000000000
+      internalID: 632916008020584158
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_79
+      rect:
+        serializedVersion: 2
+        x: 884
+        y: 110
+        width: 15
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 97b073015829de0d0800000000000000
+      internalID: -3391893844139766919
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_menu_card_skin_80
+      rect:
+        serializedVersion: 2
+        x: 928
+        y: 96
+        width: 7
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3936b6b9fa9eb0790800000000000000
+      internalID: -7562694208802561133
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      ww_menu_card_skin_0: -700050357605280897
+      ww_menu_card_skin_1: 5993851616234664976
+      ww_menu_card_skin_10: -6899852315931880841
+      ww_menu_card_skin_11: -6661084340125947114
+      ww_menu_card_skin_12: -886437517601457975
+      ww_menu_card_skin_13: 1577645535861516021
+      ww_menu_card_skin_14: 5855145801322608209
+      ww_menu_card_skin_15: 7255313429980768883
+      ww_menu_card_skin_16: -8606005309888871752
+      ww_menu_card_skin_17: -1419741196514963917
+      ww_menu_card_skin_18: 5420530025056442783
+      ww_menu_card_skin_19: -4060096759163336025
+      ww_menu_card_skin_2: 7830967912027311592
+      ww_menu_card_skin_20: 871240638616024414
+      ww_menu_card_skin_21: -2066162370105426898
+      ww_menu_card_skin_22: 3196100712381166162
+      ww_menu_card_skin_23: -8009472094744121236
+      ww_menu_card_skin_24: 2533632787526714310
+      ww_menu_card_skin_25: -7086273348947608060
+      ww_menu_card_skin_26: 1150677043126991635
+      ww_menu_card_skin_27: 5021882818944966489
+      ww_menu_card_skin_28: -488492840842030622
+      ww_menu_card_skin_29: 5904485156979691188
+      ww_menu_card_skin_3: -2642460752120132561
+      ww_menu_card_skin_30: -5413005752677026034
+      ww_menu_card_skin_31: 7318470278227103274
+      ww_menu_card_skin_32: -8342346414248491444
+      ww_menu_card_skin_33: -8749176065085786944
+      ww_menu_card_skin_34: -7063743288537475792
+      ww_menu_card_skin_35: 5419147371407813306
+      ww_menu_card_skin_36: 7346335568949263679
+      ww_menu_card_skin_37: 2478169924250592757
+      ww_menu_card_skin_38: 4446182908744501552
+      ww_menu_card_skin_39: 1375506651597886869
+      ww_menu_card_skin_4: 4077600183158534094
+      ww_menu_card_skin_40: -2363875068698803011
+      ww_menu_card_skin_41: 1193193568177145602
+      ww_menu_card_skin_42: -5448197730263428493
+      ww_menu_card_skin_43: -7835168798635189600
+      ww_menu_card_skin_44: -1146983203959579295
+      ww_menu_card_skin_45: 7866811120106292790
+      ww_menu_card_skin_46: 2194841248294167620
+      ww_menu_card_skin_47: -39049996757776794
+      ww_menu_card_skin_48: 5854771594666556500
+      ww_menu_card_skin_49: -4166956566918457791
+      ww_menu_card_skin_5: -1988147260992597485
+      ww_menu_card_skin_50: -8135264691236450886
+      ww_menu_card_skin_51: -4031579462838918523
+      ww_menu_card_skin_52: -3435566052442428300
+      ww_menu_card_skin_53: -5520404260975269757
+      ww_menu_card_skin_54: -6113650470956416716
+      ww_menu_card_skin_55: 1996554250555807341
+      ww_menu_card_skin_56: -3508064884915490948
+      ww_menu_card_skin_57: 6044443737372842310
+      ww_menu_card_skin_58: 8476523192105810401
+      ww_menu_card_skin_59: -4786374291958743260
+      ww_menu_card_skin_6: 2613357589468357254
+      ww_menu_card_skin_60: 7372694834397396397
+      ww_menu_card_skin_61: 5445810902458344742
+      ww_menu_card_skin_62: -5809987891130969233
+      ww_menu_card_skin_63: 5199970183134978426
+      ww_menu_card_skin_64: 4908150529693422879
+      ww_menu_card_skin_65: 2870160811786784874
+      ww_menu_card_skin_66: -1729504392426952297
+      ww_menu_card_skin_67: -8716613683626045803
+      ww_menu_card_skin_68: 6998326951311059063
+      ww_menu_card_skin_69: 4582382020570350834
+      ww_menu_card_skin_7: -5256205762787778783
+      ww_menu_card_skin_70: -1174199509130172305
+      ww_menu_card_skin_71: 3559628633157482300
+      ww_menu_card_skin_72: -3039836501385563998
+      ww_menu_card_skin_73: -6327099928994859063
+      ww_menu_card_skin_74: -6395858506481597916
+      ww_menu_card_skin_75: 5167674073956084357
+      ww_menu_card_skin_76: -973384657463116813
+      ww_menu_card_skin_77: 3523210312857881496
+      ww_menu_card_skin_78: 632916008020584158
+      ww_menu_card_skin_79: -3391893844139766919
+      ww_menu_card_skin_8: 34604678514577823
+      ww_menu_card_skin_80: -7562694208802561133
+      ww_menu_card_skin_9: -8198067652632926527
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

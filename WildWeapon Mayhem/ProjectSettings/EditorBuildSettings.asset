@@ -6,8 +6,16 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 8c9cfa26abfee488c85f1582747f6a02
+    path: Assets/_WildWeapon/Scenes/MainMenu.unity
+    guid: c00afec65d81f174084b2b9fea2f80b1
+  - enabled: 1
+    path: Assets/_WildWeapon/Scenes/MapSelect.unity
+    guid: b614803037b1ecc43916ff8afca00fd8
+  - enabled: 1
+    path: Assets/_WildWeapon/Scenes/Arena.unity
+    guid: 7629284d58e09d9439f245c9076c65a9
+  - enabled: 1
+    path: Assets/_WildWeapon/Scenes/CharacterSelect.unity
+    guid: 99731f1875048884fb0e7273c68a11e4
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
-  m_UseUCBPForAssetBundles: 0

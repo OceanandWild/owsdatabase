@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace WildWeapon
@@ -14,6 +15,9 @@ namespace WildWeapon
         public int ActiveIndex { get; private set; }
         public float SwapCooldown01 =>
             DuelRules.SwapCooldown <= 0f ? 0f : Mathf.Clamp01(_swapCooldown / DuelRules.SwapCooldown);
+
+        /// <summary>PVP: avisa cuando el portador cambia de arma (se reenvia por red).</summary>
+        public event Action<int> Swapped;
 
         private float _swapCooldown;
 
@@ -35,7 +39,16 @@ namespace WildWeapon
             ActiveIndex = (ActiveIndex + 1) % weapons.Length;
             _swapCooldown = DuelRules.SwapCooldown;
             RefreshEquipped();
+            Swapped?.Invoke(ActiveIndex);
             return true;
+        }
+
+        /// <summary>PVP: aplica el swap que llego por red (sin cooldown local).</summary>
+        public void SetActiveIndex(int index)
+        {
+            if (weapons == null || weapons.Length == 0) return;
+            ActiveIndex = Mathf.Clamp(index, 0, weapons.Length - 1);
+            RefreshEquipped();
         }
 
         public void TryAttack(Vector2 aimDir, PlayerHealth self)

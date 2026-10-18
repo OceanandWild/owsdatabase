@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a9868dda75b16c4b98b4ac32ef39f4b, type: 3}
+  m_Name: hacha_gris
+  m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.WeaponDef
+  displayName: Hacha Gris
+  damage: 17
+  cadence: 0.6
+  range: 1.05
+  arcDegrees: 100
+  sprite: {fileID: 21300000, guid: 8705c1d98ea0b8745b17484c13540ed8, type: 3}
+  spriteLength: 0.95
+  color: {r: 1, g: 1, b: 1, a: 1}
+  bladeSize: {x: 0.55, y: 0.22}
+  bladeOffset: 0
+  swingStyle: 0
+  swingAngle: 130
+  swingDuration: 0.17
+  swingVfx: {fileID: 8559279467394658787, guid: c2814b0750067a343a1a22e124cf2482, type: 3}
+  hitVfx: {fileID: 3802477965852891398, guid: 9a265a3e2c8f9b94c8675bb6c3c2a3c4, type: 3}
+  trail: 1
+  trailColor: {r: 1, g: 0.85, b: 0.6, a: 0.8}
+  shakeOnHit: 0.12
+  abilityQ: {fileID: 0}
+  abilityE: {fileID: 0}
+  abilityR: {fileID: 0}

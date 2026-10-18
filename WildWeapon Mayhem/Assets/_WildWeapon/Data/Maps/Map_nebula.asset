@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5cb2b1781e713246842c25a23907cec, type: 3}
+  m_Name: Map_nebula
+  m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.MapDef
+  mapId: nebula
+  displayName: Chatarra Nebula
+  subtitle: VIENTO Y CABLE PELADO
+  sizeClass: 1
+  accent: {r: 0.6, g: 0.75, b: 1, a: 1}
+  previewSprite: {fileID: 21300000, guid: 87f9b87c29e799248858bc45d1bb00f9, type: 3}
+  decorNote: 'Desguace orbital: turbinas que barren la arena y cables de alta tension'
+  arenaSize: {x: 20, y: 11}
+  backgroundColor: {r: 0.04, g: 0.05, b: 0.09, a: 1}
+  floorSprite: {fileID: 21300000, guid: 87f9b87c29e799248858bc45d1bb00f9, type: 3}
+  floorSingle: 1
+  floorTileSize: 4.5
+  floorTint: {r: 0.94, g: 0.96, b: 1, a: 1}
+  wallSprite: {fileID: 21300000, guid: 486d6aea2a44c4a4599b3f23c70f9c56, type: 3}
+  wallThickness: 0.8
+  wallTileSize: 1.6
+  wallTint: {r: 0.86, g: 0.9, b: 1, a: 1}
+  platformSprite: {fileID: 21300000, guid: a7c2aa628d51941428142683d5245871, type: 3}
+  platformShadow: {fileID: 21300000, guid: 0cd746471763c594b90f98a9037d1686, type: 3}
+  platformTint: 1
+  platforms:
+  - name: Media
+    sizeClass: 1
+    center: {x: 0, y: 0}
+    size: {x: 5.2, y: 2.2}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 6.8, y: 3}
+    size: {x: 3.6, y: 2}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 6.6, y: -2.8}
+    size: {x: 4.4, y: 2.4}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  obstacles: []
+  obstacleCount: 0
+  minObstacleSpacing: 2.2
+  decor: []
+  decorCount: 0
+  hazards: []
+  seed: 1222
+  randomSeedEachMatch: 1
+  mirroredForDuel: 1
+  spawnClearRadius: 2.6
+  p1Spawn: {x: -6, y: 0}
+  p2Spawn: {x: 6, y: 0}
+  botSpawnPoints: 14

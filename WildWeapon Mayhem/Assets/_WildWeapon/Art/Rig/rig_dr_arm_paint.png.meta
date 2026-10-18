@@ -1,0 +1,483 @@
+fileFormatVersion: 2
+guid: 61177d8a4a56aab49a9f8b0f24b5ae1d
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -4666767431118032692
+    second: rig_dr_arm_paint_0
+  - first:
+      213: 3997754137040846289
+    second: rig_dr_arm_paint_1
+  - first:
+      213: 2831199365779881668
+    second: rig_dr_arm_paint_2
+  - first:
+      213: -1553981721573190639
+    second: rig_dr_arm_paint_3
+  - first:
+      213: 613849254427646567
+    second: rig_dr_arm_paint_4
+  - first:
+      213: -4498223826075686450
+    second: rig_dr_arm_paint_5
+  - first:
+      213: -7204188564055659235
+    second: rig_dr_arm_paint_6
+  - first:
+      213: 4318206906100437146
+    second: rig_dr_arm_paint_7
+  - first:
+      213: -991415436613109082
+    second: rig_dr_arm_paint_8
+  - first:
+      213: -4012913823935462602
+    second: rig_dr_arm_paint_9
+  - first:
+      213: -6027525336169367512
+    second: rig_dr_arm_paint_10
+  - first:
+      213: 2315779105826429193
+    second: rig_dr_arm_paint_11
+  - first:
+      213: 3935096493746827537
+    second: rig_dr_arm_paint_12
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 9
+  spritePivot: {x: 0.5, y: 0.96}
+  spritePixelsToUnits: 512
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 512
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_0
+      rect:
+        serializedVersion: 2
+        x: 24
+        y: 877
+        width: 16
+        height: 59
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cc0f8da3fbf4c3fb0800000000000000
+      internalID: -4666767431118032692
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_1
+      rect:
+        serializedVersion: 2
+        x: 35
+        y: 824
+        width: 155
+        height: 155
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1ddfaa5e430ea7730800000000000000
+      internalID: 3997754137040846289
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_2
+      rect:
+        serializedVersion: 2
+        x: 185
+        y: 876
+        width: 16
+        height: 60
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4cefe95a2d07a4720800000000000000
+      internalID: 2831199365779881668
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_3
+      rect:
+        serializedVersion: 2
+        x: 67
+        y: 450
+        width: 91
+        height: 275
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1141e2a8bd52f6ae0800000000000000
+      internalID: -1553981721573190639
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_4
+      rect:
+        serializedVersion: 2
+        x: 75
+        y: 269
+        width: 76
+        height: 110
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 76a5cc305a4d48800800000000000000
+      internalID: 613849254427646567
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_5
+      rect:
+        serializedVersion: 2
+        x: 89
+        y: 237
+        width: 14
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ec96f8643491391c0800000000000000
+      internalID: -4498223826075686450
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_6
+      rect:
+        serializedVersion: 2
+        x: 107
+        y: 245
+        width: 21
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d1de780aba4950c90800000000000000
+      internalID: -7204188564055659235
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_7
+      rect:
+        serializedVersion: 2
+        x: 11
+        y: 150
+        width: 62
+        height: 68
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a9051c06d4a5deb30800000000000000
+      internalID: 4318206906100437146
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_8
+      rect:
+        serializedVersion: 2
+        x: 83
+        y: 175
+        width: 60
+        height: 62
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6aa36d3c9e8cd32f0800000000000000
+      internalID: -991415436613109082
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_9
+      rect:
+        serializedVersion: 2
+        x: 153
+        y: 150
+        width: 63
+        height: 68
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 633821273244f48c0800000000000000
+      internalID: -4012913823935462602
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_10
+      rect:
+        serializedVersion: 2
+        x: 13
+        y: 55
+        width: 47
+        height: 60
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 82835f654ade95ca0800000000000000
+      internalID: -6027525336169367512
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_11
+      rect:
+        serializedVersion: 2
+        x: 94
+        y: 10
+        width: 38
+        height: 85
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9095e05c3dc432020800000000000000
+      internalID: 2315779105826429193
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: rig_dr_arm_paint_12
+      rect:
+        serializedVersion: 2
+        x: 166
+        y: 55
+        width: 47
+        height: 60
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1113aaa79654c9630800000000000000
+      internalID: 3935096493746827537
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      rig_dr_arm_paint_0: -4666767431118032692
+      rig_dr_arm_paint_1: 3997754137040846289
+      rig_dr_arm_paint_10: -6027525336169367512
+      rig_dr_arm_paint_11: 2315779105826429193
+      rig_dr_arm_paint_12: 3935096493746827537
+      rig_dr_arm_paint_2: 2831199365779881668
+      rig_dr_arm_paint_3: -1553981721573190639
+      rig_dr_arm_paint_4: 613849254427646567
+      rig_dr_arm_paint_5: -4498223826075686450
+      rig_dr_arm_paint_6: -7204188564055659235
+      rig_dr_arm_paint_7: 4318206906100437146
+      rig_dr_arm_paint_8: -991415436613109082
+      rig_dr_arm_paint_9: -4012913823935462602
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

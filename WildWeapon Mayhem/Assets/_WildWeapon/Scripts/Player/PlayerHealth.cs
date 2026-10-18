@@ -25,11 +25,42 @@ namespace WildWeapon
         public EnemyBot Bot { get; private set; }
         public CharacterVisual Visual { get; private set; }
         public AbilityCaster Caster { get; private set; }
+        /// <summary>Altura (Z) simulada del combatiente: plataformas y peligros la consultan.</summary>
+        public HeightBody Height { get; private set; }
+
+        private float _slowFactor = 1f;
+        private float _slowUntil;
+
+        /// <summary>Multiplicador de velocidad por peligros (frio, esporas, ventisca). 1 = normal.</summary>
+        public float SlowFactor => Time.time < _slowUntil ? _slowFactor : 1f;
+
+        /// <summary>Aplica un frenado temporal (factor 0.45 = 55% mas lento).</summary>
+        public void ApplySlow(float factor, float duration)
+        {
+            factor = Mathf.Clamp(factor, 0.1f, 1f);
+            if (Time.time < _slowUntil) _slowFactor = Mathf.Min(_slowFactor, factor);
+            else _slowFactor = factor;
+            _slowUntil = Mathf.Max(_slowUntil, Time.time + duration);
+        }
+
+        /// <summary>Z del combatiente (0 = piso de la arena).</summary>
+        public static float HeightOf(PlayerHealth h) => h != null && h.Height != null ? h.Height.Z : 0f;
+
+        /// <summary>Dos combatientes se alcanzan si estan a una altura parecida (no se pega a traves de un deck).</summary>
+        public static bool SameLevel(PlayerHealth a, PlayerHealth b, float tolerance = 0.9f)
+            => Mathf.Abs(HeightOf(a) - HeightOf(b)) <= tolerance;
 
         /// <summary>Multiplicador de dano recibido (1.25 durante windup de habilidad, doc §2.4).</summary>
         [HideInInspector] public float punishMultiplier = 1f;
 
+        /// <summary>PVP: esta es la replica del rival. Los golpes no cambian la vida local:
+        /// se reenvian por red y el dueno del pawn aplica el dano real.</summary>
+        [HideInInspector] public bool networkMirror;
+
         public event Action<PlayerHealth> Died;
+
+        /// <summary>PVP: golpe detectado localmente sobre una replica (dano, direccion).</summary>
+        public event Action<PlayerHealth, float, Vector2> Damaged;
 
         private SpriteRenderer _sr;
         private Color _baseColor = Color.white;
@@ -40,6 +71,7 @@ namespace WildWeapon
             Controller = GetComponent<PlayerController>();
             Bot = GetComponent<EnemyBot>();
             Caster = GetComponent<AbilityCaster>();
+            Height = GetComponent<HeightBody>();
             Visual = GetComponentInChildren<CharacterVisual>(true);
             if (Visual == null) _sr = GetComponent<SpriteRenderer>();
             if (_sr != null) _baseColor = _sr.color;
@@ -66,6 +98,8 @@ namespace WildWeapon
             CurrentHp = maxHp;
             IsDead = false;
             punishMultiplier = 1f;
+            _slowFactor = 1f;
+            _slowUntil = 0f;
             if (_flash != null) { StopCoroutine(_flash); _flash = null; }
             SetTint(Color.white);
             var col = GetComponent<Collider2D>();
@@ -73,9 +107,31 @@ namespace WildWeapon
             if (Visual != null) Visual.SetDead(false);
         }
 
-        public void TakeDamage(float amount, Vector2 fromDir, PlayerHealth source)
+        /// <summary>PVP: aplica la vida autoritativa que reporta el dueno del pawn (snapshots).</summary>
+        public void SetNetworkHp(float hp)
         {
             if (IsDead) return;
+            float clamped = Mathf.Clamp(hp, 0f, maxHp);
+            if (Mathf.Approximately(clamped, CurrentHp)) return;
+            CurrentHp = clamped;
+            if (CurrentHp <= 0f) Die();
+        }
+
+        public void TakeDamage(float amount, Vector2 fromDir, PlayerHealth source, float knockbackScale = 1f)
+        {
+            if (IsDead) return;
+
+            // Replica del rival en PVP: se juega el feedback visual, se reenvia el golpe
+            // por red y el dueno decide dano real (i-frames, muerte).
+            if (networkMirror)
+            {
+                if (Visual != null) Visual.PlayHit();
+                if (_flash != null) StopCoroutine(_flash);
+                _flash = StartCoroutine(FlashRoutine());
+                Damaged?.Invoke(this, amount, fromDir);
+                return;
+            }
+
             if (Controller != null && Controller.IsInvulnerable) return;
 
             CurrentHp -= amount * punishMultiplier;
@@ -84,8 +140,8 @@ namespace WildWeapon
                 source.Caster.NotifyHitDealt();
                 if (Caster != null) Caster.NotifyDamageTaken();
             }
-            if (Controller != null) Controller.ApplyKnockback(fromDir, DuelRules.KnockbackSpeed);
-            if (Bot != null) Bot.ApplyKnockback(fromDir, DuelRules.KnockbackSpeed * 2.5f);
+            if (Controller != null) Controller.ApplyKnockback(fromDir, DuelRules.KnockbackSpeed * knockbackScale);
+            if (Bot != null) Bot.ApplyKnockback(fromDir, DuelRules.KnockbackSpeed * 2.5f * knockbackScale);
             if (Visual != null) Visual.PlayHit();
 
             if (_flash != null) StopCoroutine(_flash);

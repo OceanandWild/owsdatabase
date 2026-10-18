@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5cb2b1781e713246842c25a23907cec, type: 3}
+  m_Name: Map_eco
+  m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.MapDef
+  mapId: eco
+  displayName: Pozo del Eco
+  subtitle: EL POZO RESPONDE
+  sizeClass: 0
+  accent: {r: 0.3, g: 1, b: 0.85, a: 1}
+  previewSprite: {fileID: 21300000, guid: 47c90d86c5958dd4088dffe9acaead88, type: 3}
+  decorNote: Pozo seco con paredes de piedra tallada y ecos que empujan desde el centro
+  arenaSize: {x: 16, y: 9}
+  backgroundColor: {r: 0.03, g: 0.07, b: 0.08, a: 1}
+  floorSprite: {fileID: 21300000, guid: 47c90d86c5958dd4088dffe9acaead88, type: 3}
+  floorSingle: 1
+  floorTileSize: 4.5
+  floorTint: {r: 0.88, g: 1, b: 0.98, a: 1}
+  wallSprite: {fileID: 21300000, guid: 486d6aea2a44c4a4599b3f23c70f9c56, type: 3}
+  wallThickness: 0.8
+  wallTileSize: 1.6
+  wallTint: {r: 0.78, g: 0.96, b: 0.92, a: 1}
+  platformSprite: {fileID: 21300000, guid: d2d535ffebea4c64f8b63ede1fe307f1, type: 3}
+  platformShadow: {fileID: 21300000, guid: 0cd746471763c594b90f98a9037d1686, type: 3}
+  platformTint: 1
+  platforms:
+  - name: Baja
+    sizeClass: 0
+    center: {x: 0, y: 0}
+    size: {x: 3.6, y: 2.1}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 5.3, y: -2.5}
+    size: {x: 3.4, y: 2}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  obstacles: []
+  obstacleCount: 0
+  minObstacleSpacing: 2.2
+  decor: []
+  decorCount: 0
+  hazards: []
+  seed: 1111
+  randomSeedEachMatch: 1
+  mirroredForDuel: 1
+  spawnClearRadius: 2.6
+  p1Spawn: {x: -4.8, y: 0}
+  p2Spawn: {x: 4.8, y: 0}
+  botSpawnPoints: 12

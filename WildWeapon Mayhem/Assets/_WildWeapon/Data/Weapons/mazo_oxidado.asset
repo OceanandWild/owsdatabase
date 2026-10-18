@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a9868dda75b16c4b98b4ac32ef39f4b, type: 3}
+  m_Name: mazo_oxidado
+  m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.WeaponDef
+  displayName: Mazo de Guerra
+  damage: 22
+  cadence: 1.6
+  range: 1.3
+  arcDegrees: 140
+  sprite: {fileID: 21300000, guid: 4679eeab3dda3414497785da1c276d77, type: 3}
+  spriteLength: 1.25
+  color: {r: 1, g: 1, b: 1, a: 1}
+  bladeSize: {x: 0.8, y: 0.1}
+  bladeOffset: -0.05
+  swingStyle: 0
+  swingAngle: 170
+  swingDuration: 0.22
+  swingVfx: {fileID: 504986394509002160, guid: e1e8f0fb86a686645a4bd1e6e3980273, type: 3}
+  hitVfx: {fileID: 8802951545838903527, guid: d4919de17b0d92846b929274bf32e23d, type: 3}
+  trail: 1
+  trailColor: {r: 1, g: 0.55, b: 0.18, a: 1}
+  shakeOnHit: 0.22
+  abilityQ: {fileID: 0}
+  abilityE: {fileID: 0}
+  abilityR: {fileID: 0}

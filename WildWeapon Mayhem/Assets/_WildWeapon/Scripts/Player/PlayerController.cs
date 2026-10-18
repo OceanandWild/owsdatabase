@@ -20,12 +20,20 @@ namespace WildWeapon
         [Tooltip("Capa visual animada (Visual > Body)")]
         public CharacterVisual visual;
 
+        [Tooltip("Altura (Z) simulada: plataformas y peligros")]
+        public HeightBody height;
+
         public PlayerHealth Health { get; private set; }
         public WeaponLoadout Loadout { get; private set; }
         public AbilityCaster Abilities { get; private set; }
 
         public Vector2 AimDir { get; private set; } = Vector2.right;
         public bool CanAct { get; set; }
+
+        /// <summary>PVP: el pawn lo conduce la red (replica del rival); se ignora el input local.</summary>
+        public bool inputSuppressed;
+        /// <summary>PVP: velocidad informada por el rival (solo para la animacion).</summary>
+        [HideInInspector] public float networkSpeed;
 
         /// <summary>Slow de root parcial durante el cast de habilidad (doc §2.4: 40%).</summary>
         [HideInInspector] public float castingSlow = 1f;
@@ -40,6 +48,7 @@ namespace WildWeapon
         private Vector2 _moveInput;
         private bool _attackHeld;
         private bool _dashQueued;
+        private bool _jumpQueued;
         private bool _swapQueued;
         private bool _qQueued;
         private bool _eQueued;
@@ -57,13 +66,14 @@ namespace WildWeapon
             Health = GetComponent<PlayerHealth>();
             Loadout = GetComponent<WeaponLoadout>();
             Abilities = GetComponent<AbilityCaster>();
+            if (height == null) height = GetComponent<HeightBody>();
             _cam = Camera.main;
         }
 
         void Update()
         {
             if (_cam == null) _cam = Camera.main;
-            ReadInput();
+            if (!inputSuppressed) ReadInput();
 
             if (aimPivot != null)
             {
@@ -74,7 +84,7 @@ namespace WildWeapon
             if (visual != null)
             {
                 visual.Face(AimDir);
-                visual.SetSpeed(_rb.linearVelocity.magnitude);
+                visual.SetSpeed(inputSuppressed ? networkSpeed : _rb.linearVelocity.magnitude);
             }
         }
 
@@ -98,7 +108,8 @@ namespace WildWeapon
                     _moveInput = new Vector2(
                         (kb.dKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed ? 1f : 0f),
                         (kb.wKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed ? 1f : 0f));
-                    if (kb.leftShiftKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame) _dashQueued = true;
+                    if (kb.leftShiftKey.wasPressedThisFrame) _dashQueued = true;
+                    if (kb.spaceKey.wasPressedThisFrame) _jumpQueued = true;
                     if (kb.xKey.wasPressedThisFrame) _swapQueued = true;
                     if (kb.qKey.wasPressedThisFrame) _qQueued = true;
                     if (kb.eKey.wasPressedThisFrame) _eQueued = true;
@@ -126,6 +137,7 @@ namespace WildWeapon
                         (kb.upArrowKey.isPressed ? 1f : 0f) - (kb.downArrowKey.isPressed ? 1f : 0f));
                     _attackHeld = kb.commaKey.isPressed;
                     if (kb.periodKey.wasPressedThisFrame) _dashQueued = true;
+                    if (kb.rightShiftKey.wasPressedThisFrame) _jumpQueued = true;
                     if (kb.slashKey.wasPressedThisFrame) _swapQueued = true;
                     if (kb.uKey.wasPressedThisFrame) _qQueued = true;
                     if (kb.iKey.wasPressedThisFrame) _eQueued = true;
@@ -145,6 +157,7 @@ namespace WildWeapon
 
                     _attackHeld = pad.rightTrigger.ReadValue() > 0.5f;
                     if (pad.buttonEast.wasPressedThisFrame) _dashQueued = true;
+                    if (pad.buttonSouth.wasPressedThisFrame) _jumpQueued = true;
                     if (pad.leftStickButton.wasPressedThisFrame) _swapQueued = true;
                     if (pad.leftTrigger.wasPressedThisFrame) _qQueued = true;
                     if (pad.leftShoulder.wasPressedThisFrame) _eQueued = true;
@@ -155,15 +168,25 @@ namespace WildWeapon
 
         void FixedUpdate()
         {
+            if (inputSuppressed) return;   // PVP: la replica del rival la mueve PvpRemoteAvatar
+
             float dt = Time.fixedDeltaTime;
             if (_dashCooldown > 0f) _dashCooldown -= dt;
             if (_invulnTimer > 0f) _invulnTimer -= dt;
+
+            // Salto: lo resuelve HeightBody (gravedad y aterrizaje en plataformas).
+            if (_jumpQueued && height != null && !(Health != null && Health.IsDead))
+            {
+                if (CanAct && !IsStunned) height.QueueJump();
+                _jumpQueued = false;
+            }
 
             bool dead = Health != null && Health.IsDead;
             if (!CanAct || dead || controllerStunned > 0f)
             {
                 if (controllerStunned > 0f) controllerStunned -= dt;
                 _dashQueued = false;
+                _jumpQueued = false;
                 _swapQueued = false;
                 _qQueued = false; _eQueued = false; _rQueued = false;
                 _rb.linearVelocity = Vector2.zero;
@@ -179,6 +202,8 @@ namespace WildWeapon
             }
             _dashQueued = false;
 
+            float slow = Health != null ? Health.SlowFactor : 1f;
+
             Vector2 vel;
             if (_dashTimer > 0f)
             {
@@ -187,7 +212,7 @@ namespace WildWeapon
             }
             else
             {
-                vel = _moveInput * DuelRules.MoveSpeed * castingSlow;
+                vel = _moveInput * DuelRules.MoveSpeed * castingSlow * slow;
             }
 
             vel += _knockback;
@@ -213,6 +238,12 @@ namespace WildWeapon
         public void ApplyKnockback(Vector2 dir, float amount)
         {
             _knockback += dir * amount;
+        }
+
+        /// <summary>PVP: fija el apuntado del pawn remoto desde su snapshot de red.</summary>
+        public void SetAimFromNetwork(Vector2 dir)
+        {
+            if (dir.sqrMagnitude > 0.0001f) AimDir = dir.normalized;
         }
 
         /// <summary>i-frames extra por habilidad (ej. Dash-Tajo de la Katana).</summary>
@@ -250,6 +281,9 @@ namespace WildWeapon
             _invulnTimer = 0f;
 
             AimDir = lookDir.sqrMagnitude > 0.0001f ? lookDir.normalized : Vector2.right;
+
+            _jumpQueued = false;
+            if (height != null) { height.simulate = true; height.ResetHeight(); }
 
             if (Health != null) Health.ResetHealth();
             if (Abilities != null) Abilities.ResetForRound();

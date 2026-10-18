@@ -15,6 +15,7 @@ import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import { spawn } from 'child_process';
+import { WebSocketServer } from 'ws';
 
 // ===== BREVO (ex-Sendinblue) EMAIL — Floret Shop phone verification =====
 // Uses HTTPS REST API — works on Render free tier (no SMTP port restrictions)
@@ -42944,6 +42945,254 @@ app.get('/ocean-pay/admin/currencies', async (req, res) => {
     success: true,
     currencies: OP_ALL_CURRENCIES,
     count: OP_ALL_CURRENCIES.length
+  });
+});
+
+
+// =====================================================================
+// WILDWEAPON MAYHEM — PVP ONLINE (WebSocket + arbitro best-of-3)
+// Endpoint: wss://<host>/wildweapon/pvp  (cliente: PvpClient.cs en Unity)
+// El servidor empareja (cola rapida o sala por codigo), relaya estado y
+// eventos entre ambos rivales y lleva el marcador de rondas. La simulacion
+// corre en cada cliente (autoridad por jugador, casual F0).
+// =====================================================================
+const WW_PVP_WIN_ROUNDS = 2;            // best-of-3 (espejo de DuelRules.RoundsToWin)
+const WW_PVP_QUEUE_TIMEOUT = 120000;    // ms maximos esperando rival en cola
+const WW_PVP_ROUND_DELAY = 3600;        // ms entre round_end y la ronda siguiente
+
+const wwPvpQueue = [];
+const wwPvpRooms = new Map();
+let wwPvpSeq = 1;
+
+function wwPvpSend(player, payload) {
+  if (!player || !player.ws || player.ws.readyState !== 1) return;
+  try { player.ws.send(JSON.stringify(payload)); } catch (e) { /* conexion muerta */ }
+}
+
+function wwPvpBroadcast(room, payload) {
+  wwPvpSend(room.a, payload);
+  wwPvpSend(room.b, payload);
+}
+
+function wwPvpQueueStatus() {
+  const payload = { t: 'queued', n: wwPvpQueue.length };
+  for (const p of wwPvpQueue) wwPvpSend(p, payload);
+}
+
+function wwPvpNewRoom(key) {
+  const room = { key, a: null, b: null, scores: [0, 0], round: 0, active: false, seed: 0, createdAt: Date.now(), timer: null };
+  wwPvpRooms.set(key, room);
+  return room;
+}
+
+function wwPvpPlayer(ws, info, seat) {
+  const color = Number(info && info.color);
+  return {
+    ws, seat,
+    name: String((info && info.name) || 'RETADOR').trim().slice(0, 24) || 'RETADOR',
+    color: Number.isFinite(color) ? Math.max(0, Math.min(7, color | 0)) : seat,
+    ready: false, rematchVote: false
+  };
+}
+
+function wwPvpPair(room) {
+  room.active = true;
+  room.round = 0;
+  room.scores = [0, 0];
+  room.seed = 1 + Math.floor(Math.random() * 999999);
+  wwPvpSend(room.a, { t: 'matched', seat: room.a.seat, room: room.key, seed: room.seed, opp: { name: room.b.name, color: room.b.color } });
+  wwPvpSend(room.b, { t: 'matched', seat: room.b.seat, room: room.key, seed: room.seed, opp: { name: room.a.name, color: room.a.color } });
+  console.log(`[WW-PVP] Sala ${room.key}: ${room.a.name} (J${room.a.seat + 1}) vs ${room.b.name} (J${room.b.seat + 1})`);
+}
+
+function wwPvpStartRound(room, newMatch) {
+  if (!room.a || !room.b) return;
+  if (room.timer) { clearTimeout(room.timer); room.timer = null; }
+  if (newMatch) { room.scores = [0, 0]; room.round = 1; room.active = true; }
+  wwPvpBroadcast(room, { t: 'round_start', round: room.round, scores: room.scores.slice() });
+  console.log(`[WW-PVP] Sala ${room.key}: inicia ronda ${room.round} (${room.scores.join('-')})`);
+}
+
+function wwPvpHandleDeath(room, player) {
+  if (!room.active || room.round < 1) return;
+  const rival = room.a === player ? room.b : room.a;
+  if (!rival) return;
+  room.scores[rival.seat] = (room.scores[rival.seat] || 0) + 1;
+  const final = room.scores[rival.seat] >= WW_PVP_WIN_ROUNDS;
+  room.active = false;
+  wwPvpBroadcast(room, { t: 'round_end', winner: rival.seat, scores: room.scores.slice(), final });
+  console.log(`[WW-PVP] Sala ${room.key}: ronda ${room.round} para J${rival.seat + 1} (${room.scores.join('-')})${final ? ' — FIN DE PARTIDA' : ''}`);
+  if (final) return;
+  room.timer = setTimeout(() => {
+    room.timer = null;
+    if (!room.a || !room.b) return;
+    room.round += 1;
+    room.active = true;
+    wwPvpStartRound(room, false);
+  }, WW_PVP_ROUND_DELAY);
+}
+
+function wwPvpDetach(ws, reason) {
+  const qi = wwPvpQueue.findIndex((p) => p.ws === ws);
+  if (qi >= 0) { wwPvpQueue.splice(qi, 1); wwPvpQueueStatus(); }
+
+  for (const room of wwPvpRooms.values()) {
+    const player = (room.a && room.a.ws === ws) ? room.a : ((room.b && room.b.ws === ws) ? room.b : null);
+    if (!player) continue;
+    const rival = room.a === player ? room.b : room.a;
+    if (rival) wwPvpSend(rival, { t: 'opp_left', reason: String(reason || 'disconnect') });
+    if (room.timer) { clearTimeout(room.timer); room.timer = null; }
+    wwPvpRooms.delete(room.key);
+    console.log(`[WW-PVP] Sala ${room.key}: ${player.name} salio (${reason})`);
+    break;
+  }
+
+  ws.wwRoom = null;
+  ws.wwPlayer = null;
+}
+
+function wwPvpOnMessage(ws, msg) {
+  if (!msg || typeof msg.t !== 'string') return;
+
+  if (msg.t === 'join') {
+    if (ws.wwRoom && ws.wwPlayer) return;   // ya esta jugando
+    const qi = wwPvpQueue.findIndex((p) => p.ws === ws);
+    if (qi >= 0) wwPvpQueue.splice(qi, 1);
+
+    const me = wwPvpPlayer(ws, msg, 0);
+    const wantRoom = String(msg.room || '').trim().toUpperCase().slice(0, 5);
+    ws.wwPlayer = me;
+
+    if (wantRoom) {
+      let room = wwPvpRooms.get(wantRoom);
+      if (!room) room = wwPvpNewRoom(wantRoom);
+      if (room.a && room.b) { wwPvpSend(me, { t: 'error', msg: 'La sala ya esta llena' }); ws.wwPlayer = null; return; }
+      if (!room.a) { me.seat = 0; room.a = me; } else { me.seat = 1; room.b = me; }
+      ws.wwRoom = room;
+      if (room.a && room.b) wwPvpPair(room);
+      else wwPvpSend(me, { t: 'queued', n: 1, room: room.key });
+      console.log(`[WW-PVP] ${me.name} espera en sala ${room.key} (J${me.seat + 1})`);
+      return;
+    }
+
+    const rival = wwPvpQueue.shift();
+    if (!rival) {
+      me.at = Date.now();
+      wwPvpQueue.push(me);
+      wwPvpSend(me, { t: 'queued', n: wwPvpQueue.length });
+      console.log(`[WW-PVP] ${me.name} en cola (${wwPvpQueue.length})`);
+      return;
+    }
+
+    me.seat = 1;
+    const room = wwPvpNewRoom('Q' + String(wwPvpSeq++).padStart(4, '0'));
+    room.a = rival; rival.seat = 0; rival.ws.wwRoom = room;
+    room.b = me; ws.wwRoom = room;
+    wwPvpPair(room);
+    return;
+  }
+
+  const room = ws.wwRoom;
+  const me = ws.wwPlayer;
+  if (!room || !me) return;
+  const rival = room.a === me ? room.b : room.a;
+
+  switch (msg.t) {
+    case 'ready':
+      me.ready = true;
+      if (room.a && room.b && room.a.ready && room.b.ready && room.round === 0) {
+        room.a.ready = false;
+        room.b.ready = false;
+        wwPvpStartRound(room, true);
+      }
+      break;
+    case 'state':
+    case 'atk':
+    case 'cast':
+    case 'swap':
+    case 'hit':
+      wwPvpSend(rival, msg);
+      break;
+    case 'died':
+      wwPvpHandleDeath(room, me);
+      break;
+    case 'rematch':
+      if (room.active) break;
+      me.rematchVote = true;
+      if (room.a.rematchVote && room.b.rematchVote) {
+        room.a.rematchVote = false;
+        room.b.rematchVote = false;
+        wwPvpStartRound(room, true);
+      } else if (rival) {
+        wwPvpSend(rival, { t: 'rematch_wait' });
+      }
+      break;
+    case 'leave':
+      wwPvpDetach(ws, 'leave');
+      break;
+    default:
+      break;
+  }
+}
+
+const wwPvpWss = new WebSocketServer({ noServer: true });
+
+httpServer.on('upgrade', (req, socket, head) => {
+  let pathname = '';
+  try { pathname = new URL(req.url, 'http://localhost').pathname; } catch (e) { pathname = ''; }
+  if (pathname !== '/wildweapon/pvp') return;   // socket.io y otros upgrades siguen su curso
+  wwPvpWss.handleUpgrade(req, socket, head, (ws) => wwPvpWss.emit('connection', ws, req));
+});
+
+wwPvpWss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.wwRoom = null;
+  ws.wwPlayer = null;
+  ws.on('pong', () => { ws.isAlive = true; });
+  ws.on('message', (raw) => {
+    try { wwPvpOnMessage(ws, JSON.parse(raw.toString())); } catch (e) { /* mensaje invalido: se ignora */ }
+  });
+  ws.on('close', () => wwPvpDetach(ws, 'disconnect'));
+  ws.on('error', (err) => console.warn('[WW-PVP] error de socket:', err.message));
+});
+
+// Barrido: cola vencida, salas de codigo abandonadas y heartbeat
+setInterval(() => {
+  const now = Date.now();
+  let changed = false;
+  for (let i = wwPvpQueue.length - 1; i >= 0; i--) {
+    if (now - wwPvpQueue[i].at > WW_PVP_QUEUE_TIMEOUT) {
+      wwPvpSend(wwPvpQueue[i], { t: 'error', msg: 'Se agoto el tiempo de espera. Intenta otra vez.' });
+      wwPvpQueue.splice(i, 1);
+      changed = true;
+    }
+  }
+  if (changed) wwPvpQueueStatus();
+
+  for (const room of wwPvpRooms.values()) {
+    if ((!room.a || !room.b) && now - room.createdAt > 600000) {
+      if (room.timer) clearTimeout(room.timer);
+      wwPvpRooms.delete(room.key);
+    }
+  }
+
+  for (const ws of wwPvpWss.clients) {
+    if (ws.isAlive === false) { try { ws.terminate(); } catch (e) { /* ya cerrado */ } continue; }
+    ws.isAlive = false;
+    try { ws.ping(); } catch (e) { /* ya cerrado */ }
+  }
+}, 30000);
+
+// Diagnostico rapido del PVP (cola y salas activas)
+app.get('/wildweapon/pvp/info', (req, res) => {
+  res.json({
+    ok: true,
+    winRounds: WW_PVP_WIN_ROUNDS,
+    queue: wwPvpQueue.length,
+    rooms: [...wwPvpRooms.values()].map((r) => ({
+      key: r.key, round: r.round, scores: r.scores, active: r.active,
+      players: [r.a && r.a.name, r.b && r.b.name].filter(Boolean)
+    }))
   });
 });
 

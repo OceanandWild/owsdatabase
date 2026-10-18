@@ -27,13 +27,17 @@ namespace WildWeapon
 
         private float _introTimer;
         private float _endTimer;
-        private float _hitStopTimer;
         private float _clearStatusIn;
 
         void Awake()
         {
             Instance = this;
             Time.fixedDeltaTime = 1f / 60f;   // sim 60 Hz (doc seccion 9)
+        }
+
+        void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
         }
 
         void Start()
@@ -43,12 +47,6 @@ namespace WildWeapon
 
         void Update()
         {
-            if (_hitStopTimer > 0f)
-            {
-                _hitStopTimer -= Time.unscaledDeltaTime;
-                if (_hitStopTimer <= 0f) Time.timeScale = 1f;
-            }
-
             switch (CurrentPhase)
             {
                 case Phase.Intro:
@@ -133,6 +131,8 @@ namespace WildWeapon
                 Vector2 toCenter = Vector2.zero - pos;
                 Vector2 look = toCenter.sqrMagnitude > 0.0001f ? toCenter.normalized : Vector2.right;
                 players[i].ResetForRound(pos, look);
+                var caster = players[i].Abilities;
+                if (caster != null) caster.ResetForRound();
             }
         }
 
@@ -163,9 +163,7 @@ namespace WildWeapon
 
         public void RequestHitStop(float duration)
         {
-            if (duration <= 0f) return;
-            Time.timeScale = DuelRules.HitStopTimeScale;
-            _hitStopTimer = Mathf.Max(_hitStopTimer, duration);
+            GameFeel.HitStop(duration);
         }
 
         private int MatchWinner()

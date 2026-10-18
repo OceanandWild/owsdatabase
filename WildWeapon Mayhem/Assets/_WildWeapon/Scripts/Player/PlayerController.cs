@@ -17,16 +17,22 @@ namespace WildWeapon
         [Tooltip("Pivote visual que rota hacia donde apuntas (padre de las armas)")]
         public Transform aimPivot;
 
-        public float BodyRadius = 0.45f;
+        [Tooltip("Capa visual animada (Visual > Body)")]
+        public CharacterVisual visual;
 
         public PlayerHealth Health { get; private set; }
         public WeaponLoadout Loadout { get; private set; }
+        public AbilityCaster Abilities { get; private set; }
 
         public Vector2 AimDir { get; private set; } = Vector2.right;
         public bool CanAct { get; set; }
 
+        /// <summary>Slow de root parcial durante el cast de habilidad (doc §2.4: 40%).</summary>
+        [HideInInspector] public float castingSlow = 1f;
+        [HideInInspector] public bool Casting;
+
         /// <summary>i-frames durante los primeros 0.15 s del dash (doc 2.3).</summary>
-        public bool IsInvulnerable => _dashTimer > (DuelRules.DashTime - DuelRules.DashIFrameTime);
+        public bool IsInvulnerable => _dashTimer > (DuelRules.DashTime - DuelRules.DashIFrameTime) || _invulnTimer > 0f;
 
         private Rigidbody2D _rb;
         private Camera _cam;
@@ -35,10 +41,14 @@ namespace WildWeapon
         private bool _attackHeld;
         private bool _dashQueued;
         private bool _swapQueued;
+        private bool _qQueued;
+        private bool _eQueued;
+        private bool _rQueued;
         private Vector2 _knockback;
 
         private float _dashTimer;
         private float _dashCooldown;
+        private float _invulnTimer;
         private Vector2 _dashDir;
 
         void Awake()
@@ -46,6 +56,7 @@ namespace WildWeapon
             _rb = GetComponent<Rigidbody2D>();
             Health = GetComponent<PlayerHealth>();
             Loadout = GetComponent<WeaponLoadout>();
+            Abilities = GetComponent<AbilityCaster>();
             _cam = Camera.main;
         }
 
@@ -58,6 +69,12 @@ namespace WildWeapon
             {
                 float angle = Mathf.Atan2(AimDir.y, AimDir.x) * Mathf.Rad2Deg;
                 aimPivot.rotation = Quaternion.Euler(0f, 0f, angle);
+            }
+
+            if (visual != null)
+            {
+                visual.Face(AimDir);
+                visual.SetSpeed(_rb.linearVelocity.magnitude);
             }
         }
 
@@ -83,6 +100,9 @@ namespace WildWeapon
                         (kb.wKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed ? 1f : 0f));
                     if (kb.leftShiftKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame) _dashQueued = true;
                     if (kb.xKey.wasPressedThisFrame) _swapQueued = true;
+                    if (kb.qKey.wasPressedThisFrame) _qQueued = true;
+                    if (kb.eKey.wasPressedThisFrame) _eQueued = true;
+                    if (kb.rKey.wasPressedThisFrame) _rQueued = true;
                 }
                 if (mouse != null)
                 {
@@ -107,6 +127,9 @@ namespace WildWeapon
                     _attackHeld = kb.commaKey.isPressed;
                     if (kb.periodKey.wasPressedThisFrame) _dashQueued = true;
                     if (kb.slashKey.wasPressedThisFrame) _swapQueued = true;
+                    if (kb.uKey.wasPressedThisFrame) _qQueued = true;
+                    if (kb.iKey.wasPressedThisFrame) _eQueued = true;
+                    if (kb.oKey.wasPressedThisFrame) _rQueued = true;
                 }
                 // Apuntado asistido: la direccion de movimiento marca el aim (doc 5.2).
                 if (_moveInput.sqrMagnitude > 0.01f) AimDir = _moveInput.normalized;
@@ -122,7 +145,10 @@ namespace WildWeapon
 
                     _attackHeld = pad.rightTrigger.ReadValue() > 0.5f;
                     if (pad.buttonEast.wasPressedThisFrame) _dashQueued = true;
-                    if (pad.leftTrigger.ReadValue() > 0.5f || pad.leftStickButton.wasPressedThisFrame) _swapQueued = true;
+                    if (pad.leftStickButton.wasPressedThisFrame) _swapQueued = true;
+                    if (pad.leftTrigger.wasPressedThisFrame) _qQueued = true;
+                    if (pad.leftShoulder.wasPressedThisFrame) _eQueued = true;
+                    if (pad.buttonNorth.wasPressedThisFrame) _rQueued = true;
                 }
             }
         }
@@ -131,12 +157,15 @@ namespace WildWeapon
         {
             float dt = Time.fixedDeltaTime;
             if (_dashCooldown > 0f) _dashCooldown -= dt;
+            if (_invulnTimer > 0f) _invulnTimer -= dt;
 
             bool dead = Health != null && Health.IsDead;
-            if (!CanAct || dead)
+            if (!CanAct || dead || controllerStunned > 0f)
             {
+                if (controllerStunned > 0f) controllerStunned -= dt;
                 _dashQueued = false;
                 _swapQueued = false;
+                _qQueued = false; _eQueued = false; _rQueued = false;
                 _rb.linearVelocity = Vector2.zero;
                 _knockback = Vector2.zero;
                 return;
@@ -158,7 +187,7 @@ namespace WildWeapon
             }
             else
             {
-                vel = _moveInput * DuelRules.MoveSpeed;
+                vel = _moveInput * DuelRules.MoveSpeed * castingSlow;
             }
 
             vel += _knockback;
@@ -171,12 +200,36 @@ namespace WildWeapon
                 _swapQueued = false;
                 if (_attackHeld) Loadout.TryAttack(AimDir, Health);
             }
+
+            if (Abilities != null)
+            {
+                if (_qQueued) Abilities.QueueQ();
+                if (_eQueued) Abilities.QueueE();
+                if (_rQueued) Abilities.QueueR();
+            }
+            _qQueued = false; _eQueued = false; _rQueued = false;
         }
 
         public void ApplyKnockback(Vector2 dir, float amount)
         {
             _knockback += dir * amount;
         }
+
+        /// <summary>i-frames extra por habilidad (ej. Dash-Tajo de la Katana).</summary>
+        public void GrantIFrames(float duration)
+        {
+            _invulnTimer = Mathf.Max(_invulnTimer, duration);
+        }
+
+        /// <summary>Stun por habilidad: congela input hasta que expire.</summary>
+        public void Stun(float seconds)
+        {
+            controllerStunned = Mathf.Max(controllerStunned, seconds);
+        }
+
+        [HideInInspector] public float controllerStunned;
+
+        public bool IsStunned => controllerStunned > 0f;
 
         public void ResetForRound(Vector2 pos, Vector2 lookDir)
         {
@@ -191,10 +244,15 @@ namespace WildWeapon
             _swapQueued = false;
             _moveInput = Vector2.zero;
             _attackHeld = false;
+            controllerStunned = 0f;
+            Casting = false;
+            castingSlow = 1f;
+            _invulnTimer = 0f;
 
             AimDir = lookDir.sqrMagnitude > 0.0001f ? lookDir.normalized : Vector2.right;
 
             if (Health != null) Health.ResetHealth();
+            if (Abilities != null) Abilities.ResetForRound();
             if (Loadout != null) Loadout.ResetLoadout();
             CanAct = false;
         }

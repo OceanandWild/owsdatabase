@@ -1061,6 +1061,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.UI.MultiplayerLobbyController
   listContainer: {fileID: 680644856}
   playerCardPrefab: {fileID: 2254994920402311839, guid: 12a28360b90fb214489de497449a423c, type: 3}
+  playerCardSprite: {fileID: 21300000, guid: 1a657a0d2572a0b48b7f63108c0fb758, type: 3}
   addButton: {fileID: 381155820}
   removeButton: {fileID: 1578960225}
   continueButton: {fileID: 1818107619}

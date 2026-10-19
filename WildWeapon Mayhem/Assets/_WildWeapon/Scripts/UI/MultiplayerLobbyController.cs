@@ -14,6 +14,7 @@ namespace WildWeapon.UI
         [Header("Lista")]
         public Transform listContainer;
         public GameObject playerCardPrefab;
+        public Sprite playerCardSprite;
 
         [Header("Botones")]
         public Button addButton;
@@ -57,6 +58,9 @@ namespace WildWeapon.UI
                 row.transform.SetParent(listContainer, false);
                 var rt = row.AddComponent<RectTransform>();
                 rt.sizeDelta = new Vector2(0, 48);
+                var bg = row.AddComponent<Image>();
+                if (playerCardSprite != null) { bg.sprite = playerCardSprite; bg.type = Image.Type.Sliced; }
+                else bg.color = new Color(0.18f, 0.20f, 0.26f, 0.9f);
                 var hlg = row.AddComponent<HorizontalLayoutGroup>();
                 hlg.spacing = 6; hlg.childForceExpandWidth = false;
 

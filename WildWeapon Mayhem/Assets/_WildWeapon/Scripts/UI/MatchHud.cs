@@ -116,7 +116,9 @@ namespace WildWeapon.UI
             }
 
             // ---- Placas de jugador ----
-            for (int i = 0; i < slots.Length; i++) UpdateSlot(mgr, pvp, pvpRunning, i, dt);
+            int slotCount = slots != null ? slots.Length : 0;
+            if (mgr.Players != null) slotCount = Mathf.Min(slotCount, mgr.Players.Length);
+            for (int i = 0; i < slotCount; i++) UpdateSlot(mgr, pvp, pvpRunning, i, dt);
 
             // ---- Anuncio central ----
             string status = mgr.StatusText;

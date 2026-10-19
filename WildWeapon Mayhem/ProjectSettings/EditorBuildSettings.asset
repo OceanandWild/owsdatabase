@@ -17,5 +17,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_WildWeapon/Scenes/CharacterSelect.unity
     guid: 99731f1875048884fb0e7273c68a11e4
+  - enabled: 1
+    path: Assets/_WildWeapon/Scenes/MultiplayerLobby.unity
+    guid: b3bd56d9f5203a94584ed2b63d4ae665
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}

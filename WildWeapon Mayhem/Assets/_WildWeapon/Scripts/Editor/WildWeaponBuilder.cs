@@ -299,6 +299,8 @@ namespace WildWeapon.EditorTools
             new ArtSpec("ww_icon_exit", new Vector2(0.5f, 0.5f), false, 512),
             new ArtSpec("ww_menu_info_skin", new Vector2(0.5f, 0.5f), false, 1024),
             new ArtSpec("ww_menu_chip_skin", new Vector2(0.5f, 0.5f), false, 512),
+            new ArtSpec("ww_lobby_panel", new Vector2(0.5f, 0.5f), false, 1024),
+            new ArtSpec("ww_lobby_player_card", new Vector2(0.5f, 0.5f), false, 512),
             new ArtSpec("ww_pvp_panel_skin", new Vector2(0.5f, 0.5f), false, 1024),
             new ArtSpec("ww_pvp_button_skin", new Vector2(0.5f, 0.5f), false, 512),
             new ArtSpec("ww_pvp_rule", new Vector2(0.5f, 0.5f), false, 512),
@@ -2071,7 +2073,7 @@ def.platforms = scaledPlats;
             var info = ModeInfoStrip(canvasGo.transform, font, accents);
             foreach (var card in cards) card.info = info;
 
-            UnityEventTools.AddPersistentListener(cards[0].GetComponent<Button>().onClick, controller.PlayDuel);
+            UnityEventTools.AddPersistentListener(cards[0].GetComponent<Button>().onClick, controller.PlayMulti);
             UnityEventTools.AddPersistentListener(cards[1].GetComponent<Button>().onClick, controller.PlayPvp);
             UnityEventTools.AddPersistentListener(cards[2].GetComponent<Button>().onClick, controller.PlayBots);
             UnityEventTools.AddPersistentListener(cards[3].GetComponent<Button>().onClick, controller.Quit);

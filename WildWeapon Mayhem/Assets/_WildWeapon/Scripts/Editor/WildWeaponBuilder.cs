@@ -1952,7 +1952,7 @@ def.platforms = scaledPlats;
 
             var duelRoot = new GameObject("Mode_Duelo");
             var mgr = duelRoot.AddComponent<DuelManager>();
-            mgr.players = new[] { p1, p2 };
+            mgr.players = new List<PlayerController> { p1, p2 };
             mgr.spawns = new[] { spawn1, spawn2 };
             BuildMatchHud(duelRoot.transform, Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
             duelRoot.SetActive(false);
@@ -2012,6 +2012,7 @@ def.platforms = scaledPlats;
             boot.pvpRoot = pvpRoot;
             boot.p1 = p1;
             boot.p2 = p2;
+            boot.playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_WildWeapon/Prefabs/Characters/Player_Cyborg.prefab");
 
             var musicGo = new GameObject("Music");
             var music = musicGo.AddComponent<MusicPlayer>();

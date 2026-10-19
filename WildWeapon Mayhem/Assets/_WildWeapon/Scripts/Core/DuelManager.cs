@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -16,7 +17,7 @@ namespace WildWeapon
 
         public enum Phase { Intro, Fight, RoundEnd, MatchEnd }
 
-        public PlayerController[] players = new PlayerController[2];
+        public List<PlayerController> players = new List<PlayerController>();
         public Transform[] spawns = new Transform[2];
 
         /// <summary>PVP online: el arranque y el avance de rondas vienen del server.</summary>
@@ -32,7 +33,7 @@ namespace WildWeapon
         public bool Overdrive { get; private set; }
         public string StatusText { get; private set; } = "";
         public float DamageMultiplier => Overdrive ? DuelRules.OverdriveDamageMultiplier : 1f;
-        public PlayerController[] Players => players;
+        public PlayerController[] Players => players.ToArray();
 
         private float _introTimer;
         private float _endTimer;
@@ -124,8 +125,8 @@ namespace WildWeapon
 
         public void StartMatch()
         {
-            Scores[0] = 0;
-            Scores[1] = 0;
+            Scores = new int[Mathf.Max(2, players.Count)];
+            for (int i = 0; i < Scores.Length; i++) Scores[i] = 0;
             RoundNumber = 1;
             BeginRound();
         }
@@ -195,7 +196,7 @@ namespace WildWeapon
         private void ResetPlayers()
         {
             if (players == null || spawns == null) return;
-            for (int i = 0; i < players.Length && i < spawns.Length; i++)
+            for (int i = 0; i < players.Count && i < spawns.Length; i++)
             {
                 if (players[i] == null || spawns[i] == null) continue;
 
@@ -220,18 +221,37 @@ namespace WildWeapon
             if (pvpDriven) return;   // PVP: la muerte la arbitra el server (mensaje died)
             if (CurrentPhase != Phase.Fight) return;
 
-            int loserIndex = -1;
-            for (int i = 0; i < players.Length; i++)
-                if (players[i] != null && players[i].Health == dead) { loserIndex = i; break; }
-            if (loserIndex < 0) return;
+            int deadIndex = -1;
+            for (int i = 0; i < players.Count; i++)
+                if (players[i] != null && players[i].Health == dead) { deadIndex = i; break; }
+            if (deadIndex < 0) return;
 
-            int winnerIndex = 1 - loserIndex;
-            Scores[winnerIndex]++;
-            CurrentPhase = Phase.RoundEnd;
-            _endTimer = 2.2f;
+            int alive = 0;
+            int lastAlive = -1;
+            for (int i = 0; i < players.Count; i++)
+            {
+                if (players[i] != null && players[i].Health != null && !players[i].Health.IsDead)
+                {
+                    alive++;
+                    lastAlive = i;
+                }
+            }
+
             _clearStatusIn = 0f;
-            StatusText = $"RONDA {RoundNumber}: GANA J{winnerIndex + 1}";
             SetPlayersCanAct(false);
+
+            if (alive <= 1 && lastAlive >= 0)
+            {
+                if (lastAlive < Scores.Length) Scores[lastAlive]++;
+                CurrentPhase = Phase.MatchEnd;
+                StatusText = $"GANA J{lastAlive + 1} LA PARTIDA";
+            }
+            else
+            {
+                CurrentPhase = Phase.RoundEnd;
+                _endTimer = 2.2f;
+                StatusText = $"J{deadIndex + 1} ELIMINADO ({alive} restantes)";
+            }
         }
 
         public void RequestHitStop(float duration)

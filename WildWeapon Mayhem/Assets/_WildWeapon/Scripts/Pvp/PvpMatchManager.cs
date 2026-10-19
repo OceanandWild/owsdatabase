@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -20,7 +22,18 @@ namespace WildWeapon.Pvp
         public PvpCountdown countdown;
         public PlayerController p1;
         public PlayerController p2;
+        public GameObject playerPrefab;
         public Transform[] spawns;
+
+        [Serializable]
+        public class RemoteEntry
+        {
+            public int seat;
+            public PlayerController pc;
+            public PlayerHealth health;
+            public PvpRemoteAvatar avatar;
+        }
+        public readonly List<RemoteEntry> remotes = new List<RemoteEntry>();
 
         public int LocalIndex { get; private set; }
         public bool Running { get; private set; }
@@ -56,30 +69,67 @@ namespace WildWeapon.Pvp
 
             LocalIndex = Mathf.Clamp(GameSession.PvpSeat, 0, 1);
             _local = LocalIndex == 0 ? p1 : p2;
-            _remote = LocalIndex == 0 ? p2 : p1;
-            if (_local == null || _remote == null || duel == null)
+            if (_local == null || duel == null)
             {
                 ReturnToMenu("La arena no tiene los jugadores configurados.");
                 return;
             }
 
             _localHealth = _local.Health;
-            _remoteHealth = _remote.Health;
 
-            // Colores: el local con su color elegido; el rival con el que mando el server.
+            // Colores: el local con su color elegido.
             if (_local.visual != null) _local.visual.SetPaintColor(GameSession.GetColor(0));
-            if (_remote.visual != null) _remote.visual.SetPaintColor(GameSession.GetOpponentColor());
-
-            // En cada cliente: local = equipo 0, rival = equipo 1 (el daño cruza solo).
             if (_localHealth != null) _localHealth.team = 0;
-            if (_remoteHealth != null) _remoteHealth.team = 1;
-
-            // El local juega con teclado+mouse (o mando si hay); al rival lo mueve la red.
             _local.scheme = Gamepad.current != null ? InputScheme.Auto : InputScheme.KeyboardMouse;
 
-            _avatar = _remote.gameObject.AddComponent<PvpRemoteAvatar>();
-            _avatar.Bind(_remote);
-            if (_remoteHealth != null) _remoteHealth.networkMirror = true;
+            // Remotos: uno por cada oponente del lobby (o el rival unico del quickmatch).
+            var opps = (GameSession.PvpOpps != null && GameSession.PvpOpps.Count > 0)
+                ? GameSession.PvpOpps
+                : new List<PvpOpp> { new PvpOpp { name = GameSession.PvpOpponentName, color = GameSession.PvpOpponentColor } };
+
+            foreach (var opp in opps)
+            {
+                int seat = opp.seat > 0 ? opp.seat : (remotes.Count + 1);
+                // avoid duplicate seats
+                while (remotes.Exists(r => r.seat == seat)) seat++;
+                if (seat == LocalIndex) continue;
+
+                PlayerController pc = null;
+                if (seat == 0 && LocalIndex != 0 && p1 != null) pc = p1;
+                else if (seat == 1 && LocalIndex != 1 && p2 != null) pc = p2;
+
+                if (pc == null && playerPrefab != null)
+                {
+                    var go = Instantiate(playerPrefab);
+                    go.name = "Remote_" + seat;
+                    pc = go.GetComponent<PlayerController>();
+                    if (spawns != null && spawns.Length > 0)
+                    {
+                        int si = seat % spawns.Length;
+                        if (spawns[si] != null) go.transform.position = spawns[si].position;
+                    }
+                }
+                if (pc == null) continue;
+
+                var health = pc.Health;
+                if (health != null) { health.team = 1; health.networkMirror = true; }
+                if (pc.visual != null) pc.visual.SetPaintColor(GameSession.Palette[Mathf.Clamp(opp.color, 0, GameSession.Palette.Length - 1)]);
+
+                pc.inputSuppressed = true;
+                var avatar = pc.gameObject.GetComponent<PvpRemoteAvatar>();
+                if (avatar == null) avatar = pc.gameObject.AddComponent<PvpRemoteAvatar>();
+                avatar.Bind(pc);
+
+                remotes.Add(new RemoteEntry { seat = seat, pc = pc, health = health, avatar = avatar });
+            }
+
+            // alias _remote/_avatar para compatibilidad (primer remoto)
+            if (remotes.Count > 0)
+            {
+                _remote = remotes[0].pc;
+                _remoteHealth = remotes[0].health;
+                _avatar = remotes[0].avatar;
+            }
 
             // El arbitraje de rondas lo hace el server: DuelManager arranca en modo conducido.
             duel.pvpDriven = true;
@@ -105,7 +155,51 @@ namespace WildWeapon.Pvp
             Debug.Log($"[WW-PVP] Arena lista - local J{LocalIndex + 1} vs {GameSession.PvpOpponentName}.");
         }
 
-        void Update()
+        private RemoteEntry EnsureRemote(int seat)
+    {
+        var existing = remotes.Find(r => r.seat == seat);
+        if (existing != null) return existing;
+
+        PlayerController pc = null;
+        if (seat == 0 && LocalIndex != 0 && p1 != null) pc = p1;
+        else if (seat == 1 && LocalIndex != 1 && p2 != null) pc = p2;
+
+        if (pc == null && playerPrefab != null)
+        {
+            var go = Instantiate(playerPrefab);
+            go.name = "Remote_" + seat;
+            pc = go.GetComponent<PlayerController>();
+            // position ring
+            if (spawns != null && spawns.Length > 0)
+            {
+                int si = seat % spawns.Length;
+                if (spawns[si] != null) go.transform.position = spawns[si].position;
+            }
+        }
+        if (pc == null) return null;
+
+        var health = pc.Health;
+        if (health != null) { health.team = 1; health.networkMirror = true; }
+
+        pc.inputSuppressed = true;
+        var avatar = pc.gameObject.GetComponent<PvpRemoteAvatar>();
+        if (avatar == null) avatar = pc.gameObject.AddComponent<PvpRemoteAvatar>();
+        avatar.Bind(pc);
+
+        var entry = new RemoteEntry { seat = seat, pc = pc, health = health, avatar = avatar };
+        remotes.Add(entry);
+        return entry;
+    }
+
+    private RemoteEntry RemoteFor(int seat)
+    {
+        if (remotes.Count == 0) return null;
+        if (seat == 0) return remotes[0];
+        var r = remotes.Find(x => x.seat == seat);
+        return r != null ? r : remotes[0];
+    }
+
+    void Update()
         {
             if (!Running) return;
 
@@ -152,7 +246,7 @@ namespace WildWeapon.Pvp
                     _deathSent = false;
                     _waitFightTimer = -1f;
                     duel.PvpRoundStart(m.round, m.scores);
-                    if (_avatar != null) _avatar.Snap();
+                    foreach (var r in remotes) if (r.avatar != null) r.avatar.Snap();
                     if (m.round <= 1 && countdown != null) countdown.Play();
                     Debug.Log($"[WW-PVP] Ronda {m.round} comienza ({(m.scores != null && m.scores.Length >= 2 ? m.scores[0] + "-" + m.scores[1] : "0-0")}).");
                     break;
@@ -167,19 +261,23 @@ namespace WildWeapon.Pvp
                     break;
 
                 case PvpMsgType.State:
-                    if (_avatar != null) _avatar.Apply(m);
+                    var rs = RemoteFor(m.seat);
+                    if (rs != null && rs.avatar != null) rs.avatar.Apply(m);
                     break;
 
                 case PvpMsgType.Attack:
-                    if (_avatar != null) _avatar.PlayAttack(m.w);
+                    var ra = RemoteFor(m.seat);
+                    if (ra != null && ra.avatar != null) ra.avatar.PlayAttack(m.w);
                     break;
 
                 case PvpMsgType.Swap:
-                    if (_avatar != null) _avatar.PlaySwap(m.w);
+                    var rw = RemoteFor(m.seat);
+                    if (rw != null && rw.avatar != null) rw.avatar.PlaySwap(m.w);
                     break;
 
                 case PvpMsgType.Cast:
-                    if (_avatar != null) _avatar.PlayCast(m.k);
+                    var rc = RemoteFor(m.seat);
+                    if (rc != null && rc.avatar != null) rc.avatar.PlayCast(m.k);
                     break;
 
                 case PvpMsgType.Hit:
@@ -213,6 +311,7 @@ namespace WildWeapon.Pvp
             _client.Send(new PvpMsg
             {
                 t = PvpMsgType.State,
+                seat = LocalIndex,
                 x = pos.x,
                 y = pos.y,
                 ax = aim.x,
@@ -259,19 +358,19 @@ namespace WildWeapon.Pvp
         private void OnLocalAttack(MeleeWeapon weapon, Vector2 aim)
         {
             if (_client == null || !_client.IsConnected) return;
-            _client.Send(new PvpMsg { t = PvpMsgType.Attack, w = IndexOfWeapon(weapon), ax = aim.x, ay = aim.y });
+            _client.Send(new PvpMsg { t = PvpMsgType.Attack, seat = LocalIndex, w = IndexOfWeapon(weapon), ax = aim.x, ay = aim.y });
         }
 
         private void OnLocalCast(int slot, AbilityKind kind)
         {
             if (_client == null || !_client.IsConnected) return;
-            _client.Send(new PvpMsg { t = PvpMsgType.Cast, k = (int)kind, w = slot });
+            _client.Send(new PvpMsg { t = PvpMsgType.Cast, seat = LocalIndex, k = (int)kind, w = slot });
         }
 
         private void OnLocalSwap(int index)
         {
             if (_client == null || !_client.IsConnected) return;
-            _client.Send(new PvpMsg { t = PvpMsgType.Swap, w = index });
+            _client.Send(new PvpMsg { t = PvpMsgType.Swap, seat = LocalIndex, w = index });
         }
 
         private int IndexOfWeapon(MeleeWeapon weapon)
@@ -293,7 +392,7 @@ namespace WildWeapon.Pvp
         private void OnRemoteDamaged(PlayerHealth mirror, float amount, Vector2 dir)
         {
             if (_client == null || !_client.IsConnected) return;
-            _client.Send(new PvpMsg { t = PvpMsgType.Hit, dmg = amount, dx = dir.x, dy = dir.y });
+            _client.Send(new PvpMsg { t = PvpMsgType.Hit, seat = LocalIndex, dmg = amount, dx = dir.x, dy = dir.y });
         }
 
         private void OnRematchPressed()

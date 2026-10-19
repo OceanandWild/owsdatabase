@@ -8,6 +8,7 @@ namespace WildWeapon.Pvp
     {
         public string name;
         public int color;
+        public int seat;
     }
 
     /// <summary>

@@ -1972,6 +1972,7 @@ def.platforms = scaledPlats;
             pvp.duelRoot = duelRoot;
             pvp.p1 = p1;
             pvp.p2 = p2;
+            pvp.playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_WildWeapon/Prefabs/Characters/Player_Cyborg.prefab");
             pvp.spawns = new[] { spawn1, spawn2 };
 
             // Cuenta regresiva 3-2-1-GO (sprites de Aura) en canvas propio, arriba del HUD.

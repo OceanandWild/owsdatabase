@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -64,7 +66,7 @@ namespace WildWeapon
 
             if (_shake > 0.001f)
             {
-                Vector2 r = Random.insideUnitCircle * _shake;
+                Vector2 r = UnityEngine.Random.insideUnitCircle * _shake;
                 _cam.position = _camBase + new Vector3(r.x, r.y, 0f);
                 _shake = Mathf.MoveTowards(_shake, 0f, Time.unscaledDeltaTime * 1.2f);
             }
@@ -75,12 +77,24 @@ namespace WildWeapon
         }
     }
 
-    public enum GameMode { Duel, Bots, Pvp }
+    public enum GameMode { Multi, Bots, Pvp }
 
     /// <summary>Datos que pasan del menu principal a la arena (modo + mapa + colores de los cyborgs).</summary>
     public static class GameSession
     {
-        public static GameMode Mode = GameMode.Duel;
+        public static GameMode Mode = GameMode.Multi;
+
+/// <summary>Jugador de la lobby multijugador (nombre + color + control + equipo).</summary>
+[Serializable]
+public class PlayerSlot
+{
+    public string name = "Jugador";
+    public int colorIndex = 0;
+    public int controlIndex = 0;
+    public int team = 0;
+}
+/// <summary>Lista de jugadores de la partida multijugador (hasta 15).</summary>
+public static readonly List<PlayerSlot> MultiPlayers = new List<PlayerSlot>();
         public const string MenuScene = "MainMenu";
         public const string MapSelectScene = "MapSelect";
         public const string ArenaScene = "Arena";

@@ -19,7 +19,13 @@ namespace WildWeapon.UI
             if (fader != null) StartCoroutine(Fade(1f, 0f, null));
         }
 
-        public void PlayDuel() => OpenMapSelect(GameMode.Duel);
+        public void PlayMulti()
+{
+    if (_loading) return;
+    _loading = true;
+    GameSession.Mode = GameMode.Multi;
+    StartCoroutine(Fade(0f, 1f, () => SceneManager.LoadScene("MultiplayerLobby")));
+}
         public void PlayBots() => OpenMapSelect(GameMode.Bots);
 
         /// <summary>Abre el overlay de emparejamiento PVP online.</summary>

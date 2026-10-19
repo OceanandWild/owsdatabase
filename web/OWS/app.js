@@ -1,5 +1,5 @@
 // OWS Dashboard — Client Logic
-// Uses same backend & token as Ocean Pay for seamless SSO
+// Uses same backend & token as Surface (antes Ocean Pay) for seamless SSO
 
 // Backend REAL: siempre server.js en Render (producción).
 // No usar localhost: todas las peticiones van a la DB real de owsdatabase.onrender.com.
@@ -35,7 +35,7 @@ function apiUrl(url) {
   return String(url);
 }
 
-// Same token keys as Ocean Pay — SSO via shared localStorage
+// Same token keys as Surface / Ocean Pay — SSO via shared localStorage
 const TOKEN_KEY = 'ocean_pay_token';
 const USER_KEY  = 'ocean_pay_user';
 
@@ -651,12 +651,12 @@ function filterSideNav(q) {
     }
     label.style.display = visible || !query ? '' : 'none';
   });
-  // La promo de Ocean Pay también responde al buscador
+  // La promo de Surface también responde al buscador
   const promo = nav.querySelector('.nav-promo');
   if (promo) {
     if (!query) promo.style.display = '';
     else {
-      const hayPromo = ((promo.textContent || '') + ' ocean pay billetera wallet dinero pagos').toLowerCase();
+      const hayPromo = ((promo.textContent || '') + ' surface billetera wallet dinero pagos tarjeta ocean pay').toLowerCase();
       promo.style.display = hayPromo.includes(query) ? '' : 'none';
     }
   }
@@ -1326,8 +1326,9 @@ function handleLogout() {
 // ═══════════════════════════════════════════════
 
 function goToModule(moduleId) {
-  if (moduleId === 'ocean-pay') {
-    window.location.href = './Ocean Pay/index.html';
+  // 'ocean-pay' se mantiene como alias: el módulo ahora se llama Surface.
+  if (moduleId === 'surface' || moduleId === 'ocean-pay') {
+    window.location.href = './Surface/index.html';
   } else if (moduleId === 'admin-panel') {
     window.location.href = './admin/index.html';
   }
@@ -1355,9 +1356,9 @@ function updateAdminVisibility() {
   if (navAdmin) navAdmin.classList.toggle('hidden', !isAdmin);
   // Sin menciones a Admin para no-admins: subtítulo y buscador del link Módulos
   const quickSub = document.getElementById('quick-modulos-sub');
-  if (quickSub) quickSub.textContent = isAdmin ? 'Ocean Pay y Admin' : 'Ocean Pay';
+  if (quickSub) quickSub.textContent = isAdmin ? 'Surface y Admin' : 'Surface';
   const navModLink = document.getElementById('nav-modulos-link');
-  if (navModLink) navModLink.setAttribute('data-keys', isAdmin ? 'modulos apps juegos ocean pay admin' : 'modulos apps juegos ocean pay');
+  if (navModLink) navModLink.setAttribute('data-keys', isAdmin ? 'modulos apps juegos surface billetera ocean pay admin' : 'modulos apps juegos surface billetera ocean pay');
   try { syncNavProfile(); } catch (_) {}
   if (!card) return;
   if (isAdmin) {

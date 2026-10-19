@@ -11307,6 +11307,141 @@ app.post(['/ocean-pay/cards/change-balance', '/ocean-pay/currency/change'], asyn
 });
 
 
+// ---------------------------------------------------------------------------
+// POST /ocean-pay/p2p/send  -  Surface (antes Ocean Pay): envio entre jugadores
+//
+// body: { toUsername, currency: 'tides' | 'gambits', amount, fee? }
+//
+// Un solo movimiento atomico: debita el envio + la comision al remitente y
+// acredita el monto (sin comision) al destinatario. La comision queda en la
+// plataforma, como hasta ahora: el cliente la anuncia y aca se valida.
+// ---------------------------------------------------------------------------
+app.post('/ocean-pay/p2p/send', async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  let senderId;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    senderId = Number(decoded.id || decoded.uid || decoded.sub);
+    if (!Number.isFinite(senderId) || senderId <= 0) {
+      return res.status(401).json({ error: 'Token invalido' });
+    }
+  } catch (_e) {
+    return res.status(401).json({ error: 'Token invalido' });
+  }
+
+  const toUsername = String(req.body?.toUsername || req.body?.recipient || '').trim();
+  const currency   = String(req.body?.currency || req.body?.currencyType || '').trim().toLowerCase();
+  const amountRaw  = Number(req.body?.amount);
+  const amount     = Math.floor(Number.isFinite(amountRaw) ? amountRaw : NaN);
+  const feeRaw     = Number(req.body?.fee);
+  const fee        = Math.max(0, Math.floor(Number.isFinite(feeRaw) ? feeRaw : 0));
+
+  if (!toUsername) return res.status(400).json({ error: 'toUsername requerido' });
+  if (currency !== 'tides' && currency !== 'gambits') {
+    return res.status(400).json({ error: 'Divisa no soportada' });
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ error: 'El monto debe ser mayor a 0' });
+  }
+  if (fee > amount) return res.status(400).json({ error: 'Comision invalida' });
+
+  const txCode = currency === 'tides' ? 'TIDES' : 'GAMBITS';
+  const totalDebit = amount + fee;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Resolver destinatario y despues bloquear ambas cuentas en orden de id:
+    // asi dos envios cruzados (A->B y B->A) no se traban entre si.
+    const { rows: targetRows } = await client.query(
+      'SELECT id, username FROM ocean_pay_users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+      [toUsername]
+    );
+    if (!targetRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'El usuario @' + toUsername + ' no existe en OWS' });
+    }
+
+    const targetId = Number(targetRows[0].id);
+    if (targetId === senderId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No podes enviarte fondos a tu propia cuenta' });
+    }
+
+    const lockIds = [senderId, targetId].sort((a, b) => a - b);
+    const { rows: lockedRows } = await client.query(
+      'SELECT id, username FROM ocean_pay_users WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE',
+      [lockIds]
+    );
+    if (lockedRows.length !== 2) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Cuenta no encontrada' });
+    }
+
+    const senderName = String((lockedRows.find(r => Number(r.id) === senderId) || {}).username || 'un jugador');
+    const targetName = String((lockedRows.find(r => Number(r.id) === targetId) || {}).username || toUsername);
+
+    const senderBalance = Number(await getUnifiedBalance(client, senderId, currency)) || 0;
+    if (senderBalance < totalDebit) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Saldo insuficiente',
+        currency,
+        currentBalance: senderBalance,
+        required: totalDebit,
+      });
+    }
+
+    const targetBalance = Number(await getUnifiedBalance(client, targetId, currency)) || 0;
+
+    await setUnifiedBalance(client, senderId, currency, senderBalance - totalDebit);
+    await setUnifiedBalance(client, targetId, currency, targetBalance + amount);
+
+    const senderNote = 'Envio a @' + targetName + (fee > 0 ? ' (comision: ' + fee + ' ' + txCode + ')' : '');
+    const targetNote = 'Recibido de @' + senderName;
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [senderId, senderNote, -totalDebit, 'Surface P2P', txCode]
+    );
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [targetId, targetNote, amount, 'Surface P2P', txCode]
+    );
+
+    await client.query('COMMIT');
+
+    console.log('[Surface/P2P] ' + senderName + ' -> ' + targetName + ': ' + amount + ' ' + txCode +
+      (fee > 0 ? ' (+' + fee + ' de comision)' : ''));
+
+    return res.json({
+      success: true,
+      from:     { username: senderName, balance: senderBalance - totalDebit },
+      to:       { username: targetName, balance: targetBalance + amount },
+      currency: txCode,
+      amount,
+      fee,
+      totalDebit,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en POST /ocean-pay/p2p/send:', err);
+    return res.status(500).json({ error: 'Error interno al enviar' });
+  } finally {
+    client.release();
+  }
+});
+
+
 // Changelogs centralizados para todos los proyectos (fuente: ows_store_timeline + sync GitHub)
 app.get('/ows-store/changelogs', async (req, res) => {
   const projectFilter = String(req.query.project || req.query.slug || '').trim().toLowerCase();

@@ -15,6 +15,10 @@ namespace WildWeapon.UI
         public Transform listContainer;
         public GameObject playerCardPrefab;
         public Sprite playerCardSprite;
+        public Sprite addButtonSprite;
+        public Sprite removeButtonSprite;
+        public Sprite continueButtonSprite;
+        public Sprite backButtonSprite;
 
         [Header("Botones")]
         public Button addButton;
@@ -44,6 +48,18 @@ namespace WildWeapon.UI
             if (removeButton != null) removeButton.onClick.AddListener(RemoveLast);
             if (continueButton != null) continueButton.onClick.AddListener(Continue);
             if (backButton != null) backButton.onClick.AddListener(Back);
+
+            ApplyButtonSprite(addButton, addButtonSprite);
+            ApplyButtonSprite(removeButton, removeButtonSprite);
+            ApplyButtonSprite(continueButton, continueButtonSprite);
+            ApplyButtonSprite(backButton, backButtonSprite);
+        }
+
+        private void ApplyButtonSprite(Button btn, Sprite spr)
+        {
+            if (btn == null || spr == null) return;
+            var img = btn.GetComponent<Image>();
+            if (img != null) { img.sprite = spr; img.type = Image.Type.Sliced; }
         }
 
         private void RebuildList()

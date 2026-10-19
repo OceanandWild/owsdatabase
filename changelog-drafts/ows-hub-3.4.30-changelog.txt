@@ -29,6 +29,11 @@ Cambios:
 - El envío sumó un botón "Usar todo" que calcula el máximo real teniendo en cuenta la comisión, así el total nunca se pasa del saldo disponible.
 - Los modales se cierran con la tecla Escape y los avisos de estado se anuncian a los lectores de pantalla.
 - Los movimientos del historial se arman de forma segura, sin interpretar como marcado el texto que llega desde el servidor.
+- La billetera quedó separada en secciones —Resumen, Enviar, Tarjeta, Historial y Configuración—, con una sola visible a la vez y la cabecera ocupando todo el ancho de la ventana. El historial dejó de ser un modal y pasó a tener su propio espacio.
+- El Resumen concentra la actividad de todos los juegos del ecosistema: gastos e ingresos agrupados por juego y por divisa, con filtro para ver solo Gambits o solo Tides, además de lo gastado y lo ganado en los últimos siete días.
+- Ese panel se alimenta de un endpoint nuevo en el servidor que lee la tabla unificada de movimientos de OWS; si el endpoint no está disponible, Surface arma el mismo resumen con el historial local para no quedar nunca vacío.
+- Configuración se organizó en Preferencias y Cuenta. En Preferencias se elige el menú lateral izquierdo, lateral derecho, superior o inferior —con una vista previa de cada diseño—, y también la animación de entrada, la divisa predeterminada y la limpieza automática del historial.
+- El diseño de la navegación y la última sección visitada quedan guardados en el dispositivo: al volver, Surface abre donde lo dejaste. En pantallas angostas el menú se acomoda solo abajo.
 
 === ENGLISH ===
 Version: 3.4.30
@@ -59,3 +64,8 @@ Changes:
 - The transfer form gained a "Use all" button that works out the real maximum taking the fee into account, so the total never goes past the available balance.
 - Modals now close with the Escape key and status notices are announced to screen readers.
 - History entries are built safely, without interpreting text coming from the server as markup.
+- The wallet is now split into sections —Overview, Send, Card, History and Settings— with one visible at a time and the header spanning the full window width. History is no longer a modal and has its own space.
+- Overview gathers activity from every game in the ecosystem: expenses and income grouped by game and currency, with a filter for Gambits or Tides only, plus what was spent and earned over the last seven days.
+- That panel is fed by a new server endpoint that reads OWS's unified movements table; if the endpoint isn't available, Surface builds the same summary from the local history so it's never empty.
+- Settings is now organised into Preferences and Account. Preferences lets you pick the left sidebar, right sidebar, top or bottom menu —with a preview of each layout— along with the entrance animation, the default currency and automatic history cleanup.
+- The chosen navigation layout and the last visited section are saved on the device: when you come back, Surface opens where you left off. On narrow screens the menu moves to the bottom by itself.

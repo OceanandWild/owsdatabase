@@ -64,11 +64,11 @@
   </section>
 
   <!-- ═══════════════════════════════════════════
-       BILLETERA
+       BILLETERA — cabecera ancha + secciones
   ═══════════════════════════════════════════ -->
-  <section id="dashboard-section" class="srf-shell hidden" aria-label="Billetera Surface">
+  <section id="dashboard-section" class="srf-app hidden" data-nav="left" aria-label="Billetera Surface">
 
-    <!-- Barra superior: marca a la izquierda, acciones en iconos -->
+    <!-- Barra superior: a todo el ancho de la ventana -->
     <header class="srf-bar">
       <div class="srf-brand">
         <span class="srf-mark srf-mark-sm" aria-hidden="true">
@@ -85,9 +85,6 @@
         <button id="btn-sync-balances" class="srf-ico" type="button" title="Sincronizar balances" aria-label="Sincronizar balances">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-13.7-5.6"/><path d="M4 13a8 8 0 0 0 13.7 5.6"/><path d="M4 4v4h4"/><path d="M20 20v-4h-4"/></svg>
         </button>
-        <button class="srf-ico" type="button" data-action="open-history" title="Historial de movimientos" aria-label="Historial de movimientos">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h11l5 5v9H4z"/><path d="M15 5v5h5"/><path d="M8 14h7M8 17h4"/></svg>
-        </button>
         <span class="srf-user" title="Sesión actual">
           <span class="srf-user-avatar" id="nav-user-avatar" aria-hidden="true">•</span>
           <span class="srf-user-name" id="nav-user-name">Jugador</span>
@@ -101,146 +98,431 @@
       </div>
     </header>
 
-    <main class="srf-main srf-anim">
+    <div class="srf-body">
 
-      <!-- Saludo + saldos (los saldos eligen la divisa de la transferencia) -->
-      <section class="srf-hero">
-        <div class="srf-hero-text">
-          <h2 class="srf-hello">Hola, <span id="srf-hello-name">Jugador</span></h2>
-          <p class="srf-hero-sub">Tus divisas, tu tarjeta y tus envíos en un solo lugar.</p>
-        </div>
-        <div class="srf-balances" role="group" aria-label="Saldos. Elegí la divisa a enviar">
-          <button class="srf-balance is-active" type="button" data-currency="gambits" aria-pressed="true">
-            <span class="srf-balance-ico" aria-hidden="true">🃏</span>
-            <span class="srf-balance-meta"><b>Gambits</b><small>Wilder Gambit</small></span>
-            <span class="srf-balance-amount" id="balance-gambits">0</span>
-          </button>
-          <button class="srf-balance" type="button" data-currency="tides" aria-pressed="false">
-            <span class="srf-balance-ico" aria-hidden="true">🌊</span>
-            <span class="srf-balance-meta"><b>Tides</b><small>Divisa premium</small></span>
-            <span class="srf-balance-amount" id="balance-tides">0</span>
-          </button>
-        </div>
-      </section>
-
-      <!-- Columna izquierda: tarjeta + cuota de envíos -->
-      <div class="srf-col">
-        <section class="srf-card-block">
-          <div class="srf-block-head">
-            <h3 class="srf-block-title">Tarjeta</h3>
-            <div class="srf-card-picker hidden">
-              <label class="srf-sr" for="card-select-dropdown">Tarjeta activa</label>
-              <select id="card-select-dropdown" class="srf-select"></select>
-            </div>
-          </div>
-
-          <div class="srf-card" id="virtual-card-wrapper">
-            <span class="srf-card-sheen" aria-hidden="true"></span>
-            <span class="srf-card-top">
-              <span class="srf-emv" aria-hidden="true"></span>
-              <span class="srf-card-brand" id="card-name-display">SURFACE</span>
-            </span>
-            <span class="srf-card-number" id="card-number-display">•••• •••• •••• ••••</span>
-            <span class="srf-card-row">
-              <span class="srf-card-cell"><small>Titular</small><b id="card-holder-name">—</b></span>
-              <span class="srf-card-cell"><small>Expira</small><b id="card-expiry-display">12/30</b></span>
-              <span class="srf-card-cell"><small>CVV</small><b id="card-cvv-display">•••</b></span>
-            </span>
-          </div>
-
-          <div class="srf-card-actions">
-            <button id="btn-reveal-card" class="srf-ghost" type="button" aria-pressed="false">Ver datos</button>
-            <button id="card-copy-icon" class="srf-ghost" type="button" title="Copiar número de tarjeta">Copiar número</button>
-          </div>
-        </section>
-
-        <section class="srf-quota">
-          <div class="srf-quota-head">
-            <h3 class="srf-block-title">Envíos sin comisión</h3>
-            <span class="srf-quota-count" id="free-quota-used">0 / 5</span>
-          </div>
-          <div class="srf-quota-track"><span id="free-quota-progress"></span></div>
-          <p class="srf-quota-sub">
-            <span>Te quedan <b id="free-quota-remaining">5 envíos</b></span>
-            <span>Se renueva <b id="free-quota-reset">en —</b></span>
-          </p>
-        </section>
-      </div>
-
-      <!-- Columna derecha: envío P2P -->
-      <div class="srf-col">
-        <section class="srf-transfer">
-          <div class="srf-block-head">
-            <h3 class="srf-block-title">Enviar divisas</h3>
-            <p class="srf-block-sub">Al instante, a cualquier jugador de OWS.</p>
-          </div>
-
-          <form id="transfer-form" class="srf-form" novalidate>
-            <label class="srf-field" id="recipient-field">
-              <span class="srf-field-label">Destinatario</span>
-              <span class="srf-input-wrap">
-                <span class="srf-prefix" aria-hidden="true">@</span>
-                <input type="text" id="transfer-recipient" placeholder="usuario" autocomplete="off" spellcheck="false" />
-                <span class="srf-spinner hidden" id="recipient-spinner" aria-hidden="true"></span>
-              </span>
-            </label>
-            <p class="srf-field-msg hidden" id="recipient-feedback-msg" role="status"></p>
-
-            <div class="srf-field" id="transfer-details" data-locked="true">
-              <span class="srf-field-label">Divisa</span>
-              <div class="srf-seg" role="group" aria-label="Divisa a enviar">
-                <button type="button" class="srf-seg-btn is-active" data-currency="gambits" aria-pressed="true">
-                  <span aria-hidden="true">🃏</span> Gambits <small id="pill-gambits-bal">0</small>
-                </button>
-                <button type="button" class="srf-seg-btn" data-currency="tides" aria-pressed="false">
-                  <span aria-hidden="true">🌊</span> Tides <small id="pill-tides-bal">0</small>
-                </button>
-              </div>
-              <input type="hidden" id="transfer-currency" value="gambits" />
-
-              <span class="srf-field-label srf-field-label-row">
-                <span>Monto</span>
-                <button type="button" id="btn-max-amount" class="srf-textlink">Usar todo</button>
-              </span>
-              <span class="srf-input-wrap">
-                <input type="number" id="transfer-amount" placeholder="0" min="1" step="1" inputmode="numeric" autocomplete="off" />
-                <span class="srf-suffix" id="amount-suffix-label">GAMBITS</span>
-              </span>
-
-              <div class="srf-presets">
-                <button type="button" class="srf-chip" data-preset="10">+10</button>
-                <button type="button" class="srf-chip" data-preset="50">+50</button>
-                <button type="button" class="srf-chip" data-preset="100">+100</button>
-                <button type="button" class="srf-chip" data-preset="500">+500</button>
-              </div>
-            </div>
-
-            <div class="srf-summary" id="transfer-summary-box">
-              <span class="srf-summary-row">
-                <span id="fee-label-display">Comisión</span>
-                <b id="fee-value-display" class="srf-free">Gratis</b>
-              </span>
-              <span class="srf-summary-hint hidden" id="fee-hint-display"></span>
-              <span class="srf-summary-row srf-summary-total">
-                <span>Total a debitar</span>
-                <b id="summary-total-display">0 GAMBITS</b>
-              </span>
-            </div>
-
-            <button type="submit" id="btn-submit-transfer" class="srf-primary" disabled>Enviar</button>
-          </form>
-
-          <div id="operation-alert" class="srf-alert hidden"></div>
-        </section>
-
-        <button class="srf-history-link" type="button" data-action="open-history">
-          <span class="srf-history-ico" aria-hidden="true">📜</span>
-          <span class="srf-history-txt"><b>Historial de movimientos</b><small>Todos tus ingresos y envíos, con buscador y filtros.</small></span>
-          <span class="srf-history-arrow" aria-hidden="true">→</span>
+      <!-- Menú de secciones: se reubica según el layout elegido -->
+      <nav class="srf-nav" id="surface-nav" aria-label="Secciones de Surface">
+        <button class="srf-nav-btn is-active" type="button" data-goto-view="overview" aria-current="page">
+          <span class="srf-nav-ico" aria-hidden="true">📊</span><span class="srf-nav-txt">Resumen</span>
         </button>
-      </div>
+        <button class="srf-nav-btn" type="button" data-goto-view="transfer">
+          <span class="srf-nav-ico" aria-hidden="true">💸</span><span class="srf-nav-txt">Enviar</span>
+        </button>
+        <button class="srf-nav-btn" type="button" data-goto-view="card">
+          <span class="srf-nav-ico" aria-hidden="true">💳</span><span class="srf-nav-txt">Tarjeta</span>
+        </button>
+        <button class="srf-nav-btn" type="button" data-goto-view="history">
+          <span class="srf-nav-ico" aria-hidden="true">🧾</span><span class="srf-nav-txt">Historial</span>
+        </button>
+        <button class="srf-nav-btn" type="button" data-goto-view="settings">
+          <span class="srf-nav-ico" aria-hidden="true">⚙️</span><span class="srf-nav-txt">Configuración</span>
+        </button>
+      </nav>
 
-    </main>
+      <main class="srf-main">
+
+        <!-- ─────────── SECCIÓN 1: RESUMEN ─────────── -->
+        <section class="srf-view" id="view-overview" data-view="overview" aria-labelledby="ov-title">
+          <header class="srf-view-head">
+            <div class="srf-view-head-text">
+              <h2 class="srf-view-title" id="ov-title">Hola, <span id="srf-hello-name">Jugador</span></h2>
+              <p class="srf-view-sub">Tus divisas, tus gastos en los juegos de OWS y tus últimos movimientos.</p>
+            </div>
+            <div class="srf-view-actions">
+              <button class="srf-primary" type="button" data-goto-view="transfer">Enviar divisas</button>
+              <button class="srf-ghost" type="button" data-goto-view="card">Ver tarjeta</button>
+            </div>
+          </header>
+
+          <div class="srf-balances" role="group" aria-label="Saldos. Elegí la divisa a enviar">
+            <button class="srf-balance is-active" type="button" data-currency="gambits" aria-pressed="true">
+              <span class="srf-balance-ico" aria-hidden="true">🃏</span>
+              <span class="srf-balance-meta"><b>Gambits</b><small>Wilder Gambit</small></span>
+              <span class="srf-balance-amount" id="balance-gambits">0</span>
+              <span class="srf-balance-note" id="balance-gambits-note">Sin actividad esta semana</span>
+            </button>
+            <button class="srf-balance" type="button" data-currency="tides" aria-pressed="false">
+              <span class="srf-balance-ico" aria-hidden="true">🌊</span>
+              <span class="srf-balance-meta"><b>Tides</b><small>Divisa premium</small></span>
+              <span class="srf-balance-amount" id="balance-tides">0</span>
+              <span class="srf-balance-note" id="balance-tides-note">Sin actividad esta semana</span>
+            </button>
+          </div>
+
+          <div class="srf-stats" role="group" aria-label="Resumen de los últimos siete días">
+            <div class="srf-stat">
+              <span class="srf-stat-label">Gastado en juegos · 7 días</span>
+              <b class="srf-stat-value srf-stat-neg" id="stat-spent-week">—</b>
+              <small class="srf-stat-sub" id="stat-spent-week-sub">Gambits y Tides</small>
+            </div>
+            <div class="srf-stat">
+              <span class="srf-stat-label">Ganado · 7 días</span>
+              <b class="srf-stat-value srf-stat-pos" id="stat-earned-week">—</b>
+              <small class="srf-stat-sub">Recompensas de juegos y envíos recibidos</small>
+            </div>
+            <div class="srf-stat">
+              <span class="srf-stat-label">Movimientos</span>
+              <b class="srf-stat-value" id="stat-movs">—</b>
+              <small class="srf-stat-sub" id="stat-movs-sub">Historial completo</small>
+            </div>
+            <div class="srf-stat">
+              <span class="srf-stat-label">Juegos con actividad</span>
+              <b class="srf-stat-value" id="stat-games">—</b>
+              <small class="srf-stat-sub">En cualquier divisa de OWS</small>
+            </div>
+          </div>
+
+          <div class="srf-overview-grid">
+            <section class="srf-panel">
+              <div class="srf-panel-head">
+                <div>
+                  <h3 class="srf-block-title">Gastos por juego</h3>
+                  <p class="srf-block-sub">Lo que moviste en cada juego que usa las divisas de OWS.</p>
+                </div>
+                <div class="srf-seg srf-seg-sm" role="group" aria-label="Filtrar por divisa" id="games-currency-filter">
+                  <button type="button" class="srf-seg-btn is-active" data-games-currency="all" aria-pressed="true">Todas</button>
+                  <button type="button" class="srf-seg-btn" data-games-currency="gambits" aria-pressed="false">🃏 Gambits</button>
+                  <button type="button" class="srf-seg-btn" data-games-currency="tides" aria-pressed="false">🌊 Tides</button>
+                </div>
+              </div>
+              <div class="srf-games" id="overview-games">
+                <p class="srf-empty">Cargando actividad…</p>
+              </div>
+            </section>
+
+            <section class="srf-panel">
+              <div class="srf-panel-head">
+                <div>
+                  <h3 class="srf-block-title">Últimos movimientos</h3>
+                  <p class="srf-block-sub">Tus operaciones más recientes, vengan del juego que vengan.</p>
+                </div>
+                <button class="srf-textlink" type="button" data-goto-view="history">Ver todo</button>
+              </div>
+              <div class="srf-list srf-list-flat" id="overview-recent">
+                <p class="srf-empty">Cargando movimientos…</p>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- ─────────── SECCIÓN 2: ENVIAR ─────────── -->
+        <section class="srf-view hidden" id="view-transfer" data-view="transfer" aria-labelledby="tr-title">
+          <header class="srf-view-head">
+            <div class="srf-view-head-text">
+              <h2 class="srf-view-title" id="tr-title">Enviar divisas</h2>
+              <p class="srf-view-sub">Al instante, a cualquier jugador de OWS.</p>
+            </div>
+          </header>
+
+          <div class="srf-transfer-grid">
+            <section class="srf-panel srf-transfer">
+              <form id="transfer-form" class="srf-form" novalidate>
+                <label class="srf-field" id="recipient-field">
+                  <span class="srf-field-label">Destinatario</span>
+                  <span class="srf-input-wrap">
+                    <span class="srf-prefix" aria-hidden="true">@</span>
+                    <input type="text" id="transfer-recipient" placeholder="usuario" autocomplete="off" spellcheck="false" />
+                    <span class="srf-spinner hidden" id="recipient-spinner" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <p class="srf-field-msg hidden" id="recipient-feedback-msg" role="status"></p>
+
+                <div class="srf-field" id="transfer-details" data-locked="true">
+                  <span class="srf-field-label">Divisa</span>
+                  <div class="srf-seg" role="group" aria-label="Divisa a enviar">
+                    <button type="button" class="srf-seg-btn is-active" data-currency="gambits" aria-pressed="true">
+                      <span aria-hidden="true">🃏</span> Gambits <small id="pill-gambits-bal">0</small>
+                    </button>
+                    <button type="button" class="srf-seg-btn" data-currency="tides" aria-pressed="false">
+                      <span aria-hidden="true">🌊</span> Tides <small id="pill-tides-bal">0</small>
+                    </button>
+                  </div>
+                  <input type="hidden" id="transfer-currency" value="gambits" />
+
+                  <span class="srf-field-label srf-field-label-row">
+                    <span>Monto</span>
+                    <button type="button" id="btn-max-amount" class="srf-textlink">Usar todo</button>
+                  </span>
+                  <span class="srf-input-wrap">
+                    <input type="number" id="transfer-amount" placeholder="0" min="1" step="1" inputmode="numeric" autocomplete="off" />
+                    <span class="srf-suffix" id="amount-suffix-label">GAMBITS</span>
+                  </span>
+
+                  <div class="srf-presets">
+                    <button type="button" class="srf-chip" data-preset="10">+10</button>
+                    <button type="button" class="srf-chip" data-preset="50">+50</button>
+                    <button type="button" class="srf-chip" data-preset="100">+100</button>
+                    <button type="button" class="srf-chip" data-preset="500">+500</button>
+                  </div>
+                </div>
+
+                <div class="srf-summary" id="transfer-summary-box">
+                  <span class="srf-summary-row">
+                    <span id="fee-label-display">Comisión</span>
+                    <b id="fee-value-display" class="srf-free">Gratis</b>
+                  </span>
+                  <span class="srf-summary-hint hidden" id="fee-hint-display"></span>
+                  <span class="srf-summary-row srf-summary-total">
+                    <span>Total a debitar</span>
+                    <b id="summary-total-display">0 GAMBITS</b>
+                  </span>
+                </div>
+
+                <button type="submit" id="btn-submit-transfer" class="srf-primary" disabled>Enviar</button>
+              </form>
+
+              <div id="operation-alert" class="srf-alert hidden"></div>
+            </section>
+
+            <div class="srf-col">
+              <section class="srf-panel srf-quota">
+                <div class="srf-quota-head">
+                  <h3 class="srf-block-title">Envíos sin comisión</h3>
+                  <span class="srf-quota-count" id="free-quota-used">0 / 5</span>
+                </div>
+                <div class="srf-quota-track"><span id="free-quota-progress"></span></div>
+                <p class="srf-quota-sub">
+                  <span>Te quedan <b id="free-quota-remaining">5 envíos</b></span>
+                  <span>Se renueva <b id="free-quota-reset">en —</b></span>
+                </p>
+              </section>
+
+              <section class="srf-panel srf-hintblock">
+                <h3 class="srf-block-title">Cómo se calcula la comisión</h3>
+                <ul class="srf-hintlist">
+                  <li><span>🃏</span> Gambits: sin comisión hasta 1.000 por envío.</li>
+                  <li><span>🌊</span> Tides: tarifa reducida por ser divisa premium.</li>
+                  <li><span>🎁</span> Los primeros 5 envíos del mes son gratis, en cualquier divisa.</li>
+                  <li><span>📈</span> Enviar seguido en la misma divisa baja la tarifa hasta un 15%.</li>
+                </ul>
+              </section>
+
+              <button class="srf-history-link" type="button" data-goto-view="history">
+                <span class="srf-history-ico" aria-hidden="true">🧾</span>
+                <span class="srf-history-txt"><b>Historial de movimientos</b><small>Todos tus ingresos y envíos, con buscador y filtros.</small></span>
+                <span class="srf-history-arrow" aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────── SECCIÓN 3: TARJETA ─────────── -->
+        <section class="srf-view hidden" id="view-card" data-view="card" aria-labelledby="card-title">
+          <header class="srf-view-head">
+            <div class="srf-view-head-text">
+              <h2 class="srf-view-title" id="card-title">Tarjeta</h2>
+              <p class="srf-view-sub">Tu tarjeta virtual de OWS: datos, copiado rápido y cambio de tarjeta.</p>
+            </div>
+          </header>
+
+          <div class="srf-card-grid">
+            <section class="srf-panel srf-card-block">
+              <div class="srf-block-head srf-card-picker hidden">
+                <label class="srf-field-label" for="card-select-dropdown">Tarjeta activa</label>
+                <select id="card-select-dropdown" class="srf-select"></select>
+              </div>
+
+              <div class="srf-card" id="virtual-card-wrapper">
+                <span class="srf-card-sheen" aria-hidden="true"></span>
+                <span class="srf-card-top">
+                  <span class="srf-emv" aria-hidden="true"></span>
+                  <span class="srf-card-brand" id="card-name-display">SURFACE</span>
+                </span>
+                <span class="srf-card-number" id="card-number-display">•••• •••• •••• ••••</span>
+                <span class="srf-card-row">
+                  <span class="srf-card-cell"><small>Titular</small><b id="card-holder-name">—</b></span>
+                  <span class="srf-card-cell"><small>Expira</small><b id="card-expiry-display">12/30</b></span>
+                  <span class="srf-card-cell"><small>CVV</small><b id="card-cvv-display">•••</b></span>
+                </span>
+              </div>
+
+              <div class="srf-card-actions">
+                <button id="btn-reveal-card" class="srf-ghost" type="button" aria-pressed="false">Ver datos</button>
+                <button id="card-copy-icon" class="srf-ghost" type="button" title="Copiar número de tarjeta">Copiar número</button>
+              </div>
+            </section>
+
+            <section class="srf-panel">
+              <div class="srf-block-head">
+                <h3 class="srf-block-title">Datos de la tarjeta</h3>
+                <p class="srf-block-sub">Se muestran enmascarados hasta que toques «Ver datos».</p>
+              </div>
+              <div class="srf-rows">
+                <div class="srf-rows-item"><span>Titular</span><b id="card-holder-plain">—</b></div>
+                <div class="srf-rows-item"><span>Número</span><b id="card-number-plain">•••• •••• •••• ••••</b></div>
+                <div class="srf-rows-item"><span>Vence</span><b id="card-expiry-plain">—</b></div>
+                <div class="srf-rows-item"><span>CVV</span><b id="card-cvv-plain">•••</b></div>
+                <div class="srf-rows-item"><span>Estado</span><b class="srf-ok-text" id="card-status-plain">Activa</b></div>
+              </div>
+              <p class="srf-block-sub srf-block-note">
+                La tarjeta es tu identidad de pago dentro del ecosistema: los juegos la usan para acreditar
+                premios y para cobrar mejoras con tus divisas.
+              </p>
+            </section>
+          </div>
+        </section>
+
+        <!-- ─────────── SECCIÓN 4: HISTORIAL ─────────── -->
+        <section class="srf-view hidden" id="view-history" data-view="history" aria-labelledby="hist-title">
+          <header class="srf-view-head">
+            <div class="srf-view-head-text">
+              <h2 class="srf-view-title" id="hist-title">Historial <span class="srf-pill" id="modal-tx-count">0</span></h2>
+              <p class="srf-view-sub">Todos tus ingresos y gastos, de cualquier juego y en cualquier divisa.</p>
+            </div>
+            <div class="srf-view-actions">
+              <button id="btn-reload-tx" class="srf-ghost" type="button">Actualizar</button>
+              <button id="btn-clear-history" class="srf-danger-ghost" type="button">Vaciar historial</button>
+            </div>
+          </header>
+
+          <div class="srf-toolbar">
+            <span class="srf-input-wrap srf-input-grow">
+              <span class="srf-prefix" aria-hidden="true">🔍</span>
+              <input type="text" id="tx-search-input" placeholder="Buscar por concepto, usuario, juego o fecha…" autocomplete="off" />
+            </span>
+            <label class="srf-sr" for="tx-filter-currency">Filtrar por divisa</label>
+            <select id="tx-filter-currency" class="srf-select">
+              <option value="all">Todas las divisas</option>
+              <option value="gambits">🃏 Gambits</option>
+              <option value="tides">🌊 Tides</option>
+            </select>
+          </div>
+
+          <div class="srf-list" id="modal-activity-list">
+            <p class="srf-empty">Cargando movimientos…</p>
+          </div>
+        </section>
+
+        <!-- ─────────── SECCIÓN 5: CONFIGURACIÓN ─────────── -->
+        <section class="srf-view hidden" id="view-settings" data-view="settings" aria-labelledby="set-title">
+          <header class="srf-view-head">
+            <div class="srf-view-head-text">
+              <h2 class="srf-view-title" id="set-title">Configuración</h2>
+              <p class="srf-view-sub">Ajustá cómo se ve y se comporta Surface.</p>
+            </div>
+          </header>
+
+          <div class="srf-tabs srf-tabs-inline" role="tablist" aria-label="Secciones de configuración">
+            <button class="srf-tab is-active" type="button" data-set-tab="prefs" role="tab" aria-selected="true">Preferencias</button>
+            <button class="srf-tab" type="button" data-set-tab="account" role="tab" aria-selected="false">Cuenta</button>
+          </div>
+
+          <!-- Sub-sección: Preferencias -->
+          <div class="srf-set-panel" id="set-panel-prefs" role="tabpanel" aria-label="Preferencias">
+            <section class="srf-panel">
+              <div class="srf-block-head">
+                <h3 class="srf-block-title">Diseño de la navegación</h3>
+                <p class="srf-block-sub">Elegí dónde vive el menú de secciones. Se aplica al instante y queda guardado en este dispositivo.</p>
+              </div>
+              <div class="srf-layout-grid" role="radiogroup" aria-label="Diseño de la navegación">
+                <label class="srf-layout-opt">
+                  <input type="radio" name="layout-mode" value="left" class="srf-sr" />
+                  <span class="srf-lp srf-lp-left" aria-hidden="true"><i class="srf-lp-nav"></i><b class="srf-lp-body"></b></span>
+                  <span class="srf-layout-name">Menú lateral izquierdo</span>
+                </label>
+                <label class="srf-layout-opt">
+                  <input type="radio" name="layout-mode" value="right" class="srf-sr" />
+                  <span class="srf-lp srf-lp-right" aria-hidden="true"><i class="srf-lp-nav"></i><b class="srf-lp-body"></b></span>
+                  <span class="srf-layout-name">Menú lateral derecho</span>
+                </label>
+                <label class="srf-layout-opt">
+                  <input type="radio" name="layout-mode" value="top" class="srf-sr" />
+                  <span class="srf-lp srf-lp-top" aria-hidden="true"><i class="srf-lp-nav"></i><b class="srf-lp-body"></b></span>
+                  <span class="srf-layout-name">Menú superior</span>
+                </label>
+                <label class="srf-layout-opt">
+                  <input type="radio" name="layout-mode" value="bottom" class="srf-sr" />
+                  <span class="srf-lp srf-lp-bottom" aria-hidden="true"><i class="srf-lp-nav"></i><b class="srf-lp-body"></b></span>
+                  <span class="srf-layout-name">Menú inferior</span>
+                </label>
+              </div>
+            </section>
+
+            <div class="srf-set-grid">
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Divisa y envíos</h3>
+                  <p class="srf-block-sub">Con qué divisa arranca el formulario de envío.</p>
+                </div>
+                <label class="srf-field">
+                  <span class="srf-field-label">Divisa predeterminada</span>
+                  <select id="pref-default-currency" class="srf-select">
+                    <option value="gambits">🃏 Gambits (Wilder Gambit)</option>
+                    <option value="tides">🌊 Tides (premium OWS)</option>
+                  </select>
+                </label>
+              </section>
+
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Historial</h3>
+                  <p class="srf-block-sub">Limpieza automática de tus movimientos.</p>
+                </div>
+                <label class="srf-field">
+                  <span class="srf-field-label">Auto-limpieza</span>
+                  <select id="tx-auto-clear-period" class="srf-select">
+                    <option value="never">Desactivada</option>
+                    <option value="7d">Cada 7 días</option>
+                    <option value="15d">Cada 15 días</option>
+                    <option value="30d">Cada 30 días</option>
+                  </select>
+                </label>
+                <p class="srf-block-sub srf-block-note">Los saldos nunca se tocan: solo se borran los registros del historial.</p>
+              </section>
+
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Animaciones</h3>
+                  <p class="srf-block-sub">La animación de entrada de cada sección.</p>
+                </div>
+                <label class="srf-switch">
+                  <input type="checkbox" id="pref-animations" class="srf-sr" />
+                  <span class="srf-switch-track" aria-hidden="true"><span class="srf-switch-knob"></span></span>
+                  <span class="srf-switch-txt">Animaciones de entrada</span>
+                </label>
+              </section>
+            </div>
+          </div>
+
+          <!-- Sub-sección: Cuenta -->
+          <div class="srf-set-panel hidden" id="set-panel-account" role="tabpanel" aria-label="Cuenta">
+            <div class="srf-set-grid">
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Sesión</h3>
+                  <p class="srf-block-sub">La misma cuenta de OWS para el Hub, la tienda y todos los juegos.</p>
+                </div>
+                <div class="srf-rows">
+                  <div class="srf-rows-item"><span>Usuario</span><b id="account-username">—</b></div>
+                  <div class="srf-rows-item"><span>ID de cuenta</span><b id="account-user-id">—</b></div>
+                  <div class="srf-rows-item"><span>Tarjetas</span><b id="account-cards">0</b></div>
+                </div>
+                <div class="srf-card-actions">
+                  <button class="srf-ghost" type="button" id="btn-account-sync">Sincronizar balances</button>
+                  <button class="srf-danger-ghost" type="button" id="btn-account-logout">Cerrar sesión</button>
+                </div>
+              </section>
+
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Atajos</h3>
+                  <p class="srf-block-sub">Lo mismo que está en el menú, a un clic.</p>
+                </div>
+                <div class="srf-shortcuts">
+                  <button class="srf-shortcut" type="button" data-goto-view="overview"><span aria-hidden="true">📊</span> Resumen</button>
+                  <button class="srf-shortcut" type="button" data-goto-view="transfer"><span aria-hidden="true">💸</span> Enviar divisas</button>
+                  <button class="srf-shortcut" type="button" data-goto-view="card"><span aria-hidden="true">💳</span> Tarjeta</button>
+                  <button class="srf-shortcut" type="button" data-goto-view="history"><span aria-hidden="true">🧾</span> Historial</button>
+                  <button class="srf-shortcut" type="button" id="btn-account-admin"><span aria-hidden="true">🛠️</span> Panel de administración</button>
+                  <button class="srf-shortcut" type="button" id="btn-account-hub"><span aria-hidden="true">🏠</span> Volver a OWS Hub</button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
 
     <footer class="srf-foot">Surface · Ocean &amp; Wild Studios</footer>
   </section>
@@ -264,53 +546,6 @@
       <div class="srf-modal-actions">
         <button type="button" class="srf-ghost" data-close-confirm>Cancelar</button>
         <button type="button" class="srf-primary" id="btn-final-transfer">Sí, enviar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ MODAL: historial de movimientos ═══ -->
-  <div id="history-modal" class="srf-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="history-title">
-    <div class="srf-modal">
-      <div class="srf-modal-head">
-        <h2 class="srf-modal-title" id="history-title">Movimientos <span class="srf-pill" id="modal-tx-count">0</span></h2>
-        <button class="srf-ico" type="button" data-close-history aria-label="Cerrar historial">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
-        </button>
-      </div>
-
-      <div class="srf-toolbar">
-        <span class="srf-input-wrap srf-input-grow">
-          <span class="srf-prefix" aria-hidden="true">🔍</span>
-          <input type="text" id="tx-search-input" placeholder="Buscar por concepto, usuario o fecha…" autocomplete="off" />
-        </span>
-        <label class="srf-sr" for="tx-filter-currency">Filtrar por divisa</label>
-        <select id="tx-filter-currency" class="srf-select">
-          <option value="all">Todas las divisas</option>
-          <option value="gambits">🃏 Gambits</option>
-          <option value="tides">🌊 Tides</option>
-        </select>
-      </div>
-
-      <div class="srf-toolbar srf-toolbar-quiet">
-        <label class="srf-inline" for="tx-auto-clear-period">
-          <span>Auto-limpieza</span>
-          <select id="tx-auto-clear-period" class="srf-select">
-            <option value="never">Desactivada</option>
-            <option value="7d">Cada 7 días</option>
-            <option value="15d">Cada 15 días</option>
-            <option value="30d">Cada 30 días</option>
-          </select>
-        </label>
-        <button id="btn-clear-history" class="srf-danger-ghost" type="button">Vaciar historial</button>
-      </div>
-
-      <div class="srf-list" id="modal-activity-list">
-        <p class="srf-empty">Cargando movimientos…</p>
-      </div>
-
-      <div class="srf-modal-foot">
-        <button id="btn-reload-tx" class="srf-ghost" type="button">Actualizar</button>
-        <button class="srf-primary" type="button" data-close-history>Cerrar</button>
       </div>
     </div>
   </div>

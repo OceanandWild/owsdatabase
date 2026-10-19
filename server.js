@@ -11442,6 +11442,142 @@ app.post('/ocean-pay/p2p/send', async (req, res) => {
 });
 
 
+// ---------------------------------------------------------------------------
+// GET /ocean-pay/activity/overview  -  Surface: resumen de actividad
+//
+// Devuelve, para el usuario del token, los gastos e ingresos que tuvo en
+// CUALQUIER juego del ecosistema que use las divisas de OWS. La fuente es la
+// tabla unificada ocean_pay_txs: los juegos escriben ahi con su propio
+// `origen` (WildWeapon Mayhem, Wild Fireworks, WildShorts, WildWave, ...) y su
+// `moneda`, asi que el resumen por juego/divisa sale de una sola consulta.
+//
+// Normalizacion de divisa: la columna `moneda` llega con formatos distintos
+// ('tides', 'TIDES', 'gambits', 'GAMBITS') y ademas con codigos cortos de
+// otras monedas ('WG' = wildgems, 'ET' = ecotokens, 'WC' = wildcredits). Solo
+// se agrupan como gambits/tides los valores que lo dicen explicitamente; el
+// resto conserva su propio codigo para no mezclar monedas.
+//
+// Respuesta:
+//   { success, totals:[{currency,spent,received,spentWeek,receivedWeek,movs}],
+//     games:[{origen,currency,spent,received,movs,lastAt}],
+//     recent:[{id,concepto,monto,origen,moneda,created_at}] }
+// ---------------------------------------------------------------------------
+const SURFACE_CURRENCY_BUCKET_SQL = `CASE
+      WHEN LOWER(COALESCE(moneda, '')) LIKE 'gambit%' THEN 'gambits'
+      WHEN LOWER(COALESCE(moneda, '')) LIKE 'tide%'   THEN 'tides'
+      WHEN COALESCE(moneda, '') = ''                  THEN 'sin-divisa'
+      ELSE LOWER(COALESCE(moneda, ''))
+    END`;
+
+app.get('/ocean-pay/activity/overview', async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  let requesterId;
+  let requesterName = '';
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    requesterId = Number(decoded.id || decoded.uid || decoded.sub);
+    requesterName = String(decoded.username || '').trim().toLowerCase();
+    if (!Number.isFinite(requesterId) || requesterId <= 0) {
+      return res.status(401).json({ error: 'Token invalido' });
+    }
+  } catch (_e) {
+    return res.status(401).json({ error: 'Token invalido' });
+  }
+
+  const requestedId = Number(req.query.userId || req.query.user_id || 0);
+  const targetId = Number.isFinite(requestedId) && requestedId > 0 ? requestedId : requesterId;
+  if (targetId !== requesterId && requesterName !== 'oceanandwild') {
+    return res.status(403).json({ error: 'No autorizado para esta actividad' });
+  }
+
+  try {
+    const [totalsResult, gamesResult, recentResult] = await Promise.all([
+      pool.query(
+        `SELECT ${SURFACE_CURRENCY_BUCKET_SQL} AS currency,
+                SUM(CASE WHEN monto < 0 THEN -monto ELSE 0 END) AS spent,
+                SUM(CASE WHEN monto > 0 THEN monto ELSE 0 END) AS received,
+                SUM(CASE WHEN monto < 0 AND created_at >= NOW() - INTERVAL '7 days' THEN -monto ELSE 0 END) AS spent_week,
+                SUM(CASE WHEN monto > 0 AND created_at >= NOW() - INTERVAL '7 days' THEN monto ELSE 0 END) AS received_week,
+                COUNT(*) AS movs,
+                MAX(created_at) AS last_at
+         FROM ocean_pay_txs
+         WHERE user_id = $1
+         GROUP BY 1
+         ORDER BY spent DESC`,
+        [targetId]
+      ),
+      pool.query(
+        `SELECT COALESCE(NULLIF(TRIM(origen), ''), 'OWS') AS origen,
+                ${SURFACE_CURRENCY_BUCKET_SQL} AS currency,
+                SUM(CASE WHEN monto < 0 THEN -monto ELSE 0 END) AS spent,
+                SUM(CASE WHEN monto > 0 THEN monto ELSE 0 END) AS received,
+                COUNT(*) AS movs,
+                MAX(created_at) AS last_at
+         FROM ocean_pay_txs
+         WHERE user_id = $1
+         GROUP BY 1, 2
+         ORDER BY spent DESC, last_at DESC NULLS LAST
+         LIMIT 80`,
+        [targetId]
+      ),
+      pool.query(
+        `SELECT id, concepto, monto, origen, COALESCE(moneda, '') AS moneda, created_at
+         FROM ocean_pay_txs
+         WHERE user_id = $1
+         ORDER BY created_at DESC NULLS LAST, id DESC
+         LIMIT 12`,
+        [targetId]
+      )
+    ]);
+
+    const totals = totalsResult.rows.map((row) => ({
+      currency:    String(row.currency || 'sin-divisa'),
+      spent:       Number(row.spent || 0),
+      received:    Number(row.received || 0),
+      spentWeek:   Number(row.spent_week || 0),
+      receivedWeek: Number(row.received_week || 0),
+      movs:        Number(row.movs || 0),
+      lastAt:      row.last_at || null,
+    }));
+
+    const games = gamesResult.rows.map((row) => ({
+      origen:   String(row.origen || 'OWS'),
+      currency: String(row.currency || 'sin-divisa'),
+      spent:    Number(row.spent || 0),
+      received: Number(row.received || 0),
+      movs:     Number(row.movs || 0),
+      lastAt:   row.last_at || null,
+    }));
+
+    const recent = recentResult.rows.map((row) => ({
+      id:         row.id,
+      concepto:   row.concepto || 'Movimiento OWS',
+      monto:      Number(row.monto || 0),
+      origen:     row.origen || 'Surface',
+      moneda:     row.moneda || '',
+      created_at: row.created_at || null,
+    }));
+
+    return res.json({
+      success: true,
+      userId: targetId,
+      generatedAt: new Date().toISOString(),
+      totals,
+      games,
+      recent,
+    });
+  } catch (err) {
+    console.error('Error en GET /ocean-pay/activity/overview:', err);
+    return res.status(500).json({ error: 'Error al obtener la actividad' });
+  }
+});
+
+
 // Changelogs centralizados para todos los proyectos (fuente: ows_store_timeline + sync GitHub)
 app.get('/ows-store/changelogs', async (req, res) => {
   const projectFilter = String(req.query.project || req.query.slug || '').trim().toLowerCase();

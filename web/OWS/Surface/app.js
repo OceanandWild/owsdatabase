@@ -39,6 +39,21 @@ let isRecipientValid = false;
 let verifiedRecipientUser = null;
 let recipientCheckTimeout = null;
 
+// Preferencias de Surface (solo locales: no tocan la sesión ni el backend)
+const LAYOUT_KEY = 'ocean_pay_layout_mode';
+const VIEW_KEY = 'ocean_pay_last_section';
+const ANIM_KEY = 'ocean_pay_pref_animations';
+const DEFAULT_CURRENCY_KEY = 'ocean_pay_pref_currency';
+const LAYOUT_MODES = ['left', 'right', 'top', 'bottom'];
+const SURFACE_VIEWS = ['overview', 'transfer', 'card', 'history', 'settings'];
+
+let currentView = 'overview';
+
+// Resumen de actividad (gastos e ingresos de cualquier juego del ecosistema)
+let overviewData = null;
+let overviewLoading = false;
+let gamesCurrencyFilter = 'all';
+
 function el(id) { return document.getElementById(id); }
 
 // =========================================
@@ -183,6 +198,9 @@ document.addEventListener('DOMContentLoaded', function () {
   if (window.location.protocol === 'file:') {
     console.warn('[Surface] Abierto como archivo local (file://). La API sigue siendo ' + API_BASE + '.');
   }
+  // Preferencias antes de mostrar nada: evita el salto de layout al entrar.
+  applyLayoutMode(getLayoutMode());
+  applyAnimationPref();
   bindSurfaceEvents();
   restoreSession();
 });
@@ -204,7 +222,7 @@ function restoreSession() {
 
 /* Reinicia la animación de entrada de un bloque (login → billetera y vuelta). */
 function replayEnter(root) {
-  if (!root) return;
+  if (!root || !animationsEnabled()) return;
   const targets = root.querySelectorAll('.srf-anim');
   const list = targets.length ? Array.from(targets) : [root];
   list.forEach(function (node) {
@@ -237,6 +255,21 @@ function bindSurfaceEvents() {
   on('#btn-admin-panel', 'click', openAdminModal);
   on('#btn-op-logout', 'click', handleLogout);
   on('#btn-sync-balances', 'click', () => loadWalletData({ manual: true }));
+  on('#btn-account-sync', 'click', () => loadWalletData({ manual: true }));
+  on('#btn-account-logout', 'click', handleLogout);
+  on('#btn-account-hub', 'click', () => { window.location.href = '../index.html'; });
+  on('#btn-account-admin', 'click', openAdminModal);
+
+  // Secciones y preferencias
+  all('[data-goto-view]', 'click', (e) => {
+    e.preventDefault();
+    goToView(e.currentTarget.getAttribute('data-goto-view'));
+  });
+  all('input[name="layout-mode"]', 'change', (e) => setLayoutMode(e.target.value, true));
+  all('[data-set-tab]', 'click', (e) => setSettingsTab(e.currentTarget.getAttribute('data-set-tab')));
+  all('[data-games-currency]', 'click', (e) => setGamesCurrencyFilter(e.currentTarget.getAttribute('data-games-currency')));
+  on('#pref-animations', 'change', (e) => setAnimationsEnabled(!!e.target.checked));
+  on('#pref-default-currency', 'change', (e) => setDefaultCurrency(e.target.value));
 
   // Tarjeta: selector + revelado + copia
   on('#card-select-dropdown', 'change', (e) => handleCardSelection(e.target.value));
@@ -254,13 +287,10 @@ function bindSurfaceEvents() {
   all('[data-preset]', 'click', (e) => addAmountPreset(Number(e.currentTarget.getAttribute('data-preset'))));
 
   // Modales
-  all('[data-action="open-history"]', 'click', openHistoryModal);
   all('[data-close-confirm]', 'click', closeConfirmModal);
-  all('[data-close-history]', 'click', closeHistoryModal);
   all('[data-close-admin]', 'click', closeAdminModal);
   on('#btn-final-transfer', 'click', executeFinalTransfer);
   on('#confirm-modal', 'click', (e) => { if (e.target.id === 'confirm-modal') closeConfirmModal(); });
-  on('#history-modal', 'click', (e) => { if (e.target.id === 'history-modal') closeHistoryModal(); });
   on('#admin-modal', 'click', (e) => { if (e.target.id === 'admin-modal') closeAdminModal(); });
   on('#clear-history-confirm-modal', 'click', (e) => {
     if (e.target.id === 'clear-history-confirm-modal') closeClearHistoryModal();
@@ -289,7 +319,6 @@ function bindSurfaceEvents() {
     if (e.key !== 'Escape') return;
     if (!el('admin-modal')?.classList.contains('hidden')) return closeAdminModal();
     if (!el('clear-history-confirm-modal')?.classList.contains('hidden')) return closeClearHistoryModal();
-    if (!el('history-modal')?.classList.contains('hidden')) return closeHistoryModal();
     if (!el('confirm-modal')?.classList.contains('hidden')) return closeConfirmModal();
   });
 }
@@ -316,6 +345,12 @@ function showDashboard() {
     dash.classList.remove('hidden');
     replayEnter(dash);
   }
+
+  // Preferencias guardadas: layout, animaciones y divisa por defecto.
+  applyLayoutMode(getLayoutMode());
+  applyAnimationPref();
+  applyDefaultCurrency();
+
   updateUserUI();
   checkAdminPrivileges();
   populateCardsDropdown();
@@ -323,6 +358,11 @@ function showDashboard() {
   updateCurrencySelectionUI();
   updateTransferPreview();
   updateFreeQuotaUI();
+  syncSettingsUI();
+
+  // Arranca siempre en la última sección visitada (Overview la primera vez).
+  const initialView = viewFromHash() || getStoredValue(VIEW_KEY, SURFACE_VIEWS, 'overview');
+  goToView(initialView);
 }
 
 function switchAuthTab(tab) {
@@ -349,12 +389,16 @@ function updateUserUI() {
   const navUser = el('nav-user-name');
   const avatar = el('nav-user-avatar');
   const holder = el('card-holder-name');
+  const holderPlain = el('card-holder-plain');
   const hello = el('srf-hello-name');
+  const accountUser = el('account-username');
 
   if (navUser) navUser.textContent = name;
   if (avatar) avatar.textContent = String(name).charAt(0).toUpperCase();
   if (holder) holder.textContent = String(name).toUpperCase();
+  if (holderPlain) holderPlain.textContent = String(name).toUpperCase();
   if (hello) hello.textContent = name;
+  if (accountUser) accountUser.textContent = name;
 }
 
 function checkAdminPrivileges() {
@@ -460,8 +504,9 @@ function handleLogout() {
   isRecipientValid = false;
   verifiedRecipientUser = null;
   pendingTransferPayload = null;
+  overviewData = null;
+  overviewLoading = false;
 
-  closeHistoryModal();
   closeConfirmModal();
   closeAdminModal();
   resetTransferForm();
@@ -537,8 +582,13 @@ async function loadWalletData(opts) {
     updatePillsBalances();
     updateTransferPreview();
     updateFreeQuotaUI();
+    updateAccountPanel();
 
-    if (currentUser && currentUser.id) loadAllTransactionsFromDB(false);
+    // El historial es la fuente de respaldo del resumen: primero se carga
+    // (si hace falta) y después se pide la actividad agregada al servidor.
+    loadAllTransactionsFromDB(false)
+      .then(function () { loadOverviewActivity(); })
+      .catch(function () { loadOverviewActivity(); });
   }
 }
 
@@ -650,11 +700,24 @@ function displaySelectedCard() {
 
   const rawNumber = card ? String(card.card_number || '') : '';
   const formatted = formatCardNumber(rawNumber);
+  const shownNumber = (cardDataVisible && formatted) ? formatted : maskCardNumber(rawNumber);
+  const shownExpiry = (card && card.expiry_date) || '—';
+  const shownCvv = cardDataVisible ? ((card && card.cvv) || '—') : '•••';
 
   if (nameEl) nameEl.textContent = ((card && card.card_name) || 'SURFACE').toUpperCase();
-  if (numberEl) numberEl.textContent = (cardDataVisible && formatted) ? formatted : maskCardNumber(rawNumber);
-  if (expiryEl) expiryEl.textContent = (card && card.expiry_date) || '—';
-  if (cvvEl) cvvEl.textContent = cardDataVisible ? ((card && card.cvv) || '—') : '•••';
+  if (numberEl) numberEl.textContent = shownNumber;
+  if (expiryEl) expiryEl.textContent = shownExpiry;
+  if (cvvEl) cvvEl.textContent = shownCvv;
+
+  // Mismos datos en la tabla de la sección Tarjeta (texto seleccionable).
+  const numberPlain = el('card-number-plain');
+  if (numberPlain) numberPlain.textContent = shownNumber;
+  const expiryPlain = el('card-expiry-plain');
+  if (expiryPlain) expiryPlain.textContent = shownExpiry;
+  const cvvPlain = el('card-cvv-plain');
+  if (cvvPlain) cvvPlain.textContent = shownCvv;
+  const statusPlain = el('card-status-plain');
+  if (statusPlain) statusPlain.textContent = card ? 'Activa' : 'Sin tarjeta';
 
   updateUserUI();
 }
@@ -1182,19 +1245,555 @@ function filterTransactions() {
   renderTransactionsList(filtered);
 }
 
-function openHistoryModal() {
-  const modal = el('history-modal');
-  if (!modal) return;
-  modal.classList.remove('hidden');
-  syncAutoClearDropdownUI();
-  checkAndExecuteAutoClear();
-  renderTransactionsList(allTransactionsList, true);
-  loadAllTransactionsFromDB(false);
-  el('tx-search-input')?.focus();
+/* El historial dejó de ser un modal: ahora es su propia sección (goToView). */
+
+// =========================================
+// SECCIONES Y PREFERENCIAS
+// =========================================
+
+function getStoredValue(key, allowed, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    if (allowed.indexOf(value) !== -1) return value;
+  } catch (_) {}
+  return fallback;
 }
 
-function closeHistoryModal() {
-  el('history-modal')?.classList.add('hidden');
+function getLayoutMode() {
+  return getStoredValue(LAYOUT_KEY, LAYOUT_MODES, 'left');
+}
+
+/* Aplica el layout elegido en Configuración > Preferencias. */
+function applyLayoutMode(mode) {
+  const safe = LAYOUT_MODES.indexOf(mode) !== -1 ? mode : 'left';
+  document.body.setAttribute('data-nav', safe);
+  const dash = el('dashboard-section');
+  if (dash) dash.setAttribute('data-nav', safe);
+
+  document.querySelectorAll('input[name="layout-mode"]').forEach(function (radio) {
+    radio.checked = radio.value === safe;
+    const opt = radio.closest('.srf-layout-opt');
+    if (opt) opt.classList.toggle('is-active', radio.checked);
+  });
+}
+
+function setLayoutMode(mode, announce) {
+  if (LAYOUT_MODES.indexOf(mode) === -1) return;
+  try { localStorage.setItem(LAYOUT_KEY, mode); } catch (_) {}
+  applyLayoutMode(mode);
+  if (announce) {
+    const labels = {
+      left: 'menú lateral izquierdo',
+      right: 'menú lateral derecho',
+      top: 'menú superior',
+      bottom: 'menú inferior'
+    };
+    showToast('Diseño actualizado: ' + (labels[mode] || mode) + '.');
+  }
+}
+
+function animationsEnabled() {
+  try { return localStorage.getItem(ANIM_KEY) !== 'off'; } catch (_) { return true; }
+}
+
+function applyAnimationPref() {
+  const enabled = animationsEnabled();
+  document.body.classList.toggle('srf-no-anim', !enabled);
+  const toggle = el('pref-animations');
+  if (toggle) toggle.checked = enabled;
+}
+
+function setAnimationsEnabled(enabled) {
+  try { localStorage.setItem(ANIM_KEY, enabled ? 'on' : 'off'); } catch (_) {}
+  applyAnimationPref();
+  if (enabled) replayEnter(el('view-' + currentView));
+  showToast(enabled ? 'Animaciones de entrada activadas.' : 'Animaciones de entrada desactivadas.');
+}
+
+function getDefaultCurrency() {
+  return getStoredValue(DEFAULT_CURRENCY_KEY, ['gambits', 'tides'], 'gambits');
+}
+
+function applyDefaultCurrency() {
+  const currency = getDefaultCurrency();
+  const input = el('transfer-currency');
+  if (input) input.value = currency;
+  const select = el('pref-default-currency');
+  if (select) select.value = currency;
+  updateCurrencySelectionUI();
+  updateTransferPreview();
+}
+
+function setDefaultCurrency(currency) {
+  if (currency !== 'gambits' && currency !== 'tides') return;
+  try { localStorage.setItem(DEFAULT_CURRENCY_KEY, currency); } catch (_) {}
+  const input = el('transfer-currency');
+  if (input) input.value = currency;
+  const select = el('pref-default-currency');
+  if (select) select.value = currency;
+  updateCurrencySelectionUI();
+  updateTransferPreview();
+  showToast('Divisa predeterminada: ' + currency.toUpperCase() + '.');
+}
+
+function viewFromHash() {
+  try {
+    const match = String(window.location.hash || '').match(/^#\/([a-z-]+)/i);
+    const name = match ? match[1].toLowerCase() : '';
+    return SURFACE_VIEWS.indexOf(name) !== -1 ? name : '';
+  } catch (_) { return ''; }
+}
+
+/* Cambia de sección: una sola visible, el menú se marca solo y la URL
+   conserva #/seccion para poder recargar sin perder el lugar. */
+function goToView(name, opts) {
+  if (SURFACE_VIEWS.indexOf(name) === -1) name = 'overview';
+  currentView = name;
+
+  SURFACE_VIEWS.forEach(function (view) {
+    const section = el('view-' + view);
+    if (section) section.classList.toggle('hidden', view !== name);
+  });
+
+  document.querySelectorAll('[data-goto-view]').forEach(function (btn) {
+    const active = btn.getAttribute('data-goto-view') === name;
+    btn.classList.toggle('is-active', active);
+    if (btn.classList.contains('srf-nav-btn')) {
+      if (active) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    }
+  });
+
+  try { localStorage.setItem(VIEW_KEY, name); } catch (_) {}
+
+  if (!(opts && opts.keepHash)) {
+    try { history.replaceState(null, '', '#/' + name); } catch (_) {}
+  }
+
+  onEnterView(name);
+  replayEnter(el('view-' + name));
+
+  if (!(opts && opts.noScroll)) {
+    window.scrollTo({ top: 0, behavior: animationsEnabled() ? 'smooth' : 'auto' });
+  }
+}
+
+function onEnterView(name) {
+  if (name === 'overview') {
+    renderOverview();
+    if (!overviewData && !overviewLoading) loadOverviewActivity();
+  } else if (name === 'history') {
+    syncAutoClearDropdownUI();
+    checkAndExecuteAutoClear();
+    renderTransactionsList(allTransactionsList, true);
+    loadAllTransactionsFromDB(false);
+  } else if (name === 'card') {
+    displaySelectedCard();
+  } else if (name === 'settings') {
+    syncSettingsUI();
+  } else if (name === 'transfer') {
+    updateTransferPreview();
+  }
+}
+
+// ── Configuración: sub-secciones ────────────────────────
+function setSettingsTab(tab) {
+  const isPrefs = tab !== 'account';
+  el('set-panel-prefs')?.classList.toggle('hidden', !isPrefs);
+  el('set-panel-account')?.classList.toggle('hidden', isPrefs);
+  document.querySelectorAll('[data-set-tab]').forEach(function (btn) {
+    const active = btn.getAttribute('data-set-tab') === (isPrefs ? 'prefs' : 'account');
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-selected', String(active));
+  });
+  if (!isPrefs) updateAccountPanel();
+}
+
+function syncSettingsUI() {
+  applyLayoutMode(getLayoutMode());
+  applyAnimationPref();
+  const currencySelect = el('pref-default-currency');
+  if (currencySelect) currencySelect.value = getDefaultCurrency();
+  syncAutoClearDropdownUI();
+  updateAccountPanel();
+}
+
+function updateAccountPanel() {
+  const name = (currentUser && (currentUser.username || currentUser.id)) || 'Jugador';
+  const id = (currentUser && (currentUser.id || currentUser.uid)) || '—';
+  const nameEl = el('account-username');
+  if (nameEl) nameEl.textContent = name;
+  const idEl = el('account-user-id');
+  if (idEl) idEl.textContent = String(id);
+  const cardsEl = el('account-cards');
+  if (cardsEl) cardsEl.textContent = String(userCards.length);
+  const adminBtn = el('btn-account-admin');
+  if (adminBtn) adminBtn.classList.toggle('hidden', String(name).toLowerCase() !== 'oceanandwild');
+}
+
+// =========================================
+// RESUMEN DE ACTIVIDAD (cualquier juego)
+// =========================================
+
+/* Normaliza la divisa: la columna `moneda` llega como 'tides', 'TIDES',
+   'gambits', 'GAMBITS' o con códigos de otras monedas ('WG', 'ET', 'WC').
+   Solo se agrupan las que lo dicen explícitamente. */
+function currencyBucket(moneda) {
+  const raw = String(moneda == null ? '' : moneda).trim().toLowerCase();
+  if (!raw) return 'sin-divisa';
+  if (raw.indexOf('gambit') !== -1) return 'gambits';
+  if (raw.indexOf('tide') !== -1) return 'tides';
+  return raw;
+}
+
+function currencyLabel(code) {
+  const raw = String(code || '').trim();
+  if (!raw) return '—';
+  if (raw === 'gambits') return 'GAMBITS';
+  if (raw === 'tides') return 'TIDES';
+  return raw.toUpperCase();
+}
+
+/* Nombres e íconos de los juegos que escriben en ocean_pay_txs.
+   Un origen nuevo se muestra tal cual, con un ícono genérico. */
+const GAME_META = {
+  'wildweapon mayhem':  { label: 'WildWeapon Mayhem',   ico: '⚔️' },
+  'wilder gambit':      { label: 'Wilder Gambit',       ico: '🃏' },
+  'wild shorts':        { label: 'WildShorts',          ico: '🎬' },
+  'wildshorts':         { label: 'WildShorts',          ico: '🎬' },
+  'wild savage':        { label: 'Wild Savage',         ico: '🦖' },
+  'wildsavage':         { label: 'Wild Savage',         ico: '🦖' },
+  'wild explorer':      { label: 'Wild Explorer',       ico: '🧭' },
+  'wildexplorer':       { label: 'Wild Explorer',       ico: '🧭' },
+  'wild fireworks':     { label: 'Wild Fireworks',      ico: '🎆' },
+  'wildfireworks':      { label: 'Wild Fireworks',      ico: '🎆' },
+  'wild wave':          { label: 'Wild Wave',           ico: '🌊' },
+  'wildwave':           { label: 'Wild Wave',           ico: '🌊' },
+  'ecoxion':            { label: 'Ecoxion',             ico: '🌱' },
+  'allapp':             { label: 'AllApp',              ico: '📱' },
+  'all app':            { label: 'AllApp',              ico: '📱' },
+  'surface p2p':        { label: 'Surface · envíos',    ico: '💸' },
+  'ocean pay':          { label: 'Surface',             ico: '💠' },
+  'oceanpay':           { label: 'Surface',             ico: '💠' },
+  'surfacetransfer':    { label: 'Surface · envíos',    ico: '💸' },
+  'wildtransfer':       { label: 'WildTransfer',        ico: '🔁' },
+  'tiger tasks':        { label: 'Tiger Tasks',         ico: '🐯' },
+  'tigertasks':         { label: 'Tiger Tasks',         ico: '🐯' },
+  'global goal reward': { label: 'Recompensas OWS',     ico: '🎁' },
+  'mercado pago tides': { label: 'Mercado Pago Tides',  ico: '💳' }
+};
+
+function gameMeta(origen) {
+  const key = String(origen == null ? '' : origen).trim().toLowerCase();
+  if (GAME_META[key]) return GAME_META[key];
+  const clean = key.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (GAME_META[clean]) return GAME_META[clean];
+  return {
+    label: key ? key.charAt(0).toUpperCase() + key.slice(1) : 'OWS',
+    ico: '🎮'
+  };
+}
+
+function toDateOrNull(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function relativeDay(value) {
+  const date = toDateOrNull(value);
+  if (!date) return 'sin fecha';
+  const diff = Date.now() - date.getTime();
+  if (diff < 0) return 'hoy';
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'recién';
+  if (mins < 60) return 'hace ' + mins + ' min';
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return 'hace ' + hours + ' h';
+  const days = Math.floor(hours / 24);
+  if (days < 7) return 'hace ' + days + (days === 1 ? ' día' : ' días');
+  return date.toLocaleDateString();
+}
+
+function emptyNote(text) {
+  const p = document.createElement('p');
+  p.className = 'srf-empty';
+  p.textContent = text;
+  return p;
+}
+
+function normalizeOverview(payload) {
+  const totals = (Array.isArray(payload && payload.totals) ? payload.totals : []).map(function (row) {
+    return {
+      currency: currencyBucket(row.currency),
+      spent: Number(row.spent || 0),
+      received: Number(row.received || 0),
+      spentWeek: Number(row.spentWeek || 0),
+      receivedWeek: Number(row.receivedWeek || 0),
+      movs: Number(row.movs || 0),
+      lastAt: row.lastAt || null
+    };
+  });
+
+  const games = (Array.isArray(payload && payload.games) ? payload.games : []).map(function (row) {
+    return {
+      origen: row.origen || 'OWS',
+      currency: currencyBucket(row.currency),
+      spent: Number(row.spent || 0),
+      received: Number(row.received || 0),
+      movs: Number(row.movs || 0),
+      lastAt: row.lastAt || null
+    };
+  });
+
+  const recent = (Array.isArray(payload && payload.recent) ? payload.recent : []).map(function (tx) {
+    return {
+      id: tx.id,
+      concepto: tx.concepto || 'Movimiento OWS',
+      amount: Number(tx.monto || 0),
+      currency: currencyLabel(currencyBucket(tx.moneda)),
+      origen: tx.origen || 'Surface',
+      date: toDateOrNull(tx.created_at) || new Date()
+    };
+  });
+
+  return { totals: totals, games: games, recent: recent, source: 'api' };
+}
+
+/* Respaldo: si el endpoint todavía no está desplegado, el mismo resumen se
+   arma con el historial que ya se trajo de /ocean-pay/txs/:userId. */
+function buildOverviewFromLocal() {
+  const totalsMap = new Map();
+  const gamesMap = new Map();
+  const weekAgo = Date.now() - 7 * 86400000;
+
+  allTransactionsList.forEach(function (tx) {
+    const bucket = currencyBucket(tx.currency);
+    const at = tx.date instanceof Date ? tx.date.getTime() : new Date(tx.date).getTime();
+    const isRecent = Number.isFinite(at) && at >= weekAgo;
+    const isSpend = Number(tx.amount) < 0;
+    const abs = Math.abs(Number(tx.amount) || 0);
+
+    const total = totalsMap.get(bucket) || {
+      currency: bucket, spent: 0, received: 0, spentWeek: 0, receivedWeek: 0, movs: 0, lastAt: null
+    };
+    total.movs += 1;
+    if (isSpend) {
+      total.spent += abs;
+      if (isRecent) total.spentWeek += abs;
+    } else {
+      total.received += abs;
+      if (isRecent) total.receivedWeek += abs;
+    }
+    if (Number.isFinite(at) && (!total.lastAt || at > total.lastAt)) total.lastAt = at;
+    totalsMap.set(bucket, total);
+
+    const gameKey = String(tx.origen || 'OWS') + '::' + bucket;
+    const game = gamesMap.get(gameKey) || {
+      origen: tx.origen || 'OWS', currency: bucket, spent: 0, received: 0, movs: 0, lastAt: null
+    };
+    game.movs += 1;
+    if (isSpend) game.spent += abs;
+    else game.received += abs;
+    if (Number.isFinite(at) && (!game.lastAt || at > game.lastAt)) game.lastAt = at;
+    gamesMap.set(gameKey, game);
+  });
+
+  const games = Array.from(gamesMap.values()).sort(function (a, b) {
+    if (b.spent !== a.spent) return b.spent - a.spent;
+    return (b.lastAt || 0) - (a.lastAt || 0);
+  });
+
+  return {
+    totals: Array.from(totalsMap.values()).sort(function (a, b) { return b.spent - a.spent; }),
+    games: games,
+    recent: allTransactionsList.slice(0, 12).map(function (tx) {
+      return {
+        id: tx.id,
+        concepto: tx.concepto || 'Movimiento OWS',
+        amount: Number(tx.amount || 0),
+        currency: currencyLabel(currencyBucket(tx.currency)),
+        origen: tx.origen || 'Surface',
+        date: tx.date instanceof Date ? tx.date : (toDateOrNull(tx.date) || new Date())
+      };
+    }),
+    source: 'local'
+  };
+}
+
+async function loadOverviewActivity() {
+  if (overviewLoading) return;
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return;
+
+  overviewLoading = true;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(function () { controller.abort(); }, 12000);
+
+    const res = await fetch(API_BASE + '/ocean-pay/activity/overview', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json().catch(function () { return null; });
+    if (!data || !data.success) throw new Error('Respuesta inválida');
+
+    overviewData = normalizeOverview(data);
+  } catch (err) {
+    // Endpoint no desplegado o sin conexión: se usa el historial local.
+    console.warn('[Surface] Resumen sin endpoint, usando historial local:', err && err.message);
+    if (!overviewData || overviewData.source !== 'api') {
+      overviewData = buildOverviewFromLocal();
+    }
+  } finally {
+    overviewLoading = false;
+    renderOverview();
+  }
+}
+
+function setGamesCurrencyFilter(currency) {
+  gamesCurrencyFilter = (currency === 'gambits' || currency === 'tides') ? currency : 'all';
+  document.querySelectorAll('[data-games-currency]').forEach(function (btn) {
+    const active = btn.getAttribute('data-games-currency') === gamesCurrencyFilter;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  renderOverviewGames();
+}
+
+function renderOverview() {
+  renderOverviewStats();
+  renderOverviewGames();
+  renderOverviewRecent();
+}
+
+function renderOverviewStats() {
+  const totals = overviewData ? overviewData.totals : [];
+  const known = totals.filter(function (t) { return t.currency === 'gambits' || t.currency === 'tides'; });
+  const spentWeek = known.reduce(function (sum, t) { return sum + t.spentWeek; }, 0);
+  const receivedWeek = known.reduce(function (sum, t) { return sum + t.receivedWeek; }, 0);
+  const movs = totals.reduce(function (sum, t) { return sum + t.movs; }, 0);
+  const gamesCount = overviewData ? overviewData.games.filter(function (g) {
+    return g.spent > 0 || g.received > 0;
+  }).length : 0;
+
+  const spentEl = el('stat-spent-week');
+  const earnedEl = el('stat-earned-week');
+  const movsEl = el('stat-movs');
+  const gamesEl = el('stat-games');
+
+  if (spentEl) spentEl.textContent = overviewData ? spentWeek.toLocaleString() : '—';
+  if (earnedEl) earnedEl.textContent = overviewData ? receivedWeek.toLocaleString() : '—';
+  if (movsEl) movsEl.textContent = overviewData ? movs.toLocaleString() : '—';
+  if (gamesEl) gamesEl.textContent = overviewData ? String(gamesCount) : '—';
+
+  // Nota por divisa dentro de cada tarjeta de saldo.
+  ['gambits', 'tides'].forEach(function (code) {
+    const note = el('balance-' + code + '-note');
+    if (!note) return;
+    if (!overviewData) {
+      note.textContent = 'Cargando actividad…';
+      return;
+    }
+    const row = totals.find(function (t) { return t.currency === code; });
+    if (!row || (!row.spentWeek && !row.receivedWeek)) {
+      note.textContent = 'Sin movimientos esta semana';
+      return;
+    }
+    note.textContent = '7 días · −' + row.spentWeek.toLocaleString()
+      + ' / +' + row.receivedWeek.toLocaleString() + ' ' + currencyLabel(code);
+  });
+}
+
+function renderOverviewGames() {
+  const container = el('overview-games');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!overviewData) {
+    container.appendChild(emptyNote('Cargando actividad…'));
+    return;
+  }
+
+  const rows = overviewData.games.filter(function (game) {
+    if (gamesCurrencyFilter !== 'all' && game.currency !== gamesCurrencyFilter) return false;
+    return game.spent > 0 || game.received > 0;
+  });
+
+  if (!rows.length) {
+    container.appendChild(emptyNote(gamesCurrencyFilter === 'all'
+      ? 'Todavía no hay gastos ni recompensas registrados en tus juegos.'
+      : 'No hay actividad en ' + currencyLabel(gamesCurrencyFilter) + ' todavía.'));
+    return;
+  }
+
+  rows.slice(0, 8).forEach(function (game) {
+    const meta = gameMeta(game.origen);
+    const row = document.createElement('div');
+    row.className = 'srf-game';
+
+    const ico = document.createElement('span');
+    ico.className = 'srf-game-ico';
+    ico.textContent = meta.ico;
+    ico.setAttribute('aria-hidden', 'true');
+
+    const txt = document.createElement('div');
+    txt.className = 'srf-game-txt';
+
+    const name = document.createElement('span');
+    name.className = 'srf-game-name';
+    name.textContent = meta.label;
+
+    const sub = document.createElement('span');
+    sub.className = 'srf-game-meta';
+    sub.textContent = game.movs + (game.movs === 1 ? ' movimiento · ' : ' movimientos · ')
+      + currencyLabel(game.currency) + ' · ' + relativeDay(game.lastAt);
+
+    txt.appendChild(name);
+    txt.appendChild(sub);
+
+    const amounts = document.createElement('div');
+    amounts.className = 'srf-game-amounts';
+    if (game.spent > 0) {
+      const spent = document.createElement('span');
+      spent.className = 'srf-game-spent';
+      spent.textContent = '−' + game.spent.toLocaleString() + ' ' + currencyLabel(game.currency);
+      amounts.appendChild(spent);
+    }
+    if (game.received > 0) {
+      const earned = document.createElement('span');
+      earned.className = 'srf-game-earned';
+      earned.textContent = '+' + game.received.toLocaleString() + ' ' + currencyLabel(game.currency);
+      amounts.appendChild(earned);
+    }
+
+    row.appendChild(ico);
+    row.appendChild(txt);
+    row.appendChild(amounts);
+    container.appendChild(row);
+  });
+}
+
+function renderOverviewRecent() {
+  const container = el('overview-recent');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!overviewData) {
+    container.appendChild(emptyNote('Cargando movimientos…'));
+    return;
+  }
+  if (!overviewData.recent.length) {
+    container.appendChild(emptyNote('Todavía no hay movimientos en tu cuenta.'));
+    return;
+  }
+
+  overviewData.recent.slice(0, 8).forEach(function (tx) {
+    container.appendChild(createActivityElement(tx));
+  });
 }
 
 // =========================================
@@ -1280,6 +1879,8 @@ async function executeClearHistory(isAuto) {
     allTransactionsList = [];
     renderTransactionsList(allTransactionsList);
     updateTransferPreview();
+    overviewData = null;
+    loadOverviewActivity();
     localStorage.setItem(LAST_CLEAR_TIMESTAMP_KEY, String(Date.now()));
     closeClearHistoryModal();
 

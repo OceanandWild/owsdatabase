@@ -29,18 +29,18 @@ $H = [int][math]::Round($Width * 9 / 16)
 
 # id, arena (w,h), fraction propia, decks: (cx, cy, w, h, mirrored)
 $maps = @(
-    @{ id='duela';    arena=@(16,9);   f=0.68; decks=@(@(0,0,3.6,2,$false),@(5,2.6,3.8,2,$true)) },
-    @{ id='neon';     arena=@(16,9);   f=0.66; decks=@(@(0,0,3.4,1.8,$false),@(4.8,-2.4,4.2,2.2,$true)) },
-    @{ id='camara';   arena=@(16,9);   f=0.64; decks=@(@(0,0,4,1.8,$false),@(5.2,2.6,3.6,2,$true)) },
-    @{ id='eco';      arena=@(16,9);   f=0.71; decks=@(@(0,0,3.6,2.1,$false),@(5.3,-2.5,3.4,2,$true)) },
-    @{ id='leviatan'; arena=@(20,11);  f=0.68; decks=@(@(0,0,4.6,2.4,$false),@(6.4,3,3.6,2,$true),@(6.6,-2.8,3.8,2,$true)) },
-    @{ id='boveda';   arena=@(20,11);  f=0.68; decks=@(@(0,0,4.8,2.2,$false),@(7,2.6,3.6,2.2,$true),@(6.8,-2.9,3.6,2,$true)) },
-    @{ id='nebula';   arena=@(20,11);  f=0.67; decks=@(@(0,0,5.2,2.2,$false),@(6.8,3,3.6,2,$true),@(6.6,-2.8,4.4,2.4,$true)) },
-    @{ id='vivero';   arena=@(20,11);  f=0.66; decks=@(@(0,0,4.4,2.2,$false),@(6.8,2.9,3.8,2.2,$true),@(6.8,-2.9,3.6,2,$true)) },
-    @{ id='templo';   arena=@(24,13);  f=0.68; decks=@(@(0,0,5,2.4,$false),@(0,4.3,6.6,2.2,$true),@(8.2,3.2,4.6,2.4,$true),@(8.8,-3.3,3.8,2,$true),@(8.8,0,3.6,2.6,$true)) },
-    @{ id='domo';     arena=@(24,13);  f=0.70; decks=@(@(0,0,5.2,2.4,$false),@(0,4.3,6.6,2.2,$true),@(8.4,3.4,4.6,2.4,$true),@(8.8,-3.4,3.6,2,$true),@(8.8,0,3.6,2.4,$true)) },
-    @{ id='mercado';  arena=@(24,13);  f=0.67; decks=@(@(0,0,4.8,2.4,$false),@(0,4.2,7,2.2,$true),@(8.2,3.2,4.8,2.4,$true),@(8.8,-3.3,3.6,2,$true),@(8.8,0,3.6,2.6,$true)) },
-    @{ id='nucleo';   arena=@(24,13);  f=0.67; decks=@(@(0,0,6.4,2.6,$false),@(0,4.3,6.4,2.2,$true),@(8.4,3.4,4.4,2.2,$true),@(8.8,-3.4,3.6,2.2,$true),@(8.9,0,3.2,2.6,$true)) }
+    @{ id='duela';    arena=@(32,18);   f=0.68; decks=@(@(0,0,3.6,2,$false),@(5,2.6,3.8,2,$true)) },
+    @{ id='neon';     arena=@(32,18);   f=0.66; decks=@(@(0,0,3.4,1.8,$false),@(4.8,-2.4,4.2,2.2,$true)) },
+    @{ id='camara';   arena=@(32,18);   f=0.64; decks=@(@(0,0,4,1.8,$false),@(5.2,2.6,3.6,2,$true)) },
+    @{ id='eco';      arena=@(32,18);   f=0.71; decks=@(@(0,0,3.6,2.1,$false),@(5.3,-2.5,3.4,2,$true)) },
+    @{ id='leviatan'; arena=@(40,22);  f=0.68; decks=@(@(0,0,4.6,2.4,$false),@(6.4,3,3.6,2,$true),@(6.6,-2.8,3.8,2,$true)) },
+    @{ id='boveda';   arena=@(40,22);  f=0.68; decks=@(@(0,0,4.8,2.2,$false),@(7,2.6,3.6,2.2,$true),@(6.8,-2.9,3.6,2,$true)) },
+    @{ id='nebula';   arena=@(40,22);  f=0.67; decks=@(@(0,0,5.2,2.2,$false),@(6.8,3,3.6,2,$true),@(6.6,-2.8,4.4,2.4,$true)) },
+    @{ id='vivero';   arena=@(40,22);  f=0.66; decks=@(@(0,0,4.4,2.2,$false),@(6.8,2.9,3.8,2.2,$true),@(6.8,-2.9,3.6,2,$true)) },
+    @{ id='templo';   arena=@(48,26);  f=0.68; decks=@(@(0,0,5,2.4,$false),@(0,4.3,6.6,2.2,$true),@(8.2,3.2,4.6,2.4,$true),@(8.8,-3.3,3.8,2,$true),@(8.8,0,3.6,2.6,$true)) },
+    @{ id='domo';     arena=@(48,26);  f=0.70; decks=@(@(0,0,5.2,2.4,$false),@(0,4.3,6.6,2.2,$true),@(8.4,3.4,4.6,2.4,$true),@(8.8,-3.4,3.6,2,$true),@(8.8,0,3.6,2.4,$true)) },
+    @{ id='mercado';  arena=@(48,26);  f=0.67; decks=@(@(0,0,4.8,2.4,$false),@(0,4.2,7,2.2,$true),@(8.2,3.2,4.8,2.4,$true),@(8.8,-3.3,3.6,2,$true),@(8.8,0,3.6,2.6,$true)) },
+    @{ id='nucleo';   arena=@(48,26);  f=0.67; decks=@(@(0,0,6.4,2.6,$false),@(0,4.3,6.4,2.2,$true),@(8.4,3.4,4.4,2.2,$true),@(8.8,-3.4,3.6,2.2,$true),@(8.9,0,3.2,2.6,$true)) }
 )
 
 $aspect = $Width / $H
@@ -61,7 +61,7 @@ foreach ($m in $maps) {
 
     $args = @($bg, "-resize", "${Width}x${H}!")
     foreach ($d in $m.decks) {
-        $cx = [double]$d[0]; $cy = [double]$d[1]; $dw = [double]$d[2]; $dh = [double]$d[3]; $mir = $d[4]
+        $cx = [double]$d[0] * 2.0; $cy = [double]$d[1] * 2.0; $dw = [double]$d[2]; $dh = [double]$d[3]; $mir = $d[4]
         $centers = @(@($cx, $cy))
         if ($mir -and ($cx -ne 0 -or $cy -ne 0)) { $centers += ,@(-$cx, -$cy) }
         foreach ($c in $centers) {

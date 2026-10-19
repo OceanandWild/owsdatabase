@@ -845,3 +845,7 @@ magick <id>_env_<id8>_raw.jpg -resize 2048x1143! -strip ww_map_<id>_bg.png
 ```
 
 **Verificación**: fondos instalados en `Assets/_WildWeapon/Art/Sprites/ww_map_<id>_bg.png` (2048×1143, mismos nombres ⇒ mismos GUIDs). Escenas reconstruidas con los fondos nuevos (menú dev "WildWeapon/Dev/Reconstruir escenas (silencioso)" corrió OK). Crudos archivados en `_art-source/Maps/`.
+
+## 14. Etapa 2: arenas ampliadas (x2) — oct 2026
+
+> Tamaños confirmados por el usuario: **Chico 32×18, Mediano 40×22, Grande 48×26** (antes 16×9 / 20×11 / 24×13). Implementado en `WildWeaponBuilder.ArenaSize()` y reubicación de decks (centros ×2, huellas sin cambios) en `Fill()`. El arte es agnóstico al tamaño: el fondo se estira al encuadre y la composición se mantiene. Los spawns (`p1Spawn`/`p2Spawn`) se recalculan desde `arena * 0.5`. Pendiente: eliminación del modo 1v1 y rework multijugador (fuera de esta etapa).

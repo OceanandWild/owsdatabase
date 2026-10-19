@@ -1042,7 +1042,24 @@ namespace WildWeapon.EditorTools
             def.platformSprite = Spr("ww_plat_" + t.id);
             def.platformShadow = _platShadow;
             def.platformTint = 1f;
-            def.platforms = t.platforms;
+            // Etapa 2: reubicar los decks al nuevo tamano de arena (posiciones x2; huellas sin cambios).
+if (t.platforms != null)
+{
+    var scaled = new MapPlatform[t.platforms.Length];
+    for (int i = 0; i < t.platforms.Length; i++)
+    {
+        var p = t.platforms[i];
+        scaled[i] = new MapPlatform
+        {
+            name = p.name, sizeClass = p.sizeClass,
+            center = p.center * 2f,
+            size = p.size,
+            height = p.height, mirrored = p.mirrored, rotation = p.rotation,
+        };
+    }
+    def.platforms = scaled;
+}
+else def.platforms = t.platforms;
 
             def.obstacles = Obstacles(t.obstacles, t.propTint);
             def.obstacleCount = t.obstacleCount;
@@ -1067,11 +1084,12 @@ namespace WildWeapon.EditorTools
 
         private static Vector2 ArenaSize(MapSizeClass size)
         {
+            // Etapa 2: arenas ampliadas (x2) para espacio de plataformas/contenido futuro (multijugador).
             switch (size)
             {
-                case MapSizeClass.Chico: return new Vector2(16f, 9f);
-                case MapSizeClass.Grande: return new Vector2(24f, 13f);
-                default: return new Vector2(20f, 11f);
+                case MapSizeClass.Chico: return new Vector2(32f, 18f);
+                case MapSizeClass.Grande: return new Vector2(48f, 26f);
+                default: return new Vector2(40f, 22f);
             }
         }
 
@@ -1151,7 +1169,7 @@ namespace WildWeapon.EditorTools
 
             return new[]
             {
-                // ---------------- CHICAS (16 x 9) ----------------
+                // ---------------- CHICAS (32 x 18) ----------------
                 new MapTheme
                 {
                     id = "duela", name = "Duela de Chatarra", sub = "DUELO SOBRE TABLAS ROTAS",
@@ -1205,7 +1223,7 @@ namespace WildWeapon.EditorTools
                     },
                 },
 
-                // ---------------- MEDIANAS (20 x 11) ----------------
+                // ---------------- MEDIANAS (40 x 22) ----------------
                 new MapTheme
                 {
                     id = "leviatan", name = "Fosa Leviatan", sub = "ALGO GRANDE MURIO ACA",
@@ -1263,7 +1281,7 @@ namespace WildWeapon.EditorTools
                     },
                 },
 
-                // ---------------- GRANDES (24 x 13) ----------------
+                // ---------------- GRANDES (48 x 26) ----------------
                 new MapTheme
                 {
                     id = "templo", name = "Templo Hundido", sub = "EL AGUA SUBE Y BAJA",

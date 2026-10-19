@@ -18,6 +18,11 @@ namespace WildWeapon
         /// <summary>Decks activos de la escena (los registra/desregistra el propio componente).</summary>
         public static readonly List<PlatformSurface> All = new List<PlatformSurface>();
 
+/// <summary>Etapa 2: si es true, el suelo (Z=0) solo existe en la tira inferior de la arena.</summary>
+public static bool GroundOnlyBottom = false;
+/// <summary>Mitad Y de la arena (para saber que es "abajo").</summary>
+public static float ArenaHalfY = 10f;
+
         public Vector2 center;
         public Vector2 size = new Vector2(4f, 2.5f);
         [Tooltip("Altura del deck en unidades de Z")] public float top = 0.95f;
@@ -35,7 +40,9 @@ namespace WildWeapon
         /// <summary>Altura de la superficie mas alta que sostiene a un cuerpo en 'p' con altura 'z'. 0 = piso de la arena.</summary>
         public static float HighestTopBelow(Vector2 p, float z, float pad)
         {
-            float best = 0f;
+            // Etapa 2: suelo solo en la tira inferior cuando GroundOnlyBottom esta activo.
+            bool groundHere = !GroundOnlyBottom || p.y <= -ArenaHalfY + 2.5f;
+            float best = groundHere ? 0f : float.MinValue;
             for (int i = 0; i < All.Count; i++)
             {
                 var s = All[i];

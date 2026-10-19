@@ -46,6 +46,10 @@ namespace WildWeapon
             root.SetParent(transform, false);
 
             Vector2 half = map.arenaSize * 0.5f;
+
+            // Etapa 2: suelo solo en la tira inferior de la arena.
+            PlatformSurface.GroundOnlyBottom = true;
+            PlatformSurface.ArenaHalfY = half.y;
             float t = map.wallThickness;
 
             // ---- Camara: la arena ocupa una fraccion del encuadre; el resto es entorno ----

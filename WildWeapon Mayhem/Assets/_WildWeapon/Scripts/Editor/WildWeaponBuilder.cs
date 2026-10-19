@@ -977,6 +977,8 @@ namespace WildWeapon.EditorTools
             [Tooltip("Fraccion del encuadre que ocupa la arena (el resto es entorno del fondo)")]
             public float backdropFraction = 0.66f;
             public MapPlatform[] platforms;
+            [Tooltip("Cantidad objetivo de plataformas (0 = usar platforms.Length). Se rellena proceduralmente si hace falta.")]
+            public int platformCount = 0;
             public MapHazard[] hazards;
             public string[] obstacles, decor;
             public int obstacleCount, decorCount, botSpawns;
@@ -1042,24 +1044,49 @@ namespace WildWeapon.EditorTools
             def.platformSprite = Spr("ww_plat_" + t.id);
             def.platformShadow = _platShadow;
             def.platformTint = 1f;
-            // Etapa 2: reubicar los decks al nuevo tamano de arena (posiciones x2; huellas sin cambios).
-if (t.platforms != null)
+            // Etapa 2: cantidad de plataformas segun tipo (7/12/20) + reubicacion al nuevo tamano (centros x2).
+var platList = new List<MapPlatform>(t.platforms != null ? t.platforms : new MapPlatform[0]);
+int targetCount = t.platformCount > 0 ? t.platformCount : platList.Count;
+if (targetCount > platList.Count)
 {
-    var scaled = new MapPlatform[t.platforms.Length];
-    for (int i = 0; i < t.platforms.Length; i++)
+    var rng = new System.Random(1000 + index * 37 + 7);
+    var halfArena = arena * 0.5f;
+    int attempts = 0;
+    while (platList.Count < targetCount && attempts < 500)
     {
-        var p = t.platforms[i];
-        scaled[i] = new MapPlatform
+        attempts++;
+        float x = (float)(rng.NextDouble() * 2.0 - 1.0) * (halfArena.x - 2.5f);
+        float y = (float)(rng.NextDouble() * 2.0 - 1.0) * (halfArena.y - 2.0f);
+        if (Mathf.Abs(x) < 2f && Mathf.Abs(y) < 1.5f) continue;   // evita zona de spawns
+        bool tooClose = false;
+        foreach (var pl in platList)
+            if (Vector2.Distance(new Vector2(x, y), pl.center) < 3.5f) { tooClose = true; break; }
+        if (tooClose) continue;
+        float[] heights = { 0.55f, 0.95f, 1.35f };
+        float height = heights[rng.Next(heights.Length)];
+        float w = 3.0f + (float)rng.NextDouble() * 2.0f;
+        float h = 1.8f + (float)rng.NextDouble() * 1.0f;
+        platList.Add(new MapPlatform
         {
-            name = p.name, sizeClass = p.sizeClass,
-            center = p.center * 2f,
-            size = p.size,
-            height = p.height, mirrored = p.mirrored, rotation = p.rotation,
-        };
+            sizeClass = MapPlatformSize.Mediana, center = new Vector2(x, y),
+            size = new Vector2(w, h), height = height, mirrored = false,
+            name = height >= 1.2f ? "Alta" : (height >= 0.8f ? "Media" : "Baja"),
+        });
     }
-    def.platforms = scaled;
 }
-else def.platforms = t.platforms;
+var scaledPlats = new MapPlatform[platList.Count];
+for (int i = 0; i < platList.Count; i++)
+{
+    var p = platList[i];
+    scaledPlats[i] = new MapPlatform
+    {
+        name = p.name, sizeClass = p.sizeClass,
+        center = p.center * 2f,
+        size = p.size,
+        height = p.height, mirrored = p.mirrored, rotation = p.rotation,
+    };
+}
+def.platforms = scaledPlats;
 
             def.obstacles = Obstacles(t.obstacles, t.propTint);
             def.obstacleCount = t.obstacleCount;
@@ -1176,7 +1203,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Chico, accent = rust, bg = new Color(0.09f, 0.06f, 0.04f),
                     floorTint = new Color(1f, 0.96f, 0.9f), wallTint = new Color(0.9f, 0.85f, 0.78f), backdropFraction = 0.68f,
                     note = "Tablones hundidos, sierras oxidadas y pilas de chatarra del primer prototipo",
-                    botSpawns = 12,
+                    botSpawns = 12, platformCount = 7,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Chica, new Vector2(0f, 0f), new Vector2(3.6f, 2f), 0.95f, false),
@@ -1189,7 +1216,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Chico, accent = new Color(1f, 0.35f, 0.85f), bg = new Color(0.06f, 0.03f, 0.10f),
                     floorTint = new Color(0.92f, 0.9f, 1f), wallTint = new Color(0.8f, 0.76f, 1f), backdropFraction = 0.66f,
                     note = "Balcones de hotel, carteles de neon y cables sueltos sobre el pavimento mojado",
-                    botSpawns = 12,
+                    botSpawns = 12, platformCount = 7,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Chica, new Vector2(0f, 0f), new Vector2(3.4f, 1.8f), 0.55f, false),
@@ -1202,7 +1229,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Chico, accent = ice, bg = new Color(0.05f, 0.08f, 0.11f),
                     floorTint = new Color(0.9f, 0.97f, 1f), wallTint = new Color(0.82f, 0.92f, 1f), backdropFraction = 0.64f,
                     note = "Camara de congelados: ganchos, cajas apiladas y escarcha en el piso",
-                    botSpawns = 12,
+                    botSpawns = 12, platformCount = 7,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Chica, new Vector2(0f, 0f), new Vector2(4f, 1.8f), 0.95f, false),
@@ -1215,7 +1242,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Chico, accent = new Color(0.3f, 1f, 0.85f), bg = new Color(0.03f, 0.07f, 0.08f),
                     floorTint = new Color(0.88f, 1f, 0.98f), wallTint = new Color(0.78f, 0.96f, 0.92f), backdropFraction = 0.71f,
                     note = "Pozo seco con paredes de piedra tallada y ecos que empujan desde el centro",
-                    botSpawns = 12,
+                    botSpawns = 12, platformCount = 7,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Chica, new Vector2(0f, 0f), new Vector2(3.6f, 2.1f), 0.55f, false),
@@ -1230,7 +1257,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Mediano, accent = new Color(0.7f, 0.85f, 0.35f), bg = new Color(0.05f, 0.06f, 0.04f),
                     floorTint = new Color(0.95f, 0.96f, 0.88f), wallTint = new Color(0.86f, 0.88f, 0.78f), backdropFraction = 0.68f,
                     note = "Costillas de un leviatan, charcos de acido y huesos usados como rampas",
-                    botSpawns = 14,
+                    botSpawns = 14, platformCount = 12,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(4.6f, 2.4f), 0.95f, false),
@@ -1244,7 +1271,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Mediano, accent = gold, bg = new Color(0.09f, 0.07f, 0.03f),
                     floorTint = new Color(1f, 0.97f, 0.88f), wallTint = new Color(1f, 0.92f, 0.72f), backdropFraction = 0.68f,
                     note = "Boveda de banco: lingotes, cajas fuertes y una puerta que baja como guillotina",
-                    botSpawns = 14,
+                    botSpawns = 14, platformCount = 12,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(4.8f, 2.2f), 0.95f, false),
@@ -1258,7 +1285,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Mediano, accent = new Color(0.6f, 0.75f, 1f), bg = new Color(0.04f, 0.05f, 0.09f),
                     floorTint = new Color(0.94f, 0.96f, 1f), wallTint = new Color(0.86f, 0.9f, 1f), backdropFraction = 0.67f,
                     note = "Desguace orbital: turbinas que barren la arena y cables de alta tension",
-                    botSpawns = 14,
+                    botSpawns = 14, platformCount = 12,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(5.2f, 2.2f), 0.95f, false),
@@ -1272,7 +1299,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Mediano, accent = new Color(0.5f, 1f, 0.5f), bg = new Color(0.04f, 0.07f, 0.04f),
                     floorTint = new Color(0.92f, 1f, 0.9f), wallTint = new Color(0.8f, 0.95f, 0.8f), backdropFraction = 0.66f,
                     note = "Invernadero tomado por enredaderas, macetas gigantes y esporas a media altura",
-                    botSpawns = 14,
+                    botSpawns = 14, platformCount = 12,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(4.4f, 2.2f), 0.55f, false),
@@ -1288,7 +1315,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Grande, accent = new Color(0.35f, 0.9f, 0.95f), bg = new Color(0.03f, 0.06f, 0.08f),
                     floorTint = new Color(0.9f, 0.98f, 1f), wallTint = new Color(0.8f, 0.92f, 0.95f), backdropFraction = 0.68f,
                     note = "Templo inundado: columnas caidas, pasarelas de piedra y estatuas sumergidas",
-                    botSpawns = 18,
+                    botSpawns = 18, platformCount = 20,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(5f, 2.4f), 0.95f, false),
@@ -1304,7 +1331,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Grande, accent = ice, bg = new Color(0.05f, 0.08f, 0.12f),
                     floorTint = new Color(0.92f, 0.98f, 1f), wallTint = new Color(0.84f, 0.94f, 1f), backdropFraction = 0.7f,
                     note = "Domo polar: grietas, ventiscas laterales y rafagas que cruzan la cancha",
-                    botSpawns = 18,
+                    botSpawns = 18, platformCount = 20,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(5.2f, 2.4f), 0.95f, false),
@@ -1320,7 +1347,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Grande, accent = new Color(1f, 0.6f, 0.2f), bg = new Color(0.08f, 0.05f, 0.04f),
                     floorTint = new Color(1f, 0.95f, 0.88f), wallTint = new Color(0.95f, 0.86f, 0.76f), backdropFraction = 0.67f,
                     note = "Mercado nocturno: puestos incendiados, toneles de aceite y monedas por el piso",
-                    botSpawns = 18,
+                    botSpawns = 18, platformCount = 20,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(4.8f, 2.4f), 0.55f, false),
@@ -1336,7 +1363,7 @@ else def.platforms = t.platforms;
                     size = MapSizeClass.Grande, accent = violet, bg = new Color(0.05f, 0.03f, 0.09f),
                     floorTint = new Color(0.96f, 0.92f, 1f), wallTint = new Color(0.86f, 0.78f, 1f), backdropFraction = 0.67f,
                     note = "Reactor en el centro: cables arqueando, plasma en el piso y fosas de escoria",
-                    botSpawns = 18,
+                    botSpawns = 18, platformCount = 20,
                     platforms = new[]
                     {
                         Plat(MapPlatformSize.Grande, new Vector2(0f, 0f), new Vector2(6.4f, 2.6f), 1.35f, false),

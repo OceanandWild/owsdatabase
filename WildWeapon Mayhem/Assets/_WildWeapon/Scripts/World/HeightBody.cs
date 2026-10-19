@@ -47,6 +47,7 @@ namespace WildWeapon
         private Color _shadowColor;
         private bool _ready;
         private Collider2D _col;
+        private Rigidbody2D _rb;
         private readonly HashSet<Collider2D> _ignored = new HashSet<Collider2D>();
 
         public float Z => _z;
@@ -62,6 +63,7 @@ namespace WildWeapon
         private void Awake()
         {
             _col = GetComponent<Collider2D>();
+            _rb = GetComponent<Rigidbody2D>();
             _followerBase = new Vector3[followers != null ? followers.Length : 0];
             for (int i = 0; i < _followerBase.Length; i++)
                 if (followers[i] != null) _followerBase[i] = followers[i].localPosition;
@@ -142,7 +144,19 @@ namespace WildWeapon
                         if (wasAir) OnLanded?.Invoke(this, land);
                     }
                 }
-                if (_z <= 0f) { _z = 0f; _vz = 0f; Grounded = true; }
+                if (PlatformSurface.GroundOnlyBottom && _z <= -1.5f)
+{
+    // Caida a hueco: respawn al suelo inferior.
+    _z = 0f; _vz = 0f; Grounded = true;
+    var pos = transform.position;
+    pos.y = -PlatformSurface.ArenaHalfY + 1f;
+    transform.position = pos;
+    if (_rb != null) _rb.position = pos;
+}
+else if (_z <= 0f && (!PlatformSurface.GroundOnlyBottom || transform.position.y <= -PlatformSurface.ArenaHalfY + 2.5f))
+{
+    _z = 0f; _vz = 0f; Grounded = true;
+}
             }
 
             Support = Grounded ? _z : PlatformSurface.HighestTopBelow(p, _z, pad);

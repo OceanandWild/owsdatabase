@@ -25,6 +25,7 @@ namespace WildWeapon.Pvp
         public string room;
         public int seed;
         public PvpOpp opp;
+        public PvpOpp[] opps;
         public string name;
         public int color;
 

@@ -42952,13 +42952,13 @@ app.get('/ocean-pay/admin/currencies', async (req, res) => {
 // =====================================================================
 // WILDWEAPON MAYHEM — PVP ONLINE (WebSocket + arbitro best-of-3)
 // Endpoint: wss://<host>/wildweapon/pvp  (cliente: PvpClient.cs en Unity)
-// El servidor empareja (cola rapida o sala por codigo), relaya estado y
-// eventos entre ambos rivales y lleva el marcador de rondas. La simulacion
-// corre en cada cliente (autoridad por jugador, casual F0).
+// Servidor de salas privadas hasta 15 jugadores: empareja por codigo o cola rapida,
+// relaya estado/eventos entre todos los jugadores y lleva el marcador por ronda.
 // =====================================================================
-const WW_PVP_WIN_ROUNDS = 2;            // best-of-3 (espejo de DuelRules.RoundsToWin)
-const WW_PVP_QUEUE_TIMEOUT = 120000;    // ms maximos esperando rival en cola
-const WW_PVP_ROUND_DELAY = 3600;        // ms entre round_end y la ronda siguiente
+const WW_PVP_MAX_PLAYERS = 15;
+const WW_PVP_WIN_ROUNDS = 2;
+const WW_PVP_QUEUE_TIMEOUT = 120000;
+const WW_PVP_ROUND_DELAY = 3600;
 
 const wwPvpQueue = [];
 const wwPvpRooms = new Map();
@@ -42966,12 +42966,14 @@ let wwPvpSeq = 1;
 
 function wwPvpSend(player, payload) {
   if (!player || !player.ws || player.ws.readyState !== 1) return;
-  try { player.ws.send(JSON.stringify(payload)); } catch (e) { /* conexion muerta */ }
+  try { player.ws.send(JSON.stringify(payload)); } catch (e) { }
 }
 
-function wwPvpBroadcast(room, payload) {
-  wwPvpSend(room.a, payload);
-  wwPvpSend(room.b, payload);
+function wwPvpBroadcast(room, payload, except) {
+  for (const p of room.players) {
+    if (p === except) continue;
+    wwPvpSend(p, payload);
+  }
 }
 
 function wwPvpQueueStatus() {
@@ -42980,7 +42982,7 @@ function wwPvpQueueStatus() {
 }
 
 function wwPvpNewRoom(key) {
-  const room = { key, a: null, b: null, scores: [0, 0], round: 0, active: false, seed: 0, createdAt: Date.now(), timer: null };
+  const room = { key, players: [], scores: [], round: 0, active: false, seed: 0, createdAt: Date.now(), timer: null, host: null };
   wwPvpRooms.set(key, room);
   return room;
 }
@@ -42995,41 +42997,56 @@ function wwPvpPlayer(ws, info, seat) {
   };
 }
 
+function wwPvpOpps(room, me) {
+  return room.players.filter((p) => p !== me).map((p) => ({ name: p.name, color: p.color, seat: p.seat }));
+}
+
 function wwPvpPair(room) {
   room.active = true;
-  room.round = 0;
-  room.scores = [0, 0];
+  room.round = 1;
+  room.scores = new Array(room.players.length).fill(0);
   room.seed = 1 + Math.floor(Math.random() * 999999);
-  wwPvpSend(room.a, { t: 'matched', seat: room.a.seat, room: room.key, seed: room.seed, opp: { name: room.b.name, color: room.b.color } });
-  wwPvpSend(room.b, { t: 'matched', seat: room.b.seat, room: room.key, seed: room.seed, opp: { name: room.a.name, color: room.a.color } });
-  console.log(`[WW-PVP] Sala ${room.key}: ${room.a.name} (J${room.a.seat + 1}) vs ${room.b.name} (J${room.b.seat + 1})`);
+  for (const p of room.players) {
+    wwPvpSend(p, { t: 'matched', seat: p.seat, room: room.key, seed: room.seed, opp: wwPvpOpps(room, p)[0] || null, opps: wwPvpOpps(room, p) });
+  }
+  console.log(`[WW-PVP] Sala ${room.key}: ${room.players.length} jugadores`);
 }
 
 function wwPvpStartRound(room, newMatch) {
-  if (!room.a || !room.b) return;
+  if (room.players.length < 2) return;
   if (room.timer) { clearTimeout(room.timer); room.timer = null; }
-  if (newMatch) { room.scores = [0, 0]; room.round = 1; room.active = true; }
+  if (newMatch) { room.scores = new Array(room.players.length).fill(0); room.round = 1; room.active = true; }
   wwPvpBroadcast(room, { t: 'round_start', round: room.round, scores: room.scores.slice() });
-  console.log(`[WW-PVP] Sala ${room.key}: inicia ronda ${room.round} (${room.scores.join('-')})`);
+  console.log(`[WW-PVP] Sala ${room.key}: inicia ronda ${room.round}`);
 }
 
 function wwPvpHandleDeath(room, player) {
   if (!room.active || room.round < 1) return;
-  const rival = room.a === player ? room.b : room.a;
-  if (!rival) return;
-  room.scores[rival.seat] = (room.scores[rival.seat] || 0) + 1;
-  const final = room.scores[rival.seat] >= WW_PVP_WIN_ROUNDS;
-  room.active = false;
-  wwPvpBroadcast(room, { t: 'round_end', winner: rival.seat, scores: room.scores.slice(), final });
-  console.log(`[WW-PVP] Sala ${room.key}: ronda ${room.round} para J${rival.seat + 1} (${room.scores.join('-')})${final ? ' — FIN DE PARTIDA' : ''}`);
-  if (final) return;
-  room.timer = setTimeout(() => {
-    room.timer = null;
-    if (!room.a || !room.b) return;
-    room.round += 1;
-    room.active = true;
-    wwPvpStartRound(room, false);
-  }, WW_PVP_ROUND_DELAY);
+  const alive = room.players.filter((p) => p !== player && !(p.dead));
+  // marcar muerto
+  player.dead = true;
+  const remaining = room.players.filter((p) => !p.dead);
+  if (remaining.length <= 1) {
+    const winner = remaining.length === 1 ? remaining[0].seat : -1;
+    if (winner >= 0 && winner < room.scores.length) room.scores[winner] = (room.scores[winner] || 0) + 1;
+    const final = winner >= 0 && room.scores[winner] >= WW_PVP_WIN_ROUNDS;
+    room.active = false;
+    wwPvpBroadcast(room, { t: 'round_end', winner, scores: room.scores.slice(), final });
+    console.log(`[WW-PVP] Sala ${room.key}: ronda ${room.round} para J${winner + 1}${final ? ' - FIN' : ''}`);
+    if (final) return;
+    // reset dead flags
+    for (const p of room.players) p.dead = false;
+    room.timer = setTimeout(() => {
+      room.timer = null;
+      if (room.players.length < 2) return;
+      room.round += 1;
+      room.active = true;
+      for (const p of room.players) p.dead = false;
+      wwPvpStartRound(room, false);
+    }, WW_PVP_ROUND_DELAY);
+  } else {
+    // no broadcast; just continue
+  }
 }
 
 function wwPvpDetach(ws, reason) {
@@ -43037,13 +43054,21 @@ function wwPvpDetach(ws, reason) {
   if (qi >= 0) { wwPvpQueue.splice(qi, 1); wwPvpQueueStatus(); }
 
   for (const room of wwPvpRooms.values()) {
-    const player = (room.a && room.a.ws === ws) ? room.a : ((room.b && room.b.ws === ws) ? room.b : null);
-    if (!player) continue;
-    const rival = room.a === player ? room.b : room.a;
-    if (rival) wwPvpSend(rival, { t: 'opp_left', reason: String(reason || 'disconnect') });
+    const idx = room.players.findIndex((p) => p.ws === ws);
+    if (idx < 0) continue;
+    const player = room.players[idx];
+    room.players.splice(idx, 1);
+    // re-seat
+    room.players.forEach((p, i) => { p.seat = i; });
+    room.scores = new Array(room.players.length).fill(0);
+    if (room.players.length === 0) {
+      if (room.timer) clearTimeout(room.timer);
+      wwPvpRooms.delete(room.key);
+      console.log(`[WW-PVP] Sala ${room.key} eliminada`);
+      break;
+    }
+    wwPvpBroadcast(room, { t: 'opp_left', reason: String(reason || 'disconnect'), seat: player.seat });
     if (room.timer) { clearTimeout(room.timer); room.timer = null; }
-    wwPvpRooms.delete(room.key);
-    console.log(`[WW-PVP] Sala ${room.key}: ${player.name} salio (${reason})`);
     break;
   }
 
@@ -43055,7 +43080,7 @@ function wwPvpOnMessage(ws, msg) {
   if (!msg || typeof msg.t !== 'string') return;
 
   if (msg.t === 'join') {
-    if (ws.wwRoom && ws.wwPlayer) return;   // ya esta jugando
+    if (ws.wwRoom && ws.wwPlayer) return;
     const qi = wwPvpQueue.findIndex((p) => p.ws === ws);
     if (qi >= 0) wwPvpQueue.splice(qi, 1);
 
@@ -43066,12 +43091,14 @@ function wwPvpOnMessage(ws, msg) {
     if (wantRoom) {
       let room = wwPvpRooms.get(wantRoom);
       if (!room) room = wwPvpNewRoom(wantRoom);
-      if (room.a && room.b) { wwPvpSend(me, { t: 'error', msg: 'La sala ya esta llena' }); ws.wwPlayer = null; return; }
-      if (!room.a) { me.seat = 0; room.a = me; } else { me.seat = 1; room.b = me; }
+      if (room.players.length >= WW_PVP_MAX_PLAYERS) { wwPvpSend(me, { t: 'error', msg: 'La sala esta llena' }); ws.wwPlayer = null; return; }
+      me.seat = room.players.length;
+      room.players.push(me);
+      me.ws.wwRoom = room;
       ws.wwRoom = room;
-      if (room.a && room.b) wwPvpPair(room);
-      else wwPvpSend(me, { t: 'queued', n: 1, room: room.key });
-      console.log(`[WW-PVP] ${me.name} espera en sala ${room.key} (J${me.seat + 1})`);
+      if (room.players.length >= 2) wwPvpPair(room);
+      else wwPvpSend(me, { t: 'queued', n: room.players.length, room: room.key });
+      console.log(`[WW-PVP] ${me.name} entra a sala ${room.key} (J${me.seat + 1})`);
       return;
     }
 
@@ -43083,11 +43110,11 @@ function wwPvpOnMessage(ws, msg) {
       console.log(`[WW-PVP] ${me.name} en cola (${wwPvpQueue.length})`);
       return;
     }
-
+    // quick match: create room with both
     me.seat = 1;
     const room = wwPvpNewRoom('Q' + String(wwPvpSeq++).padStart(4, '0'));
-    room.a = rival; rival.seat = 0; rival.ws.wwRoom = room;
-    room.b = me; ws.wwRoom = room;
+    rival.seat = 0; rival.ws.wwRoom = room; room.players.push(rival);
+    me.ws.wwRoom = room; room.players.push(me);
     wwPvpPair(room);
     return;
   }
@@ -43095,14 +43122,12 @@ function wwPvpOnMessage(ws, msg) {
   const room = ws.wwRoom;
   const me = ws.wwPlayer;
   if (!room || !me) return;
-  const rival = room.a === me ? room.b : room.a;
 
   switch (msg.t) {
     case 'ready':
       me.ready = true;
-      if (room.a && room.b && room.a.ready && room.b.ready && room.round === 0) {
-        room.a.ready = false;
-        room.b.ready = false;
+      if (room.players.length >= 2 && room.players.every((p) => p.ready) && room.round === 0) {
+        for (const p of room.players) p.ready = false;
         wwPvpStartRound(room, true);
       }
       break;
@@ -43111,7 +43136,7 @@ function wwPvpOnMessage(ws, msg) {
     case 'cast':
     case 'swap':
     case 'hit':
-      wwPvpSend(rival, msg);
+      wwPvpBroadcast(room, msg, me);
       break;
     case 'died':
       wwPvpHandleDeath(room, me);
@@ -43119,12 +43144,12 @@ function wwPvpOnMessage(ws, msg) {
     case 'rematch':
       if (room.active) break;
       me.rematchVote = true;
-      if (room.a.rematchVote && room.b.rematchVote) {
-        room.a.rematchVote = false;
-        room.b.rematchVote = false;
+      if (room.players.every((p) => p.rematchVote)) {
+        for (const p of room.players) p.rematchVote = false;
+        for (const p of room.players) p.dead = false;
         wwPvpStartRound(room, true);
-      } else if (rival) {
-        wwPvpSend(rival, { t: 'rematch_wait' });
+      } else {
+        wwPvpBroadcast(room, { t: 'rematch_wait' }, me);
       }
       break;
     case 'leave':
@@ -43140,7 +43165,7 @@ const wwPvpWss = new WebSocketServer({ noServer: true });
 httpServer.on('upgrade', (req, socket, head) => {
   let pathname = '';
   try { pathname = new URL(req.url, 'http://localhost').pathname; } catch (e) { pathname = ''; }
-  if (pathname !== '/wildweapon/pvp') return;   // socket.io y otros upgrades siguen su curso
+  if (pathname !== '/wildweapon/pvp') return;
   wwPvpWss.handleUpgrade(req, socket, head, (ws) => wwPvpWss.emit('connection', ws, req));
 });
 
@@ -43150,18 +43175,17 @@ wwPvpWss.on('connection', (ws) => {
   ws.wwPlayer = null;
   ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', (raw) => {
-    try { wwPvpOnMessage(ws, JSON.parse(raw.toString())); } catch (e) { /* mensaje invalido: se ignora */ }
+    try { wwPvpOnMessage(ws, JSON.parse(raw.toString())); } catch (e) { }
   });
   ws.on('close', () => wwPvpDetach(ws, 'disconnect'));
   ws.on('error', (err) => console.warn('[WW-PVP] error de socket:', err.message));
 });
 
-// Barrido: cola vencida, salas de codigo abandonadas y heartbeat
 setInterval(() => {
   const now = Date.now();
   let changed = false;
   for (let i = wwPvpQueue.length - 1; i >= 0; i--) {
-    if (now - wwPvpQueue[i].at > WW_PVP_QUEUE_TIMEOUT) {
+    if (now - (wwPvpQueue[i].at || wwPvpQueue[i].createdAt || 0) > WW_PVP_QUEUE_TIMEOUT) {
       wwPvpSend(wwPvpQueue[i], { t: 'error', msg: 'Se agoto el tiempo de espera. Intenta otra vez.' });
       wwPvpQueue.splice(i, 1);
       changed = true;
@@ -43170,28 +43194,29 @@ setInterval(() => {
   if (changed) wwPvpQueueStatus();
 
   for (const room of wwPvpRooms.values()) {
-    if ((!room.a || !room.b) && now - room.createdAt > 600000) {
+    if (room.players.length === 0) { wwPvpRooms.delete(room.key); continue; }
+    if (room.players.length < 2 && now - room.createdAt > 600000) {
       if (room.timer) clearTimeout(room.timer);
       wwPvpRooms.delete(room.key);
     }
   }
 
   for (const ws of wwPvpWss.clients) {
-    if (ws.isAlive === false) { try { ws.terminate(); } catch (e) { /* ya cerrado */ } continue; }
+    if (ws.isAlive === false) { try { ws.terminate(); } catch (e) { } continue; }
     ws.isAlive = false;
-    try { ws.ping(); } catch (e) { /* ya cerrado */ }
+    try { ws.ping(); } catch (e) { }
   }
 }, 30000);
 
-// Diagnostico rapido del PVP (cola y salas activas)
 app.get('/wildweapon/pvp/info', (req, res) => {
   res.json({
     ok: true,
+    maxPlayers: WW_PVP_MAX_PLAYERS,
     winRounds: WW_PVP_WIN_ROUNDS,
     queue: wwPvpQueue.length,
     rooms: [...wwPvpRooms.values()].map((r) => ({
       key: r.key, round: r.round, scores: r.scores, active: r.active,
-      players: [r.a && r.a.name, r.b && r.b.name].filter(Boolean)
+      players: r.players.length
     }))
   });
 });

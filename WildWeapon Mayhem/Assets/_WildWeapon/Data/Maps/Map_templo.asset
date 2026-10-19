@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 0.35, g: 0.9, b: 0.95, a: 1}
   previewSprite: {fileID: 21300000, guid: 0194cd69c8f1891468ae756e08d37128, type: 3}
   decorNote: 'Templo inundado: columnas caidas, pasarelas de piedra y estatuas sumergidas'
-  arenaSize: {x: 24, y: 13}
+  arenaSize: {x: 48, y: 26}
   backgroundColor: {r: 0.03, g: 0.06, b: 0.08, a: 1}
   floorSprite: {fileID: 21300000, guid: 0194cd69c8f1891468ae756e08d37128, type: 3}
   floorSingle: 1
@@ -43,31 +43,136 @@ MonoBehaviour:
     rotation: 0
   - name: Baja
     sizeClass: 2
-    center: {x: 0, y: 4.3}
+    center: {x: 0, y: 8.6}
     size: {x: 6.6, y: 2.2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Media
     sizeClass: 1
-    center: {x: 8.2, y: 3.2}
+    center: {x: 16.4, y: 6.4}
     size: {x: 4.6, y: 2.4}
     height: 0.95
     mirrored: 1
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 8.8, y: -3.3}
+    center: {x: 17.6, y: -6.6}
     size: {x: 3.8, y: 2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Alta
     sizeClass: 0
-    center: {x: 8.8, y: 0}
+    center: {x: 17.6, y: 0}
     size: {x: 3.6, y: 2.6}
     height: 1.35
     mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -4.6072216, y: -15.761501}
+    size: {x: 4.3485994, y: 2.2919521}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -21.695488, y: 9.851777}
+    size: {x: 3.3608208, y: 2.5563846}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -10.200566, y: -6.0663805}
+    size: {x: 4.5621896, y: 2.3902385}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 30.48444, y: 19.79536}
+    size: {x: 4.8944383, y: 2.3217688}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -25.332964, y: -11.866537}
+    size: {x: 4.1874933, y: 2.0077665}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -39.835907, y: -2.0966341}
+    size: {x: 3.451444, y: 2.4724164}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 10.530183, y: -11.774433}
+    size: {x: 3.7479286, y: 2.2843792}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 26.218527, y: 13.769637}
+    size: {x: 4.252212, y: 2.5261445}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 34.0196, y: -10.181488}
+    size: {x: 4.7397394, y: 2.241728}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 41.402, y: 3.735162}
+    size: {x: 3.1883287, y: 2.724659}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -19.529474, y: 17.521032}
+    size: {x: 4.3742247, y: 2.4846056}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 26.926, y: -3.891596}
+    size: {x: 3.740182, y: 1.945028}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -40.453773, y: -12.021402}
+    size: {x: 3.9585724, y: 2.1347291}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -31.580568, y: 19.720259}
+    size: {x: 4.1901274, y: 1.8143439}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -17.540058, y: -19.779236}
+    size: {x: 4.172348, y: 2.5649061}
+    height: 0.55
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -79,6 +184,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -7.2000003, y: 0}
-  p2Spawn: {x: 7.2000003, y: 0}
+  p1Spawn: {x: -14.400001, y: 0}
+  p2Spawn: {x: 14.400001, y: 0}
   botSpawnPoints: 18

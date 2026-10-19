@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 1, g: 0.35, b: 0.85, a: 1}
   previewSprite: {fileID: 21300000, guid: cceb9898dae3ee947a1160d09ec33950, type: 3}
   decorNote: Balcones de hotel, carteles de neon y cables sueltos sobre el pavimento mojado
-  arenaSize: {x: 16, y: 9}
+  arenaSize: {x: 32, y: 18}
   backgroundColor: {r: 0.06, g: 0.03, b: 0.1, a: 1}
   floorSprite: {fileID: 21300000, guid: cceb9898dae3ee947a1160d09ec33950, type: 3}
   floorSingle: 1
@@ -43,10 +43,45 @@ MonoBehaviour:
     rotation: 0
   - name: Media
     sizeClass: 1
-    center: {x: 4.8, y: -2.4}
+    center: {x: 9.6, y: -4.8}
     size: {x: 4.2, y: 2.2}
     height: 0.95
     mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -19.533352, y: -9.90186}
+    size: {x: 3.7851615, y: 2.3571453}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 22.042528, y: 4.9621415}
+    size: {x: 3.27557, y: 2.0498505}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -9.095516, y: 3.2483635}
+    size: {x: 3.0603654, y: 2.5172393}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -12.169196, y: 12.282606}
+    size: {x: 4.0674996, y: 2.779564}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -26.03303, y: -13.738281}
+    size: {x: 4.11666, y: 2.7131832}
+    height: 0.95
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -58,6 +93,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -4.8, y: 0}
-  p2Spawn: {x: 4.8, y: 0}
+  p1Spawn: {x: -9.6, y: 0}
+  p2Spawn: {x: 9.6, y: 0}
   botSpawnPoints: 12

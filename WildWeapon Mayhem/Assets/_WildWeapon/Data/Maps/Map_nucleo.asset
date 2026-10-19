@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 0.72, g: 0.45, b: 1, a: 1}
   previewSprite: {fileID: 21300000, guid: f9d93422f426344429bbc8421b1dbe77, type: 3}
   decorNote: 'Reactor en el centro: cables arqueando, plasma en el piso y fosas de escoria'
-  arenaSize: {x: 24, y: 13}
+  arenaSize: {x: 48, y: 26}
   backgroundColor: {r: 0.05, g: 0.03, b: 0.09, a: 1}
   floorSprite: {fileID: 21300000, guid: f9d93422f426344429bbc8421b1dbe77, type: 3}
   floorSingle: 1
@@ -43,31 +43,136 @@ MonoBehaviour:
     rotation: 0
   - name: Baja
     sizeClass: 2
-    center: {x: 0, y: 4.3}
+    center: {x: 0, y: 8.6}
     size: {x: 6.4, y: 2.2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Media
     sizeClass: 1
-    center: {x: 8.4, y: 3.4}
+    center: {x: 16.8, y: 6.8}
     size: {x: 4.4, y: 2.2}
     height: 0.95
     mirrored: 1
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 8.8, y: -3.4}
+    center: {x: 17.6, y: -6.8}
     size: {x: 3.6, y: 2.2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 8.9, y: 0}
+    center: {x: 17.8, y: 0}
     size: {x: 3.2, y: 2.6}
     height: 0.55
     mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -31.214457, y: -5.875539}
+    size: {x: 3.5007668, y: 2.2581973}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 27.857416, y: 18.170422}
+    size: {x: 3.0577457, y: 2.19754}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 16.207241, y: -17.139645}
+    size: {x: 3.2058287, y: 2.0500953}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 14.998015, y: 20.007128}
+    size: {x: 4.391698, y: 2.554142}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 39.98887, y: -21.661263}
+    size: {x: 4.974122, y: 2.4416773}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 26.941677, y: -17.072361}
+    size: {x: 3.4089024, y: 2.7105737}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 34.439598, y: -2.7101617}
+    size: {x: 3.0858383, y: 2.1163132}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -41.251354, y: -0.29299125}
+    size: {x: 3.0543926, y: 2.3588789}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -6.9857564, y: -21.13604}
+    size: {x: 4.2175684, y: 2.0857298}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -33.642735, y: 8.258699}
+    size: {x: 3.5099516, y: 2.3578215}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -15.509502, y: 7.9857984}
+    size: {x: 3.2586854, y: 1.8864441}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -23.240446, y: -14.033606}
+    size: {x: 4.5901985, y: 1.93697}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 7.647833, y: -10.543043}
+    size: {x: 3.0657866, y: 2.3275454}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -42.725975, y: -14.437567}
+    size: {x: 4.311196, y: 2.1426387}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 37.314445, y: 16.435446}
+    size: {x: 3.7645483, y: 2.6469471}
+    height: 0.55
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -79,6 +184,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -7.2000003, y: 0}
-  p2Spawn: {x: 7.2000003, y: 0}
+  p1Spawn: {x: -14.400001, y: 0}
+  p2Spawn: {x: 14.400001, y: 0}
   botSpawnPoints: 18

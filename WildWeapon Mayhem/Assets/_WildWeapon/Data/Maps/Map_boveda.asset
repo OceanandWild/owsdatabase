@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 1, g: 0.8, b: 0.25, a: 1}
   previewSprite: {fileID: 21300000, guid: fb12ac1a1a649d7498bc6b4f096dffe3, type: 3}
   decorNote: 'Boveda de banco: lingotes, cajas fuertes y una puerta que baja como guillotina'
-  arenaSize: {x: 20, y: 11}
+  arenaSize: {x: 40, y: 22}
   backgroundColor: {r: 0.09, g: 0.07, b: 0.03, a: 1}
   floorSprite: {fileID: 21300000, guid: fb12ac1a1a649d7498bc6b4f096dffe3, type: 3}
   floorSingle: 1
@@ -43,17 +43,80 @@ MonoBehaviour:
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 7, y: 2.6}
+    center: {x: 14, y: 5.2}
     size: {x: 3.6, y: 2.2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Alta
     sizeClass: 0
-    center: {x: 6.8, y: -2.9}
+    center: {x: 13.6, y: -5.8}
     size: {x: 3.6, y: 2}
     height: 1.35
     mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 32.31951, y: 17.35684}
+    size: {x: 3.4901407, y: 2.7896106}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 22.750898, y: -0.9109587}
+    size: {x: 3.1486425, y: 2.4137928}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -10.596936, y: -1.4660866}
+    size: {x: 3.06909, y: 2.7450817}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 25.396814, y: -10.850779}
+    size: {x: 3.891749, y: 2.2529132}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 1.5926712, y: -10.784426}
+    size: {x: 3.5206165, y: 2.5927067}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -30.118053, y: -9.108266}
+    size: {x: 4.2578797, y: 2.6727269}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -5.406293, y: 8.193439}
+    size: {x: 4.55745, y: 2.3986964}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -23.454174, y: -4.594203}
+    size: {x: 4.761982, y: 1.9309554}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 6.8408513, y: 9.619382}
+    size: {x: 4.907336, y: 2.7148044}
+    height: 1.35
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -65,6 +128,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -6, y: 0}
-  p2Spawn: {x: 6, y: 0}
+  p1Spawn: {x: -12, y: 0}
+  p2Spawn: {x: 12, y: 0}
   botSpawnPoints: 14

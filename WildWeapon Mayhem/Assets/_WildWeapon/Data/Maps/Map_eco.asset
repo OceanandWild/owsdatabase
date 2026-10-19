@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 0.3, g: 1, b: 0.85, a: 1}
   previewSprite: {fileID: 21300000, guid: 47c90d86c5958dd4088dffe9acaead88, type: 3}
   decorNote: Pozo seco con paredes de piedra tallada y ecos que empujan desde el centro
-  arenaSize: {x: 16, y: 9}
+  arenaSize: {x: 32, y: 18}
   backgroundColor: {r: 0.03, g: 0.07, b: 0.08, a: 1}
   floorSprite: {fileID: 21300000, guid: 47c90d86c5958dd4088dffe9acaead88, type: 3}
   floorSingle: 1
@@ -43,10 +43,45 @@ MonoBehaviour:
     rotation: 0
   - name: Alta
     sizeClass: 0
-    center: {x: 5.3, y: -2.5}
+    center: {x: 10.6, y: -5}
     size: {x: 3.4, y: 2}
     height: 1.35
     mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 16.078205, y: 10.061516}
+    size: {x: 3.374715, y: 2.76709}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 4.138164, y: 9.335619}
+    size: {x: 3.5856416, y: 2.3374314}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 24.658373, y: -5.4301963}
+    size: {x: 3.229806, y: 2.350697}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -13.784632, y: 9.066696}
+    size: {x: 4.883746, y: 2.0096502}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -7.226839, y: -10.23457}
+    size: {x: 4.2026367, y: 2.0703297}
+    height: 1.35
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -58,6 +93,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -4.8, y: 0}
-  p2Spawn: {x: 4.8, y: 0}
+  p1Spawn: {x: -9.6, y: 0}
+  p2Spawn: {x: 9.6, y: 0}
   botSpawnPoints: 12

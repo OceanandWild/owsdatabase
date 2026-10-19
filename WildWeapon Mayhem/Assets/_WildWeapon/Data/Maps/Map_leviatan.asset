@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 0.7, g: 0.85, b: 0.35, a: 1}
   previewSprite: {fileID: 21300000, guid: 9b94c00e15734b04c8f6bbd5b5d3ede4, type: 3}
   decorNote: Costillas de un leviatan, charcos de acido y huesos usados como rampas
-  arenaSize: {x: 20, y: 11}
+  arenaSize: {x: 40, y: 22}
   backgroundColor: {r: 0.05, g: 0.06, b: 0.04, a: 1}
   floorSprite: {fileID: 21300000, guid: 9b94c00e15734b04c8f6bbd5b5d3ede4, type: 3}
   floorSingle: 1
@@ -43,17 +43,80 @@ MonoBehaviour:
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 6.4, y: 3}
+    center: {x: 12.8, y: 6}
     size: {x: 3.6, y: 2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Alta
     sizeClass: 0
-    center: {x: 6.6, y: -2.8}
+    center: {x: 13.2, y: -5.6}
     size: {x: 3.8, y: 2}
     height: 1.35
     mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -26.076319, y: 7.769832}
+    size: {x: 3.169492, y: 2.4720626}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 28.759605, y: -3.18554}
+    size: {x: 4.7406774, y: 1.9812222}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -19.903376, y: -11.07004}
+    size: {x: 3.7286959, y: 2.2496562}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -10.359846, y: -4.424538}
+    size: {x: 4.886955, y: 2.336231}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -21.511759, y: 0.9761695}
+    size: {x: 3.8053224, y: 2.7625518}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -11.563039, y: 2.6217291}
+    size: {x: 4.1748323, y: 2.4882066}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 17.524717, y: 16.024101}
+    size: {x: 4.6367455, y: 2.573843}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 0.8497468, y: -12.992519}
+    size: {x: 3.3878927, y: 2.402505}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 31.387627, y: 17.203403}
+    size: {x: 4.867784, y: 2.0928016}
+    height: 1.35
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -65,6 +128,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -6, y: 0}
-  p2Spawn: {x: 6, y: 0}
+  p1Spawn: {x: -12, y: 0}
+  p2Spawn: {x: 12, y: 0}
   botSpawnPoints: 14

@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 0.6, g: 0.75, b: 1, a: 1}
   previewSprite: {fileID: 21300000, guid: 87f9b87c29e799248858bc45d1bb00f9, type: 3}
   decorNote: 'Desguace orbital: turbinas que barren la arena y cables de alta tension'
-  arenaSize: {x: 20, y: 11}
+  arenaSize: {x: 40, y: 22}
   backgroundColor: {r: 0.04, g: 0.05, b: 0.09, a: 1}
   floorSprite: {fileID: 21300000, guid: 87f9b87c29e799248858bc45d1bb00f9, type: 3}
   floorSingle: 1
@@ -43,17 +43,80 @@ MonoBehaviour:
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 6.8, y: 3}
+    center: {x: 13.6, y: 6}
     size: {x: 3.6, y: 2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Alta
     sizeClass: 1
-    center: {x: 6.6, y: -2.8}
+    center: {x: 13.2, y: -5.6}
     size: {x: 4.4, y: 2.4}
     height: 1.35
     mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 20.086807, y: -2.5629704}
+    size: {x: 4.7590456, y: 1.8820072}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -34.138374, y: -17.086515}
+    size: {x: 4.46745, y: 2.7653677}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 0.70072824, y: 13.076561}
+    size: {x: 4.133097, y: 2.2836673}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 33.2164, y: 16.080694}
+    size: {x: 3.2295988, y: 2.166853}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -24.57253, y: 17.935345}
+    size: {x: 3.3716054, y: 1.8125875}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 25.763287, y: 14.636485}
+    size: {x: 4.0150533, y: 2.60034}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 19.825808, y: -17.086103}
+    size: {x: 4.8861036, y: 2.611738}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -23.697176, y: -7.658987}
+    size: {x: 4.760229, y: 1.9012473}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -20.13244, y: 5.668984}
+    size: {x: 4.25917, y: 2.604833}
+    height: 0.55
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -65,6 +128,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -6, y: 0}
-  p2Spawn: {x: 6, y: 0}
+  p1Spawn: {x: -12, y: 0}
+  p2Spawn: {x: 12, y: 0}
   botSpawnPoints: 14

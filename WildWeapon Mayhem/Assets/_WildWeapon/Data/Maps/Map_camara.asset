@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 0.55, g: 0.85, b: 1, a: 1}
   previewSprite: {fileID: 21300000, guid: a800bfe6e537f3045b7a9623c2c2a214, type: 3}
   decorNote: 'Camara de congelados: ganchos, cajas apiladas y escarcha en el piso'
-  arenaSize: {x: 16, y: 9}
+  arenaSize: {x: 32, y: 18}
   backgroundColor: {r: 0.05, g: 0.08, b: 0.11, a: 1}
   floorSprite: {fileID: 21300000, guid: a800bfe6e537f3045b7a9623c2c2a214, type: 3}
   floorSingle: 1
@@ -43,10 +43,45 @@ MonoBehaviour:
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 5.2, y: 2.6}
+    center: {x: 10.4, y: 5.2}
     size: {x: 3.6, y: 2}
     height: 0.55
     mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -1.727573, y: -13.920173}
+    size: {x: 3.5799384, y: 2.0621178}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -13.909654, y: -6.8511195}
+    size: {x: 4.430606, y: 2.693641}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 10.670777, y: -2.2503617}
+    size: {x: 4.730916, y: 2.451738}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -15.41054, y: 12.327526}
+    size: {x: 3.8999195, y: 1.8570218}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -8.642997, y: -0.45290798}
+    size: {x: 4.349655, y: 2.0682633}
+    height: 0.55
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -58,6 +93,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -4.8, y: 0}
-  p2Spawn: {x: 4.8, y: 0}
+  p1Spawn: {x: -9.6, y: 0}
+  p2Spawn: {x: 9.6, y: 0}
   botSpawnPoints: 12

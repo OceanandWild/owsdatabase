@@ -19,7 +19,7 @@ MonoBehaviour:
   accent: {r: 1, g: 0.6, b: 0.2, a: 1}
   previewSprite: {fileID: 21300000, guid: 929d9329ca39ba443bebb17adf83b498, type: 3}
   decorNote: 'Mercado nocturno: puestos incendiados, toneles de aceite y monedas por el piso'
-  arenaSize: {x: 24, y: 13}
+  arenaSize: {x: 48, y: 26}
   backgroundColor: {r: 0.08, g: 0.05, b: 0.04, a: 1}
   floorSprite: {fileID: 21300000, guid: 929d9329ca39ba443bebb17adf83b498, type: 3}
   floorSingle: 1
@@ -43,31 +43,136 @@ MonoBehaviour:
     rotation: 0
   - name: Baja
     sizeClass: 2
-    center: {x: 0, y: 4.2}
+    center: {x: 0, y: 8.4}
     size: {x: 7, y: 2.2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Media
     sizeClass: 1
-    center: {x: 8.2, y: 3.2}
+    center: {x: 16.4, y: 6.4}
     size: {x: 4.8, y: 2.4}
     height: 0.95
     mirrored: 1
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 8.8, y: -3.3}
+    center: {x: 17.6, y: -6.6}
     size: {x: 3.6, y: 2}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Alta
     sizeClass: 0
-    center: {x: 8.8, y: 0}
+    center: {x: 17.6, y: 0}
     size: {x: 3.6, y: 2.6}
     height: 1.35
     mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -33.89252, y: 15.609518}
+    size: {x: 3.9381533, y: 2.7018967}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 35.790157, y: 16.724384}
+    size: {x: 3.6708925, y: 1.8439659}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -21.262028, y: 15.884776}
+    size: {x: 4.9912825, y: 2.4968097}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 20.160158, y: 19.936539}
+    size: {x: 4.559278, y: 2.4766843}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 18.214924, y: -18.396355}
+    size: {x: 3.3785791, y: 2.6303737}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -37.731094, y: 1.9744915}
+    size: {x: 3.0437474, y: 2.3107924}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: 14.395444, y: 13.41458}
+    size: {x: 4.644589, y: 2.4224463}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -5.507628, y: 14.165264}
+    size: {x: 4.3421254, y: 2.0185387}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -9.54074, y: -7.336903}
+    size: {x: 3.039852, y: 2.7111595}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 1
+    center: {x: -6.0873723, y: -15.709745}
+    size: {x: 4.630534, y: 2.512607}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: 6.656397, y: -16.244413}
+    size: {x: 4.0004845, y: 2.5117226}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 1
+    center: {x: -24.264761, y: -5.8365235}
+    size: {x: 3.4334362, y: 2.4735723}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 25.76337, y: -21.914299}
+    size: {x: 3.064891, y: 2.096452}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: -2.1668267, y: 21.542826}
+    size: {x: 4.473007, y: 2.4301274}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 1
+    center: {x: 35.252026, y: 8.3944025}
+    size: {x: 3.6114342, y: 2.7467258}
+    height: 0.95
+    mirrored: 0
     rotation: 0
   obstacles: []
   obstacleCount: 0
@@ -79,6 +184,6 @@ MonoBehaviour:
   randomSeedEachMatch: 1
   mirroredForDuel: 1
   spawnClearRadius: 2.6
-  p1Spawn: {x: -7.2000003, y: 0}
-  p2Spawn: {x: 7.2000003, y: 0}
+  p1Spawn: {x: -14.400001, y: 0}
+  p2Spawn: {x: 14.400001, y: 0}
   botSpawnPoints: 18

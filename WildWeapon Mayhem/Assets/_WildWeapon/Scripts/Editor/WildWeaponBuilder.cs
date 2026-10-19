@@ -49,7 +49,7 @@ namespace WildWeapon.EditorTools
 
         // Layout del menu principal (lo comparten la escena y los clips de animacion)
         private const float MenuCardY = 108f;
-        private const float MenuInfoY = 266f;
+        private const float MenuInfoY = 276f;
         private const float MenuLogoY = -60f;
 
         private static Material _unlit;
@@ -224,6 +224,23 @@ namespace WildWeapon.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             EditorSceneManager.OpenScene(MenuScenePath);
+            return "OK";
+        }
+
+        /// <summary>
+        /// Reconstruye solo MainMenu. No regenera el AnimatorController para no
+        /// pisar ajustes locales de animacion, y no toca las demas escenas.
+        /// </summary>
+        public static string BuildMenuOnly()
+        {
+            if (_soft == null) _soft = EnsureSoftCircle();
+            if (_panel == null) _panel = EnsureUiPanel();
+            if (_shine == null) _shine = EnsureShine();
+            if (_vignette == null) _vignette = EnsureVignette();
+
+            BuildMenuScene(false);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
             return "OK";
         }
 
@@ -2037,7 +2054,7 @@ def.platforms = scaledPlats;
         // =====================================================================
         // Escena MainMenu (fondo en capas + logo animado + tarjetas de modo)
         // =====================================================================
-        private static void BuildMenuScene()
+        private static void BuildMenuScene(bool rebuildAnimator = true)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -2079,16 +2096,22 @@ def.platforms = scaledPlats;
 
             var cards = new MenuModeCard[cardTitles.Length];
             for (int i = 0; i < cards.Length; i++)
-                cards[i] = ModeCard(cardsHolder.transform, font, i, cardTitles[i], cardSubs[i], accents[i], (i + 1).ToString("00"), Spr(cardIcons[i]));
+                cards[i] = ModeCard(cardsHolder.transform, font, i, cardTitles[i], cardSubs[i], accents[i], Spr(cardIcons[i]));
 
-            var info = ModeInfoStrip(canvasGo.transform, font, accents);
+            var info = ModeInfoBubble(canvasGo.transform, font, accents);
             foreach (var card in cards) card.info = info;
 
             UnityEventTools.AddPersistentListener(cards[0].GetComponent<Button>().onClick, controller.PlayMulti);
             UnityEventTools.AddPersistentListener(cards[1].GetComponent<Button>().onClick, controller.PlayPvp);
             UnityEventTools.AddPersistentListener(cards[2].GetComponent<Button>().onClick, controller.PlayBots);
             UnityEventTools.AddPersistentListener(cards[3].GetComponent<Button>().onClick, controller.Quit);
-            es.firstSelectedGameObject = cards[0].gameObject;
+
+            // Sin foco inicial: el menu arranca neutro y el jugador elige con el mouse.
+            // MenuNavFocus recien toma la primera tarjeta cuando navega con teclado/mando.
+            es.firstSelectedGameObject = null;
+            var nav = canvasGo.AddComponent<MenuNavFocus>();
+            nav.events = es;
+            nav.first = cards[0].GetComponent<Selectable>();
 
             // ---- Pie ----
             HintRow(canvasGo.transform, font, new[]
@@ -2114,7 +2137,11 @@ def.platforms = scaledPlats;
 
             var anim = canvasGo.AddComponent<Animator>();
             anim.updateMode = AnimatorUpdateMode.UnscaledTime;
-            anim.runtimeAnimatorController = BuildMenuController();
+            var menuController = rebuildAnimator
+                ? BuildMenuController()
+                : AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(AnimDir + "/Menu/MainMenu.controller");
+            if (menuController == null) menuController = BuildMenuController();
+            anim.runtimeAnimatorController = menuController;
 
             // ---- Audio ----
             var musicGo = new GameObject("Music");
@@ -3206,7 +3233,7 @@ def.platforms = scaledPlats;
 
         /// <summary>Tarjeta de modo: la raiz la anima el intro, el cuerpo lo mueve el runtime.</summary>
         private static MenuModeCard ModeCard(Transform parent, Font font, int i, string title, string subtitle,
-            Color accent, string number, Sprite icon)
+            Color accent, Sprite icon)
         {
             var root = new GameObject("Card" + i, typeof(RectTransform));
             root.transform.SetParent(parent, false);
@@ -3256,14 +3283,6 @@ def.platforms = scaledPlats;
             mrt.anchoredPosition = new Vector2(0f, -2f);
             mrt.sizeDelta = new Vector2(126f, 126f);
 
-            var index = UiText("Index", body.transform, font, number, 24, new Color(1f, 1f, 1f, 0.14f));
-            index.alignment = TextAnchor.UpperLeft;
-            var irt = index.rectTransform;
-            irt.anchorMin = irt.anchorMax = new Vector2(0f, 1f);
-            irt.pivot = new Vector2(0f, 1f);
-            irt.anchoredPosition = new Vector2(18f, -12f);
-            irt.sizeDelta = new Vector2(60f, 30f);
-
             var label = UiText("Label", body.transform, font, title, 32, new Color(0.8f, 0.85f, 0.92f));
             var lrt = label.rectTransform;
             lrt.anchorMin = lrt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -3294,14 +3313,13 @@ def.platforms = scaledPlats;
             card.watermark = mark;
             card.title = label;
             card.subtitle = sub;
-            card.indexLabel = index;
             card.accentColor = accent;
             card.modeIndex = i;
             return card;
         }
 
-        /// <summary>Franja de detalle del modo: titulo, bajada y fichas de datos.</summary>
-        private static MenuModeInfo ModeInfoStrip(Transform parent, Font font, Color[] accents)
+        /// <summary>Globo compacto de detalle: aparece sobre la tarjeta hovereada.</summary>
+        private static MenuModeInfo ModeInfoBubble(Transform parent, Font font, Color[] accents)
         {
             var go = new GameObject("ModeInfo", typeof(RectTransform));
             go.transform.SetParent(parent, false);
@@ -3309,87 +3327,63 @@ def.platforms = scaledPlats;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
             rt.pivot = new Vector2(0.5f, 0f);
             rt.anchoredPosition = new Vector2(0f, MenuInfoY);
-            rt.sizeDelta = new Vector2(1180f, 138f);
+            rt.sizeDelta = new Vector2(320f, 180f);
             var group = go.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.blocksRaycasts = false;
+            group.interactable = false;
 
-            var stripSkin = Spr("ww_menu_info_skin");
-            var bg = stripSkin != null
-                ? UiImage("Bg", go.transform, stripSkin, Color.white)
-                : Panel(go.transform, "Bg", new Color(0.02f, 0.035f, 0.06f, 0.66f));
+            var bg = Panel(go.transform, "Bg", new Color(0.018f, 0.03f, 0.055f, 0.94f));
             Stretch(bg.rectTransform);
             var outline = bg.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(1f, 1f, 1f, 0.06f);
+            outline.effectColor = new Color(1f, 1f, 1f, 0.10f);
             outline.effectDistance = new Vector2(1f, -1f);
+            var shadow = bg.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
+            shadow.effectDistance = new Vector2(0f, -4f);
 
-            var bar = Panel(go.transform, "Bar", accents[0]);
+            // Filo superior con el acento del modo.
+            var bar = Panel(go.transform, "Accent", accents[0]);
             var brt = bar.rectTransform;
-            brt.anchorMin = new Vector2(0f, 0f);
-            brt.anchorMax = new Vector2(0f, 1f);
-            brt.pivot = new Vector2(0f, 0.5f);
-            brt.anchoredPosition = new Vector2(3f, 0f);
-            brt.sizeDelta = new Vector2(5f, -18f);
+            brt.anchorMin = new Vector2(0f, 1f);
+            brt.anchorMax = new Vector2(1f, 1f);
+            brt.pivot = new Vector2(0.5f, 1f);
+            brt.anchoredPosition = Vector2.zero;
+            brt.sizeDelta = new Vector2(-2f, 3f);
 
-            // Emblema del modo, fantasma a la derecha (detrás de las fichas).
-            var mark = UiImage("Mark", go.transform, Spr("ww_icon_duel"),
-                new Color(accents[0].r, accents[0].g, accents[0].b, 0.16f));
-            mark.preserveAspect = true;
-            var mrt = mark.rectTransform;
-            mrt.anchorMin = mrt.anchorMax = new Vector2(1f, 0.5f);
-            mrt.pivot = new Vector2(1f, 0.5f);
-            mrt.anchoredPosition = new Vector2(-26f, -8f);
-            mrt.sizeDelta = new Vector2(108f, 108f);
-
-            var title = UiText("Title", go.transform, font, "", 30, Color.white);
+            var title = UiText("Title", go.transform, font, "", 22, Color.white);
             title.alignment = TextAnchor.MiddleLeft;
             var trt = title.rectTransform;
             trt.anchorMin = new Vector2(0f, 1f);
             trt.anchorMax = new Vector2(1f, 1f);
             trt.pivot = new Vector2(0f, 1f);
-            trt.anchoredPosition = new Vector2(36f, -10f);
-            trt.sizeDelta = new Vector2(-670f, 40f);
+            trt.anchoredPosition = new Vector2(18f, -14f);
+            trt.sizeDelta = new Vector2(-36f, 30f);
 
-            var blurb = UiText("Blurb", go.transform, font, "", 18, new Color(1f, 1f, 1f, 0.72f));
+            var blurb = UiText("Blurb", go.transform, font, "", 13, new Color(1f, 1f, 1f, 0.68f));
             blurb.alignment = TextAnchor.UpperLeft;
             blurb.fontStyle = FontStyle.Normal;
+            blurb.lineSpacing = 1.05f;
+            blurb.horizontalOverflow = HorizontalWrapMode.Wrap;
+            blurb.verticalOverflow = VerticalWrapMode.Truncate;
             var brrt = blurb.rectTransform;
-            brrt.anchorMin = new Vector2(0f, 1f);
+            brrt.anchorMin = new Vector2(0f, 0f);
             brrt.anchorMax = new Vector2(1f, 1f);
-            brrt.pivot = new Vector2(0f, 1f);
-            brrt.anchoredPosition = new Vector2(36f, -56f);
-            brrt.sizeDelta = new Vector2(-72f, 62f);
+            brrt.pivot = new Vector2(0.5f, 1f);
+            brrt.offsetMin = new Vector2(18f, 26f);
+            brrt.offsetMax = new Vector2(-18f, -50f);
 
-            var chipsRow = new GameObject("Chips", typeof(RectTransform));
-            chipsRow.transform.SetParent(go.transform, false);
-            var crt = (RectTransform)chipsRow.transform;
-            crt.anchorMin = new Vector2(1f, 1f);
-            crt.anchorMax = new Vector2(1f, 1f);
-            crt.pivot = new Vector2(1f, 1f);
-            crt.anchoredPosition = new Vector2(-26f, -12f);
-            crt.sizeDelta = new Vector2(600f, 36f);
-            var hlg = chipsRow.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 10f;
-            hlg.childAlignment = TextAnchor.MiddleRight;
-            hlg.childControlWidth = false;
-            hlg.childControlHeight = false;
-            hlg.childForceExpandWidth = false;
-            hlg.childForceExpandHeight = false;
-
-            var chipSkin = Spr("ww_menu_chip_skin");
-            var chips = new MenuModeInfo.Chip[3];
-            for (int i = 0; i < chips.Length; i++)
-            {
-                var cgo = new GameObject("Chip" + i, typeof(RectTransform));
-                cgo.transform.SetParent(chipsRow.transform, false);
-                ((RectTransform)cgo.transform).sizeDelta = new Vector2(186f, 34f);
-                var cg = cgo.AddComponent<CanvasGroup>();
-                var cimg = chipSkin != null
-                    ? UiImage("Bg", cgo.transform, chipSkin, Color.white)
-                    : Panel(cgo.transform, "Bg", new Color(1f, 1f, 1f, 0.06f));
-                Stretch(cimg.rectTransform);
-                var clabel = UiText("Label", cgo.transform, font, "", 15, new Color(1f, 1f, 1f, 0.8f));
-                Stretch(clabel.rectTransform);
-                chips[i] = new MenuModeInfo.Chip { group = cg, bg = cimg, label = clabel };
-            }
+            // Flecha hacia abajo: apunta a la tarjeta que se esta mirando.
+            var arrow = UiText("Arrow", go.transform, font, "▼", 26, accents[0]);
+            arrow.alignment = TextAnchor.MiddleCenter;
+            var arrowOutline = arrow.gameObject.AddComponent<Outline>();
+            arrowOutline.effectColor = new Color(0f, 0f, 0f, 0.55f);
+            arrowOutline.effectDistance = new Vector2(1f, -1f);
+            var arrt = arrow.rectTransform;
+            arrt.anchorMin = arrt.anchorMax = new Vector2(0.5f, 0f);
+            arrt.pivot = new Vector2(0.5f, 1f);
+            arrt.anchoredPosition = new Vector2(0f, -3f);
+            arrt.sizeDelta = new Vector2(40f, 26f);
 
             var info = go.AddComponent<MenuModeInfo>();
             info.group = group;
@@ -3397,37 +3391,32 @@ def.platforms = scaledPlats;
             info.blurb = blurb;
             info.accentBar = bar;
             info.frame = bg;
-            info.watermark = mark;
-            info.modeIcons = new[] { Spr("ww_icon_duel"), Spr("ww_icon_pvp"), Spr("ww_icon_survival"), Spr("ww_icon_exit") };
-            info.chips = chips;
+            info.frameOutline = outline;
+            info.arrow = arrow;
             info.modes = new[]
             {
                 new MenuModeInfo.Entry
                 {
                     title = "SALA CON CODIGO",
                     blurb = "Armá una sala online y compartí el código de 4 a 6 dígitos. Hasta 15 combatientes; el anfitrión suma bots para completar el plantel y arranca cuando quiere.",
-                    chips = new[] { "SALA POR CODIGO", "HASTA 15", "BOTS DE RELLENO" },
                     accent = accents[0]
                 },
                 new MenuModeInfo.Entry
                 {
                     title = "PVP ONLINE",
                     blurb = "Emparejamiento en vivo contra otro jugador. El servidor arbitra las rondas y comparte la semilla, así los dos pelean exactamente la misma arena.",
-                    chips = new[] { "ONLINE 1 VS 1", "EL SERVIDOR ARBITRA", "MISMA SEMILLA" },
                     accent = accents[1]
                 },
                 new MenuModeInfo.Entry
                 {
                     title = "SUPERVIVENCIA VS BOTS",
                     blurb = "Oleadas cada vez más duras: drones sierra, androides lanceros y caballeros pesados. Entre oleada y oleada recuperás vida y arranca la siguiente.",
-                    chips = new[] { "OLEADAS CRECIENTES", "3 ARQUETIPOS", "+30 DE VIDA" },
                     accent = accents[2]
                 },
                 new MenuModeInfo.Entry
                 {
                     title = "SALIR",
                     blurb = "Cerrás el juego y volvés al escritorio. Adentro de la arena podés volver a este menú cuando quieras con Esc.",
-                    chips = new[] { "ESC · VOLVER AL MENÚ", "CIERRA EL JUEGO" },
                     accent = accents[3]
                 },
             };

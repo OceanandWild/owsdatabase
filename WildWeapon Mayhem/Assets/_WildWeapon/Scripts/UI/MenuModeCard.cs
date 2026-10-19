@@ -7,7 +7,7 @@ namespace WildWeapon.UI
     /// <summary>
     /// Tarjeta de modo del menu principal. Al pasar el raton o seleccionarla con
     /// mando levanta el "cuerpo" de la tarjeta, enciende el acento y el halo, y
-    /// avisa al panel de informacion para que muestre el detalle del modo.
+    /// avisa al globo de informacion para que muestre el detalle del modo.
     /// El animator de la escena anima la RAIZ de la tarjeta (intro / idle), asi
     /// que todo lo que se mueve en runtime va sobre el hijo "Body".
     /// </summary>
@@ -27,7 +27,6 @@ namespace WildWeapon.UI
         [Header("Textos")]
         public Graphic title;
         public Graphic subtitle;
-        public Graphic indexLabel;
 
         [Header("Skin y emblema")]
         /// <summary>Emblema del modo (fondo, se pinta con el acento).</summary>
@@ -60,7 +59,11 @@ namespace WildWeapon.UI
             Notify();
         }
 
-        public void OnPointerExit(PointerEventData e) => _hover = false;
+        public void OnPointerExit(PointerEventData e)
+        {
+            _hover = false;
+            if (info != null && !_selected) info.Hide(modeIndex);
+        }
 
         public void OnSelect(BaseEventData e)
         {
@@ -68,14 +71,25 @@ namespace WildWeapon.UI
             Notify();
         }
 
-        public void OnDeselect(BaseEventData e) => _selected = false;
+        public void OnDeselect(BaseEventData e)
+        {
+            _selected = false;
+            if (info != null && !_hover) info.Hide(modeIndex);
+        }
+
+        private void OnDisable()
+        {
+            _hover = false;
+            _selected = false;
+            if (info != null) info.Hide(modeIndex);
+        }
 
         private void Notify()
         {
-            if (info != null) info.Show(modeIndex);
+            if (info != null) info.Show(modeIndex, (RectTransform)transform);
         }
 
-        /// <summary>Usado por el builder/EventSystem para mostrar el modo por defecto.</summary>
+        /// <summary>Muestra el detalle de esta tarjeta (util para pruebas o llamadas externas).</summary>
         public void ShowInfo() => Notify();
 
         private void Update()
@@ -146,13 +160,6 @@ namespace WildWeapon.UI
                 var c = subtitle.color;
                 c.a = Mathf.Lerp(0.5f, 0.95f, e);
                 subtitle.color = c;
-            }
-
-            if (indexLabel != null)
-            {
-                var c = Color.white;
-                c.a = Mathf.Lerp(0.14f, 0.4f, e);
-                indexLabel.color = c;
             }
         }
     }

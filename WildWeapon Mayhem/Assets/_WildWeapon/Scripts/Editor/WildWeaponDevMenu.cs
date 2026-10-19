@@ -17,6 +17,14 @@ namespace WildWeapon.EditorTools
             Debug.Log("[WildWeapon] Escenas reconstruidas (modo silencioso).");
         }
 
+        /// <summary>Solo el menu: iterar la UI sin tocar el resto de las escenas.</summary>
+        [MenuItem("WildWeapon/Dev/Reconstruir menu (silencioso)")]
+        private static void RebuildMenu()
+        {
+            WildWeaponBuilder.BuildMenuOnly();
+            Debug.Log("[WildWeapon] Menu reconstruido (modo silencioso).");
+        }
+
         /// <summary>Solo el lobby: iterar la maqueta sin rehacer el arte ni los prefabs.</summary>
         [MenuItem("WildWeapon/Dev/Reconstruir lobby (silencioso)")]
         private static void RebuildLobby()

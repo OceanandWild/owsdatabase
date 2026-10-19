@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using WildWeapon.Pvp;
 
 namespace WildWeapon
 {
@@ -119,6 +120,8 @@ public static readonly List<PlayerSlot> MultiPlayers = new List<PlayerSlot>();
         public static int PvpOpponentColor = 1;
         /// <summary>Semilla compartida para que ambos clientes generen la misma arena.</summary>
         public static int PvpSeed = 1;
+        /// <summary>Lista de oponentes del PVP (N jugadores). Llena el lobby privado.</summary>
+        public static readonly List<PvpOpp> PvpOpps = new List<PvpOpp>();
 
         public static readonly Color[] Palette =
         {

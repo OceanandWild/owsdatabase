@@ -133,6 +133,9 @@ namespace WildWeapon.Pvp
                 case PvpMsgType.Matched:
                     string oppName = m.opp != null && !string.IsNullOrEmpty(m.opp.name) ? m.opp.name : "RIVAL";
                     int oppColor = m.opp != null ? m.opp.color : 1;
+                    GameSession.PvpOpps.Clear();
+                    if (m.opps != null) GameSession.PvpOpps.AddRange(m.opps);
+                    else if (m.opp != null) GameSession.PvpOpps.Add(m.opp);
                     RadarMood(300f, 0.30f);
                     SetStatus("RIVAL ENCONTRADO: " + oppName, "Preparando la arena...");
                     SetCancelLabel("");

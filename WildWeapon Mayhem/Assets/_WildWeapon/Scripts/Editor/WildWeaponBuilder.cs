@@ -44,6 +44,7 @@ namespace WildWeapon.EditorTools
         private const string MapSelectScenePath = ScenesDir + "/MapSelect.unity";
         private const string ArenaScenePath = ScenesDir + "/Arena.unity";
         private const string CharSelectScenePath = ScenesDir + "/CharacterSelect.unity";
+        private const string LobbyScenePath = ScenesDir + "/MultiplayerLobby.unity";
         private const string CatalogPath = MapsDir + "/MapCatalog.asset";
 
         // Layout del menu principal (lo comparten la escena y los clips de animacion)
@@ -208,13 +209,16 @@ namespace WildWeapon.EditorTools
             // Personalizacion (previews + selector de color): escena aparte, lista para
             // colgar del menu cuando se decida donde va.
             BuildCharacterSelectScene(cyborg, charCtrl);
+            // Lobby multijugador local: arma el plantel antes de elegir la arena.
+            BuildLobbyScene();
 
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene(MenuScenePath, true),
                 new EditorBuildSettingsScene(MapSelectScenePath, true),
                 new EditorBuildSettingsScene(ArenaScenePath, true),
-                new EditorBuildSettingsScene(CharSelectScenePath, true)
+                new EditorBuildSettingsScene(CharSelectScenePath, true),
+                new EditorBuildSettingsScene(LobbyScenePath, true)
             };
 
             AssetDatabase.SaveAssets();
@@ -2620,6 +2624,323 @@ def.platforms = scaledPlats;
             music.volume = 0.5f;
 
             EditorSceneManager.SaveScene(scene, CharSelectScenePath);
+        }
+
+        // =====================================================================
+        // Escena Lobby multijugador local
+        // =====================================================================
+        /// <summary>
+        /// Lobby local (plantel de hasta 15 jugadores): la placa, el encabezado de
+        /// columnas y la lista con scroll salen de <see cref="LobbyLayout"/>, los mismos
+        /// numeros que usa <see cref="MultiplayerLobbyController"/> para armar cada fila,
+        /// asi el encabezado y las filas no se desalinean al retocar la maqueta. Las
+        /// filas las construye el runtime. Se puede llamar sola desde el menu de dev.
+        /// </summary>
+        public static string BuildLobbyScene()
+        {
+            // Se puede llamar sin un build completo: asegura el arte generado que usa.
+            if (_soft == null) _soft = EnsureSoftCircle();
+            if (_panel == null) _panel = EnsureUiPanel();
+            if (_vignette == null) _vignette = EnsureVignette();
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+            var camGo = MenuCamera();
+            MenuLight2D();
+            var es = MenuEventSystem();
+
+            var canvasGo = MenuCanvas("LobbyCanvas", camGo.GetComponent<Camera>());
+            var controller = canvasGo.AddComponent<MultiplayerLobbyController>();
+            var canvasT = canvasGo.transform;
+
+            BuildBackdrop(canvasT);
+
+            // ---- Cabecera ----
+            var chips = new GameObject("Chips", typeof(RectTransform));
+            chips.transform.SetParent(canvasT, false);
+            Stretch((RectTransform)chips.transform);
+            TopChip(chips.transform, font, true, "OCEAN AND WILD STUDIOS", new Color(0.34f, 0.9f, 1f));
+            TopChip(chips.transform, font, false, "LOBBY LOCAL · F0", new Color(1f, 0.7f, 0.28f));
+
+            // El plantel actual, pegado al chip de la derecha (la linea de arriba tiene
+            // aire de sobra en cualquier aspecto; el pie no).
+            var count = UiText("CountLabel", canvasT, font, "2 JUGADORES · 2 EQUIPOS", 17, new Color(1f, 1f, 1f, 0.62f));
+            count.alignment = TextAnchor.MiddleRight;
+            HudRect(count.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-320f, -22f), new Vector2(420f, 42f));
+            controller.countLabel = count;
+
+            var title = UiText("Title", canvasT, font, "MULTIJUGADOR LOCAL", 52, Color.white);
+            HudRect(title.rectTransform, Center, Center, new Vector2(0f, 420f), new Vector2(1400f, 68f));
+            var titleSh = title.gameObject.AddComponent<Shadow>();
+            titleSh.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            titleSh.effectDistance = new Vector2(2f, -3f);
+
+            // Bajada en dos mitades: a la izquierda el plantel, a la derecha el estado.
+            var sub = UiText("Subtitle", canvasT, font, "LOCAL · 2 / 15 JUGADORES", 19, new Color(1f, 1f, 1f, 0.68f));
+            sub.fontStyle = FontStyle.Normal;
+            sub.alignment = TextAnchor.MiddleRight;
+            HudRect(sub.rectTransform, Center, Center, new Vector2(-520f, 364f), new Vector2(960f, 28f));
+            controller.subLabel = sub;
+
+            var foot = UiText("FootHint", canvasT, font, "AGREGA OTRO JUGADOR PARA ARRANCAR", 19, new Color(1f, 0.72f, 0.30f, 0.9f));
+            foot.alignment = TextAnchor.MiddleLeft;
+            HudRect(foot.rectTransform, Center, Center, new Vector2(520f, 364f), new Vector2(960f, 28f));
+            controller.footHint = foot;
+
+            // ---- Tablero ----
+            // Halo tenue detras de la placa (hermano previo: el grafico del padre se
+            // pinta antes que sus hijos, asi que el brillo va aca y no adentro).
+            var boardGlow = UiImage("BoardGlow", canvasT, _soft, new Color(0.34f, 0.82f, 1f, 0.10f));
+            HudRect(boardGlow.rectTransform, Center, Center, new Vector2(0f, LobbyLayout.BoardY),
+                new Vector2(LobbyLayout.BoardW + 300f, LobbyLayout.BoardH + 240f));
+
+            var boardSkin = Spr("ww_lobby_panel");
+            Image board;
+            if (boardSkin != null)
+            {
+                board = UiImage("Board", canvasT, boardSkin, Color.white);
+            }
+            else
+            {
+                board = Panel(canvasT, "Board", new Color(0.05f, 0.07f, 0.11f, 0.92f));
+                board.pixelsPerUnitMultiplier = 2.2f;
+            }
+            HudRect(board.rectTransform, Center, Center, new Vector2(0f, LobbyLayout.BoardY),
+                new Vector2(LobbyLayout.BoardW, LobbyLayout.BoardH));
+            var boardSh = board.gameObject.AddComponent<Shadow>();
+            boardSh.effectColor = new Color(0f, 0f, 0f, 0.55f);
+            boardSh.effectDistance = new Vector2(0f, -8f);
+
+            // ---- Encabezado de columnas (mismos offsets que las filas) ----
+            float rowLeft = LobbyLayout.ListX - LobbyLayout.ListW * 0.5f;
+            LobbyHeader(board.transform, font, "COLOR", rowLeft + LobbyLayout.ColorX, 110f);
+            LobbyHeader(board.transform, font, "NOMBRE", rowLeft + LobbyLayout.NameX + LobbyLayout.NameW * 0.5f, 260f);
+            LobbyHeader(board.transform, font, "CONTROL", rowLeft + LobbyLayout.ControlX + LobbyLayout.ControlW * 0.5f, 300f);
+            LobbyHeader(board.transform, font, "EQUIPO", rowLeft + LobbyLayout.TeamX + LobbyLayout.TeamW * 0.5f, 180f);
+            LobbyHeader(board.transform, font, "N°", rowLeft + LobbyLayout.SeatX + LobbyLayout.SeatW * 0.5f, 60f);
+
+            var rule = UiImage("Rule", board.transform, null, new Color(1f, 1f, 1f, 0.10f));
+            HudRect(rule.rectTransform, Center, Center,
+                new Vector2(LobbyLayout.ListX, LobbyLayout.RuleY), new Vector2(LobbyLayout.ListW, LobbyLayout.RuleH));
+
+            // ---- Lista con scroll ----
+            LobbyList(board.transform, controller);
+
+            // ---- Botonera: plantel a la izquierda, navegacion a la derecha ----
+            // (el estado va en la bajada del titulo: asi el pie aguanta pantallas
+            // anchas sin que los botones se salgan por abajo)
+            const float btnY = -412f;
+            controller.removeButton = LobbyButton(canvasT, "BtnQuitar", "- QUITAR", font,
+                Spr("ww_lobby_button_remove"), new Color(1f, 0.42f, 0.38f), new Vector2(-536f, btnY));
+            controller.addButton = LobbyButton(canvasT, "BtnAgregar", "+ AGREGAR", font,
+                Spr("ww_lobby_button_add"), new Color(0.42f, 0.90f, 0.50f), new Vector2(-216f, btnY));
+            controller.backButton = LobbyButton(canvasT, "BtnVolver", "VOLVER", font,
+                Spr("ww_lobby_button_back"), new Color(0.70f, 0.80f, 0.95f), new Vector2(216f, btnY));
+            controller.continueButton = LobbyButton(canvasT, "BtnContinuar", "CONTINUAR", font,
+                Spr("ww_lobby_button_continue"), new Color(0.36f, 0.86f, 1f), new Vector2(536f, btnY));
+
+            var divider = UiImage("Divider", canvasT, null, new Color(1f, 1f, 1f, 0.12f));
+            HudRect(divider.rectTransform, Center, Center, new Vector2(0f, btnY), new Vector2(2f, 54f));
+
+            UnityEventTools.AddPersistentListener(controller.removeButton.onClick, controller.RemoveLast);
+            UnityEventTools.AddPersistentListener(controller.addButton.onClick, controller.AddPlayer);
+            UnityEventTools.AddPersistentListener(controller.backButton.onClick, controller.Back);
+            UnityEventTools.AddPersistentListener(controller.continueButton.onClick, controller.Continue);
+            es.firstSelectedGameObject = controller.addButton.gameObject;
+
+            // ---- Fader + audio ----
+            controller.fader = FaderCanvas();
+
+            var musicGo = new GameObject("Music");
+            var music = musicGo.AddComponent<MusicPlayer>();
+            music.clip = MusicClip("ww_music_menu");
+            music.volume = 0.5f;
+
+            EditorSceneManager.SaveScene(scene, LobbyScenePath);
+            return "OK";
+        }
+
+        private static readonly Vector2 Center = new Vector2(0.5f, 0.5f);
+
+        /// <summary>Etiqueta del encabezado de columnas del tablero del lobby.</summary>
+        private static void LobbyHeader(Transform board, Font font, string label, float x, float w)
+        {
+            var text = UiText("Head_" + label, board, font, label, 16, new Color(0.80f, 0.88f, 1f, 0.5f));
+            HudRect(text.rectTransform, Center, Center,
+                new Vector2(x, LobbyLayout.HeaderY), new Vector2(w, LobbyLayout.HeaderH * 0.6f));
+        }
+
+        /// <summary>
+        /// Lista del lobby: pozo apenas mas oscuro, viewport con mascara, contenido
+        /// apilado por VerticalLayoutGroup y barra de scroll propia (el arte de la
+        /// epoca no traia barra: se arma con el panel 9-slice generado).
+        /// </summary>
+        private static void LobbyList(Transform board, MultiplayerLobbyController controller)
+        {
+            var listGo = new GameObject("List", typeof(RectTransform));
+            listGo.transform.SetParent(board, false);
+            var listRt = (RectTransform)listGo.transform;
+            HudRect(listRt, Center, Center,
+                new Vector2(0f, LobbyLayout.ListY), new Vector2(LobbyLayout.InnerW, LobbyLayout.ListH));
+
+            var scroll = listGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.inertia = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.decelerationRate = 0.08f;
+            scroll.scrollSensitivity = 30f;
+
+            // Pozo: tambien recibe la rueda del mouse (una imagen transparente no alcanza).
+            var well = UiImage("Well", listGo.transform, _panel, new Color(0.02f, 0.03f, 0.05f, 0.55f));
+            well.type = Image.Type.Sliced;
+            well.pixelsPerUnitMultiplier = 3f;
+            well.raycastTarget = true;
+            HudRect(well.rectTransform, Center, Center,
+                new Vector2(LobbyLayout.ListX, 0f), new Vector2(LobbyLayout.ListW, LobbyLayout.ListH));
+
+            var vpGo = new GameObject("Viewport", typeof(RectTransform));
+            vpGo.transform.SetParent(listGo.transform, false);
+            var vpRt = (RectTransform)vpGo.transform;
+            HudRect(vpRt, Center, Center,
+                new Vector2(LobbyLayout.ListX, 0f), new Vector2(LobbyLayout.ListW, LobbyLayout.ListH));
+            vpGo.AddComponent<RectMask2D>();
+            scroll.viewport = vpRt;
+
+            var contentGo = new GameObject("Content", typeof(RectTransform));
+            contentGo.transform.SetParent(vpGo.transform, false);
+            var contentRt = (RectTransform)contentGo.transform;
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = Vector2.zero;
+
+            var stack = contentGo.AddComponent<VerticalLayoutGroup>();
+            stack.spacing = LobbyLayout.RowGap;
+            stack.childAlignment = TextAnchor.UpperCenter;
+            stack.childControlWidth = true;
+            stack.childControlHeight = true;
+            stack.childForceExpandWidth = true;
+            stack.childForceExpandHeight = false;
+
+            var fitter = contentGo.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.content = contentRt;
+
+            // Barra: siempre visible (con AutoHide la lista se ensancharia y las
+            // columnas se correrian respecto del encabezado).
+            var barGo = new GameObject("Scrollbar", typeof(RectTransform));
+            barGo.transform.SetParent(listGo.transform, false);
+            var barRt = (RectTransform)barGo.transform;
+            HudRect(barRt, Center, Center,
+                new Vector2(LobbyLayout.ScrollbarX, 0f), new Vector2(LobbyLayout.ScrollbarW, LobbyLayout.ListH));
+
+            var track = UiImage("Track", barGo.transform, _panel, new Color(0f, 0f, 0f, 0.45f));
+            track.type = Image.Type.Sliced;
+            track.pixelsPerUnitMultiplier = 6f;
+            Stretch(track.rectTransform);
+
+            var slideGo = new GameObject("SlidingArea", typeof(RectTransform));
+            slideGo.transform.SetParent(barGo.transform, false);
+            var slideRt = (RectTransform)slideGo.transform;
+            slideRt.anchorMin = Vector2.zero;
+            slideRt.anchorMax = Vector2.one;
+            slideRt.offsetMin = new Vector2(2f, 2f);
+            slideRt.offsetMax = new Vector2(-2f, -2f);
+
+            var handle = UiImage("Handle", slideGo.transform, _panel, new Color(0.72f, 0.84f, 1f, 0.35f));
+            handle.type = Image.Type.Sliced;
+            handle.pixelsPerUnitMultiplier = 6f;
+            handle.raycastTarget = true;
+            Stretch(handle.rectTransform);
+
+            var bar = barGo.AddComponent<Scrollbar>();
+            bar.direction = Scrollbar.Direction.BottomToTop;
+            bar.handleRect = handle.rectTransform;
+            bar.targetGraphic = handle;
+            scroll.verticalScrollbar = bar;
+            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+
+            controller.listScroll = scroll;
+            controller.listContent = contentRt;
+            controller.rowPlate = _panel;
+            controller.orbSprite = _soft;
+        }
+
+        /// <summary>
+        /// Boton del lobby: placa neutra (ww_lobby_button_*) tenida con su acento, label
+        /// centrado y la barrita de acento que enciende <see cref="MenuButtonFx"/>. Si el
+        /// arte especifico todavia no llego cae a ww_lobby_button_add y, si tampoco esta,
+        /// al panel generado: los cuatro botones siguen funcionando igual.
+        /// </summary>
+        private static Button LobbyButton(Transform parent, string name, string label, Font font,
+            Sprite skin, Color accent, Vector2 pos)
+        {
+            var plate = skin != null ? skin : Spr("ww_lobby_button_add");
+            Image img;
+            if (plate != null)
+            {
+                img = UiImage(name, parent, plate, Color.Lerp(Color.white, accent, 0.18f));
+            }
+            else
+            {
+                img = Panel(parent, name, Color.Lerp(new Color(0.05f, 0.07f, 0.11f, 0.94f), accent, 0.22f));
+                img.pixelsPerUnitMultiplier = 6f;
+            }
+
+            var rt = img.rectTransform;
+            rt.anchorMin = rt.anchorMax = Center;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(320f, 80f);   // 4:1, igual que el arte del boton
+            img.raycastTarget = true;
+
+            var outline = img.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(accent.r, accent.g, accent.b, 0.25f);
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            var btn = img.gameObject.AddComponent<Button>();
+            btn.targetGraphic = img;
+            var colors = btn.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.16f, 1.20f, 1.28f);
+            colors.selectedColor = new Color(1.16f, 1.20f, 1.28f);
+            colors.pressedColor = new Color(0.78f, 0.82f, 0.88f);
+            colors.disabledColor = new Color(0.55f, 0.58f, 0.64f, 0.85f);
+            colors.fadeDuration = 0.1f;
+            btn.colors = colors;
+
+            // La barrita arranca apagada: la prende MenuButtonFx al pasar el mouse o
+            // seleccionar con mando (mismo lenguaje que los botones del menu).
+            var bar = UiImage("Accent", img.transform, _panel, accent);
+            var brt = bar.rectTransform;
+            brt.anchorMin = new Vector2(0f, 0f);
+            brt.anchorMax = new Vector2(1f, 0f);
+            brt.pivot = new Vector2(0.5f, 0f);
+            brt.anchoredPosition = new Vector2(0f, 8f);
+            brt.sizeDelta = new Vector2(-48f, 4f);
+            bar.type = Image.Type.Sliced;
+            bar.pixelsPerUnitMultiplier = 6f;
+
+            var text = UiText("Label", img.transform, font, label, 30, Color.white);
+            Stretch(text.rectTransform);
+            text.rectTransform.offsetMin = new Vector2(18f, 0f);
+            text.rectTransform.offsetMax = new Vector2(-18f, 0f);
+            var sh = text.gameObject.AddComponent<Shadow>();
+            sh.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            sh.effectDistance = new Vector2(2f, -3f);
+
+            var fx = img.gameObject.AddComponent<MenuButtonFx>();
+            fx.label = text;
+            fx.accent = bar;
+            fx.normalColor = Color.white;
+            fx.hoverColor = Color.Lerp(Color.white, accent, 0.45f);
+            fx.hoverScale = 1.05f;
+            return btn;
         }
 
         // =====================================================================

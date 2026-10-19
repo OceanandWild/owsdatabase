@@ -849,3 +849,48 @@ magick <id>_env_<id8>_raw.jpg -resize 2048x1143! -strip ww_map_<id>_bg.png
 ## 14. Etapa 2: arenas ampliadas (x2) — oct 2026
 
 > Tamaños confirmados por el usuario: **Chico 32×18, Mediano 40×22, Grande 48×26** (antes 16×9 / 20×11 / 24×13). Implementado en `WildWeaponBuilder.ArenaSize()` y reubicación de decks (centros ×2, huellas sin cambios) en `Fill()`. El arte es agnóstico al tamaño: el fondo se estira al encuadre y la composición se mantiene. Los spawns (`p1Spawn`/`p2Spawn`) se recalculan desde `arena * 0.5`. Pendiente: eliminación del modo 1v1 y rework multijugador (fuera de esta etapa).
+
+---
+
+## 15. Lobby multijugador local: reordenamiento del layout (oct 2026)
+
+> Primer pase del rework del lobby. La escena venía a mano: una placa estirada a pantalla completa, el título flotando y tres botones planos gigantes que se pisaban con el marco. Ahora la arma el generador (`WildWeaponBuilder.BuildLobbyScene`, entra en `BuildAllSilent` y en `EditorBuildSettings`) y la grilla vive en un solo lugar: `WildWeapon.UI.LobbyLayout`, que comparten el generador (encabezado de columnas) y `MultiplayerLobbyController` (filas del runtime). Los números no se pueden desalinear al retocar la maqueta.
+
+**Qué cambió**
+
+- **Placa del tablero**: `ww_lobby_panel` (1024×512, 2:1 exacto) sin deformar en 1400×700, centrada en y −14 (antes: la placa vieja estirada a pantalla completa).
+- **Línea de estado**: la bajada del título se parte en dos mitades — a la izquierda `LOCAL · n / 15 JUGADORES` (dinámico), a la derecha el estado (`LISTO PARA ARRANCAR` / `AGREGA OTRO JUGADOR PARA ARRANCAR`, en cian o ámbar). El plantel (`n JUGADORES · m EQUIPOS`) va pegado al chip de arriba a la derecha. Así el pie solo tiene botones y **entra en pantallas anchas** (en 21:9 el canvas queda en ~932 unidades de alto: todo el lobby vive dentro de ±452).
+- **Lista con scroll**: pozo propio + `ScrollRect` + `VerticalLayoutGroup` + `ContentSizeFitter`; la barra (12 de ancho, `Permanent`) es 9-slice del panel generado. El viewport mide 1188×476 = 6 filas exactas de 72 + gaps de 8. Hasta 15 jugadores (`MultiplayerLobbyController.MaxPlayers`).
+- **Filas por código** (una por jugador): barra de acento del color, orbe de color clickeable (cicla la paleta), campo de nombre, **control** y **equipo** como campos `« VALOR »` que ciclan con click, y la etiqueta de asiento `J1..J15` teñida.
+- **Dropdowns afuera**: los `Dropdown` viejos no tenían template, así que las opciones nunca se veían. Los steppers conservan los mismos índices (`controlIndex`, `team`) que ya consume `GameBootstrap`.
+- **Botonera**: `− QUITAR` (rojo), `+ AGREGAR` (verde) | `VOLVER` (acero) | `CONTINUAR` (cian, deshabilitado con menos de 2 jugadores). Todos 320×80 (4:1, igual que el arte) con el hover de `MenuButtonFx`; el que no corresponde se apaga con un `CanvasGroup` (0.42) para no pelear con el FX. `Esc`/`Backspace`/`Start` vuelven al menú.
+
+**Geometría (`LobbyLayout`, unidades de la resolución de referencia 1920×1080)**
+
+| Pieza | Números |
+|---|---|
+| Tablero | 1400×700 en y −14 · marco interior 96/84 → interior 1208×532 |
+| Encabezado | alto 44 en y 244 (regla de 2 px en 218), columnas centradas sobre las de la fila |
+| Lista | viewport 1188×476 centrado en x −10, y −28 · barra 12 de ancho en x 598 |
+| Fila | alto 72, gap 8 · barra x 14 (5×34) · orbe centro 62 (caja 60, orbe 46, halo 84) · nombre x 104 (470) · control x 590 (320) · equipo x 926 (200) · asiento x 1138 (44) |
+| Pie | botones en y −412 · divisor de 2×54 entre los pares |
+
+**Montaje**
+
+- `LobbyLayout.cs` (nuevo, `Scripts/UI/`): constantes compartidas.
+- `MultiplayerLobbyController.cs`: filas, steppers, estado de los botones, fundido. Los textos de estado y el fader se cablean desde el generador.
+- `WildWeaponBuilder.BuildLobbyScene()` + `LobbyButton()`/`LobbyList()`/`LobbyHeader()`; el arte generado (`_soft`, `_panel`, `_vignette`) se asegura solo, así el menú **WildWeapon > Dev > Reconstruir lobby (silencioso)** itera la maqueta sin rehacer el juego entero.
+- Verificación: reconstrucción + captura en play (2 y 15 jugadores: la barra queda en 0.40, `+ AGREGAR` se apaga a los 15 y `CONTINUAR` prende con 2).
+
+**Sprites pendientes (para el próximo lote)**
+
+| Asset | Tamaño sugerido | Estado |
+|---|---|---|
+| `ww_lobby_button_remove` / `_continue` / `_back` | 256×64 (4:1) | **Instalados** (los cuatro ya están en `Art/Sprites` y en el `ArtSpec`): las placas son grises neutras casi idénticas, así que cada botón se distingue por el tinte de acento (`Lerp(blanco, acento, 0.18)`) + el `Outline`. Si en el próximo lote llega una versión con rasgos propios (símbolo o bisel distinto por acción), se reemplaza el archivo con el mismo nombre y el generador la toma solo. |
+| `ww_lobby_title_banner` | 1024×170 (6:1) | **Instalada pero reservada**: hoy el título es texto con sombra. Para usarla hay que reflotar la cabecera (el banner necesita ~120 de alto y los chips de arriba arrancan en y 476), así que queda para el pase de cabecera. |
+| `ww_lobby_row_plate` (9-slice) | 1024×128 | Opcional: hoy la fila usa `ui_panel` generado + tinte navy. Útil para que la fila tenga bisel propio; **debe ser 9-slice** (no estirar `ww_lobby_player_card`, que trae el círculo pintado al costado y se deforma). |
+| `ww_lobby_scroll_track` / `_handle` | 128×… | Opcional: hoy son 9-slice del panel generado (riel oscuro + manija acero). |
+| Emblemas de columna (color/nombre/control/equipo/asiento) | 64×64 | Opcional: hoy el encabezado es solo texto (16 px, acero claro). |
+
+> Regla para el lote: **gris neutro** (`-modulate 100,0,100`) y encuadre exacto al hueco, igual que §8–§10 — el acento y el color de cada jugador los pone el código.
+

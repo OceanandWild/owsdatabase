@@ -16,5 +16,13 @@ namespace WildWeapon.EditorTools
             WildWeaponBuilder.BuildAllSilent();
             Debug.Log("[WildWeapon] Escenas reconstruidas (modo silencioso).");
         }
+
+        /// <summary>Solo el lobby: iterar la maqueta sin rehacer el arte ni los prefabs.</summary>
+        [MenuItem("WildWeapon/Dev/Reconstruir lobby (silencioso)")]
+        private static void RebuildLobby()
+        {
+            WildWeaponBuilder.BuildLobbyScene();
+            Debug.Log("[WildWeapon] Lobby reconstruido (modo silencioso).");
+        }
     }
 }

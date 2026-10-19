@@ -45,6 +45,7 @@ namespace WildWeapon.EditorTools
         private const string ArenaScenePath = ScenesDir + "/Arena.unity";
         private const string CharSelectScenePath = ScenesDir + "/CharacterSelect.unity";
         private const string LobbyScenePath = ScenesDir + "/MultiplayerLobby.unity";
+        private const string ArmoryScenePath = ScenesDir + "/Armory.unity";
         private const string CatalogPath = MapsDir + "/MapCatalog.asset";
 
         // Layout del menu principal (lo comparten la escena y los clips de animacion)
@@ -190,7 +191,8 @@ namespace WildWeapon.EditorTools
             var charCtrl = BuildCharacterController();
 
             // ---------- Personajes ----------
-            var playerPrefab = BuildPlayerPrefab("Player_Cyborg", cyborg, charCtrl, katana, hacha, playerDeath);
+            var playerPrefab = BuildPlayerPrefab("Player_Cyborg", cyborg, charCtrl,
+                new[] { katana, hacha, mazo, lanza, sierra }, playerDeath);
 
             var defSaw = BotData("bot_sierra", "Dron Sierra", sierra, 30f, 3.0f, 0.15f, 0.25f, 0.36f, 0.95f, 1.3f, yellow, botDeath);
             var defLan = BotData("bot_lancero", "Androide Lancero", lanza, 45f, 2.5f, 0.38f, 0.45f, 0.4f, 1.05f, 1.1f, new Color(0.62f, 0.38f, 1f), botDeath);
@@ -211,6 +213,8 @@ namespace WildWeapon.EditorTools
             BuildCharacterSelectScene(cyborg, charCtrl);
             // Lobby multijugador local: arma el plantel antes de elegir la arena.
             BuildLobbyScene();
+            // Armeria: elegir las dos armas del equipamiento antes de la arena.
+            BuildArmoryScene();
 
             EditorBuildSettings.scenes = new[]
             {
@@ -218,7 +222,8 @@ namespace WildWeapon.EditorTools
                 new EditorBuildSettingsScene(MapSelectScenePath, true),
                 new EditorBuildSettingsScene(ArenaScenePath, true),
                 new EditorBuildSettingsScene(CharSelectScenePath, true),
-                new EditorBuildSettingsScene(LobbyScenePath, true)
+                new EditorBuildSettingsScene(LobbyScenePath, true),
+                new EditorBuildSettingsScene(ArmoryScenePath, true)
             };
 
             AssetDatabase.SaveAssets();
@@ -317,7 +322,19 @@ namespace WildWeapon.EditorTools
             new ArtSpec("ww_icon_duel", new Vector2(0.5f, 0.5f), false, 512),
             new ArtSpec("ww_icon_pvp", new Vector2(0.5f, 0.5f), false, 512),
             new ArtSpec("ww_icon_survival", new Vector2(0.5f, 0.5f), false, 512),
+            new ArtSpec("ww_icon_armory", new Vector2(0.5f, 0.5f), false, 512),
             new ArtSpec("ww_icon_exit", new Vector2(0.5f, 0.5f), false, 512),
+            new ArtSpec("ww_armory_panel_skin", new Vector2(0.5f, 0.5f), false, 1024),
+            new ArtSpec("ww_armory_card_skin", new Vector2(0.5f, 0.5f), false, 1024),
+            new ArtSpec("ww_armory_slot_skin", new Vector2(0.5f, 0.5f), false, 1024),
+            new ArtSpec("ww_armory_button_skin", new Vector2(0.5f, 0.5f), false, 512),
+
+            // ---- Armas recortadas para la armeria (el arte original es 1024x1024 con banda horizontal) ----
+            new ArtSpec("ww_ui_katana", new Vector2(0.5f, 0.5f), false, 512),
+            new ArtSpec("ww_ui_hacha", new Vector2(0.5f, 0.5f), false, 512),
+            new ArtSpec("ww_ui_hammer", new Vector2(0.5f, 0.5f), false, 512),
+            new ArtSpec("ww_ui_spear", new Vector2(0.5f, 0.5f), false, 512),
+            new ArtSpec("ww_ui_saw", new Vector2(0.5f, 0.5f), false, 512),
             new ArtSpec("ww_menu_info_skin", new Vector2(0.5f, 0.5f), false, 1024),
             new ArtSpec("ww_menu_chip_skin", new Vector2(0.5f, 0.5f), false, 512),
             new ArtSpec("ww_lobby_panel", new Vector2(0.5f, 0.5f), false, 1024),
@@ -890,6 +907,7 @@ namespace WildWeapon.EditorTools
             if (created) def = ScriptableObject.CreateInstance<WeaponDef>();
 
             def.displayName = display;
+            def.id = file;
             def.damage = dmg;
             def.cadence = cadence;
             def.range = range;
@@ -1848,7 +1866,7 @@ def.platforms = scaledPlats;
         }
 
         private static GameObject BuildPlayerPrefab(string name, RigSet set, AnimatorController ctrl,
-            WeaponDef w1, WeaponDef w2, GameObject deathVfx)
+            WeaponDef[] arsenal, GameObject deathVfx)
         {
             var (go, visual, pivot, aim) = CharacterBase(name, set, ctrl, 1f, 0.4f, GameSession.Palette[0]);
             var health = go.AddComponent<PlayerHealth>();
@@ -1859,10 +1877,15 @@ def.platforms = scaledPlats;
             pc.aimPivot = pivot;
             pc.visual = visual;
 
-            AttachWeapon(pivot, w1, "Weapon_Katana");
-            AttachWeapon(pivot, w2, "Weapon_Hacha");
+            // Monta el arsenal completo: la armería elige cuales dos quedan equipadas
+            // en runtime (GameSession.ApplyLoadout) y el resto se apagan.
+            foreach (var def in arsenal)
+                AttachWeapon(pivot, def, "Weapon_" + def.id);
+
             var loadout = go.AddComponent<WeaponLoadout>();
-            loadout.weapons = go.GetComponentsInChildren<MeleeWeapon>(true);
+            var all = go.GetComponentsInChildren<MeleeWeapon>(true);
+            loadout.weapons = all.Length >= 2 ? new[] { all[0], all[1] } : all;
+            for (int i = 2; i < all.Length; i++) if (all[i] != null) all[i].SetEquipped(false);
 
             var caster = go.AddComponent<AbilityCaster>();
             caster.controller = pc;
@@ -2083,12 +2106,12 @@ def.platforms = scaledPlats;
             {
                 new Color(0.26f, 0.88f, 1f),    // cian    - duelo local
                 new Color(0.72f, 0.45f, 1f),    // violeta - pvp online
-                new Color(1f, 0.62f, 0.18f),    // naranja - supervivencia
+                new Color(1f, 0.62f, 0.18f),    // naranja - armeria
                 new Color(0.62f, 0.68f, 0.78f), // gris    - salir
             };
-            string[] cardTitles = { "SALA CON CODIGO", "PVP ONLINE", "SUPERVIVENCIA", "SALIR" };
-            string[] cardSubs = { "MULTIJUGADOR ONLINE", "DUELO RAPIDO 1 VS 1", "OLEADAS VS BOTS", "CERRAR EL JUEGO" };
-            string[] cardIcons = { "ww_icon_duel", "ww_icon_pvp", "ww_icon_survival", "ww_icon_exit" };
+            string[] cardTitles = { "SALA CON CODIGO", "PVP ONLINE", "ARMERÍA", "SALIR" };
+            string[] cardSubs = { "MULTIJUGADOR ONLINE", "DUELO RAPIDO 1 VS 1", "EQUIPÁ TU ARMA", "CERRAR EL JUEGO" };
+            string[] cardIcons = { "ww_icon_duel", "ww_icon_pvp", "ww_icon_armory", "ww_icon_exit" };
 
             var cardsHolder = new GameObject("Cards", typeof(RectTransform));
             cardsHolder.transform.SetParent(canvasGo.transform, false);
@@ -2103,7 +2126,7 @@ def.platforms = scaledPlats;
 
             UnityEventTools.AddPersistentListener(cards[0].GetComponent<Button>().onClick, controller.PlayMulti);
             UnityEventTools.AddPersistentListener(cards[1].GetComponent<Button>().onClick, controller.PlayPvp);
-            UnityEventTools.AddPersistentListener(cards[2].GetComponent<Button>().onClick, controller.PlayBots);
+            UnityEventTools.AddPersistentListener(cards[2].GetComponent<Button>().onClick, controller.OpenArmory);
             UnityEventTools.AddPersistentListener(cards[3].GetComponent<Button>().onClick, controller.Quit);
 
             // Sin foco inicial: el menu arranca neutro y el jugador elige con el mouse.
@@ -2152,6 +2175,386 @@ def.platforms = scaledPlats;
                 Debug.LogWarning("[WW] Sin pista de menu (Audio/Music/ww_music_menu*): la escena queda sin musica hasta generarla.");
 
             EditorSceneManager.SaveScene(scene, MenuScenePath);
+        }
+
+        // =====================================================================
+        // Escena Armory (armeria: elegir las dos armas del equipamiento)
+        // Reemplaza al boton de supervivencia en el menu: aca se arma el
+        // loadout y desde el boton SUPERVIVENCIA se entra al modo de oleadas.
+        // =====================================================================
+
+        /// <summary>Color de acento por arma (mismo criterio que el trail del arma).</summary>
+        private static readonly Dictionary<string, Color> WeaponAccents = new Dictionary<string, Color>
+        {
+            { "katana", new Color(0.35f, 0.90f, 1.00f) },
+            { "hacha_gris", new Color(0.85f, 0.88f, 0.95f) },
+            { "mazo_oxidado", new Color(1.00f, 0.62f, 0.18f) },
+            { "lanza_plasma", new Color(1.00f, 0.35f, 0.90f) },
+            { "sierra_chatarra", new Color(1.00f, 0.88f, 0.25f) },
+        };
+
+        /// <summary>Sprite recortado (512x256) de cada arma para las fichas de la armeria.</summary>
+        private static readonly Dictionary<string, string> WeaponUiSprites = new Dictionary<string, string>
+        {
+            { "katana", "ww_ui_katana" },
+            { "hacha_gris", "ww_ui_hacha" },
+            { "mazo_oxidado", "ww_ui_hammer" },
+            { "lanza_plasma", "ww_ui_spear" },
+            { "sierra_chatarra", "ww_ui_saw" },
+        };
+
+        private static Color WeaponAccent(string id)
+        {
+            if (WeaponAccents.TryGetValue(id, out Color c)) return c;
+            return new Color(1f, 0.62f, 0.18f, 1f);
+        }
+
+        private static void BuildArmoryScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+            var camGo = MenuCamera();
+            MenuLight2D();
+            var es = MenuEventSystem();
+
+            var canvasGo = MenuCanvas("ArmoryCanvas", camGo.GetComponent<Camera>());
+            var controller = canvasGo.AddComponent<ArmoryController>();
+
+            BuildBackdrop(canvasGo.transform);
+
+            // ---- Cabecera ----
+            var chips = new GameObject("Chips", typeof(RectTransform));
+            chips.transform.SetParent(canvasGo.transform, false);
+            Stretch((RectTransform)chips.transform);
+            TopChip(chips.transform, font, true, "OCEAN AND WILD STUDIOS", new Color(0.34f, 0.9f, 1f));
+            TopChip(chips.transform, font, false, "ARMERÍA · PROTOTIPO F0", new Color(1f, 0.7f, 0.28f));
+
+            // ---- Titulo (anclado arriba: el alto del canvas cambia con el aspect) ----
+            var title = UiText("Title", canvasGo.transform, font, "ARMERÍA", 56, Color.white);
+            var trt = title.rectTransform;
+            trt.anchorMin = trt.anchorMax = new Vector2(0.5f, 1f);
+            trt.pivot = new Vector2(0.5f, 1f);
+            trt.anchoredPosition = new Vector2(0f, -86f);
+            trt.sizeDelta = new Vector2(900f, 72f);
+            var tsh = title.gameObject.AddComponent<Shadow>();
+            tsh.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            tsh.effectDistance = new Vector2(2f, -3f);
+
+            var sub = UiText("Sub", canvasGo.transform, font, "ELEGÍ LAS DOS ARMAS DEL EQUIPAMIENTO", 20,
+                new Color(0.72f, 0.79f, 0.9f, 0.9f));
+            var srt = sub.rectTransform;
+            srt.anchorMin = srt.anchorMax = new Vector2(0.5f, 1f);
+            srt.pivot = new Vector2(0.5f, 1f);
+            srt.anchoredPosition = new Vector2(0f, -166f);
+            srt.sizeDelta = new Vector2(900f, 30f);
+
+            // ---- Tarjetas del arsenal ----
+            var grid = new GameObject("Arsenal", typeof(RectTransform));
+            grid.transform.SetParent(canvasGo.transform, false);
+            Stretch((RectTransform)grid.transform);
+
+            var slotSkin = Spr("ww_armory_card_skin");
+            var cardList = new List<ArmoryCard>();
+            const float cardPitch = 330f;
+            const float firstX = -660f;
+            for (int i = 0; i < GameSession.Arsenal.Length; i++)
+            {
+                string id = GameSession.Arsenal[i];
+                var def = AssetDatabase.LoadAssetAtPath<WeaponDef>($"{WeaponsDir}/{id}.asset");
+                var card = ArmoryWeaponCard(grid.transform, font, controller, i, id, def,
+                    WeaponAccent(id),
+                    new Vector2(firstX + i * cardPitch, 445f),
+                    slotSkin);
+                cardList.Add(card);
+                UnityEventTools.AddIntPersistentListener(card.GetComponent<Button>().onClick, controller.Pick, i);
+            }
+            controller.cards = cardList.ToArray();
+
+            // ---- Ficha del arma (anclada abajo: el alto del canvas cambia con el aspect) ----
+            var infoPlate = UiImage("InfoPlate", canvasGo.transform, Spr("ww_armory_panel_skin"), Color.white);
+            var iprt = infoPlate.rectTransform;
+            iprt.anchorMin = iprt.anchorMax = new Vector2(0.5f, 0f);
+            iprt.pivot = new Vector2(0.5f, 0.5f);
+            iprt.anchoredPosition = new Vector2(0f, 380f);
+            iprt.sizeDelta = new Vector2(1180f, 101f);
+            infoPlate.preserveAspect = false;
+
+            var infoName = UiText("InfoName", infoPlate.transform, font, "", 24, Color.white);
+            infoName.alignment = TextAnchor.MiddleLeft;
+            var inrt = infoName.rectTransform;
+            inrt.anchorMin = inrt.anchorMax = new Vector2(0f, 1f);
+            inrt.pivot = new Vector2(0f, 1f);
+            inrt.anchoredPosition = new Vector2(24f, -12f);
+            inrt.sizeDelta = new Vector2(420f, 30f);
+
+            var infoBlurb = UiText("InfoBlurb", infoPlate.transform, font, "", 14, new Color(1f, 1f, 1f, 0.72f));
+            infoBlurb.alignment = TextAnchor.UpperLeft;
+            infoBlurb.fontStyle = FontStyle.Normal;
+            infoBlurb.horizontalOverflow = HorizontalWrapMode.Wrap;
+            infoBlurb.verticalOverflow = VerticalWrapMode.Truncate;
+            var ibrt = infoBlurb.rectTransform;
+            ibrt.anchorMin = ibrt.anchorMax = new Vector2(0f, 1f);
+            ibrt.pivot = new Vector2(0f, 1f);
+            ibrt.anchoredPosition = new Vector2(24f, -46f);
+            ibrt.sizeDelta = new Vector2(830f, 44f);
+
+            var infoStats = UiText("InfoStats", infoPlate.transform, font, "", 19, new Color(1f, 0.72f, 0.3f, 0.95f));
+            infoStats.alignment = TextAnchor.MiddleRight;
+            var isrt = infoStats.rectTransform;
+            isrt.anchorMin = isrt.anchorMax = new Vector2(1f, 0.5f);
+            isrt.pivot = new Vector2(1f, 0.5f);
+            isrt.anchoredPosition = new Vector2(-24f, 0f);
+            isrt.sizeDelta = new Vector2(420f, 60f);
+
+            controller.infoName = infoName;
+            controller.infoBlurb = infoBlurb;
+            controller.infoStats = infoStats;
+
+            // ---- Ranuras ----
+            var slotList = new List<ArmorySlot>();
+            for (int s = 0; s < 2; s++)
+            {
+                var slot = ArmorySlotPlate(canvasGo.transform, font, controller, s,
+                    new Vector2(s == 0 ? -254f : 254f, 238f));
+                slotList.Add(slot);
+            }
+            controller.slots = slotList.ToArray();
+
+            // ---- Botones ----
+            var buttonSkin = Spr("ww_armory_button_skin");
+            var startBtn = ArmoryButton(canvasGo.transform, font, "SUPERVIVENCIA",
+                new Vector2(-190f, 103f), new Vector2(340f, 66f), buttonSkin, new Color(1f, 0.62f, 0.18f));
+            UnityEventTools.AddPersistentListener(startBtn.onClick, controller.StartSurvival);
+            controller.startButton = startBtn;
+
+            var backBtn = ArmoryButton(canvasGo.transform, font, "VOLVER",
+                new Vector2(190f, 103f), new Vector2(340f, 66f), buttonSkin, new Color(0.62f, 0.68f, 0.78f));
+            UnityEventTools.AddPersistentListener(backBtn.onClick, controller.Back);
+
+            // ---- Pie ----
+            HintRow(canvasGo.transform, font, new[]
+            {
+                "CLIC EN UN ARMA · EQUIPAR",
+                "CLIC EN UNA RANURA · CAMBIAR",
+                "ESC · VOLVER"
+            });
+
+            // ---- Fader ----
+            controller.fader = FaderCanvas();
+
+            // ---- Audio ----
+            var musicGo = new GameObject("Music");
+            var music = musicGo.AddComponent<MusicPlayer>();
+            music.clip = MusicClip("ww_music_menu");
+            music.volume = 0.5f;
+
+            // ---- Navegacion: arranca en la primera tarjeta ----
+            es.firstSelectedGameObject = cardList.Count > 0 ? cardList[0].GetComponent<Selectable>().gameObject : null;
+            var nav = canvasGo.AddComponent<MenuNavFocus>();
+            nav.events = es;
+            nav.first = cardList.Count > 0 ? cardList[0].GetComponent<Selectable>() : null;
+
+            EditorSceneManager.SaveScene(scene, ArmoryScenePath);
+        }
+
+        /// <summary>Tarjeta de arma de la armeria (icono + nombre + stats).</summary>
+        private static ArmoryCard ArmoryWeaponCard(Transform parent, Font font, ArmoryController controller, int index,
+            string id, WeaponDef def, Color accent, Vector2 pos, Sprite skin)
+        {
+            string displayName = def != null ? def.displayName : id;
+            Sprite weaponSprite = null;
+            if (WeaponUiSprites.TryGetValue(id, out string uiName)) weaponSprite = Spr(uiName);
+            if (weaponSprite == null && def != null) weaponSprite = def.sprite;
+
+            var root = new GameObject("ArmoryCard" + index, typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            var rt = (RectTransform)root.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(300f, 300f);
+
+            var btn = root.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+
+            var body = new GameObject("Body", typeof(RectTransform));
+            body.transform.SetParent(root.transform, false);
+            Stretch((RectTransform)body.transform);
+
+            var glow = UiImage("Glow", body.transform, _soft, new Color(accent.r, accent.g, accent.b, 0f));
+            var grt = glow.rectTransform;
+            grt.anchorMin = grt.anchorMax = new Vector2(0.5f, 0.5f);
+            grt.anchoredPosition = Vector2.zero;
+            grt.sizeDelta = new Vector2(390f, 430f);
+
+            var frame = skin != null
+                ? UiImage("Frame", body.transform, skin, Color.white)
+                : Panel(body.transform, "Frame", new Color(0.035f, 0.055f, 0.09f, 0.85f));
+            Stretch(frame.rectTransform);
+            frame.raycastTarget = true;
+            var outline = frame.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(accent.r, accent.g, accent.b, 0.18f);
+            outline.effectDistance = new Vector2(2f, -2f);
+            btn.targetGraphic = frame;
+
+            var accentBar = Panel(body.transform, "Accent", accent);
+            var art = accentBar.rectTransform;
+            art.anchorMin = new Vector2(0f, 1f);
+            art.anchorMax = new Vector2(1f, 1f);
+            art.pivot = new Vector2(0.5f, 1f);
+            art.anchoredPosition = Vector2.zero;
+            art.sizeDelta = new Vector2(0f, 5f);
+
+            var icon = UiImage("Icon", body.transform, weaponSprite, new Color(0.66f, 0.72f, 0.82f, 1f));
+            icon.preserveAspect = true;
+            var irt = icon.rectTransform;
+            irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f);
+            irt.anchoredPosition = new Vector2(0f, 58f);
+            irt.sizeDelta = new Vector2(240f, 120f);
+
+            var label = UiText("Label", body.transform, font, displayName, 22, new Color(0.84f, 0.88f, 0.95f, 1f));
+            var lrt = label.rectTransform;
+            lrt.anchorMin = lrt.anchorMax = new Vector2(0.5f, 0.5f);
+            lrt.anchoredPosition = new Vector2(0f, -46f);
+            lrt.sizeDelta = new Vector2(280f, 30f);
+
+            var stats = UiText("Stats", body.transform, font, "", 13, new Color(1f, 1f, 1f, 0.55f));
+            var stt = stats.rectTransform;
+            stt.anchorMin = stt.anchorMax = new Vector2(0.5f, 0.5f);
+            stt.anchoredPosition = new Vector2(0f, -90f);
+            stt.sizeDelta = new Vector2(290f, 24f);
+            if (def != null)
+            {
+                float perSecond = 1f / Mathf.Max(0.05f, def.cadence);
+                stats.GetComponent<Text>().text =
+                    $"DAÑO {def.damage:0}  ·  ALCANCE {def.range:0.00}  ·  {perSecond:0.0}/s";
+            }
+
+            // Marca de ranura (se enciende cuando el arma esta equipada).
+            var badge = UiText("Badge", body.transform, font, "", 22, accent);
+            var brt = badge.rectTransform;
+            brt.anchorMin = brt.anchorMax = new Vector2(1f, 1f);
+            brt.pivot = new Vector2(1f, 1f);
+            brt.anchoredPosition = new Vector2(-14f, -12f);
+            brt.sizeDelta = new Vector2(40f, 34f);
+            badge.enabled = false;
+
+            var card = root.AddComponent<ArmoryCard>();
+            card.body = (RectTransform)body.transform;
+            card.frame = frame;
+            card.frameOutline = outline;
+            card.accentBar = accentBar;
+            card.glow = glow;
+            card.icon = icon;
+            card.title = label;
+            card.stats = stats;
+            card.badge = badge;
+            card.owner = controller;
+            card.index = index;
+            card.Bind(id, displayName, weaponSprite, accent);
+            return card;
+        }
+
+        /// <summary>Placa de ranura (donde cae el arma elegida).</summary>
+        private static ArmorySlot ArmorySlotPlate(Transform parent, Font font, ArmoryController controller,
+            int index, Vector2 pos)
+        {
+            var root = new GameObject("Slot" + index, typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            var rt = (RectTransform)root.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(448f, 126f);
+
+            var btn = root.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+
+            var accent = new Color(1f, 0.62f, 0.18f, 1f);
+            var skin = Spr("ww_armory_slot_skin");
+            var frame = skin != null
+                ? UiImage("Frame", root.transform, skin, Color.white)
+                : Panel(root.transform, "Frame", new Color(0.035f, 0.055f, 0.09f, 0.85f));
+            Stretch(frame.rectTransform);
+            frame.raycastTarget = true;
+            var outline = frame.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(accent.r, accent.g, accent.b, 0.16f);
+            outline.effectDistance = new Vector2(2f, -2f);
+            btn.targetGraphic = frame;
+
+            var accentBar = Panel(root.transform, "Accent", accent);
+            var art = accentBar.rectTransform;
+            art.anchorMin = new Vector2(0f, 1f);
+            art.anchorMax = new Vector2(1f, 1f);
+            art.pivot = new Vector2(0.5f, 1f);
+            art.anchoredPosition = Vector2.zero;
+            art.sizeDelta = new Vector2(0f, 4f);
+
+            var icon = UiImage("Icon", root.transform, null, new Color(0.6f, 0.66f, 0.76f, 1f));
+            icon.preserveAspect = true;
+            var irt = icon.rectTransform;
+            irt.anchorMin = irt.anchorMax = new Vector2(0f, 0.5f);
+            irt.pivot = new Vector2(0f, 0.5f);
+            irt.anchoredPosition = new Vector2(18f, 0f);
+            irt.sizeDelta = new Vector2(112f, 56f);
+
+            var label = UiText("Label", root.transform, font, "RANURA " + (index + 1), 15, accent);
+            label.alignment = TextAnchor.MiddleLeft;
+            var lrt = label.rectTransform;
+            lrt.anchorMin = lrt.anchorMax = new Vector2(0f, 0.5f);
+            lrt.pivot = new Vector2(0f, 0.5f);
+            lrt.anchoredPosition = new Vector2(124f, 20f);
+            lrt.sizeDelta = new Vector2(280f, 24f);
+
+            var caption = UiText("Caption", root.transform, font, "VACÍA", 22, new Color(1f, 1f, 1f, 0.85f));
+            caption.alignment = TextAnchor.MiddleLeft;
+            var crt = caption.rectTransform;
+            crt.anchorMin = crt.anchorMax = new Vector2(0f, 0.5f);
+            crt.pivot = new Vector2(0f, 0.5f);
+            crt.anchoredPosition = new Vector2(124f, -16f);
+            crt.sizeDelta = new Vector2(300f, 30f);
+
+            var slot = root.AddComponent<ArmorySlot>();
+            slot.frame = frame;
+            slot.frameOutline = outline;
+            slot.accentBar = accentBar;
+            slot.icon = icon;
+            slot.label = label;
+            slot.caption = caption;
+            slot.owner = controller;
+            slot.slotIndex = index;
+            return slot;
+        }
+
+        /// <summary>Boton de la armeria (bisel + etiqueta).</summary>
+        private static Button ArmoryButton(Transform parent, Font font, string caption, Vector2 pos,
+            Vector2 size, Sprite skin, Color accent)
+        {
+            var root = new GameObject("Btn_" + caption.Replace(" ", ""), typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            var rt = (RectTransform)root.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+
+            var frame = skin != null
+                ? UiImage("Frame", root.transform, skin, Color.white)
+                : Panel(root.transform, "Frame", new Color(0.05f, 0.07f, 0.11f, 0.9f));
+            Stretch(frame.rectTransform);
+            frame.raycastTarget = true;
+            var outline = frame.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(accent.r, accent.g, accent.b, 0.3f);
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            var label = UiText("Label", root.transform, font, caption, 22, Color.white);
+            Stretch(label.rectTransform);
+
+            var btn = root.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = frame;
+            return btn;
         }
 
         // =====================================================================
@@ -3409,8 +3812,8 @@ def.platforms = scaledPlats;
                 },
                 new MenuModeInfo.Entry
                 {
-                    title = "SUPERVIVENCIA VS BOTS",
-                    blurb = "Oleadas cada vez más duras: drones sierra, androides lanceros y caballeros pesados. Entre oleada y oleada recuperás vida y arranca la siguiente.",
+                    title = "ARMERÍA",
+                    blurb = "Elegí las dos armas que te llevás a la arena: katana, hacha, mazo, lanza o sierra. Desde ahí se arranca el modo supervivencia con tu equipamiento.",
                     accent = accents[2]
                 },
                 new MenuModeInfo.Entry

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: lanza_plasma
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.WeaponDef
   displayName: Lanza de Plasma
+  id: lanza_plasma
   damage: 11
   cadence: 0.9
   range: 1.75

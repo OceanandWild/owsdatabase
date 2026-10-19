@@ -68,6 +68,9 @@ namespace WildWeapon
             Abilities = GetComponent<AbilityCaster>();
             if (height == null) height = GetComponent<HeightBody>();
             _cam = Camera.main;
+
+            // El equipamiento elegido en la armería manda sobre el del prefab.
+            GameSession.ApplyLoadout(Loadout);
         }
 
         void Update()

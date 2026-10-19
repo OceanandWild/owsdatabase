@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: mazo_oxidado
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.WeaponDef
   displayName: Mazo de Guerra
+  id: mazo_oxidado
   damage: 22
   cadence: 1.6
   range: 1.3

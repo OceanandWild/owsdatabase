@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: sierra_chatarra
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.WeaponDef
   displayName: Sierra Giratoria
+  id: sierra_chatarra
   damage: 6
   cadence: 0.45
   range: 0.9

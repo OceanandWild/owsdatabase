@@ -12,6 +12,8 @@ namespace WildWeapon
     {
         [Header("Juego")]
         public string displayName = "Arma";
+        [Tooltip("Id estable del arma (nombre del asset). La armeria lo usa para armar el equipamiento.")]
+        public string id = "";
         public float damage = 12f;
         public float cadence = 0.35f;      // segundos entre basicos
         public float range = 0.9f;         // unidades desde el centro

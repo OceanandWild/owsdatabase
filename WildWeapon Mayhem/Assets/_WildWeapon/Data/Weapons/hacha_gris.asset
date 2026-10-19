@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: hacha_gris
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.WeaponDef
   displayName: Hacha Gris
+  id: hacha_gris
   damage: 17
   cadence: 0.6
   range: 1.05

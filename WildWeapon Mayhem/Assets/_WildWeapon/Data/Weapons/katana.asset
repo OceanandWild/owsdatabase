@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: katana
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.WeaponDef
   displayName: Katana
+  id: katana
   damage: 12
   cadence: 0.35
   range: 1.15

@@ -69,6 +69,30 @@ namespace WildWeapon
                     if (w != null) w.ResetCooldown();
         }
 
+        /// <summary>
+        /// Cambia el equipamiento (lo usa la armería). Las armas que quedan
+        /// afuera se apagan para que no se vean ni se puedan usar.
+        /// </summary>
+        public void SetWeapons(MeleeWeapon[] newWeapons)
+        {
+            if (newWeapons == null || newWeapons.Length == 0) return;
+
+            var all = GetComponentsInChildren<MeleeWeapon>(true);
+            foreach (var w in all)
+            {
+                if (w == null) continue;
+                bool inside = false;
+                for (int i = 0; i < newWeapons.Length; i++)
+                    if (newWeapons[i] == w) { inside = true; break; }
+                if (!inside) w.SetEquipped(false);
+            }
+
+            weapons = newWeapons;
+            ActiveIndex = 0;
+            _swapCooldown = 0f;
+            RefreshEquipped();
+        }
+
         private void RefreshEquipped()
         {
             if (weapons == null) return;

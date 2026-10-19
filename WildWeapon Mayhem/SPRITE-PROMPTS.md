@@ -969,3 +969,59 @@ magick <id>_env_<id8>_raw.jpg -resize 2048x1143! -strip ww_map_<id>_bg.png
 - El HUD de la arena sigue siendo 1v1 (`J1 · VOS` vs el primer rival) y el marcador guarda 2 valores: con 15 asientos solo se ve el primero. El equipo de la arena es 0/1 (el equipo A–D del lobby es cosmético) para que la ronda no quede trabada.
 - Los bots no votan revancha por su cuenta: votan con el anfitrión.
 - Sprites opcionales del lote anterior (riel/manija del scroll, placas de fila, emblemas de columna, insignias de equipo A–D, iconos de teclado/pad) siguen pendientes.
+
+---
+
+## 18. Armería: el tercer botón del menú pasa a ser el arsenal (oct 2026)
+
+> Nuevo contenido + **cambio de flujo**: la tarjeta 3 del menú principal (`SUPERVIVENCIA · OLEADAS VS BOTS`) pasa a ser **`ARMERÍA · EQUIPÁ TU ARMA`**. La armería es una escena nueva (`Armory.unity`) donde el jugador elige **las dos armas** del equipamiento y desde ahí arranca el modo supervivencia (el botón `SUPERVIVENCIA` de la armería es el que sigue dando acceso a las oleadas contra bots). Arte generado con **Google Flow (Nano Banana 2.1, 0 puntos)**, mismo lenguaje "consola de acero" que §9/§10.
+
+**Las 5 piezas** (todas con `ArtSpec` nuevo, PPU 512):
+
+| Asset | Tamaño final | Para qué |
+|---|---|---|
+| `ww_icon_armory` | 512×512 | Emblema de la tarjeta 3 del menú (katana + hacha cruzadas sobre un rack de acero). |
+| `ww_armory_card_skin` | 1024×1024 (1:1) | Placa cuadrada de cada ficha de arma (5 en la armería). |
+| `ww_armory_slot_skin` | 1024×288 (3.56:1) | Placa ancha de las dos ranuras de equipamiento. |
+| `ww_armory_panel_skin` | 1024×88 (11.6:1) | Franja del detalle del arma (nombre + bajada + stats). |
+| `ww_armory_button_skin` | 512×100 (5.12:1) | Botones `SUPERVIVENCIA` y `VOLVER`. |
+
+Además se recortaron **5 sprites de UI** desde el arte de armas ya existente (el original es 1024×1024 con el arma en una banda horizontal, que en una ficha se veía diminuta): `ww_ui_katana`, `ww_ui_hacha`, `ww_ui_hammer`, `ww_ui_spear`, `ww_ui_saw` — todos 512×256 con el arma centrada a escala de ancho constante (así se lee el tamaño relativo de cada arma).
+
+**Prompts (Flow, inglés, un renglón)**
+
+- Emblema: *"ONE single bold minimal flat vector emblem for a video game menu button, flat straight-on orthographic view, a steel wall rack with a katana and a battle axe crossed in an X shape in front of it, thick clean solid light silver grey silhouette with a subtle inner bevel, high contrast, centered, isolated on a completely flat uniform **pure black** background with clear margins, no shadow, no gradient, no text, no letters, no numbers, no watermark"*.
+- Placas: *"ONE single [square display plate / wide rectangular plate / extremely wide and very thin horizontal strip / compact wide button plate] for a video game [weapon selection card / equipment slot / HUD / HUD button], flat straight-on orthographic view, aspect ratio about [1:1 / 3.5:1 / 12 to 1 / 5:1], deep navy glass body with a subtle diagonal weave and faint sheen, crisp chamfered corners, thin light steel border, a slim brighter highlight line along the top edge, premium tactical game HUD style, dark-steel gothic sci-fi, muted neutral grey, no text, no letters, no numbers, no icons, no watermark, no shadow, on a completely flat uniform pure white background with clear margins"*.
+
+**Normalización (ImageMagick)**
+
+```powershell
+# Emblema: el glifo es CLARO sobre fondo NEGRO -> key por floodfill desde las 4 esquinas
+magick ww_icon_armory_raw.jpg -alpha set -fuzz 12% -fill none -floodfill +0+0 black -floodfill +1375+0 black -floodfill +0+767 black -floodfill +1375+767 black -trim +repage -background none -resize 400x400 -gravity center -extent 512x512 ww_icon_armory.png
+# Placas: key del BLANCO por floodfill (preserva el borde de acero claro) + encuadre exacto al hueco
+magick ww_armory_card_skin_raw.jpg  -alpha set -fuzz 9% -fill none -floodfill +0+0 white -floodfill +1375+0 white -floodfill +0+767 white -floodfill +1375+767 white -trim +repage -background none -resize 1024x1024! ww_armory_card_skin.png
+magick ww_armory_slot_skin_raw.jpg  ... -resize 1024x288!  ww_armory_slot_skin.png
+magick ww_armory_panel_skin_raw.jpg ... -resize 1024x88!   ww_armory_panel_skin.png
+magick ww_armory_button_skin_raw.jpg ... -resize 512x100!  ww_armory_button_skin.png
+# Recorte de las armas para las fichas (el arte original es 1024x1024 con banda horizontal)
+magick ww_katana.png -fuzz 5% -trim +repage -background none -resize 512x256 -gravity center -extent 512x256 ww_ui_katana.png
+```
+
+> **Gotcha de Flow:** pedir "aspect ratio about 12:1" no alcanza — el modelo.draw la placa en ~5:1 dentro del cuadro 16:9. Se resolvió con "**extremely wide and very thin** … only one twelfth as tall as it is wide" (salió 8.9:1) y, si aun así queda alta, se acepta el squash al encuadre. Además, el **emblema va sobre fondo negro**: con el glifo claro, el key del blanco se lo comería.
+
+**Montaje en el juego**
+
+- `WildWeaponBuilder.BuildArmoryScene()` arma la escena completa (titular, 5 fichas, franja de detalle, 2 ranuras, botonera, pie) y entra en `BuildAllSilent()` + `EditorBuildSettings`.
+- `ArmoryController` / `ArmoryCard` / `ArmorySlot` (nuevos, `Scripts/UI/`): click en una ficha = el arma entra en la ranura activa; click en una ranura = cambia la ranura activa; `SUPERVIVENCIA` = modo `Bots` → selector de arena; `VOLVER` / `Esc` = menú.
+- `GameSession.Arsenal` (los 5 ids) + `GameSession.Equipped` (2 ranuras, se recuerdan en `PlayerPrefs`).
+- `WeaponDef.id` (nuevo): id estable del arma; `GameSession.ApplyLoadout()` + `WeaponLoadout.SetWeapons()` aplican el equipamiento elegido sobre el prefab, que ahora **monta las 5 armas** (solo 2 quedan equipadas; las otras se apagan).
+- `PlayerController.Awake()` llama a `GameSession.ApplyLoadout()`: aplica el loadout a **cualquier** instancia del jugador (P1/P2, multijugador, remotos de PVP).
+- Menú: `MainMenuController.OpenArmory()` reemplaza a `PlayBots()` en la tarjeta 3; la franja de info ahora describe la armería.
+- **Layout anclado abajo/arriba** (no al centro): el alto del canvas en 21:9 es ~935 unidades de referencia, así que con el título y los botones anclados al centro los botones pisaban el pie de hints. Titular arriba (a −86 / −166 del borde superior) y el resto abajo (cartas a 445, franja a 380, ranuras a 238, botones a 103, hints a 26).
+
+**Verificación (19-oct-2026)**
+
+- Reconstrucción con `WildWeapon > Dev > Reconstruir escenas (silencioso)` sin "Falta arte"; `MainMenu.unity` referencia `ww_icon_armory` (1 GUID) y `Armory.unity` referencia `ww_armory_card_skin` (5), `ww_armory_slot_skin` (2), `ww_armory_panel_skin` (1) y `ww_armory_button_skin` (2).
+- Play: la armería muestra las 5 fichas con sus stats; click en `MAZO DE GUERRA` con la ranura 2 activa deja `equipped=katana,mazo_oxidado` y la ficha marca el slot 2.
+- La arena hereda el equipamiento: `prefabTotal=5` (las 5 armas en el prefab) y `loadout=katana mazo_oxidado`; el HUD muestra `[1] Katana` / `[2] Mazo de Guerra`.
+

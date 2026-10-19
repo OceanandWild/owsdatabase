@@ -1,0 +1,1042 @@
+fileFormatVersion: 2
+guid: 99767e15790ac19498fa807823a681d2
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 1287521365752974060
+    second: ww_icon_armory_0
+  - first:
+      213: -8937999736241268092
+    second: ww_icon_armory_1
+  - first:
+      213: 3428898263714530966
+    second: ww_icon_armory_2
+  - first:
+      213: 2493938915615487745
+    second: ww_icon_armory_3
+  - first:
+      213: 3161544727503738750
+    second: ww_icon_armory_4
+  - first:
+      213: -3044300915513970810
+    second: ww_icon_armory_5
+  - first:
+      213: 1181661078700016364
+    second: ww_icon_armory_6
+  - first:
+      213: 3133307182456963239
+    second: ww_icon_armory_7
+  - first:
+      213: -2552008165150652309
+    second: ww_icon_armory_8
+  - first:
+      213: -5256479525603458635
+    second: ww_icon_armory_9
+  - first:
+      213: -4524842785326588800
+    second: ww_icon_armory_10
+  - first:
+      213: 1802206776357183337
+    second: ww_icon_armory_11
+  - first:
+      213: 7737648056955183482
+    second: ww_icon_armory_12
+  - first:
+      213: 5351281942781342978
+    second: ww_icon_armory_13
+  - first:
+      213: -4675669402127519093
+    second: ww_icon_armory_14
+  - first:
+      213: 2463656151602476963
+    second: ww_icon_armory_15
+  - first:
+      213: -8601887912815320939
+    second: ww_icon_armory_16
+  - first:
+      213: 7591642023825445618
+    second: ww_icon_armory_17
+  - first:
+      213: -7277305543648984851
+    second: ww_icon_armory_18
+  - first:
+      213: -5380553464496918929
+    second: ww_icon_armory_19
+  - first:
+      213: 1545271567510279993
+    second: ww_icon_armory_20
+  - first:
+      213: 7922726373811309557
+    second: ww_icon_armory_21
+  - first:
+      213: -6594600790807826056
+    second: ww_icon_armory_22
+  - first:
+      213: 756062766344328147
+    second: ww_icon_armory_23
+  - first:
+      213: 4325016911338732448
+    second: ww_icon_armory_24
+  - first:
+      213: 1086692450614172842
+    second: ww_icon_armory_25
+  - first:
+      213: 1395647865167805425
+    second: ww_icon_armory_26
+  - first:
+      213: 3814883997149206744
+    second: ww_icon_armory_27
+  - first:
+      213: 6379725199994286619
+    second: ww_icon_armory_28
+  - first:
+      213: -8665806772213433125
+    second: ww_icon_armory_29
+  - first:
+      213: -449336788606647777
+    second: ww_icon_armory_30
+  - first:
+      213: -976414595376571059
+    second: ww_icon_armory_31
+  - first:
+      213: -1156841636081473437
+    second: ww_icon_armory_32
+  - first:
+      213: -1398405837626960542
+    second: ww_icon_armory_33
+  - first:
+      213: -2794116348419745074
+    second: ww_icon_armory_34
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 9
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 512
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 512
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 2
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ww_icon_armory_0
+      rect:
+        serializedVersion: 2
+        x: 85
+        y: 176
+        width: 216
+        height: 253
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cea8e6e4cd13ed110800000000000000
+      internalID: 1287521365752974060
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_1
+      rect:
+        serializedVersion: 2
+        x: 105
+        y: 187
+        width: 206
+        height: 221
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 48addce6898d5f380800000000000000
+      internalID: -8937999736241268092
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_2
+      rect:
+        serializedVersion: 2
+        x: 260
+        y: 337
+        width: 99
+        height: 99
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 69688a3cdc4e59f20800000000000000
+      internalID: 3428898263714530966
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_3
+      rect:
+        serializedVersion: 2
+        x: 322
+        y: 311
+        width: 65
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 107b8c4fa304c9220800000000000000
+      internalID: 2493938915615487745
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_4
+      rect:
+        serializedVersion: 2
+        x: 370
+        y: 360
+        width: 24
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e779e58dd2010eb20800000000000000
+      internalID: 3161544727503738750
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_5
+      rect:
+        serializedVersion: 2
+        x: 381
+        y: 372
+        width: 36
+        height: 36
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 68fa46d527870c5d0800000000000000
+      internalID: -3044300915513970810
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_6
+      rect:
+        serializedVersion: 2
+        x: 55
+        y: 174
+        width: 45
+        height: 163
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ce2c1d88d7a166010800000000000000
+      internalID: 1181661078700016364
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_7
+      rect:
+        serializedVersion: 2
+        x: 255
+        y: 245
+        width: 74
+        height: 74
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7a0078e084ebb7b20800000000000000
+      internalID: 3133307182456963239
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_8
+      rect:
+        serializedVersion: 2
+        x: 314
+        y: 303
+        width: 25
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b688c4c4812759cd0800000000000000
+      internalID: -2552008165150652309
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_9
+      rect:
+        serializedVersion: 2
+        x: 322
+        y: 280
+        width: 30
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5b1ca43b8bb3d07b0800000000000000
+      internalID: -5256479525603458635
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_10
+      rect:
+        serializedVersion: 2
+        x: 344
+        y: 250
+        width: 103
+        height: 100
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 08c9e1cd5778431c0800000000000000
+      internalID: -4524842785326588800
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_11
+      rect:
+        serializedVersion: 2
+        x: 413
+        y: 174
+        width: 44
+        height: 156
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 96f529cb389b20910800000000000000
+      internalID: 1802206776357183337
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_12
+      rect:
+        serializedVersion: 2
+        x: 279
+        y: 234
+        width: 89
+        height: 43
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a712ec779e5a16b60800000000000000
+      internalID: 7737648056955183482
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_13
+      rect:
+        serializedVersion: 2
+        x: 363
+        y: 205
+        width: 27
+        height: 40
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 205b17c1392934a40800000000000000
+      internalID: 5351281942781342978
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_14
+      rect:
+        serializedVersion: 2
+        x: 389
+        y: 234
+        width: 20
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b82b607937fac1fb0800000000000000
+      internalID: -4675669402127519093
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_15
+      rect:
+        serializedVersion: 2
+        x: 291
+        y: 212
+        width: 76
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3a7b8f4873aa03220800000000000000
+      internalID: 2463656151602476963
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_16
+      rect:
+        serializedVersion: 2
+        x: 394
+        y: 204
+        width: 39
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 590aaee9484ff9880800000000000000
+      internalID: -8601887912815320939
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_17
+      rect:
+        serializedVersion: 2
+        x: 147
+        y: 143
+        width: 35
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2f21b0cc23eea5960800000000000000
+      internalID: 7591642023825445618
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_18
+      rect:
+        serializedVersion: 2
+        x: 160
+        y: 156
+        width: 30
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: de042d43a21d10b90800000000000000
+      internalID: -7277305543648984851
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_19
+      rect:
+        serializedVersion: 2
+        x: 171
+        y: 161
+        width: 34
+        height: 35
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f6ee9a5a12f6455b0800000000000000
+      internalID: -5380553464496918929
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_20
+      rect:
+        serializedVersion: 2
+        x: 289
+        y: 140
+        width: 59
+        height: 62
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 93716fead48e17510800000000000000
+      internalID: 1545271567510279993
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_21
+      rect:
+        serializedVersion: 2
+        x: 322
+        y: 137
+        width: 23
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5fb44ab19ad23fd60800000000000000
+      internalID: 7922726373811309557
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_22
+      rect:
+        serializedVersion: 2
+        x: 340
+        y: 140
+        width: 20
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 871b36c35854b74a0800000000000000
+      internalID: -6594600790807826056
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_23
+      rect:
+        serializedVersion: 2
+        x: 120
+        y: 116
+        width: 34
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3d35ad784131e7a00800000000000000
+      internalID: 756062766344328147
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_24
+      rect:
+        serializedVersion: 2
+        x: 133
+        y: 129
+        width: 35
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0abf6e747fb850c30800000000000000
+      internalID: 4325016911338732448
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_25
+      rect:
+        serializedVersion: 2
+        x: 338
+        y: 123
+        width: 19
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aacd4fab605b41f00800000000000000
+      internalID: 1086692450614172842
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_26
+      rect:
+        serializedVersion: 2
+        x: 353
+        y: 109
+        width: 20
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1fbfbd2c6565e5310800000000000000
+      internalID: 1395647865167805425
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_27
+      rect:
+        serializedVersion: 2
+        x: 355
+        y: 127
+        width: 20
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8d8966588c031f430800000000000000
+      internalID: 3814883997149206744
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_28
+      rect:
+        serializedVersion: 2
+        x: 370
+        y: 112
+        width: 21
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b127446a446598850800000000000000
+      internalID: 6379725199994286619
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_29
+      rect:
+        serializedVersion: 2
+        x: 88
+        y: 78
+        width: 29
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bdc3b0277aedcb780800000000000000
+      internalID: -8665806772213433125
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_30
+      rect:
+        serializedVersion: 2
+        x: 97
+        y: 87
+        width: 34
+        height: 34
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f12069a4292a3c9f0800000000000000
+      internalID: -449336788606647777
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_31
+      rect:
+        serializedVersion: 2
+        x: 113
+        y: 103
+        width: 28
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d4d921949141372f0800000000000000
+      internalID: -976414595376571059
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_32
+      rect:
+        serializedVersion: 2
+        x: 369
+        y: 95
+        width: 19
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3686bf349a212ffe0800000000000000
+      internalID: -1156841636081473437
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_33
+      rect:
+        serializedVersion: 2
+        x: 383
+        y: 87
+        width: 25
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 265996cbc4dd79ce0800000000000000
+      internalID: -1398405837626960542
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ww_icon_armory_34
+      rect:
+        serializedVersion: 2
+        x: 393
+        y: 77
+        width: 26
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: eca54572cfd4939d0800000000000000
+      internalID: -2794116348419745074
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      ww_icon_armory_0: 1287521365752974060
+      ww_icon_armory_1: -8937999736241268092
+      ww_icon_armory_10: -4524842785326588800
+      ww_icon_armory_11: 1802206776357183337
+      ww_icon_armory_12: 7737648056955183482
+      ww_icon_armory_13: 5351281942781342978
+      ww_icon_armory_14: -4675669402127519093
+      ww_icon_armory_15: 2463656151602476963
+      ww_icon_armory_16: -8601887912815320939
+      ww_icon_armory_17: 7591642023825445618
+      ww_icon_armory_18: -7277305543648984851
+      ww_icon_armory_19: -5380553464496918929
+      ww_icon_armory_2: 3428898263714530966
+      ww_icon_armory_20: 1545271567510279993
+      ww_icon_armory_21: 7922726373811309557
+      ww_icon_armory_22: -6594600790807826056
+      ww_icon_armory_23: 756062766344328147
+      ww_icon_armory_24: 4325016911338732448
+      ww_icon_armory_25: 1086692450614172842
+      ww_icon_armory_26: 1395647865167805425
+      ww_icon_armory_27: 3814883997149206744
+      ww_icon_armory_28: 6379725199994286619
+      ww_icon_armory_29: -8665806772213433125
+      ww_icon_armory_3: 2493938915615487745
+      ww_icon_armory_30: -449336788606647777
+      ww_icon_armory_31: -976414595376571059
+      ww_icon_armory_32: -1156841636081473437
+      ww_icon_armory_33: -1398405837626960542
+      ww_icon_armory_34: -2794116348419745074
+      ww_icon_armory_4: 3161544727503738750
+      ww_icon_armory_5: -3044300915513970810
+      ww_icon_armory_6: 1181661078700016364
+      ww_icon_armory_7: 3133307182456963239
+      ww_icon_armory_8: -2552008165150652309
+      ww_icon_armory_9: -5256479525603458635
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

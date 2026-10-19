@@ -28,6 +28,14 @@ namespace WildWeapon.UI
 }
         public void PlayBots() => OpenMapSelect(GameMode.Bots);
 
+        /// <summary>El tercer botón es la armería: se elige el equipamiento y desde ahí se entra a supervivencia.</summary>
+        public void OpenArmory()
+        {
+            if (_loading) return;
+            _loading = true;
+            StartCoroutine(Fade(0f, 1f, () => SceneManager.LoadScene(GameSession.ArmoryScene)));
+        }
+
         /// <summary>Abre el overlay de emparejamiento PVP online.</summary>
         public void PlayPvp() => PvpQuickmatchPanel.Open(this);
 

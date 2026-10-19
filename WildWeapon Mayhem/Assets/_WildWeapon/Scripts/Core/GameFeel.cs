@@ -99,6 +99,79 @@ public static readonly List<PlayerSlot> MultiPlayers = new List<PlayerSlot>();
         public const string MenuScene = "MainMenu";
         public const string MapSelectScene = "MapSelect";
         public const string ArenaScene = "Arena";
+        public const string ArmoryScene = "Armory";
+
+        /// <summary>Ids del arsenal, en el orden en que la armeria los muestra.</summary>
+        public static readonly string[] Arsenal = { "katana", "hacha_gris", "mazo_oxidado", "lanza_plasma", "sierra_chatarra" };
+
+        /// <summary>Armas equipadas: ranura 1 y ranura 2 (las elige el jugador en la armeria).</summary>
+        public static readonly string[] Equipped = { "katana", "hacha_gris" };
+
+        static GameSession()
+        {
+            // El equipamiento elegido se recuerda entre partidas.
+            for (int i = 0; i < Equipped.Length; i++)
+            {
+                string v = PlayerPrefs.GetString("ww_equip_" + i, "");
+                if (!string.IsNullOrEmpty(v)) Equipped[i] = v;
+            }
+        }
+
+        /// <summary>Arma equipada en una ranura (null si la ranura esta vacia).</summary>
+        public static string EquippedAt(int slot) =>
+            (slot >= 0 && slot < Equipped.Length) ? Equipped[slot] : null;
+
+        /// <summary>Equipa un arma en una ranura. Si ya estaba en la otra, se saca de ahi.</summary>
+        public static void Equip(int slot, string weaponId)
+        {
+            if (slot < 0 || slot > 1 || string.IsNullOrEmpty(weaponId)) return;
+            int other = 1 - slot;
+            if (Equipped[other] == weaponId) Equipped[other] = null;
+            Equipped[slot] = weaponId;
+            SaveEquip(other);
+            SaveEquip(slot);
+        }
+
+        /// <summary>Saca el arma de la ranura (queda vacia).</summary>
+        public static void Unequip(int slot)
+        {
+            if (slot < 0 || slot > 1) return;
+            Equipped[slot] = null;
+            SaveEquip(slot);
+        }
+
+        private static void SaveEquip(int slot)
+        {
+            PlayerPrefs.SetString("ww_equip_" + slot, Equipped[slot] ?? "");
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>
+        /// Aplica el equipamiento elegido en la armeria sobre un loadout.
+        /// Si no hay nada elegido (o los ids no existen), deja el del prefab.
+        /// </summary>
+        public static void ApplyLoadout(WeaponLoadout loadout)
+        {
+            if (loadout == null) return;
+
+            var all = loadout.GetComponentsInChildren<MeleeWeapon>(true);
+            var chosen = new List<MeleeWeapon>();
+            for (int s = 0; s < Equipped.Length; s++)
+            {
+                string id = Equipped[s];
+                if (string.IsNullOrEmpty(id)) continue;
+                foreach (var w in all)
+                {
+                    if (w == null || w.def == null) continue;
+                    if (!string.IsNullOrEmpty(w.def.id) ? w.def.id != id : w.def.name != id) continue;
+                    if (chosen.Contains(w)) break;
+                    chosen.Add(w);
+                    break;
+                }
+            }
+            if (chosen.Count == 0) return;
+            loadout.SetWeapons(chosen.ToArray());
+        }
 
         /// <summary>Indice del mapa elegido en el selector (sobre el MapCatalog).</summary>
         public static int SelectedMap = 0;

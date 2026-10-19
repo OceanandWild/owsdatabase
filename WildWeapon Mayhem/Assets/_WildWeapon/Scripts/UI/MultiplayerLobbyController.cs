@@ -29,6 +29,8 @@ namespace WildWeapon.UI
         public Sprite rowPlate;
         [Tooltip("Circulo suave para el color del jugador (Art/VFX/soft_circle).")]
         public Sprite orbSprite;
+        [Tooltip("Tarjeta del jugador (Art/Sprites/ww_lobby_player_card): medallon + asiento.")]
+        public Sprite playerCard;
 
         [Header("Textos")]
         public Text subLabel;
@@ -131,13 +133,34 @@ namespace WildWeapon.UI
             Stretch(plate.rectTransform);
             if (rowPlate != null) { plate.type = Image.Type.Sliced; plate.pixelsPerUnitMultiplier = 3f; }
 
-            // Barra de acento con el color del jugador
-            var bar = NewImage(row.transform, "Accent", rowPlate, color);
-            Rect(bar.rectTransform, LobbyLayout.BarX, LobbyLayout.BarH * 0f, LobbyLayout.BarW, LobbyLayout.BarH);
-            if (rowPlate != null) { bar.type = Image.Type.Sliced; bar.pixelsPerUnitMultiplier = 8f; }
+            // Tarjeta del jugador (ww_lobby_player_card): el medallon pintado lleva el
+            // orbe del color y el panel de la derecha el numero de asiento.
+            Image accent = null;
+            if (playerCard != null)
+            {
+                var card = NewImage(row.transform, "Card", playerCard, Color.white);
+                Rect(card.rectTransform, LobbyLayout.CardX, 0f, LobbyLayout.CardW, LobbyLayout.CardH);
+            }
+            else
+            {
+                // Sin el arte de la tarjeta queda la barra de acento, en la misma columna.
+                accent = NewImage(row.transform, "Accent", rowPlate, color);
+                Rect(accent.rectTransform, LobbyLayout.BarX, 0f, LobbyLayout.BarW, LobbyLayout.BarH);
+                if (rowPlate != null) { accent.type = Image.Type.Sliced; accent.pixelsPerUnitMultiplier = 8f; }
+            }
+
+            // Numero de asiento, tenido con el color del jugador. Se aclara un poco
+            // porque el panel de la tarjeta es oscuro y si no queda ilegible.
+            var seatColor = Color.Lerp(color, Color.white, 0.30f);
+            var seat = NewText(row.transform, "Seat", "J" + (index + 1), 22, seatColor);
+            Rect(seat.rectTransform, LobbyLayout.CardSeatX, 0f, LobbyLayout.CardSeatW, 30f);
+            seat.alignment = TextAnchor.MiddleCenter;
+            var seatSh = seat.gameObject.AddComponent<Shadow>();
+            seatSh.effectColor = new Color(0f, 0f, 0f, 0.75f);
+            seatSh.effectDistance = new Vector2(1.5f, -1.5f);
 
             // Orbe de color: click para pasar al siguiente color de la paleta
-            var colorRt = NewRect(row.transform, "Color", LobbyLayout.ColorX - LobbyLayout.ColorButtonSize * 0.5f,
+            var colorRt = NewRect(row.transform, "Color", LobbyLayout.CardColorX - LobbyLayout.ColorButtonSize * 0.5f,
                 0f, LobbyLayout.ColorButtonSize, LobbyLayout.ColorButtonSize);
             var colorBtn = colorRt.gameObject.AddComponent<Button>();
             colorBtn.transition = Selectable.Transition.ColorTint;
@@ -151,7 +174,7 @@ namespace WildWeapon.UI
             colorBtn.targetGraphic = orb;
 
             int idx = index;
-            colorBtn.onClick.AddListener(() => CycleColor(idx, orb, glow, bar));
+            colorBtn.onClick.AddListener(() => CycleColor(idx, orb, glow, accent, seat));
 
             // Nombre (campo editable)
             var nameRt = NewRect(row.transform, "Name", LobbyLayout.NameX, 0f, LobbyLayout.NameW, LobbyLayout.FieldH);
@@ -209,10 +232,6 @@ namespace WildWeapon.UI
                 teamValue.text = TeamText(slot.team);
             });
 
-            // Numero de asiento, teñido con el color del jugador
-            var seat = NewText(row.transform, "Seat", "J" + (index + 1), 17, color);
-            Rect(seat.rectTransform, LobbyLayout.SeatX, 0f, LobbyLayout.SeatW, 26f);
-            seat.alignment = TextAnchor.MiddleCenter;
         }
 
         /// <summary>Campo con flechas: cada click pasa al valor siguiente.</summary>
@@ -271,7 +290,7 @@ namespace WildWeapon.UI
             Rebuild();
         }
 
-        private void CycleColor(int idx, Image orb, Image glow, Image bar)
+        private void CycleColor(int idx, Image orb, Image glow, Image bar, Text seat)
         {
             if (idx < 0 || idx >= GameSession.MultiPlayers.Count) return;
             var slot = GameSession.MultiPlayers[idx];
@@ -279,7 +298,8 @@ namespace WildWeapon.UI
             var color = ColorOf(slot.colorIndex);
             orb.color = color;
             glow.color = new Color(color.r, color.g, color.b, 0.30f);
-            bar.color = color;
+            if (bar != null) bar.color = color;
+            if (seat != null) seat.color = Color.Lerp(color, Color.white, 0.30f);
         }
 
         /// <summary>Rellena la fila desde afuera (lo usan las pruebas del editor).</summary>

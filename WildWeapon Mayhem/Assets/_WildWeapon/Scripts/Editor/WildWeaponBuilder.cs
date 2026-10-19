@@ -2671,22 +2671,36 @@ def.platforms = scaledPlats;
                 new Vector2(-320f, -22f), new Vector2(420f, 42f));
             controller.countLabel = count;
 
-            var title = UiText("Title", canvasT, font, "MULTIJUGADOR LOCAL", 52, Color.white);
-            HudRect(title.rectTransform, Center, Center, new Vector2(0f, 420f), new Vector2(1400f, 68f));
+            // Placa del titulo (ww_lobby_title_banner, 1024x170 = 6.02:1): mismo ancho
+            // que la bajada y el tablero, asi la cabecera queda en una sola columna.
+            var bannerSkin = Spr("ww_lobby_title_banner");
+            if (bannerSkin != null)
+            {
+                var banner = UiImage("TitleBanner", canvasT, bannerSkin, Color.white);
+                HudRect(banner.rectTransform, Center, Center,
+                    new Vector2(0f, LobbyLayout.BannerY), new Vector2(LobbyLayout.BannerW, LobbyLayout.BannerH));
+                var bannerSh = banner.gameObject.AddComponent<Shadow>();
+                bannerSh.effectColor = new Color(0f, 0f, 0f, 0.55f);
+                bannerSh.effectDistance = new Vector2(0f, -8f);
+            }
+
+            var title = UiText("Title", canvasT, font, "MULTIJUGADOR LOCAL", (int)LobbyLayout.TitleSize, Color.white);
+            HudRect(title.rectTransform, Center, Center, new Vector2(0f, LobbyLayout.BannerY),
+                new Vector2(LobbyLayout.BannerW - 120f, 68f));
             var titleSh = title.gameObject.AddComponent<Shadow>();
             titleSh.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            titleSh.effectDistance = new Vector2(2f, -3f);
+            titleSh.effectDistance = new Vector2(2f, -2f);
 
             // Bajada en dos mitades: a la izquierda el plantel, a la derecha el estado.
             var sub = UiText("Subtitle", canvasT, font, "LOCAL · 2 / 15 JUGADORES", 19, new Color(1f, 1f, 1f, 0.68f));
             sub.fontStyle = FontStyle.Normal;
             sub.alignment = TextAnchor.MiddleRight;
-            HudRect(sub.rectTransform, Center, Center, new Vector2(-520f, 364f), new Vector2(960f, 28f));
+            HudRect(sub.rectTransform, Center, Center, new Vector2(-520f, LobbyLayout.SubY), new Vector2(960f, 28f));
             controller.subLabel = sub;
 
             var foot = UiText("FootHint", canvasT, font, "AGREGA OTRO JUGADOR PARA ARRANCAR", 19, new Color(1f, 0.72f, 0.30f, 0.9f));
             foot.alignment = TextAnchor.MiddleLeft;
-            HudRect(foot.rectTransform, Center, Center, new Vector2(520f, 364f), new Vector2(960f, 28f));
+            HudRect(foot.rectTransform, Center, Center, new Vector2(520f, LobbyLayout.SubY), new Vector2(960f, 28f));
             controller.footHint = foot;
 
             // ---- Tablero ----
@@ -2715,11 +2729,11 @@ def.platforms = scaledPlats;
 
             // ---- Encabezado de columnas (mismos offsets que las filas) ----
             float rowLeft = LobbyLayout.ListX - LobbyLayout.ListW * 0.5f;
-            LobbyHeader(board.transform, font, "COLOR", rowLeft + LobbyLayout.ColorX, 110f);
+            float cardMid = LobbyLayout.CardX + LobbyLayout.CardW * 0.5f;
+            LobbyHeader(board.transform, font, "JUGADOR", rowLeft + cardMid, LobbyLayout.CardW + 40f);
             LobbyHeader(board.transform, font, "NOMBRE", rowLeft + LobbyLayout.NameX + LobbyLayout.NameW * 0.5f, 260f);
             LobbyHeader(board.transform, font, "CONTROL", rowLeft + LobbyLayout.ControlX + LobbyLayout.ControlW * 0.5f, 300f);
             LobbyHeader(board.transform, font, "EQUIPO", rowLeft + LobbyLayout.TeamX + LobbyLayout.TeamW * 0.5f, 180f);
-            LobbyHeader(board.transform, font, "N°", rowLeft + LobbyLayout.SeatX + LobbyLayout.SeatW * 0.5f, 60f);
 
             var rule = UiImage("Rule", board.transform, null, new Color(1f, 1f, 1f, 0.10f));
             HudRect(rule.rectTransform, Center, Center,
@@ -2869,6 +2883,7 @@ def.platforms = scaledPlats;
             controller.listContent = contentRt;
             controller.rowPlate = _panel;
             controller.orbSprite = _soft;
+            controller.playerCard = Spr("ww_lobby_player_card");
         }
 
         /// <summary>

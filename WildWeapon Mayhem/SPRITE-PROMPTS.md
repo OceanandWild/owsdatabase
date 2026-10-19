@@ -887,10 +887,50 @@ magick <id>_env_<id8>_raw.jpg -resize 2048x1143! -strip ww_map_<id>_bg.png
 | Asset | Tamaño sugerido | Estado |
 |---|---|---|
 | `ww_lobby_button_remove` / `_continue` / `_back` | 256×64 (4:1) | **Instalados** (los cuatro ya están en `Art/Sprites` y en el `ArtSpec`): las placas son grises neutras casi idénticas, así que cada botón se distingue por el tinte de acento (`Lerp(blanco, acento, 0.18)`) + el `Outline`. Si en el próximo lote llega una versión con rasgos propios (símbolo o bisel distinto por acción), se reemplaza el archivo con el mismo nombre y el generador la toma solo. |
-| `ww_lobby_title_banner` | 1024×170 (6:1) | **Instalada pero reservada**: hoy el título es texto con sombra. Para usarla hay que reflotar la cabecera (el banner necesita ~120 de alto y los chips de arriba arrancan en y 476), así que queda para el pase de cabecera. |
-| `ww_lobby_row_plate` (9-slice) | 1024×128 | Opcional: hoy la fila usa `ui_panel` generado + tinte navy. Útil para que la fila tenga bisel propio; **debe ser 9-slice** (no estirar `ww_lobby_player_card`, que trae el círculo pintado al costado y se deforma). |
+| `ww_lobby_title_banner` | 1024×170 (6:1) | **Instalada** (ver §16): es la placa del título, en 760×126 sobre la columna del tablero. |
+| `ww_lobby_player_card` | 512×128 (4:1) | **Instalada** (ver §16): cada fila arranca con la tarjeta a escala 4:1 (260×65), sin deformar: el orbe del color cae en el medallón pintado y el asiento en el panel de la derecha. |
+| `ww_lobby_row_plate` (9-slice) | 1024×128 | Opcional: hoy la fila usa `ui_panel` generado + tinte navy. Útil para que la fila tenga bisel propio; **debe ser 9-slice** (estirar `ww_lobby_player_card` deforma el círculo pintado: por eso va a tamaño fijo, ver §16). |
 | `ww_lobby_scroll_track` / `_handle` | 128×… | Opcional: hoy son 9-slice del panel generado (riel oscuro + manija acero). |
 | Emblemas de columna (color/nombre/control/equipo/asiento) | 64×64 | Opcional: hoy el encabezado es solo texto (16 px, acero claro). |
 
 > Regla para el lote: **gris neutro** (`-modulate 100,0,100`) y encuadre exacto al hueco, igual que §8–§10 — el acento y el color de cada jugador los pone el código.
+
+## 16. Lobby: placa del título y tarjeta de jugador (oct 2026)
+
+> Segundo pase: entra el arte de §15 (banner + tarjeta) y la cabecera se reflota para que el título tenga placa propia. No se tocó la estructura, solo alturas y columnas.
+
+**Qué cambió**
+
+- **Placa del título**: `ww_lobby_title_banner` en 760×126,17 (6,02:1, sin deformar) centrada en y 391, con el título encima a 42 px. La cabecera cuelga de la bajada y el tablero, **no** del borde superior: en 21:9 el canvas queda en ~932 de alto, así que el borde de arriba está en 466 y la placa termina en 454 (12 de aire). Los chips viven pegados a las esquinas (x ±34), o sea que se cruzan con la placa en vertical pero nunca en horizontal: no hay colisión en ningún aspecto entre 4:3 y 21:9.
+- **Tablero 1400×650** (antes 700): 7% más bajo que el arte 2:1 — imperceptible en un marco tan fino y es lo que le da el aire a la placa. El ancho no se toca, así que las columnas de la fila siguen midiendo lo mismo. Marco interior 96/78 → interior 1208×494; la lista queda 1188×438 y muestra 5 filas y media (el resto, scroll).
+- **Tarjeta de jugador**: cada fila arranca con `ww_lobby_player_card` a **tamaño fijo 260×65** (4:1, escala 0,508). El arte trae el medallón pintado, medido sobre el PNG: disco interior en (66, 65,2) con radio 38,4 px → a esa escala el centro cae a 33,5 del borde de la tarjeta, así que **el orbe del color va en x 43,5** (caja de click 60, orbe 44, halo 62) y se apoya justo dentro del anillo. El panel de la derecha (x 150–473 del arte) hospeda el asiento `J1..J15` a 22 px, aclarado un 30% hacia blanco + sombra: sobre el gris oscuro del panel, el color puro no se leía.
+- **Columnas nuevas de la fila**: nombre x 284 (336), control x 636 (288), equipo x 940 (240); el encabezado del tablero pasa a `JUGADOR · NOMBRE · CONTROL · EQUIPO` (el `N°` suelto desapareció: el asiento ahora está en la tarjeta). El encabezado y las filas siguen saliendo del mismo `LobbyLayout`.
+- La **barra de acento** (x 14, 5×34) solo se dibuja como respaldo si falta el sprite de la tarjeta; con tarjeta, el color lo llevan el medallón y el asiento.
+
+**Geometría (`LobbyLayout`, unidades de la resolución de referencia 1920×1080)**
+
+| Pieza | Números |
+|---|---|
+| Placa del título | 760×126,17 en y 391 · título 42 px (495 de ancho de texto) |
+| Bajada | y 307 (borde de arriba del tablero en 286) |
+| Tablero | 1400×650 en y −39 · marco interior 96/78 → interior 1208×494 |
+| Encabezado | alto 44 en y 225 (regla de 2 px en 199) |
+| Lista | viewport 1188×438 centrado en x −10, y −28 · barra 12 de ancho en x 598 |
+| Fila | alto 72, gap 8 · tarjeta x 10 (260×65) · orbe centro 43,5 · asiento x 146 (44) · nombre x 284 (336) · control x 636 (288) · equipo x 940 (240) |
+| Pie | botones 320×80 en y −412 · divisor de 2×54 entre los pares |
+
+**Verificación**
+
+- Reconstrucción con **WildWeapon > Dev > Reconstruir lobby (silencioso)** y captura en play con 2 y 15 jugadores: la placa del título entra completa con el título centrado, las filas alinean con el encabezado, el orbe cae dentro del medallón (medido: orbe 44×44 con centro en x 43,5 sobre una tarjeta en x 10), a los 15 jugadores `+ AGREGAR` se apaga y la lista scrollea al último (contenido 1192 en un viewport de 438).
+- Recordatorio del flujo: el arte se registra en el `ArtSpec` del generador (PPU 512, CompressedHQ, alpha, Bilinear) y se cablea por nombre; **reconstruir la escena después de recompilar** (si el menú de dev corre antes de que termine el recompilado, la escena sale con los números viejos).
+
+**Pendientes para el próximo lote (opcionales)**
+
+| Asset | Tamaño sugerido | Para qué |
+|---|---|---|
+| `ww_lobby_row_plate` (9-slice) | 1024×128 | Bisel propio de la fila (hoy `ui_panel` + tinte navy). |
+| `ww_lobby_scroll_track` / `_handle` | 128 de ancho | Riel y manija de la barra (hoy 9-slice del panel). |
+| Emblemas de columna | 64×64 | Chips chicos para `JUGADOR · NOMBRE · CONTROL · EQUIPO` (hoy texto 16 px). |
+| Insignia de equipo (A–D) | 64×64 | Al lado del stepper de equipo, con el color del equipo. |
+| Iconos de control (teclado / pads) | 64×64 | Reemplazar el texto `TECLADO` / `PAD n` del stepper. |
 

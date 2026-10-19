@@ -9,6 +9,23 @@ namespace WildWeapon.Pvp
         public string name;
         public int color;
         public int seat;
+        /// <summary>Equipo del rival (0-3) tal como quedo en la sala.</summary>
+        public int team;
+        /// <summary>El rival lo conduce la IA del anfitrion (no es una persona).</summary>
+        public bool bot;
+    }
+
+    /// <summary>Un asiento de la sala (persona o bot) tal como lo manda el server.</summary>
+    [Serializable]
+    public class PvpLobbyPlayer
+    {
+        public int seat;
+        public string name;
+        public int color;
+        public int team;
+        public int control;
+        public bool bot;
+        public bool host;
     }
 
     /// <summary>
@@ -21,14 +38,30 @@ namespace WildWeapon.Pvp
     {
         public string t;
 
+        // Sala / lobby
+        public string room;
+        public string code;
+        public int cap;
+        public bool host;
+        public bool started;
+        public int total;
+        public int waiters;
+        public int pos;
+        public PvpLobbyPlayer[] players;
+
         // Emparejamiento
         public int seat;
-        public string room;
         public int seed;
         public PvpOpp opp;
         public PvpOpp[] opps;
         public string name;
         public int color;
+        /// <summary>Equipo propio y control (viajan al emparejar y en el roster).</summary>
+        public int team;
+        public int control;
+        /// <summary>Asiento que recibe un golpe (hit) o los bots que se fueron (bots_left).</summary>
+        public int target = -1;
+        public int[] seats;
 
         // Flujo de rondas
         public int round;
@@ -78,6 +111,18 @@ namespace WildWeapon.Pvp
         public const string Rematch = "rematch";
         public const string RematchWait = "rematch_wait";
         public const string OppLeft = "opp_left";
+        public const string BotsLeft = "bots_left";
         public const string Error = "error";
+
+        // Lobby por codigo (MultiplayerLobbyController)
+        public const string LobbyNew = "lobby_new";
+        public const string LobbyJoin = "lobby_join";
+        public const string LobbySet = "lobby_set";
+        public const string LobbyBots = "lobby_bots";
+        public const string LobbyStart = "lobby_start";
+        public const string LobbyState = "lobby_state";
+        public const string LobbyFull = "lobby_full";
+        public const string LobbyClosed = "lobby_closed";
+        public const string LobbyError = "lobby_error";
     }
 }

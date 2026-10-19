@@ -114,8 +114,10 @@ public static readonly List<PlayerSlot> MultiPlayers = new List<PlayerSlot>();
         }
 
         // ---- PVP online ----
-        /// <summary>Asiento asignado por el server (0 o 1) en la partida PVP.</summary>
+        /// <summary>Asiento asignado por el server (0..14) en la partida PVP.</summary>
         public static int PvpSeat = 0;
+        /// <summary>Este cliente creo la sala (conduce los bots del plantel).</summary>
+        public static bool PvpHost = false;
         public static string PvpOpponentName = "RIVAL";
         public static int PvpOpponentColor = 1;
         /// <summary>Semilla compartida para que ambos clientes generen la misma arena.</summary>

@@ -155,9 +155,11 @@ namespace WildWeapon
             SetPlayersCanAct(false);
             _clearStatusIn = 0f;
             CurrentPhase = isFinal ? Phase.MatchEnd : Phase.RoundEnd;
+            // winner -1: no quedo ningun humano vivo (los bots de la sala se llevan la ronda).
+            string who = winner >= 0 ? $"J{winner + 1}" : "LA IA";
             StatusText = isFinal
-                ? $"GANA J{winner + 1} LA PARTIDA"
-                : $"RONDA {RoundNumber}: GANA J{winner + 1}";
+                ? $"GANA {who} LA PARTIDA"
+                : $"RONDA {RoundNumber}: GANA {who}";
         }
 
         /// <summary>PVP: el rival se desconecto o abandono.</summary>

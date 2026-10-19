@@ -1,17 +1,25 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using WildWeapon.Pvp;
 
 namespace WildWeapon.UI
 {
     /// <summary>
-    /// Lobby multijugador local: se arma el plantel (nombre, color, control y equipo)
-    /// antes de elegir la arena. La lista usa scroll (hasta <see cref="MaxPlayers"/>
-    /// jugadores) y cada fila se construye por codigo con la grilla de
-    /// <see cref="LobbyLayout"/>: el encabezado de columnas y las filas comparten los
-    /// mismos numeros, asi quedan alineados. Esc / Start vuelve al menu principal.
+    /// Lobby multijugador ONLINE: sala por codigo (4-6 digitos) sobre el servicio de
+    /// duelos (server.js -> /wildweapon/pvp). El anfitrion crea la sala, suma o resta
+    /// bots y arranca la partida; los demas entran escribiendo el codigo. Si la sala
+    /// llego a los 15 combatientes, el que intenta entrar queda en espera (con boton
+    /// para cancelar) hasta que el server le avise que se libero un asiento.
+    ///
+    /// Cada asiento se dibuja con la grilla de <see cref="LobbyLayout"/> (tarjeta del
+    /// jugador + orbe de color + asiento + nombre + control + equipo); solo el asiento
+    /// propio es editable y todo cambio viaja al server (lobby_set), que devuelve el
+    /// roster completo. Los modales (entrar a la sala / sala llena) se arman por codigo
+    /// con los sprites del lobby: panel, botones y campos.
     /// </summary>
     public class MultiplayerLobbyController : MonoBehaviour
     {
@@ -22,6 +30,8 @@ namespace WildWeapon.UI
         /// <summary>Equipos ofrecidos, en el orden que guarda <see cref="GameSession.PlayerSlot.team"/>.</summary>
         public static readonly string[] TeamNames = { "EQUIPO A", "EQUIPO B", "EQUIPO C", "EQUIPO D" };
 
+        private enum Step { Connect, Rooms, Waiting, Room }
+
         [Header("Lista")]
         public RectTransform listContent;
         public ScrollRect listScroll;
@@ -31,6 +41,10 @@ namespace WildWeapon.UI
         public Sprite orbSprite;
         [Tooltip("Tarjeta del jugador (Art/Sprites/ww_lobby_player_card): medallon + asiento.")]
         public Sprite playerCard;
+        [Tooltip("Placa grande de los modales (Art/Sprites/ww_lobby_panel).")]
+        public Sprite modalPlate;
+        [Tooltip("Placa de boton de los modales (Art/Sprites/ww_lobby_button_add).")]
+        public Sprite modalButton;
 
         [Header("Textos")]
         public Text subLabel;
@@ -57,34 +71,103 @@ namespace WildWeapon.UI
         private static readonly Color LabelDim = new Color(1f, 1f, 1f, 0.58f);
         private static readonly Color ReadyText = new Color(0.62f, 0.85f, 1f, 0.85f);
         private static readonly Color WarnText = new Color(1f, 0.72f, 0.30f, 0.90f);
+        private static readonly Color GoldText = new Color(1f, 0.84f, 0.42f, 0.95f);
+        private static readonly Color Accent = new Color(0.36f, 0.86f, 1f);
 
         private Font _font;
         private bool _loading;
+
+        // ---- Red ----
+        private PvpClient _client;
+        private Step _step = Step.Connect;
+        private readonly List<PvpLobbyPlayer> _roster = new List<PvpLobbyPlayer>();
+        private string _code = "";
+        private int _seat = -1;
+        private bool _host;
+        private bool _inRoom;
+        private bool _starting;
+        private int _waiters;
+        private PvpMsg _pendingState;
+        private bool _stateDirty;
+
+        // ---- Modales ----
+        private CanvasGroup _modal;
+        private RectTransform _roomStep;
+        private RectTransform _waitStep;
+        private Text _roomStatus;
+        private Text _waitTitle;
+        private Text _waitSub;
+        private RectTransform _waitOrb;
+        private InputField _codeInput;
+        private Button _createButton;
+        private Button _joinButton;
+
+        private float _statusFlash;
 
         void Start()
         {
             Time.timeScale = 1f;
             if (_font == null) _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (palette == null || palette.Length == 0) palette = GameSession.Palette;
 
-            if (GameSession.MultiPlayers.Count == 0)
+            // Los botones del tablero ya vienen cableados desde la escena
+            // (AddPlayer / RemoveLast / Continue / Back): no se agregan aca para
+            // no disparar dos veces cada accion.
+
+            BuildModals();
+            Refresh();
+
+            _client = PvpClient.Ensure();
+            _client.Message += OnMessage;
+            if (_client.IsConnected) OnConnected();
+            else
             {
-                // Plantel por defecto: dos jugadores (los colores 0 y 1 de la paleta).
-                GameSession.MultiPlayers.Add(new GameSession.PlayerSlot { name = "Jugador 1", colorIndex = 0, controlIndex = 0, team = 0 });
-                GameSession.MultiPlayers.Add(new GameSession.PlayerSlot { name = "Jugador 2", colorIndex = 1, controlIndex = 1, team = 1 });
+                _client.Connect();
+                StartCoroutine(WaitConnection());
             }
 
-            if (addButton != null) addButton.onClick.AddListener(AddPlayer);
-            if (removeButton != null) removeButton.onClick.AddListener(RemoveLast);
-            if (continueButton != null) continueButton.onClick.AddListener(Continue);
-            if (backButton != null) backButton.onClick.AddListener(Back);
-
-            Rebuild();
             if (fader != null) StartCoroutine(Fade(1f, 0f, null));
+        }
+
+        void OnDestroy()
+        {
+            if (_client != null) _client.Message -= OnMessage;
         }
 
         void Update()
         {
             if (_loading) return;
+
+            // Estado del lobby pendiente (ver ApplyState): un refresco por frame.
+            if (_stateDirty)
+            {
+                _stateDirty = false;
+                var pending = _pendingState;
+                _pendingState = null;
+                if (pending != null) ApplyStateNow(pending);
+            }
+
+            // El orbe del modal "sala llena" late mientras se espera un lugar.
+            if (_waitOrb != null && _waitStep != null && _waitStep.gameObject.activeSelf)
+            {
+                float k = 1f + 0.06f * Mathf.Sin(Time.unscaledTime * 3.4f);
+                _waitOrb.localScale = new Vector3(k, k, 1f);
+                var img = _waitOrb.GetComponent<Image>();
+                if (img != null)
+                {
+                    var c = img.color;
+                    c.a = 0.55f + 0.35f * Mathf.Sin(Time.unscaledTime * 3.4f);
+                    img.color = c;
+                }
+            }
+
+            if (_statusFlash > 0f)
+            {
+                _statusFlash -= Time.unscaledDeltaTime;
+                if (_statusFlash <= 0f && _roomStatus != null && _step == Step.Rooms)
+                    _roomStatus.text = DefaultRoomStatus();
+            }
+
             var kb = Keyboard.current;
             var pad = Gamepad.current;
             if ((kb != null && (kb.escapeKey.wasPressedThisFrame || kb.backspaceKey.wasPressedThisFrame)) ||
@@ -95,10 +178,258 @@ namespace WildWeapon.UI
         }
 
         // =================================================================
+        // Estado observable (pruebas y depuracion)
+        // =================================================================
+
+        public bool IsConnected => _client != null && _client.IsConnected;
+        public string StepName => _step.ToString();
+        public string RoomCode => _code;
+        public int Seat => _seat;
+        public bool IsHost => _host;
+        public bool WaitingSlot => _step == Step.Waiting;
+        public int RosterCount => _roster != null ? _roster.Count : 0;
+        public int BotsInRoster => BotCount();
+        public int WaitersInRoom => _waiters;
+
+        /// <summary>Escribe el codigo en el campo (pegar/pegar rapido o pruebas).</summary>
+        public void SetCode(string code)
+        {
+            if (_codeInput != null) _codeInput.text = OnlyDigits(code ?? "");
+        }
+
+        // =================================================================
+        // Conexion y sala
+        // =================================================================
+
+        private IEnumerator WaitConnection()
+        {
+            float t = 0f;
+            while (t < 12f && !_client.IsConnected)
+            {
+                t += Time.unscaledDeltaTime;
+                if (!string.IsNullOrEmpty(_client.LastError))
+                {
+                    SetRoomStatus("SIN CONEXION. Revisa la red e intenta de nuevo.", WarnText);
+                    yield break;
+                }
+                yield return null;
+            }
+            if (_loading) yield break;
+            if (_client.IsConnected) OnConnected();
+            else SetRoomStatus("SIN CONEXION. Revisa la red e intenta de nuevo.", WarnText);
+        }
+
+        private void OnConnected()
+        {
+            if (_inRoom) return;
+            GoRooms();
+        }
+
+        public void CreateRoom()
+        {
+            if (!Ready()) return;
+            SetRoomStatus("CREANDO SALA...", ReadyText);
+            _client.Send(new PvpMsg
+            {
+                t = PvpMsgType.LobbyNew,
+                name = PlayerName(),
+                color = GameSession.GetColorIndex(0),
+            });
+        }
+
+        public void JoinRoom()
+        {
+            if (!Ready()) return;
+            string code = _codeInput != null ? (_codeInput.text ?? "") : "";
+            code = OnlyDigits(code);
+            if (code.Length < 4)
+            {
+                SetRoomStatus("El codigo tiene entre 4 y 6 digitos.", WarnText);
+                return;
+            }
+            if (_codeInput != null) _codeInput.text = code;
+            SetRoomStatus("ENTRANDO A LA SALA " + code + "...", ReadyText);
+            _client.Send(new PvpMsg
+            {
+                t = PvpMsgType.LobbyJoin,
+                room = code,
+                name = PlayerName(),
+                color = GameSession.GetColorIndex(0),
+            });
+        }
+
+        /// <summary>Boton VOLVER del tablero: sale de la sala o, si ya estas afuera, vuelve al menu.</summary>
+        public void Back()
+        {
+            if (_loading) return;
+
+            // Escape con el campo de codigo enfocado: solo suelta el foco.
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            if (es != null && _codeInput != null && es.currentSelectedGameObject == _codeInput.gameObject)
+            {
+                es.SetSelectedGameObject(null);
+                return;
+            }
+
+            if (_inRoom || _step == Step.Waiting)
+            {
+                LeaveRoom();
+                GoRooms();
+                return;
+            }
+
+            _loading = true;
+            if (_client != null && _client.IsConnected) _client.Send(new PvpMsg { t = PvpMsgType.Leave });
+            if (_client != null) _client.LeaveAndDisconnect();
+            StartCoroutine(Fade(0f, 1f, () => SceneManager.LoadScene(GameSession.MenuScene)));
+        }
+
+        /// <summary>Sale de la sala (o de la lista de espera) sin cortar la conexion.</summary>
+        public void LeaveRoom()
+        {
+            _inRoom = false;
+            _starting = false;
+            _waiters = 0;
+            _roster.Clear();
+            _seat = -1;
+            _host = false;
+            _code = "";
+            if (_client != null && _client.IsConnected) _client.Send(new PvpMsg { t = PvpMsgType.Leave });
+            Refresh();
+        }
+
+        /// <summary>Cancelar del modal "sala llena": suelta la espera y vuelve al paso 1.</summary>
+        public void CancelWait()
+        {
+            LeaveRoom();
+            GoRooms();
+            SetRoomStatus("Cancelaste la espera. Podes probar otro codigo.", ReadyText);
+        }
+
+        // ---- Bots (solo anfitrion) ----
+
+        /// <summary>Boton + BOT (nombre que ya invoca la escena).</summary>
+        public void AddPlayer() => AddBot(1);
+
+        /// <summary>Boton - BOT (nombre que ya invoca la escena).</summary>
+        public void RemoveLast() => AddBot(-1);
+
+        /// <summary>Boton ARRANCAR (nombre que ya invoca la escena).</summary>
+        public void Continue() => StartMatch();
+
+        private void AddBot(int delta)
+        {
+            if (!Ready() || !_host || !_inRoom) return;
+            int bots = BotCount();
+            int target = Mathf.Clamp(bots + delta, 0, MaxPlayers - Humans());
+            _client.Send(new PvpMsg { t = PvpMsgType.LobbyBots, n = target });
+        }
+
+        // ---- Arranque (solo anfitrion) ----
+
+        private void StartMatch()
+        {
+            if (!Ready() || !_host || !_inRoom || _roster.Count < 2 || _starting) return;
+            _starting = true;
+            _client.Send(new PvpMsg { t = PvpMsgType.LobbyStart });
+            if (footHint != null)
+            {
+                footHint.text = "ARRANCANDO LA PARTIDA...";
+                footHint.color = ReadyText;
+            }
+        }
+
+        // =================================================================
+        // Mensajes del server
+        // =================================================================
+
+        private void OnMessage(PvpMsg m)
+        {
+            if (_loading) return;
+            switch (m.t)
+            {
+                case PvpMsgType.LobbyState:
+                    ApplyState(m);
+                    break;
+
+                case PvpMsgType.LobbyFull:
+                    _inRoom = false;
+                    _code = m.code ?? m.room ?? _code;
+                    GoWaiting(m);
+                    break;
+
+                case PvpMsgType.LobbyClosed:
+                    LeaveRoom();
+                    GoRooms();
+                    SetRoomStatus(string.IsNullOrEmpty(m.msg) ? "La sala se cerro." : m.msg + ".", WarnText);
+                    break;
+
+                case PvpMsgType.LobbyError:
+                    SetRoomStatus(string.IsNullOrEmpty(m.msg) ? "No se pudo entrar a la sala." : m.msg, WarnText);
+                    if (_step == Step.Waiting) { LeaveRoom(); GoRooms(); }
+                    break;
+
+                case PvpMsgType.Matched:
+                    OnMatched(m);
+                    break;
+
+                case PvpMsgType.Error:
+                    SetRoomStatus(string.IsNullOrEmpty(m.msg) ? "El server rechazo la operacion." : m.msg, WarnText);
+                    break;
+
+                case PvpMsgType.OppLeft:
+                case PvpMsgType.Queued:
+                case PvpMsgType.RematchWait:
+                    break;
+            }
+        }
+
+        private void ApplyState(PvpMsg m)
+        {
+            // El server puede mandar varios estados seguidos: se aplica uno por frame
+            // (el ultimo gana) para no reconstruir la lista N veces en el mismo tick.
+            _pendingState = m;
+            _stateDirty = true;
+        }
+
+        private void ApplyStateNow(PvpMsg m)
+        {
+            _inRoom = true;
+            _host = m.host;
+            _seat = m.seat;
+            _waiters = Mathf.Max(0, m.waiters);
+            _code = string.IsNullOrEmpty(m.code) ? m.room : m.code;
+            _roster.Clear();
+            if (m.players != null) _roster.AddRange(m.players);
+            _roster.Sort((a, b) => a.seat.CompareTo(b.seat));
+
+            GoRoom();
+            Refresh();
+        }
+
+        private void OnMatched(PvpMsg m)
+        {
+            if (!_inRoom && !_starting) return;             // nadie pidio arrancar desde esta sala
+            GameSession.Mode = GameMode.Pvp;
+            GameSession.PvpSeat = m.seat;
+            GameSession.PvpHost = m.host;
+            GameSession.PvpSeed = Mathf.Max(1, m.seed);
+            GameSession.PvpOpps.Clear();
+            if (m.opps != null) GameSession.PvpOpps.AddRange(m.opps);
+            GameSession.PvpOpponentName = "LA SALA";
+            if (m.opps != null && m.opps.Length > 0 && !string.IsNullOrEmpty(m.opps[0].name))
+                GameSession.PvpOpponentName = m.opps[0].name;
+
+            _loading = true;
+            if (fader != null) StartCoroutine(Fade(0f, 1f, () => SceneManager.LoadScene(GameSession.ArenaScene)));
+            else SceneManager.LoadScene(GameSession.ArenaScene);
+        }
+
+        // =================================================================
         // Lista
         // =================================================================
 
-        private void Rebuild()
+        private void Refresh()
         {
             if (listContent != null)
             {
@@ -109,19 +440,21 @@ namespace WildWeapon.UI
                     Destroy(child);
                 }
 
-                for (int i = 0; i < GameSession.MultiPlayers.Count; i++) BuildRow(i);
+                for (int i = 0; i < _roster.Count; i++) BuildRow(i);
                 LayoutRebuilder.ForceRebuildLayoutImmediate(listContent);
             }
 
             RefreshStatus();
+            ScrollToNewestIfNeeded();
         }
 
         private void BuildRow(int index)
         {
-            var slot = GameSession.MultiPlayers[index];
-            var color = ColorOf(slot.colorIndex);
+            var slot = _roster[index];
+            var color = ColorOf(slot.color);
+            bool mine = slot.seat == _seat;
 
-            var row = NewRect(listContent, "Row" + (index + 1).ToString("00"), 0f, 0f, 0f, LobbyLayout.RowH);
+            var row = NewRect(listContent, "Row" + (slot.seat + 1).ToString("00"), 0f, 0f, 0f, LobbyLayout.RowH);
             var rowRt = (RectTransform)row.transform;
             rowRt.sizeDelta = new Vector2(0f, LobbyLayout.RowH);   // el ancho lo define el layout
             var layout = row.gameObject.AddComponent<LayoutElement>();
@@ -132,10 +465,15 @@ namespace WildWeapon.UI
             var plate = NewImage(row.transform, "Bg", rowPlate, RowTint);
             Stretch(plate.rectTransform);
             if (rowPlate != null) { plate.type = Image.Type.Sliced; plate.pixelsPerUnitMultiplier = 3f; }
+            if (slot.host)
+            {
+                var hostOutline = plate.gameObject.AddComponent<Outline>();
+                hostOutline.effectColor = new Color(1f, 0.82f, 0.35f, 0.55f);
+                hostOutline.effectDistance = new Vector2(2f, -2f);
+            }
 
             // Tarjeta del jugador (ww_lobby_player_card): el medallon pintado lleva el
             // orbe del color y el panel de la derecha el numero de asiento.
-            Image accent = null;
             if (playerCard != null)
             {
                 var card = NewImage(row.transform, "Card", playerCard, Color.white);
@@ -144,81 +482,109 @@ namespace WildWeapon.UI
             else
             {
                 // Sin el arte de la tarjeta queda la barra de acento, en la misma columna.
-                accent = NewImage(row.transform, "Accent", rowPlate, color);
+                var accent = NewImage(row.transform, "Accent", rowPlate, color);
                 Rect(accent.rectTransform, LobbyLayout.BarX, 0f, LobbyLayout.BarW, LobbyLayout.BarH);
                 if (rowPlate != null) { accent.type = Image.Type.Sliced; accent.pixelsPerUnitMultiplier = 8f; }
             }
 
-            // Numero de asiento, tenido con el color del jugador. Se aclara un poco
-            // porque el panel de la tarjeta es oscuro y si no queda ilegible.
+            // Numero de asiento, tenido con el color del jugador (se aclara porque el
+            // panel de la tarjeta es oscuro).
             var seatColor = Color.Lerp(color, Color.white, 0.30f);
-            var seat = NewText(row.transform, "Seat", "J" + (index + 1), 22, seatColor);
+            var seat = NewText(row.transform, "Seat", "J" + (slot.seat + 1), 22, seatColor);
             Rect(seat.rectTransform, LobbyLayout.CardSeatX, 0f, LobbyLayout.CardSeatW, 30f);
             seat.alignment = TextAnchor.MiddleCenter;
             var seatSh = seat.gameObject.AddComponent<Shadow>();
             seatSh.effectColor = new Color(0f, 0f, 0f, 0.75f);
             seatSh.effectDistance = new Vector2(1.5f, -1.5f);
 
-            // Orbe de color: click para pasar al siguiente color de la paleta
+            // Orbe de color: en el asiento propio, click para pasar al siguiente color.
             var colorRt = NewRect(row.transform, "Color", LobbyLayout.CardColorX - LobbyLayout.ColorButtonSize * 0.5f,
                 0f, LobbyLayout.ColorButtonSize, LobbyLayout.ColorButtonSize);
-            var colorBtn = colorRt.gameObject.AddComponent<Button>();
-            colorBtn.transition = Selectable.Transition.ColorTint;
-            colorBtn.colors = Highlighted();
+            Image orb = null;
+            if (mine)
+            {
+                var colorBtn = colorRt.gameObject.AddComponent<Button>();
+                colorBtn.transition = Selectable.Transition.ColorTint;
+                colorBtn.colors = Highlighted();
 
-            var glow = NewImage(colorRt, "Glow", orbSprite, new Color(color.r, color.g, color.b, 0.30f));
-            Centered(glow.rectTransform, LobbyLayout.ColorGlowSize, LobbyLayout.ColorGlowSize);
-            var orb = NewImage(colorRt, "Orb", orbSprite, color);
-            Centered(orb.rectTransform, LobbyLayout.ColorSize, LobbyLayout.ColorSize);
-            orb.raycastTarget = true;      // es el blanco del click (glow y barra no lo son)
-            colorBtn.targetGraphic = orb;
+                var glow = NewImage(colorRt, "Glow", orbSprite, new Color(color.r, color.g, color.b, 0.30f));
+                Centered(glow.rectTransform, LobbyLayout.ColorGlowSize, LobbyLayout.ColorGlowSize);
+                orb = NewImage(colorRt, "Orb", orbSprite, color);
+                Centered(orb.rectTransform, LobbyLayout.ColorSize, LobbyLayout.ColorSize);
+                orb.raycastTarget = true;      // es el blanco del click
+                colorBtn.targetGraphic = orb;
 
-            int idx = index;
-            colorBtn.onClick.AddListener(() => CycleColor(idx, orb, glow, accent, seat));
+                int slotIndex = index;
+                colorBtn.onClick.AddListener(() => CycleColor(slotIndex, orb));
+            }
+            else
+            {
+                var glow = NewImage(colorRt, "Glow", orbSprite, new Color(color.r, color.g, color.b, 0.18f));
+                Centered(glow.rectTransform, LobbyLayout.ColorGlowSize, LobbyLayout.ColorGlowSize);
+                orb = NewImage(colorRt, "Orb", orbSprite, color);
+                Centered(orb.rectTransform, LobbyLayout.ColorSize, LobbyLayout.ColorSize);
+            }
 
-            // Nombre (campo editable)
+            // Nombre: en el asiento propio es un campo editable.
             var nameRt = NewRect(row.transform, "Name", LobbyLayout.NameX, 0f, LobbyLayout.NameW, LobbyLayout.FieldH);
-            var nameBg = NewImage(nameRt, "Bg", rowPlate, FieldTint);
+            var nameBg = NewImage(nameRt, "Bg", rowPlate, mine ? FieldTint : StepTint);
             Stretch(nameBg.rectTransform);
             nameBg.raycastTarget = true;
             if (rowPlate != null) { nameBg.type = Image.Type.Sliced; nameBg.pixelsPerUnitMultiplier = 8f; }
-            var nameOutline = nameBg.gameObject.AddComponent<Outline>();
-            nameOutline.effectColor = new Color(0.35f, 0.80f, 1f, 0.20f);
-            nameOutline.effectDistance = new Vector2(2f, -2f);
 
-            var field = nameRt.gameObject.AddComponent<InputField>();
-            field.targetGraphic = nameBg;
-            field.lineType = InputField.LineType.SingleLine;
-            field.characterLimit = 14;
-            field.customCaretColor = true;
-            field.caretColor = new Color(0.5f, 0.9f, 1f);
-            field.selectionColor = new Color(0.30f, 0.85f, 1f, 0.35f);
-            field.colors = Highlighted();
+            Color nameColor = slot.bot ? new Color(0.98f, 0.80f, 0.45f) : new Color(0.92f, 0.95f, 1f);
+            Text nameTxt = null;
 
-            var nameTxt = NewText(nameRt, "Text", slot.name, 19, new Color(0.92f, 0.95f, 1f));
-            Rect(nameTxt.rectTransform, 14f, 0f, LobbyLayout.NameW - 28f, 30f);
-            nameTxt.alignment = TextAnchor.MiddleLeft;
-            nameTxt.supportRichText = false;
-            field.textComponent = nameTxt;
-            field.text = slot.name;
-            field.onEndEdit.AddListener(v =>
+            if (mine)
             {
-                if (idx < 0 || idx >= GameSession.MultiPlayers.Count) return;
-                var s = GameSession.MultiPlayers[idx];
-                s.name = string.IsNullOrWhiteSpace(v) ? s.name : v.Trim();
-                field.text = s.name;
-            });
+                var nameOutline = nameBg.gameObject.AddComponent<Outline>();
+                nameOutline.effectColor = new Color(0.35f, 0.80f, 1f, 0.20f);
+                nameOutline.effectDistance = new Vector2(2f, -2f);
 
-            // Control y equipo: campos que ciclan con el click (sin desplegables que tapen la lista)
+                var field = nameRt.gameObject.AddComponent<InputField>();
+                field.targetGraphic = nameBg;
+                field.lineType = InputField.LineType.SingleLine;
+                field.characterLimit = 14;
+                field.customCaretColor = true;
+                field.caretColor = new Color(0.5f, 0.9f, 1f);
+                field.selectionColor = new Color(0.30f, 0.85f, 1f, 0.35f);
+                field.colors = Highlighted();
+
+                nameTxt = NewText(nameRt, "Text", slot.name, 19, nameColor);
+                Rect(nameTxt.rectTransform, 14f, 0f, LobbyLayout.NameW - 28f, 30f);
+                nameTxt.alignment = TextAnchor.MiddleLeft;
+                nameTxt.supportRichText = false;
+                field.textComponent = nameTxt;
+                field.text = slot.name;
+
+                int slotIndex = index;
+                field.onEndEdit.AddListener(v =>
+                {
+                    string clean = string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+                    if (clean == null) { field.text = _roster.Count > slotIndex ? _roster[slotIndex].name : slot.name; return; }
+                    SendSet(name: clean);
+                });
+            }
+            else
+            {
+                nameTxt = NewText(nameRt, "Text", slot.name, 19, nameColor);
+                Rect(nameTxt.rectTransform, 14f, 0f, LobbyLayout.NameW - 28f, 30f);
+                nameTxt.alignment = TextAnchor.MiddleLeft;
+            }
+
+            // Control y equipo: en el asiento propio ciclan con el click; en el resto
+            // y en los bots se leen nomas (el server manda la verdad).
             var controlRt = NewRect(row.transform, "Control", LobbyLayout.ControlX, 0f, LobbyLayout.ControlW, LobbyLayout.FieldH);
-            var controlValue = NewText(controlRt, "Value", ControlText(slot.controlIndex), 18, Color.white);
+            string controlText = slot.bot ? "IA" : ControlText(slot.control);
+            var controlValue = NewText(controlRt, "Value", controlText, 18, slot.bot ? GoldText : Color.white);
             Stretch(controlValue.rectTransform);
             controlValue.rectTransform.offsetMin = new Vector2(34f, 0f);
             controlValue.rectTransform.offsetMax = new Vector2(-34f, 0f);
-            Stepper(controlRt, controlValue, () =>
+            if (mine) Stepper(controlRt, controlValue, () =>
             {
-                slot.controlIndex = (slot.controlIndex + 1) % ControlNames.Length;
-                controlValue.text = ControlText(slot.controlIndex);
+                int next = (slot.control + 1) % ControlNames.Length;
+                controlValue.text = ControlText(next);
+                SendSet(control: next);
             });
 
             var teamRt = NewRect(row.transform, "Team", LobbyLayout.TeamX, 0f, LobbyLayout.TeamW, LobbyLayout.FieldH);
@@ -226,12 +592,12 @@ namespace WildWeapon.UI
             Stretch(teamValue.rectTransform);
             teamValue.rectTransform.offsetMin = new Vector2(34f, 0f);
             teamValue.rectTransform.offsetMax = new Vector2(-34f, 0f);
-            Stepper(teamRt, teamValue, () =>
+            if (mine) Stepper(teamRt, teamValue, () =>
             {
-                slot.team = (slot.team + 1) % TeamNames.Length;
-                teamValue.text = TeamText(slot.team);
+                int next = (slot.team + 1) % TeamNames.Length;
+                teamValue.text = TeamText(next);
+                SendSet(team: next);
             });
-
         }
 
         /// <summary>Campo con flechas: cada click pasa al valor siguiente.</summary>
@@ -263,69 +629,26 @@ namespace WildWeapon.UI
             return btn;
         }
 
-        // =================================================================
-        // Acciones
-        // =================================================================
-
-        public void AddPlayer()
+        private void CycleColor(int slotIndex, Image orb)
         {
-            if (GameSession.MultiPlayers.Count >= MaxPlayers) return;
-            int idx = GameSession.MultiPlayers.Count;
-            GameSession.MultiPlayers.Add(new GameSession.PlayerSlot
+            if (slotIndex < 0 || slotIndex >= _roster.Count) return;
+            var slot = _roster[slotIndex];
+            int next = (slot.color + 1) % palette.Length;
+            orb.color = ColorOf(next);
+            SendSet(color: next);
+        }
+
+        private void SendSet(string name = null, int? color = null, int? team = null, int? control = null)
+        {
+            if (_client == null || !_client.IsConnected || !_inRoom) return;
+            _client.Send(new PvpMsg
             {
-                name = "Jugador " + (idx + 1),
-                colorIndex = idx % palette.Length,
-                controlIndex = Mathf.Min(idx, ControlNames.Length - 1),
-                team = idx % TeamNames.Length,
+                t = PvpMsgType.LobbySet,
+                name = name,
+                color = color ?? -1,
+                team = team ?? -1,
+                control = control ?? -1,
             });
-
-            Rebuild();
-            ScrollToNewest();
-        }
-
-        public void RemoveLast()
-        {
-            if (GameSession.MultiPlayers.Count <= 1) return;
-            GameSession.MultiPlayers.RemoveAt(GameSession.MultiPlayers.Count - 1);
-            Rebuild();
-        }
-
-        private void CycleColor(int idx, Image orb, Image glow, Image bar, Text seat)
-        {
-            if (idx < 0 || idx >= GameSession.MultiPlayers.Count) return;
-            var slot = GameSession.MultiPlayers[idx];
-            slot.colorIndex = (slot.colorIndex + 1) % palette.Length;
-            var color = ColorOf(slot.colorIndex);
-            orb.color = color;
-            glow.color = new Color(color.r, color.g, color.b, 0.30f);
-            if (bar != null) bar.color = color;
-            if (seat != null) seat.color = Color.Lerp(color, Color.white, 0.30f);
-        }
-
-        /// <summary>Rellena la fila desde afuera (lo usan las pruebas del editor).</summary>
-        public void UpdateSlot(int index, string name, int colorIndex, int controlIndex, int team)
-        {
-            if (index < 0 || index >= GameSession.MultiPlayers.Count) return;
-            var s = GameSession.MultiPlayers[index];
-            s.name = name;
-            s.colorIndex = colorIndex;
-            s.controlIndex = controlIndex;
-            s.team = team;
-        }
-
-        public void Continue()
-        {
-            if (_loading || GameSession.MultiPlayers.Count < 2) return;
-            _loading = true;
-            GameSession.Mode = GameMode.Multi;
-            StartCoroutine(Fade(0f, 1f, () => SceneManager.LoadScene(GameSession.MapSelectScene)));
-        }
-
-        public void Back()
-        {
-            if (_loading) return;
-            _loading = true;
-            StartCoroutine(Fade(0f, 1f, () => SceneManager.LoadScene(GameSession.MenuScene)));
         }
 
         // =================================================================
@@ -334,32 +657,74 @@ namespace WildWeapon.UI
 
         private void RefreshStatus()
         {
-            int n = GameSession.MultiPlayers.Count;
+            int humans = Humans();
+            int bots = BotCount();
+            int total = _roster.Count;
 
-            if (subLabel != null) subLabel.text = "LOCAL · " + n + " / " + MaxPlayers + " JUGADORES";
-            if (countLabel != null) countLabel.text = CountText(n);
-
-            bool ready = n >= 2;
-            if (footHint != null)
+            if (_inRoom)
             {
-                footHint.text = ready ? "LISTO PARA ARRANCAR" : "AGREGA OTRO JUGADOR PARA ARRANCAR";
-                footHint.color = ready ? ReadyText : WarnText;
-            }
+                if (subLabel != null)
+                    subLabel.text = "SALA " + _code + " · " + total + " / " + MaxPlayers + " COMBATIENTES";
+                if (countLabel != null)
+                {
+                    countLabel.text = humans + (humans == 1 ? " HUMANO" : " HUMANOS") +
+                        (bots > 0 ? " · " + bots + (bots == 1 ? " BOT" : " BOTS") : "") +
+                        " · " + TeamCount() + (TeamCount() == 1 ? " EQUIPO" : " EQUIPOS") +
+                        (_waiters > 0 ? " · " + _waiters + " EN ESPERA" : "");
+                }
+                if (footHint != null)
+                {
+                    if (_starting) { footHint.text = "ARRANCANDO LA PARTIDA..."; footHint.color = ReadyText; }
+                    else if (_waiters > 0 && _host) { footHint.text = _waiters + (_waiters == 1 ? " ESPERA UN LUGAR · BAJA UN BOT" : " ESPERAN UN LUGAR · BAJA UN BOT"); footHint.color = GoldText; }
+                    else if (_host) { footHint.text = total >= 2 ? "SOS EL ANFITRION · ARRANCA CUANDO QUIERAS" : "SUMA UN BOT O ESPERA A QUE ENTRE ALGUIEN"; footHint.color = _host ? GoldText : WarnText; }
+                    else { footHint.text = "ESPERANDO AL ANFITRION..."; footHint.color = ReadyText; }
+                }
 
-            SetButton(addButton, n < MaxPlayers);
-            SetButton(removeButton, n > 1);
-            SetButton(continueButton, ready);
+                SetButton(addButton, _host && bots < MaxPlayers - humans && !_starting);
+                SetButton(removeButton, _host && bots > 0 && !_starting);
+                SetButton(continueButton, _host && total >= 2 && !_starting);
+                SetButton(backButton, !_starting);
+                SetLabel(continueButton, _host ? "ARRANCAR" : "ESPERANDO");
+                SetLabel(addButton, "+ BOT");
+                SetLabel(removeButton, "- BOT");
+            }
+            else
+            {
+                if (subLabel != null) subLabel.text = "SALA ONLINE · CODIGO DE 4 A 6 DIGITOS";
+                if (countLabel != null) countLabel.text = "SIN SALA · " + MaxPlayers + " ASIENTOS DISPONIBLES";
+                if (footHint != null) { footHint.text = "CREA UNA SALA O ENTRA CON UN CODIGO"; footHint.color = ReadyText; }
+                SetButton(addButton, false);
+                SetButton(removeButton, false);
+                SetButton(continueButton, false);
+                SetButton(backButton, true);
+                SetLabel(continueButton, "CONTINUAR");
+            }
         }
 
-        private static string CountText(int n)
+        private int TeamCount()
         {
-            int teams = 0;
-            for (int t = 0; t < TeamNames.Length; t++)
+            bool[] used = new bool[TeamNames.Length];
+            int n = 0;
+            foreach (var p in _roster)
             {
-                foreach (var s in GameSession.MultiPlayers)
-                    if (s.team == t) { teams++; break; }
+                int t = Mathf.Clamp(p.team, 0, TeamNames.Length - 1);
+                if (!used[t]) { used[t] = true; n++; }
             }
-            return n + (n == 1 ? " JUGADOR" : " JUGADORES") + " · " + teams + (teams == 1 ? " EQUIPO" : " EQUIPOS");
+            return n;
+        }
+
+        private int Humans()
+        {
+            int n = 0;
+            foreach (var p in _roster) if (!p.bot) n++;
+            return n;
+        }
+
+        private int BotCount()
+        {
+            int n = 0;
+            foreach (var p in _roster) if (p.bot) n++;
+            return n;
         }
 
         /// <summary>Apaga el boton entero (placa + label) con un CanvasGroup, sin pelear con MenuButtonFx.</summary>
@@ -370,6 +735,13 @@ namespace WildWeapon.UI
             var group = b.GetComponent<CanvasGroup>();
             if (group == null) group = b.gameObject.AddComponent<CanvasGroup>();
             group.alpha = on ? 1f : 0.42f;
+        }
+
+        private static void SetLabel(Button b, string text)
+        {
+            if (b == null) return;
+            var label = b.GetComponentInChildren<Text>();
+            if (label != null && label.text != text) label.text = text;
         }
 
         private static string ControlText(int index)
@@ -388,7 +760,40 @@ namespace WildWeapon.UI
             return palette[Mathf.Clamp(colorIndex, 0, palette.Length - 1)];
         }
 
-        private void ScrollToNewest()
+        private static string OnlyDigits(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            var sb = new System.Text.StringBuilder(6);
+            foreach (char c in value)
+                if (c >= '0' && c <= '9' && sb.Length < 6) sb.Append(c);
+            return sb.ToString();
+        }
+
+        private static string PlayerName()
+        {
+            const string key = "ww_pvp_name";
+            string name = PlayerPrefs.GetString(key, "");
+            if (string.IsNullOrEmpty(name))
+            {
+                name = "PORTADOR-" + Random.Range(100, 999);
+                PlayerPrefs.SetString(key, name);
+                PlayerPrefs.Save();
+            }
+            return name;
+        }
+
+        private bool Ready()
+        {
+            if (_loading || _client == null) return false;
+            if (!_client.IsConnected)
+            {
+                SetRoomStatus("SIN CONEXION. Revisa la red e intenta de nuevo.", WarnText);
+                return false;
+            }
+            return true;
+        }
+
+        private void ScrollToNewestIfNeeded()
         {
             if (listScroll == null || listContent == null) return;
             Canvas.ForceUpdateCanvases();
@@ -413,6 +818,242 @@ namespace WildWeapon.UI
                 fader.blocksRaycasts = to > 0.5f;
             }
             done?.Invoke();
+        }
+
+        // =================================================================
+        // Modales (entrar a la sala / sala llena)
+        // =================================================================
+
+        private void GoRooms()
+        {
+            _step = Step.Rooms;
+            _inRoom = false;
+            if (_modal != null) { _modal.alpha = 1f; _modal.blocksRaycasts = true; }
+            if (_roomStep != null) _roomStep.gameObject.SetActive(true);
+            if (_waitStep != null) _waitStep.gameObject.SetActive(false);
+            SetRoomStatus(DefaultRoomStatus(), LabelDim);
+            Refresh();
+        }
+
+        private void GoRoom()
+        {
+            _step = Step.Room;
+            if (_modal != null) { _modal.alpha = 0f; _modal.blocksRaycasts = false; }
+            if (_roomStep != null) _roomStep.gameObject.SetActive(false);
+            if (_waitStep != null) _waitStep.gameObject.SetActive(false);
+        }
+
+        private void GoWaiting(PvpMsg m)
+        {
+            _step = Step.Waiting;
+            if (_modal != null) { _modal.alpha = 1f; _modal.blocksRaycasts = true; }
+            if (_roomStep != null) _roomStep.gameObject.SetActive(false);
+            if (_waitStep != null) _waitStep.gameObject.SetActive(true);
+            if (_waitTitle != null) _waitTitle.text = "SALA LLENA";
+            if (_waitSub != null)
+            {
+                int cap = m.cap > 0 ? m.cap : MaxPlayers;
+                int n = m.n > 0 ? m.n : cap;
+                _waitSub.text = "Los " + cap + " lugares estan ocupados (" + n + "/" + cap + ").\n" +
+                    "Te metemos apenas se libere uno" +
+                    (m.pos > 1 ? " (puesto " + m.pos + " de la fila)." : ".");
+            }
+            RefreshStatus();
+        }
+
+        private void SetRoomStatus(string text, Color color)
+        {
+            if (_roomStatus == null) return;
+            _roomStatus.text = text;
+            _roomStatus.color = color;
+            _statusFlash = 2.4f;
+        }
+
+        private string DefaultRoomStatus()
+        {
+            if (!_client.IsConnected) return "CONECTANDO CON EL SERVIDOR...";
+            return "CREA UNA SALA Y PASA EL CODIGO, O ENTRA CON EL DE UN AMIGO.";
+        }
+
+        /// <summary>Arma los dos modales por codigo con los sprites del lobby.</summary>
+        private void BuildModals()
+        {
+            var canvas = GetComponentInParent<Canvas>();
+            Transform parent = canvas != null ? canvas.transform : transform;
+
+            var modalGo = new GameObject("RoomModal", typeof(RectTransform));
+            modalGo.transform.SetParent(parent, false);
+            Stretch((RectTransform)modalGo.transform);
+            _modal = modalGo.AddComponent<CanvasGroup>();
+            _modal.alpha = 1f;
+
+            var dim = NewImage(modalGo.transform, "Dim", null, new Color(0f, 0.02f, 0.05f, 0.78f));
+            Stretch(dim.rectTransform);
+
+            // ---- Paso 1: crear o entrar con codigo ----
+            _roomStep = BuildStep(modalGo.transform, "StepRooms", "ENTRAR A LA SALA",
+                "SALA ONLINE · EL ANFITRION ARMA EL PLANTEL (HASTA " + MaxPlayers + ")", out _roomStatus);
+
+            var roomStep = _roomStep;
+            _createButton = ModalButton(roomStep, "Create", "CREAR SALA", Accent, new Vector2(0f, 118f), new Vector2(420f, 92f),
+                out _);
+            _createButton.onClick.AddListener(CreateRoom);
+
+            var or = NewText(roomStep, "Or", "O ENTRA CON EL CODIGO", 17, LabelDim);
+            CenteredAt(or.rectTransform, new Vector2(0f, 44f), new Vector2(420f, 26f));
+
+            // Campo del codigo + boton unir
+            var inputRt = NewRectAt(roomStep, "CodeInput", new Vector2(-120f, -38f), new Vector2(300f, 76f));
+            var inputBg = NewImage(inputRt, "Bg", rowPlate != null ? rowPlate : null, FieldTint);
+            Stretch(inputBg.rectTransform);
+            if (rowPlate != null) { inputBg.type = Image.Type.Sliced; inputBg.pixelsPerUnitMultiplier = 6f; }
+            inputBg.raycastTarget = true;
+            var inputOutline = inputBg.gameObject.AddComponent<Outline>();
+            inputOutline.effectColor = new Color(0.35f, 0.80f, 1f, 0.25f);
+            inputOutline.effectDistance = new Vector2(2f, -2f);
+
+            _codeInput = inputRt.gameObject.AddComponent<InputField>();
+            _codeInput.targetGraphic = inputBg;
+            _codeInput.lineType = InputField.LineType.SingleLine;
+            _codeInput.characterLimit = 6;
+            _codeInput.characterValidation = InputField.CharacterValidation.Integer;
+            _codeInput.customCaretColor = true;
+            _codeInput.caretColor = new Color(0.5f, 0.9f, 1f);
+            _codeInput.selectionColor = new Color(0.30f, 0.85f, 1f, 0.35f);
+            _codeInput.colors = Highlighted();
+
+            var inputText = NewText(inputRt, "Text", "", 34, Color.white);
+            Stretch(inputText.rectTransform);
+            inputText.rectTransform.offsetMin = new Vector2(18f, 0f);
+            inputText.rectTransform.offsetMax = new Vector2(-18f, 0f);
+            inputText.alignment = TextAnchor.MiddleCenter;
+            inputText.supportRichText = false;
+            _codeInput.textComponent = inputText;
+
+            var placeholder = NewText(inputRt, "Placeholder", "CODIGO", 30, new Color(1f, 1f, 1f, 0.28f));
+            Stretch(placeholder.rectTransform);
+            placeholder.alignment = TextAnchor.MiddleCenter;
+            _codeInput.placeholder = placeholder;
+
+            _joinButton = ModalButton(roomStep, "Join", "UNIRSE", new Color(0.52f, 0.92f, 0.55f), new Vector2(230f, -38f), new Vector2(280f, 92f),
+                out _);
+            _joinButton.onClick.AddListener(JoinRoom);
+
+            var backMenu = ModalButton(roomStep, "Menu", "VOLVER AL MENU", new Color(0.72f, 0.80f, 0.95f), new Vector2(0f, -256f), new Vector2(340f, 78f),
+                out _);
+            backMenu.onClick.AddListener(Back);
+
+            // ---- Paso 2: sala llena ----
+            _waitStep = BuildStep(modalGo.transform, "StepWait", "SALA LLENA",
+                "ESPERANDO UN LUGAR", out _waitSub);
+            _waitSub.fontSize = 22;
+            _waitSub.alignment = TextAnchor.UpperCenter;
+            CenteredAt(_waitSub.rectTransform, new Vector2(0f, -150f), new Vector2(780f, 110f));
+
+            var orbGo = NewRectAt(_waitStep, "WaitOrb", new Vector2(0f, 40f), new Vector2(150f, 150f));
+            var waitOrb = NewImage(orbGo, "Orb", orbSprite, new Color(1f, 0.75f, 0.35f, 0.7f));
+            Stretch(waitOrb.rectTransform);
+            _waitOrb = orbGo;
+
+            var cancel = ModalButton(_waitStep, "Cancel", "CANCELAR ESPERA", new Color(1f, 0.45f, 0.40f), new Vector2(0f, -262f), new Vector2(420f, 86f),
+                out _);
+            cancel.onClick.AddListener(CancelWait);
+
+            _waitStep.gameObject.SetActive(false);
+        }
+
+        /// <summary>Placa base de un paso del modal (titulo + bajada + riel bereber de estado).</summary>
+        private RectTransform BuildStep(Transform parent, string name, string title, string sub, out Text body)
+        {
+            var step = new GameObject(name, typeof(RectTransform));
+            step.transform.SetParent(parent, false);
+            var rt = (RectTransform)step.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(0f, 6f);
+            rt.sizeDelta = new Vector2(1000f, 700f);
+
+            var plate = NewImage(step.transform, "Plate", modalPlate, Color.white);
+            Stretch(plate.rectTransform);
+            if (modalPlate != null) { plate.type = Image.Type.Sliced; plate.pixelsPerUnitMultiplier = 2.4f; }
+            var sh = plate.gameObject.AddComponent<Shadow>();
+            sh.effectColor = new Color(0f, 0f, 0f, 0.55f);
+            sh.effectDistance = new Vector2(0f, -8f);
+
+            var titleText = NewText(step.transform, "Title", title, 44, Color.white);
+            CenteredAt(titleText.rectTransform, new Vector2(0f, 288f), new Vector2(780f, 60f));
+            var tsh = titleText.gameObject.AddComponent<Shadow>();
+            tsh.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            tsh.effectDistance = new Vector2(2f, -2f);
+
+            var subText = NewText(step.transform, "Sub", sub, 19, new Color(1f, 1f, 1f, 0.62f));
+            CenteredAt(subText.rectTransform, new Vector2(0f, 232f), new Vector2(860f, 34f));
+            subText.fontStyle = FontStyle.Normal;
+
+            UiLine(step.transform, new Vector2(0f, 206f), new Vector2(720f, 2f), new Color(1f, 1f, 1f, 0.12f));
+
+            body = NewText(step.transform, "Body", "", 20, LabelDim);
+            CenteredAt(body.rectTransform, new Vector2(0f, -160f), new Vector2(860f, 60f));
+            body.fontStyle = FontStyle.Normal;
+            body.horizontalOverflow = HorizontalWrapMode.Wrap;
+            return rt;
+        }
+
+        private Button ModalButton(Transform parent, string name, string label, Color accent, Vector2 pos, Vector2 size, out Button button)
+        {
+            var plate = modalButton;
+            Image img;
+            if (plate != null) img = NewImage(parent, name, plate, Color.Lerp(Color.white, accent, 0.20f));
+            else
+            {
+                img = NewImage(parent, name, rowPlate, Color.Lerp(new Color(0.05f, 0.07f, 0.11f, 0.96f), accent, 0.28f));
+                if (rowPlate != null) { img.type = Image.Type.Sliced; img.pixelsPerUnitMultiplier = 6f; }
+            }
+
+            var rt = img.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            img.raycastTarget = true;
+
+            var outline = img.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(accent.r, accent.g, accent.b, 0.30f);
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            button = img.gameObject.AddComponent<Button>();
+            button.targetGraphic = img;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.16f, 1.20f, 1.28f);
+            colors.selectedColor = new Color(1.16f, 1.20f, 1.28f);
+            colors.pressedColor = new Color(0.80f, 0.84f, 0.90f);
+            colors.disabledColor = new Color(0.55f, 0.58f, 0.64f, 0.85f);
+            colors.fadeDuration = 0.1f;
+            button.colors = colors;
+
+            var fx = img.gameObject.AddComponent<MenuButtonFx>();
+            fx.hoverScale = 1.05f;
+            fx.normalColor = new Color(1f, 1f, 1f, 0.96f);
+            fx.hoverColor = accent;
+
+            var text = NewText(img.transform, "Label", label, 28, Color.white);
+            Stretch(text.rectTransform);
+            text.rectTransform.offsetMin = new Vector2(18f, 0f);
+            text.rectTransform.offsetMax = new Vector2(-18f, 0f);
+            var sh = text.gameObject.AddComponent<Shadow>();
+            sh.effectColor = new Color(0f, 0f, 0f, 0.7f);
+            sh.effectDistance = new Vector2(1.5f, -2f);
+            fx.label = text;
+            return button;
+        }
+
+        private Image UiLine(Transform parent, Vector2 pos, Vector2 size, Color color)
+        {
+            var line = NewImage(parent, "Line", modalPlate, color);
+            if (modalPlate != null) { line.type = Image.Type.Sliced; line.pixelsPerUnitMultiplier = 12f; }
+            CenteredAt(line.rectTransform, pos, size);
+            return line;
         }
 
         // =================================================================
@@ -450,6 +1091,18 @@ namespace WildWeapon.UI
             return rt;
         }
 
+        private static RectTransform NewRectAt(Transform parent, string name, Vector2 pos, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            return rt;
+        }
+
         private static void Rect(RectTransform rt, float x, float y, float w, float h)
         {
             rt.anchorMin = rt.anchorMax = new Vector2(0f, 0.5f);
@@ -464,6 +1117,14 @@ namespace WildWeapon.UI
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = new Vector2(w, h);
+        }
+
+        private static void CenteredAt(RectTransform rt, Vector2 pos, Vector2 size)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
         }
 
         private static void Stretch(RectTransform rt)

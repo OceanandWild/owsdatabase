@@ -934,3 +934,38 @@ magick <id>_env_<id8>_raw.jpg -resize 2048x1143! -strip ww_map_<id>_bg.png
 | Insignia de equipo (A–D) | 64×64 | Al lado del stepper de equipo, con el color del equipo. |
 | Iconos de control (teclado / pads) | 64×64 | Reemplazar el texto `TECLADO` / `PAD n` del stepper. |
 
+
+## 17. Lobby online por código de sala + bots en la arena (oct 2026)
+
+> Tercer pase: la maqueta local se reemplaza por una sala real sobre `server.js` (`/wildweapon/pvp`). La tarjeta 1 del menú pasa a ser la puerta de entrada al lobby online.
+
+**Qué cambió**
+
+- **Menú**: la tarjeta 1 dice `SALA CON CODIGO` / `MULTIJUGADOR ONLINE` y la franja de info la describe (sala por código, hasta 15, bots de relleno). La tarjeta 2 (quickmatch) queda `PVP ONLINE` / `DUELO RAPIDO 1 VS 1`. El generador es la fuente: las etiquetas también se corrigieron en `MainMenu.unity`.
+- **Servidor (`server.js`)**: familia `lobby_*` dentro de la sección WW-PVP. Código de 5 dígitos (al entrar se aceptan 4–6), 15 asientos, bots del anfitrión (cuentan para el límite), **lista de espera** cuando la sala está llena (`lobby_full`) con reingreso automático apenas se libera un asiento, aviso a la sala del número de espera, promoción de anfitrión al salir el dueño (los bots se van con él) y salas de lobby con TTL de 3 h (el barrido de 10 min solo toca partidas en curso).
+- **Lobby (`MultiplayerLobbyController`)**: dos pasos sobre el mismo tablero. El modal de entrada (`ww_lobby_panel` + `ww_lobby_button_add`) pide el código; el modal de sala llena late el orbe y ofrece `CANCELAR ESPERA`. Las filas salen del roster del server y solo el asiento propio edita nombre/color/equipo (`lobby_set`); los bots se muestran `IA` en dorado y el anfitrión lleva contorno dorado. `+ BOT` / `- BOT` solo para el anfitrión; `ARRANCAR` con 2+ asientos, `ESPERANDO` para el resto. El nombre se recuerda en `PlayerPrefs` (`ww_pvp_name`).
+- **Arena (`PvpMatchManager` + `PvpBotBrain`)**: N asientos. El anfitrión simula los bots (sin espejo de red) y les da cerebro propio (persecución, viento de ataque, recuperación, salto y separación); los demás clientes los dibujan como remotos. Los `hit` llevan `target` para rutear el daño al asiento correcto. La primera ronda espera el `ready` de todos y **los bots nacen listos**; si cae el último humano con bots vivos, la ronda la gana la IA (`winner -1`).
+- **Robustez**: los estados del lobby se aplican como máximo uno por frame (el server puede mandar varios seguidos; reconstruir la lista por mensaje congelaba el editor).
+
+**Protocolo**
+
+| Mensaje | Campos |
+|---|---|
+| `lobby_new` | `name`, `color` → responde `lobby_state` con `code` |
+| `lobby_join` | `room` (4–6 dígitos), `name`, `color`; sala llena → `lobby_full` (`pos`, `n`) |
+| `lobby_set` | `name`, `color`, `team`, `control` (solo el asiento propio; −1 = sin cambio) |
+| `lobby_bots` | `n` (solo anfitrión; target 0–14) |
+| `lobby_start` | solo anfitrión, 2+ asientos → `matched` (`seat`, `seed`, `team`, `host`, `opps[]` con `bot`) |
+| `lobby_state` | `code`, `seat`, `host`, `started`, `n`, `total`, `waiters`, `players[]` |
+| `lobby_closed` / `lobby_error` | motivo / texto para el modal |
+
+**Verificación**
+
+- Protocolo local (server con stub de `pg`): **20/20** — crear, entrar por código, bots hasta 15, aviso de sala llena, ingreso automático al liberar, edición de asiento, permisos de arranque, `matched` completo, rechazo de sala arrancada, código inexistente, promoción de anfitrión, `ready` con bots, cierre sin humanos (`winner -1`) y revancha con voto de bots.
+- Play (Aura): sala de 1 humano + 14 bots desde un cliente Node → el jugador entra, queda en `SALA LLENA` → el anfitrión libera un bot → ingresa solo en el asiento 15 → `VOLVER` sale de la sala. Después: sala propia + 3 bots + `ARRANCAR` → arena con 4 combatientes, `round_start` en el server y los bots persiguiendo al jugador (capturas 00:00 → 00:06).
+
+**Pendientes / límites conocidos**
+
+- El HUD de la arena sigue siendo 1v1 (`J1 · VOS` vs el primer rival) y el marcador guarda 2 valores: con 15 asientos solo se ve el primero. El equipo de la arena es 0/1 (el equipo A–D del lobby es cosmético) para que la ronda no quede trabada.
+- Los bots no votan revancha por su cuenta: votan con el anfitrión.
+- Sprites opcionales del lote anterior (riel/manija del scroll, placas de fila, emblemas de columna, insignias de equipo A–D, iconos de teclado/pad) siguen pendientes.

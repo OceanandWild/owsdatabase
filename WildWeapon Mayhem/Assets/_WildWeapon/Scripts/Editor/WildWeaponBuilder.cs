@@ -2069,8 +2069,8 @@ def.platforms = scaledPlats;
                 new Color(1f, 0.62f, 0.18f),    // naranja - supervivencia
                 new Color(0.62f, 0.68f, 0.78f), // gris    - salir
             };
-            string[] cardTitles = { "DUELO 1 VS 1", "PVP ONLINE", "SUPERVIVENCIA", "SALIR" };
-            string[] cardSubs = { "LOCAL · DOS JUGADORES", "CONTRA OTRO JUGADOR", "OLEADAS VS BOTS", "CERRAR EL JUEGO" };
+            string[] cardTitles = { "SALA CON CODIGO", "PVP ONLINE", "SUPERVIVENCIA", "SALIR" };
+            string[] cardSubs = { "MULTIJUGADOR ONLINE", "DUELO RAPIDO 1 VS 1", "OLEADAS VS BOTS", "CERRAR EL JUEGO" };
             string[] cardIcons = { "ww_icon_duel", "ww_icon_pvp", "ww_icon_survival", "ww_icon_exit" };
 
             var cardsHolder = new GameObject("Cards", typeof(RectTransform));
@@ -2661,11 +2661,11 @@ def.platforms = scaledPlats;
             chips.transform.SetParent(canvasT, false);
             Stretch((RectTransform)chips.transform);
             TopChip(chips.transform, font, true, "OCEAN AND WILD STUDIOS", new Color(0.34f, 0.9f, 1f));
-            TopChip(chips.transform, font, false, "LOBBY LOCAL · F0", new Color(1f, 0.7f, 0.28f));
+            TopChip(chips.transform, font, false, "LOBBY ONLINE · F0", new Color(1f, 0.7f, 0.28f));
 
             // El plantel actual, pegado al chip de la derecha (la linea de arriba tiene
             // aire de sobra en cualquier aspecto; el pie no).
-            var count = UiText("CountLabel", canvasT, font, "2 JUGADORES · 2 EQUIPOS", 17, new Color(1f, 1f, 1f, 0.62f));
+            var count = UiText("CountLabel", canvasT, font, "SIN SALA · 15 ASIENTOS DISPONIBLES", 17, new Color(1f, 1f, 1f, 0.62f));
             count.alignment = TextAnchor.MiddleRight;
             HudRect(count.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-320f, -22f), new Vector2(420f, 42f));
@@ -2684,7 +2684,7 @@ def.platforms = scaledPlats;
                 bannerSh.effectDistance = new Vector2(0f, -8f);
             }
 
-            var title = UiText("Title", canvasT, font, "MULTIJUGADOR LOCAL", (int)LobbyLayout.TitleSize, Color.white);
+            var title = UiText("Title", canvasT, font, "MULTIJUGADOR ONLINE", (int)LobbyLayout.TitleSize, Color.white);
             HudRect(title.rectTransform, Center, Center, new Vector2(0f, LobbyLayout.BannerY),
                 new Vector2(LobbyLayout.BannerW - 120f, 68f));
             var titleSh = title.gameObject.AddComponent<Shadow>();
@@ -2692,13 +2692,13 @@ def.platforms = scaledPlats;
             titleSh.effectDistance = new Vector2(2f, -2f);
 
             // Bajada en dos mitades: a la izquierda el plantel, a la derecha el estado.
-            var sub = UiText("Subtitle", canvasT, font, "LOCAL · 2 / 15 JUGADORES", 19, new Color(1f, 1f, 1f, 0.68f));
+            var sub = UiText("Subtitle", canvasT, font, "SALA ONLINE · CODIGO DE 4 A 6 DIGITOS", 19, new Color(1f, 1f, 1f, 0.68f));
             sub.fontStyle = FontStyle.Normal;
             sub.alignment = TextAnchor.MiddleRight;
             HudRect(sub.rectTransform, Center, Center, new Vector2(-520f, LobbyLayout.SubY), new Vector2(960f, 28f));
             controller.subLabel = sub;
 
-            var foot = UiText("FootHint", canvasT, font, "AGREGA OTRO JUGADOR PARA ARRANCAR", 19, new Color(1f, 0.72f, 0.30f, 0.9f));
+            var foot = UiText("FootHint", canvasT, font, "CREA UNA SALA O ENTRA CON UN CODIGO", 19, new Color(1f, 0.72f, 0.30f, 0.9f));
             foot.alignment = TextAnchor.MiddleLeft;
             HudRect(foot.rectTransform, Center, Center, new Vector2(520f, LobbyLayout.SubY), new Vector2(960f, 28f));
             controller.footHint = foot;
@@ -2746,13 +2746,13 @@ def.platforms = scaledPlats;
             // (el estado va en la bajada del titulo: asi el pie aguanta pantallas
             // anchas sin que los botones se salgan por abajo)
             const float btnY = -412f;
-            controller.removeButton = LobbyButton(canvasT, "BtnQuitar", "- QUITAR", font,
+            controller.removeButton = LobbyButton(canvasT, "BtnQuitar", "- BOT", font,
                 Spr("ww_lobby_button_remove"), new Color(1f, 0.42f, 0.38f), new Vector2(-536f, btnY));
-            controller.addButton = LobbyButton(canvasT, "BtnAgregar", "+ AGREGAR", font,
+            controller.addButton = LobbyButton(canvasT, "BtnAgregar", "+ BOT", font,
                 Spr("ww_lobby_button_add"), new Color(0.42f, 0.90f, 0.50f), new Vector2(-216f, btnY));
             controller.backButton = LobbyButton(canvasT, "BtnVolver", "VOLVER", font,
                 Spr("ww_lobby_button_back"), new Color(0.70f, 0.80f, 0.95f), new Vector2(216f, btnY));
-            controller.continueButton = LobbyButton(canvasT, "BtnContinuar", "CONTINUAR", font,
+            controller.continueButton = LobbyButton(canvasT, "BtnContinuar", "ARRANCAR", font,
                 Spr("ww_lobby_button_continue"), new Color(0.36f, 0.86f, 1f), new Vector2(536f, btnY));
 
             var divider = UiImage("Divider", canvasT, null, new Color(1f, 1f, 1f, 0.12f));
@@ -2884,6 +2884,9 @@ def.platforms = scaledPlats;
             controller.rowPlate = _panel;
             controller.orbSprite = _soft;
             controller.playerCard = Spr("ww_lobby_player_card");
+            // Modales (entrar a la sala / sala llena): misma placa y botones del lobby.
+            controller.modalPlate = Spr("ww_lobby_panel");
+            controller.modalButton = Spr("ww_lobby_button_add");
         }
 
         /// <summary>
@@ -3401,9 +3404,9 @@ def.platforms = scaledPlats;
             {
                 new MenuModeInfo.Entry
                 {
-                    title = "DUELO 1 VS 1",
-                    blurb = "Dos jugadores en la misma arena, mejor de tres rondas. A los 75 segundos entra el Overdrive y el daño se multiplica x1.5 hasta que alguien caiga.",
-                    chips = new[] { "LOCAL · 2 JUGADORES", "MEJOR DE 3", "OVERDRIVE x1.5" },
+                    title = "SALA CON CODIGO",
+                    blurb = "Armá una sala online y compartí el código de 4 a 6 dígitos. Hasta 15 combatientes; el anfitrión suma bots para completar el plantel y arranca cuando quiere.",
+                    chips = new[] { "SALA POR CODIGO", "HASTA 15", "BOTS DE RELLENO" },
                     accent = accents[0]
                 },
                 new MenuModeInfo.Entry

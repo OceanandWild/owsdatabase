@@ -20,11 +20,43 @@ namespace WildWeapon.Pvp
     {
         public static PvpClient Instance { get; private set; }
 
-        /// <summary>Servidor de produccion (Render). Se puede pisar con PlayerPrefs "ww_pvp_url" para pruebas locales.</summary>
+        /// <summary>Servidor de produccion (Render).</summary>
         public const string ProductionUrl = "wss://owsdatabase.onrender.com/wildweapon/pvp";
         /// <summary>Servidor espejo: se usa automaticamente si el principal no se puede conectar.</summary>
         public const string FallbackUrl = "wss://owsdatabase2.onrender.com/wildweapon/pvp";
-        public static string Url => PlayerPrefs.GetString("ww_pvp_url", ProductionUrl);
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Override solo para el editor: primer intento de conexion contra un stub local.
+        /// Si no responde, la sesion sigue con produccion y el espejo. En builds se ignora.
+        /// </summary>
+        private const string DevOverridePrefKey = "ww_pvp_url_dev";
+        /// <summary>Clave vieja que dejaba la conexion clavada en localhost; se borra al arrancar.</summary>
+        private const string LegacyOverridePrefKey = "ww_pvp_url";
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void DropLegacyOverride()
+        {
+            if (!PlayerPrefs.HasKey(LegacyOverridePrefKey)) return;
+            PlayerPrefs.DeleteKey(LegacyOverridePrefKey);
+            PlayerPrefs.Save();
+            Debug.Log("[WW-PVP] se elimino el override legado 'ww_pvp_url'. " +
+                      "Para pruebas locales usar 'ww_pvp_url_dev'.");
+        }
+#endif
+
+        /// <summary>URL primaria del PVP (informativa). La conexion prueba produccion y espejo.</summary>
+        public static string Url
+        {
+            get
+            {
+#if UNITY_EDITOR
+                string dev = PlayerPrefs.GetString(DevOverridePrefKey, "");
+                if (!string.IsNullOrEmpty(dev)) return dev;
+#endif
+                return ProductionUrl;
+            }
+        }
 
         /// <summary>Ultima URL que logro conectar (en memoria): se intenta primero en la proxima conexion.</summary>
         private static string _lastGoodUrl;
@@ -99,16 +131,20 @@ namespace WildWeapon.Pvp
         }
 
         /// <summary>
-        /// Servidores a probar, en orden: override local (pruebas), la ultima URL que anduvo,
-        /// el servidor de produccion y el espejo.
+        /// Servidores a probar, en orden: override de editor (pruebas), la ultima URL que anduvo,
+        /// el servidor de produccion y el espejo. El override nunca reemplaza a produccion:
+        /// si el stub local esta apagado, se sigue con los servidores reales.
         /// </summary>
         private static string[] BuildCandidateUrls()
         {
-            string local = PlayerPrefs.GetString("ww_pvp_url", "");
-            if (!string.IsNullOrEmpty(local)) return new[] { local };
+            var urls = new List<string>(4);
 
-            var urls = new List<string>(3);
-            if (!string.IsNullOrEmpty(_lastGoodUrl)) urls.Add(_lastGoodUrl);
+#if UNITY_EDITOR
+            string dev = PlayerPrefs.GetString(DevOverridePrefKey, "");
+            if (!string.IsNullOrEmpty(dev)) urls.Add(dev);
+#endif
+
+            if (!string.IsNullOrEmpty(_lastGoodUrl) && !urls.Contains(_lastGoodUrl)) urls.Add(_lastGoodUrl);
             if (!urls.Contains(ProductionUrl)) urls.Add(ProductionUrl);
             if (!urls.Contains(FallbackUrl)) urls.Add(FallbackUrl);
             return urls.ToArray();
@@ -179,6 +215,7 @@ namespace WildWeapon.Pvp
                     _socket = socket;
                     _connected = true;
                     _lastGoodUrl = url;
+                    Debug.Log("[WW-PVP] conectado a " + url);
 
                     var receive = ReceiveLoop(socket, ct);
                     var send = SendLoop(socket, ct);

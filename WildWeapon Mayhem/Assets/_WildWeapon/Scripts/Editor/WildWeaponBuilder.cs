@@ -974,6 +974,8 @@ namespace WildWeapon.EditorTools
             public string id, name, sub, note;
             public MapSizeClass size;
             public Color accent, bg, floorTint = Color.white, wallTint = Color.white, propTint = Color.white;
+            [Tooltip("Fraccion del encuadre que ocupa la arena (el resto es entorno del fondo)")]
+            public float backdropFraction = 0.66f;
             public MapPlatform[] platforms;
             public MapHazard[] hazards;
             public string[] obstacles, decor;
@@ -1029,8 +1031,10 @@ namespace WildWeapon.EditorTools
             def.floorSingle = true;
             def.floorTileSize = 4.5f;
             def.floorTint = t.floorTint;
+            def.backdropArenaFraction = t.backdropFraction;
 
-            def.wallSprite = Spr("ww_wall");
+            // Los muros quedan solo como collider: el entorno del fondo ya muestra el borde del lugar.
+            def.wallSprite = null;
             def.wallThickness = 0.8f;
             def.wallTileSize = 1.6f;
             def.wallTint = t.wallTint;
@@ -1152,7 +1156,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "duela", name = "Duela de Chatarra", sub = "DUELO SOBRE TABLAS ROTAS",
                     size = MapSizeClass.Chico, accent = rust, bg = new Color(0.09f, 0.06f, 0.04f),
-                    floorTint = new Color(1f, 0.96f, 0.9f), wallTint = new Color(0.9f, 0.85f, 0.78f),
+                    floorTint = new Color(1f, 0.96f, 0.9f), wallTint = new Color(0.9f, 0.85f, 0.78f), backdropFraction = 0.68f,
                     note = "Tablones hundidos, sierras oxidadas y pilas de chatarra del primer prototipo",
                     botSpawns = 12,
                     platforms = new[]
@@ -1165,7 +1169,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "neon", name = "Balcon de Neon", sub = "LUZ QUE CORTA",
                     size = MapSizeClass.Chico, accent = new Color(1f, 0.35f, 0.85f), bg = new Color(0.06f, 0.03f, 0.10f),
-                    floorTint = new Color(0.92f, 0.9f, 1f), wallTint = new Color(0.8f, 0.76f, 1f),
+                    floorTint = new Color(0.92f, 0.9f, 1f), wallTint = new Color(0.8f, 0.76f, 1f), backdropFraction = 0.66f,
                     note = "Balcones de hotel, carteles de neon y cables sueltos sobre el pavimento mojado",
                     botSpawns = 12,
                     platforms = new[]
@@ -1178,7 +1182,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "camara", name = "Camara Fria", sub = "NO TE CONGELES",
                     size = MapSizeClass.Chico, accent = ice, bg = new Color(0.05f, 0.08f, 0.11f),
-                    floorTint = new Color(0.9f, 0.97f, 1f), wallTint = new Color(0.82f, 0.92f, 1f),
+                    floorTint = new Color(0.9f, 0.97f, 1f), wallTint = new Color(0.82f, 0.92f, 1f), backdropFraction = 0.64f,
                     note = "Camara de congelados: ganchos, cajas apiladas y escarcha en el piso",
                     botSpawns = 12,
                     platforms = new[]
@@ -1191,7 +1195,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "eco", name = "Pozo del Eco", sub = "EL POZO RESPONDE",
                     size = MapSizeClass.Chico, accent = new Color(0.3f, 1f, 0.85f), bg = new Color(0.03f, 0.07f, 0.08f),
-                    floorTint = new Color(0.88f, 1f, 0.98f), wallTint = new Color(0.78f, 0.96f, 0.92f),
+                    floorTint = new Color(0.88f, 1f, 0.98f), wallTint = new Color(0.78f, 0.96f, 0.92f), backdropFraction = 0.71f,
                     note = "Pozo seco con paredes de piedra tallada y ecos que empujan desde el centro",
                     botSpawns = 12,
                     platforms = new[]
@@ -1206,7 +1210,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "leviatan", name = "Fosa Leviatan", sub = "ALGO GRANDE MURIO ACA",
                     size = MapSizeClass.Mediano, accent = new Color(0.7f, 0.85f, 0.35f), bg = new Color(0.05f, 0.06f, 0.04f),
-                    floorTint = new Color(0.95f, 0.96f, 0.88f), wallTint = new Color(0.86f, 0.88f, 0.78f),
+                    floorTint = new Color(0.95f, 0.96f, 0.88f), wallTint = new Color(0.86f, 0.88f, 0.78f), backdropFraction = 0.68f,
                     note = "Costillas de un leviatan, charcos de acido y huesos usados como rampas",
                     botSpawns = 14,
                     platforms = new[]
@@ -1220,7 +1224,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "boveda", name = "Boveda Dorada", sub = "LLUVIA DE MAYHEMCOINS",
                     size = MapSizeClass.Mediano, accent = gold, bg = new Color(0.09f, 0.07f, 0.03f),
-                    floorTint = new Color(1f, 0.97f, 0.88f), wallTint = new Color(1f, 0.92f, 0.72f),
+                    floorTint = new Color(1f, 0.97f, 0.88f), wallTint = new Color(1f, 0.92f, 0.72f), backdropFraction = 0.68f,
                     note = "Boveda de banco: lingotes, cajas fuertes y una puerta que baja como guillotina",
                     botSpawns = 14,
                     platforms = new[]
@@ -1234,7 +1238,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "nebula", name = "Chatarra Nebula", sub = "VIENTO Y CABLE PELADO",
                     size = MapSizeClass.Mediano, accent = new Color(0.6f, 0.75f, 1f), bg = new Color(0.04f, 0.05f, 0.09f),
-                    floorTint = new Color(0.94f, 0.96f, 1f), wallTint = new Color(0.86f, 0.9f, 1f),
+                    floorTint = new Color(0.94f, 0.96f, 1f), wallTint = new Color(0.86f, 0.9f, 1f), backdropFraction = 0.67f,
                     note = "Desguace orbital: turbinas que barren la arena y cables de alta tension",
                     botSpawns = 14,
                     platforms = new[]
@@ -1248,7 +1252,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "vivero", name = "Vivero Mutante", sub = "LAS ESPORAS NO PERDONAN",
                     size = MapSizeClass.Mediano, accent = new Color(0.5f, 1f, 0.5f), bg = new Color(0.04f, 0.07f, 0.04f),
-                    floorTint = new Color(0.92f, 1f, 0.9f), wallTint = new Color(0.8f, 0.95f, 0.8f),
+                    floorTint = new Color(0.92f, 1f, 0.9f), wallTint = new Color(0.8f, 0.95f, 0.8f), backdropFraction = 0.66f,
                     note = "Invernadero tomado por enredaderas, macetas gigantes y esporas a media altura",
                     botSpawns = 14,
                     platforms = new[]
@@ -1264,7 +1268,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "templo", name = "Templo Hundido", sub = "EL AGUA SUBE Y BAJA",
                     size = MapSizeClass.Grande, accent = new Color(0.35f, 0.9f, 0.95f), bg = new Color(0.03f, 0.06f, 0.08f),
-                    floorTint = new Color(0.9f, 0.98f, 1f), wallTint = new Color(0.8f, 0.92f, 0.95f),
+                    floorTint = new Color(0.9f, 0.98f, 1f), wallTint = new Color(0.8f, 0.92f, 0.95f), backdropFraction = 0.68f,
                     note = "Templo inundado: columnas caidas, pasarelas de piedra y estatuas sumergidas",
                     botSpawns = 18,
                     platforms = new[]
@@ -1280,7 +1284,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "domo", name = "Domo de Hielo", sub = "FRENAR ES MORIR",
                     size = MapSizeClass.Grande, accent = ice, bg = new Color(0.05f, 0.08f, 0.12f),
-                    floorTint = new Color(0.92f, 0.98f, 1f), wallTint = new Color(0.84f, 0.94f, 1f),
+                    floorTint = new Color(0.92f, 0.98f, 1f), wallTint = new Color(0.84f, 0.94f, 1f), backdropFraction = 0.7f,
                     note = "Domo polar: grietas, ventiscas laterales y rafagas que cruzan la cancha",
                     botSpawns = 18,
                     platforms = new[]
@@ -1296,7 +1300,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "mercado", name = "Mercado del Caos", sub = "OFERTAS QUE EXPLOTAN",
                     size = MapSizeClass.Grande, accent = new Color(1f, 0.6f, 0.2f), bg = new Color(0.08f, 0.05f, 0.04f),
-                    floorTint = new Color(1f, 0.95f, 0.88f), wallTint = new Color(0.95f, 0.86f, 0.76f),
+                    floorTint = new Color(1f, 0.95f, 0.88f), wallTint = new Color(0.95f, 0.86f, 0.76f), backdropFraction = 0.67f,
                     note = "Mercado nocturno: puestos incendiados, toneles de aceite y monedas por el piso",
                     botSpawns = 18,
                     platforms = new[]
@@ -1312,7 +1316,7 @@ namespace WildWeapon.EditorTools
                 {
                     id = "nucleo", name = "Nucleo Overdrive", sub = "TOCA EL NUCLEO Y CORRE",
                     size = MapSizeClass.Grande, accent = violet, bg = new Color(0.05f, 0.03f, 0.09f),
-                    floorTint = new Color(0.96f, 0.92f, 1f), wallTint = new Color(0.86f, 0.78f, 1f),
+                    floorTint = new Color(0.96f, 0.92f, 1f), wallTint = new Color(0.86f, 0.78f, 1f), backdropFraction = 0.67f,
                     note = "Reactor en el centro: cables arqueando, plasma en el piso y fosas de escoria",
                     botSpawns = 18,
                     platforms = new[]

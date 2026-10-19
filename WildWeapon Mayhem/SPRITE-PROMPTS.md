@@ -806,3 +806,42 @@ magick plat_<id>_raw.jpg -fuzz 8% -transparent white -trim +repage -background n
 - Crudos de esta tanda en `_art-source/Maps/plat_<id>_raw.jpg` (junto a los crudos previos `plat_chica_a/mediana_b/grande_a`, que quedan como archivo).
 
 **Verificación (18-oct-2026)**: `Reconstruir escenas (silencioso)` sin "Falta arte"; render de los 12 mapas en modo espejo (960×540) con las cuentas exactas **3/5/9** y el arte propio de cada mapa; duelo jugado desde el menú (Duela de Chatarra) con sus 3 decks y sombras; ficha del selector: "CHICA · 16x9 · 3 PLATAFORMAS · 0 PELIGROS".
+## 13. Fondos de entorno de los 12 mapas (rework oct 2026)
+
+> Sexto pase de contenido: se reemplazan los fondos de placeholder por **entornos cenitales con volumen** generados con Google Flow (Nano Banana 2.1, 0 puntos, 16:9, x2). La arena de juego ocupa ~70% del encuadre, centrada; el resto es entorno del lugar (el lugar se lee alrededor). El arte es agnóstico al tamaño de arena: al estirarse al encuadre, la composición se mantiene. Tanda generada en el proyecto Flow `flow.google.com/project/982ec143-0ff6-44b8-9390-72bf05e6eca3`.
+
+**Estilo elegido**: "entorno cenital con volumen" (vista picada ~35°, sin personajes, sin texto). Área de pelea ~70% centrada y limpia; el entorno del lugar cubre el resto del encuadre. Muros pasan a ser solo collider (sin sprite visible).
+
+**Integración en código**:
+- `MapDef.backdropArenaFraction`: fracción del encuadre que ocupa la arena (0.45–0.95). Cada mapa tiene su valor afinado.
+- `MapGenerator` (Awake): cámara primero → `ortho = max(half.y/f, half.x/(f*aspect))`; fondo "Entorno" estirado a `view × 1.02` (cubre todo el encuadre sin bordes); muros solo collider.
+- `WildWeaponBuilder.MapThemes()`: `MapTheme.backdropFraction` + `wallSprite = null` en `Fill()`.
+- Script de control: `_art-source/_tools/map-layout-preview.ps1` arma el encuadre real (fondo + decks + rect de arena) sin entrar a Play; salida en `%TEMP%\opencode\ww_map_preview\`.
+- Crudos archivados: `_art-source/Maps/<id>_env_<id8>_raw.jpg` (duela usa `duela_env_b_raw.jpg`, elegida por el usuario).
+
+**Los 12 fondos** (id / fracción / variante elegida de Flow):
+
+| id | backdropFraction | Variante Flow (id8) |
+|---|---|---|
+| `duela` | 0.68 | a38f682b |
+| `neon` | 0.66 | 7ca8bf84 |
+| `camara` | 0.64 | b3df493b |
+| `eco` | 0.71 | 76647fc1 |
+| `leviatan` | 0.68 | 784a61fc |
+| `boveda` | 0.68 | 7a76ebdd |
+| `nebula` | 0.67 | 7662d0bd |
+| `vivero` | 0.66 | 10a47305 |
+| `templo` | 0.68 | 8cedeb12 |
+| `domo` | 0.70 | d4172315 |
+| `mercado` | 0.67 | 58e8b6d5 |
+| `nucleo` | 0.67 | f3ff009e |
+
+Prompts completos y temas por mapa: ver el proyecto Flow (28 candidatas descartadas en `%TEMP%\opencode\ww_env_raw\env_<id8>.jpg`). Para cambiar un fondo: `magick <src> -resize 2048x -strip "Assets\_WildWeapon\Art\Sprites\ww_map_<id>_bg.png"`.
+
+**Normalización (ImageMagick)**:
+```powershell
+# Fondo por mapa: 2048x1143, estirado al encuadre por MapGenerator
+magick <id>_env_<id8>_raw.jpg -resize 2048x1143! -strip ww_map_<id>_bg.png
+```
+
+**Verificación**: fondos instalados en `Assets/_WildWeapon/Art/Sprites/ww_map_<id>_bg.png` (2048×1143, mismos nombres ⇒ mismos GUIDs). Escenas reconstruidas con los fondos nuevos (menú dev "WildWeapon/Dev/Reconstruir escenas (silencioso)" corrió OK). Crudos archivados en `_art-source/Maps/`.

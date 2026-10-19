@@ -48,17 +48,23 @@ namespace WildWeapon
             Vector2 half = map.arenaSize * 0.5f;
             float t = map.wallThickness;
 
+            // ---- Camara: la arena ocupa una fraccion del encuadre; el resto es entorno ----
+            var cam = Camera.main;
+            float aspect = cam != null && cam.aspect > 0.1f ? cam.aspect : 16f / 9f;
+            float fraction = Mathf.Clamp(map.backdropArenaFraction, 0.45f, 0.95f);
+            float orthoSize = Mathf.Max(half.y / fraction, half.x / (fraction * aspect));
+            var view = new Vector2(orthoSize * aspect * 2f, orthoSize * 2f);
+
             // ---- Decoracion exclusiva del tema: props chicos de fondo ----
             var placed = new List<Vector2>();
 
-            // ---- Piso ----
+            // ---- Fondo: el entorno del lugar cubre todo el encuadre (arte unico, sin tiling) ----
             if (map.floorSprite != null)
             {
-                var floor = map.floorSingle
-                    ? Single("Piso", root, map.floorSprite, map.arenaSize, Vector2.zero, map.floorTint, -100)
-                    : Tiled("Piso", root, map.floorSprite, map.floorTileSize,
-                        map.arenaSize + Vector2.one * (t * 2f), Vector2.zero, map.floorTint, -100);
-                floor.GetComponent<SpriteRenderer>().spriteSortPoint = SpriteSortPoint.Center;
+                var backdrop = map.floorSingle
+                    ? Single("Entorno", root, map.floorSprite, view * 1.02f, Vector2.zero, map.floorTint, -100)
+                    : Tiled("Entorno", root, map.floorSprite, map.floorTileSize, view * 1.02f, Vector2.zero, map.floorTint, -100);
+                backdrop.GetComponent<SpriteRenderer>().spriteSortPoint = SpriteSortPoint.Center;
             }
 
             // ---- Muros ----
@@ -161,14 +167,10 @@ namespace WildWeapon
             }
 
             // ---- Camara ----
-            var cam = Camera.main;
             if (cam != null)
             {
                 cam.backgroundColor = map.backgroundColor;
-                float aspect = cam.aspect > 0.1f ? cam.aspect : 16f / 9f;
-                float needH = half.y + t + 0.3f;
-                float needW = (half.x + t + 0.3f) / aspect;
-                cam.orthographicSize = Mathf.Max(needH, needW);
+                cam.orthographicSize = orthoSize;
             }
         }
 

@@ -25,7 +25,8 @@ MonoBehaviour:
   floorSingle: 1
   floorTileSize: 4.5
   floorTint: {r: 0.92, g: 0.98, b: 1, a: 1}
-  wallSprite: {fileID: 21300000, guid: 486d6aea2a44c4a4599b3f23c70f9c56, type: 3}
+  backdropArenaFraction: 0.7
+  wallSprite: {fileID: 0}
   wallThickness: 0.8
   wallTileSize: 1.6
   wallTint: {r: 0.84, g: 0.94, b: 1, a: 1}

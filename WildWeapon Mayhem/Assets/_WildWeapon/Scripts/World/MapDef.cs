@@ -102,13 +102,15 @@ namespace WildWeapon
         public Vector2 arenaSize = new Vector2(20f, 11f);
         public Color backgroundColor = new Color(0.06f, 0.05f, 0.07f);
 
-        [Header("Piso")]
-        public Sprite floorSprite;
-        [Tooltip("Si es true el piso se estira entero al area (arte unico por mapa)")] public bool floorSingle = true;
+        [Header("Fondo (entorno del lugar)")]
+        [Tooltip("Entorno del mapa: un solo sprite estirado a todo el encuadre de camara (el area de juego es el centro limpio)")] public Sprite floorSprite;
+        [Tooltip("Si es true el fondo se estira entero al encuadre (arte unico por mapa)")] public bool floorSingle = true;
         public float floorTileSize = 4f;
         public Color floorTint = Color.white;
+        [Tooltip("Fraccion del encuadre que ocupa la arena; el resto es entorno (alinea el borde de la arena con el borde visible del lugar)")]
+        [Range(0.45f, 0.95f)] public float backdropArenaFraction = 0.66f;
 
-        [Header("Muros")]
+        [Header("Muros (solo collider: el entorno del fondo los reemplaza)")]
         public Sprite wallSprite;
         public float wallThickness = 0.8f;
         public float wallTileSize = 1.6f;

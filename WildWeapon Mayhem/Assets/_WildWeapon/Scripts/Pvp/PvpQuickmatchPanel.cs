@@ -48,6 +48,8 @@ namespace WildWeapon.Pvp
         private float _radarTargetAlpha = 0.10f;
         private float _shineT = -1.4f;
         private bool _closing;
+        private bool _awaitingConnection;
+        private bool _connectionFailed;
 
         void OnDestroy()
         {
@@ -67,42 +69,63 @@ namespace WildWeapon.Pvp
             _client = PvpClient.Ensure();
             _client.Message += OnMessage;
 
-            if (_client.IsConnected)
+            if (_client.IsOnline)
             {
                 JoinQueue();
             }
             else
             {
-                RadarMood(34f, 0.12f);
-                SetStatus("CONECTANDO...", "Contactando al servidor de duelos...");
-                _client.Connect();
-                StartCoroutine(WaitConnection());
+                BeginConnect();
             }
         }
 
-        private IEnumerator WaitConnection()
+        /// <summary>
+        /// Arranca la ventana de conexion. Si Render esta dormido, el cliente insiste
+        /// hasta 120 s y este panel muestra el progreso en vez de quedarse mudo.
+        /// </summary>
+        private void BeginConnect()
         {
-            float t = 0f;
-            while (t < 12f && !_client.IsConnected)
+            _awaitingConnection = true;
+            _connectionFailed = false;
+            RadarMood(34f, 0.12f);
+            SetStatus("DESPERTANDO SERVIDOR...", "Contactando al servidor de duelos...");
+            SetCancelLabel("CANCELAR");
+            _client.Connect();
+        }
+
+        /// <summary>Cada frame mientras se espera la conexion: progreso, tiempo y reintento.</summary>
+        private void TickConnection()
+        {
+            if (_client.IsOnline)
             {
-                t += Time.unscaledDeltaTime;
-                if (!string.IsNullOrEmpty(_client.LastError))
-                {
-                    RadarMood(12f, 0.08f);
-                    SetStatus("SIN CONEXION", "No se pudo conectar al servidor PVP. Intenta de nuevo.");
-                    SetCancelLabel("VOLVER");
-                    yield break;
-                }
-                yield return null;
+                _awaitingConnection = false;
+                _connectionFailed = false;
+                JoinQueue();
+                return;
             }
 
-            if (_closing) yield break;
-            if (_client.IsConnected) JoinQueue();
-            else
+            if (_client.IsConnecting)
             {
-                RadarMood(12f, 0.08f);
-                SetStatus("SIN CONEXION", "No se pudo conectar al servidor PVP. Intenta de nuevo.");
+                string dots = new string('.', 1 + (int)(Time.unscaledTime * 2f) % 3);
+                string head;
+                switch (_client.Phase)
+                {
+                    case PvpClient.ConnectionPhase.WarmingUp: head = "DESPERTANDO SERVIDOR" + dots; break;
+                    case PvpClient.ConnectionPhase.Retrying: head = "SERVIDOR ARRANCANDO" + dots; break;
+                    default: head = "CONECTANDO" + dots; break;
+                }
+                int secs = Mathf.FloorToInt(_client.ConnectSeconds);
+                SetStatus(head,
+                    _client.PhaseDetail + "\n" + secs + " s - la primera vez puede tardar 1 o 2 minutos.");
+                SetCancelLabel("CANCELAR");
+                return;
             }
+
+            _awaitingConnection = false;
+            _connectionFailed = true;
+            RadarMood(12f, 0.08f);
+            SetStatus("SIN CONEXION", "No se pudo despertar el servidor. Revisa tu red y toca REINTENTAR.");
+            SetCancelLabel("REINTENTAR");
         }
 
         private void JoinQueue()
@@ -163,6 +186,12 @@ namespace WildWeapon.Pvp
 
         public void Cancel()
         {
+            // Tras un intento fallido el mismo boton pasa a ser REINTENTAR.
+            if (_connectionFailed)
+            {
+                BeginConnect();
+                return;
+            }
             Close(true);
         }
 
@@ -170,6 +199,7 @@ namespace WildWeapon.Pvp
         {
             if (_closing) return;
             _closing = true;
+            _awaitingConnection = false;
 
             if (_client != null)
             {
@@ -210,6 +240,8 @@ namespace WildWeapon.Pvp
 
         void Update()
         {
+            if (_awaitingConnection) TickConnection();
+
             float dt = Time.unscaledDeltaTime;
 
             _radarSpeed = Mathf.MoveTowards(_radarSpeed, _radarTargetSpeed, dt * 260f);

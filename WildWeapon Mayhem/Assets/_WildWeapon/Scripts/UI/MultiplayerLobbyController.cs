@@ -62,7 +62,9 @@ namespace WildWeapon.UI
         public float fadeTime = 0.45f;
 
         [Header("Paleta")]
-        public Color[] palette = GameSession.Palette;
+        // Se completa en Start: GameSession tiene un constructor estatico que toca
+        // PlayerPrefs y no se puede ejecutar desde el constructor del MonoBehaviour.
+        public Color[] palette;
 
         // Tints de las piezas internas (mismo lenguaje que el menu: acero frio + acento).
         private static readonly Color RowTint = new Color(0.07f, 0.09f, 0.13f, 0.92f);
@@ -94,13 +96,22 @@ namespace WildWeapon.UI
         private CanvasGroup _modal;
         private RectTransform _roomStep;
         private RectTransform _waitStep;
+        private RectTransform _connectStep;
         private Text _roomStatus;
         private Text _waitTitle;
         private Text _waitSub;
+        private Text _connectStatus;
         private RectTransform _waitOrb;
+        private RectTransform _connectOrb;
         private InputField _codeInput;
         private Button _createButton;
         private Button _joinButton;
+        private Button _connectRetry;
+
+        // ---- Conexion en curso / accion pendiente ----
+        private bool _watchingConnection;
+        private bool _pendingCreate;
+        private string _pendingJoin = "";
 
         private float _statusFlash;
 
@@ -119,12 +130,8 @@ namespace WildWeapon.UI
 
             _client = PvpClient.Ensure();
             _client.Message += OnMessage;
-            if (_client.IsConnected) OnConnected();
-            else
-            {
-                _client.Connect();
-                StartCoroutine(WaitConnection());
-            }
+            if (_client.IsOnline) OnConnected();
+            else BeginConnect();
 
             if (fader != null) StartCoroutine(Fade(1f, 0f, null));
         }
@@ -137,6 +144,10 @@ namespace WildWeapon.UI
         void Update()
         {
             if (_loading) return;
+
+            if (_watchingConnection) TickConnection();
+            if (_connectOrb != null && _connectStep != null && _connectStep.gameObject.activeSelf)
+                AnimateConnectOrb();
 
             // Estado del lobby pendiente (ver ApplyState): un refresco por frame.
             if (_stateDirty)
@@ -170,11 +181,33 @@ namespace WildWeapon.UI
 
             var kb = Keyboard.current;
             var pad = Gamepad.current;
-            if ((kb != null && (kb.escapeKey.wasPressedThisFrame || kb.backspaceKey.wasPressedThisFrame)) ||
-                (pad != null && pad.selectButton.wasPressedThisFrame))
+            bool editingText = IsEditingTextField();
+            if (kb != null && kb.escapeKey.wasPressedThisFrame)
             {
-                Back();
+                // Escape mientras se edita el nombre/codigo: solo suelta el foco.
+                // Backspace NO es atajo de "volver": lo usa el campo para borrar letras.
+                if (editingText) DeselectTextField();
+                else Back();
             }
+            else if (pad != null && pad.selectButton.wasPressedThisFrame)
+            {
+                if (editingText) DeselectTextField();
+                else Back();
+            }
+        }
+
+        /// <summary>Hay un InputField enfocado (nombre del asiento, codigo de sala, etc.).</summary>
+        private static bool IsEditingTextField()
+        {
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            var selected = es != null ? es.currentSelectedGameObject : null;
+            return selected != null && selected.GetComponentInParent<InputField>() != null;
+        }
+
+        private static void DeselectTextField()
+        {
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            if (es != null) es.SetSelectedGameObject(null);
         }
 
         // =================================================================
@@ -201,33 +234,121 @@ namespace WildWeapon.UI
         // Conexion y sala
         // =================================================================
 
-        private IEnumerator WaitConnection()
+        /// <summary>
+        /// Muestra el paso "CONECTANDO" y arranca (o retoma) la ventana del PvpClient.
+        /// Si Render esta dormido puede tardar 1-2 minutos; el texto muestra el progreso
+        /// y la accion pedida (crear/entrar) se envia sola apenas haya conexion.
+        /// </summary>
+        private void BeginConnect()
         {
-            float t = 0f;
-            while (t < 12f && !_client.IsConnected)
+            if (_client == null) _client = PvpClient.Ensure();
+            _watchingConnection = true;
+            ShowConnectStep();
+            _client.Connect();
+        }
+
+        private void ShowConnectStep()
+        {
+            _step = Step.Connect;
+            if (_modal != null) { _modal.alpha = 1f; _modal.blocksRaycasts = true; }
+            if (_roomStep != null) _roomStep.gameObject.SetActive(false);
+            if (_waitStep != null) _waitStep.gameObject.SetActive(false);
+            if (_connectStep != null) _connectStep.gameObject.SetActive(true);
+            if (_connectStatus != null) _connectStatus.text = "Despertando el servidor de duelos...";
+            if (_connectRetry != null) _connectRetry.gameObject.SetActive(false);
+        }
+
+        /// <summary>Cada frame mientras se espera la conexion: progreso, tiempo y reintento.</summary>
+        private void TickConnection()
+        {
+            if (_client == null) return;
+
+            if (_client.IsOnline)
             {
-                t += Time.unscaledDeltaTime;
-                if (!string.IsNullOrEmpty(_client.LastError))
-                {
-                    SetRoomStatus("SIN CONEXION. Revisa la red e intenta de nuevo.", WarnText);
-                    yield break;
-                }
-                yield return null;
+                _watchingConnection = false;
+                OnConnected();
+                return;
             }
-            if (_loading) yield break;
-            if (_client.IsConnected) OnConnected();
-            else SetRoomStatus("SIN CONEXION. Revisa la red e intenta de nuevo.", WarnText);
+
+            if (_client.IsConnecting)
+            {
+                if (_connectStatus != null)
+                {
+                    string dots = new string('.', 1 + (int)(Time.unscaledTime * 2f) % 3);
+                    int secs = Mathf.FloorToInt(_client.ConnectSeconds);
+                    _connectStatus.text = _client.PhaseDetail.TrimEnd('.') + dots + "\n" +
+                        secs + " s - la primera vez puede tardar 1 o 2 minutos.\n" +
+                        "No cierres la ventana.";
+                }
+                if (_connectRetry != null) _connectRetry.gameObject.SetActive(false);
+                return;
+            }
+
+            _watchingConnection = false;
+            if (_connectStatus != null)
+            {
+                string detail = string.IsNullOrEmpty(_client.LastError) ? "" : "\nDetalle: " + _client.LastError;
+                _connectStatus.text = "No se pudo despertar el servidor.\n" +
+                    "Revisa tu conexion a internet y toca REINTENTAR." + detail;
+            }
+            if (_connectRetry != null) _connectRetry.gameObject.SetActive(true);
+        }
+
+        private void RetryConnection()
+        {
+            if (_loading) return;
+            BeginConnect();
+        }
+
+        private void AnimateConnectOrb()
+        {
+            float k = 1f + 0.06f * Mathf.Sin(Time.unscaledTime * 3.2f);
+            _connectOrb.localScale = new Vector3(k, k, 1f);
+            var img = _connectOrb.GetComponentInChildren<Image>();
+            if (img != null)
+            {
+                var c = img.color;
+                c.a = 0.45f + 0.35f * Mathf.Sin(Time.unscaledTime * 3.2f);
+                img.color = c;
+            }
         }
 
         private void OnConnected()
         {
             if (_inRoom) return;
+
             GoRooms();
+
+            // Lo que el jugador pidio mientras el servidor despertaba se manda ahora.
+            if (_pendingCreate)
+            {
+                _pendingCreate = false;
+                SendCreate();
+            }
+            else if (!string.IsNullOrEmpty(_pendingJoin))
+            {
+                string code = _pendingJoin;
+                _pendingJoin = "";
+                SendJoin(code);
+            }
         }
 
         public void CreateRoom()
         {
-            if (!Ready()) return;
+            if (_loading || _client == null) return;
+
+            if (!_client.IsConnected)
+            {
+                _pendingCreate = true;
+                _pendingJoin = "";
+                BeginConnect();
+                return;
+            }
+            SendCreate();
+        }
+
+        private void SendCreate()
+        {
             SetRoomStatus("CREANDO SALA...", ReadyText);
             _client.Send(new PvpMsg
             {
@@ -239,7 +360,8 @@ namespace WildWeapon.UI
 
         public void JoinRoom()
         {
-            if (!Ready()) return;
+            if (_loading || _client == null) return;
+
             string code = _codeInput != null ? (_codeInput.text ?? "") : "";
             code = OnlyDigits(code);
             if (code.Length < 4)
@@ -248,6 +370,19 @@ namespace WildWeapon.UI
                 return;
             }
             if (_codeInput != null) _codeInput.text = code;
+
+            if (!_client.IsConnected)
+            {
+                _pendingJoin = code;
+                _pendingCreate = false;
+                BeginConnect();
+                return;
+            }
+            SendJoin(code);
+        }
+
+        private void SendJoin(string code)
+        {
             SetRoomStatus("ENTRANDO A LA SALA " + code + "...", ReadyText);
             _client.Send(new PvpMsg
             {
@@ -831,6 +966,7 @@ namespace WildWeapon.UI
             if (_modal != null) { _modal.alpha = 1f; _modal.blocksRaycasts = true; }
             if (_roomStep != null) _roomStep.gameObject.SetActive(true);
             if (_waitStep != null) _waitStep.gameObject.SetActive(false);
+            if (_connectStep != null) _connectStep.gameObject.SetActive(false);
             SetRoomStatus(DefaultRoomStatus(), LabelDim);
             Refresh();
         }
@@ -841,6 +977,7 @@ namespace WildWeapon.UI
             if (_modal != null) { _modal.alpha = 0f; _modal.blocksRaycasts = false; }
             if (_roomStep != null) _roomStep.gameObject.SetActive(false);
             if (_waitStep != null) _waitStep.gameObject.SetActive(false);
+            if (_connectStep != null) _connectStep.gameObject.SetActive(false);
         }
 
         private void GoWaiting(PvpMsg m)
@@ -849,6 +986,7 @@ namespace WildWeapon.UI
             if (_modal != null) { _modal.alpha = 1f; _modal.blocksRaycasts = true; }
             if (_roomStep != null) _roomStep.gameObject.SetActive(false);
             if (_waitStep != null) _waitStep.gameObject.SetActive(true);
+            if (_connectStep != null) _connectStep.gameObject.SetActive(false);
             if (_waitTitle != null) _waitTitle.text = "SALA LLENA";
             if (_waitSub != null)
             {
@@ -959,7 +1097,29 @@ namespace WildWeapon.UI
                 out _);
             cancel.onClick.AddListener(CancelWait);
 
+            // ---- Paso 0: despertando / conectando ----
+            _connectStep = BuildStep(modalGo.transform, "StepConnect", "CONECTANDO", "SERVIDOR PVP ONLINE", out _connectStatus);
+            _connectStatus.fontSize = 22;
+            _connectStatus.alignment = TextAnchor.UpperCenter;
+            CenteredAt(_connectStatus.rectTransform, new Vector2(0f, -150f), new Vector2(820f, 140f));
+
+            var connectOrbGo = NewRectAt(_connectStep, "ConnectOrb", new Vector2(0f, 40f), new Vector2(130f, 130f));
+            var connectOrb = NewImage(connectOrbGo, "Orb", orbSprite, new Color(Accent.r, Accent.g, Accent.b, 0.70f));
+            Stretch(connectOrb.rectTransform);
+            _connectOrb = connectOrbGo;
+
+            _connectRetry = ModalButton(_connectStep, "Retry", "REINTENTAR", new Color(0.52f, 0.92f, 0.55f),
+                new Vector2(-160f, -272f), new Vector2(300f, 84f), out _);
+            _connectRetry.onClick.AddListener(RetryConnection);
+            _connectRetry.gameObject.SetActive(false);
+
+            var connectBack = ModalButton(_connectStep, "ConnectBack", "VOLVER AL MENU", new Color(0.72f, 0.80f, 0.95f),
+                new Vector2(170f, -272f), new Vector2(300f, 84f), out _);
+            connectBack.onClick.AddListener(Back);
+
             _waitStep.gameObject.SetActive(false);
+            _connectStep.gameObject.SetActive(true);
+            _roomStep.gameObject.SetActive(false);
         }
 
         /// <summary>Placa base de un paso del modal (titulo + bajada + riel bereber de estado).</summary>

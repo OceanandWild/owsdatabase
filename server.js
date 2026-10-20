@@ -43265,7 +43265,10 @@ function wwPvpNewRoom(key) {
   const room = {
     key, players: [], scores: [], round: 0, active: false, seed: 0,
     createdAt: Date.now(), timer: null, host: null,
-    lobby: false, started: false, waiters: []
+    lobby: false, started: false, waiters: [],
+    // Equipos activos por defecto: el anfitrion puede apagarlos en la sala
+    // (todos contra todos) desde MultiplayerLobbyController.
+    teams: true
   };
   wwPvpRooms.set(key, room);
   return room;
@@ -43334,6 +43337,7 @@ function wwPvpLobbyPayload(room, player) {
     n: room.players.filter(wwPvpIsHuman).length,
     total: room.players.length,
     waiters: room.waiters.length,
+    teams: room.teams ? 1 : 0,
     players: room.players.map((p) => ({
       seat: p.seat, name: p.name, color: p.color, team: p.team | 0, control: p.control | 0,
       bot: !!p.bot, host: !!p.host
@@ -43483,6 +43487,7 @@ function wwPvpPair(room) {
     wwPvpSend(p, {
       t: 'matched', seat: p.seat, room: room.key, seed: room.seed,
       team: p.team | 0, host: !!p.host, n: room.players.length,
+      teams: room.teams ? 1 : 0,
       opp: wwPvpOpps(room, p)[0] || null, opps: wwPvpOpps(room, p)
     });
   }
@@ -43513,10 +43518,19 @@ function wwPvpHandleDeath(room, player) {
   player.dead = true;
   const remaining = room.players.filter((p) => !p.dead);
   const humansLeft = remaining.filter((p) => !p.bot);
-  // La ronda cierra cuando queda un solo combatiente o cuando no queda ningun humano
-  // (los bots no se pelean entre si: si cayo el plantel humano, la IA se lleva la ronda).
-  if (remaining.length <= 1 || (room.lobby && humansLeft.length === 0)) {
-    const winner = remaining.length === 1 ? remaining[0].seat : -1;
+  // Con equipos activos, la ronda termina cuando queda un solo EQUIPO (los
+  // companeros no se pueden danar entre si). Sin equipos cada asiento es su
+  // propio equipo, asi que la condicion equivale a "queda uno solo".
+  const teamOf = (p) => (room.teams ? (p.team | 0) : p.seat);
+  const teamsLeft = new Set(remaining.map(teamOf));
+  const sameTeamLeft = remaining.length > 0 && teamsLeft.size === 1 && room.teams;
+  // La ronda cierra cuando queda un solo combatiente/equipo o cuando no queda
+  // ningun humano (los bots no se pelean entre si: si cayo el plantel humano,
+  // la IA se lleva la ronda).
+  if (remaining.length <= 1 || sameTeamLeft || (room.lobby && humansLeft.length === 0)) {
+    const winner = remaining.length === 1
+      ? remaining[0].seat
+      : (sameTeamLeft ? Math.min(...remaining.map((p) => p.seat)) : -1);
     if (winner >= 0 && winner < room.scores.length) room.scores[winner] = (room.scores[winner] || 0) + 1;
     const final = winner >= 0 && room.scores[winner] >= WW_PVP_WIN_ROUNDS;
     room.active = false;
@@ -43678,6 +43692,13 @@ function wwPvpOnMessage(ws, msg) {
       if (typeof msg.team === 'number' && msg.team >= 0) me.team = Math.max(0, Math.min(3, msg.team | 0));
       if (typeof msg.control === 'number' && msg.control >= 0) me.control = Math.max(0, Math.min(4, msg.control | 0));
       wwPvpLobbyBroadcast(room);
+      break;
+    }
+    case 'lobby_teams': {
+      if (!room.lobby || room.started || !me.host) break;
+      room.teams = Number(msg.teams) !== 0;
+      wwPvpLobbyBroadcast(room);
+      console.log(`[WW-PVP] Sala ${room.key}: equipos ${room.teams ? 'activados' : 'desactivados (todos contra todos)'}`);
       break;
     }
     case 'lobby_bots': {

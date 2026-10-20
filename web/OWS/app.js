@@ -152,6 +152,52 @@ function initStars() {
 }
 
 // ═══════════════════════════════════════════════
+// MODALES — cierre centralizado por registro
+// ═══════════════════════════════════════════════
+// El cierre se resuelve por REGISTRO (id → función) y nunca por una cadena
+// de if/else: cuando un modal no estaba en la lista, su X caía en el "else"
+// (cerraba otro modal) y el stopPropagation() impedía que el overlay lo
+// cerrara igual — la X quedaba muerta. Pasó con el modal de historial de
+// versiones del Gestor ("📜 Historial de versiones — <proyecto>"): al tocar
+// la X no se cerraba. Si un modal no está registrado, se cierra de forma
+// genérica ocultando su contenedor.
+
+const MODAL_CLOSERS = {
+  'event-modal': closeEventModal,
+  'release-modal': closeReleaseModal,
+  'news-modal': closeNewsModal,
+  'pcl-modal': closeProjectChangelogModal,
+  'upd-detail-modal': closeUpdatesDetail,
+  'hub-changelog-modal': closeHubChangelogModal,
+  'announce-modal': closeAnnounceModal,
+};
+
+// El scroll del body solo se libera si no queda otro modal abierto.
+function releaseBodyScroll() {
+  try {
+    if (!document.querySelector('.modal-overlay:not(.hidden), .release-overlay:not(.hidden), .news-modal-overlay:not(.hidden)')) {
+      document.body.style.overflow = '';
+    }
+  } catch (_) { document.body.style.overflow = ''; }
+}
+
+// Cierra un modal por id. Siempre cierra algo: si el id no está en el
+// registro, oculta el contenedor y libera el scroll del body.
+function closeModalById(id) {
+  const key = String(id || '').trim();
+  if (!key) return;
+  const closer = MODAL_CLOSERS[key];
+  if (closer) {
+    try { closer(); } catch (_) {}
+    return;
+  }
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.classList.add('hidden');
+  releaseBodyScroll();
+}
+
+// ═══════════════════════════════════════════════
 // EVENTS — binding centralizado (sin inline handlers:
 // el WebView de Tauri no compila atributos onclick/*)
 // ═══════════════════════════════════════════════
@@ -190,27 +236,21 @@ function bindStaticEvents() {
     if (!overlay) return;
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay || (id === 'news-modal' && e.target.classList && e.target.classList.contains('news-modal'))) {
-        if (id === 'event-modal') closeEventModal();
-        else if (id === 'release-modal') closeReleaseModal();
-        else if (id === 'news-modal') closeNewsModal();
-        else if (id === 'pcl-modal') closeProjectChangelogModal();
-        else if (id === 'upd-detail-modal') closeUpdatesDetail();
-        else closeAnnounceModal();
+        closeModalById(id);
       }
     });
   });
-  document.querySelectorAll('[data-close]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = btn.getAttribute('data-close');
-      if (id === 'event-modal') closeEventModal();
-      else if (id === 'release-modal') closeReleaseModal();
-      else if (id === 'news-modal') closeNewsModal();
-      else if (id === 'hub-changelog-modal') closeHubChangelogModal();
-      else if (id === 'pcl-modal') closeProjectChangelogModal();
-      else if (id === 'upd-detail-modal') closeUpdatesDetail();
-      else closeAnnounceModal();
-    });
+  // X: delegación en el documento, para que funcione también con modales que
+  // se inyectan después y con los que no están en la lista de arriba.
+  // NO se corta la propagación: el overlay usa el mismo cierre por id.
+  document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('[data-close]') : null;
+    if (!btn) return;
+    const id = btn.getAttribute('data-close');
+    if (id) { closeModalById(id); return; }
+    // Sin id: se cierra el overlay que contiene al botón.
+    const overlay = btn.closest('.modal-overlay, .release-overlay, .news-modal-overlay');
+    if (overlay) closeModalById(overlay.id);
   });
 
   // Barra de progreso de scroll del modal de lanzamiento

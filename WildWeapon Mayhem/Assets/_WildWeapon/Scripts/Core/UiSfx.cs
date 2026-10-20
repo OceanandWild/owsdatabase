@@ -22,7 +22,7 @@ namespace WildWeapon
         public static float Volume = 0.6f;
 
         const float ClickVolume = 1f;    // el click manda
-        const float HoverVolume = 0.45f; // el hover va por debajo, es subliminal
+        const float HoverVolume = 0.5f;  // el hover va por debajo, es subliminal
         const float HoverCooldown = 0.05f; // el puntero puede pasar varias cards seguidas
 
         static AudioClip _click;
@@ -106,8 +106,9 @@ namespace WildWeapon
             if (src == null) return;
 
             // Sin jitter dos clicks iguales suenan a robot; con jitter suenan
-            // a persona picando botones.
+            // a persona picando botones. El pan leve les da un poco de ancho.
             src.pitch = pitchJitter ? Random.Range(0.97f, 1.03f) : 1f;
+            src.panStereo = pitchJitter ? Random.Range(-0.12f, 0.12f) : 0f;
             src.PlayOneShot(clip, Mathf.Clamp01(Volume * volume));
         }
     }

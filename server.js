@@ -43268,7 +43268,10 @@ function wwPvpNewRoom(key) {
     lobby: false, started: false, waiters: [],
     // Equipos activos por defecto: el anfitrion puede apagarlos en la sala
     // (todos contra todos) desde MultiplayerLobbyController.
-    teams: true
+    teams: true,
+    // Bajas por asiento (tablero PVP) y ultimo golpe recibido por cada asiento,
+    // para acreditar la baja al combatiente que realmente la hizo.
+    kills: [], lastHit: {}
   };
   wwPvpRooms.set(key, room);
   return room;
@@ -43482,12 +43485,15 @@ function wwPvpPair(room) {
   // La ronda la arranca el "ready" de todos (wwPvpTryStart): queda en 0 hasta entonces.
   room.round = 0;
   room.scores = new Array(room.players.length).fill(0);
+  room.kills = new Array(room.players.length).fill(0);
+  room.lastHit = {};
   room.seed = 1 + Math.floor(Math.random() * 999999);
   for (const p of room.players) {
     wwPvpSend(p, {
       t: 'matched', seat: p.seat, room: room.key, seed: room.seed,
       team: p.team | 0, host: !!p.host, n: room.players.length,
       teams: room.teams ? 1 : 0,
+      kills: room.kills.slice(),
       opp: wwPvpOpps(room, p)[0] || null, opps: wwPvpOpps(room, p)
     });
   }
@@ -43497,8 +43503,17 @@ function wwPvpPair(room) {
 function wwPvpStartRound(room, newMatch) {
   if (room.players.length < 2) return;
   if (room.timer) { clearTimeout(room.timer); room.timer = null; }
-  if (newMatch) { room.scores = new Array(room.players.length).fill(0); room.round = 1; room.active = true; }
-  wwPvpBroadcast(room, { t: 'round_start', round: room.round, scores: room.scores.slice() });
+  if (newMatch) {
+    room.scores = new Array(room.players.length).fill(0);
+    room.kills = new Array(room.players.length).fill(0);
+    room.lastHit = {};
+    room.round = 1;
+    room.active = true;
+  }
+  wwPvpBroadcast(room, {
+    t: 'round_start', round: room.round,
+    scores: room.scores.slice(), kills: room.kills.slice()
+  });
   console.log(`[WW-PVP] Sala ${room.key}: inicia ronda ${room.round}`);
 }
 
@@ -43511,11 +43526,25 @@ function wwPvpTryStart(room) {
   return true;
 }
 
-function wwPvpHandleDeath(room, player) {
+function wwPvpHandleDeath(room, player, killerSeat) {
   if (!room.active || room.round < 1) return;
   const alive = room.players.filter((p) => p !== player && !(p.dead));
   // marcar muerto
   player.dead = true;
+
+  // Baja acreditada: se confia en el asiento que manda el dueno del pawn y, si
+  // no vino, en el ultimo golpe que registro el server.
+  if (!Array.isArray(room.kills)) room.kills = new Array(room.players.length).fill(0);
+  let killer = Number.isFinite(killerSeat) ? (killerSeat | 0) : -1;
+  if (killer < 0 || killer === player.seat || !room.players.some((p) => p.seat === killer)) {
+    const last = room.lastHit ? room.lastHit[player.seat] : null;
+    killer = Number.isFinite(last) ? (last | 0) : -1;
+  }
+  if (killer >= 0 && killer !== player.seat && killer < room.kills.length) {
+    room.kills[killer] = (room.kills[killer] || 0) + 1;
+  }
+  wwPvpBroadcast(room, { t: 'kills', kills: room.kills.slice() });
+
   const remaining = room.players.filter((p) => !p.dead);
   const humansLeft = remaining.filter((p) => !p.bot);
   // Con equipos activos, la ronda termina cuando queda un solo EQUIPO (los
@@ -43534,7 +43563,10 @@ function wwPvpHandleDeath(room, player) {
     if (winner >= 0 && winner < room.scores.length) room.scores[winner] = (room.scores[winner] || 0) + 1;
     const final = winner >= 0 && room.scores[winner] >= WW_PVP_WIN_ROUNDS;
     room.active = false;
-    wwPvpBroadcast(room, { t: 'round_end', winner, scores: room.scores.slice(), final });
+    wwPvpBroadcast(room, {
+      t: 'round_end', winner, final,
+      scores: room.scores.slice(), kills: room.kills.slice()
+    });
     console.log(`[WW-PVP] Sala ${room.key}: ronda ${room.round} para ${winner >= 0 ? 'J' + (winner + 1) : 'la IA'}${final ? ' - FIN' : ''}`);
     if (final) return;
     // reset dead flags
@@ -43578,6 +43610,8 @@ function wwPvpDetach(ws, reason) {
     // re-seat
     room.players.forEach((p, i) => { p.seat = i; });
     room.scores = new Array(room.players.length).fill(0);
+    room.kills = new Array(room.players.length).fill(0);
+    room.lastHit = {};
     if (room.players.length === 0) {
       if (room.timer) clearTimeout(room.timer);
       wwPvpRooms.delete(room.key);
@@ -43667,18 +43701,29 @@ function wwPvpOnMessage(ws, msg) {
       wwPvpBroadcast(room, msg, me);
       break;
     }
-    case 'hit':
+    case 'hit': {
+      // El ultimo golpe recibido queda anotado: si el pawn cae sin mandar el
+      // asiento del culpable, la baja se le acredita a quien pego ultimo.
+      const target = Number(msg.target);
+      const attacker = Number(msg.seat);
+      if (Number.isFinite(target) && Number.isFinite(attacker) &&
+          (target | 0) !== (attacker | 0)) {
+        if (!room.lastHit) room.lastHit = {};
+        room.lastHit[target | 0] = attacker | 0;
+      }
       wwPvpBroadcast(room, msg, me);
       break;
+    }
     case 'died': {
       const seat = Number(msg.seat);
+      const killer = Number(msg.killer);
       let victim = me;
       if (Number.isFinite(seat) && (seat | 0) !== me.seat) {
         const who = room.players.find((p) => p.seat === (seat | 0));
         if (!who || !(me.host && who.bot)) break;   // cada uno cae por su propio pawn
         victim = who;
       }
-      wwPvpHandleDeath(room, victim);
+      wwPvpHandleDeath(room, victim, Number.isFinite(killer) ? (killer | 0) : -1);
       break;
     }
     case 'lobby_set': {

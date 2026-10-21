@@ -43546,17 +43546,15 @@ function wwPvpHandleDeath(room, player, killerSeat) {
   wwPvpBroadcast(room, { t: 'kills', kills: room.kills.slice() });
 
   const remaining = room.players.filter((p) => !p.dead);
-  const humansLeft = remaining.filter((p) => !p.bot);
   // Con equipos activos, la ronda termina cuando queda un solo EQUIPO (los
   // companeros no se pueden danar entre si). Sin equipos cada asiento es su
-  // propio equipo, asi que la condicion equivale a "queda uno solo".
+  // propio equipo, asi que la condicion equivale a "queda uno solo". Los bots
+  // siguen peleando aunque caiga el humano: la ronda se define por el ultimo
+  // equipo/combatiente en pie.
   const teamOf = (p) => (room.teams ? (p.team | 0) : p.seat);
   const teamsLeft = new Set(remaining.map(teamOf));
   const sameTeamLeft = remaining.length > 0 && teamsLeft.size === 1 && room.teams;
-  // La ronda cierra cuando queda un solo combatiente/equipo o cuando no queda
-  // ningun humano (los bots no se pelean entre si: si cayo el plantel humano,
-  // la IA se lleva la ronda).
-  if (remaining.length <= 1 || sameTeamLeft || (room.lobby && humansLeft.length === 0)) {
+  if (remaining.length <= 1 || sameTeamLeft) {
     const winner = remaining.length === 1
       ? remaining[0].seat
       : (sameTeamLeft ? Math.min(...remaining.map((p) => p.seat)) : -1);

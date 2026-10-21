@@ -21,6 +21,7 @@ MonoBehaviour:
   decorNote: Invernadero tomado por enredaderas, macetas gigantes y esporas a media altura
   arenaSize: {x: 40, y: 22}
   backgroundColor: {r: 0.04, g: 0.07, b: 0.04, a: 1}
+  groundOffsetY: 1.1
   floorSprite: {fileID: 21300000, guid: ef68ffbb7fc7e694780615eda41a139d, type: 3}
   floorSingle: 1
   floorTileSize: 4.5
@@ -35,88 +36,95 @@ MonoBehaviour:
   platformTint: 1
   platforms:
   - name: Baja
-    sizeClass: 1
-    center: {x: 0, y: 0}
-    size: {x: 4.4, y: 2.2}
+    sizeClass: 0
+    center: {x: 16.4, y: -9.2}
+    size: {x: 3.2, y: 1}
     height: 0.55
-    mirrored: 0
+    mirrored: 1
     rotation: 0
   - name: Media
     sizeClass: 0
-    center: {x: 13.6, y: 5.8}
-    size: {x: 3.8, y: 2.2}
-    height: 0.95
+    center: {x: 12.8, y: -6.6}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 16.4, y: -4}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 12.8, y: -1.4000001}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 16.4, y: 1.1999998}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 12.8, y: 3.7999997}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
     mirrored: 1
     rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 13.6, y: -5.8}
-    size: {x: 3.6, y: 2}
+    center: {x: 16.4, y: 6.3999996}
+    size: {x: 3.2, y: 1}
     height: 0.55
     mirrored: 1
     rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: -26.831629, y: -7.7293715}
-    size: {x: 4.5538225, y: 2.5869796}
-    height: 1.35
-    mirrored: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 8, y: -7.8999996}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: 28.945564, y: -12.750976}
-    size: {x: 4.205785, y: 1.9125941}
-    height: 0.95
-    mirrored: 0
+    sizeClass: 0
+    center: {x: 4.4, y: -5.2999997}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
     rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: 34.49283, y: 12.664883}
-    size: {x: 3.2253656, y: 1.9465332}
+    sizeClass: 0
+    center: {x: 8, y: -2.6999998}
+    size: {x: 3.2, y: 1}
     height: 1.35
-    mirrored: 0
+    mirrored: 1
     rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: 12.16752, y: -16.669695}
-    size: {x: 4.8965807, y: 2.3159728}
+    sizeClass: 0
+    center: {x: 4.4, y: -0.099999905}
+    size: {x: 3.2, y: 1}
     height: 1.35
-    mirrored: 0
+    mirrored: 1
     rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: -32.82935, y: -2.0048082}
-    size: {x: 3.609017, y: 2.5751753}
-    height: 1.35
-    mirrored: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 8, y: 2.5}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
     rotation: 0
   - name: Baja
-    sizeClass: 1
-    center: {x: 20.718277, y: -3.7273388}
-    size: {x: 3.4649367, y: 2.4663517}
+    sizeClass: 0
+    center: {x: 4.4, y: 5.1}
+    size: {x: 3.2, y: 1}
     height: 0.55
-    mirrored: 0
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: 4.630184, y: 15.349103}
-    size: {x: 4.4559064, y: 2.5028348}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: -14.683784, y: 11.774194}
-    size: {x: 3.9863029, y: 2.1055017}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: -11.686504, y: -4.2368326}
-    size: {x: 4.9820085, y: 2.3170452}
-    height: 0.55
-    mirrored: 0
+    mirrored: 1
     rotation: 0
   obstacles: []
   obstacleCount: 0

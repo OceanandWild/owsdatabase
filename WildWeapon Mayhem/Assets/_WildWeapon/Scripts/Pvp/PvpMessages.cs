@@ -59,8 +59,16 @@ namespace WildWeapon.Pvp
         /// <summary>Equipo propio y control (viajan al emparejar y en el roster).</summary>
         public int team;
         public int control;
+        /// <summary>
+        /// Sala: 1 = equipos activos (mismo equipo no se dana), 0 = todos contra
+        /// todos. Arranca en 1 para que un server viejo que no manda el campo
+        /// mantenga el comportamiento de equipos.
+        /// </summary>
+        public int teams = 1;
         /// <summary>Asiento que recibe un golpe (hit) o los bots que se fueron (bots_left).</summary>
         public int target = -1;
+        /// <summary>Asiento que se lleva la baja (lo manda el dueno del pawn al morir).</summary>
+        public int killer = -1;
         public int[] seats;
 
         // Flujo de rondas
@@ -68,6 +76,8 @@ namespace WildWeapon.Pvp
         public int winner;
         public bool final;
         public int[] scores;
+        /// <summary>Bajas por asiento (tablero PVP), indexado por seat.</summary>
+        public int[] kills;
 
         // Estado del jugador remoto
         public float x;
@@ -107,6 +117,7 @@ namespace WildWeapon.Pvp
         public const string Cast = "cast";
         public const string Swap = "swap";
         public const string Hit = "hit";
+        public const string Kills = "kills";
         public const string Died = "died";
         public const string Rematch = "rematch";
         public const string RematchWait = "rematch_wait";
@@ -119,6 +130,7 @@ namespace WildWeapon.Pvp
         public const string LobbyJoin = "lobby_join";
         public const string LobbySet = "lobby_set";
         public const string LobbyBots = "lobby_bots";
+        public const string LobbyTeams = "lobby_teams";
         public const string LobbyStart = "lobby_start";
         public const string LobbyState = "lobby_state";
         public const string LobbyFull = "lobby_full";

@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d87e0bce3a4f6344960aa659a27dc1a, type: 3}
+  m_Name: hacha_r_burst
+  m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.AbilityDef
+  abilityName: Tormenta de Ejes
+  kind: 2
+  damage: 56
+  cooldown: 0.5
+  castDuration: 0.8
+  windupFraction: 0.31
+  radius: 0
+  stunSeconds: 0
+  dashDistance: 0
+  projectileCount: 8
+  projectileSpeed: 9
+  projectileLife: 0.5
+  projectileDamage: 48
+  adrenalineCost: 100
+  castVfx: {fileID: 8559279467394658787, guid: c2814b0750067a343a1a22e124cf2482, type: 3}
+  hitVfx: {fileID: 3802477965852891398, guid: 9a265a3e2c8f9b94c8675bb6c3c2a3c4, type: 3}

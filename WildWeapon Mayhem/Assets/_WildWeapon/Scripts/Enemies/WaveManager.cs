@@ -143,7 +143,18 @@ namespace WildWeapon
             Vector2 playerPos = player != null ? (Vector2)player.transform.position : Vector2.zero;
             var points = map != null ? map.BotSpawnPoints : null;
             if (points == null || points.Count == 0)
-                return playerPos + Random.insideUnitCircle.normalized * 6f;
+            {
+                // Sin puntos del mapa: aparecer a un costado, pero siempre sobre
+                // el piso (nunca flotando en el aire ni debajo de la arena).
+                float y = map != null ? map.FloorSpawnY : playerPos.y;
+                float x = playerPos.x + Random.Range(4f, 7f) * (Random.value < 0.5f ? -1f : 1f);
+                if (map != null && map.map != null)
+                {
+                    float halfX = map.map.arenaSize.x * 0.5f - 1f;
+                    x = Mathf.Clamp(x, -halfX, halfX);
+                }
+                return new Vector2(x, y);
+            }
 
             for (int i = 0; i < 12; i++)
             {
@@ -204,7 +215,7 @@ namespace WildWeapon
 
             _small.normal.textColor = new Color(1f, 1f, 1f, 0.45f);
             GUI.Label(new Rect(12f, Screen.height - 28f, w - 24f, 22f),
-                "WASD mover - mouse apuntar - click atacar - Shift/Space dash - X/rueda cambia arma - Esc menu", _small);
+                "WASD mover - mouse apuntar - click atacar - Shift dash - Espacio saltar (doble salto) - X/rueda cambia arma - Esc menu", _small);
         }
 
         private static void Box(Rect r, Color c)

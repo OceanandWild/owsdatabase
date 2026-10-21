@@ -35,6 +35,10 @@ namespace WildWeapon
 
         private float _facing = 1f;
         private Color _overlay = Color.white;
+        private float _alpha = 1f;
+
+        /// <summary>Opacidad actual del rig (0 = cuerpo invisible).</summary>
+        public float Alpha => _alpha;
 
         void Awake()
         {
@@ -68,8 +72,26 @@ namespace WildWeapon
                 if (p.renderer == null) continue;
                 Color b = p.paint ? paintColor : Color.white;
                 float s = p.shade <= 0f ? 1f : p.shade;
-                p.renderer.color = new Color(b.r * s * _overlay.r, b.g * s * _overlay.g, b.b * s * _overlay.b, 1f);
+                p.renderer.color = new Color(b.r * s * _overlay.r, b.g * s * _overlay.g, b.b * s * _overlay.b, _alpha);
             }
+        }
+
+        /// <summary>
+        /// Opacidad del rig. Se usa para desvanecer el cadaver: el cuerpo se
+        /// desvanece y al final se apaga entero.
+        /// </summary>
+        public void SetAlpha(float a)
+        {
+            _alpha = Mathf.Clamp01(a);
+            Refresh();
+        }
+
+        /// <summary>Prende o apaga los renderers del rig (el cuerpo desaparece del todo).</summary>
+        public void SetRenderersEnabled(bool on)
+        {
+            if (parts == null) return;
+            foreach (var p in parts)
+                if (p.renderer != null) p.renderer.enabled = on;
         }
 
         public void SetSpeed(float speed)

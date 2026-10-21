@@ -32,6 +32,8 @@ namespace WildWeapon
         private float _swingSign = 1f;
         private Vector3 _restPos;
         private Vector3 _restScale = Vector3.one;
+        private Color _bladeBaseColor = Color.white;
+        private float _bladeAlpha = 1f;
 
         void Awake()
         {
@@ -51,7 +53,8 @@ namespace WildWeapon
             if (def.sprite != null && bladeRenderer != null)
             {
                 bladeRenderer.sprite = def.sprite;
-                bladeRenderer.color = Color.white;
+                _bladeBaseColor = Color.white;
+                bladeRenderer.color = BladeColor();
                 float w = Mathf.Max(0.01f, def.sprite.bounds.size.x);
                 float s = def.spriteLength / w;
                 blade.localScale = new Vector3(s, s, 1f);
@@ -61,7 +64,8 @@ namespace WildWeapon
             else
             {
                 blade.localScale = new Vector3(def.bladeSize.x, def.bladeSize.y, 1f);
-                if (bladeRenderer != null) bladeRenderer.color = def.color;
+                _bladeBaseColor = def.color;
+                if (bladeRenderer != null) bladeRenderer.color = BladeColor();
             }
 
             blade.localPosition = new Vector3(def.bladeOffset, 0f, 0f);
@@ -82,6 +86,23 @@ namespace WildWeapon
             Equipped = value;
             if (bladeRenderer != null) bladeRenderer.enabled = value;
             if (!value && trail != null) { trail.emitting = false; trail.Clear(); }
+        }
+
+        /// <summary>
+        /// Opacidad del arma. El cadaver se desvanece con su arma: el blade se
+        /// apaga junto con el cuerpo.
+        /// </summary>
+        public void SetAlpha(float a)
+        {
+            _bladeAlpha = Mathf.Clamp01(a);
+            if (bladeRenderer != null) bladeRenderer.color = BladeColor();
+        }
+
+        private Color BladeColor()
+        {
+            Color c = _bladeBaseColor;
+            c.a *= _bladeAlpha;
+            return c;
         }
 
         public void ResetCooldown()

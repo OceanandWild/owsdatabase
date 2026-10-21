@@ -31,8 +31,27 @@ namespace WildWeapon
         /// <summary>PVP: avisa cuando el portador lanza una habilidad (se reenvia por red).</summary>
         public event Action<int, AbilityKind> CastStarted;
 
+        [Header("Habilidades directas (bots)")]
+        [Tooltip("Si tiene 3 entradas (Q/E/R), estas son las habilidades del portador y " +
+                 "se ignora el loadout. Los bots de supervivencia no tienen loadout: su " +
+                 "kit de habilidades se asigna aca por el builder.")]
+        public AbilityDef[] directAbilities;
+
+        [Tooltip("Punto de mira manual. Los bots no tienen PlayerController, asi que el " +
+                 "cerebro de combate les indica aqui hacia donde castear.")]
+        public Vector2 aimOverride;
+
+        /// <summary>true si el portador tiene un punto de mira manual activo.</summary>
+        public bool HasAimOverride => aimOverride.sqrMagnitude > 0.0001f;
+
         private struct SlotState { public float cooldown; }
-        private readonly SlotState[][] _slots = new SlotState[2][];
+
+        /// <summary>
+        /// Cooldowns por arma (0 = ranura 1, 1 = ranura 2) y habilidad (Q/E/R).
+        /// Se inicializa al declarar: el caster puede arrancar antes de que corra
+        /// su Awake (p.ej. un objeto que se activa tarde) y no debe romperse.
+        /// </summary>
+        private readonly SlotState[][] _slots = { new SlotState[3], new SlotState[3] };
         private readonly Queue<int> _queued = new Queue<int>(3);
 
         private Coroutine _cast;
@@ -42,10 +61,15 @@ namespace WildWeapon
         void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
-            for (int w = 0; w < _slots.Length; w++)
+        }
+
+        /// <summary>Rigidbody del portador (se resuelve tarde si el Awake no corrio).</summary>
+        private Rigidbody2D Rb
+        {
+            get
             {
-                _slots[w] = new SlotState[3];
-                for (int i = 0; i < 3; i++) _slots[w][i] = new SlotState();
+                if (_rb == null) _rb = GetComponent<Rigidbody2D>();
+                return _rb;
             }
         }
 
@@ -53,7 +77,7 @@ namespace WildWeapon
 
         public float Cooldown01(int slot)
         {
-            int w = ActiveWeaponIndex;
+            int w = SlotWeapon;
             if (w < 0 || w >= _slots.Length || slot < 0 || slot > 2) return 0f;
             var def = GetDef(w, slot);
             if (def == null || def.cooldown <= 0f) return 0f;
@@ -62,15 +86,36 @@ namespace WildWeapon
 
         public AbilityDef GetAbility(int slot)
         {
-            int w = ActiveWeaponIndex;
+            int w = SlotWeapon;
             return w < 0 ? null : GetDef(w, slot);
         }
+
+        /// <summary>Segundos que le quedan de cooldown (0 = lista).</summary>
+        public float CooldownSeconds(int slot)
+        {
+            int w = SlotWeapon;
+            if (w < 0 || w >= _slots.Length || slot < 0 || slot > 2) return 0f;
+            var def = GetDef(w, slot);
+            if (def == null) return 0f;
+            return _slots[w][slot].cooldown;
+        }
+
+        /// <summary>
+        /// Indice de arma al que pertenecen los cooldowns. Los bots con habilidades
+        /// directas no tienen loadout, asi que usan siempre la ranura 0.
+        /// </summary>
+        private int SlotWeapon => UsesDirectAbilities ? 0 : ActiveWeaponIndex;
+
+        /// <summary>true si el portador tiene su propio kit de habilidades (bots).</summary>
+        public bool UsesDirectAbilities => directAbilities != null && directAbilities.Length == 3;
 
         private int ActiveWeaponIndex =>
             loadout != null && loadout.weapons != null && loadout.weapons.Length > 0 ? loadout.ActiveIndex : -1;
 
         private AbilityDef GetDef(int w, int slot)
         {
+            if (UsesDirectAbilities)
+                return directAbilities[Mathf.Clamp(slot, 0, 2)];
             if (loadout == null || loadout.weapons == null || w < 0 || w >= loadout.weapons.Length) return null;
             var weapon = loadout.weapons[w];
             if (weapon == null || weapon.def == null) return null;
@@ -120,6 +165,7 @@ namespace WildWeapon
         public void ResetForRound()
         {
             Adrenaline = 0f;
+            aimOverride = Vector2.zero;
             Cancel();
             for (int w = 0; w < _slots.Length; w++)
                 for (int i = 0; i < 3; i++) _slots[w][i] = new SlotState();
@@ -148,7 +194,7 @@ namespace WildWeapon
 
         private bool TryCast(int slot)
         {
-            int w = ActiveWeaponIndex;
+            int w = SlotWeapon;
             var def = GetDef(w, slot);
             if (def == null || w < 0) return false;
             if (_slots[w][slot].cooldown > 0f) return false;
@@ -200,7 +246,10 @@ namespace WildWeapon
             IsCasting = true;
             CurrentDef = def;
 
-            Vector2 aim = controller != null ? controller.AimDir : (Vector2)transform.right;
+            Vector2 aim;
+            if (HasAimOverride) aim = aimOverride.normalized;
+            else if (controller != null) aim = controller.AimDir;
+            else aim = (Vector2)transform.right;
 
             if (visual != null) visual.PlayCast(def.kind);
 
@@ -315,7 +364,8 @@ namespace WildWeapon
             {
                 t += Time.deltaTime;
                 Vector2 step = aim * speed * Time.deltaTime;
-                if (_rb != null) _rb.MovePosition(_rb.position + step);
+                var rb = Rb;
+                if (rb != null) rb.MovePosition(rb.position + step);
                 else transform.position += (Vector3)step;
 
                 foreach (var target in Snapshot())

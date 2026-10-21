@@ -21,6 +21,7 @@ MonoBehaviour:
   decorNote: Pozo seco con paredes de piedra tallada y ecos que empujan desde el centro
   arenaSize: {x: 32, y: 18}
   backgroundColor: {r: 0.03, g: 0.07, b: 0.08, a: 1}
+  groundOffsetY: 1.1
   floorSprite: {fileID: 21300000, guid: 47c90d86c5958dd4088dffe9acaead88, type: 3}
   floorSingle: 1
   floorTileSize: 4.5
@@ -36,50 +37,78 @@ MonoBehaviour:
   platforms:
   - name: Baja
     sizeClass: 0
-    center: {x: 0, y: 0}
-    size: {x: 3.6, y: 2.1}
+    center: {x: 11.900001, y: -7.4}
+    size: {x: 3.2, y: 1}
     height: 0.55
-    mirrored: 0
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 8.5, y: -5}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
     rotation: 0
   - name: Alta
     sizeClass: 0
-    center: {x: 10.6, y: -5}
-    size: {x: 3.4, y: 2}
+    center: {x: 11.900001, y: -2.6}
+    size: {x: 3.2, y: 1}
     height: 1.35
     mirrored: 1
     rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: 16.078205, y: 10.061516}
-    size: {x: 3.374715, y: 2.76709}
-    height: 0.55
-    mirrored: 0
-    rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: 4.138164, y: 9.335619}
-    size: {x: 3.5856416, y: 2.3374314}
-    height: 0.55
-    mirrored: 0
-    rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: 24.658373, y: -5.4301963}
-    size: {x: 3.229806, y: 2.350697}
-    height: 0.55
-    mirrored: 0
-    rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: -13.784632, y: 9.066696}
-    size: {x: 4.883746, y: 2.0096502}
-    height: 0.55
-    mirrored: 0
-    rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: -7.226839, y: -10.23457}
-    size: {x: 4.2026367, y: 2.0703297}
+    sizeClass: 0
+    center: {x: 8.5, y: -0.19999981}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 11.900001, y: 2.2000003}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 8.5, y: 4.6000004}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: -6.3, y: -6.3}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: -2.6999998, y: -3.9}
+    size: {x: 3.2, y: 1}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 0.9, y: -6.3}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 4.5, y: -3.9}
+    size: {x: 3.2, y: 1}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Central
+    sizeClass: 0
+    center: {x: 0, y: 0}
+    size: {x: 3.2, y: 1}
     height: 1.35
     mirrored: 0
     rotation: 0

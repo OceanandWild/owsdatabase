@@ -6,6 +6,9 @@ namespace WildWeapon.Pvp
     /// Conduce el pawn del RIVAL en PVP: el gameplay de ese portador corre en la
     /// maquina rival, aca solo se interpolan posiciones/punteria y se reproducen
     /// sus gestos (swing, cast, swap). El daño real lo decide el dueño del pawn.
+    ///
+    /// La arena es de vista lateral: la Y del snapshot ya es la altura real
+    /// (suelo, salto, deck), asi que no hay ninguna altura simulada aparte.
     /// </summary>
     public class PvpRemoteAvatar : MonoBehaviour
     {
@@ -18,8 +21,6 @@ namespace WildWeapon.Pvp
         private Vector2 _targetPos;
         private Vector2 _targetAim = Vector2.right;
         private float _targetSpeed;
-        private float _targetZ;
-        private float _z;
         private bool _has;
 
         public void Bind(PlayerController pc)
@@ -31,7 +32,7 @@ namespace WildWeapon.Pvp
                 pc.inputSuppressed = true;
                 _targetPos = pc.transform.position;
                 if (pc.AimDir.sqrMagnitude > 0.0001f) _targetAim = pc.AimDir;
-                // La altura del rival la manda la red: este cuerpo no simula saltos.
+                // La posicion la manda la red: este cuerpo no simula fisica.
                 var h = Height;
                 if (h != null) h.simulate = false;
             }
@@ -44,7 +45,6 @@ namespace WildWeapon.Pvp
             var aim = new Vector2(m.ax, m.ay);
             if (aim.sqrMagnitude > 0.0001f) _targetAim = aim.normalized;
             _targetSpeed = m.sp;
-            _targetZ = m.z;
             _has = true;
 
             if (_pc != null && _pc.Health != null) _pc.Health.SetNetworkHp(m.hp);
@@ -55,10 +55,13 @@ namespace WildWeapon.Pvp
         {
             if (_pc == null) return;
             _targetPos = _pc.transform.position;
-            _z = _targetZ;
             if (_rb != null) _rb.position = _targetPos;
             var h = Height;
-            if (h != null) h.SetHeight(_z);
+            if (h != null)
+            {
+                h.simulate = false;
+                h.ResetHeight();
+            }
         }
 
         public void PlayAttack(int weaponIndex)
@@ -97,14 +100,6 @@ namespace WildWeapon.Pvp
             if (!_has || _pc == null) return;
             _pc.SetAimFromNetwork(_targetAim);
             _pc.networkSpeed = _targetSpeed;
-
-            // Altura suavizada: el rival sube/baja plataformas con el mismo paralaje.
-            var h = Height;
-            if (h != null)
-            {
-                _z = Mathf.MoveTowards(_z, _targetZ, Time.deltaTime * 9f);
-                h.SetHeight(_z);
-            }
         }
 
         private HeightBody Height => _pc != null && _pc.Health != null ? _pc.Health.Height : null;

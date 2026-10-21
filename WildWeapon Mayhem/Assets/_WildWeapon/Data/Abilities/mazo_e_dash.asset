@@ -10,21 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d87e0bce3a4f6344960aa659a27dc1a, type: 3}
-  m_Name: katana_r_ocho
+  m_Name: mazo_e_dash
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.AbilityDef
-  abilityName: Corte en 8 Direcciones
-  kind: 2
-  damage: 48
-  cooldown: 0.5
-  castDuration: 0.8
-  windupFraction: 0.31
+  abilityName: Mandoble
+  kind: 1
+  damage: 38
+  cooldown: 9
+  castDuration: 0.7
+  windupFraction: 0.17
   radius: 0
   stunSeconds: 0
-  dashDistance: 0
-  projectileCount: 8
+  dashDistance: 1.8
+  projectileCount: 0
   projectileSpeed: 9
   projectileLife: 0.5
   projectileDamage: 48
-  adrenalineCost: 100
-  castVfx: {fileID: 8790097822554376104, guid: 7eab9b02c5a3ae3469c95e56afc4de8b, type: 3}
-  hitVfx: {fileID: 7757364701247747684, guid: 072773ecb6e42894b9f52208d1ea1b4d, type: 3}
+  adrenalineCost: 0
+  castVfx: {fileID: 504986394509002160, guid: e1e8f0fb86a686645a4bd1e6e3980273, type: 3}
+  hitVfx: {fileID: 8802951545838903527, guid: d4919de17b0d92846b929274bf32e23d, type: 3}

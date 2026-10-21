@@ -19,6 +19,11 @@ namespace WildWeapon
         public List<Vector2> BotSpawnPoints => botSpawnPoints;
         public int LastSeed { get; private set; }
 
+        /// <summary>Y de la superficie del piso de la arena (la usan spawns y red).</summary>
+        public float FloorY { get; private set; }
+        /// <summary>Y a la que aparece un personaje parado en el piso.</summary>
+        public float FloorSpawnY => FloorY + 0.55f;
+
         private const string RootName = "_Generated";
 
         [ContextMenu("Generar mapa")]
@@ -47,9 +52,12 @@ namespace WildWeapon
 
             Vector2 half = map.arenaSize * 0.5f;
 
-            // Etapa 2: suelo solo en la tira inferior de la arena.
-            PlatformSurface.GroundOnlyBottom = true;
+            // Vista lateral: la arena tiene un piso solido abajo y los decks son
+            // plataformas one-way reales. La Y del mundo es la altura.
+            float groundOffset = map.groundOffsetY > 0.05f ? map.groundOffsetY : 1.1f;
+            FloorY = -half.y + groundOffset;
             PlatformSurface.ArenaHalfY = half.y;
+            PlatformSurface.FloorY = FloorY;
             float t = map.wallThickness;
 
             // ---- Camara: la arena ocupa una fraccion del encuadre; el resto es entorno ----
@@ -79,9 +87,20 @@ namespace WildWeapon
             Wall(walls, "Muro Este", new Vector2(t, map.arenaSize.y), new Vector2(half.x + t * 0.5f, 0f));
             Wall(walls, "Muro Oeste", new Vector2(t, map.arenaSize.y), new Vector2(-half.x - t * 0.5f, 0f));
 
-            // ---- Spawns ----
-            if (spawnP1 != null) spawnP1.position = map.p1Spawn;
-            if (spawnP2 != null) spawnP2.position = map.p2Spawn;
+            // ---- Piso solido del fondo de la arena (invisible: lo pinta el entorno) ----
+            var floor = new GameObject("Piso");
+            floor.transform.SetParent(root, false);
+            floor.transform.localPosition = new Vector3(0f, FloorY - 0.6f, 0f);
+            var floorCol = floor.AddComponent<BoxCollider2D>();
+            floorCol.size = new Vector2(map.arenaSize.x + t * 2f, 1.2f);
+
+            // ---- Spawns: siempre de pie sobre el piso ----
+            if (spawnP1 != null)
+                spawnP1.position = new Vector2(
+                    Mathf.Clamp(map.p1Spawn.x, -half.x + 1.2f, half.x - 1.2f), FloorSpawnY);
+            if (spawnP2 != null)
+                spawnP2.position = new Vector2(
+                    Mathf.Clamp(map.p2Spawn.x, -half.x + 1.2f, half.x - 1.2f), FloorSpawnY);
 
             // ---- Plataformas elevadas (el fondo y los decks van por separado) ----
             var decks = new GameObject("Plataformas").transform;
@@ -154,27 +173,36 @@ namespace WildWeapon
                 }
             }
 
-            // ---- Puntos de spawn de bots (perimetro interior, evitando peligros) ----
+            // ---- Puntos de spawn de bots: una fila sobre el piso de la arena ----
             botSpawnPoints.Clear();
             int n = Mathf.Max(4, map.botSpawnPoints);
-            Vector2 ring = half - Vector2.one * 0.9f;
+            float margin = 1.6f;
+            float usable = Mathf.Max(0.1f, map.arenaSize.x - margin * 2f);
             for (int i = 0; i < n; i++)
             {
-                float a = i / (float)n * Mathf.PI * 2f;
-                var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
-                float k = Mathf.Min(ring.x / Mathf.Max(0.001f, Mathf.Abs(dir.x)), ring.y / Mathf.Max(0.001f, Mathf.Abs(dir.y)));
-                var p = dir * k;
-                bool blocked = false;
-                foreach (var o in placed) if ((o - p).sqrMagnitude < 1.4f) { blocked = true; break; }
-                if (!blocked && InHazard(p)) blocked = true;
-                if (!blocked) botSpawnPoints.Add(p);
+                // Reparte a lo ancho y alterna un poco en Y para que no se apilen.
+                float k = (i + 0.5f) / n;
+                float x = -half.x + margin + usable * k;
+                float y = FloorSpawnY + (i % 2 == 0 ? 0f : 0.35f);
+                botSpawnPoints.Add(new Vector2(x, y));
             }
 
             // ---- Camara ----
             if (cam != null)
             {
                 cam.backgroundColor = map.backgroundColor;
-                cam.orthographicSize = orthoSize;
+
+                // Con PlayerCamera el rig maneja el encuadre (sigue al jugador y hace
+                // zoom): solo le pasamos el area visible y el tamano de la arena.
+                var rig = cam.GetComponent<PlayerCamera>();
+                if (rig != null)
+                {
+                    rig.SetBounds(view * 0.51f, half);
+                }
+                else
+                {
+                    cam.orthographicSize = orthoSize;
+                }
             }
         }
 
@@ -225,16 +253,14 @@ namespace WildWeapon
         // Piezas
         // ------------------------------------------------------------------
 
-        /// <summary>Deck elevado: sombra al ras, superficie caminable e info de altura para HeightBody.</summary>
+        /// <summary>Deck elevado: colision one-way real, sombra suave y arte alineado al collider.</summary>
         private void Platform(Transform parent, MapPlatform p, Vector2 center)
         {
             var root = new GameObject("Deck_" + p.sizeClass + "_" + p.name);
             root.transform.SetParent(parent, false);
             root.transform.localPosition = center;
 
-            float lift = p.height * HeightBody.LiftPerZ;   // mismo paralaje que el personaje
-
-            // Sombra de elevacion (al ras del piso).
+            // Sombra bajo el deck (ya no representa altura: es solo apoyo visual).
             if (map.platformShadow != null)
             {
                 var sh = new GameObject("Sombra");
@@ -247,18 +273,18 @@ namespace WildWeapon
                 var shr = sh.AddComponent<SpriteRenderer>();
                 shr.sprite = map.platformShadow;
                 shr.color = new Color(0f, 0f, 0f, 0.5f);
-                shr.sortingOrder = -45;
+                shr.sortingOrder = PlatformSurface.OrderAt(center.y) - 2;
             }
 
-            // Deck (arte propio, separado del fondo).
+            // Deck (arte propio, separado del fondo). Ahora el sprite coincide con el collider.
             var deck = new GameObject("Deck");
             deck.transform.SetParent(root.transform, false);
-            deck.transform.localPosition = new Vector3(0f, lift, 0f);
+            deck.transform.localPosition = Vector3.zero;
             deck.transform.localRotation = Quaternion.Euler(0f, 0f, p.rotation);
             var sr = deck.AddComponent<SpriteRenderer>();
             sr.sprite = map.platformSprite;
             sr.color = new Color(map.platformTint, map.platformTint, map.platformTint, 1f);
-            sr.sortingOrder = Mathf.RoundToInt(p.height * 50f);
+            sr.sortingOrder = PlatformSurface.OrderAt(center.y);
             sr.spriteSortPoint = SpriteSortPoint.Center;
             if (sr.sprite != null)
             {
@@ -275,10 +301,20 @@ namespace WildWeapon
                 }
             }
 
+            // Colision: se sube desde abajo y se aterriza arriba; los costados no bloquean.
+            var col = root.AddComponent<BoxCollider2D>();
+            col.size = p.size;
+            col.usedByEffector = true;
+            var eff = root.AddComponent<PlatformEffector2D>();
+            eff.useOneWay = true;
+            eff.useSideFriction = false;
+            eff.useSideBounce = false;
+            eff.surfaceArc = 165f;
+
             var surf = root.AddComponent<PlatformSurface>();
             surf.center = center;
             surf.size = p.size;
-            surf.top = p.height;
+            surf.top = center.y + p.size.y * 0.5f;
         }
 
         private void Hazard(Transform parent, MapHazard h, Vector2 center)
@@ -326,16 +362,6 @@ namespace WildWeapon
                 var col = go.AddComponent<CircleCollider2D>();
                 col.radius = worldR / scale;
                 col.offset = new Vector2(0f, worldR / scale);
-
-                // Techo: si el prop lo declara, se puede saltar encima y deja de bloquear arriba.
-                if (prop.height > 0f)
-                {
-                    var surf = go.AddComponent<PlatformSurface>();
-                    surf.center = center;
-                    surf.size = Vector2.one * (worldR * 2f);
-                    surf.top = prop.height;
-                    surf.solid = col;
-                }
             }
         }
 

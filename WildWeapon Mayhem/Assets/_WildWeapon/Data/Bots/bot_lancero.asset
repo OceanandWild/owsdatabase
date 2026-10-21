@@ -14,11 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.BotDef
   displayName: Androide Lancero
   weapon: {fileID: 11400000, guid: 47cfb02d4982f6746abc6bf35e08cf16, type: 2}
+  abilityQ: {fileID: 11400000, guid: 0e4d3b9ca4b936d4893077a3ffa4b1b7, type: 2}
+  abilityE: {fileID: 11400000, guid: 93806a6d14cbe9641a87b16ddc460832, type: 2}
+  abilityR: {fileID: 11400000, guid: af95a151672d5ce489b63f3ee4dd5b1a, type: 2}
   hp: 45
   moveSpeed: 2.5
   windup: 0.38
   recover: 0.45
   bodyRadius: 0.4
+  aggression: 1.05
+  skill: 0.75
+  preferredGap: 1.25
+  dodgeChance: 0.7
+  abilityUse: 0.85
+  reaction: 0.18
   visualScale: 1.05
   animSpeed: 1.1
   tint: {r: 0.62, g: 0.38, b: 1, a: 1}

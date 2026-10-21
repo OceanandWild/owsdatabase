@@ -21,6 +21,7 @@ MonoBehaviour:
   decorNote: Balcones de hotel, carteles de neon y cables sueltos sobre el pavimento mojado
   arenaSize: {x: 32, y: 18}
   backgroundColor: {r: 0.06, g: 0.03, b: 0.1, a: 1}
+  groundOffsetY: 1.1
   floorSprite: {fileID: 21300000, guid: cceb9898dae3ee947a1160d09ec33950, type: 3}
   floorSingle: 1
   floorTileSize: 4.5
@@ -36,51 +37,79 @@ MonoBehaviour:
   platforms:
   - name: Baja
     sizeClass: 0
-    center: {x: 0, y: 0}
-    size: {x: 3.4, y: 1.8}
+    center: {x: 12.8, y: -7.4}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 9.4, y: -5}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 12.8, y: -2.6}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 9.4, y: -0.19999981}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 12.8, y: 2.2000003}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 9.4, y: 4.6000004}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: -5.4, y: -6.3}
+    size: {x: 3.2, y: 1}
     height: 0.55
     mirrored: 0
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: 9.6, y: -4.8}
-    size: {x: 4.2, y: 2.2}
-    height: 0.95
-    mirrored: 1
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: -19.533352, y: -9.90186}
-    size: {x: 3.7851615, y: 2.3571453}
+    sizeClass: 0
+    center: {x: -1.8, y: -3.9}
+    size: {x: 3.2, y: 1}
     height: 0.95
     mirrored: 0
     rotation: 0
   - name: Baja
-    sizeClass: 1
-    center: {x: 22.042528, y: 4.9621415}
-    size: {x: 3.27557, y: 2.0498505}
+    sizeClass: 0
+    center: {x: 1.8, y: -6.3}
+    size: {x: 3.2, y: 1}
     height: 0.55
     mirrored: 0
     rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: -9.095516, y: 3.2483635}
-    size: {x: 3.0603654, y: 2.5172393}
+  - name: Media
+    sizeClass: 0
+    center: {x: 5.4, y: -3.9}
+    size: {x: 3.2, y: 1}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Central
+    sizeClass: 0
+    center: {x: 0, y: 0}
+    size: {x: 3.2, y: 1}
     height: 1.35
-    mirrored: 0
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: -12.169196, y: 12.282606}
-    size: {x: 4.0674996, y: 2.779564}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: -26.03303, y: -13.738281}
-    size: {x: 4.11666, y: 2.7131832}
-    height: 0.95
     mirrored: 0
     rotation: 0
   obstacles: []

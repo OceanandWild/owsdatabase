@@ -14,11 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.BotDef
   displayName: Caballero Pesado
   weapon: {fileID: 11400000, guid: 3223a5aabf466a94587a486258d98187, type: 2}
+  abilityQ: {fileID: 11400000, guid: 0e4d3b9ca4b936d4893077a3ffa4b1b7, type: 2}
+  abilityE: {fileID: 11400000, guid: 93806a6d14cbe9641a87b16ddc460832, type: 2}
+  abilityR: {fileID: 11400000, guid: af95a151672d5ce489b63f3ee4dd5b1a, type: 2}
   hp: 95
   moveSpeed: 1.55
   windup: 0.6
   recover: 0.6
   bodyRadius: 0.58
+  aggression: 1.35
+  skill: 0.55
+  preferredGap: 0.85
+  dodgeChance: 0.45
+  abilityUse: 1
+  reaction: 0.26
   visualScale: 1.35
   animSpeed: 0.8
   tint: {r: 0.9, g: 0.3, b: 0.25, a: 1}

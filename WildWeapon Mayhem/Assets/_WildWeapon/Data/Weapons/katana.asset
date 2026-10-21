@@ -33,4 +33,4 @@ MonoBehaviour:
   shakeOnHit: 0.08
   abilityQ: {fileID: 11400000, guid: 0e4d3b9ca4b936d4893077a3ffa4b1b7, type: 2}
   abilityE: {fileID: 11400000, guid: 93806a6d14cbe9641a87b16ddc460832, type: 2}
-  abilityR: {fileID: 11400000, guid: 9264ec3380653314982218fb67973ac0, type: 2}
+  abilityR: {fileID: 11400000, guid: af95a151672d5ce489b63f3ee4dd5b1a, type: 2}

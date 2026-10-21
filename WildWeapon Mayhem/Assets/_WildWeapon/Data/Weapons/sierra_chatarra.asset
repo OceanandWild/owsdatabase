@@ -31,6 +31,6 @@ MonoBehaviour:
   trail: 0
   trailColor: {r: 1, g: 0.88, b: 0.25, a: 1}
   shakeOnHit: 0.04
-  abilityQ: {fileID: 0}
-  abilityE: {fileID: 0}
-  abilityR: {fileID: 0}
+  abilityQ: {fileID: 11400000, guid: 9f05a0457a58b4b4ab8e6375bec7fbd2, type: 2}
+  abilityE: {fileID: 11400000, guid: d7f31969629980a48b8d1a841f295c3f, type: 2}
+  abilityR: {fileID: 11400000, guid: 53ab9090090555649acd5c66fcf68525, type: 2}

@@ -13,6 +13,9 @@ namespace WildWeapon
     [DefaultExecutionOrder(-100)]
     public class GameBootstrap : MonoBehaviour
     {
+        /// <summary>Instancia activa (la usa la camara para saber a quien seguir).</summary>
+        public static GameBootstrap Instance { get; private set; }
+
         public MapGenerator map;
         public MapCatalog catalog;
         public GameObject duelRoot;
@@ -26,6 +29,7 @@ namespace WildWeapon
 
         void Awake()
         {
+            Instance = this;
             var mode = GameSession.Mode;
             bool multi = mode == GameMode.Multi;
             bool duel = multi;
@@ -75,10 +79,13 @@ namespace WildWeapon
             {
                 Vector2 half = map != null ? map.map.arenaSize * 0.5f : new Vector2(16f, 9f);
                 float r = Mathf.Min(half.x, half.y) * 0.6f;
+                float floorY = map != null ? map.FloorSpawnY : PlatformSurface.FloorY + 0.55f;
                 for (int i = 0; i < n; i++)
                 {
                     float a = i / (float)n * Mathf.PI * 2f;
-                    spawns.Add(new Vector2(Mathf.Cos(a) * r, Mathf.Sin(a) * r));
+                    // La vista lateral no tiene profundidad: el anillo de respaldo
+                    // reparte los asientos en horizontal, todos sobre el piso.
+                    spawns.Add(new Vector2(Mathf.Cos(a) * r, floorY));
                 }
             }
 
@@ -103,6 +110,12 @@ namespace WildWeapon
                 go.transform.position = pos;
                 if (pc != null)
                 {
+                    // Controles por jugador: el J1 con teclado y mouse (WASD) y los
+                    // demas con flechas (o el mando, si lo estan usando). Asi el
+                    // teclado del J1 nunca compite con el J2 por el mismo stick.
+                    // Si jugan solos, el J1 puede usar tambien el mando.
+                    pc.scheme = i == 0 ? InputScheme.KeyboardMouse : InputScheme.KeyboardTwin;
+                    pc.acceptGamepad = i > 0 || n == 1;
                     pc.ResetForRound(pos, -pos.normalized);
                     pc.CanAct = true;
                     MultiPlayers.Add(pc);
@@ -135,6 +148,11 @@ namespace WildWeapon
                     PvpClient.Instance.LeaveAndDisconnect();
                 SceneManager.LoadScene(GameSession.MenuScene);
             }
+        }
+
+        void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
         }
     }
 }

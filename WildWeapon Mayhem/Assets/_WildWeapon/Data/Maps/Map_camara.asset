@@ -21,6 +21,7 @@ MonoBehaviour:
   decorNote: 'Camara de congelados: ganchos, cajas apiladas y escarcha en el piso'
   arenaSize: {x: 32, y: 18}
   backgroundColor: {r: 0.05, g: 0.08, b: 0.11, a: 1}
+  groundOffsetY: 1.1
   floorSprite: {fileID: 21300000, guid: a800bfe6e537f3045b7a9623c2c2a214, type: 3}
   floorSingle: 1
   floorTileSize: 4.5
@@ -34,53 +35,81 @@ MonoBehaviour:
   platformShadow: {fileID: 21300000, guid: 0cd746471763c594b90f98a9037d1686, type: 3}
   platformTint: 1
   platforms:
-  - name: Media
-    sizeClass: 0
-    center: {x: 0, y: 0}
-    size: {x: 4, y: 1.8}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 10.4, y: 5.2}
-    size: {x: 3.6, y: 2}
+    center: {x: 13.7, y: -7.4}
+    size: {x: 3.2, y: 1}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: -1.727573, y: -13.920173}
-    size: {x: 3.5799384, y: 2.0621178}
+    sizeClass: 0
+    center: {x: 10.299999, y: -5}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 13.7, y: -2.6}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 10.299999, y: -0.19999981}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 13.7, y: 2.2000003}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 10.299999, y: 4.6000004}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: -4.5, y: -6.3}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: -0.9, y: -3.9}
+    size: {x: 3.2, y: 1}
     height: 0.95
     mirrored: 0
     rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: -13.909654, y: -6.8511195}
-    size: {x: 4.430606, y: 2.693641}
-    height: 1.35
-    mirrored: 0
-    rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: 10.670777, y: -2.2503617}
-    size: {x: 4.730916, y: 2.451738}
-    height: 1.35
-    mirrored: 0
-    rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: -15.41054, y: 12.327526}
-    size: {x: 3.8999195, y: 1.8570218}
-    height: 1.35
-    mirrored: 0
-    rotation: 0
   - name: Baja
-    sizeClass: 1
-    center: {x: -8.642997, y: -0.45290798}
-    size: {x: 4.349655, y: 2.0682633}
+    sizeClass: 0
+    center: {x: 2.6999998, y: -6.3}
+    size: {x: 3.2, y: 1}
     height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 6.3, y: -3.9}
+    size: {x: 3.2, y: 1}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Central
+    sizeClass: 0
+    center: {x: 0, y: 0}
+    size: {x: 3.2, y: 1}
+    height: 1.35
     mirrored: 0
     rotation: 0
   obstacles: []

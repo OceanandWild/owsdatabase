@@ -93,6 +93,51 @@ namespace WildWeapon.EditorTools
                 "Juego construido.\n\nEscenas: MainMenu (inicio) y Arena.\nDale Play desde MainMenu.", "OK");
         }
 
+        /// <summary>
+        /// Reubica las plataformas de los 12 mapas (decks cortos y planos, dentro de
+        /// la arena y encadenados para que se alcancen a salto) y deja el doble salto
+        /// con un poco mas de potencia. No toca escenas ni prefabs de escena.
+        /// </summary>
+        [MenuItem("WildWeapon/Reubicar plataformas y doble salto")]
+        public static void ReubicarPlataformas()
+        {
+            var catalog = BuildMapDefs();
+            ApplyDoubleJumpPower();
+            AssetDatabase.SaveAssets();
+            Debug.Log("[WW] Plataformas reubicadas en " + (catalog != null ? catalog.Count : 0) +
+                      " mapas y doble salto ajustado.");
+        }
+
+        /// <summary>Deja el salto, el doble salto y la gravedad actuales en los prefabs de personaje.</summary>
+        private static void ApplyDoubleJumpPower()
+        {
+            const float gravity = 30f;   // gravedad propia (los Rigidbody2D tienen gravityScale 0)
+            const float jump = 14f;      // el primer salto sube ~3.27: llega al deck de 2.6
+            const float airJump = 11f;   // el doble salto es un impulso que se suma a la velocidad vertical
+            string[] paths =
+            {
+                "Assets/_WildWeapon/Prefabs/Characters/Player_Cyborg.prefab",
+                "Assets/_WildWeapon/Prefabs/Bots/Bot_Sierra.prefab",
+                "Assets/_WildWeapon/Prefabs/Bots/Bot_Lancero.prefab",
+                "Assets/_WildWeapon/Prefabs/Bots/Bot_Bruto.prefab",
+            };
+            foreach (var path in paths)
+            {
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (go == null) continue;
+                var body = go.GetComponent<HeightBody>();
+                if (body == null) continue;
+                body.gravity = gravity;
+                body.jumpSpeed = jump;
+                body.doubleJumpSpeed = airJump;
+                body.doubleJumpCap = 18.5f;
+                body.airJumps = 1;
+                body.maxFallSpeed = 24f;
+                body.groundCheckDistance = 0.12f;
+                EditorUtility.SetDirty(body);
+            }
+        }
+
         public static string BuildAllSilent()
         {
             EnsureFolders();
@@ -162,30 +207,65 @@ namespace WildWeapon.EditorTools
             var playerDeath = BuildDeathVfx("VFX_Player_Death", new Color(1f, 0.3f, 0.3f), new Color(0.3f, 0.3f, 0.35f, 0.7f));
             var spawnVfx = BuildSpawnVfx("VFX_Bot_Spawn", magenta);
 
-            // ---------- Habilidades de la Katana (Q/E/R, doc §3) ----------
-            // Placeholder de VFX: reusa los prefabs de la Katana hasta que llegue el lote de Aura.
-            var abQ = Ability("katana_q_circular", "Corte Circular", AbilityKind.CircularSlash,
-                20f, 6f, 0.5f, 0.3f, radius: 1.2f, stun: 0.4f,
-                castVfx: katSlash, hitVfx: katHit);
-            var abE = Ability("katana_e_dash", "Dash-Tajo", AbilityKind.DashSlash,
-                26f, 7f, 0.7f, 0.17f, dash: 2.5f,
-                castVfx: katSlash, hitVfx: katHit);
-            var abR = Ability("katana_r_ocho", "Corte en 8 Direcciones", AbilityKind.RadialBurst,
-                48f, 0.5f, 0.8f, 0.31f, projectiles: 8,
-                castVfx: katSlash, hitVfx: katHit, adrenaline: 100f);
-
             // ---------- Armas (pivote en la mano) ----------
+            // Cada arma tiene su kit Q/E/R (las cards de la barra de habilidades
+            // muestran el del arma equipada).
+            var katanaKit = BuildAbilityKit(new AbilityKitSpec
+            {
+                id = "katana",
+                qName = "Corte Circular", qDamage = 20f, qCooldown = 6f, qRadius = 1.2f, qStun = 0.4f,
+                eName = "Dash-Tajo", eDamage = 26f, eCooldown = 7f, eDash = 2.5f,
+                rName = "Corte en 8 Direcciones", rDamage = 48f, rProjectiles = 8,
+                castVfx = katSlash, hitVfx = katHit,
+            });
+            var hachaKit = BuildAbilityKit(new AbilityKitSpec
+            {
+                id = "hacha",
+                qName = "Corte Circular", qDamage = 25f, qCooldown = 7f, qRadius = 1.35f, qStun = 0.5f,
+                eName = "Golpe de Hacha", eDamage = 33f, eCooldown = 8f, eDash = 2f,
+                rName = "Tormenta de Ejes", rDamage = 56f, rProjectiles = 8,
+                castVfx = axeSlash, hitVfx = axeHit,
+            });
+            var mazoKit = BuildAbilityKit(new AbilityKitSpec
+            {
+                id = "mazo",
+                qName = "Corte Circular", qDamage = 32f, qCooldown = 8f, qRadius = 1.5f, qStun = 0.6f,
+                eName = "Mandoble", eDamage = 38f, eCooldown = 9f, eDash = 1.8f,
+                rName = "Ruptura", rDamage = 64f, rProjectiles = 8,
+                castVfx = hamSlash, hitVfx = hamHit,
+            });
+            var lanzaKit = BuildAbilityKit(new AbilityKitSpec
+            {
+                id = "lanza",
+                qName = "Barrido de Punta", qDamage = 18f, qCooldown = 5f, qRadius = 1.5f, qStun = 0.25f,
+                eName = "Estocada", eDamage = 24f, eCooldown = 6f, eDash = 3.2f,
+                rName = "Lanza de Plasma", rDamage = 42f, rProjectiles = 10,
+                castVfx = spearHit, hitVfx = spearHit,
+            });
+            var sierraKit = BuildAbilityKit(new AbilityKitSpec
+            {
+                id = "sierra",
+                qName = "Corte Circular", qDamage = 14f, qCooldown = 4.5f, qRadius = 1.15f, qStun = 0.2f,
+                eName = "Tajo en Marcha", eDamage = 20f, eCooldown = 5f, eDash = 2.8f,
+                rName = "Tormenta de Sierras", rDamage = 36f, rProjectiles = 12,
+                castVfx = sawSlash, hitVfx = sawHit,
+            });
+
             var katana = Weapon("katana", "Katana", 12f, 0.35f, 1.15f, 120f, Spr("ww_katana"), 1.15f, 0f,
                 SwingStyle.Slash, 150f, 0.13f, katSlash, katHit, true, cyan, 0.08f,
-                abQ, abE, abR);
+                katanaKit[0], katanaKit[1], katanaKit[2]);
             var hacha = Weapon("hacha_gris", "Hacha Gris", 17f, 0.6f, 1.05f, 100f, Spr("ww_hacha"), 0.95f, 0f,
-                SwingStyle.Slash, 130f, 0.17f, axeSlash, axeHit, true, new Color(1f, 0.85f, 0.6f, 0.8f), 0.12f);
+                SwingStyle.Slash, 130f, 0.17f, axeSlash, axeHit, true, new Color(1f, 0.85f, 0.6f, 0.8f), 0.12f,
+                hachaKit[0], hachaKit[1], hachaKit[2]);
             var mazo = Weapon("mazo_oxidado", "Mazo de Guerra", 22f, 1.6f, 1.3f, 140f, Spr("ww_weapon_hammer"), 1.25f, -0.05f,
-                SwingStyle.Slash, 170f, 0.22f, hamSlash, hamHit, true, orange, 0.22f);
+                SwingStyle.Slash, 170f, 0.22f, hamSlash, hamHit, true, orange, 0.22f,
+                mazoKit[0], mazoKit[1], mazoKit[2]);
             var lanza = Weapon("lanza_plasma", "Lanza de Plasma", 11f, 0.9f, 1.75f, 40f, Spr("ww_weapon_spear"), 1.6f, -0.45f,
-                SwingStyle.Thrust, 0f, 0.16f, null, spearHit, true, magenta, 0.07f);
+                SwingStyle.Thrust, 0f, 0.16f, null, spearHit, true, magenta, 0.07f,
+                lanzaKit[0], lanzaKit[1], lanzaKit[2]);
             var sierra = Weapon("sierra_chatarra", "Sierra Giratoria", 6f, 0.45f, 0.9f, 200f, Spr("ww_weapon_saw"), 0.8f, 0f,
-                SwingStyle.Spin, 0f, 0.22f, sawSlash, sawHit, false, yellow, 0.04f);
+                SwingStyle.Spin, 0f, 0.22f, sawSlash, sawHit, false, yellow, 0.04f,
+                sierraKit[0], sierraKit[1], sierraKit[2]);
 
             // ---------- Animacion esqueletica ----------
             var charCtrl = BuildCharacterController();
@@ -194,9 +274,15 @@ namespace WildWeapon.EditorTools
             var playerPrefab = BuildPlayerPrefab("Player_Cyborg", cyborg, charCtrl,
                 new[] { katana, hacha, mazo, lanza, sierra }, playerDeath);
 
-            var defSaw = BotData("bot_sierra", "Dron Sierra", sierra, 30f, 3.0f, 0.15f, 0.25f, 0.36f, 0.95f, 1.3f, yellow, botDeath);
-            var defLan = BotData("bot_lancero", "Androide Lancero", lanza, 45f, 2.5f, 0.38f, 0.45f, 0.4f, 1.05f, 1.1f, new Color(0.62f, 0.38f, 1f), botDeath);
-            var defBru = BotData("bot_bruto", "Caballero Pesado", mazo, 95f, 1.55f, 0.6f, 0.6f, 0.58f, 1.35f, 0.8f, new Color(0.9f, 0.3f, 0.25f), botDeath);
+            // ---------- Bots de supervivencia ----------
+            // Cada bot tiene su propio perfil de IA: la Sierra es veloz y orbita,
+            // el Lancero castea desde lejos y el Bruto se come la adrenalina.
+            var defSaw = BotData("bot_sierra", "Dron Sierra", sierra, 30f, 3.0f, 0.15f, 0.25f, 0.36f, 0.95f, 1.3f, yellow, botDeath,
+                katanaKit[0], katanaKit[1], katanaKit[2], aggression: 0.85f, skill: 0.9f, preferredGap: 1.15f, dodgeChance: 0.9f, abilityUse: 1f, reaction: 0.1f);
+            var defLan = BotData("bot_lancero", "Androide Lancero", lanza, 45f, 2.5f, 0.38f, 0.45f, 0.4f, 1.05f, 1.1f, new Color(0.62f, 0.38f, 1f), botDeath,
+                katanaKit[0], katanaKit[1], katanaKit[2], aggression: 1.05f, skill: 0.75f, preferredGap: 1.25f, dodgeChance: 0.7f, abilityUse: 0.85f, reaction: 0.18f);
+            var defBru = BotData("bot_bruto", "Caballero Pesado", mazo, 95f, 1.55f, 0.6f, 0.6f, 0.58f, 1.35f, 0.8f, new Color(0.9f, 0.3f, 0.25f), botDeath,
+                katanaKit[0], katanaKit[1], katanaKit[2], aggression: 1.35f, skill: 0.55f, preferredGap: 0.85f, dodgeChance: 0.45f, abilityUse: 1f, reaction: 0.26f);
             var botSaw = BuildBotPrefab("Bot_Sierra", defSaw, drone, charCtrl);
             var botLan = BuildBotPrefab("Bot_Lancero", defLan, android, charCtrl);
             var botBru = BuildBotPrefab("Bot_Bruto", defBru, knight, charCtrl);
@@ -282,7 +368,9 @@ namespace WildWeapon.EditorTools
                 // Slabs compartidos del lote viejo: cada mapa ahora usa su propio ww_plat_<id>
                 SpritesDir + "/ww_plat_chica.png", SpritesDir + "/ww_plat_mediana.png", SpritesDir + "/ww_plat_grande.png",
                 CharPrefabDir + "/Player_Azul.prefab", CharPrefabDir + "/Player_Rojo.prefab",
-                MapsDir + "/Patio_Dojo.asset", MapsDir + "/Arena_Central.asset"
+                MapsDir + "/Patio_Dojo.asset", MapsDir + "/Arena_Central.asset",
+                // La definitiva de la katana paso a llamarse katana_r_burst (kit por arma).
+                AbilitiesDir + "/katana_r_ocho.asset"
             };
             foreach (var p in legacy)
                 if (File.Exists(p)) AssetDatabase.DeleteAsset(p);
@@ -354,6 +442,11 @@ namespace WildWeapon.EditorTools
             new ArtSpec("ww_hud_hp_track", new Vector2(0.5f, 0.5f), false, 1024),
             new ArtSpec("ww_hud_hp_fill", new Vector2(0.5f, 0.5f), false, 1024),
             new ArtSpec("ww_hud_pip", new Vector2(0.5f, 0.5f), false, 256),
+
+            // ---- Barra de habilidades (cards Q/E/R al pie de la pantalla) ----
+            new ArtSpec("ww_abil_card", new Vector2(0.5f, 0.5f), false, 1024),
+            new ArtSpec("ww_abil_header", new Vector2(0.5f, 0.5f), false, 1024),
+            new ArtSpec("ww_abil_rail", new Vector2(0.5f, 0.5f), false, 1024),
 
             // ---- Arenas: un fondo por mapa (piso + decoracion horneada) ----
             new ArtSpec("ww_map_duela_bg", new Vector2(0.5f, 0.5f), false, 2048),
@@ -962,8 +1055,41 @@ namespace WildWeapon.EditorTools
             return def;
         }
 
+        /// <summary>Ficha del kit de habilidades (Q/E/R) de un arma.</summary>
+        private class AbilityKitSpec
+        {
+            public string id;
+            public string qName = "Corte Circular", eName = "Dash-Tajo", rName = "Corte en 8 Direcciones";
+            public float qDamage = 20f, qCooldown = 6f, qRadius = 1.2f, qStun = 0.4f;
+            public float eDamage = 26f, eCooldown = 7f, eDash = 2.5f;
+            public float rDamage = 48f; public int rProjectiles = 8;
+            public GameObject castVfx, hitVfx;
+        }
+
+        /// <summary>
+        /// Crea el kit Q/E/R de un arma (Corte Circular / Dash-Tajo / Corte en 8).
+        /// Todas las armas del arsenal tienen kit propio: las cards de la barra de
+        /// habilidades siempre muestran algo cuando se cambia de arma.
+        /// </summary>
+        private static AbilityDef[] BuildAbilityKit(AbilityKitSpec s)
+        {
+            var q = Ability($"{s.id}_q_circular", s.qName, AbilityKind.CircularSlash,
+                s.qDamage, s.qCooldown, 0.5f, 0.3f, radius: s.qRadius, stun: s.qStun,
+                castVfx: s.castVfx, hitVfx: s.hitVfx);
+            var e = Ability($"{s.id}_e_dash", s.eName, AbilityKind.DashSlash,
+                s.eDamage, s.eCooldown, 0.7f, 0.17f, dash: s.eDash,
+                castVfx: s.castVfx, hitVfx: s.hitVfx);
+            var r = Ability($"{s.id}_r_burst", s.rName, AbilityKind.RadialBurst,
+                s.rDamage, 0.5f, 0.8f, 0.31f, projectiles: s.rProjectiles,
+                castVfx: s.castVfx, hitVfx: s.hitVfx, adrenaline: 100f);
+            return new[] { q, e, r };
+        }
+
         private static BotDef BotData(string file, string display, WeaponDef weapon, float hp, float speed,
-            float windup, float recover, float radius, float scale, float animSpeed, Color tint, GameObject death)
+            float windup, float recover, float radius, float scale, float animSpeed, Color tint, GameObject death,
+            AbilityDef abilityQ = null, AbilityDef abilityE = null, AbilityDef abilityR = null,
+            float aggression = 1f, float skill = 0.75f, float preferredGap = 0.95f,
+            float dodgeChance = 0.75f, float abilityUse = 0.9f, float reaction = 0.16f)
         {
             string path = $"{BotsDataDir}/{file}.asset";
             var def = AssetDatabase.LoadAssetAtPath<BotDef>(path);
@@ -980,6 +1106,15 @@ namespace WildWeapon.EditorTools
             def.animSpeed = animSpeed;
             def.tint = tint;
             def.deathVfx = death;
+            def.abilityQ = abilityQ;
+            def.abilityE = abilityE;
+            def.abilityR = abilityR;
+            def.aggression = aggression;
+            def.skill = skill;
+            def.preferredGap = preferredGap;
+            def.dodgeChance = dodgeChance;
+            def.abilityUse = abilityUse;
+            def.reaction = reaction;
             if (created) AssetDatabase.CreateAsset(def, path);
             else EditorUtility.SetDirty(def);
             return def;
@@ -1022,9 +1157,6 @@ namespace WildWeapon.EditorTools
             public Color accent, bg, floorTint = Color.white, wallTint = Color.white, propTint = Color.white;
             [Tooltip("Fraccion del encuadre que ocupa la arena (el resto es entorno del fondo)")]
             public float backdropFraction = 0.66f;
-            public MapPlatform[] platforms;
-            [Tooltip("Cantidad objetivo de plataformas (0 = usar platforms.Length). Se rellena proceduralmente si hace falta.")]
-            public int platformCount = 0;
             public MapHazard[] hazards;
             public string[] obstacles, decor;
             public int obstacleCount, decorCount, botSpawns;
@@ -1090,49 +1222,10 @@ namespace WildWeapon.EditorTools
             def.platformSprite = Spr("ww_plat_" + t.id);
             def.platformShadow = _platShadow;
             def.platformTint = 1f;
-            // Etapa 2: cantidad de plataformas segun tipo (7/12/20) + reubicacion al nuevo tamano (centros x2).
-var platList = new List<MapPlatform>(t.platforms != null ? t.platforms : new MapPlatform[0]);
-int targetCount = t.platformCount > 0 ? t.platformCount : platList.Count;
-if (targetCount > platList.Count)
-{
-    var rng = new System.Random(1000 + index * 37 + 7);
-    var halfArena = arena * 0.5f;
-    int attempts = 0;
-    while (platList.Count < targetCount && attempts < 500)
-    {
-        attempts++;
-        float x = (float)(rng.NextDouble() * 2.0 - 1.0) * (halfArena.x - 2.5f);
-        float y = (float)(rng.NextDouble() * 2.0 - 1.0) * (halfArena.y - 2.0f);
-        if (Mathf.Abs(x) < 2f && Mathf.Abs(y) < 1.5f) continue;   // evita zona de spawns
-        bool tooClose = false;
-        foreach (var pl in platList)
-            if (Vector2.Distance(new Vector2(x, y), pl.center) < 3.5f) { tooClose = true; break; }
-        if (tooClose) continue;
-        float[] heights = { 0.55f, 0.95f, 1.35f };
-        float height = heights[rng.Next(heights.Length)];
-        float w = 3.0f + (float)rng.NextDouble() * 2.0f;
-        float h = 1.8f + (float)rng.NextDouble() * 1.0f;
-        platList.Add(new MapPlatform
-        {
-            sizeClass = MapPlatformSize.Mediana, center = new Vector2(x, y),
-            size = new Vector2(w, h), height = height, mirrored = false,
-            name = height >= 1.2f ? "Alta" : (height >= 0.8f ? "Media" : "Baja"),
-        });
-    }
-}
-var scaledPlats = new MapPlatform[platList.Count];
-for (int i = 0; i < platList.Count; i++)
-{
-    var p = platList[i];
-    scaledPlats[i] = new MapPlatform
-    {
-        name = p.name, sizeClass = p.sizeClass,
-        center = p.center * 2f,
-        size = p.size,
-        height = p.height, mirrored = p.mirrored, rotation = p.rotation,
-    };
-}
-def.platforms = scaledPlats;
+            // Plataformas reubicadas: decks cortos y planos, dentro de la arena y
+            // encadenados en caminos que se suben a salto (ver BuildPlatformLayout).
+            def.platforms = BuildPlatformLayout(t.size, index).ToArray();
+            ValidatePlatformLayout(def);
 
             def.obstacles = Obstacles(t.obstacles, t.propTint);
             def.obstacleCount = t.obstacleCount;
@@ -1206,13 +1299,208 @@ def.platforms = scaledPlats;
             return list.ToArray();
         }
 
-        private static MapPlatform Plat(MapPlatformSize size, Vector2 center, Vector2 footprint, float height, bool mirrored = true)
+        // =====================================================================
+        // Plataformas: reubicacion (Etapa 3)
+        //
+        // Reglas del nuevo reparto:
+        // - El deck usa el tamano natural del sprite (3.2 x 1.0): corto y plano.
+        // - Todo deck vive dentro de la arena, con margen de los muros.
+        // - Los decks se encadenan (escaleras, zigzag y torre central) en caminos
+        //   que se suben a salto desde la franja de suelo, sin huecos imposibles
+        //   ni decks superpuestos.
+        // - Los mapas chicos reciben ademas 4 decks en zigzag horizontal.
+        // =====================================================================
+
+        /// <summary>Medidas del deck: la tablilla tal cual sale del sprite.</summary>
+        private const float DeckW = 3.2f;
+        private const float DeckH = 1.0f;
+
+        /// <summary>Altura del piso jugable sobre el borde inferior de la arena.</summary>
+        private const float FloorOffset = 1.1f;
+
+        /// <summary>Salto del personaje (para calcular que tan lejos se llega en el aire).</summary>
+        private const float JumpSpeed = 14f;
+        private const float Gravity = 30f;
+        private const float RunSpeed = 4.2f;
+
+        /// <summary>
+        /// Reubica las plataformas de una arena segun su tamano. Devuelve los decks
+        /// ya en coordenadas de arena (no hay escala: el centro es el de la arena).
+        /// </summary>
+        private static List<MapPlatform> BuildPlatformLayout(MapSizeClass size, int index)
+        {
+            var arena = ArenaSize(size);
+            float halfX = arena.x * 0.5f;
+            float halfY = arena.y * 0.5f;
+            float lane = -halfY + FloorOffset;        // superficie del piso jugable
+            float dx = ((index % 3) - 1) * 0.9f;      // variacion por mapa (no rompe la simetria)
+            var list = new List<MapPlatform>();
+
+            switch (size)
+            {
+                case MapSizeClass.Chico:
+                    // Escalera lateral + zigzag horizontal de 4 decks + deck central.
+                    Ladder(list, dx + 12.8f, dx + 9.4f, 6, lane + 0.5f, 2.4f);
+                    Zigzag(list, dx - 5.4f, dx - 1.8f, dx + 1.8f, dx + 5.4f, lane + 1.6f, 2.4f);
+                    list.Add(Deck(0f, 0f, 1.35f, false, "Central"));
+                    break;
+
+                case MapSizeClass.Mediano:
+                    // Dos escaleras: la exterior sube desde el suelo, la interior se engancha a ella.
+                    Ladder(list, dx + 16.4f, dx + 12.8f, 7, lane + 0.7f, 2.6f);
+                    Ladder(list, dx + 8.0f, dx + 4.4f, 6, lane + 2.0f, 2.6f);
+                    break;
+
+                default:
+                    // Dos escaleras laterales + torre central en el eje de la arena.
+                    Ladder(list, dx + 20.6f, dx + 16.8f, 9, lane + 0.9f, 2.4f);
+                    Ladder(list, dx + 12.4f, dx + 8.6f, 8, lane + 2.1f, 2.4f);
+                    Tower(list, 9, lane + 0.9f, 2.4f);
+                    break;
+            }
+            return list;
+        }
+
+        /// <summary>Escalera: dos columnas alternadas que suben desde el suelo.</summary>
+        private static void Ladder(List<MapPlatform> list, float xOuter, float xInner, int rungs, float yBottom, float step)
+        {
+            for (int i = 0; i < rungs; i++)
+            {
+                float x = (i % 2 == 0) ? xOuter : xInner;
+                list.Add(Deck(x, yBottom + i * step, HeightFor(i, rungs), true));
+            }
+        }
+
+        /// <summary>Torre central: decks apilados en el eje de la arena (no se espejan).</summary>
+        private static void Tower(List<MapPlatform> list, int rungs, float yBottom, float step)
+        {
+            for (int i = 0; i < rungs; i++)
+                list.Add(Deck(0f, yBottom + i * step, HeightFor(i, rungs), false));
+        }
+
+        /// <summary>Zigzag horizontal: 4 decks que se alternan de altura de lado a lado.</summary>
+        private static void Zigzag(List<MapPlatform> list, float x0, float x1, float x2, float x3, float yLow, float step)
+        {
+            list.Add(Deck(x0, yLow, 0.55f, false));
+            list.Add(Deck(x1, yLow + step, 0.95f, false));
+            list.Add(Deck(x2, yLow, 0.55f, false));
+            list.Add(Deck(x3, yLow + step, 0.95f, false));
+        }
+
+        /// <summary>
+        /// Altura del deck: sube hacia el centro de la escalera y vuelve a bajar, para
+        /// que la copia espejada del duelo quede igual de apoyada.
+        /// </summary>
+        private static float HeightFor(int i, int count)
+        {
+            int k = Mathf.Min(i, count - 1 - i);      // 0 en los extremos
+            return 0.55f + 0.4f * Mathf.Min(k, 2);   // 0.55 / 0.95 / 1.35
+        }
+
+        /// <summary>Un deck: tablilla corta y plana.</summary>
+        private static MapPlatform Deck(float x, float y, float height, bool mirrored, string name = null)
         {
             return new MapPlatform
             {
-                sizeClass = size, center = center, size = footprint,
-                height = height, mirrored = mirrored, name = height >= 1.2f ? "Alta" : (height >= 0.8f ? "Media" : "Baja"),
+                name = name ?? (height >= 1.2f ? "Alta" : (height >= 0.8f ? "Media" : "Baja")),
+                sizeClass = MapPlatformSize.Chica,
+                center = new Vector2(x, y),
+                size = new Vector2(DeckW, DeckH),
+                height = height,
+                mirrored = mirrored,
             };
+        }
+
+        /// <summary>
+        /// Chequea el reparto de decks: que esten dentro de la arena, que no se
+        /// superpongan y que todos se alcancen a salto desde el suelo.
+        /// </summary>
+        private static void ValidatePlatformLayout(MapDef def)
+        {
+            var decks = new List<Vector3>();      // x, y, altura
+            foreach (var p in def.platforms)
+            {
+                decks.Add(new Vector3(p.center.x, p.center.y, p.center.y));
+                if (p.mirrored) decks.Add(new Vector3(-p.center.x, -p.center.y, -p.center.y));
+            }
+
+            var half = def.arenaSize * 0.5f;
+            float lane = -half.y + FloorOffset;
+            var problems = new List<string>();
+
+            for (int i = 0; i < decks.Count; i++)
+            {
+                var d = decks[i];
+                if (Mathf.Abs(d.x) + DeckW * 0.5f > half.x + 0.01f)
+                    problems.Add("fuera de la arena (x): " + d);
+                if (Mathf.Abs(d.y) + DeckH * 0.5f > half.y + 0.01f)
+                    problems.Add("fuera de la arena (y): " + d);
+                for (int j = i + 1; j < decks.Count; j++)
+                {
+                    if (Gap(decks[i], decks[j]) < -0.01f) problems.Add("decks superpuestos: " + d + " / " + decks[j]);
+                }
+            }
+
+            // Alcanzabilidad: se parte de la franja de suelo y se llega a todo.
+            var reached = new bool[decks.Count];
+            bool grew = true;
+            while (grew)
+            {
+                grew = false;
+                for (int i = 0; i < decks.Count; i++)
+                {
+                    if (reached[i]) continue;
+                    bool ok = FromGround(decks[i], lane) || Reached(decks, reached, i);
+                    if (ok) { reached[i] = true; grew = true; }
+                }
+            }
+            for (int i = 0; i < decks.Count; i++)
+                if (!reached[i]) problems.Add("deck inalcanzable: " + decks[i]);
+
+            if (problems.Count > 0)
+            {
+                Debug.LogWarning("[WW] " + def.mapId + ": problemas en el reparto de plataformas:\n - " +
+                                 string.Join("\n - ", problems));
+            }
+        }
+
+        /// <summary>Distancia entre el borde de dos decks (0 si se tocan).</summary>
+        private static float Gap(Vector3 a, Vector3 b)
+        {
+            float gx = Mathf.Max(0f, Mathf.Abs(a.x - b.x) - DeckW);
+            float gy = Mathf.Max(0f, Mathf.Abs(a.y - b.y) - DeckH);
+            return new Vector2(gx, gy).magnitude;
+        }
+
+        /// <summary>Se llega al deck desde la franja de suelo con un salto.</summary>
+        private static bool FromGround(Vector3 deck, float lane)
+        {
+            float dy = Mathf.Max(0f, (deck.y - DeckH * 0.5f) - lane);
+            return dy <= AirReach(dy);
+        }
+
+        /// <summary>Se llega al deck i desde alguno de los decks ya alcanzados.</summary>
+        private static bool Reached(List<Vector3> decks, bool[] reached, int i)
+        {
+            for (int j = 0; j < decks.Count; j++)
+            {
+                if (!reached[j]) continue;
+                float dz = decks[i].z - decks[j].z;
+                if (Gap(decks[i], decks[j]) <= AirReach(dz)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Distancia horizontal que se cubre en el aire al saltar hacia un deck
+        /// 'dz' mas alto (sin doble salto: el doble salto solo da margen extra).
+        /// </summary>
+        private static float AirReach(float dz)
+        {
+            float apex = JumpSpeed * JumpSpeed / (2f * Gravity);
+            float fall = Mathf.Max(0f, apex - dz);
+            float time = JumpSpeed / Gravity + Mathf.Sqrt(2f * fall / Gravity);
+            return RunSpeed * time;
         }
 
         private static MapHazard Haz(HazardKind kind, string name, Vector2 center, Vector2 size,
@@ -1229,8 +1517,9 @@ def.platforms = scaledPlats;
 
         /// <summary>
         /// Las 12 arenas: chicas (duelos rapidos), medianas y grandes (supervivencia).
-        /// Cada mapa reparte sus propios decks (chico 3, mediano 5, grande 9) con su sprite ww_plat_&lt;id&gt;.
-        /// El deck central va con mirrored=false para no duplicarse; los pares laterales se espejan a 180 grados.
+        /// Cada mapa usa su sprite ww_plat_&lt;id&gt;; el reparto de decks lo arma
+        /// BuildPlatformLayout segun el tamano de la arena (todos los mapas de la
+        /// misma clase comparten la misma estructura, corrida en leve por mapa).
         /// Peligros, decoracion y obstaculos quedan vacios por ahora: vuelven mas adelante.
         /// </summary>
         private static MapTheme[] MapThemes()
@@ -1249,12 +1538,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Chico, accent = rust, bg = new Color(0.09f, 0.06f, 0.04f),
                     floorTint = new Color(1f, 0.96f, 0.9f), wallTint = new Color(0.9f, 0.85f, 0.78f), backdropFraction = 0.68f,
                     note = "Tablones hundidos, sierras oxidadas y pilas de chatarra del primer prototipo",
-                    botSpawns = 12, platformCount = 7,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Chica, new Vector2(0f, 0f), new Vector2(3.6f, 2f), 0.95f, false),
-                        Plat(MapPlatformSize.Chica, new Vector2(5f, 2.6f), new Vector2(3.8f, 2f), 0.55f),
-                    },
+                    botSpawns = 12,
                 },
                 new MapTheme
                 {
@@ -1262,12 +1546,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Chico, accent = new Color(1f, 0.35f, 0.85f), bg = new Color(0.06f, 0.03f, 0.10f),
                     floorTint = new Color(0.92f, 0.9f, 1f), wallTint = new Color(0.8f, 0.76f, 1f), backdropFraction = 0.66f,
                     note = "Balcones de hotel, carteles de neon y cables sueltos sobre el pavimento mojado",
-                    botSpawns = 12, platformCount = 7,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Chica, new Vector2(0f, 0f), new Vector2(3.4f, 1.8f), 0.55f, false),
-                        Plat(MapPlatformSize.Mediana, new Vector2(4.8f, -2.4f), new Vector2(4.2f, 2.2f), 0.95f),
-                    },
+                    botSpawns = 12,
                 },
                 new MapTheme
                 {
@@ -1275,12 +1554,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Chico, accent = ice, bg = new Color(0.05f, 0.08f, 0.11f),
                     floorTint = new Color(0.9f, 0.97f, 1f), wallTint = new Color(0.82f, 0.92f, 1f), backdropFraction = 0.64f,
                     note = "Camara de congelados: ganchos, cajas apiladas y escarcha en el piso",
-                    botSpawns = 12, platformCount = 7,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Chica, new Vector2(0f, 0f), new Vector2(4f, 1.8f), 0.95f, false),
-                        Plat(MapPlatformSize.Chica, new Vector2(5.2f, 2.6f), new Vector2(3.6f, 2f), 0.55f),
-                    },
+                    botSpawns = 12,
                 },
                 new MapTheme
                 {
@@ -1288,12 +1562,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Chico, accent = new Color(0.3f, 1f, 0.85f), bg = new Color(0.03f, 0.07f, 0.08f),
                     floorTint = new Color(0.88f, 1f, 0.98f), wallTint = new Color(0.78f, 0.96f, 0.92f), backdropFraction = 0.71f,
                     note = "Pozo seco con paredes de piedra tallada y ecos que empujan desde el centro",
-                    botSpawns = 12, platformCount = 7,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Chica, new Vector2(0f, 0f), new Vector2(3.6f, 2.1f), 0.55f, false),
-                        Plat(MapPlatformSize.Chica, new Vector2(5.3f, -2.5f), new Vector2(3.4f, 2f), 1.35f),
-                    },
+                    botSpawns = 12,
                 },
 
                 // ---------------- MEDIANAS (40 x 22) ----------------
@@ -1303,13 +1572,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Mediano, accent = new Color(0.7f, 0.85f, 0.35f), bg = new Color(0.05f, 0.06f, 0.04f),
                     floorTint = new Color(0.95f, 0.96f, 0.88f), wallTint = new Color(0.86f, 0.88f, 0.78f), backdropFraction = 0.68f,
                     note = "Costillas de un leviatan, charcos de acido y huesos usados como rampas",
-                    botSpawns = 14, platformCount = 12,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(4.6f, 2.4f), 0.95f, false),
-                        Plat(MapPlatformSize.Chica, new Vector2(6.4f, 3f), new Vector2(3.6f, 2f), 0.55f),
-                        Plat(MapPlatformSize.Chica, new Vector2(6.6f, -2.8f), new Vector2(3.8f, 2f), 1.35f),
-                    },
+                    botSpawns = 14,
                 },
                 new MapTheme
                 {
@@ -1317,13 +1580,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Mediano, accent = gold, bg = new Color(0.09f, 0.07f, 0.03f),
                     floorTint = new Color(1f, 0.97f, 0.88f), wallTint = new Color(1f, 0.92f, 0.72f), backdropFraction = 0.68f,
                     note = "Boveda de banco: lingotes, cajas fuertes y una puerta que baja como guillotina",
-                    botSpawns = 14, platformCount = 12,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(4.8f, 2.2f), 0.95f, false),
-                        Plat(MapPlatformSize.Chica, new Vector2(7f, 2.6f), new Vector2(3.6f, 2.2f), 0.55f),
-                        Plat(MapPlatformSize.Chica, new Vector2(6.8f, -2.9f), new Vector2(3.6f, 2f), 1.35f),
-                    },
+                    botSpawns = 14,
                 },
                 new MapTheme
                 {
@@ -1331,13 +1588,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Mediano, accent = new Color(0.6f, 0.75f, 1f), bg = new Color(0.04f, 0.05f, 0.09f),
                     floorTint = new Color(0.94f, 0.96f, 1f), wallTint = new Color(0.86f, 0.9f, 1f), backdropFraction = 0.67f,
                     note = "Desguace orbital: turbinas que barren la arena y cables de alta tension",
-                    botSpawns = 14, platformCount = 12,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(5.2f, 2.2f), 0.95f, false),
-                        Plat(MapPlatformSize.Chica, new Vector2(6.8f, 3f), new Vector2(3.6f, 2f), 0.55f),
-                        Plat(MapPlatformSize.Mediana, new Vector2(6.6f, -2.8f), new Vector2(4.4f, 2.4f), 1.35f),
-                    },
+                    botSpawns = 14,
                 },
                 new MapTheme
                 {
@@ -1345,13 +1596,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Mediano, accent = new Color(0.5f, 1f, 0.5f), bg = new Color(0.04f, 0.07f, 0.04f),
                     floorTint = new Color(0.92f, 1f, 0.9f), wallTint = new Color(0.8f, 0.95f, 0.8f), backdropFraction = 0.66f,
                     note = "Invernadero tomado por enredaderas, macetas gigantes y esporas a media altura",
-                    botSpawns = 14, platformCount = 12,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(4.4f, 2.2f), 0.55f, false),
-                        Plat(MapPlatformSize.Chica, new Vector2(6.8f, 2.9f), new Vector2(3.8f, 2.2f), 0.95f),
-                        Plat(MapPlatformSize.Chica, new Vector2(6.8f, -2.9f), new Vector2(3.6f, 2f), 0.55f),
-                    },
+                    botSpawns = 14,
                 },
 
                 // ---------------- GRANDES (48 x 26) ----------------
@@ -1361,15 +1606,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Grande, accent = new Color(0.35f, 0.9f, 0.95f), bg = new Color(0.03f, 0.06f, 0.08f),
                     floorTint = new Color(0.9f, 0.98f, 1f), wallTint = new Color(0.8f, 0.92f, 0.95f), backdropFraction = 0.68f,
                     note = "Templo inundado: columnas caidas, pasarelas de piedra y estatuas sumergidas",
-                    botSpawns = 18, platformCount = 20,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(5f, 2.4f), 0.95f, false),
-                        Plat(MapPlatformSize.Grande, new Vector2(0f, 4.3f), new Vector2(6.6f, 2.2f), 0.55f),
-                        Plat(MapPlatformSize.Mediana, new Vector2(8.2f, 3.2f), new Vector2(4.6f, 2.4f), 0.95f),
-                        Plat(MapPlatformSize.Chica, new Vector2(8.8f, -3.3f), new Vector2(3.8f, 2f), 0.55f),
-                        Plat(MapPlatformSize.Chica, new Vector2(8.8f, 0f), new Vector2(3.6f, 2.6f), 1.35f),
-                    },
+                    botSpawns = 18,
                 },
                 new MapTheme
                 {
@@ -1377,15 +1614,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Grande, accent = ice, bg = new Color(0.05f, 0.08f, 0.12f),
                     floorTint = new Color(0.92f, 0.98f, 1f), wallTint = new Color(0.84f, 0.94f, 1f), backdropFraction = 0.7f,
                     note = "Domo polar: grietas, ventiscas laterales y rafagas que cruzan la cancha",
-                    botSpawns = 18, platformCount = 20,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(5.2f, 2.4f), 0.95f, false),
-                        Plat(MapPlatformSize.Grande, new Vector2(0f, 4.3f), new Vector2(6.6f, 2.2f), 0.55f),
-                        Plat(MapPlatformSize.Mediana, new Vector2(8.4f, 3.4f), new Vector2(4.6f, 2.4f), 0.95f),
-                        Plat(MapPlatformSize.Chica, new Vector2(8.8f, -3.4f), new Vector2(3.6f, 2f), 0.55f),
-                        Plat(MapPlatformSize.Chica, new Vector2(8.8f, 0f), new Vector2(3.6f, 2.4f), 1.35f),
-                    },
+                    botSpawns = 18,
                 },
                 new MapTheme
                 {
@@ -1393,15 +1622,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Grande, accent = new Color(1f, 0.6f, 0.2f), bg = new Color(0.08f, 0.05f, 0.04f),
                     floorTint = new Color(1f, 0.95f, 0.88f), wallTint = new Color(0.95f, 0.86f, 0.76f), backdropFraction = 0.67f,
                     note = "Mercado nocturno: puestos incendiados, toneles de aceite y monedas por el piso",
-                    botSpawns = 18, platformCount = 20,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Mediana, new Vector2(0f, 0f), new Vector2(4.8f, 2.4f), 0.55f, false),
-                        Plat(MapPlatformSize.Grande, new Vector2(0f, 4.2f), new Vector2(7f, 2.2f), 0.55f),
-                        Plat(MapPlatformSize.Mediana, new Vector2(8.2f, 3.2f), new Vector2(4.8f, 2.4f), 0.95f),
-                        Plat(MapPlatformSize.Chica, new Vector2(8.8f, -3.3f), new Vector2(3.6f, 2f), 0.55f),
-                        Plat(MapPlatformSize.Chica, new Vector2(8.8f, 0f), new Vector2(3.6f, 2.6f), 1.35f),
-                    },
+                    botSpawns = 18,
                 },
                 new MapTheme
                 {
@@ -1409,15 +1630,7 @@ def.platforms = scaledPlats;
                     size = MapSizeClass.Grande, accent = violet, bg = new Color(0.05f, 0.03f, 0.09f),
                     floorTint = new Color(0.96f, 0.92f, 1f), wallTint = new Color(0.86f, 0.78f, 1f), backdropFraction = 0.67f,
                     note = "Reactor en el centro: cables arqueando, plasma en el piso y fosas de escoria",
-                    botSpawns = 18, platformCount = 20,
-                    platforms = new[]
-                    {
-                        Plat(MapPlatformSize.Grande, new Vector2(0f, 0f), new Vector2(6.4f, 2.6f), 1.35f, false),
-                        Plat(MapPlatformSize.Grande, new Vector2(0f, 4.3f), new Vector2(6.4f, 2.2f), 0.55f),
-                        Plat(MapPlatformSize.Mediana, new Vector2(8.4f, 3.4f), new Vector2(4.4f, 2.2f), 0.95f),
-                        Plat(MapPlatformSize.Chica, new Vector2(8.8f, -3.4f), new Vector2(3.6f, 2.2f), 0.55f),
-                        Plat(MapPlatformSize.Chica, new Vector2(8.9f, 0f), new Vector2(3.2f, 2.6f), 0.55f),
-                    },
+                    botSpawns = 18,
                 },
             };
         }
@@ -1823,9 +2036,8 @@ def.platforms = scaledPlats;
             aim.aimPivot = pivot.transform;
             aim.elbowBend = set.drone ? 0f : 28f;
 
-            // Altura simulada (2.5D): el rig y el brazo suben con la Z, la sombra queda al ras.
+            // Fisica de plataformas: la Y del mundo es la altura (gravedad y salto en HeightBody).
             var height = go.AddComponent<HeightBody>();
-            height.followers = new[] { visual.transform, pivot.transform };
             height.shadow = ssr;
             height.baseOrder = 10;
             return (go, visual, pivot.transform, aim);
@@ -1913,6 +2125,14 @@ def.platforms = scaledPlats;
             bot.visual = visual;
             bot.weapon = AttachWeapon(pivot, def.weapon, "Weapon_" + def.weapon.name);
 
+            // El bot tambien pelea con habilidades (Q/E/R): el caster usa su propio
+            // kit (los bots no tienen loadout de armas).
+            var botCaster = go.AddComponent<AbilityCaster>();
+            botCaster.health = health;
+            botCaster.visual = visual;
+            botCaster.directAbilities = new[] { def.abilityQ, def.abilityE, def.abilityR };
+            bot.abilities = botCaster;
+
             aim.health = health;
             aim.fixedWeapon = bot.weapon;
 
@@ -1966,6 +2186,8 @@ def.platforms = scaledPlats;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = defaultMap != null ? defaultMap.backgroundColor : new Color(0.05f, 0.05f, 0.07f);
             camGo.AddComponent<AudioListener>();
+            // Rig de camara: sigue al jugador local y hace zoom (no se queda fija).
+            var camRig = camGo.AddComponent<PlayerCamera>();
 
             var spawn1 = new GameObject("SpawnP1").transform;
             var spawn2 = new GameObject("SpawnP2").transform;
@@ -1988,12 +2210,17 @@ def.platforms = scaledPlats;
             var p1 = ((GameObject)PrefabUtility.InstantiatePrefab(playerPrefab)).GetComponent<PlayerController>();
             p1.name = "P1";
             p1.scheme = InputScheme.KeyboardMouse;
+            p1.acceptGamepad = true;
             p1.GetComponent<PlayerHealth>().team = 0;
             p1.transform.position = spawn1.position;
+            camRig.targetController = p1;   // la camara sigue al jugador local
 
             var p2 = ((GameObject)PrefabUtility.InstantiatePrefab(playerPrefab)).GetComponent<PlayerController>();
             p2.name = "P2";
-            p2.scheme = InputScheme.Auto;
+            // El J2 del duelo local usa flechas (o el mando si lo usa): nunca el
+            // WASD del J1.
+            p2.scheme = InputScheme.KeyboardTwin;
+            p2.acceptGamepad = true;
             p2.GetComponent<PlayerHealth>().team = 1;
             p2.transform.position = spawn2.position;
             p2.visual.paintColor = GameSession.Palette[1];
@@ -2023,6 +2250,12 @@ def.platforms = scaledPlats;
             pvp.p2 = p2;
             pvp.playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_WildWeapon/Prefabs/Characters/Player_Cyborg.prefab");
             pvp.spawns = new[] { spawn1, spawn2 };
+
+            // ---- Barra de habilidades (Q/E/R) al pie de la pantalla ----
+            // Va en una raiz propia (siempre activa) para que se vea en el duelo
+            // local, en supervivencia y en la sala PVP.
+            var abilityRoot = new GameObject("HUD_AbilityBar");
+            BuildAbilityBar(abilityRoot.transform, Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
 
             // Cuenta regresiva 3-2-1-GO (sprites de Aura) en canvas propio, arriba del HUD.
             var countCanvasGo = new GameObject("PvpCountdownCanvas", typeof(RectTransform));
@@ -4144,11 +4377,14 @@ def.platforms = scaledPlats;
             hud.statusHint.gameObject.SetActive(false);
 
             // ---- Pie con los controles ----
-            hud.footer = UiText("Footer", canvasGo.transform, font, "", 15, new Color(1f, 1f, 1f, 0.45f));
-            HudRect(hud.footer.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f),
-                new Vector2(0f, 12f), new Vector2(-48f, 22f));
-            hud.footer.alignment = TextAnchor.MiddleLeft;
+            // Va abajo a la izquierda y con ancho limitado: el centro del pie lo
+            // ocupa la barra de habilidades (cards + riel de adrenalina).
+            hud.footer = UiText("Footer", canvasGo.transform, font, "", 14, new Color(1f, 1f, 1f, 0.45f));
+            HudRect(hud.footer.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
+                new Vector2(24f, 10f), new Vector2(700f, 42f));
+            hud.footer.alignment = TextAnchor.UpperLeft;
             hud.footer.fontStyle = FontStyle.Normal;
+            hud.footer.lineSpacing = 0.95f;
             var footShadow = hud.footer.gameObject.AddComponent<Shadow>();
             footShadow.effectColor = new Color(0f, 0f, 0f, 0.7f);
             footShadow.effectDistance = new Vector2(1f, -1f);
@@ -4157,6 +4393,149 @@ def.platforms = scaledPlats;
         }
 
         private static readonly Color MatchHud_OdTint = new Color(1f, 0.34f, 0.30f, 1f);
+
+        // =====================================================================
+        // Barra de habilidades (cards Q/E/R) al pie de la pantalla
+        // =====================================================================
+
+        private const float AbilCardW = 96f;
+        private const float AbilCardH = 112f;
+        private const float AbilCardGap = 22f;
+
+        /// <summary>
+        /// Barra de habilidades del jugador local: tres cards (Q/E/R) al pie de la
+        /// pantalla con el emblema de la habilidad, su nombre, el barrido del cooldown
+        /// y la adrenalina. Va en un canvas propio (siempre activo) para que se vea en
+        /// el duelo local, en supervivencia y en la sala PVP.
+        ///
+        /// La jerarquia la arma el builder; <see cref="AbilityBarHud"/> la mantiene al
+        /// dia (cooldown, adrenalina y cambio de arma).
+        /// </summary>
+        private static AbilityBarHud BuildAbilityBar(Transform parent, Font font)
+        {
+            var canvasGo = new GameObject("AbilityBarCanvas", typeof(RectTransform));
+            canvasGo.transform.SetParent(parent, false);
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 52;   // encima del HUD de partida (50), debajo de la cuenta (60)
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            var bar = canvasGo.AddComponent<AbilityBarHud>();
+
+            // ---- Raiz de la barra ----
+            var rootGo = new GameObject("AbilityBar", typeof(RectTransform));
+            rootGo.transform.SetParent(canvasGo.transform, false);
+            var rootRt = (RectTransform)rootGo.transform;
+            HudRect(rootRt, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 12f), new Vector2(720f, 230f));
+            bar.root = rootGo.AddComponent<CanvasGroup>();
+            bar.root.alpha = 0f;
+
+            // ---- Placa de titulo (arte ww_abil_header) ----
+            var header = UiImage("Header", rootGo.transform, Spr("ww_abil_header"), Color.white);
+            HudRect(header.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(300f, 64f));
+            if (header.sprite == null) header.color = new Color(0f, 0f, 0f, 0.55f);
+
+            var title = UiText("Title", header.transform, font, "HABILIDADES", 15, new Color(0.86f, 0.89f, 0.95f, 0.95f));
+            HudStretch(title.rectTransform, new Vector2(0f, 0f), new Vector2(0.52f, 1f), new Vector2(22f, 0f), new Vector2(0f, 0f));
+            title.alignment = TextAnchor.MiddleLeft;
+            title.fontStyle = FontStyle.Bold;
+
+            var weapon = UiText("Weapon", header.transform, font, "-", 15, new Color(1f, 0.84f, 0.42f, 0.95f));
+            HudStretch(weapon.rectTransform, new Vector2(0.48f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0f), new Vector2(-22f, 0f));
+            weapon.alignment = TextAnchor.MiddleRight;
+            weapon.fontStyle = FontStyle.Bold;
+            bar.weaponText = weapon;
+
+            // ---- Fila de cards ----
+            var cardsGo = new GameObject("Cards", typeof(RectTransform));
+            cardsGo.transform.SetParent(rootGo.transform, false);
+            var cardsRt = (RectTransform)cardsGo.transform;
+            HudRect(cardsRt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -70f),
+                new Vector2(3f * AbilCardW + 2f * AbilCardGap, AbilCardH));
+            var row = cardsGo.AddComponent<HorizontalLayoutGroup>();
+            row.spacing = AbilCardGap;
+            row.childAlignment = TextAnchor.MiddleCenter;
+            row.childControlWidth = false;
+            row.childControlHeight = false;
+            row.childForceExpandWidth = false;
+            row.childForceExpandHeight = false;
+
+            bar.cards = new AbilityBarHud.Card[3];
+            string[] keys = { "Q", "E", "R" };
+            for (int i = 0; i < 3; i++)
+            {
+                var card = new AbilityBarHud.Card();
+                var cardGo = new GameObject("Card" + keys[i], typeof(RectTransform));
+                cardGo.transform.SetParent(cardsGo.transform, false);
+                var cardRt = (RectTransform)cardGo.transform;
+                cardRt.sizeDelta = new Vector2(AbilCardW, AbilCardH);
+                card.root = cardRt;
+
+                var frame = UiImage("Frame", cardGo.transform, Spr("ww_abil_card"), Color.white);
+                Stretch(frame.rectTransform);
+                if (frame.sprite == null) frame.color = new Color(0.06f, 0.08f, 0.11f, 0.92f);
+                card.frame = frame;
+
+                // Emblema de la habilidad (lo pinta el componente).
+                var icon = UiImage("Icon", cardGo.transform, null, Color.white);
+                icon.preserveAspect = true;
+                HudRect(icon.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(72f, 72f));
+                card.icon = icon;
+
+                // Barrido radial del cooldown (encima del emblema; el sprite se pone
+                // en runtime: es el mismo emblema, asi la Image nunca queda sin sprite).
+                var cd = UiImage("Cooldown", cardGo.transform, null, new Color(0f, 0f, 0f, 0.68f));
+                cd.type = UnityEngine.UI.Image.Type.Filled;
+                cd.fillMethod = UnityEngine.UI.Image.FillMethod.Radial360;
+                cd.fillOrigin = (int)UnityEngine.UI.Image.Origin360.Top;
+                cd.fillClockwise = true;
+                cd.fillAmount = 0f;
+                HudRect(cd.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(72f, 72f));
+                card.cooldown = cd;
+
+                // Tecla (Q/E/R) en la esquina de la ventana de la card.
+                var key = UiText("Key", cardGo.transform, font, keys[i], 17, new Color(1f, 0.88f, 0.45f, 1f));
+                HudRect(key.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -10f), new Vector2(26f, 24f));
+                key.alignment = TextAnchor.MiddleCenter;
+                card.key = key;
+
+                // Segundos restantes (sobre el emblema).
+                var timer = UiText("Timer", cardGo.transform, font, "", 18, new Color(1f, 1f, 1f, 0.92f));
+                HudRect(timer.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(66f, 30f));
+                timer.alignment = TextAnchor.MiddleCenter;
+                card.timer = timer;
+
+                // Nombre de la habilidad (en la ranura inferior de la placa).
+                var name = UiText("Name", cardGo.transform, font, "-", 11, new Color(0.10f, 0.12f, 0.16f, 1f));
+                HudRect(name.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -39f), new Vector2(82f, 15f));
+                name.alignment = TextAnchor.MiddleCenter;
+                name.resizeTextForBestFit = true;
+                name.resizeTextMinSize = 7;
+                name.resizeTextMaxSize = 12;
+                card.name = name;
+
+                bar.cards[i] = card;
+            }
+
+            // ---- Riel de adrenalina (arte ww_abil_rail) ----
+            var rail = UiImage("AdrenalineRail", rootGo.transform, Spr("ww_abil_rail"), Color.white);
+            HudRect(rail.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(380f, 29f));
+            if (rail.sprite == null) rail.color = new Color(0f, 0f, 0f, 0.55f);
+
+            var fill = UiImage("Fill", rail.transform, Spr("ww_hud_hp_fill"), new Color(1f, 0.8f, 0.28f, 1f));
+            HudRect(fill.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(7f, 0f), new Vector2(366f, 13f));
+            bar.adrenalineFill = fill;
+
+            var adrText = UiText("Label", rail.transform, font, "ADRENALINA  0 / 100", 12, new Color(1f, 1f, 1f, 0.9f));
+            Stretch(adrText.rectTransform);
+            adrText.alignment = TextAnchor.MiddleCenter;
+            bar.adrenalineText = adrText;
+
+            return bar;
+        }
 
         /// <summary>Placa de jugador: tag + marcas de ronda, canal de vida y chips de arma.</summary>
         private static MatchHud.PlayerSlot HudPlayerPanel(Transform parent, Font font, bool rightSide, Color accent)

@@ -12,7 +12,7 @@ namespace WildWeapon
         public const float OverdriveAt = 75f;          // segundos
         public const float OverdriveDamageMultiplier = 1.5f;
 
-        public const float MoveSpeed = 3.2f;           // 320 px/s
+        public const float MoveSpeed = 4.2f;           // 420 px/s (alcanza los saltos entre decks)
         public const float DashSpeed = 5.2f;           // 520 px/s
         public const float DashTime = 0.18f;
         public const float DashIFrameTime = 0.15f;

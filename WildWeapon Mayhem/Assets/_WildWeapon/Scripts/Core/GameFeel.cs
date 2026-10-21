@@ -49,6 +49,13 @@ namespace WildWeapon
             g._shake = Mathf.Max(g._shake, amount);
         }
 
+        /// <summary>
+        /// Magnitud actual del temblor. Con <see cref="PlayerCamera"/> en la escena
+        /// el rig lo aplica (la camara se reposiciona cada frame y no se puede
+        /// congelar la base); sin rig, lo aplica GameFeel como antes.
+        /// </summary>
+        public static float ShakeAmount => _instance != null ? _instance._shake : 0f;
+
         void LateUpdate()
         {
             if (_hitStopTimer > 0f)
@@ -63,6 +70,14 @@ namespace WildWeapon
                 if (c == null) return;
                 _cam = c.transform;
                 _camBase = _cam.position;
+            }
+
+            // Con rig de camara el temblor lo aplica el rig (ver PlayerCamera):
+            // la camara se reposiciona cada frame, asi que no se puede congelar la base.
+            if (_cam.GetComponent<PlayerCamera>() != null)
+            {
+                if (_shake > 0.001f) _shake = Mathf.MoveTowards(_shake, 0f, Time.unscaledDeltaTime * 1.2f);
+                return;
             }
 
             if (_shake > 0.001f)
@@ -191,10 +206,31 @@ public static readonly List<PlayerSlot> MultiPlayers = new List<PlayerSlot>();
         public static int PvpSeat = 0;
         /// <summary>Este cliente creo la sala (conduce los bots del plantel).</summary>
         public static bool PvpHost = false;
+        /// <summary>
+        /// Equipos activos en la sala PVP. Con los equipos apagados la partida es
+        /// todos contra todos: nadie comparte equipo y todos se pueden danar.
+        /// </summary>
+        public static bool PvpTeams = true;
+        /// <summary>Equipo propio que asigno el anfitrion en la sala PVP (0-3).</summary>
+        public static int PvpTeam = 0;
+
+        /// <summary>
+        /// Los equipos estan activos en la partida actual. En PVP depende de lo que
+        /// eligio el anfitrion en la sala; los otros modos siempre respetan equipos.
+        /// </summary>
+        public static bool TeamsActive => Mode != GameMode.Pvp || PvpTeams;
+
+        /// <summary>
+        /// Equipo "unico" para todos contra todos: cada asiento queda en su propio
+        /// equipo, asi los filtros de fuego amigo dejan pasar todos los golpes.
+        /// </summary>
+        public static int FfaTeam(int seat) => 100 + Mathf.Abs(seat) % 100;
         public static string PvpOpponentName = "RIVAL";
         public static int PvpOpponentColor = 1;
         /// <summary>Semilla compartida para que ambos clientes generen la misma arena.</summary>
         public static int PvpSeed = 1;
+        /// <summary>Nombre propio que se muestra en el tablero PVP (lo elige el jugador).</summary>
+        public static string PvpLocalName = "VOS";
         /// <summary>Lista de oponentes del PVP (N jugadores). Llena el lobby privado.</summary>
         public static readonly List<PvpOpp> PvpOpps = new List<PvpOpp>();
 

@@ -8,8 +8,9 @@ namespace WildWeapon
     /// <see cref="MapGenerator"/> a partir de un <see cref="MapHazard"/>.
     ///
     /// Reglas:
-    /// - Solo afecta a quien este por debajo de <see cref="MapHazard.maxHeight"/> en Z:
-    ///   subirse a una plataforma te salva del peligro de piso.
+    /// - Solo afecta a quien este por debajo del techo del peligro
+    ///   (<see cref="MapHazard.maxHeight"/> sobre su centro): subirse a una
+    ///   plataforma te salva del peligro de piso.
     /// - Nunca golpea a la replica de red (el dueno del pawn decide su dano en PVP).
     /// - Los visuales son procedurales (mancha suave + anillo + chispas), tintados por tema.
     /// </summary>
@@ -142,7 +143,7 @@ namespace WildWeapon
             {
                 if (v == null || v.IsDead || v.networkMirror) continue;
                 if (!r.Contains((Vector2)v.transform.position, true)) continue;
-                if (HeightOf(v) > def.maxHeight) continue;
+                if (HeightOf(v) > transform.position.y + def.maxHeight) continue;
 
                 Vector2 dir = (Vector2)v.transform.position - (Vector2)transform.position;
                 if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
@@ -169,7 +170,7 @@ namespace WildWeapon
             {
                 if (v == null || v.IsDead || v.networkMirror) continue;
                 if (_pulseHit.Contains(v)) continue;
-                if (HeightOf(v) > def.maxHeight) continue;
+                if (HeightOf(v) > transform.position.y + def.maxHeight) continue;
 
                 Vector2 d = (Vector2)v.transform.position - (Vector2)transform.position;
                 float dist = Mathf.Abs(d.x) > Mathf.Abs(d.y) ? Mathf.Abs(d.x) : Mathf.Abs(d.y);
@@ -188,7 +189,7 @@ namespace WildWeapon
             if (v.Bot != null) v.Bot.ApplyKnockback(dir, amount);
         }
 
-        private static float HeightOf(PlayerHealth v) => v.Height != null ? v.Height.Z : 0f;
+        private static float HeightOf(PlayerHealth v) => v != null ? v.transform.position.y : 0f;
 
         private float Radius()
         {

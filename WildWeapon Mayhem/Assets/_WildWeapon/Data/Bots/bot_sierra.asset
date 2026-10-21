@@ -14,11 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WildWeapon.BotDef
   displayName: Dron Sierra
   weapon: {fileID: 11400000, guid: 16e20401de5800e4fafa4f6029030a2a, type: 2}
+  abilityQ: {fileID: 11400000, guid: 0e4d3b9ca4b936d4893077a3ffa4b1b7, type: 2}
+  abilityE: {fileID: 11400000, guid: 93806a6d14cbe9641a87b16ddc460832, type: 2}
+  abilityR: {fileID: 11400000, guid: af95a151672d5ce489b63f3ee4dd5b1a, type: 2}
   hp: 30
   moveSpeed: 3
   windup: 0.15
   recover: 0.25
   bodyRadius: 0.36
+  aggression: 0.85
+  skill: 0.9
+  preferredGap: 1.15
+  dodgeChance: 0.9
+  abilityUse: 1
+  reaction: 0.1
   visualScale: 0.95
   animSpeed: 1.3
   tint: {r: 1, g: 0.88, b: 0.25, a: 1}

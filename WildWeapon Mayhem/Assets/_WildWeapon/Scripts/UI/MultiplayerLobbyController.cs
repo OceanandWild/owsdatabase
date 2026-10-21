@@ -57,6 +57,10 @@ namespace WildWeapon.UI
         public Button continueButton;
         public Button backButton;
 
+        [Header("Equipos")]
+        [Tooltip("Boton para activar/desactivar equipos. Si queda vacio se crea por codigo.")]
+        public Button teamsButton;
+
         [Header("Fundido")]
         public CanvasGroup fader;
         public float fadeTime = 0.45f;
@@ -91,6 +95,8 @@ namespace WildWeapon.UI
         private int _waiters;
         private PvpMsg _pendingState;
         private bool _stateDirty;
+        /// <summary>Equipos activos en la sala (lo decide el anfitrion).</summary>
+        private bool _teams = true;
 
         // ---- Modales ----
         private CanvasGroup _modal;
@@ -107,6 +113,8 @@ namespace WildWeapon.UI
         private Button _createButton;
         private Button _joinButton;
         private Button _connectRetry;
+        private Button _connectBack;
+        private Text _teamsLabel;
 
         // ---- Conexion en curso / accion pendiente ----
         private bool _watchingConnection;
@@ -126,6 +134,7 @@ namespace WildWeapon.UI
             // no disparar dos veces cada accion.
 
             BuildModals();
+            BuildTeamsToggle();
             Refresh();
 
             _client = PvpClient.Ensure();
@@ -223,6 +232,8 @@ namespace WildWeapon.UI
         public int RosterCount => _roster != null ? _roster.Count : 0;
         public int BotsInRoster => BotCount();
         public int WaitersInRoom => _waiters;
+        /// <summary>La sala juega con equipos (si no, es todos contra todos).</summary>
+        public bool TeamsEnabled => _teams;
 
         /// <summary>Escribe el codigo en el campo (pegar/pegar rapido o pruebas).</summary>
         public void SetCode(string code)
@@ -255,7 +266,22 @@ namespace WildWeapon.UI
             if (_waitStep != null) _waitStep.gameObject.SetActive(false);
             if (_connectStep != null) _connectStep.gameObject.SetActive(true);
             if (_connectStatus != null) _connectStatus.text = "Despertando el servidor de duelos...";
-            if (_connectRetry != null) _connectRetry.gameObject.SetActive(false);
+            SetConnectRetryVisible(false);
+        }
+
+        /// <summary>
+        /// Muestra u oculta REINTENTAR del paso "CONECTANDO" y acomoda el
+        /// "VOLVER AL MENU": centrado cuando va solo, a la derecha cuando
+        /// comparten fila con el reintento.
+        /// </summary>
+        private void SetConnectRetryVisible(bool visible)
+        {
+            if (_connectRetry != null) _connectRetry.gameObject.SetActive(visible);
+            if (_connectBack != null)
+            {
+                var rt = _connectBack.GetComponent<RectTransform>();
+                if (rt != null) rt.anchoredPosition = new Vector2(visible ? 170f : 0f, -272f);
+            }
         }
 
         /// <summary>Cada frame mientras se espera la conexion: progreso, tiempo y reintento.</summary>
@@ -280,7 +306,7 @@ namespace WildWeapon.UI
                         secs + " s - la primera vez puede tardar 1 o 2 minutos.\n" +
                         "No cierres la ventana.";
                 }
-                if (_connectRetry != null) _connectRetry.gameObject.SetActive(false);
+                SetConnectRetryVisible(false);
                 return;
             }
 
@@ -291,7 +317,7 @@ namespace WildWeapon.UI
                 _connectStatus.text = "No se pudo despertar el servidor.\n" +
                     "Revisa tu conexion a internet y toca REINTENTAR." + detail;
             }
-            if (_connectRetry != null) _connectRetry.gameObject.SetActive(true);
+            SetConnectRetryVisible(true);
         }
 
         private void RetryConnection()
@@ -460,6 +486,21 @@ namespace WildWeapon.UI
             _client.Send(new PvpMsg { t = PvpMsgType.LobbyBots, n = target });
         }
 
+        // ---- Equipos (solo anfitrion) ----
+
+        /// <summary>
+        /// Boton de equipos de la sala. Con equipos activos los companeros no se
+        /// danan; apagados, la partida es todos contra todos.
+        /// </summary>
+        public void ToggleTeams()
+        {
+            if (!Ready() || !_host || !_inRoom || _starting) return;
+            _teams = !_teams;
+            UpdateTeamsToggle();
+            if (_client != null && _client.IsConnected)
+                _client.Send(new PvpMsg { t = PvpMsgType.LobbyTeams, teams = _teams ? 1 : 0 });
+        }
+
         // ---- Arranque (solo anfitrion) ----
 
         private void StartMatch()
@@ -533,6 +574,7 @@ namespace WildWeapon.UI
             _host = m.host;
             _seat = m.seat;
             _waiters = Mathf.Max(0, m.waiters);
+            _teams = m.teams != 0;
             _code = string.IsNullOrEmpty(m.code) ? m.room : m.code;
             _roster.Clear();
             if (m.players != null) _roster.AddRange(m.players);
@@ -549,6 +591,11 @@ namespace WildWeapon.UI
             GameSession.PvpSeat = m.seat;
             GameSession.PvpHost = m.host;
             GameSession.PvpSeed = Mathf.Max(1, m.seed);
+            // Equipos: el anfitrion decide si la sala pelea por equipos o todos
+            // contra todos. El equipo propio viaja en el matched.
+            GameSession.PvpTeams = m.teams != 0;
+            GameSession.PvpTeam = m.team >= 0 ? m.team : Mathf.Abs(m.seat) % 4;
+            GameSession.PvpLocalName = PlayerName();
             GameSession.PvpOpps.Clear();
             if (m.opps != null) GameSession.PvpOpps.AddRange(m.opps);
             GameSession.PvpOpponentName = "LA SALA";
@@ -723,11 +770,13 @@ namespace WildWeapon.UI
             });
 
             var teamRt = NewRect(row.transform, "Team", LobbyLayout.TeamX, 0f, LobbyLayout.TeamW, LobbyLayout.FieldH);
-            var teamValue = NewText(teamRt, "Value", TeamText(slot.team), 18, Color.white);
+            string teamLabel = _teams ? TeamText(slot.team) : "SIN EQUIPOS";
+            var teamValue = NewText(teamRt, "Value", teamLabel, _teams ? 18 : 17,
+                _teams ? Color.white : new Color(1f, 0.80f, 0.45f));
             Stretch(teamValue.rectTransform);
             teamValue.rectTransform.offsetMin = new Vector2(34f, 0f);
             teamValue.rectTransform.offsetMax = new Vector2(-34f, 0f);
-            if (mine) Stepper(teamRt, teamValue, () =>
+            if (mine && _teams) Stepper(teamRt, teamValue, () =>
             {
                 int next = (slot.team + 1) % TeamNames.Length;
                 teamValue.text = TeamText(next);
@@ -802,9 +851,12 @@ namespace WildWeapon.UI
                     subLabel.text = "SALA " + _code + " · " + total + " / " + MaxPlayers + " COMBATIENTES";
                 if (countLabel != null)
                 {
+                    string modeText = _teams
+                        ? TeamCount() + (TeamCount() == 1 ? " EQUIPO" : " EQUIPOS")
+                        : "SIN EQUIPOS";
                     countLabel.text = humans + (humans == 1 ? " HUMANO" : " HUMANOS") +
                         (bots > 0 ? " · " + bots + (bots == 1 ? " BOT" : " BOTS") : "") +
-                        " · " + TeamCount() + (TeamCount() == 1 ? " EQUIPO" : " EQUIPOS") +
+                        " · " + modeText +
                         (_waiters > 0 ? " · " + _waiters + " EN ESPERA" : "");
                 }
                 if (footHint != null)
@@ -833,6 +885,90 @@ namespace WildWeapon.UI
                 SetButton(continueButton, false);
                 SetButton(backButton, true);
                 SetLabel(continueButton, "CONTINUAR");
+            }
+
+            UpdateTeamsToggle();
+        }
+
+        // =================================================================
+        // Boton de equipos (sala)
+        // =================================================================
+
+        /// <summary>
+        /// Crea el boton de equipos si la escena no lo trae cableado. Va debajo de
+        /// la botonera, centrado, y solo se ve cuando estas adentro de una sala.
+        /// </summary>
+        private void BuildTeamsToggle()
+        {
+            if (teamsButton == null)
+            {
+                var plate = modalButton != null ? modalButton : rowPlate;
+                var img = NewImage(transform, "BtnEquipos", plate, new Color(0.12f, 0.16f, 0.24f, 0.96f));
+                CenteredAt(img.rectTransform, new Vector2(0f, -492f), new Vector2(560f, 58f));
+                img.raycastTarget = true;
+                if (rowPlate != null && plate == rowPlate)
+                {
+                    img.type = Image.Type.Sliced;
+                    img.pixelsPerUnitMultiplier = 6f;
+                }
+
+                var outline = img.gameObject.AddComponent<Outline>();
+                outline.effectColor = new Color(0.36f, 0.86f, 1f, 0.22f);
+                outline.effectDistance = new Vector2(2f, -2f);
+
+                teamsButton = img.gameObject.AddComponent<Button>();
+                teamsButton.targetGraphic = img;
+                teamsButton.colors = Highlighted();
+                teamsButton.onClick.AddListener(ToggleTeams);
+
+                var fx = img.gameObject.AddComponent<MenuButtonFx>();
+                fx.hoverScale = 1.04f;
+                fx.normalColor = Color.white;
+                fx.hoverColor = new Color(0.55f, 0.90f, 1f);
+            }
+
+            if (_teamsLabel == null)
+            {
+                _teamsLabel = NewText(teamsButton.transform, "Label", "", 24, Color.white);
+                Stretch(_teamsLabel.rectTransform);
+                _teamsLabel.rectTransform.offsetMin = new Vector2(18f, 0f);
+                _teamsLabel.rectTransform.offsetMax = new Vector2(-18f, 0f);
+                var sh = _teamsLabel.gameObject.AddComponent<Shadow>();
+                sh.effectColor = new Color(0f, 0f, 0f, 0.75f);
+                sh.effectDistance = new Vector2(1.5f, -2f);
+            }
+
+            UpdateTeamsToggle();
+        }
+
+        /// <summary>Pinta el estado del boton: solo el anfitrion puede cambiarlo.</summary>
+        private void UpdateTeamsToggle()
+        {
+            if (teamsButton == null) return;
+
+            bool visible = _inRoom && _step == Step.Room;
+            teamsButton.gameObject.SetActive(visible);
+            if (!visible) return;
+
+            bool canToggle = _host && !_starting;
+            teamsButton.interactable = canToggle;
+
+            var group = teamsButton.GetComponent<CanvasGroup>();
+            if (group == null) group = teamsButton.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = _host ? (canToggle ? 1f : 0.55f) : 0.80f;
+
+            var img = teamsButton.targetGraphic as Image;
+            if (img != null)
+                img.color = _teams
+                    ? new Color(0.12f, 0.26f, 0.20f, 0.96f)
+                    : new Color(0.30f, 0.20f, 0.10f, 0.96f);
+
+            if (_teamsLabel != null)
+            {
+                _teamsLabel.text = _teams ? "EQUIPOS: ACTIVADOS" : "EQUIPOS: DESACTIVADOS";
+                _teamsLabel.color = _teams
+                    ? new Color(0.62f, 1f, 0.72f)
+                    : new Color(1f, 0.82f, 0.48f);
             }
         }
 
@@ -1111,11 +1247,13 @@ namespace WildWeapon.UI
             _connectRetry = ModalButton(_connectStep, "Retry", "REINTENTAR", new Color(0.52f, 0.92f, 0.55f),
                 new Vector2(-160f, -272f), new Vector2(300f, 84f), out _);
             _connectRetry.onClick.AddListener(RetryConnection);
-            _connectRetry.gameObject.SetActive(false);
 
-            var connectBack = ModalButton(_connectStep, "ConnectBack", "VOLVER AL MENU", new Color(0.72f, 0.80f, 0.95f),
-                new Vector2(170f, -272f), new Vector2(300f, 84f), out _);
-            connectBack.onClick.AddListener(Back);
+            _connectBack = ModalButton(_connectStep, "ConnectBack", "VOLVER AL MENU", new Color(0.72f, 0.80f, 0.95f),
+                new Vector2(0f, -272f), new Vector2(300f, 84f), out _);
+            _connectBack.onClick.AddListener(Back);
+
+            // Mientras no haya REINTENTAR al lado, VOLVER AL MENU va centrado.
+            SetConnectRetryVisible(false);
 
             _waitStep.gameObject.SetActive(false);
             _connectStep.gameObject.SetActive(true);

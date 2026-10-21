@@ -156,6 +156,9 @@ namespace WildWeapon.Pvp
                 case PvpMsgType.Matched:
                     string oppName = m.opp != null && !string.IsNullOrEmpty(m.opp.name) ? m.opp.name : "RIVAL";
                     int oppColor = m.opp != null ? m.opp.color : 1;
+                    GameSession.PvpTeams = m.teams != 0;
+                    GameSession.PvpTeam = m.team >= 0 ? m.team : Mathf.Abs(m.seat) % 4;
+                    GameSession.PvpLocalName = GetPlayerName();
                     GameSession.PvpOpps.Clear();
                     if (m.opps != null) GameSession.PvpOpps.AddRange(m.opps);
                     else if (m.opp != null) GameSession.PvpOpps.Add(m.opp);
@@ -282,7 +285,7 @@ namespace WildWeapon.Pvp
         private void BuildUi()
         {
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            var skin = FindFirstObjectByType<PvpOverlaySkin>();
+            var skin = FindAnyObjectByType<PvpOverlaySkin>();
 
             var canvasGo = new GameObject("Canvas", typeof(RectTransform));
             canvasGo.transform.SetParent(transform, false);

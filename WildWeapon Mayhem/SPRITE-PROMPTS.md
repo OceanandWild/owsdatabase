@@ -1025,3 +1025,66 @@ magick ww_katana.png -fuzz 5% -trim +repage -background none -resize 512x256 -gr
 - Play: la armería muestra las 5 fichas con sus stats; click en `MAZO DE GUERRA` con la ranura 2 activa deja `equipped=katana,mazo_oxidado` y la ficha marca el slot 2.
 - La arena hereda el equipamiento: `prefabTotal=5` (las 5 armas en el prefab) y `loadout=katana mazo_oxidado`; el HUD muestra `[1] Katana` / `[2] Mazo de Guerra`.
 
+## 19. Barra de habilidades (cards Q/E/R) + IA nueva de los bots (oct 2026)
+
+> Dos cosas en el mismo pase: (a) las **cards de habilidades** al pie de la pantalla (el arte `ww_abil_*` estaba en el repo pero sin usar) y (b) la **IA de los bots**, que pasa de "persigue y pega" a un cerebro de combate con objetivo, spacing, esquiva, castigo y habilidades.
+
+### 19.1 Barra de habilidades (pie de la pantalla)
+
+**Jerarquía** (la arma `WildWeaponBuilder.BuildAbilityBar`, canvas propio `AbilityBarCanvas`, `sortingOrder 52` — encima del HUD de partida (50) y debajo de la cuenta regresiva de PVP (60)):
+
+```
+AbilityBarCanvas (Canvas ScreenSpaceOverlay + CanvasScaler 1920x1080)
+└── AbilityBar (CanvasGroup, abajo al centro, 720x230)
+    ├── Header      ww_abil_header   (300x64)  "HABILIDADES"  |  <arma equipada>
+    ├── Cards       (HorizontalLayoutGroup, gap 22)
+    │   ├── CardQ   ww_abil_card (96x112) + Icon + Cooldown + Key + Timer + Name
+    │   ├── CardE
+    │   └── CardR
+    └── AdrenalineRail  ww_abil_rail (380x29) + Fill + "ADRENALINA 0 / 100"
+```
+
+| Pieza | Medida | Rol |
+|---|---|---|
+| `ww_abil_card` | 376×440 (0.85:1) | Placa de cada habilidad: ventana oscura arriba (emblema) + ranura de acero abajo (nombre). Se usa 96×112. |
+| `ww_abil_header` | 312×76 (4.1:1) | Placa de titulo: "HABILIDADES" a la izquierda, nombre del arma a la derecha. |
+| `ww_abil_rail` | 512×38 (13.5:1) | Riel de adrenalina (canal largo de acero). |
+
+**Reglas de montaje**
+
+- Los **emblemas** no son arte: se generan por codigo (`Scripts/UI/AbilityIcons.cs`, una textura 128×128 por `AbilityKind`: anillo+hoja / galones / ocho rayos). Son glifos blancos planos que el HUD tiñe (listo = blanco, cooldown = gris, sin adrenalina = rojo).
+- El **cooldown** es un `Image` tipo `Filled` / `Radial360` (origen arriba, antihorario) sobre el emblema + los segundos restantes en el centro.
+- El **nombre** va en la ranura de acero de abajo (texto oscuro) y la **tecla** (Q/E/R) en la esquina de la ventana.
+- La barra se actualiza en runtime (`AbilityBarHud`): cooldown, adrenalina, y **cambio de arma** (las cards cambian al kit de Q/E/R del arma equipada).
+- El pie de controles del HUD de partida se movio a una caja de 700 px abajo a la izquierda: el centro del pie lo ocupa la barra.
+- El canvas de la barra es **propio y siempre activo** (raiz `HUD_AbilityBar` en la escena Arena), asi que se ve en el duelo local, en supervivencia y en la sala PVP (en PVP el pie ya se sube arriba, dejando libre el pie).
+
+**Kit de habilidades por arma** (antes solo la Katana tenia Q/E/R; ahora las 5 armas del arsenal lo tienen, asi las cards nunca salen vacias):
+
+| Arma | Q | E | R |
+|---|---|---|---|
+| Katana | Corte Circular (20, cd 6, r 1.2) | Dash-Tajo (26, cd 7, dash 2.5) | Corte en 8 Direcciones (48, adrenalina 100) |
+| Hacha Gris | Corte Circular (25, cd 7, r 1.35) | Golpe de Hacha (33, cd 8, dash 2.0) | Tormenta de Ejes (56, adrenalina 100) |
+| Mazo de Guerra | Corte Circular (32, cd 8, r 1.5) | Mandoble (38, cd 9, dash 1.8) | Ruptura (64, adrenalina 100) |
+| Lanza de Plasma | Barrido de Punta (18, cd 5, r 1.5) | Estocada (24, cd 6, dash 3.2) | Lanza de Plasma (42, adrenalina 100) |
+| Sierra Giratoria | Corte Circular (14, cd 4.5, r 1.15) | Tajo en Marcha (20, cd 5, dash 2.8) | Tormenta de Sierras (36, adrenalina 100) |
+
+### 19.2 IA nueva de los bots
+
+**Nucleo compartido**: `Scripts/Core/BotCombatBrain.cs` (no es MonoBehaviour). La usan las dos IA del juego —supervivencia (`EnemyBot`) y sala PVP (`PvpBotBrain`)— que siguen resolviendolo que es distinto en cada una: locomocion, decks, cadaveres y obstaculos.
+
+Que decide el cerebro (re-evalua cada 0.09 s):
+
+1. **Objetivo con puntaje** (no "el mas cercano"): distancia, si esta al mismo nivel, **vida baja** (rematar), **telegraph** (castigo) y **recovery** (vulnerable). Con histeresis: no cambia de rival por un detalle.
+2. **Spacing**: mantiene la distancia que quiere (`preferredGap` x alcance del arma) en vez de meterse encima.
+3. **Intercepcion**: apunta a donde va a estar el rival (prediccion con tope de 0.7 unidades), no a donde esta.
+4. **Esquiva**: si el rival esta por pegarle (telegraph del swing o windup de habilidad), el bot se aparta o **hace dash** (en PVP, con i-frames).
+5. **Castigo**: si el rival esta en recovery, entra sin esperar la reaccion.
+6. **Habilidades**: elige la mejor jugada disponible — R si tiene adrenalina y hay enemigos cerca, Q si el rival esta dentro del radio, E para cerrar distancia — y castea con la mira predicha.
+7. **Perfil por bot** (`BotDef`): agresividad, pericia, distancia preferida, prob. de esquivar, uso de habilidades y tiempo de reaccion. La Sierra orbita y castiga rapido, el Lancero castea desde lejos, el Bruto se come la adrenalina y entra a todo.
+
+**Habilidades en los bots**: `AbilityCaster` acepta ahora un kit propio (`directAbilities` Q/E/R) para los bots que no tienen loadout, mas un punto de mira manual (`aimOverride`) para que el cerebro apunte al castear. Los bots de supervivencia reciben el caster por el builder; los de la sala PVP ya lo tenian (son clones del jugador) y ahora su cast se reenvia por red (`PvpMsgType.Cast` con el asiento del bot).
+
+**Nota de robustez**: los cooldowns del `AbilityCaster` se inicializan al declarar el campo (no en `Awake`): si el portador arranca antes de que corra su `Awake`, la barra de habilidades no tira `NullReferenceException`.
+
+

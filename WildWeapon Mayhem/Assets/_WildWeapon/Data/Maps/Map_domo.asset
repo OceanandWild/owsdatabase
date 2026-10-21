@@ -21,6 +21,7 @@ MonoBehaviour:
   decorNote: 'Domo polar: grietas, ventiscas laterales y rafagas que cruzan la cancha'
   arenaSize: {x: 48, y: 26}
   backgroundColor: {r: 0.05, g: 0.08, b: 0.12, a: 1}
+  groundOffsetY: 1.1
   floorSprite: {fileID: 21300000, guid: a2675589085b9534988f561fa12881aa, type: 3}
   floorSingle: 1
   floorTileSize: 4.5
@@ -34,143 +35,185 @@ MonoBehaviour:
   platformShadow: {fileID: 21300000, guid: 0cd746471763c594b90f98a9037d1686, type: 3}
   platformTint: 1
   platforms:
-  - name: Media
-    sizeClass: 1
-    center: {x: 0, y: 0}
-    size: {x: 5.2, y: 2.4}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Baja
-    sizeClass: 2
-    center: {x: 0, y: 8.6}
-    size: {x: 6.6, y: 2.2}
-    height: 0.55
-    mirrored: 1
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: 16.8, y: 6.8}
-    size: {x: 4.6, y: 2.4}
-    height: 0.95
-    mirrored: 1
-    rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 17.6, y: -6.8}
-    size: {x: 3.6, y: 2}
+    center: {x: 19.7, y: -11}
+    size: {x: 3.2, y: 1}
     height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 15.9, y: -8.6}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
     mirrored: 1
     rotation: 0
   - name: Alta
     sizeClass: 0
-    center: {x: 17.6, y: 0}
-    size: {x: 3.6, y: 2.4}
+    center: {x: 19.7, y: -6.2}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 15.9, y: -3.7999997}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 19.7, y: -1.3999996}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 15.9, y: 1.0000005}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 19.7, y: 3.4000006}
+    size: {x: 3.2, y: 1}
     height: 1.35
     mirrored: 1
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: 23.75013, y: 21.92401}
-    size: {x: 4.1433764, y: 1.9969244}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: 7.047334, y: -8.71192}
-    size: {x: 4.5158567, y: 2.2001753}
-    height: 1.35
-    mirrored: 0
-    rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: 27.268702, y: 4.909198}
-    size: {x: 4.7767363, y: 1.9435241}
-    height: 1.35
-    mirrored: 0
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: -28.454458, y: 15.990882}
-    size: {x: 3.917232, y: 1.9561034}
-    height: 0.95
-    mirrored: 0
+    sizeClass: 0
+    center: {x: 15.9, y: 5.8000007}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
     rotation: 0
   - name: Baja
-    sizeClass: 1
-    center: {x: -40.626568, y: -4.7732005}
-    size: {x: 4.9245725, y: 2.47223}
+    sizeClass: 0
+    center: {x: 19.7, y: 8.200001}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 11.5, y: -9.799999}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 7.7000003, y: -7.399999}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 11.5, y: -4.999999}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 7.7000003, y: -2.599999}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 11.5, y: -0.19999886}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 7.7000003, y: 2.2000012}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 11.5, y: 4.6000013}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 7.7000003, y: 7.0000014}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 0, y: -11}
+    size: {x: 3.2, y: 1}
     height: 0.55
     mirrored: 0
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: -20.385311, y: 16.953129}
-    size: {x: 3.286574, y: 2.3831792}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: 3.616563, y: 14.779859}
-    size: {x: 4.178841, y: 2.6207}
-    height: 0.55
+    sizeClass: 0
+    center: {x: 0, y: -8.6}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
     mirrored: 0
     rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: 26.967922, y: -12.421364}
-    size: {x: 4.591068, y: 2.7132125}
+    sizeClass: 0
+    center: {x: 0, y: -6.2}
+    size: {x: 3.2, y: 1}
     height: 1.35
     mirrored: 0
     rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: -8.315518, y: 15.500327}
-    size: {x: 3.899016, y: 1.8563954}
-    height: 0.55
-    mirrored: 0
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: -14.768611, y: -18.021318}
-    size: {x: 3.9498372, y: 2.28203}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: 0.22892307, y: -14.214737}
-    size: {x: 3.511653, y: 2.34409}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: -22.884714, y: -18.941135}
-    size: {x: 4.739807, y: 2.3541036}
-    height: 0.55
+  - name: Alta
+    sizeClass: 0
+    center: {x: 0, y: -3.7999997}
+    size: {x: 3.2, y: 1}
+    height: 1.35
     mirrored: 0
     rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: 40.74211, y: -15.931591}
-    size: {x: 4.7270284, y: 2.6036925}
+    sizeClass: 0
+    center: {x: 0, y: -1.3999996}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 0, y: 1.0000005}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 0
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 0, y: 3.4000006}
+    size: {x: 3.2, y: 1}
     height: 1.35
     mirrored: 0
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: 13.86808, y: -18.457235}
-    size: {x: 3.592498, y: 2.562638}
-    height: 0.95
+    sizeClass: 0
+    center: {x: 0, y: 5.8000007}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
     mirrored: 0
     rotation: 0
   - name: Baja
-    sizeClass: 1
-    center: {x: -39.10158, y: -21.327084}
-    size: {x: 4.7559614, y: 2.7728672}
+    sizeClass: 0
+    center: {x: 0, y: 8.200001}
+    size: {x: 3.2, y: 1}
     height: 0.55
     mirrored: 0
     rotation: 0

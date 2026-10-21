@@ -46,3 +46,19 @@ crashlytics-build.properties
 # Sistema
 .DS_Store
 Thumbs.db
+.studio/
+node_modules
+.git.studio-backup
+dist/
+output/
+.env
+.playwright-cli/
+
+# Tooling local (Aura) - no pertenece al juego
+/.Aura/
+/studio.json
+/Packages/Aura/
+
+# Unity: carpeta de recuperacion de escenas tras un crash
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta

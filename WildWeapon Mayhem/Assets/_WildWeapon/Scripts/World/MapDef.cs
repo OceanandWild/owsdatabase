@@ -46,9 +46,9 @@ namespace WildWeapon
     }
 
     /// <summary>
-    /// Tramo elevado de la arena. Es "one-way": se camina por debajo sin colision y
-    /// se sube saltando desde abajo; desde arriba no se puede bajar a traves del deck
-    /// (hay que caminar hasta el borde). La altura vive en <see cref="HeightBody"/>.
+    /// Tramo elevado de la arena. Se comporta como plataforma one-way en vista
+    /// lateral: se atraviesa saltando desde abajo, se aterriza arriba y los
+    /// costados no bloquean.
     /// </summary>
     [Serializable]
     public class MapPlatform
@@ -57,7 +57,7 @@ namespace WildWeapon
         public MapPlatformSize sizeClass = MapPlatformSize.Mediana;
         [Tooltip("Centro del deck, en coordenadas de arena (0,0 = centro)")] public Vector2 center = Vector2.zero;
         [Tooltip("Huella del deck (ancho x alto en unidades)")] public Vector2 size = new Vector2(4.6f, 2.6f);
-        [Tooltip("Altura del deck (unidades de Z). El salto llega a ~1.6")] [Min(0.25f)] public float height = 0.95f;
+        [Tooltip("Altura heredada del modelo 2.5D; el gameplay usa la Y del centro")] [Min(0.25f)] public float height = 0.95f;
         [Tooltip("Genera tambien la copia espejada (180 grados), para el duelo 1v1")] public bool mirrored = true;
         [Tooltip("Grados de rotacion del sprite (solo visual)")] public float rotation = 0f;
     }
@@ -76,7 +76,7 @@ namespace WildWeapon
         [Tooltip("Ventana en la que el peligro golpea")] [Min(0.05f)] public float active = 0.45f;
         public float knockback = 3f;
         [Tooltip("Frenado aplicado mientras el peligro esta activo (0..0.8)")] [Range(0f, 0.8f)] public float slow = 0f;
-        [Tooltip("Por encima de esta altura (Z) el peligro no afecta: la plataforma te salva")] public float maxHeight = 0.5f;
+        [Tooltip("Altura por encima del centro del peligro a la que ya no afecta: subirse a una plataforma te salva")] public float maxHeight = 0.5f;
         public Color color = new Color(1f, 0.35f, 0.3f);
         [Tooltip("Genera tambien la copia espejada (180 grados)")] public bool mirrored = false;
         [Tooltip("Desfasaje del ciclo (para que no golpeen todos a la vez)")] public float phase = 0f;
@@ -101,6 +101,8 @@ namespace WildWeapon
         [Header("Arena")]
         public Vector2 arenaSize = new Vector2(20f, 11f);
         public Color backgroundColor = new Color(0.06f, 0.05f, 0.07f);
+        [Tooltip("Altura del piso jugable sobre el borde inferior de la arena (en unidades)")]
+        [Min(0.2f)] public float groundOffsetY = 1.1f;
 
         [Header("Fondo (entorno del lugar)")]
         [Tooltip("Entorno del mapa: un solo sprite estirado a todo el encuadre de camara (el area de juego es el centro limpio)")] public Sprite floorSprite;

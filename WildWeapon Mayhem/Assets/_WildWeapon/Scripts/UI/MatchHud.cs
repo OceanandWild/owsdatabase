@@ -69,6 +69,7 @@ namespace WildWeapon.UI
         private readonly Color[] _accents = { Color.white, Color.white };
         private Vector2 _statusHome;
         private float _statusShow;
+        private PvpRosterHud _roster;
 
         private void Awake()
         {
@@ -97,6 +98,8 @@ namespace WildWeapon.UI
             float dt = Time.unscaledDeltaTime;   // el HUD no se congela con el hitstop
             var pvp = PvpMatchManager.Instance;
             bool pvpRunning = pvp != null && pvp.Running;
+
+            UpdatePvpRoster(pvp, pvpRunning);
 
             // ---- Marcador de ronda + reloj ----
             if (roundLabel != null) roundLabel.text = $"RONDA {mgr.RoundNumber}";
@@ -156,8 +159,105 @@ namespace WildWeapon.UI
             // ---- Pie con los controles ----
             if (footer != null)
                 footer.text = pvpRunning
-                    ? "PVP ONLINE - WASD + mouse (click ataca, Shift/Space dash, X cambia arma, Q/E/R habilidades) - Esc sale de la partida"
-                    : "DUELO - J1: WASD + mouse (click ataca, Shift/Space dash, X cambia arma) - J2: mando o flechas (',' ataca) - Esc menu";
+                    ? "PVP ONLINE\nWASD + mouse · click ataca · Shift dash\nEspacio: salta y doble salto · X: cambia arma\nQ/E/R: habilidades · Esc: sale de la partida"
+                    : "DUELO - J1: WASD + mouse (click ataca, Shift dash, Espacio salta y hace doble salto, X cambia arma) - J2: mando o flechas (',' ataca) - Esc menu";
+
+            UpdateFooterLayout(pvpRunning);
+        }
+
+        // =================================================================
+        // Pie de controles: en PVP se cuelga arriba (debajo del tablero de equipos)
+        // para dejar libre la franja de abajo, donde va el panel de habilidades.
+        // =================================================================
+
+        private Vector2 _footerHomePos;
+        private Vector2 _footerHomeSize;
+        private Vector2 _footerHomeAnchorMin;
+        private Vector2 _footerHomeAnchorMax;
+        private Vector2 _footerHomePivot;
+        private bool _footerHomeReady;
+        private bool _footerTopMode;
+        private float _footerTopApplied = -999f;
+
+        private void UpdateFooterLayout(bool pvpRunning)
+        {
+            if (footer == null) return;
+
+            var rt = footer.rectTransform;
+            if (!_footerHomeReady)
+            {
+                _footerHomeAnchorMin = rt.anchorMin;
+                _footerHomeAnchorMax = rt.anchorMax;
+                _footerHomePivot = rt.pivot;
+                _footerHomePos = rt.anchoredPosition;
+                _footerHomeSize = rt.sizeDelta;
+                _footerHomeReady = true;
+            }
+
+            // Solo se remapea si cambio el modo o cambio la altura del tablero.
+            float top = pvpRunning ? (_roster != null ? _roster.BottomFromTop : 120f) : 0f;
+            if (_footerTopMode == pvpRunning && Mathf.Abs(top - _footerTopApplied) < 0.5f) return;
+            _footerTopMode = pvpRunning;
+            _footerTopApplied = top;
+
+            if (pvpRunning)
+            {
+                // Colgado arriba a la izquierda, debajo del tablero de equipos.
+                rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+                rt.pivot = new Vector2(0f, 1f);
+                rt.anchoredPosition = new Vector2(16f, -(top + 6f));
+                rt.sizeDelta = new Vector2(268f, 46f);
+                footer.alignment = TextAnchor.UpperLeft;
+                footer.fontSize = 10;
+                footer.lineSpacing = 0.92f;
+            }
+            else
+            {
+                rt.anchorMin = _footerHomeAnchorMin;
+                rt.anchorMax = _footerHomeAnchorMax;
+                rt.pivot = _footerHomePivot;
+                rt.anchoredPosition = _footerHomePos;
+                rt.sizeDelta = _footerHomeSize;
+                footer.alignment = TextAnchor.UpperLeft;
+                footer.fontSize = 14;
+                footer.lineSpacing = 0.95f;
+            }
+        }
+
+        /// <summary>
+        /// En PVP las placas J1/J2 se reemplazan por el tablero inferior: equipos
+        /// con iconos de perfil cuando hay equipos, o lista por bajas en todos
+        /// contra todos. En el duelo local las placas siguen como siempre.
+        /// </summary>
+        private void UpdatePvpRoster(PvpMatchManager pvp, bool pvpRunning)
+        {
+            if (slots != null)
+            {
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    var slot = slots[i];
+                    if (slot == null || slot.panel == null) continue;
+                    var plate = slot.panel.transform.parent != null
+                        ? slot.panel.transform.parent.gameObject
+                        : slot.panel.gameObject;
+                    if (plate.activeSelf == pvpRunning) plate.SetActive(!pvpRunning);
+                }
+            }
+
+            if (!pvpRunning)
+            {
+                if (_roster != null) _roster.gameObject.SetActive(false);
+                return;
+            }
+
+            if (_roster == null)
+            {
+                var font = footer != null ? footer.font
+                    : (roundLabel != null ? roundLabel.font : statusText != null ? statusText.font : null);
+                _roster = PvpRosterHud.Create(transform, font, pvp);
+            }
+
+            _roster.Refresh();
         }
 
         private void UpdateSlot(DuelManager mgr, PvpMatchManager pvp, bool pvpRunning, int index, float dt)

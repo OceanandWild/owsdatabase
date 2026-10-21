@@ -21,6 +21,7 @@ MonoBehaviour:
   decorNote: Tablones hundidos, sierras oxidadas y pilas de chatarra del primer prototipo
   arenaSize: {x: 32, y: 18}
   backgroundColor: {r: 0.09, g: 0.06, b: 0.04, a: 1}
+  groundOffsetY: 1.1
   floorSprite: {fileID: 21300000, guid: 59be97abddfc0aa49a83bd6dbe95787a, type: 3}
   floorSingle: 1
   floorTileSize: 4.5
@@ -34,53 +35,81 @@ MonoBehaviour:
   platformShadow: {fileID: 21300000, guid: 0cd746471763c594b90f98a9037d1686, type: 3}
   platformTint: 1
   platforms:
-  - name: Media
-    sizeClass: 0
-    center: {x: 0, y: 0}
-    size: {x: 3.6, y: 2}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 10, y: 5.2}
-    size: {x: 3.8, y: 2}
+    center: {x: 11.900001, y: -7.4}
+    size: {x: 3.2, y: 1}
     height: 0.55
     mirrored: 1
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: 16.660872, y: -5.8835483}
-    size: {x: 3.9903846, y: 2.652173}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
-  - name: Media
-    sizeClass: 1
-    center: {x: 3.9947107, y: -11.224597}
-    size: {x: 4.120534, y: 2.4060597}
-    height: 0.95
-    mirrored: 0
+    sizeClass: 0
+    center: {x: 8.5, y: -5}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
     rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: -17.30441, y: 4.1093082}
-    size: {x: 3.7331362, y: 2.65382}
+    sizeClass: 0
+    center: {x: 11.900001, y: -2.6}
+    size: {x: 3.2, y: 1}
     height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 8.5, y: -0.19999981}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 11.900001, y: 2.2000003}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 8.5, y: 4.6000004}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: -6.3, y: -6.3}
+    size: {x: 3.2, y: 1}
+    height: 0.55
     mirrored: 0
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: 22.837116, y: -9.409294}
-    size: {x: 4.87412, y: 2.0299084}
+    sizeClass: 0
+    center: {x: -2.6999998, y: -3.9}
+    size: {x: 3.2, y: 1}
     height: 0.95
     mirrored: 0
     rotation: 0
   - name: Baja
-    sizeClass: 1
-    center: {x: 6.3471546, y: 11.258974}
-    size: {x: 4.6478515, y: 2.1916955}
+    sizeClass: 0
+    center: {x: 0.9, y: -6.3}
+    size: {x: 3.2, y: 1}
     height: 0.55
+    mirrored: 0
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 4.5, y: -3.9}
+    size: {x: 3.2, y: 1}
+    height: 0.95
+    mirrored: 0
+    rotation: 0
+  - name: Central
+    sizeClass: 0
+    center: {x: 0, y: 0}
+    size: {x: 3.2, y: 1}
+    height: 1.35
     mirrored: 0
     rotation: 0
   obstacles: []

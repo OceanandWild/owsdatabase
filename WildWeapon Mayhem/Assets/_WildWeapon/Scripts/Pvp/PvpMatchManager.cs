@@ -26,6 +26,12 @@ namespace WildWeapon.Pvp
         public GameObject playerPrefab;
         public Transform[] spawns;
 
+        [Header("Cuerpos muertos")]
+        [Tooltip("Segundos que el cadaver de un combatiente queda tirado antes de desvanecerse. En PVP los cuerpos se acumulan en el piso y hay que limpiarlos.")]
+        public float corpseLifetime = 4.5f;
+        [Tooltip("Duracion del desvanecido del cadaver.")]
+        public float corpseFadeTime = 1f;
+
         [Serializable]
         public class RemoteEntry
         {
@@ -39,8 +45,18 @@ namespace WildWeapon.Pvp
             public PvpBotBrain brain;
             [NonSerialized] public Action<MeleeWeapon, Vector2> attackRelay;
             [NonSerialized] public Action<PlayerHealth> diedRelay;
+            [NonSerialized] public Action<int, AbilityKind> castRelay;
         }
         public readonly List<RemoteEntry> remotes = new List<RemoteEntry>();
+
+        /// <summary>Combatientes del tablero (local + remotos), ordenados por asiento.</summary>
+        public readonly List<PvpCombatant> Roster = new List<PvpCombatant>();
+        /// <summary>Sube cuando cambia el plantel: el HUD reconstruye las tarjetas.</summary>
+        public int RosterVersion { get; private set; }
+        /// <summary>Bajas por asiento que arbitra el server.</summary>
+        public int[] Kills { get; private set; } = new int[0];
+        /// <summary>Rondas ganadas por asiento (el HUD suma por equipo).</summary>
+        public int[] RoundScores { get; private set; } = new int[0];
 
         public int LocalIndex { get; private set; }
         public bool Running { get; private set; }
@@ -87,18 +103,32 @@ namespace WildWeapon.Pvp
             }
 
             _localHealth = _local.Health;
+            ConfigureCorpse(_localHealth);
 
             // Colores: el local con su color elegido.
             if (_local.visual != null) _local.visual.SetPaintColor(GameSession.GetColor(0));
-            if (_localHealth != null) _localHealth.team = 0;
-            _local.scheme = Gamepad.current != null ? InputScheme.Auto : InputScheme.KeyboardMouse;
+            if (_localHealth != null) _localHealth.team = TeamForSeat(LocalIndex, GameSession.PvpTeam);
+            // El local juega con teclado y mouse (WASD) como dice el HUD. El mando
+            // entra solo si el jugador lo esta usando: antes, que hubiera un mando
+            // conectado hacia que el teclado se ignorara y el jugador no se moviera.
+            _local.scheme = InputScheme.KeyboardMouse;
+            _local.acceptGamepad = true;
 
             // Remotos: uno por cada asiento del lobby (humanos y bots). Los bots que
             // agrego el anfitrion corren aca con IA; en el resto de las maquinas son
             // replicas comunes y se interpolan desde el estado que manda el anfitrion.
             var opps = (GameSession.PvpOpps != null && GameSession.PvpOpps.Count > 0)
                 ? GameSession.PvpOpps
-                : new List<PvpOpp> { new PvpOpp { name = GameSession.PvpOpponentName, color = GameSession.PvpOpponentColor, seat = LocalIndex == 0 ? 1 : 0 } };
+                : new List<PvpOpp>
+                {
+                    new PvpOpp
+                    {
+                        name = GameSession.PvpOpponentName,
+                        color = GameSession.PvpOpponentColor,
+                        seat = LocalIndex == 0 ? 1 : 0,
+                        team = LocalIndex == 0 ? 1 : 0,
+                    }
+                };
 
             foreach (var opp in opps)
             {
@@ -108,7 +138,9 @@ namespace WildWeapon.Pvp
 
                 var pc = PawnFor(seat);
                 if (pc == null) continue;
-                AddRemote(seat, pc, opp != null ? opp.color : seat, opp != null && opp.bot && IsHost);
+                AddRemote(seat, pc, opp != null ? opp.color : seat,
+                    opp != null && opp.bot && IsHost,
+                    TeamForSeat(seat, opp != null ? opp.team : seat % 4));
             }
 
             duel.pvpDriven = true;
@@ -130,6 +162,10 @@ namespace WildWeapon.Pvp
             _client.Send(new PvpMsg { t = PvpMsgType.Ready });
             Running = true;
             _waitFightTimer = 20f;
+            RebuildRoster();
+            int seats = LocalIndex + 1;
+            foreach (var r in remotes) seats = Mathf.Max(seats, r.seat + 1);
+            if (Kills == null || Kills.Length < seats) Kills = new int[seats];
             Debug.Log($"[WW-PVP] Arena lista - local J{LocalIndex + 1} ({(IsHost ? "anfitrion" : "invitado")}) con {remotes.Count} remotos.");
         }
 
@@ -150,7 +186,7 @@ namespace WildWeapon.Pvp
             return go.GetComponent<PlayerController>();
         }
 
-        /// <summary>Punto de partida del asiento: los del mapa y, si faltan, un anillo al centro.</summary>
+        /// <summary>Punto de partida del asiento: los del mapa (siempre sobre el piso).</summary>
         private Vector2 SpawnFor(int seat)
         {
             var points = _map != null ? _map.BotSpawnPoints : null;
@@ -159,7 +195,32 @@ namespace WildWeapon.Pvp
             float half = _map != null && _map.map != null ? Mathf.Min(_map.map.arenaSize.x, _map.map.arenaSize.y) * 0.5f : 9f;
             float r = half * 0.6f;
             float a = (Mathf.Abs(seat) % 15) / 15f * Mathf.PI * 2f;
-            return new Vector2(Mathf.Cos(a) * r, Mathf.Sin(a) * r);
+            float y = (_map != null ? _map.FloorSpawnY : PlatformSurface.FloorY + 0.55f);
+            return new Vector2(Mathf.Cos(a) * r, y);
+        }
+
+        /// <summary>
+        /// El cadaver de los caidos se desvanece solo. En una sala PVP los cuerpos
+        /// se acumulan en el piso (el que muere no se va hasta el reset de ronda) y
+        /// taparian la arena: cada cliente los borra a su ritmo, asi que el efecto
+        /// se ve igual en todos.
+        /// </summary>
+        private void ConfigureCorpse(PlayerHealth health)
+        {
+            if (health == null) return;
+            health.corpseLifetime = corpseLifetime;
+            health.corpseFadeTime = corpseFadeTime;
+        }
+
+        /// <summary>
+        /// Equipo con el que pelea un asiento. Con los equipos apagados (todos contra
+        /// todos) cada combatiente recibe un equipo unico: los filtros de fuego amigo
+        /// dejan pasar todos los golpes.
+        /// </summary>
+        private static int TeamForSeat(int seat, int roomTeam)
+        {
+            if (!GameSession.PvpTeams) return GameSession.FfaTeam(seat);
+            return roomTeam >= 0 ? roomTeam : Mathf.Abs(seat) % 4;
         }
 
         private RemoteEntry EnsureRemote(int seat)
@@ -172,17 +233,88 @@ namespace WildWeapon.Pvp
             if (pc == null) return null;
 
             var opp = GameSession.PvpOpps.Find(o => o != null && o.seat == seat);
-            return AddRemote(seat, pc, opp != null ? opp.color : seat, opp != null && opp.bot && IsHost);
+            return AddRemote(seat, pc, opp != null ? opp.color : seat,
+                opp != null && opp.bot && IsHost,
+                TeamForSeat(seat, opp != null ? opp.team : seat % 4));
         }
 
-        private RemoteEntry AddRemote(int seat, PlayerController pc, int colorIndex, bool botHere)
+        // =================================================================
+        // Tablero PVP (iconos, bajas y rondas)
+        // =================================================================
+
+        public int KillsFor(int seat) =>
+            Kills != null && seat >= 0 && seat < Kills.Length ? Kills[seat] : 0;
+
+        public int ScoreFor(int seat) =>
+            RoundScores != null && seat >= 0 && seat < RoundScores.Length ? RoundScores[seat] : 0;
+
+        private void SetKills(int[] kills)
+        {
+            if (kills == null) return;
+            if (Kills == null || Kills.Length < kills.Length) Kills = new int[kills.Length];
+            Array.Copy(kills, Kills, kills.Length);
+        }
+
+        private void SetScores(int[] scores)
+        {
+            if (scores == null) return;
+            if (RoundScores == null || RoundScores.Length < scores.Length) RoundScores = new int[scores.Length];
+            Array.Copy(scores, RoundScores, scores.Length);
+        }
+
+        /// <summary>Rehace el plantel que dibuja el HUD con el local y los remotos vivos.</summary>
+        private void RebuildRoster()
+        {
+            Roster.Clear();
+
+            if (_local != null)
+            {
+                Roster.Add(new PvpCombatant
+                {
+                    seat = LocalIndex,
+                    name = string.IsNullOrEmpty(GameSession.PvpLocalName) ? "VOS" : GameSession.PvpLocalName,
+                    colorIndex = GameSession.GetColorIndex(0),
+                    team = _localHealth != null ? _localHealth.team : GameSession.PvpTeam,
+                    isLocal = true,
+                    health = _localHealth,
+                    visual = _local.visual
+                });
+            }
+
+            foreach (var entry in remotes)
+            {
+                PvpOpp opp = null;
+                if (GameSession.PvpOpps != null)
+                {
+                    foreach (var o in GameSession.PvpOpps)
+                        if (o != null && o.seat == entry.seat) { opp = o; break; }
+                }
+
+                Roster.Add(new PvpCombatant
+                {
+                    seat = entry.seat,
+                    name = opp != null && !string.IsNullOrEmpty(opp.name) ? opp.name : "J" + (entry.seat + 1),
+                    colorIndex = opp != null ? opp.color : entry.seat,
+                    team = entry.health != null ? entry.health.team : (opp != null ? opp.team : 0),
+                    bot = entry.bot,
+                    health = entry.health,
+                    visual = entry.pc != null ? entry.pc.visual : null
+                });
+            }
+
+            Roster.Sort((a, b) => a.seat.CompareTo(b.seat));
+            RosterVersion++;
+        }
+
+        private RemoteEntry AddRemote(int seat, PlayerController pc, int colorIndex, bool botHere, int team)
         {
             var health = pc.Health;
             if (health != null)
             {
-                health.team = 1;
+                health.team = team;
                 health.networkMirror = !botHere;    // el bot del anfitrion es simulacion local
             }
+            ConfigureCorpse(health);
             if (pc.visual != null)
                 pc.visual.SetPaintColor(GameSession.Palette[Mathf.Clamp(colorIndex, 0, GameSession.Palette.Length - 1)]);
 
@@ -207,6 +339,7 @@ namespace WildWeapon.Pvp
             }
 
             remotes.Add(entry);
+            RebuildRoster();
             return entry;
         }
 
@@ -216,6 +349,7 @@ namespace WildWeapon.Pvp
             if (entry == null) return;
 
             remotes.Remove(entry);
+            RebuildRoster();
             UnhookRemoteEvents(entry);
             if (entry.pc == null) return;
 
@@ -239,6 +373,12 @@ namespace WildWeapon.Pvp
                 entry.diedRelay = _ => OnBotDied(entry);
                 entry.health.Died += entry.diedRelay;
             }
+            // El bot tambien castea habilidades: los demas clientes tienen que verlo.
+            if (entry.pc != null && entry.pc.Abilities != null)
+            {
+                entry.castRelay = (slot, kind) => SendBotCast(entry, slot, kind);
+                entry.pc.Abilities.CastStarted += entry.castRelay;
+            }
         }
 
         private void UnhookRemoteEvents(RemoteEntry entry)
@@ -257,6 +397,11 @@ namespace WildWeapon.Pvp
                         if (w != null) w.Attacked -= entry.attackRelay;
                 entry.attackRelay = null;
             }
+            if (entry.castRelay != null && entry.pc != null && entry.pc.Abilities != null)
+            {
+                entry.pc.Abilities.CastStarted -= entry.castRelay;
+                entry.castRelay = null;
+            }
         }
 
         private void SendBotAttack(RemoteEntry entry, MeleeWeapon weapon)
@@ -270,10 +415,22 @@ namespace WildWeapon.Pvp
             _client.Send(new PvpMsg { t = PvpMsgType.Attack, seat = entry.seat, w = index, ax = entry.pc != null ? entry.pc.AimDir.x : 1f, ay = entry.pc != null ? entry.pc.AimDir.y : 0f });
         }
 
+        /// <summary>Habilidad que lanzo un bot del anfitrion: se reenvia a los demas clientes.</summary>
+        private void SendBotCast(RemoteEntry entry, int slot, AbilityKind kind)
+        {
+            if (_client == null || !_client.IsConnected || entry == null) return;
+            _client.Send(new PvpMsg { t = PvpMsgType.Cast, seat = entry.seat, k = (int)kind, w = slot });
+        }
+
         private void OnBotDied(RemoteEntry entry)
         {
             if (_client == null || !_client.IsConnected || entry == null) return;
-            _client.Send(new PvpMsg { t = PvpMsgType.Died, seat = entry.seat });
+            _client.Send(new PvpMsg
+            {
+                t = PvpMsgType.Died,
+                seat = entry.seat,
+                killer = KillerSeatOf(entry.health)
+            });
             Debug.Log($"[WW-PVP] Bot J{entry.seat + 1} eliminado (lo arbitra el anfitrion).");
         }
 
@@ -288,6 +445,8 @@ namespace WildWeapon.Pvp
                 case PvpMsgType.RoundStart:
                     _deathSent = false;
                     _waitFightTimer = -1f;
+                    SetScores(m.scores);
+                    SetKills(m.kills);
                     duel.PvpRoundStart(m.round, m.scores);
                     ResetRemotesForRound();
                     if (m.round <= 1 && countdown != null) countdown.Play();
@@ -295,7 +454,13 @@ namespace WildWeapon.Pvp
                     break;
 
                 case PvpMsgType.RoundEnd:
+                    SetScores(m.scores);
+                    SetKills(m.kills);
                     duel.PvpRoundEnd(m.winner, m.scores, m.final);
+                    break;
+
+                case PvpMsgType.Kills:
+                    SetKills(m.kills);
                     break;
 
                 case PvpMsgType.OppLeft:
@@ -367,13 +532,29 @@ namespace WildWeapon.Pvp
                 // Puede ser un bot de este anfitrion.
                 var bot = IsHost ? remotes.Find(r => r.seat == m.target && r.bot) : null;
                 if (bot != null && bot.health != null && !bot.health.IsDead)
+                {
+                    // Defensa extra: con equipos activos, un companero no puede herir
+                    // a otro aunque el mensaje llegue igual.
+                    if (GameSession.TeamsActive && TeamOfSeat(m.seat) == bot.health.team) return;
+                    bot.health.lastAttackerSeat = m.seat;
                     bot.health.TakeDamage(m.dmg, new Vector2(m.dx, m.dy), null);
+                }
                 return;
             }
 
             if (_localHealth == null || _localHealth.IsDead) return;
+            if (GameSession.TeamsActive && TeamOfSeat(m.seat) == _localHealth.team) return;
+            _localHealth.lastAttackerSeat = m.seat;
             _localHealth.TakeDamage(m.dmg, new Vector2(m.dx, m.dy), null);
             if (_localHealth.Caster != null) _localHealth.Caster.NotifyDamageTaken();
+        }
+
+        /// <summary>Equipo del asiento atacante segun la tabla local (local o remoto).</summary>
+        private int TeamOfSeat(int seat)
+        {
+            if (seat == LocalIndex) return _localHealth != null ? _localHealth.team : -999;
+            var entry = remotes.Find(r => r.seat == seat);
+            return entry != null && entry.health != null ? entry.health.team : -999;
         }
 
         private void ResetRemotesForRound()
@@ -450,7 +631,7 @@ namespace WildWeapon.Pvp
             var pos = (Vector2)pc.transform.position;
             var aim = pc.AimDir;
             var rb = pc.GetComponent<Rigidbody2D>();
-            float speed = rb != null ? rb.linearVelocity.magnitude : 0f;
+            float speed = rb != null ? Mathf.Abs(rb.linearVelocity.x) : 0f;
 
             _client.Send(new PvpMsg
             {
@@ -462,7 +643,7 @@ namespace WildWeapon.Pvp
                 ay = aim.y,
                 sp = speed,
                 hp = health != null ? health.CurrentHp : 0f,
-                z = health != null && health.Height != null ? health.Height.Z : 0f,
+                z = 0f,   // la vista lateral usa la Y del mundo como altura
                 w = pc.Loadout != null ? pc.Loadout.ActiveIndex : 0
             });
         }
@@ -530,11 +711,29 @@ namespace WildWeapon.Pvp
         {
             if (_deathSent || _client == null || !_client.IsConnected) return;
             _deathSent = true;
-            _client.Send(new PvpMsg { t = PvpMsgType.Died });
+            _client.Send(new PvpMsg
+            {
+                t = PvpMsgType.Died,
+                killer = KillerSeatOf(_localHealth)
+            });
+        }
+
+        /// <summary>Asiento del que dio el ultimo golpe (para acreditar la baja).</summary>
+        private int KillerSeatOf(PlayerHealth victim)
+        {
+            if (victim == null) return -1;
+            if (victim.lastAttackerSeat >= 0) return victim.lastAttackerSeat;
+
+            var source = victim.LastAttacker;
+            if (source == null || source == victim) return -1;
+            if (source == _localHealth) return LocalIndex;
+
+            var entry = remotes.Find(r => r.health == source);
+            return entry != null ? entry.seat : -1;
         }
 
         /// <summary>Golpe detectado sobre una replica: viaja con el asiento que lo recibe.</summary>
-        private void OnRemoteDamaged(PlayerHealth mirror, float amount, Vector2 dir)
+        private void OnRemoteDamaged(PlayerHealth mirror, PlayerHealth source, float amount, Vector2 dir)
         {
             if (_client == null || !_client.IsConnected) return;
             var entry = remotes.Find(r => r.health == mirror);
@@ -542,12 +741,20 @@ namespace WildWeapon.Pvp
             _client.Send(new PvpMsg
             {
                 t = PvpMsgType.Hit,
-                seat = LocalIndex,
+                seat = SeatOfHealth(source),
                 target = entry.seat,
                 dmg = amount,
                 dx = dir.x,
                 dy = dir.y
             });
+        }
+
+        /// <summary>Asiento del portador que produjo el golpe (local o bot del anfitrion).</summary>
+        private int SeatOfHealth(PlayerHealth source)
+        {
+            if (source == null || source == _localHealth) return LocalIndex;
+            var entry = remotes.Find(r => r.health == source);
+            return entry != null ? entry.seat : LocalIndex;
         }
 
         private void OnRematchPressed()

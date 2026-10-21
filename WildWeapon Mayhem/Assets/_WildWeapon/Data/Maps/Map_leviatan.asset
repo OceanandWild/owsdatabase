@@ -21,6 +21,7 @@ MonoBehaviour:
   decorNote: Costillas de un leviatan, charcos de acido y huesos usados como rampas
   arenaSize: {x: 40, y: 22}
   backgroundColor: {r: 0.05, g: 0.06, b: 0.04, a: 1}
+  groundOffsetY: 1.1
   floorSprite: {fileID: 21300000, guid: 9b94c00e15734b04c8f6bbd5b5d3ede4, type: 3}
   floorSingle: 1
   floorTileSize: 4.5
@@ -34,89 +35,96 @@ MonoBehaviour:
   platformShadow: {fileID: 21300000, guid: 0cd746471763c594b90f98a9037d1686, type: 3}
   platformTint: 1
   platforms:
-  - name: Media
-    sizeClass: 1
-    center: {x: 0, y: 0}
-    size: {x: 4.6, y: 2.4}
-    height: 0.95
-    mirrored: 0
-    rotation: 0
   - name: Baja
     sizeClass: 0
-    center: {x: 12.8, y: 6}
-    size: {x: 3.6, y: 2}
+    center: {x: 16.4, y: -9.2}
+    size: {x: 3.2, y: 1}
     height: 0.55
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 12.8, y: -6.6}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
     mirrored: 1
     rotation: 0
   - name: Alta
     sizeClass: 0
-    center: {x: 13.2, y: -5.6}
-    size: {x: 3.8, y: 2}
+    center: {x: 16.4, y: -4}
+    size: {x: 3.2, y: 1}
     height: 1.35
     mirrored: 1
     rotation: 0
-  - name: Baja
-    sizeClass: 1
-    center: {x: -26.076319, y: 7.769832}
-    size: {x: 3.169492, y: 2.4720626}
-    height: 0.55
-    mirrored: 0
+  - name: Alta
+    sizeClass: 0
+    center: {x: 12.8, y: -1.4000001}
+    size: {x: 3.2, y: 1}
+    height: 1.35
+    mirrored: 1
     rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: 28.759605, y: -3.18554}
-    size: {x: 4.7406774, y: 1.9812222}
+    sizeClass: 0
+    center: {x: 16.4, y: 1.1999998}
+    size: {x: 3.2, y: 1}
     height: 1.35
-    mirrored: 0
+    mirrored: 1
     rotation: 0
   - name: Media
-    sizeClass: 1
-    center: {x: -19.903376, y: -11.07004}
-    size: {x: 3.7286959, y: 2.2496562}
-    height: 0.95
-    mirrored: 0
+    sizeClass: 0
+    center: {x: 12.8, y: 3.7999997}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
     rotation: 0
   - name: Baja
-    sizeClass: 1
-    center: {x: -10.359846, y: -4.424538}
-    size: {x: 4.886955, y: 2.336231}
+    sizeClass: 0
+    center: {x: 16.4, y: 6.3999996}
+    size: {x: 3.2, y: 1}
     height: 0.55
-    mirrored: 0
-    rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: -21.511759, y: 0.9761695}
-    size: {x: 3.8053224, y: 2.7625518}
-    height: 1.35
-    mirrored: 0
+    mirrored: 1
     rotation: 0
   - name: Baja
-    sizeClass: 1
-    center: {x: -11.563039, y: 2.6217291}
-    size: {x: 4.1748323, y: 2.4882066}
+    sizeClass: 0
+    center: {x: 8, y: -7.8999996}
+    size: {x: 3.2, y: 1}
     height: 0.55
-    mirrored: 0
+    mirrored: 1
+    rotation: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 4.4, y: -5.2999997}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
     rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: 17.524717, y: 16.024101}
-    size: {x: 4.6367455, y: 2.573843}
+    sizeClass: 0
+    center: {x: 8, y: -2.6999998}
+    size: {x: 3.2, y: 1}
     height: 1.35
-    mirrored: 0
+    mirrored: 1
     rotation: 0
   - name: Alta
-    sizeClass: 1
-    center: {x: 0.8497468, y: -12.992519}
-    size: {x: 3.3878927, y: 2.402505}
+    sizeClass: 0
+    center: {x: 4.4, y: -0.099999905}
+    size: {x: 3.2, y: 1}
     height: 1.35
-    mirrored: 0
+    mirrored: 1
     rotation: 0
-  - name: Alta
-    sizeClass: 1
-    center: {x: 31.387627, y: 17.203403}
-    size: {x: 4.867784, y: 2.0928016}
-    height: 1.35
-    mirrored: 0
+  - name: Media
+    sizeClass: 0
+    center: {x: 8, y: 2.5}
+    size: {x: 3.2, y: 1}
+    height: 0.95000005
+    mirrored: 1
+    rotation: 0
+  - name: Baja
+    sizeClass: 0
+    center: {x: 4.4, y: 5.1}
+    size: {x: 3.2, y: 1}
+    height: 0.55
+    mirrored: 1
     rotation: 0
   obstacles: []
   obstacleCount: 0

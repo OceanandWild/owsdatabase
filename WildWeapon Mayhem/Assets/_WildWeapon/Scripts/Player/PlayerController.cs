@@ -20,8 +20,13 @@ namespace WildWeapon
         [Tooltip("Capa visual animada (Visual > Body)")]
         public CharacterVisual visual;
 
-        [Tooltip("Altura (Z) simulada: plataformas y peligros")]
+        [Tooltip("Altura (fisica de plataformas): gravedad, salto y doble salto")]
         public HeightBody height;
+
+        [Tooltip("Acepta tambien el gamepad (stick + botones) ademas del teclado. " +
+                 "El mando solo toma el control cuando el jugador lo esta usando: " +
+                 "un mando simplemente conectado NO puede dejar sin control al teclado.")]
+        public bool acceptGamepad = true;
 
         public PlayerHealth Health { get; private set; }
         public WeaponLoadout Loadout { get; private set; }
@@ -46,6 +51,7 @@ namespace WildWeapon
         private Camera _cam;
 
         private Vector2 _moveInput;
+        private Vector2 _rawMove;
         private bool _attackHeld;
         private bool _dashQueued;
         private bool _jumpQueued;
@@ -67,6 +73,7 @@ namespace WildWeapon
             Loadout = GetComponent<WeaponLoadout>();
             Abilities = GetComponent<AbilityCaster>();
             if (height == null) height = GetComponent<HeightBody>();
+            if (height == null) height = gameObject.AddComponent<HeightBody>();
             _cam = Camera.main;
 
             // El equipamiento elegido en la armería manda sobre el del prefab.
@@ -87,7 +94,7 @@ namespace WildWeapon
             if (visual != null)
             {
                 visual.Face(AimDir);
-                visual.SetSpeed(inputSuppressed ? networkSpeed : _rb.linearVelocity.magnitude);
+                visual.SetSpeed(inputSuppressed ? networkSpeed : Mathf.Abs(_rb.linearVelocity.x));
             }
         }
 
@@ -95,78 +102,111 @@ namespace WildWeapon
         {
             _moveInput = Vector2.zero;
             _attackHeld = false;
+            Vector2 raw = Vector2.zero;   // entrada cruda: el apuntado y el dash la usan
 
             var kb = Keyboard.current;
             var mouse = Mouse.current;
             var pad = Gamepad.current;
 
-            var active = scheme;
-            if (active == InputScheme.Auto)
-                active = pad != null ? InputScheme.Gamepad : InputScheme.KeyboardTwin;
+            // "Auto" es teclado y mouse (WASD). El gamepad entra aparte y solo
+            // cuando el jugador lo esta usando de verdad: que haya un mando
+            // conectado NO puede dejar sin control al teclado (bug: el juego se
+            // quedaba sin movimiento porque el mando "ganaba" el control solo).
+            var active = scheme == InputScheme.Auto ? InputScheme.KeyboardMouse : scheme;
+            bool padOnly = active == InputScheme.Gamepad;
+            bool padActive = padOnly
+                ? pad != null
+                : (acceptGamepad && pad != null && PadInUse(pad));
 
-            if (active == InputScheme.KeyboardMouse)
+            // ---- Teclado y mouse ----
+            if (!padOnly)
             {
-                if (kb != null)
+                if (active == InputScheme.KeyboardMouse)
                 {
-                    _moveInput = new Vector2(
-                        (kb.dKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed ? 1f : 0f),
-                        (kb.wKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed ? 1f : 0f));
-                    if (kb.leftShiftKey.wasPressedThisFrame) _dashQueued = true;
-                    if (kb.spaceKey.wasPressedThisFrame) _jumpQueued = true;
-                    if (kb.xKey.wasPressedThisFrame) _swapQueued = true;
-                    if (kb.qKey.wasPressedThisFrame) _qQueued = true;
-                    if (kb.eKey.wasPressedThisFrame) _eQueued = true;
-                    if (kb.rKey.wasPressedThisFrame) _rQueued = true;
-                }
-                if (mouse != null)
-                {
-                    _attackHeld = mouse.leftButton.isPressed;
-                    if (Mathf.Abs(mouse.scroll.ReadValue().y) > 0.01f) _swapQueued = true;
-                    if (_cam != null)
+                    if (kb != null)
                     {
-                        Vector3 screen = mouse.position.ReadValue();
-                        Vector3 world = _cam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -_cam.transform.position.z));
-                        Vector2 dir = (Vector2)world - (Vector2)transform.position;
-                        if (dir.sqrMagnitude > 0.0001f) AimDir = dir.normalized;
+                        raw = new Vector2(
+                            (kb.dKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed ? 1f : 0f), 0f);
+                        if (kb.leftShiftKey.wasPressedThisFrame) _dashQueued = true;
+                        if (kb.spaceKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame) _jumpQueued = true;
+                        if (kb.xKey.wasPressedThisFrame) _swapQueued = true;
+                        if (kb.qKey.wasPressedThisFrame) _qQueued = true;
+                        if (kb.eKey.wasPressedThisFrame) _eQueued = true;
+                        if (kb.rKey.wasPressedThisFrame) _rQueued = true;
+                    }
+                    if (mouse != null)
+                    {
+                        _attackHeld = mouse.leftButton.isPressed;
+                        if (Mathf.Abs(mouse.scroll.ReadValue().y) > 0.01f) _swapQueued = true;
+                        // Con el mando en uso el apuntado lo manda el stick derecho.
+                        if (!padActive && _cam != null)
+                        {
+                            Vector3 screen = mouse.position.ReadValue();
+                            Vector3 world = _cam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -_cam.transform.position.z));
+                            Vector2 dir = (Vector2)world - (Vector2)transform.position;
+                            if (dir.sqrMagnitude > 0.0001f) AimDir = dir.normalized;
+                        }
                     }
                 }
-            }
-            else if (active == InputScheme.KeyboardTwin)
-            {
-                if (kb != null)
+                else if (active == InputScheme.KeyboardTwin)
                 {
-                    _moveInput = new Vector2(
-                        (kb.rightArrowKey.isPressed ? 1f : 0f) - (kb.leftArrowKey.isPressed ? 1f : 0f),
-                        (kb.upArrowKey.isPressed ? 1f : 0f) - (kb.downArrowKey.isPressed ? 1f : 0f));
-                    _attackHeld = kb.commaKey.isPressed;
-                    if (kb.periodKey.wasPressedThisFrame) _dashQueued = true;
-                    if (kb.rightShiftKey.wasPressedThisFrame) _jumpQueued = true;
-                    if (kb.slashKey.wasPressedThisFrame) _swapQueued = true;
-                    if (kb.uKey.wasPressedThisFrame) _qQueued = true;
-                    if (kb.iKey.wasPressedThisFrame) _eQueued = true;
-                    if (kb.oKey.wasPressedThisFrame) _rQueued = true;
+                    if (kb != null)
+                    {
+                        raw = new Vector2(
+                            (kb.rightArrowKey.isPressed ? 1f : 0f) - (kb.leftArrowKey.isPressed ? 1f : 0f), 0f);
+                        _attackHeld = kb.commaKey.isPressed;
+                        if (kb.periodKey.wasPressedThisFrame) _dashQueued = true;
+                        if (kb.spaceKey.wasPressedThisFrame || kb.upArrowKey.wasPressedThisFrame) _jumpQueued = true;      // salto (barra espaciadora / flecha arriba)
+                        if (kb.slashKey.wasPressedThisFrame) _swapQueued = true;
+                        if (kb.uKey.wasPressedThisFrame) _qQueued = true;
+                        if (kb.iKey.wasPressedThisFrame) _eQueued = true;
+                        if (kb.oKey.wasPressedThisFrame) _rQueued = true;
+                    }
+                    // Apuntado asistido: la direccion de movimiento marca el aim (doc 5.2).
+                    if (!padActive && raw.sqrMagnitude > 0.01f) AimDir = raw.normalized;
                 }
-                // Apuntado asistido: la direccion de movimiento marca el aim (doc 5.2).
-                if (_moveInput.sqrMagnitude > 0.01f) AimDir = _moveInput.normalized;
             }
-            else // Gamepad
-            {
-                if (pad != null)
-                {
-                    _moveInput = pad.leftStick.ReadValue();
-                    Vector2 rs = pad.rightStick.ReadValue();
-                    if (rs.sqrMagnitude > 0.06f) AimDir = rs.normalized;
-                    else if (_moveInput.sqrMagnitude > 0.02f) AimDir = _moveInput.normalized;
 
-                    _attackHeld = pad.rightTrigger.ReadValue() > 0.5f;
-                    if (pad.buttonEast.wasPressedThisFrame) _dashQueued = true;
-                    if (pad.buttonSouth.wasPressedThisFrame) _jumpQueued = true;
-                    if (pad.leftStickButton.wasPressedThisFrame) _swapQueued = true;
-                    if (pad.leftTrigger.wasPressedThisFrame) _qQueued = true;
-                    if (pad.leftShoulder.wasPressedThisFrame) _eQueued = true;
-                    if (pad.buttonNorth.wasPressedThisFrame) _rQueued = true;
-                }
+            // ---- Gamepad ----
+            if (padActive)
+            {
+                raw = pad.leftStick.ReadValue();
+                Vector2 rs = pad.rightStick.ReadValue();
+                if (rs.sqrMagnitude > 0.06f) AimDir = rs.normalized;
+                else if (raw.sqrMagnitude > 0.02f) AimDir = raw.normalized;
+
+                _attackHeld = _attackHeld || pad.rightTrigger.ReadValue() > 0.5f;
+                if (pad.buttonEast.wasPressedThisFrame) _dashQueued = true;
+                if (pad.buttonSouth.wasPressedThisFrame) _jumpQueued = true;
+                if (pad.leftStickButton.wasPressedThisFrame) _swapQueued = true;
+                if (pad.leftTrigger.wasPressedThisFrame) _qQueued = true;
+                if (pad.leftShoulder.wasPressedThisFrame) _eQueued = true;
+                if (pad.buttonNorth.wasPressedThisFrame) _rQueued = true;
             }
+
+            // Vista lateral: A/D (o el stick horizontal) mueve; la altura se gana
+            // saltando. La Y de la arena ya no es profundidad.
+            _rawMove = new Vector2(raw.x, 0f);
+            _moveInput = _rawMove;
+        }
+
+        /// <summary>
+        /// true si el mando esta siendo usado ahora (stick fuera de la zona muerta o
+        /// boton apretado). Sirve para que el mando no le robe el control al teclado
+        /// solo por estar conectado.
+        /// </summary>
+        private static bool PadInUse(Gamepad pad)
+        {
+            if (pad == null) return false;
+            if (pad.leftStick.ReadValue().sqrMagnitude > 0.06f) return true;
+            if (pad.rightStick.ReadValue().sqrMagnitude > 0.06f) return true;
+            if (pad.leftTrigger.ReadValue() > 0.2f) return true;
+            if (pad.rightTrigger.ReadValue() > 0.2f) return true;
+            if (pad.buttonSouth.isPressed || pad.buttonNorth.isPressed) return true;
+            if (pad.buttonWest.isPressed || pad.buttonEast.isPressed) return true;
+            if (pad.leftShoulder.isPressed || pad.rightShoulder.isPressed) return true;
+            if (pad.leftStickButton.isPressed || pad.rightStickButton.isPressed) return true;
+            return false;
         }
 
         void FixedUpdate()
@@ -192,14 +232,19 @@ namespace WildWeapon
                 _jumpQueued = false;
                 _swapQueued = false;
                 _qQueued = false; _eQueued = false; _rQueued = false;
-                _rb.linearVelocity = Vector2.zero;
+                if (height != null) height.SetHorizontalVelocity(0f);
+                else _rb.linearVelocity = new Vector2(0f, _rb.linearVelocity.y);
                 _knockback = Vector2.zero;
                 return;
             }
 
             if (_dashQueued && _dashCooldown <= 0f)
             {
-                _dashDir = _moveInput.sqrMagnitude > 0.01f ? _moveInput.normalized : AimDir;
+                // El dash es horizontal: la entrada cruda manda y, si no hay, el apuntado.
+                float dashX = Mathf.Abs(_rawMove.x) > 0.2f
+                    ? Mathf.Sign(_rawMove.x)
+                    : (Mathf.Abs(AimDir.x) > 0.2f ? Mathf.Sign(AimDir.x) : 1f);
+                _dashDir = new Vector2(dashX, 0f);
                 _dashTimer = DuelRules.DashTime;
                 _dashCooldown = DuelRules.DashCooldown;
             }
@@ -207,19 +252,20 @@ namespace WildWeapon
 
             float slow = Health != null ? Health.SlowFactor : 1f;
 
-            Vector2 vel;
+            float vx;
             if (_dashTimer > 0f)
             {
                 _dashTimer -= dt;
-                vel = _dashDir * DuelRules.DashSpeed;
+                vx = _dashDir.x * DuelRules.DashSpeed;
             }
             else
             {
-                vel = _moveInput * DuelRules.MoveSpeed * castingSlow * slow;
+                vx = _moveInput.x * DuelRules.MoveSpeed * castingSlow * slow;
             }
 
-            vel += _knockback;
-            _rb.linearVelocity = vel;
+            vx += _knockback.x;
+            if (height != null) height.SetHorizontalVelocity(vx);
+            else _rb.linearVelocity = new Vector2(vx, _rb.linearVelocity.y);
             _knockback = Vector2.Lerp(_knockback, Vector2.zero, 1f - Mathf.Exp(-14f * dt));
 
             if (Loadout != null)
@@ -240,7 +286,11 @@ namespace WildWeapon
 
         public void ApplyKnockback(Vector2 dir, float amount)
         {
-            _knockback += dir * amount;
+            _knockback += new Vector2(dir.x, 0f) * amount;
+            // La componente vertical la resuelve HeightBody como impulso (no se pisa
+            // la gravedad ni el salto con una velocidad vertical fija).
+            if (height != null && Mathf.Abs(dir.y) > 0.05f)
+                height.AddVerticalImpulse(dir.y * amount * 0.8f);
         }
 
         /// <summary>PVP: fija el apuntado del pawn remoto desde su snapshot de red.</summary>
@@ -277,6 +327,7 @@ namespace WildWeapon
             _dashQueued = false;
             _swapQueued = false;
             _moveInput = Vector2.zero;
+            _rawMove = Vector2.zero;
             _attackHeld = false;
             controllerStunned = 0f;
             Casting = false;

@@ -36,7 +36,11 @@ let hiddenAdminOnlyCount = 0;
 // ?include_hidden=1. Por defecto se muestran SOLO los admin_only;
 // con el filtro se agregan los públicos en modo solo-lectura.
 let manageProjectsCache = [];
-let manageShowPublic = false;
+let manageFilter = 'all';         // all | admin | public
+let manageSearch = '';
+let manageSort = 'recent';        // recent | name | progress | oldest
+let manageLoadedAt = '';
+let devFilter = 'all';            // all | admin | tracking | done
 let editingManageId = null;
 let manageIconFile = null;
 let manageBannerFile = null;
@@ -638,7 +642,7 @@ function switchAdminTab(tab) {
   revealAdminTab(document.getElementById(`ptab-${tab}`));
   // Recargar la lista correspondiente al entrar a cada pestaña para que
   // Proyectos y Gestión siempre estén sincronizados (admin_only, etc.)
-  if (tab === 'manage') { loadAdminManage(); loadDevlogs(); loadProjectActivity(); loadWorkSessions(); loadWsDaily(); loadCelebrations(); }
+  if (tab === 'manage') { loadAdminManage(); loadProjectDevelopment(); loadDevlogs(); loadProjectActivity(); loadWorkSessions(); loadWsDaily(); loadCelebrations(); }
   if (tab === 'projects') { loadAdminProjects(); loadProjectDevelopment(); }
   if (tab === 'events') {
     loadAdminEvents();
@@ -646,6 +650,9 @@ function switchAdminTab(tab) {
     else if (adminSubState.events === 'presets') loadPopupPresets();
   }
   if (tab === 'users') loadAdminUsers();
+  // Los modales de Noticias se piden al entrar a su sub-sección o al
+  // volver a Noticias si esa sub-sección quedó activa.
+  if (tab === 'news' && adminSubState.news === 'modals') loadNewsModals();
   // Incidentes: la status page refleja el estado actual, así que se recarga
   // al entrar (por si otro admin acaba de abrir o cerrar algo).
   if (tab === 'incidents') loadIncidents();
@@ -667,7 +674,8 @@ function switchAdminTab(tab) {
 
 const ADMIN_EXTRA_SUBS = {
   news: [
-    { id: 'quick', label: '⚡ Rápidas' }
+    { id: 'quick', label: '⚡ Rápidas' },
+    { id: 'modals', label: '📣 Modales' }
   ],
   events: [
     { id: 'popups', label: '💬 Modales' },
@@ -677,8 +685,7 @@ const ADMIN_EXTRA_SUBS = {
     { id: 'devlog', label: '📝 Devlog' },
     { id: 'activity', label: '📅 14 días' },
     { id: 'analytics', label: '📊 Analytics' },
-    { id: 'celebs', label: '🎉 Celebraciones' },
-    { id: 'welcome', label: '🌱 Bienvenidas' }
+    { id: 'hitos', label: '🎉 Hitos' }
   ],
   incidents: [
     { id: 'live', label: '🔴 En curso' },
@@ -744,8 +751,8 @@ function switchAdminSub(tab, sub) {
   // El Devlog y sus sesiones se piden al abrir la sub-sección: son lo que
   // más cambia durante el día.
   if (tab === 'manage' && sub === 'devlog') { loadDevlogs(); loadWorkSessions(); loadWsDaily(); }
-  // Celebraciones y Bienvenidas: muro interno con registro en backend.
-  if (tab === 'manage' && (sub === 'celebs' || sub === 'welcome')) loadCelebrations();
+  // Hitos + Bienvenidas: muro interno con registro en backend.
+  if (tab === 'manage' && sub === 'hitos') loadCelebrations();
   // Los modales y presets se piden al abrir su sub-sección: es lo que
   // más cambia cuando se envía o re-muestra un anuncio.
   if (tab === 'events' && sub === 'popups') loadEventPopups();
@@ -758,6 +765,8 @@ function switchAdminSub(tab, sub) {
   // Las noticias rápidas se piden al abrir su sub-sección: es donde más
   // seguido se publica (texto corto, al instante).
   if (tab === 'news' && sub === 'quick') loadQuickNews();
+  // Modales de Noticias en cadena: se piden al abrir la sub-sección.
+  if (tab === 'news' && sub === 'modals') loadNewsModals();
   // Salto instantáneo: el smooth + sticky con blur dejaba una banda negra
   // repintada a mitad de Incidentes en Chrome.
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -810,11 +819,36 @@ function clearManageImageFiles() {
   });
 }
 
-function toggleManageShowPublic() {
-  const el = document.getElementById('manage-show-public');
-  manageShowPublic = !!(el && el.checked);
+function setManageFilter(scope) {
+  manageFilter = ['all', 'admin', 'public'].includes(String(scope)) ? String(scope) : 'all';
+  document.querySelectorAll('#manage-filter .mgmt-seg').forEach((b) => {
+    b.classList.toggle('is-on', b.dataset.mfilter === manageFilter);
+  });
   renderManageList();
-  renderDevList();
+}
+
+function onManageSearch() {
+  const el = document.getElementById('manage-search');
+  manageSearch = String(el ? el.value : '').trim();
+  const clear = document.getElementById('manage-search-clear');
+  if (clear) clear.classList.toggle('hidden', !manageSearch);
+  renderManageList();
+}
+
+function clearManageSearch() {
+  const el = document.getElementById('manage-search');
+  if (el) el.value = '';
+  manageSearch = '';
+  const clear = document.getElementById('manage-search-clear');
+  if (clear) clear.classList.add('hidden');
+  renderManageList();
+}
+
+function setManageSort(value) {
+  manageSort = ['recent', 'name', 'progress', 'oldest'].includes(String(value)) ? String(value) : 'recent';
+  const sel = document.getElementById('manage-sort');
+  if (sel && sel.value !== manageSort) sel.value = manageSort;
+  renderManageList();
 }
 
 function manageProjectIconHtml(p) {
@@ -840,8 +874,7 @@ async function loadAdminManage() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     manageProjectsCache = data.projects || [];
-    const box = document.getElementById('manage-show-public');
-    if (box) box.checked = manageShowPublic;
+    manageLoadedAt = new Date().toISOString();
     renderManageList();
     // El catálogo cambió: el dropdown de proyecto de Eventos se rearma.
     populateEventProjectOptions();
@@ -856,91 +889,166 @@ function fmtProjectCreatedDay(iso) {
   const m = String(iso || '').slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
 }
-function renderManageList() {
-  const list = document.getElementById('manage-list');
-  if (!list) return;  const adminOnly = manageProjectsCache.filter(isAdminOnlyProject);
-  const pub = manageProjectsCache.filter((p) => !isAdminOnlyProject(p));
+// Busca la fila de desarrollo de un proyecto (misma fuente que Proyectos).
+function manageDevRow(pid) {
+  return devProgressCache.find((x) => Number(x.project_id) === Number(pid)) || null;
+}
 
+// KPIs del centro de proyectos + píldoras del hero.
+function renderManageStats() {
+  const adminOnly = manageProjectsCache.filter(isAdminOnlyProject);
+  const pub = manageProjectsCache.filter((p) => !isAdminOnlyProject(p));
+  const rows = manageProjectsCache.map((p) => manageDevRow(p.id)).filter(Boolean);
+  const avg = rows.length
+    ? round2(rows.reduce((sum, d) => sum + (Number(d.percent) || 0), 0) / rows.length)
+    : null;
+  const done = rows.filter((d) => Number(d.percent) >= 100).length;
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('mgmt-kpi-total', String(manageProjectsCache.length));
+  set('mgmt-kpi-admin', String(adminOnly.length));
+  set('mgmt-kpi-public', String(pub.length));
+  set('mgmt-kpi-avg', avg === null ? '—' : fmtPct(avg));
+  set('mgmt-kpi-done', String(done));
   const countBadge = document.getElementById('manage-count-badge');
   if (countBadge) {
     countBadge.textContent = `🔒 ${adminOnly.length} solo-admin · 📁 ${pub.length} disponibles`;
   }
+  const sync = document.getElementById('manage-sync-badge');
+  if (sync) sync.textContent = manageLoadedAt ? `🔄 ${formatDevAgo(manageLoadedAt)}` : '🔄 —';
+}
+
+function manageProjectMatches(p) {
+  if (!manageSearch) return true;
+  const q = manageSearch.toLowerCase();
+  const hay = [p.name, p.slug, p.genre, p.description, p.status_feedback, p.statusFeedback]
+    .filter(Boolean).join(' ').toLowerCase();
+  return hay.includes(q);
+}
+
+function sortManageProjects(list) {
+  const arr = [...list];
+  const byName = (a, b) => String(a.name || a.slug || '').localeCompare(String(b.name || b.slug || ''), 'es');
+  if (manageSort === 'name') arr.sort(byName);
+  else if (manageSort === 'oldest') arr.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0) || byName(a, b));
+  else if (manageSort === 'progress') arr.sort((a, b) => {
+    const pa = manageDevRow(a.id);
+    const pb = manageDevRow(b.id);
+    const va = pa ? Number(pa.percent) || 0 : -1;
+    const vb = pb ? Number(pb.percent) || 0 : -1;
+    return vb - va || byName(a, b);
+  });
+  else arr.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0) || byName(a, b));
+  return arr;
+}
+
+// Tarjeta unificada: el % y el botón "Ajustar %" están en TODOS los
+// proyectos; la edición de metadatos sigue siendo solo para solo-admin.
+function manageProjectCardHtml(p, isPublic) {
+  const meta = launchStatusMeta(p.status);
+  const dev = manageDevRow(p.id);
+  const pct = dev ? round2(dev.percent) : null;
+  const shownPct = pct === null ? 0 : pct;
+  const euph = pct === null ? null : euphoriaLevel(pct);
+  const latestVer = (p.latest_release && p.latest_release.version) || (p.latestRelease && p.latestRelease.version) || p.itch_version || p.itchVersion || '';
+  const chips = [
+    isPublic ? '<span class="status-pill status-from-projects">📁 Viene de Proyectos</span>' : '<span class="status-pill status-admin-only">🔒 Solo-admin</span>',
+    `<span class="status-pill ${meta.cls}">${meta.label}</span>`,
+    isPublic ? '' : ((p.has_release || p.hasRelease || latestVer) ? `<span class="status-pill status-on">📦 v${escapeHtml(latestVer || '?')}</span>` : '<span class="status-pill">📦 sin versión</span>'),
+    isPublic ? '' : managePermanenceChip(p),
+    (isPublic || p.is_active) ? '' : '<span class="status-pill status-off">Oculto</span>'
+  ].filter(Boolean).join(' ');
+  const platforms = (p.platforms || []).map((x) => escapeHtml(x)).join(', ') || '—';
+  const dates = [p.expected_date, p.confirmed_date].filter(Boolean).map((d) => String(d).slice(0, 10)).join(' / ');
+  const createdDay = fmtProjectCreatedDay(p.created_at);
+  const feedback = String(p.status_feedback || p.statusFeedback || '').trim();
+  const desc = String(p.description || '').trim();
+  const by = dev && dev.updated_by ? escapeHtml(dev.updated_by) : 'sin registrar';
+  const when = dev && dev.updated_at ? escapeHtml(formatDevAgo(dev.updated_at)) : '';
+  const progressMeta = dev
+    ? `👤 ${by}${when ? ` · 🕓 ${when}` : ''}`
+    : 'Sin seguimiento de avance todavía — usá “Ajustar %”';
+  const rowCls = euph && euph.rowCls ? ` ${euph.rowCls}` : '';
+  return `
+  <div class="admin-item manage-admin-item mgmt-project-item${isPublic ? ' manage-readonly-item mgmt-project-public' : ''}${rowCls}">
+    ${isPublic ? publicProjectIconHtml(p) : manageProjectIconHtml(p)}
+    <div class="admin-item-info">
+      <span class="admin-item-title">${escapeHtml(p.name)} ${chips}</span>
+      <span class="admin-item-sub">${escapeHtml(p.slug)} · ${platforms}${p.genre ? ' · ' + escapeHtml(p.genre) : ''}${dates ? ' · ' + dates : ''}${createdDay ? ` · 🗓️ creado ${createdDay}` : ''}${isPublic ? ' · 🔒 Metadatos en Proyectos' : ''}</span>
+      ${desc
+        ? `<span class="admin-item-desc" title="${escapeHtml(desc)}">📝 ${escapeHtml(desc)}</span>`
+        : `<span class="admin-item-desc is-empty">${isPublic ? 'Sin info del proyecto.' : 'Sin info del proyecto: editá y contá de qué trata.'}</span>`}
+      ${feedback ? `<span class="manage-feedback">💬 <b>${escapeHtml(meta.label)}:</b> ${escapeHtml(feedback)}</span>` : ''}
+      <div class="mgmt-progress">
+        <div class="mgmt-progress-head">
+          <span class="mgmt-progress-label">📈 Progreso de desarrollo</span>
+          <b class="mgmt-progress-pct">${pct === null ? '—' : fmtPct(pct)}${pct !== null && pct >= 100 ? ' 🎉' : ''}</b>
+        </div>
+        <div class="dev-bar mgmt-bar" title="${pct === null ? 'Sin registrar' : fmtPct(pct) + ' completado'}"><div class="dev-fill" style="width:${shownPct}%"></div></div>
+        <span class="mgmt-progress-meta">${progressMeta}</span>
+      </div>
+    </div>
+    <div class="admin-item-actions mgmt-project-actions">
+      <button class="btn btn-primary btn-mini" data-adm-ev="click" data-adm="openDevModal" data-adm-a0="r:${p.id}" title="Ajustar el porcentaje de desarrollo">📈 Ajustar %</button>
+      ${isPublic
+        ? '<button class="btn btn-ghost btn-mini" title="Ir a editar los metadatos en Proyectos" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:projects">➡️ Proyectos</button>'
+        : `
+        <button class="btn btn-ghost btn-mini" title="Versiones descargables del Hub" data-adm-ev="click" data-adm="openReleasesModal" data-adm-a0="r:${p.id}">📦</button>
+        <button class="btn btn-ghost btn-mini" title="Editar proyecto" data-adm-ev="click" data-adm="editManageProject" data-adm-a0="r:${p.id}">✏️</button>
+        <button class="btn btn-ghost btn-mini" title="${p.is_active ? 'Ocultar proyecto' : 'Mostrar proyecto'}" data-adm-ev="click" data-adm="toggleManageProject" data-adm-a0="r:${p.id}" data-adm-a1="r:${p.is_active ? 'false' : 'true'}">${p.is_active ? '👁️' : '🚫'}</button>
+        <button class="btn btn-danger btn-mini" title="Eliminar proyecto" data-adm-ev="click" data-adm="deleteManageProject" data-adm-a0="r:${p.id}">🗑️</button>`}
+    </div>
+  </div>`;
+}
+
+function renderManageList() {
+  const list = document.getElementById('manage-list');
+  if (!list) return;
+  renderManageStats();
+
+  const adminOnly = sortManageProjects(manageProjectsCache.filter(isAdminOnlyProject).filter(manageProjectMatches));
+  const pub = sortManageProjects(manageProjectsCache.filter((p) => !isAdminOnlyProject(p)).filter(manageProjectMatches));
+  const showAdmin = manageFilter !== 'public';
+  const showPub = manageFilter !== 'admin';
+  const visible = (showAdmin ? adminOnly.length : 0) + (showPub ? pub.length : 0);
 
   let html = '';
-
-  if (!adminOnly.length) {
-    html += '<p class="loading-note">🔒 Todavía no hay proyectos solo-admin. Creá el primero con el formulario ←</p>';
-  } else {
-    html += adminOnly.map((p) => {
-      const meta = launchStatusMeta(p.status);
-      const latestVer = (p.latest_release && p.latest_release.version) || (p.latestRelease && p.latestRelease.version) || p.itch_version || p.itchVersion || '';
-      const chips = [
-        '<span class="status-pill status-admin-only">🔒 Solo-admin</span>',
-        `<span class="status-pill ${meta.cls}">${meta.label}</span>`,
-        (p.has_release || p.hasRelease || latestVer) ? `<span class="status-pill status-on">📦 v${escapeHtml(latestVer || '?')}</span>` : '<span class="status-pill">📦 sin versión</span>',
-        managePermanenceChip(p),
-        p.is_active ? '' : '<span class="status-pill status-off">Oculto</span>'
-      ].filter(Boolean).join(' ');
-      const platforms = (p.platforms || []).map((x) => escapeHtml(x)).join(', ') || '—';
-      const dates = [p.expected_date, p.confirmed_date].filter(Boolean).map((d) => String(d).slice(0, 10)).join(' / ');
-      const createdDay = fmtProjectCreatedDay(p.created_at);
-      const feedback = String(p.status_feedback || p.statusFeedback || '').trim();
-      const desc = String(p.description || '').trim();
-      return `
-      <div class="admin-item manage-admin-item">
-        ${manageProjectIconHtml(p)}
-        <div class="admin-item-info">
-          <span class="admin-item-title">${escapeHtml(p.name)} ${chips}</span>
-          <span class="admin-item-sub">${escapeHtml(p.slug)} · ${platforms}${p.genre ? ' · ' + escapeHtml(p.genre) : ''}${dates ? ' · ' + dates : ''}${createdDay ? ` · 🗓️ creado ${createdDay}` : ''}</span>
-          ${desc
-            ? `<span class="admin-item-desc" title="${escapeHtml(desc)}">📝 ${escapeHtml(desc)}</span>`
-            : '<span class="admin-item-desc is-empty">Sin info del proyecto: editá y contá de qué trata.</span>'}
-          ${feedback ? `<span class="manage-feedback">💬 <b>${escapeHtml(meta.label)}:</b> ${escapeHtml(feedback)}</span>` : ''}
-        </div>
-        <div class="admin-item-actions">
-          <button class="btn btn-ghost btn-mini" title="Versiones descargables del Hub" data-adm-ev="click" data-adm="openReleasesModal" data-adm-a0="r:${p.id}">📦</button>
-          <button class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="editManageProject" data-adm-a0="r:${p.id}">✏️</button>
-          <button class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="toggleManageProject" data-adm-a0="r:${p.id}" data-adm-a1="r:${p.is_active ? 'false' : 'true'}">${p.is_active ? '👁️' : '🚫'}</button>
-          <button class="btn btn-danger btn-mini" data-adm-ev="click" data-adm="deleteManageProject" data-adm-a0="r:${p.id}">🗑️</button>
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  // Filtro: mostrar también los disponibles (vienen de Proyectos).
-  // Se indican con etiqueta y SIN edición desde Gestión.
-  if (manageShowPublic) {
-    html += '<div class="manage-section-divider">📁 Disponibles (vienen de Proyectos · solo lectura)</div>';
-    if (!pub.length) {
-      html += '<p class="loading-note">No hay proyectos disponibles en Proyectos por ahora.</p>';
+  if (!visible) {
+    if (manageSearch) {
+      html = `<p class="loading-note">🔎 No hay proyectos que coincidan con “${escapeHtml(manageSearch)}”. Probá con otro nombre o limpiá la búsqueda.</p>`;
+    } else if (manageFilter === 'admin') {
+      html = '<p class="loading-note">🔒 Todavía no hay proyectos solo-admin. Creá el primero con “＋ Nuevo proyecto”.</p>';
+    } else if (manageFilter === 'public') {
+      html = '<p class="loading-note">📁 No hay proyectos públicos por ahora.</p>';
     } else {
-      html += pub.map((p) => {
-        const meta = launchStatusMeta(p.status);
-        const platforms = (p.platforms || []).map((x) => escapeHtml(x)).join(', ') || '—';
-        const createdDay = fmtProjectCreatedDay(p.created_at);
-        const desc = String(p.description || '').trim();
-        return `
-        <div class="admin-item manage-readonly-item">
-          ${publicProjectIconHtml(p)}
-          <div class="admin-item-info">
-            <span class="admin-item-title">${escapeHtml(p.name)}
-              <span class="status-pill status-from-projects">📁 Viene de Proyectos</span>
-              <span class="status-pill ${meta.cls}">${meta.label}</span>
-            </span>
-            <span class="admin-item-sub">${escapeHtml(p.slug)} · ${platforms}${createdDay ? ` · 🗓️ creado ${createdDay}` : ''} · 🔒 Solo lectura aquí — se edita en Proyectos</span>
-            ${desc
-              ? `<span class="admin-item-desc" title="${escapeHtml(desc)}">📝 ${escapeHtml(desc)}</span>`
-              : '<span class="admin-item-desc is-empty">Sin info del proyecto.</span>'}
-          </div>
-          <div class="admin-item-actions">
-            <button class="btn btn-ghost btn-mini" title="Ir a editar en Proyectos" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:projects">➡️ Proyectos</button>
-          </div>
-        </div>`;
-      }).join('');
+      html = '<p class="loading-note">🗂️ Todavía no hay proyectos. Creá el primero con “＋ Nuevo proyecto”.</p>';
+    }
+  } else {
+    if (showAdmin) {
+      html += `<div class="manage-section-divider">🔒 Solo-admin <span class="mgmt-count">${adminOnly.length}</span></div>`;
+      html += adminOnly.length
+        ? adminOnly.map((p) => manageProjectCardHtml(p, false)).join('')
+        : '<p class="loading-note">No hay proyectos solo-admin que coincidan con el filtro.</p>';
+    }
+    if (showPub) {
+      html += `<div class="manage-section-divider">📁 Públicos <span class="mgmt-count">${pub.length}</span> <small>· metadatos de solo lectura; el % sí se ajusta acá</small></div>`;
+      html += pub.length
+        ? pub.map((p) => manageProjectCardHtml(p, true)).join('')
+        : '<p class="loading-note">No hay proyectos públicos que coincidan con el filtro.</p>';
     }
   }
 
   list.innerHTML = html;
+  const sub = document.getElementById('manage-list-sub');
+  if (sub) {
+    sub.textContent = manageSearch
+      ? `Mostrando ${visible} de ${manageProjectsCache.length} proyectos · búsqueda “${manageSearch}”`
+      : `${visible} de ${manageProjectsCache.length} proyectos visibles · el avance se comparte con Proyectos`;
+  }
+  const clear = document.getElementById('manage-search-clear');
+  if (clear) clear.classList.toggle('hidden', !manageSearch);
+  document.querySelectorAll('#manage-filter .mgmt-seg').forEach((b) => {
+    b.classList.toggle('is-on', b.dataset.mfilter === manageFilter);
+  });
 }
 
 async function saveManageProject(e) {
@@ -1041,6 +1149,8 @@ async function saveManageProject(e) {
     showToast(editingManageId ? 'Proyecto solo-admin actualizado ✔' : '🌱 Proyecto creado + bienvenida lista en Bienvenidas');
     resetManageProjectForm();
     await loadAdminManage();
+    // El proyecto nuevo ya puede recibir %: se refresca el control de avance.
+    loadProjectDevelopment();
     // La bienvenida nace en el backend al crear: se refresca el muro.
     try { loadCelebrations(); } catch (_) {}
     // Refrescar Proyectos en segundo plano por si cambió el conteo
@@ -1143,6 +1253,7 @@ async function deleteManageProject(id) {
     showToast('Proyecto solo-admin eliminado');
     if (editingManageId === id) resetManageProjectForm();
     loadAdminManage();
+    loadProjectDevelopment();
     loadAdminProjects();
   } catch (err) {
     showToast(`⚠️ ${err.message}`);
@@ -1212,9 +1323,65 @@ function formatShortDate(iso) {
     : { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function setDevFilter(scope) {
+  devFilter = ['all', 'admin', 'tracking', 'done'].includes(String(scope)) ? String(scope) : 'all';
+  document.querySelectorAll('#dev-filter .mgmt-seg').forEach((b) => {
+    b.classList.toggle('is-on', b.dataset.dfilter === devFilter);
+  });
+  renderDevList();
+}
+
 function visibleDevList() {
-  // Mismo criterio que Gestión: solo-admin siempre + disponibles si el filtro está activo
-  return devProgressCache.filter((d) => (d.admin_only ? true : manageShowPublic));
+  return (devProgressCache || []).filter((d) => {
+    const pct = Number(d.percent) || 0;
+    if (devFilter === 'admin') return !!d.admin_only;
+    if (devFilter === 'tracking') return pct < 100;
+    if (devFilter === 'done') return pct >= 100;
+    return true;
+  });
+}
+
+// Resumen del control de avance: totales + distribución por tramos.
+function renderDevSummary() {
+  const box = document.getElementById('dev-summary');
+  if (!box) return;
+  const all = devProgressCache || [];
+  const count = all.length;
+  const pctOf = (d) => Number(d.percent) || 0;
+  const avg = count ? round2(all.reduce((sum, d) => sum + pctOf(d), 0) / count) : null;
+  const tracking = all.filter((d) => pctOf(d) < 100).length;
+  const done = all.filter((d) => pctOf(d) >= 100).length;
+  const now = new Date();
+  const updatedToday = all.filter((d) => {
+    if (!d.updated_at) return false;
+    const dt = new Date(d.updated_at);
+    return !Number.isNaN(dt.getTime())
+      && dt.getFullYear() === now.getFullYear()
+      && dt.getMonth() === now.getMonth()
+      && dt.getDate() === now.getDate();
+  }).length;
+  const buckets = [
+    { label: '0%', n: all.filter((d) => pctOf(d) === 0).length, cls: 'is-zero' },
+    { label: '1–49%', n: all.filter((d) => pctOf(d) > 0 && pctOf(d) < 50).length, cls: 'is-low' },
+    { label: '50–89%', n: all.filter((d) => pctOf(d) >= 50 && pctOf(d) < 90).length, cls: 'is-mid' },
+    { label: '90–99%', n: all.filter((d) => pctOf(d) >= 90 && pctOf(d) < 100).length, cls: 'is-high' },
+    { label: '100%', n: done, cls: 'is-done' }
+  ];
+  const totalBuckets = Math.max(1, buckets.reduce((sum, b) => sum + b.n, 0));
+  box.innerHTML = `
+    <div class="mgmt-dev-pills">
+      <span class="mgmt-dev-pill">📚 <b>${count}</b> proyecto${count === 1 ? '' : 's'}</span>
+      <span class="mgmt-dev-pill is-avg">📈 promedio <b>${avg === null ? '—' : fmtPct(avg)}</b></span>
+      <span class="mgmt-dev-pill">🚧 <b>${tracking}</b> en curso</span>
+      <span class="mgmt-dev-pill is-done">🎉 <b>${done}</b> al 100%</span>
+      <span class="mgmt-dev-pill">🕓 <b>${updatedToday}</b> actualizados hoy</span>
+    </div>
+    <div class="mgmt-dist" title="Distribución de proyectos según su avance">
+      ${buckets.map((b) => `<span class="mgmt-dist-seg ${b.cls}" style="width:${(b.n / totalBuckets) * 100}%" title="${b.label}: ${b.n} proyecto${b.n === 1 ? '' : 's'}"></span>`).join('')}
+    </div>
+    <div class="mgmt-dist-legend">
+      ${buckets.map((b) => `<span><i class="mgmt-dist-dot ${b.cls}"></i>${b.label} · ${b.n}</span>`).join('')}
+    </div>`;
 }
 
 async function loadProjectDevelopment(manual) {
@@ -1235,11 +1402,28 @@ async function loadProjectDevelopment(manual) {
 function renderDevList() {
   const list = document.getElementById('dev-list');
   if (!list) return;
-  const items = visibleDevList();
+  renderDevSummary();
+  const items = visibleDevList().sort((a, b) => {
+    const ap = Number(a.percent) || 0;
+    const bp = Number(b.percent) || 0;
+    const ad = ap >= 100;
+    const bd = bp >= 100;
+    if (ad !== bd) return ad ? 1 : -1;
+    return bp - ap || String(a.name || a.slug || '').localeCompare(String(b.name || b.slug || ''), 'es');
+  });
   if (!items.length) {
-    list.innerHTML = manageShowPublic
-      ? '<p class="loading-note">🚧 No hay proyectos todavía. Creá el primero en Gestión ←</p>'
-      : '<p class="loading-note">🚧 No hay proyectos solo-admin todavía. Creá el primero en Gestión ←<br><small>Activá “Mostrar también proyectos disponibles” para ver el desarrollo de los públicos.</small></p>';
+    const msgs = {
+      admin: '🔒 No hay proyectos solo-admin en el control de avance. Creá uno en Gestión.',
+      tracking: '🎉 No hay proyectos en curso: todos los que tienen seguimiento están al 100%.',
+      done: '🚧 Todavía no hay proyectos al 100%. Ajustá el % con “📈 Ajustar %”.',
+      all: '🚧 No hay proyectos todavía. Creá el primero en Gestión y registrá su avance.'
+    };
+    list.innerHTML = `<p class="loading-note">${msgs[devFilter] || msgs.all}</p>`;
+    document.querySelectorAll('#dev-filter .mgmt-seg').forEach((b) => {
+      b.classList.toggle('is-on', b.dataset.dfilter === devFilter);
+    });
+    // El centro de proyectos refleja el mismo estado aunque no haya tabla.
+    renderManageList();
     return;
   }
   list.innerHTML = `
@@ -1287,12 +1471,17 @@ function renderDevList() {
             </td>
             <td data-label="Actualizado por"><span class="dev-by">👤 ${by}</span></td>
             <td data-label="Cuándo"><span class="dev-when">🕓 <span data-dev-time="${stamp}">${escapeHtml(formatDevAgo(d.updated_at))}</span></span></td>
-            <td class="dev-actions"><button class="btn btn-primary btn-mini" data-adm-ev="click" data-adm="openDevModal" data-adm-a0="r:${pid}">✏️ Modificar</button></td>
+            <td class="dev-actions"><button class="btn btn-primary btn-mini" data-adm-ev="click" data-adm="openDevModal" data-adm-a0="r:${pid}">📈 Ajustar %</button></td>
           </tr>`;
         }).join('')}
       </tbody>
     </table>
   </div>`;
+  document.querySelectorAll('#dev-filter .mgmt-seg').forEach((b) => {
+    b.classList.toggle('is-on', b.dataset.dfilter === devFilter);
+  });
+  // Las tarjetas de proyecto muestran el mismo % que esta tabla.
+  renderManageList();
   // La bitácora de 14 días se repinta junto con esta lista: el % que se ve
   // acá es el mismo que aparece en la columna de avance del día.
   renderProjectActivity();
@@ -1313,26 +1502,37 @@ function devModalProject() {
   return devProgressCache.find((x) => Number(x.project_id) === Number(devModalProjectId)) || null;
 }
 
+function projectForDevModal(pid) {
+  return devProgressCache.find((x) => Number(x.project_id) === Number(pid))
+    || manageProjectsCache.find((x) => Number(x.id) === Number(pid))
+    || projectsCache.find((x) => Number(x.id) === Number(pid))
+    || null;
+}
+
 function openDevModal(pid) {
   const d = devProgressCache.find((x) => Number(x.project_id) === Number(pid));
-  if (!d) return showToast('⚠️ Proyecto no encontrado');
+  const p = d || projectForDevModal(pid);
+  if (!p) return showToast('⚠️ Proyecto no encontrado');
+  const adminOnly = d ? !!d.admin_only : isAdminOnlyProject(p);
   devModalProjectId = Number(pid);
-  devModalOriginal = round2(d.percent);
+  devModalOriginal = round2(d ? d.percent : (projectProgressFor(p) ?? 0));
   devModalMode = 'day';
   const pct = devModalOriginal;
-  const badge = d.admin_only
+  const badge = adminOnly
     ? '<span class="status-pill status-admin-only">🔒 Solo-admin</span>'
     : '<span class="status-pill status-from-projects">📁 De Proyectos</span>';
-  const lastBy = d.updated_by ? escapeHtml(d.updated_by) : 'nadie todavía';
-  const lastWhen = escapeHtml(formatDevAgo(d.updated_at));
+  const lastBy = d && d.updated_by ? escapeHtml(d.updated_by) : 'nadie todavía';
+  const lastWhen = d ? escapeHtml(formatDevAgo(d.updated_at)) : 'sin seguimiento';
   const body = document.getElementById('dev-modal-body');
-  const name = d.name || d.slug || ('#' + pid);
+  const name = p.name || p.slug || ('#' + pid);
+  const modalIcon = p.icon_url || (d && d.icon_url) || '';
+  const modalSlug = p.slug || (d && d.slug) || '';
   body.innerHTML = `
     <div class="devmodal-head">
-      <div class="admin-item-thumb project-icon-wrap devmodal-icon">🚧${d.icon_url ? `<img src="${escapeHtml(d.icon_url)}" alt="" data-adm-err="rm" />` : ''}</div>
+      <div class="admin-item-thumb project-icon-wrap devmodal-icon">🚧${modalIcon ? `<img src="${escapeHtml(modalIcon)}" alt="" data-adm-err="rm" />` : ''}</div>
       <div class="devmodal-head-info">
         <h3 class="devmodal-title">${escapeHtml(name)}</h3>
-        <div class="devmodal-tags">${badge}<span class="devmodal-slug">${escapeHtml(d.slug || '')}</span></div>
+        <div class="devmodal-tags">${badge}<span class="devmodal-slug">${escapeHtml(modalSlug)}</span></div>
       </div>
     </div>
 
@@ -1394,7 +1594,7 @@ function openDevModal(pid) {
 
     <div class="devmode-hype hidden" id="devmodal-hype"></div>
 
-    <p class="devmode-launch hidden" id="devmodal-launch">🎉 Con <b>100%</b> ya podés elegir la <b>fecha de lanzamiento</b> del proyecto (sección Proyectos → Fecha confirmada).</p>
+    <p class="devmode-launch hidden" id="devmodal-launch">🎉 Con <b>100%</b> ya podés elegir la <b>fecha de lanzamiento</b> del proyecto (${adminOnly ? 'Gestión → ✏️ Editar proyecto' : 'sección Proyectos'} → Fecha confirmada).</p>
 
     <div class="devmodal-last">Último avance: <b>${lastBy}</b> · <span>${lastWhen}</span></div>
     <p class="dev-meta">👤 Se registrará como <b>${escapeHtml(getCurrentAdminName())}</b></p>
@@ -1537,7 +1737,19 @@ async function saveDevModal() {
     const saved = data.development || { project_id: pid, percent: finalPercent, updated_by: adminName, updated_at: new Date().toISOString() };
     const i = devProgressCache.findIndex((d) => Number(d.project_id) === pid);
     if (i >= 0) devProgressCache[i] = { ...devProgressCache[i], ...saved };
-    else devProgressCache.push({ project_id: pid, percent: finalPercent, updated_by: adminName, updated_at: saved.updated_at });
+    else {
+      const src = projectForDevModal(pid) || {};
+      devProgressCache.push({
+        project_id: pid,
+        percent: finalPercent,
+        updated_by: adminName,
+        updated_at: saved.updated_at,
+        name: src.name,
+        slug: src.slug,
+        icon_url: src.icon_url,
+        admin_only: isAdminOnlyProject(src)
+      });
+    }
     renderDevList();
     // El % es el mismo en Proyectos y en Gestión: se repintan las dos listas.
     renderAdminProjectsList();
@@ -1798,7 +2010,7 @@ function euphoriaGotoNews(projectName) {
 function euphoriaGotoCelebs() {
   closeEuphoriaOverlay();
   switchAdminTab('manage');
-  switchAdminSub('manage', 'celebs');
+  switchAdminSub('manage', 'hitos');
 }
 
 // =======================================================
@@ -1924,7 +2136,7 @@ async function celebrateCatalogEntry(projectId) {
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     showToast(`🎉 ¡Entrada al catálogo festejada!`);
     loadCelebrations();
-    switchAdminSub('manage', 'celebs');
+    switchAdminSub('manage', 'hitos');
   } catch (err) {
     showToast(`⚠️ ${err.message || 'No se pudo festejar'}`);
   }
@@ -5558,7 +5770,9 @@ async function loadAdminNews(manual) {
   const list = document.getElementById('news-list');
   if (!list) return;
   try {
-    const res = await fetch(API_BASE + '/ows-dashboard/news?limit=100');
+    // El panel necesita también las noticias ocultas: el feed público ya no
+    // las devuelve sin credenciales, así que se piden con cabecera de admin.
+    const res = await fetch(API_BASE + '/ows-dashboard/news?limit=100&include_inactive=1', { headers: adminHeaders() });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     newsCache = Array.isArray(data.news) ? data.news : [];
@@ -5987,6 +6201,62 @@ function newsAnimToForm(cfg, replay) {
   if (replay) previewNewsAnim();
 }
 
+// El CSS propio de la animación se guarda y termina publicándose a todos los
+// usuarios, así que también se filtra acá antes de mostrarlo en la vista
+// previa (evita inyectar CSS/URLs externas en el propio panel).
+function sanitizeNewsCustomCss(css) {
+  const raw = String(css || '').slice(0, 6000).trim();
+  if (!raw) return '';
+  if (typeof CSSStyleSheet === 'undefined') return '';
+  try {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(raw);
+    const cleanDeclarations = (style) => {
+      const out = [];
+      for (const prop of Array.from(style || [])) {
+        const value = style.getPropertyValue(prop);
+        if (!value) continue;
+        if (/url\s*\(|image-set\s*\(|expression\s*\(|javascript\s*:|behavior\s*:|-moz-binding|@import/i.test(value)) continue;
+        const important = style.getPropertyPriority(prop) ? ' !important' : '';
+        out.push(`${prop}:${value}${important}`);
+      }
+      return out;
+    };
+    const cleanKeyframes = (rule) => {
+      const frames = [];
+      for (const frame of Array.from(rule.cssRules || [])) {
+        const decls = cleanDeclarations(frame.style);
+        if (decls.length) frames.push(`${frame.keyText}{${decls.join(';')}}`);
+      }
+      return frames.length ? `@keyframes ${rule.name}{${frames.join('')}}` : '';
+    };
+    const out = [];
+    const walk = (rules) => {
+      for (const rule of Array.from(rules || [])) {
+        if (rule.type === CSSRule.KEYFRAMES_RULE) {
+          const kf = cleanKeyframes(rule);
+          if (kf) out.push(kf);
+          continue;
+        }
+        if (rule.type === CSSRule.MEDIA_RULE) {
+          const nested = out.length;
+          out.push('');
+          walk(rule.cssRules);
+          const produced = out.splice(nested).filter(Boolean);
+          if (produced.length) out.push(`@media ${rule.conditionText}{${produced.join('')}}`);
+          continue;
+        }
+        if (rule.type !== CSSRule.STYLE_RULE) continue;
+        if (!/#news-modal(?![\w-])/.test(rule.selectorText)) continue;
+        const decls = cleanDeclarations(rule.style);
+        if (decls.length) out.push(`${rule.selectorText}{${decls.join(';')}}`);
+      }
+    };
+    walk(sheet.cssRules);
+    return out.join('\n').slice(0, 6000);
+  } catch (_) { return ''; }
+}
+
 // Reproduce la animación elegida en el mini-escenario del formulario.
 function previewNewsAnim() {
   const stage = document.getElementById('newsanim-stage');
@@ -5995,14 +6265,15 @@ function previewNewsAnim() {
   if (!mini) return;
   const cfg = newsAnimFromForm();
   const preset = cfg.preset || 'none';
-  // CSS propio: en la vista previa se reapunta #news-modal al escenario.
+  // CSS propio: se filtra y luego se reapunta #news-modal al escenario.
+  const safeCustom = sanitizeNewsCustomCss(cfg.custom || '');
   let styleEl = document.getElementById('newsanim-custom-style');
   if (!styleEl) {
     styleEl = document.createElement('style');
     styleEl.id = 'newsanim-custom-style';
     document.head.appendChild(styleEl);
   }
-  styleEl.textContent = cfg.custom ? cfg.custom.replace(/#news-modal\b/g, '#newsanim-stage') : '';
+  styleEl.textContent = safeCustom ? safeCustom.replace(/#news-modal\b/g, '#newsanim-stage') : '';
   stage.classList.remove('is-playing', 'anim-fade', 'anim-rise', 'anim-zoom', 'anim-slide', 'anim-blur', 'anim-flip');
   void stage.offsetWidth; // reflow: reinicia las animaciones
   if (preset && preset !== 'none' && preset !== 'custom') stage.classList.add(`anim-${preset}`);
@@ -6895,7 +7166,7 @@ async function loadAdminEvents() {
   const list = document.getElementById('events-list');
   if (!list) return;
   try {
-    const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&include_expired=1&limit=100');
+    const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&include_expired=1&limit=100', { headers: adminHeaders() });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     eventsCache = data.events || [];
@@ -7116,7 +7387,7 @@ async function editEvent(id) {
   try {
     let item = eventsCache.find((ev) => Number(ev.id) === Number(id));
     if (!item) {
-      const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&include_expired=1&limit=100');
+      const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&include_expired=1&limit=100', { headers: adminHeaders() });
       const data = await res.json();
       item = (data.events || []).find((ev) => Number(ev.id) === Number(id));
     }
@@ -7855,6 +8126,823 @@ function savePopupFormAsPreset() {
   openFormModal('preset');
   const n = document.getElementById('preset-name');
   if (n) setTimeout(() => n.focus({ preventScroll: true }), 350);
+}
+
+// =======================================================
+// MODALES DE NOTICIAS EN CADENA
+// Anuncios verticales que aparecen una vez al entrar al Hub.
+// Varios modales de la misma cadena se recorren con Anterior /
+// Siguiente y el contador X/X. El video dura 15 s como máximo.
+// Endpoints: /ows-dashboard/news-modals
+// =======================================================
+
+let newsModalsCache = [];
+let editingNewsModalId = null;
+let newsModalImageFile = null;
+let newsModalVideoFile = null;
+let newsModalVideoDurationMs = 0;
+let newsModalVideoMeasuring = false;
+let newsModalVideoMeasureTimer = 0;
+let newsModalVideoMeasureSeq = 0;
+let newsModalPreviewState = null;
+
+const NEWS_MODAL_MAX_VIDEO_MS = 15000;
+
+function newsModalTodayISO() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function formatNewsModalDate(value, opts) {
+  const s = String(value || '').slice(0, 10);
+  if (!s) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return s;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleDateString('es-ES', opts || { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function newsModalSecs(ms) {
+  const n = Number(ms || 0);
+  return n > 0 ? `${(n / 1000).toFixed(1)} s` : '';
+}
+
+function newsModalChainOf(key) {
+  const target = String(key || 'Novedades');
+  return newsModalsCache
+    .filter((m) => String(m.chain_key || 'Novedades') === target)
+    .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || (Number(a.id) - Number(b.id)));
+}
+
+function focusNewsModalForm() {
+  resetNewsModalForm();
+  const chainEl = document.getElementById('newsmodal-chain');
+  if (chainEl && !chainEl.value) chainEl.value = 'Novedades';
+  openFormModal('newsmodal');
+}
+
+function currentNewsModalImageSrc(fallback) {
+  if (newsModalImageFile) {
+    try { return URL.createObjectURL(newsModalImageFile); } catch (_) { return ''; }
+  }
+  const el = document.getElementById('newsmodal-image-url');
+  const typed = el ? el.value.trim() : '';
+  return typed || String(fallback || '');
+}
+
+function renderNewsModalImagePreview(existingUrl) {
+  const box = document.getElementById('newsmodal-image-preview');
+  if (!box) return;
+  const src = currentNewsModalImageSrc(existingUrl);
+  if (!src) {
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    return;
+  }
+  box.innerHTML = `
+    <img src="${escapeHtml(src)}" alt="Imagen del modal" data-adm-err="rm" />
+    <button type="button" class="btn btn-danger btn-mini ev-preview-remove" data-adm-ev="click" data-adm="removeNewsModalImage">✕ Quitar</button>`;
+  box.classList.remove('hidden');
+}
+
+function removeNewsModalImage() {
+  newsModalImageFile = null;
+  const file = document.getElementById('newsmodal-image');
+  if (file) file.value = '';
+  const url = document.getElementById('newsmodal-image-url');
+  if (url) url.value = '';
+  renderNewsModalImagePreview('');
+  updateNewsModalLivePreview();
+}
+
+function currentNewsModalVideoSrc() {
+  if (newsModalVideoFile) {
+    try { return URL.createObjectURL(newsModalVideoFile); } catch (_) { return ''; }
+  }
+  const el = document.getElementById('newsmodal-video-url');
+  return el ? el.value.trim() : '';
+}
+
+function renderNewsModalVideoStatus() {
+  const status = document.getElementById('newsmodal-video-status');
+  if (!status) return;
+  if (!currentNewsModalVideoSrc()) {
+    status.className = 'newsmodal-video-status hidden';
+    status.textContent = '';
+    return;
+  }
+  status.classList.remove('hidden');
+  if (newsModalVideoMeasuring) {
+    status.className = 'newsmodal-video-status is-measuring';
+    status.textContent = '⏳ Midiendo la duración del video…';
+    return;
+  }
+  const ms = Number(newsModalVideoDurationMs || 0);
+  if (!ms) {
+    status.className = 'newsmodal-video-status is-bad';
+    status.textContent = '⚠️ No se pudo verificar la duración. El video debe durar 15 segundos o menos.';
+    return;
+  }
+  if (ms > NEWS_MODAL_MAX_VIDEO_MS) {
+    status.className = 'newsmodal-video-status is-bad';
+    status.textContent = `✖ ${newsModalSecs(ms)} — supera el límite de 15 s.`;
+    return;
+  }
+  status.className = 'newsmodal-video-status is-ok';
+  status.textContent = `✔ ${newsModalSecs(ms)} — dentro del límite de 15 s.`;
+}
+
+function renderNewsModalVideoPreview() {
+  const box = document.getElementById('newsmodal-video-preview');
+  if (!box) return;
+  const src = currentNewsModalVideoSrc();
+  if (!src) {
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    renderNewsModalVideoStatus();
+    return;
+  }
+  box.innerHTML = `
+    <video src="${escapeHtml(src)}" controls playsinline preload="metadata" data-adm-err="rm"></video>
+    <button type="button" class="btn btn-danger btn-mini ev-preview-remove" data-adm-ev="click" data-adm="removeNewsModalVideo">✕ Quitar</button>`;
+  box.classList.remove('hidden');
+  renderNewsModalVideoStatus();
+}
+
+function removeNewsModalVideo() {
+  newsModalVideoMeasureSeq += 1;
+  newsModalVideoMeasuring = false;
+  newsModalVideoDurationMs = 0;
+  newsModalVideoFile = null;
+  const file = document.getElementById('newsmodal-video');
+  if (file) file.value = '';
+  const url = document.getElementById('newsmodal-video-url');
+  if (url) url.value = '';
+  renderNewsModalVideoPreview();
+  updateNewsModalLivePreview();
+}
+
+// Lee la duración real del video (archivo local o URL). No se guarda nada
+// hasta que el navegador confirma que dura 15 s o menos.
+function measureNewsModalVideo(src, done) {
+  if (!src) { done(0, 'empty'); return; }
+  const video = document.createElement('video');
+  let settled = false;
+  const timer = setTimeout(() => finish(0, 'timeout'), 12000);
+  function finish(ms, reason) {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    try { video.removeAttribute('src'); video.load(); } catch (_) {}
+    done(ms, reason || '');
+  }
+  video.preload = 'metadata';
+  video.muted = true;
+  video.playsInline = true;
+  video.onloadedmetadata = () => {
+    const ms = Math.round(Number(video.duration || 0) * 1000);
+    if (!Number.isFinite(ms) || ms <= 0) return finish(0, 'invalid');
+    finish(ms, '');
+  };
+  video.onerror = () => finish(0, 'error');
+  try {
+    video.src = src;
+    video.load();
+  } catch (_) {
+    finish(0, 'error');
+  }
+}
+
+function onNewsModalVideoUrlInput() {
+  const urlEl = document.getElementById('newsmodal-video-url');
+  const url = urlEl ? urlEl.value.trim() : '';
+  if (newsModalVideoMeasureTimer) {
+    clearTimeout(newsModalVideoMeasureTimer);
+    newsModalVideoMeasureTimer = 0;
+  }
+  const seq = ++newsModalVideoMeasureSeq;
+  if (newsModalVideoFile) {
+    newsModalVideoFile = null;
+    const file = document.getElementById('newsmodal-video');
+    if (file) file.value = '';
+  }
+  if (!url) {
+    newsModalVideoDurationMs = 0;
+    newsModalVideoMeasuring = false;
+    renderNewsModalVideoPreview();
+    updateNewsModalLivePreview();
+    return;
+  }
+  newsModalVideoDurationMs = 0;
+  newsModalVideoMeasuring = true;
+  renderNewsModalVideoPreview();
+  updateNewsModalLivePreview();
+  newsModalVideoMeasureTimer = setTimeout(() => {
+    if (seq !== newsModalVideoMeasureSeq) return;
+    measureNewsModalVideo(url, (ms) => {
+      if (seq !== newsModalVideoMeasureSeq) return;
+      newsModalVideoMeasuring = false;
+      newsModalVideoDurationMs = ms;
+      if (ms > NEWS_MODAL_MAX_VIDEO_MS) {
+        showToast(`⚠️ El video dura ${newsModalSecs(ms)}: el límite es 15 s.`);
+      }
+      renderNewsModalVideoPreview();
+      updateNewsModalLivePreview();
+    });
+  }, 500);
+}
+
+function bindNewsModalInputs() {
+  const image = document.getElementById('newsmodal-image');
+  if (image && !image.dataset.bound) {
+    image.dataset.bound = '1';
+    image.addEventListener('change', () => {
+      const f = image.files && image.files[0];
+      newsModalImageFile = f || null;
+      const urlEl = document.getElementById('newsmodal-image-url');
+      if (f && urlEl) urlEl.value = '';
+      renderNewsModalImagePreview('');
+      updateNewsModalLivePreview();
+    });
+    const zone = document.getElementById('newsmodal-image-dropzone');
+    if (zone) {
+      zone.addEventListener('drop', (e) => {
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!f) return;
+        if (!/^image\//i.test(f.type)) return showToast('⚠️ Solo se aceptan imágenes');
+        if (f.size > 15 * 1024 * 1024) return showToast('⚠️ La imagen supera los 15 MB');
+        const dt = new DataTransfer();
+        dt.items.add(f);
+        image.files = dt.files;
+        newsModalImageFile = f;
+        const urlEl = document.getElementById('newsmodal-image-url');
+        if (urlEl) urlEl.value = '';
+        renderNewsModalImagePreview('');
+        updateNewsModalLivePreview();
+      });
+    }
+  }
+  const imageUrl = document.getElementById('newsmodal-image-url');
+  if (imageUrl && !imageUrl.dataset.bound) {
+    imageUrl.dataset.bound = '1';
+    imageUrl.addEventListener('input', () => {
+      if (imageUrl.value.trim()) {
+        newsModalImageFile = null;
+        const fi = document.getElementById('newsmodal-image');
+        if (fi) fi.value = '';
+      }
+      renderNewsModalImagePreview('');
+    });
+  }
+
+  const video = document.getElementById('newsmodal-video');
+  if (video && !video.dataset.bound) {
+    video.dataset.bound = '1';
+    video.addEventListener('change', () => {
+      const f = video.files && video.files[0];
+      if (!f) {
+        newsModalVideoFile = null;
+        newsModalVideoDurationMs = 0;
+        newsModalVideoMeasuring = false;
+        renderNewsModalVideoPreview();
+        updateNewsModalLivePreview();
+        return;
+      }
+      if (!/^video\//i.test(f.type)) {
+        video.value = '';
+        return showToast('⚠️ Solo videos MP4, WEBM o MOV');
+      }
+      if (f.size > 80 * 1024 * 1024) {
+        video.value = '';
+        return showToast('⚠️ El video supera los 80 MB');
+      }
+      const seq = ++newsModalVideoMeasureSeq;
+      newsModalVideoFile = f;
+      newsModalVideoDurationMs = 0;
+      newsModalVideoMeasuring = true;
+      const urlEl = document.getElementById('newsmodal-video-url');
+      if (urlEl) urlEl.value = '';
+      renderNewsModalVideoPreview();
+      updateNewsModalLivePreview();
+      let src = '';
+      try { src = URL.createObjectURL(f); } catch (_) {}
+      measureNewsModalVideo(src, (ms) => {
+        if (seq !== newsModalVideoMeasureSeq) return;
+        newsModalVideoMeasuring = false;
+        if (!ms) {
+          newsModalVideoFile = null;
+          video.value = '';
+          newsModalVideoDurationMs = 0;
+          renderNewsModalVideoPreview();
+          updateNewsModalLivePreview();
+          return showToast('⚠️ No se pudo leer la duración del video. Probá con otro archivo.');
+        }
+        if (ms > NEWS_MODAL_MAX_VIDEO_MS) {
+          newsModalVideoFile = null;
+          video.value = '';
+          newsModalVideoDurationMs = 0;
+          renderNewsModalVideoPreview();
+          updateNewsModalLivePreview();
+          return showToast(`⚠️ El video dura ${newsModalSecs(ms)}: el límite es 15 s.`);
+        }
+        newsModalVideoDurationMs = ms;
+        renderNewsModalVideoPreview();
+        updateNewsModalLivePreview();
+        showToast(`✔ Video listo (${newsModalSecs(ms)})`);
+      });
+    });
+    const zone = document.getElementById('newsmodal-video-dropzone');
+    if (zone) {
+      zone.addEventListener('drop', (e) => {
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!f) return;
+        if (!/^video\//i.test(f.type)) return showToast('⚠️ Solo se aceptan videos');
+        const dt = new DataTransfer();
+        dt.items.add(f);
+        video.files = dt.files;
+        video.dispatchEvent(new Event('change'));
+      });
+    }
+  }
+
+  const active = document.getElementById('newsmodal-active');
+  if (active && !active.dataset.bound) {
+    active.dataset.bound = '1';
+    active.addEventListener('change', () => {
+      const label = document.getElementById('newsmodal-active-label');
+      if (label) label.textContent = active.checked ? 'Publicado y visible' : 'Oculto (borrador)';
+      updateNewsModalLivePreview();
+    });
+  }
+  const once = document.getElementById('newsmodal-show-once');
+  if (once && !once.dataset.bound) {
+    once.dataset.bound = '1';
+    once.addEventListener('change', updateNewsModalLivePreview);
+  }
+}
+
+function updateNewsModalLivePreview() {
+  const titleEl = document.getElementById('newsmodal-title');
+  const bodyEl = document.getElementById('newsmodal-body');
+  const chainEl = document.getElementById('newsmodal-chain');
+  const dateEl = document.getElementById('newsmodal-date');
+  const tCount = document.getElementById('newsmodal-title-count');
+  const bCount = document.getElementById('newsmodal-body-count');
+  if (tCount && titleEl) tCount.textContent = `${titleEl.value.length}/90`;
+  if (bCount && bodyEl) bCount.textContent = `${bodyEl.value.length}/2000`;
+  const box = document.getElementById('newsmodal-live-preview');
+  if (!box) return;
+  const title = titleEl ? titleEl.value.trim() : '';
+  const body = bodyEl ? bodyEl.value.trim() : '';
+  const chain = (chainEl && chainEl.value.trim()) || 'Novedades';
+  const date = dateEl ? dateEl.value : '';
+  const img = currentNewsModalImageSrc('');
+  const video = currentNewsModalVideoSrc();
+  const once = document.getElementById('newsmodal-show-once');
+  const active = document.getElementById('newsmodal-active');
+  box.innerHTML = `
+    <div class="newsmodal-mini">
+      <div class="newsmodal-mini-top">
+        <span class="newsmodal-mini-badge">📣 ${escapeHtml(chain)}</span>
+        <span class="newsmodal-mini-count">1/1</span>
+      </div>
+      ${video ? `<video class="newsmodal-mini-media" src="${escapeHtml(video)}" muted playsinline preload="metadata"></video>` : img ? `<img class="newsmodal-mini-media" src="${escapeHtml(img)}" alt="" data-adm-err="rm" />` : ''}
+      <div class="newsmodal-mini-body">
+        <span class="newsmodal-mini-date">📅 ${escapeHtml(date ? formatNewsModalDate(date, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha')}</span>
+        <strong>${escapeHtml(title) || 'Título del modal'}</strong>
+        <p>${escapeHtml(body).slice(0, 170) || 'El contenido del anuncio aparecerá acá.'}</p>
+        <span class="newsmodal-mini-meta">${once && once.checked ? 'Se muestra una sola vez' : 'Se muestra en cada inicio de sesión'}${active && !active.checked ? ' · Oculto' : ''}</span>
+      </div>
+    </div>`;
+}
+
+function refreshNewsModalChainList() {
+  const list = document.getElementById('newsmodal-chain-list');
+  if (!list) return;
+  const keys = [...new Set(newsModalsCache.map((m) => String(m.chain_key || 'Novedades')))];
+  list.innerHTML = keys.map((k) => `<option value="${escapeHtml(k)}"></option>`).join('');
+}
+
+async function loadNewsModals(silent) {
+  const list = document.getElementById('newsmodals-list');
+  if (!list) return;
+  bindNewsModalInputs();
+  try {
+    const res = await fetch(API_BASE + '/ows-dashboard/news-modals', { headers: adminHeaders() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    newsModalsCache = Array.isArray(data.modals) ? data.modals : [];
+    refreshNewsModalChainList();
+    renderNewsModals();
+  } catch (err) {
+    if (!silent) {
+      list.innerHTML = `<div class="ev-empty"><span class="ev-empty-icon">⚠️</span><p>${escapeHtml(err.message)}</p><button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadNewsModals" data-adm-a0="b:1">Reintentar</button></div>`;
+    }
+  }
+}
+
+function updateNewsModalsStats() {
+  const total = newsModalsCache.length;
+  const chains = new Set(newsModalsCache.map((m) => String(m.chain_key || 'Novedades'))).size;
+  const active = newsModalsCache.filter((m) => m.is_active !== false && m.is_published !== false).length;
+  const hidden = newsModalsCache.filter((m) => m.is_active === false || m.is_published === false).length;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+  set('newsmodal-stat-total', total);
+  set('newsmodal-stat-chains', chains);
+  set('newsmodal-stat-active', active);
+  set('newsmodal-stat-hidden', hidden);
+}
+
+function renderNewsModals() {
+  const list = document.getElementById('newsmodals-list');
+  if (!list) return;
+  updateNewsModalsStats();
+  const count = document.getElementById('newsmodal-count');
+  if (count) count.textContent = `${newsModalsCache.length} modal${newsModalsCache.length === 1 ? '' : 'es'} en ${new Set(newsModalsCache.map((m) => String(m.chain_key || 'Novedades'))).size} cadena(s)`;
+  if (!newsModalsCache.length) {
+    list.innerHTML = `<div class="ev-empty"><span class="ev-empty-icon">📣</span><p><b>No hay modales todavía.</b><br />Creá el primero: título, fecha y contenido. La imagen y el video son opcionales.</p><button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusNewsModalForm">＋ Crear primer modal</button></div>`;
+    return;
+  }
+
+  const groups = new Map();
+  newsModalsCache.forEach((m) => {
+    const key = String(m.chain_key || 'Novedades');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(m);
+  });
+  const ordered = [...groups.entries()].map(([key, items]) => {
+    const sorted = items.slice().sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || (Number(a.id) - Number(b.id)));
+    const latest = sorted.reduce((acc, m) => {
+      const t = m.updated_at ? new Date(m.updated_at).getTime() : 0;
+      return Math.max(acc, t);
+    }, 0);
+    return { key, items: sorted, latest };
+  }).sort((a, b) => b.latest - a.latest);
+
+  list.innerHTML = ordered.map((group) => {
+    const rows = group.items.map((m, idx) => {
+      const thumb = m.image_url
+        ? `<img src="${escapeHtml(m.image_url)}" alt="" loading="lazy" data-adm-err="rm" />`
+        : `<span class="ev-card-fallback">${m.video_url ? '🎬' : '📣'}</span>`;
+      const stateChip = m.is_active !== false && m.is_published !== false
+        ? '<span class="ev-chip ev-phase-live">✔ Publicado</span>'
+        : '<span class="ev-chip ev-phase-hidden">🚫 Oculto</span>';
+      const onceChip = m.show_once !== false
+        ? '<span class="ev-chip ev-cat-event">1️⃣ Una vez</span>'
+        : '<span class="ev-chip ev-cat-announcement">🔁 Cada ingreso</span>';
+      const dateLabel = m.display_date ? formatNewsModalDate(m.display_date) : 'Sin fecha';
+      const videoLabel = m.video_duration_ms ? ` · 🎬 ${newsModalSecs(m.video_duration_ms)}` : '';
+      return `
+      <div class="ev-row newsmodal-row ${m.is_active === false || m.is_published === false ? 'is-hidden' : ''}">
+        <div class="newsmodal-order">${idx + 1}<small>/${group.items.length}</small></div>
+        <div class="ev-row-thumb">${thumb}</div>
+        <div class="ev-row-main">
+          <div class="ev-row-title">${escapeHtml(m.title)}</div>
+          <div class="ev-row-sub">📅 ${escapeHtml(dateLabel)}${videoLabel} · 🔁 muestra #${Number(m.show_token || 1)}</div>
+        </div>
+        ${onceChip}
+        ${stateChip}
+        <div class="ev-card-actions">
+          <button class="btn btn-ghost btn-mini" title="Subir" data-adm-ev="click" data-adm="moveNewsModal" data-adm-a0="r:${m.id}" data-adm-a1="s:up" ${idx === 0 ? 'disabled' : ''}>↑</button>
+          <button class="btn btn-ghost btn-mini" title="Bajar" data-adm-ev="click" data-adm="moveNewsModal" data-adm-a0="r:${m.id}" data-adm-a1="s:down" ${idx === group.items.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="btn btn-ghost btn-mini" title="Ver como usuario" data-adm-ev="click" data-adm="previewNewsModal" data-adm-a0="r:${m.id}">👁</button>
+          <button class="btn btn-ghost btn-mini" title="Editar" data-adm-ev="click" data-adm="editNewsModal" data-adm-a0="r:${m.id}">✏️</button>
+          <button class="btn btn-ghost btn-mini" title="${m.is_active !== false && m.is_published !== false ? 'Ocultar' : 'Publicar'}" data-adm-ev="click" data-adm="toggleNewsModal" data-adm-a0="r:${m.id}" data-adm-a1="s:${m.is_active !== false && m.is_published !== false ? 'false' : 'true'}">${m.is_active !== false && m.is_published !== false ? '🚫' : '✅'}</button>
+          <button class="btn btn-ghost btn-mini" title="Volver a mostrarlo a todos" data-adm-ev="click" data-adm="reshowNewsModal" data-adm-a0="r:${m.id}">🔁</button>
+          <button class="btn btn-danger btn-mini" title="Eliminar" data-adm-ev="click" data-adm="deleteNewsModal" data-adm-a0="r:${m.id}">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `
+    <div class="newsmodals-group">
+      <div class="newsmodals-group-head">
+        <div class="newsmodals-group-title">🔗 ${escapeHtml(group.key)} <span class="newsmodals-group-count">${group.items.length} modal${group.items.length === 1 ? '' : 'es'} · ${group.items.length > 1 ? 'cadena con Anterior/Siguiente' : 'modal individual'}</span></div>
+        <button class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="previewNewsModalChain" data-adm-a0="s:${escapeHtml(group.key)}">👁 Ver cadena</button>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+}
+
+function resetNewsModalForm() {
+  editingNewsModalId = null;
+  newsModalVideoMeasureSeq += 1;
+  newsModalImageFile = null;
+  newsModalVideoFile = null;
+  newsModalVideoDurationMs = 0;
+  newsModalVideoMeasuring = false;
+  if (newsModalVideoMeasureTimer) { clearTimeout(newsModalVideoMeasureTimer); newsModalVideoMeasureTimer = 0; }
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('newsmodal-id', '');
+  setVal('newsmodal-title', '');
+  setVal('newsmodal-body', '');
+  setVal('newsmodal-chain', 'Novedades');
+  setVal('newsmodal-date', newsModalTodayISO());
+  setVal('newsmodal-order', '');
+  setVal('newsmodal-image-url', '');
+  setVal('newsmodal-video-url', '');
+  const image = document.getElementById('newsmodal-image');
+  if (image) image.value = '';
+  const video = document.getElementById('newsmodal-video');
+  if (video) video.value = '';
+  const once = document.getElementById('newsmodal-show-once');
+  if (once) once.checked = true;
+  const active = document.getElementById('newsmodal-active');
+  if (active) active.checked = true;
+  const activeLabel = document.getElementById('newsmodal-active-label');
+  if (activeLabel) activeLabel.textContent = 'Publicado y visible';
+  const title = document.getElementById('newsmodal-form-title');
+  if (title) title.textContent = 'Nuevo modal';
+  const mode = document.getElementById('newsmodal-form-mode');
+  if (mode) { mode.textContent = '✦ Creando'; mode.className = 'status-pill status-on'; }
+  const cancel = document.getElementById('btn-cancel-newsmodal');
+  if (cancel) cancel.classList.add('hidden');
+  const save = document.getElementById('btn-save-newsmodal');
+  if (save) save.textContent = '💾 Publicar modal';
+  renderNewsModalImagePreview('');
+  renderNewsModalVideoPreview();
+  updateNewsModalLivePreview();
+  try { closeFormModal(); } catch (_) {}
+}
+
+function editNewsModal(id) {
+  const item = newsModalsCache.find((m) => Number(m.id) === Number(id));
+  if (!item) return showToast('⚠️ Modal no encontrado');
+  editingNewsModalId = Number(id);
+  newsModalVideoMeasureSeq += 1;
+  newsModalImageFile = null;
+  newsModalVideoFile = null;
+  newsModalVideoMeasuring = false;
+  newsModalVideoDurationMs = Number(item.video_duration_ms || 0);
+  const setVal = (fid, v) => { const el = document.getElementById(fid); if (el) el.value = v; };
+  setVal('newsmodal-id', String(item.id));
+  setVal('newsmodal-title', item.title || '');
+  setVal('newsmodal-body', item.body || '');
+  setVal('newsmodal-chain', item.chain_key || 'Novedades');
+  setVal('newsmodal-date', item.display_date ? String(item.display_date).slice(0, 10) : newsModalTodayISO());
+  setVal('newsmodal-order', String(item.sort_order || ''));
+  setVal('newsmodal-image-url', item.image_url && /^https?:\/\//i.test(item.image_url) ? item.image_url : '');
+  setVal('newsmodal-video-url', item.video_url || '');
+  const image = document.getElementById('newsmodal-image');
+  if (image) image.value = '';
+  const video = document.getElementById('newsmodal-video');
+  if (video) video.value = '';
+  const once = document.getElementById('newsmodal-show-once');
+  if (once) once.checked = item.show_once !== false;
+  const active = document.getElementById('newsmodal-active');
+  if (active) active.checked = item.is_active !== false && item.is_published !== false;
+  const activeLabel = document.getElementById('newsmodal-active-label');
+  if (activeLabel) activeLabel.textContent = active && active.checked ? 'Publicado y visible' : 'Oculto (borrador)';
+  const title = document.getElementById('newsmodal-form-title');
+  if (title) title.textContent = `Editando: ${item.title || '#' + id}`;
+  const mode = document.getElementById('newsmodal-form-mode');
+  if (mode) { mode.textContent = '✎ Editando'; mode.className = 'status-pill status-from-projects'; }
+  const cancel = document.getElementById('btn-cancel-newsmodal');
+  if (cancel) cancel.classList.remove('hidden');
+  const save = document.getElementById('btn-save-newsmodal');
+  if (save) save.textContent = '💾 Guardar cambios';
+  renderNewsModalImagePreview(item.image_url || '');
+  renderNewsModalVideoPreview();
+  updateNewsModalLivePreview();
+  openFormModal('newsmodal');
+}
+
+async function saveNewsModal(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const title = (document.getElementById('newsmodal-title') || {}).value?.trim() || '';
+  const body = (document.getElementById('newsmodal-body') || {}).value?.trim() || '';
+  const chain = (document.getElementById('newsmodal-chain') || {}).value?.trim() || 'Novedades';
+  const date = (document.getElementById('newsmodal-date') || {}).value || '';
+  const orderRaw = (document.getElementById('newsmodal-order') || {}).value;
+  const imageUrl = (document.getElementById('newsmodal-image-url') || {}).value?.trim() || '';
+  const videoUrl = (document.getElementById('newsmodal-video-url') || {}).value?.trim() || '';
+  const once = document.getElementById('newsmodal-show-once');
+  const active = document.getElementById('newsmodal-active');
+  if (!title) return showToast('⚠️ El título es obligatorio');
+  if (!body) return showToast('⚠️ Escribí el contenido del modal');
+  if (newsModalVideoMeasuring) return showToast('⏳ Esperá a que termine de medirse el video');
+  if (videoUrl || newsModalVideoFile) {
+    if (!newsModalVideoDurationMs) return showToast('⚠️ No se pudo verificar la duración del video');
+    if (newsModalVideoDurationMs > NEWS_MODAL_MAX_VIDEO_MS) {
+      return showToast(`⚠️ El video dura ${newsModalSecs(newsModalVideoDurationMs)}: el máximo es 15 s`);
+    }
+  }
+  const btn = document.getElementById('btn-save-newsmodal');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando…';
+  }
+  try {
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('body', body);
+    fd.append('chain_key', chain);
+    if (date) fd.append('display_date', date);
+    if (String(orderRaw || '').trim()) fd.append('sort_order', String(Number(orderRaw) || 0));
+    fd.append('show_once', once && once.checked ? 'true' : 'false');
+    fd.append('is_published', active && active.checked ? 'true' : 'false');
+    fd.append('is_active', active && active.checked ? 'true' : 'false');
+    if (newsModalImageFile) fd.append('image', newsModalImageFile);
+    else fd.append('image_url', imageUrl);
+    if (newsModalVideoFile) fd.append('video', newsModalVideoFile);
+    else fd.append('video_url', videoUrl);
+    fd.append('video_duration_ms', String(newsModalVideoDurationMs || 0));
+    let res;
+    if (editingNewsModalId) {
+      res = await fetch(API_BASE + `/ows-dashboard/news-modals/${editingNewsModalId}`, {
+        method: 'PATCH', headers: adminHeaders(), body: fd
+      });
+    } else {
+      res = await fetch(API_BASE + '/ows-dashboard/news-modals', {
+        method: 'POST', headers: adminHeaders(), body: fd
+      });
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    const wasEditing = Boolean(editingNewsModalId);
+    showToast(wasEditing ? 'Modal actualizado ✔' : '📣 Modal publicado: aparecerá en el próximo inicio de sesión ✔');
+    resetNewsModalForm();
+    await loadNewsModals();
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = editingNewsModalId ? '💾 Guardar cambios' : '💾 Publicar modal';
+    }
+  }
+}
+
+async function deleteNewsModal(id) {
+  const target = newsModalsCache.find((x) => Number(x.id) === Number(id));
+  if (!confirm(`¿Eliminar "${target ? target.title : 'este modal'}" permanentemente?`)) return;
+  try {
+    const res = await fetch(API_BASE + `/ows-dashboard/news-modals/${id}`, {
+      method: 'DELETE', headers: adminHeaders()
+    });
+    if (!res.ok) throw new Error(`Error (${res.status})`);
+    showToast('Modal eliminado');
+    if (editingNewsModalId === id) resetNewsModalForm();
+    await loadNewsModals(true);
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  }
+}
+
+async function toggleNewsModal(id, newState) {
+  const publish = String(newState) === 'true';
+  try {
+    const res = await fetch(API_BASE + `/ows-dashboard/news-modals/${id}`, {
+      method: 'PATCH',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ is_active: publish, is_published: publish })
+    });
+    if (!res.ok) throw new Error(`Error (${res.status})`);
+    showToast(publish ? 'Modal publicado ✔' : 'Modal oculto');
+    await loadNewsModals(true);
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  }
+}
+
+async function reshowNewsModal(id) {
+  const target = newsModalsCache.find((x) => Number(x.id) === Number(id));
+  if (!confirm(`¿Volver a mostrar "${target ? target.title : 'este modal'}" a todos? Aparecerá otra vez en el próximo ingreso.`)) return;
+  try {
+    const res = await fetch(API_BASE + `/ows-dashboard/news-modals/${id}/reshow`, {
+      method: 'POST', headers: adminHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast(`🔁 Re-mostrado (muestra #${data.modal ? data.modal.show_token : '?'}) ✔`);
+    await loadNewsModals(true);
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  }
+}
+
+async function moveNewsModal(id, dir) {
+  const item = newsModalsCache.find((m) => Number(m.id) === Number(id));
+  if (!item) return;
+  const chainKey = String(item.chain_key || 'Novedades');
+  const items = newsModalChainOf(chainKey);
+  const idx = items.findIndex((m) => Number(m.id) === Number(id));
+  const target = String(dir) === 'up' ? idx - 1 : idx + 1;
+  if (idx < 0 || target < 0 || target >= items.length) return;
+  const ids = items.map((m) => Number(m.id));
+  [ids[idx], ids[target]] = [ids[target], ids[idx]];
+  try {
+    const res = await fetch(API_BASE + '/ows-dashboard/news-modals/reorder', {
+      method: 'POST',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ chain_key: chainKey, ids })
+    });
+    if (!res.ok) throw new Error(`Error (${res.status})`);
+    await loadNewsModals(true);
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  }
+}
+
+// ── Vista previa (idéntica al modal que ve el usuario) ──
+function newsModalPreviewOpen(items, index) {
+  if (!Array.isArray(items) || !items.length) return;
+  newsModalPreviewState = { items, index: Math.max(0, Math.min(items.length - 1, index || 0)) };
+  const overlay = document.getElementById('newsmodal-preview');
+  if (overlay) overlay.classList.remove('hidden');
+  renderNewsModalPreview();
+}
+
+function renderNewsModalPreview() {
+  const state = newsModalPreviewState;
+  const body = document.getElementById('newsmp-body');
+  const count = document.getElementById('newsmp-count');
+  const prev = document.getElementById('newsmp-prev');
+  const next = document.getElementById('newsmp-next');
+  if (!state || !body) return;
+  const item = state.items[state.index];
+  const total = state.items.length;
+  if (count) count.textContent = `${state.index + 1}/${total}`;
+  if (prev) prev.disabled = state.index === 0;
+  if (next) next.textContent = state.index === total - 1 ? 'Cerrar ✓' : 'Siguiente →';
+  const dateLabel = item.display_date ? formatNewsModalDate(item.display_date, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  const bodyText = String(item.body || '').trim();
+  const paragraphs = bodyText ? bodyText.split(/\n{2,}/).map((p) => `<p>${escapeHtml(p)}</p>`).join('') : '';
+  const video = item.video_url || '';
+  const image = item.image_url || '';
+  body.innerHTML = `
+    ${video
+      ? `<div class="newsmp-media"><video src="${escapeHtml(video)}" controls playsinline preload="metadata" poster="${escapeHtml(image)}"></video></div>`
+      : image
+        ? `<div class="newsmp-media"><img src="${escapeHtml(image)}" alt="" data-adm-err="rm" /></div>`
+        : ''}
+    <div class="newsmp-content">
+      <div class="newsmp-meta">
+        <span class="newsmp-date">📅 ${escapeHtml(dateLabel || 'Sin fecha')}</span>
+        <span class="newsmp-pos">Noticia ${state.index + 1} de ${total}</span>
+      </div>
+      <h3 class="newsmp-title" id="newsmp-title">${escapeHtml(item.title || '')}</h3>
+      <div class="newsmp-text">${paragraphs || '<p class="newsmp-empty">Sin contenido.</p>'}</div>
+    </div>`;
+  body.scrollTop = 0;
+}
+
+function newsModalPreviewStep(dir) {
+  const state = newsModalPreviewState;
+  if (!state) return;
+  const nextIndex = state.index + Number(dir || 0);
+  if (nextIndex < 0) return;
+  if (nextIndex >= state.items.length) return closeNewsModalPreview();
+  state.index = nextIndex;
+  renderNewsModalPreview();
+}
+
+function closeNewsModalPreview() {
+  const overlay = document.getElementById('newsmodal-preview');
+  if (overlay) {
+    overlay.querySelectorAll('video').forEach((v) => { try { v.pause(); } catch (_) {} });
+    overlay.classList.add('hidden');
+  }
+  newsModalPreviewState = null;
+}
+
+function previewNewsModal(id) {
+  const item = newsModalsCache.find((m) => Number(m.id) === Number(id));
+  if (!item) return showToast('⚠️ Modal no encontrado');
+  const chainKey = String(item.chain_key || 'Novedades');
+  const items = newsModalChainOf(chainKey).filter((m) => m.is_active !== false && m.is_published !== false);
+  const list = items.length ? items : [item];
+  const idx = list.findIndex((m) => Number(m.id) === Number(id));
+  newsModalPreviewOpen(list, idx >= 0 ? idx : 0);
+}
+
+function previewNewsModalChain(key) {
+  const items = newsModalChainOf(key).filter((m) => m.is_active !== false && m.is_published !== false);
+  if (!items.length) return showToast('⚠️ Esta cadena no tiene modales publicados');
+  newsModalPreviewOpen(items, 0);
+}
+
+function previewNewsModalDraft() {
+  const title = (document.getElementById('newsmodal-title') || {}).value?.trim() || '';
+  const body = (document.getElementById('newsmodal-body') || {}).value?.trim() || '';
+  const date = (document.getElementById('newsmodal-date') || {}).value || '';
+  const imageUrl = (document.getElementById('newsmodal-image-url') || {}).value?.trim() || '';
+  const videoUrl = (document.getElementById('newsmodal-video-url') || {}).value?.trim() || '';
+  if (!title) return showToast('⚠️ Escribí un título para ver la vista previa');
+  const imageSrc = currentNewsModalImageSrc(imageUrl);
+  const videoSrc = currentNewsModalVideoSrc();
+  newsModalPreviewOpen([{
+    id: 0,
+    title,
+    body,
+    display_date: date || null,
+    image_url: imageSrc,
+    video_url: videoSrc,
+    chain_key: (document.getElementById('newsmodal-chain') || {}).value?.trim() || 'Novedades'
+  }], 0);
 }
 
 // =======================================================
@@ -12758,6 +13846,14 @@ function renderWsAnalytics(reload) {
   if (sb) sb.textContent = `⏱ ${a.sessions} sesión${a.sessions === 1 ? '' : 'es'}`;
   const cb = document.getElementById('an-changes-badge');
   if (cb) cb.textContent = `⏺ ${a.totalChanges} cambio${a.totalChanges === 1 ? '' : 's'}`;
+  // KPIs del rango: tiempo, sesiones, cambios y admins con actividad.
+  const totalMinutes = a.dayMinutes.reduce((sum, d) => sum + d.minutes, 0);
+  const adminsActive = (a.adminsByMinutes || []).length;
+  const setKpi = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  setKpi('an-kpi-minutes', totalMinutes ? wsMinutes(totalMinutes) : '—');
+  setKpi('an-kpi-sessions', String(a.sessions));
+  setKpi('an-kpi-changes', String(a.totalChanges));
+  setKpi('an-kpi-admins', String(adminsActive));
   const dayMinRows = a.daysByMinutes.filter((d) => d.minutes > 0).map((d) => {
     const topAdm = a.topAdminOfDay(d);
     return [wsShortDay(d.day) + (topAdm ? ` · ${topAdm[0]}` : ''), d.minutes];
@@ -13354,6 +14450,7 @@ document.addEventListener('DOMContentLoaded', bindAdminDispatch);
 const ADM_FORM_MODAL = {
   news:     { eyebrow: 'Noticias · Formulario', focus: 'news-title', titleSel: '#news-form-title' },
   quicknews:{ eyebrow: 'Noticias Rápidas · Formulario', focus: 'qnews-text', titleSel: '#qnews-form-title' },
+  newsmodal:{ eyebrow: 'Noticias · Modales en cadena', focus: 'newsmodal-title', titleSel: '#newsmodal-form-title' },
   event:    { eyebrow: 'Eventos · Formulario', focus: 'event-title', titleSel: '#event-form-title' },
   popup:    { eyebrow: 'Modales · Formulario', focus: 'popup-title', titleSel: '#popup-form-title' },
   preset:   { eyebrow: 'Presets · Formulario', focus: 'preset-name', titleSel: '#preset-form-title' },

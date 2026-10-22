@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=14" />
+  <link rel="stylesheet" href="admin-styles.css?v=16" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -360,6 +360,140 @@
          </div>
        </div>
      </div><!-- /news-sub-quick -->
+
+     <!-- ── SUB: MODALES DE NOTICIAS EN CADENA ── -->
+     <!-- Anuncios que aparecen una sola vez al entrar al Hub. Varios
+          modales de la misma cadena se recorren con Anterior/Siguiente
+          y un contador X/X. El video es opcional y dura 15 s como máximo. -->
+     <div class="admin-subpane hidden" data-sub="modals" id="news-sub-modals">
+       <div class="glass-card events-hero page-head">
+         <div class="page-head-icon events-hero-icon">📣</div>
+         <div class="page-head-body">
+           <div class="events-hero-top">
+             <div>
+               <h3 class="form-title events-hero-title">Modales en cadena</h3>
+               <p class="form-hint events-hero-sub">Anuncios que aparecen <b>una sola vez</b> al entrar al Hub. Agrupá varios en una cadena: el usuario los recorre con <b>Anterior</b> y <b>Siguiente</b> (1/3, 2/3…). Cada modal acepta título, imagen opcional, fecha, contenido y un video de <b>15 s máximo</b>.</p>
+             </div>
+             <div class="events-hero-actions page-head-actions">
+               <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusNewsModalForm">＋ Nuevo modal</button>
+               <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadNewsModals" data-adm-a0="b:1" title="Recargar modales">↻ Actualizar</button>
+             </div>
+           </div>
+           <div class="events-stats" id="newsmodal-stats">
+             <div class="ev-stat"><span class="ev-stat-num" id="newsmodal-stat-total">0</span><span class="ev-stat-label">Total</span></div>
+             <div class="ev-stat ev-stat-live"><span class="ev-stat-num" id="newsmodal-stat-chains">0</span><span class="ev-stat-label">🔗 Cadenas</span></div>
+             <div class="ev-stat"><span class="ev-stat-num" id="newsmodal-stat-active">0</span><span class="ev-stat-label">✔ Publicados</span></div>
+             <div class="ev-stat"><span class="ev-stat-num" id="newsmodal-stat-hidden">0</span><span class="ev-stat-label">👁️ Ocultos</span></div>
+           </div>
+         </div>
+       </div>
+
+       <div class="events-layout">
+         <div class="glass-card form-card events-form-card" data-mform="newsmodal">
+           <div class="events-form-head">
+             <h3 class="form-title" id="newsmodal-form-title">Nuevo modal</h3>
+             <span class="status-pill status-on" id="newsmodal-form-mode">✦ Creando</span>
+           </div>
+           <form id="newsmodal-form" data-adm-ev="submit" data-adm="saveNewsModal" data-adm-a0="ev">
+             <input type="hidden" id="newsmodal-id" />
+
+             <div class="ev-section">
+               <div class="ev-section-title">🗂️ Cadena + contenido</div>
+               <div class="field-group">
+                 <label for="newsmodal-chain">Cadena *</label>
+                 <input type="text" id="newsmodal-chain" list="newsmodal-chain-list" maxlength="60" placeholder="Novedades" data-adm-ev="input" data-adm="updateNewsModalLivePreview" autocomplete="off" />
+                 <datalist id="newsmodal-chain-list"></datalist>
+                 <p class="form-hint">Los modales de la misma cadena se muestran juntos. Escribí un nombre nuevo para crear otra cadena, sin límite de modales.</p>
+               </div>
+               <div class="field-group">
+                 <label for="newsmodal-title">Título * <span class="newsadm-count" id="newsmodal-title-count">0/90</span></label>
+                 <input type="text" id="newsmodal-title" maxlength="90" placeholder="Ej: ¡Wilder Gambit ya tiene fecha!" required data-adm-ev="input" data-adm="updateNewsModalLivePreview" autocomplete="off" />
+               </div>
+               <div class="field-row">
+                 <div class="field-group">
+                   <label for="newsmodal-date">Fecha</label>
+                   <input type="date" id="newsmodal-date" data-adm-ev="input" data-adm="updateNewsModalLivePreview" />
+                   <p class="form-hint">Se muestra arriba del título en el modal.</p>
+                 </div>
+                 <div class="field-group">
+                   <label for="newsmodal-order">Posición en la cadena <span class="opt-tag">opcional</span></label>
+                   <input type="number" id="newsmodal-order" min="1" step="1" placeholder="Al final" />
+                   <p class="form-hint">Después podés moverlo con ↑ ↓ en la lista.</p>
+                 </div>
+               </div>
+               <div class="field-group">
+                 <label for="newsmodal-body">Contenido * <span class="newsadm-count" id="newsmodal-body-count">0/2000</span></label>
+                 <textarea id="newsmodal-body" rows="5" maxlength="2000" placeholder="Escribí el anuncio. Separá los párrafos con una línea en blanco." data-adm-ev="input" data-adm="updateNewsModalLivePreview"></textarea>
+               </div>
+             </div>
+
+             <div class="ev-section">
+               <div class="ev-section-title">🖼️ Imagen <span class="opt-tag">opcional</span></div>
+               <div class="ev-dropzone" id="newsmodal-image-dropzone" data-adm-drop="newsmodal-image" data-adm-drop-not="newsmodal-image">
+                 <div class="ev-dropzone-inner">
+                   <span class="ev-dropzone-icon">📤</span>
+                   <span class="ev-dropzone-text"><b>Arrastrá una imagen</b> o hacé clic para elegir <small>PNG · JPG · WEBP · GIF — hasta 15 MB</small></span>
+                 </div>
+               </div>
+               <input type="file" id="newsmodal-image" class="hidden" accept="image/png,image/jpeg,image/webp,image/gif" />
+               <div id="newsmodal-image-preview" class="ev-preview hidden"></div>
+               <div class="field-group ev-url-group">
+                 <label for="newsmodal-image-url">…o pegá una URL de imagen</label>
+                 <input type="url" id="newsmodal-image-url" placeholder="https://…" data-adm-ev="input" data-adm="updateNewsModalLivePreview" />
+               </div>
+             </div>
+
+             <div class="ev-section">
+               <div class="ev-section-title">🎬 Video <span class="opt-tag">opcional · 15 s máx.</span></div>
+               <p class="form-hint">MP4, WEBM o MOV. La duración se verifica antes de guardar: si supera los 15 segundos no se puede publicar.</p>
+               <div class="ev-dropzone" id="newsmodal-video-dropzone" data-adm-drop="newsmodal-video" data-adm-drop-not="newsmodal-video">
+                 <div class="ev-dropzone-inner">
+                   <span class="ev-dropzone-icon">🎞️</span>
+                   <span class="ev-dropzone-text"><b>Arrastrá un video corto</b> o hacé clic para elegir <small>MP4 · WEBM · MOV — 15 segundos como máximo</small></span>
+                 </div>
+               </div>
+               <input type="file" id="newsmodal-video" class="hidden" accept="video/mp4,video/webm,video/quicktime" />
+               <div id="newsmodal-video-preview" class="ev-preview hidden"></div>
+               <div id="newsmodal-video-status" class="newsmodal-video-status hidden"></div>
+               <div class="field-group ev-url-group">
+                 <label for="newsmodal-video-url">…o pegá una URL de video</label>
+                 <input type="url" id="newsmodal-video-url" placeholder="https://…" data-adm-ev="input" data-adm="onNewsModalVideoUrlInput" />
+               </div>
+             </div>
+
+             <div class="ev-section">
+               <div class="ev-section-title">👁️ Visibilidad</div>
+               <label class="ev-switch-row" for="newsmodal-show-once">
+                 <input type="checkbox" id="newsmodal-show-once" checked />
+                 <span class="ev-switch"></span>
+                 <span id="newsmodal-show-once-label">Mostrar una sola vez a cada usuario</span>
+               </label>
+               <p class="form-hint">Si lo desactivás, se muestra una vez por inicio de sesión. Al guardarlo queda publicado y aparece en el próximo ingreso de los usuarios.</p>
+               <label class="ev-switch-row" for="newsmodal-active">
+                 <input type="checkbox" id="newsmodal-active" checked />
+                 <span class="ev-switch"></span>
+                 <span id="newsmodal-active-label">Publicado y visible</span>
+               </label>
+             </div>
+
+             <div class="ev-section ev-live-section">
+               <div class="ev-section-title">📱 Vista previa</div>
+               <div class="ev-live-card newsmodal-form-preview" id="newsmodal-live-preview"></div>
+             </div>
+
+             <div id="newsmodal-form-alert" class="alert-box hidden"></div>
+             <button type="submit" class="btn btn-primary btn-block" id="btn-save-newsmodal">💾 Publicar modal</button>
+             <button type="button" class="btn btn-ghost btn-block" data-adm-ev="click" data-adm="previewNewsModalDraft">👁 Ver como usuario</button>
+             <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-newsmodal" data-adm-ev="click" data-adm="resetNewsModalForm">Cancelar edición</button>
+           </form>
+         </div>
+
+         <div class="glass-card list-card events-list-card">
+           <div class="events-count-row"><span id="newsmodal-count">0 modales</span><span class="events-count-hint">La cadena se recorre con Anterior / Siguiente</span></div>
+           <div id="newsmodals-list" class="events-rows"><p class="loading-note">Cargando…</p></div>
+         </div>
+       </div>
+     </div><!-- /news-sub-modals -->
     </div>
 
     <!-- ============ TAB: EVENTOS — v2 renovado ============ -->
@@ -945,28 +1079,53 @@
     <div id="tab-manage" class="tab-content hidden">
       <!-- Sub-panel PRINCIPAL: copia la sección Gestión completa -->
       <div class="admin-subpane" data-sub="main" id="manage-sub-main">
-      <div class="glass-card manage-hero page-head">
+      <div class="glass-card manage-hero mgmt-hero page-head">
         <div class="page-head-icon manage-hero-icon">🛡️</div>
         <div class="manage-hero-info page-head-body">
-          <h3 class="form-title">Gestión — Proyectos solo-admin</h3>
-          <p class="form-hint">Sección exclusiva para administradores. Aquí se crean los proyectos que <b>solo los admins ven</b> (no aparecen en el OWS público). Con el filtro de abajo también podés ver los proyectos disponibles de la sección Proyectos, pero esos se editan únicamente en Proyectos.</p>
+          <h3 class="form-title">Centro de proyectos</h3>
+          <p class="form-hint">Todo Gestión en un solo lugar: <b>proyectos solo-admin</b>, proyectos públicos en modo lectura y el <b>avance real</b> de cada uno. El porcentaje de desarrollo se ajusta desde acá, <b>también en los solo-admin</b>.</p>
           <div class="manage-badges">
             <span class="status-pill status-on">🔒 Solo admins</span>
             <span class="status-pill status-off" id="manage-session-badge">Sesión persistente</span>
             <span class="status-pill status-admin-only" id="manage-count-badge">0 solo-admin</span>
+            <span class="status-pill status-off" id="manage-sync-badge">🔄 —</span>
           </div>
         </div>
         <div class="page-head-actions">
           <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openManageForm">＋ Nuevo proyecto</button>
-          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="admReloadManage" title="Recargar gestión">↻ Actualizar</button>
+          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="admReloadManage" title="Recargar proyectos y avance">↻ Actualizar</button>
         </div>
       </div>
 
-      <div class="panel-grid">
-        <div class="glass-card form-card" data-mform="manage">
+      <div class="mgmt-kpis">
+        <div class="mgmt-kpi">
+          <span class="mgmt-kpi-icon is-gold">🗂️</span>
+          <div class="mgmt-kpi-text"><strong id="mgmt-kpi-total">0</strong><span>Proyectos totales</span></div>
+        </div>
+        <div class="mgmt-kpi">
+          <span class="mgmt-kpi-icon is-purple">🔒</span>
+          <div class="mgmt-kpi-text"><strong id="mgmt-kpi-admin">0</strong><span>Solo-admin</span></div>
+        </div>
+        <div class="mgmt-kpi">
+          <span class="mgmt-kpi-icon is-sky">📁</span>
+          <div class="mgmt-kpi-text"><strong id="mgmt-kpi-public">0</strong><span>Públicos</span></div>
+        </div>
+        <div class="mgmt-kpi">
+          <span class="mgmt-kpi-icon is-green">📈</span>
+          <div class="mgmt-kpi-text"><strong id="mgmt-kpi-avg">—</strong><span>Avance medio</span></div>
+        </div>
+        <div class="mgmt-kpi">
+          <span class="mgmt-kpi-icon is-pink">🎉</span>
+          <div class="mgmt-kpi-text"><strong id="mgmt-kpi-done">0</strong><span>Al 100%</span></div>
+        </div>
+      </div>
+
+      <div id="manage-form-home" class="hidden">
+        <div class="glass-card form-card mgmt-form-card" data-mform="manage">
           <h3 class="form-title" id="manage-form-title">Nuevo proyecto solo-admin</h3>
           <p class="form-hint">🔒 Este proyecto <b>no</b> se publica en OWS. Solo visible con <b>?include_hidden=1</b> (panel admin).</p>
           <form data-adm-ev="submit" data-adm="saveManageProject" data-adm-a0="ev">
+            <div class="mgmt-form-section-title"><span>1</span> Identidad del proyecto</div>
             <div class="field-row">
               <div class="field-group">
                 <label for="mproj-slug">Slug *</label>
@@ -997,6 +1156,7 @@
                 <input type="text" id="mproj-genre" placeholder="ej: Interno · Pruebas" />
               </div>
             </div>
+            <div class="mgmt-form-section-title"><span>2</span> Estado y feedback</div>
             <div class="field-group manage-feedback-wrap feedback-development" id="mproj-feedback-wrap">
               <label for="mproj-feedback">💬 Feedback del estado * <span class="opt-tag" id="mproj-feedback-tag">En desarrollo</span></label>
               <textarea id="mproj-feedback" rows="2" maxlength="500" placeholder="¿En qué punto está el desarrollo? Contá avances, bloqueos o próximos pasos."></textarea>
@@ -1010,6 +1170,7 @@
               </div>
               <p class="form-hint" id="mproj-permanence-hint"></p>
             </div>
+            <div class="mgmt-form-section-title"><span>3</span> Fechas y plataformas</div>
             <div class="field-group">
               <label>Plataformas</label>
               <div class="check-row">
@@ -1035,6 +1196,7 @@
               <input type="date" id="mproj-created" />
               <p class="form-hint">Si el proyecto nació antes de cargarlo acá, poné el día verdadero: es el que queda como creación y se muestra en el listado. Vacío = hoy.</p>
             </div>
+            <div class="mgmt-form-section-title"><span>4</span> Imagen y enlace</div>
             <div class="field-group">
               <label for="mproj-icon">Icono — pega una URL o sube un archivo</label>
               <input type="text" id="mproj-icon" placeholder="https://… (.png/.jpg/.webp)" />
@@ -1056,38 +1218,106 @@
             <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-manage" data-adm-ev="click" data-adm="resetManageProjectForm">Cancelar edición</button>
           </form>
         </div>
-        <div class="glass-card list-card">
-          <div class="card-head">
-            <div class="card-head-text">
-              <h3 class="form-title">Proyectos de Gestión</h3>
-              <p class="form-hint">Solo-admin por defecto. Activá el filtro para ver disponibles en solo lectura.</p>
-            </div>
+      </div><!-- /manage-form-home -->
+
+      <div class="glass-card list-card mgmt-projects-card">
+        <div class="card-head mgmt-card-head">
+          <div class="card-head-text">
+            <h3 class="form-title">Proyectos</h3>
+            <p class="form-hint" id="manage-list-sub">Cargando proyectos…</p>
           </div>
-          <label class="manage-filter-row" for="manage-show-public">
-            <input type="checkbox" id="manage-show-public" data-adm-ev="change" data-adm="toggleManageShowPublic" />
-            <span>👁️ Mostrar también proyectos disponibles <small>(vienen de Proyectos · solo lectura)</small></span>
-          </label>
-          <div id="manage-list" class="admin-list"><p class="loading-note">Cargando…</p></div>
+          <div class="mgmt-head-actions">
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openManageForm">＋ Nuevo</button>
+          </div>
         </div>
+
+        <div class="mgmt-toolbar">
+          <div class="mgmt-search">
+            <span class="mgmt-search-icon" aria-hidden="true">🔎</span>
+            <input type="search" id="manage-search" placeholder="Buscar por nombre, slug, género o descripción…" autocomplete="off" data-adm-ev="input" data-adm="onManageSearch" />
+            <button type="button" class="mgmt-search-clear hidden" id="manage-search-clear" data-adm-ev="click" data-adm="clearManageSearch" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">✕</button>
+          </div>
+          <div class="mgmt-segment" id="manage-filter" role="group" aria-label="Filtrar proyectos">
+            <button type="button" class="mgmt-seg is-on" data-mfilter="all" data-adm-ev="click" data-adm="setManageFilter" data-adm-a0="s:all">Todos</button>
+            <button type="button" class="mgmt-seg" data-mfilter="admin" data-adm-ev="click" data-adm="setManageFilter" data-adm-a0="s:admin">🔒 Solo-admin</button>
+            <button type="button" class="mgmt-seg" data-mfilter="public" data-adm-ev="click" data-adm="setManageFilter" data-adm-a0="s:public">📁 Públicos</button>
+          </div>
+          <label class="mgmt-sort" for="manage-sort">
+            <span>Ordenar</span>
+            <select id="manage-sort" data-adm-ev="change" data-adm="setManageSort">
+              <option value="recent">Más recientes</option>
+              <option value="name">Nombre A–Z</option>
+              <option value="progress">Mayor progreso</option>
+              <option value="oldest">Más antiguos</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="manage-list" class="admin-list mgmt-project-list"><p class="loading-note">Cargando…</p></div>
       </div>
 
-      <!-- ============ DESARROLLO (debajo de Gestión) ============ -->
-      <!-- Progreso de desarrollo de los proyectos de Gestión: % completado,
+      <!-- ============ CONTROL DE AVANCE ============ -->
+      <!-- Progreso de desarrollo de todos los proyectos: % completado,
            qué admin lo actualizó (multi-admin) y cuándo (hace cuánto / fecha). -->
-      <div class="glass-card list-card manage-dev-card">
-        <div class="manage-dev-head card-head">
+      <div class="glass-card list-card manage-dev-card mgmt-dev-card">
+        <div class="manage-dev-head card-head mgmt-card-head">
           <div class="card-head-text">
-            <h3 class="form-title">🚧 Desarrollo de proyectos</h3>
-            <p class="form-hint">Cuánto lleva completado cada proyecto de Gestión. El porcentaje se actualiza aquí y queda registrado <b>qué admin</b> lo cambió y <b>cuándo</b>.</p>
+            <h3 class="form-title">📈 Control de avance</h3>
+            <p class="form-hint">Ajustá el <b>% de cualquier proyecto</b> y mirá quién lo actualizó por última vez. El mismo porcentaje se comparte con Proyectos; el histórico completo vive en <b>14 días</b> y <b>Analytics</b>.</p>
           </div>
-          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadProjectDevelopment" data-adm-a0="b:1" title="Recargar progreso">↻ Actualizar</button>
+          <div class="mgmt-head-actions">
+            <div class="mgmt-segment" id="dev-filter" role="group" aria-label="Filtrar control de avance">
+              <button type="button" class="mgmt-seg is-on" data-dfilter="all" data-adm-ev="click" data-adm="setDevFilter" data-adm-a0="s:all">Todos</button>
+              <button type="button" class="mgmt-seg" data-dfilter="admin" data-adm-ev="click" data-adm="setDevFilter" data-adm-a0="s:admin">🔒 Solo-admin</button>
+              <button type="button" class="mgmt-seg" data-dfilter="tracking" data-adm-ev="click" data-adm="setDevFilter" data-adm-a0="s:tracking">🚧 En curso</button>
+              <button type="button" class="mgmt-seg" data-dfilter="done" data-adm-ev="click" data-adm="setDevFilter" data-adm-a0="s:done">🎉 100%</button>
+            </div>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadProjectDevelopment" data-adm-a0="b:1" title="Recargar progreso">↻ Actualizar</button>
+          </div>
         </div>
+        <div class="mgmt-dev-summary" id="dev-summary"></div>
         <div id="dev-list" class="admin-list dev-list"><p class="loading-note">Cargando desarrollo…</p></div>
       </div>
       </div><!-- /manage-sub-main -->
 
       <!-- Sub-sección DEVLOG (registro de desarrollo de Gestión) -->
       <div class="admin-subpane hidden" data-sub="devlog" id="manage-sub-devlog">
+        <div class="glass-card manage-hero devlog-hero page-head mgmt-devlog-hero">
+          <div class="page-head-icon devlog-hero-icon">📝</div>
+          <div class="manage-hero-info page-head-body">
+            <h3 class="form-title">Devlog — Registro de desarrollo</h3>
+            <p class="form-hint">Registrá lo que hiciste, combiná las sesiones del día en una entrada y publicá el avance. Cada entrada guarda <b>por qué se hizo</b>, <b>qué proyecto afecta</b> y <b>cuánto avanzó</b>.</p>
+            <div class="manage-badges">
+              <span class="status-pill status-on">🔒 Solo admins</span>
+              <span class="status-pill status-admin-only" id="devlog-total-badge">📝 0 entradas</span>
+              <span class="status-pill status-off" id="devlog-daily-badge">🗓️ 0 del día</span>
+              <span class="status-pill status-off" id="devlog-fresh-badge">🆕 0 nuevas</span>
+            </div>
+          </div>
+          <div class="devlog-hero-actions page-head-actions">
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openDevlogForm" title="Crear una nueva entrada">＋ Crear Devlog</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadDevlogs" data-adm-a0="b:1" title="Recargar devlogs">↻</button>
+          </div>
+        </div>
+
+        <div class="mgmt-flow" aria-label="Flujo del devlog">
+          <div class="mgmt-flow-step">
+            <span class="mgmt-flow-num">1</span>
+            <div class="mgmt-flow-text"><b>Registrá la sesión</b><small>Iniciá el cronómetro o cargá las horas a mano mientras trabajás.</small></div>
+          </div>
+          <span class="mgmt-flow-arrow" aria-hidden="true">→</span>
+          <div class="mgmt-flow-step">
+            <span class="mgmt-flow-num">2</span>
+            <div class="mgmt-flow-text"><b>Revisá el devlog del día</b><small>Las sesiones se combinan solas con horarios, pausas y avance.</small></div>
+          </div>
+          <span class="mgmt-flow-arrow" aria-hidden="true">→</span>
+          <div class="mgmt-flow-step">
+            <span class="mgmt-flow-num">3</span>
+            <div class="mgmt-flow-text"><b>Publicá</b><small>Queda una entrada del devlog; el % ya se aplicó al cerrar cada sesión.</small></div>
+          </div>
+        </div>
+
+        <div class="mgmt-devlog-grid">
         <!-- ═══ SESIONES DE TRABAJO: los "minidevlogs del momento" ═══
              Mientras trabajás se van abriendo y cerrando bloques. Todas las
              sesiones de un día se combinan después en un solo devlog. Si
@@ -1200,24 +1430,8 @@
           </div>
           <div class="ws-daily" id="ws-daily"><p class="loading-note">Cargando resumen…</p></div>
         </div>
+        </div><!-- /mgmt-devlog-grid -->
 
-        <div class="glass-card manage-hero devlog-hero page-head">
-          <div class="page-head-icon devlog-hero-icon">📝</div>
-          <div class="manage-hero-info page-head-body">
-            <h3 class="form-title">Devlog — Registro de desarrollo</h3>
-            <p class="form-hint">Registro de desarrollo de los proyectos de Gestión: por qué se hizo cada cambio, si afecta a un proyecto y a cuál. Las entradas más nuevas se resaltan.</p>
-            <div class="manage-badges">
-              <span class="status-pill status-on">🔒 Solo admins</span>
-              <span class="status-pill status-admin-only" id="devlog-total-badge">📝 0 entradas</span>
-              <span class="status-pill status-off" id="devlog-daily-badge">🗓️ 0 del día</span>
-              <span class="status-pill status-off" id="devlog-fresh-badge">🆕 0 nuevas</span>
-            </div>
-          </div>
-          <div class="devlog-hero-actions page-head-actions">
-            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openDevlogForm" title="Crear una nueva entrada">＋ Crear Devlog</button>
-            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadDevlogs" data-adm-a0="b:1" title="Recargar devlogs">↻</button>
-          </div>
-        </div>
         <div class="glass-card list-card devlog-list-card m-fold-card" data-fold="entries">
           <div class="card-head">
             <div class="card-head-text">
@@ -1271,6 +1485,13 @@
           <div class="page-head-actions">
             <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadProjectActivity" data-adm-a0="b:1" title="Recargar la bitácora">↻ Actualizar</button>
           </div>
+        </div>
+
+        <div class="mgmt-info-strip">
+          <span class="mgmt-info-chip">📅 Una celda = un día</span>
+          <span class="mgmt-info-chip">👆 Clic para desplegar el detalle</span>
+          <span class="mgmt-info-chip">🔄 La ventana avanza sola</span>
+          <span class="mgmt-info-chip">📈 El % se comparte con Gestión</span>
         </div>
 
         <div class="glass-card list-card pax-list-card">
@@ -1337,6 +1558,25 @@
           </div>
           <div class="page-head-actions">
             <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="renderWsAnalytics" data-adm-a0="b:1" title="Recargar los datos">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <div class="mgmt-kpis mgmt-kpis-analytics">
+          <div class="mgmt-kpi">
+            <span class="mgmt-kpi-icon is-gold">⏱</span>
+            <div class="mgmt-kpi-text"><strong id="an-kpi-minutes">—</strong><span>Tiempo trabajado</span></div>
+          </div>
+          <div class="mgmt-kpi">
+            <span class="mgmt-kpi-icon is-green">🗂</span>
+            <div class="mgmt-kpi-text"><strong id="an-kpi-sessions">0</strong><span>Sesiones</span></div>
+          </div>
+          <div class="mgmt-kpi">
+            <span class="mgmt-kpi-icon is-sky">⏺</span>
+            <div class="mgmt-kpi-text"><strong id="an-kpi-changes">0</strong><span>Cambios</span></div>
+          </div>
+          <div class="mgmt-kpi">
+            <span class="mgmt-kpi-icon is-purple">👥</span>
+            <div class="mgmt-kpi-text"><strong id="an-kpi-admins">0</strong><span>Admins activos</span></div>
           </div>
         </div>
 
@@ -1411,62 +1651,47 @@
         </div>
       </div>
 
-      <!-- Sub-sección CELEBRACIONES 🎉 — llegada al catálogo global + hitos 90/95/99/100.
-           Muro interno: cada vez que un proyecto entra al catálogo público o
-           cruza un umbral de euforia, queda registrado acá (backend ows_celebrations). -->
-      <div class="admin-subpane hidden" data-sub="celebs" id="manage-sub-celebs">
+      <!-- Sub-sección HITOS 🎉 — celebraciones + bienvenidas en un solo muro.
+           Celebraciones: llegada al catálogo global + hitos 90/95/99/100.
+           Bienvenidas: nace un proyecto solo-admin (pronto será grande). -->
+      <div class="admin-subpane hidden" data-sub="hitos" id="manage-sub-hitos">
         <div class="glass-card manage-hero celeb-hero page-head">
           <div class="page-head-icon">🎉</div>
           <div class="manage-hero-info page-head-body">
-            <h3 class="form-title">Celebraciones — catálogo global</h3>
-            <p class="form-hint">Muro interno del estudio: <b>llegadas al catálogo global</b> (proyecto que se vuelve público o se lanza) e <b>hitos de euforia</b> (90% · 95% · 99% · 100%). Todo queda registrado en el backend y no se borra al recargar.</p>
+            <h3 class="form-title">Hitos y bienvenidas</h3>
+            <p class="form-hint">El muro interno del estudio: <b>llegadas al catálogo global</b>, <b>hitos de euforia</b> (90% · 95% · 99% · 100%) y el <b>nacimiento</b> de cada proyecto solo-admin. Todo queda registrado en el backend y no se borra al recargar.</p>
             <div class="manage-badges">
               <span class="status-pill status-on" id="celeb-total-badge">🎉 0 festejos</span>
               <span class="status-pill status-from-projects" id="celeb-catalog-badge">🌍 0 en catálogo</span>
               <span class="status-pill status-admin-only" id="celeb-hype-badge">🔥 0 hitos</span>
+              <span class="status-pill status-off" id="welcome-total-badge">🌱 0 bienvenidas</span>
             </div>
           </div>
           <div class="page-head-actions">
-            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadCelebrations" data-adm-a0="b:1" title="Recargar celebraciones">↻ Actualizar</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadCelebrations" data-adm-a0="b:1" title="Recargar hitos y bienvenidas">↻ Actualizar</button>
           </div>
         </div>
-        <div class="glass-card list-card">
-          <div class="card-head">
-            <div class="card-head-text">
-              <h3 class="form-title">Muro de festejos</h3>
-              <p class="form-hint">Lo más nuevo primero. Podés festejar a mano la entrada al catálogo de un proyecto en 100% o borrar un festejo.</p>
-            </div>
-          </div>
-          <div id="celebs-list" class="admin-list"><p class="loading-note">Cargando festejos…</p></div>
-        </div>
-      </div>
 
-      <!-- Sub-sección BIENVENIDAS 🌱 — nace un proyecto solo-admin.
-           Cada proyecto que se crea en Gestión recibe su bienvenida:
-           pronto será grande, hoy se festeja el inicio. -->
-      <div class="admin-subpane hidden" data-sub="welcome" id="manage-sub-welcome">
-        <div class="glass-card manage-hero celeb-hero page-head">
-          <div class="page-head-icon">🌱</div>
-          <div class="manage-hero-info page-head-body">
-            <h3 class="form-title">Bienvenidas — nuevos proyectos</h3>
-            <p class="form-hint">Cuando se crea un <b>proyecto solo-admin</b> en Gestión, nace acá su bienvenida: <b>pronto será un proyecto grande</b>. Es el punto de partida antes de la cuenta atrás al 100%.</p>
-            <div class="manage-badges">
-              <span class="status-pill status-on" id="welcome-total-badge">🌱 0 bienvenidas</span>
-              <span class="status-pill status-off">🔒 Solo admins</span>
+        <div class="mgmt-hitos-grid">
+          <div class="glass-card list-card">
+            <div class="card-head">
+              <div class="card-head-text">
+                <h3 class="form-title">🎉 Muro de festejos</h3>
+                <p class="form-hint">Lo más nuevo primero. Podés festejar a mano la entrada al catálogo de un proyecto en 100% o borrar un festejo.</p>
+              </div>
             </div>
+            <div id="celebs-list" class="admin-list"><p class="loading-note">Cargando festejos…</p></div>
           </div>
-          <div class="page-head-actions">
-            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadCelebrations" data-adm-a0="b:1" title="Recargar bienvenidas">↻ Actualizar</button>
-          </div>
-        </div>
-        <div class="glass-card list-card">
-          <div class="card-head">
-            <div class="card-head-text">
-              <h3 class="form-title">Nacimientos</h3>
-              <p class="form-hint">Del más nuevo al más viejo. Cada tarjeta dice quién lo creó y cuándo.</p>
+
+          <div class="glass-card list-card">
+            <div class="card-head">
+              <div class="card-head-text">
+                <h3 class="form-title">🌱 Bienvenidas</h3>
+                <p class="form-hint">Cuando se crea un <b>proyecto solo-admin</b>, nace acá su bienvenida. Del más nuevo al más viejo; cada tarjeta dice quién lo creó y cuándo.</p>
+              </div>
             </div>
+            <div id="welcome-list" class="admin-list"><p class="loading-note">Cargando bienvenidas…</p></div>
           </div>
-          <div id="welcome-list" class="admin-list"><p class="loading-note">Cargando bienvenidas…</p></div>
         </div>
       </div>
     </div>
@@ -2182,10 +2407,27 @@
     </div>
   </div>
 
+  <!-- Vista previa de los modales de Noticias en cadena -->
+  <div id="newsmodal-preview" class="devmodal-overlay hidden" data-adm-overlay-id="newsmodal-preview" data-adm-overlay-fn="closeNewsModalPreview">
+    <div class="devmodal-card newsmp-card glass-card" role="dialog" aria-modal="true" aria-labelledby="newsmp-title">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeNewsModalPreview" aria-label="Cerrar">&times;</button>
+      <div class="newsmp-top">
+        <span class="newsmp-badge">📣 Noticias OWS</span>
+        <span class="newsmp-count" id="newsmp-count">1/1</span>
+      </div>
+      <div class="newsmp-body" id="newsmp-body"></div>
+      <div class="newsmp-foot">
+        <button type="button" class="btn btn-ghost btn-sm" id="newsmp-prev" data-adm-ev="click" data-adm="newsModalPreviewStep" data-adm-a0="r:-1">← Anterior</button>
+        <span class="newsmp-hint">Así lo verá el usuario</span>
+        <button type="button" class="btn btn-primary btn-sm" id="newsmp-next" data-adm-ev="click" data-adm="newsModalPreviewStep" data-adm-a0="r:1">Siguiente →</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <script src="../ows-api-failover.js?v=1"></script>
-  <script src="admin-app.js?v=10"></script>
+  <script src="admin-app.js?v=12"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

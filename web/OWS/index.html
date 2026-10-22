@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Hub — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <link rel="stylesheet" href="styles.css?v=14" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -336,7 +336,7 @@
           </button>
         </div>
         <div class="nav-foot-row">
-          <span class="nav-version">OWS Hub · v3.4.20</span>
+          <span class="nav-version">OWS Hub · v3.4.30</span>
           <button id="btn-open-setup" class="icon-btn icon-btn-sm" type="button" title="Abrir setup inicial" aria-label="Abrir setup inicial">⚙</button>
         </div>
       </div>
@@ -479,40 +479,45 @@
 
       <!-- 03 · Lanzamientos -->
       <section id="sec-lanzamientos" class="page-section ows-view" aria-label="Lanzamientos">
-        <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Lanzamientos</span></div>
-        <div class="section-head">
-          <span class="section-index">03</span>
-          <div class="section-titles">
-            <h3 class="section-title">Lanzamientos</h3>
-            <p class="section-sub">Nuestros juegos: estado, versión y acceso rápido a la descarga.</p>
-          </div>
-          <div class="section-actions">
-            <span class="section-meta" id="rel-count" aria-live="polite">—</span>
-          </div>
-        </div>
-
-        <!-- Acceso rápido: el dock de iconos de siempre (hover = nombre,
-             1 clic = mini info · 2 clics = detalles). Se conserva tal cual. -->
-        <div class="rel-rail" id="rel-rail">
-          <div class="rel-rail-head">
-            <span class="rel-rail-title">⚡ Acceso rápido</span>
-            <span class="rel-rail-hint">Pasá el cursor para ver el nombre · 1 clic = info · 2 clics = detalles</span>
-          </div>
-          <div id="releases-grid" class="releases-grid"></div>
-          <div id="rel-retry" class="rel-retry-slot"></div>
-        </div>
-
-        <!-- Destacado + catálogo en tarjetas -->
+        <!-- Dos zonas: a la izquierda todo el contenido de la sección; a la
+             derecha el póster vertical del proyecto destacado, que ocupa la
+             zona completa (alto de pantalla) y empuja al contenido. -->
         <div id="rel-body" class="rel-body">
-          <div id="rel-hero" class="rel-slot"></div>
-          <div class="rel-catalog">
-            <div class="rel-catalog-head">
-              <h4 class="rel-catalog-title">Todos los lanzamientos</h4>
-              <div class="rel-filters" id="rel-filters" role="group" aria-label="Filtrar lanzamientos por estado"></div>
+          <div class="rel-main">
+            <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Lanzamientos</span></div>
+            <div class="section-head">
+              <span class="section-index">03</span>
+              <div class="section-titles">
+                <h3 class="section-title">Lanzamientos</h3>
+                <p class="section-sub">Nuestros juegos: estado, versión y acceso rápido a la descarga.</p>
+              </div>
+              <div class="section-actions">
+                <span class="section-meta" id="rel-count" aria-live="polite">—</span>
+              </div>
             </div>
-            <div id="rel-cards" class="rel-cards"></div>
-            <div id="rel-cards-empty" class="rel-empty hidden"></div>
+
+            <!-- Acceso rápido: el dock de iconos de siempre (hover = nombre,
+                 1 clic = mini info · 2 clics = detalles). Se conserva tal cual. -->
+            <div class="rel-rail" id="rel-rail">
+              <div class="rel-rail-head">
+                <span class="rel-rail-title">⚡ Acceso rápido</span>
+                <span class="rel-rail-hint">Pasá el cursor para ver el nombre · 1 clic = info · 2 clics = detalles</span>
+              </div>
+              <div id="releases-grid" class="releases-grid"></div>
+              <div id="rel-retry" class="rel-retry-slot"></div>
+            </div>
+
+            <!-- Catálogo en tarjetas -->
+            <div class="rel-catalog">
+              <div class="rel-catalog-head">
+                <h4 class="rel-catalog-title">Todos los lanzamientos</h4>
+                <div class="rel-filters" id="rel-filters" role="group" aria-label="Filtrar lanzamientos por estado"></div>
+              </div>
+              <div id="rel-cards" class="rel-cards"></div>
+              <div id="rel-cards-empty" class="rel-empty hidden"></div>
+            </div>
           </div>
+          <div id="rel-hero" class="rel-slot rel-hero-slot"></div>
         </div>
       </section>
 
@@ -756,10 +761,29 @@
   </div>
 
   <!-- Anuncio emergente de Eventos (aparece una sola vez por usuario) -->
-  <div id="announce-modal" class="modal-overlay hidden">
+  <div id="announce-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Anuncio de OWS">
     <div class="modal-card glass-card announce-card">
       <button class="modal-close" data-close="announce-modal" aria-label="Cerrar">&times;</button>
       <div id="announce-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Anuncios de Noticias en cadena (vertical, una vez por usuario)
+       Lo arma app.js: imagen o video (15 s max.), fecha, titulo, contenido
+       y navegacion Anterior / Siguiente con contador 1/3. -->
+  <div id="news-chain-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="newschain-title">
+    <div class="modal-card glass-card newschain-card">
+      <button class="modal-close" data-close="news-chain-modal" aria-label="Cerrar">&times;</button>
+      <div class="newschain-top">
+        <span class="newschain-badge">📣 Noticias OWS</span>
+        <span class="newschain-count" id="newschain-count">1/1</span>
+      </div>
+      <div class="newschain-scroll" id="newschain-body"></div>
+      <div class="newschain-foot">
+        <button type="button" class="btn btn-ghost btn-sm" id="newschain-prev">← Anterior</button>
+        <span class="newschain-dots" id="newschain-dots" aria-hidden="true"></span>
+        <button type="button" class="btn btn-primary btn-sm" id="newschain-next">Siguiente →</button>
+      </div>
     </div>
   </div>
 
@@ -853,6 +877,6 @@
        espejo owsdatabase2 (ver ows-api-failover.js). -->
   <script src="ows-api-failover.js?v=1"></script>
   <script src="library.js?v=4"></script>
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

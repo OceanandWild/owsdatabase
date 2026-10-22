@@ -287,6 +287,53 @@ pool.query(`
 
 const app = express();
 
+// ── Secreto de firma del estudio ──────────────────────────────────────────
+// Antes había un fallback fijo ('secret'): si la variable de entorno faltaba,
+// cualquiera podía firmar tokens válidos. Ahora, sin configuración, se genera
+// un secreto aleatorio por proceso: los tokens de un arranque anterior dejan
+// de validar, pero el servidor nunca usa un secreto conocido públicamente.
+const EPHEMERAL_STUDIO_SECRET = crypto.randomBytes(48).toString('hex');
+let warnedMissingStudioSecret = false;
+function getStudioSecret() {
+  const configured = process.env.STUDIO_SECRET || process.env.JWT_SECRET;
+  if (configured && String(configured).trim()) return String(configured).trim();
+  if (!warnedMissingStudioSecret) {
+    warnedMissingStudioSecret = true;
+    console.warn('[OWS] STUDIO_SECRET/JWT_SECRET no configurados: usando secreto efímero por proceso.');
+  }
+  return EPHEMERAL_STUDIO_SECRET;
+}
+
+// Render (y cualquier host tras un proxy) entrega la IP real en la cabecera
+// del proxy. Con trust proxy, req.ip queda resuelto por Express y no se puede
+// falsear mandando x-forwarded-for a mano.
+app.set('trust proxy', 1);
+
+// URLs que se publican a los usuarios (imagenes, videos, enlaces, posters).
+// Solo http(s) absolutos o rutas locales del sitio: nada de javascript:,
+// data: ni protocolos raros que se ejecutarian en el navegador.
+function sanitizePublicHttpUrl(value) {
+  let raw = String(value == null ? '' : value).trim();
+  if (!raw) return '';
+  // Comodidad para el panel: "dominio.com/ruta" sin esquema pasa a https://.
+  // Cualquier valor con esquema (javascript:, data:, vbs:) NO se toca y se
+  // descarta abajo.
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) && !raw.startsWith('/') && !/[<>"'`\s]/.test(raw)) {
+    if (/^[^\s\/\\@]+(\/|$)/.test(raw)) raw = 'https://' + raw;
+  }
+  if (!/^https?:\/\//i.test(raw) && !/^\/(?!\/)/.test(raw)) return '';
+  // Sin comillas, espacios ni caracteres de control: aunque al pintar se
+  // escapa el HTML, es mejor no guardar valores que puedan romper atributos.
+  if (/[\u0000-\u001F\u007F"'<>`\s]/.test(raw)) return '';
+  try {
+    const u = new URL(raw, 'https://ows.local');
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return raw;
+  } catch (_) {
+    return '';
+  }
+}
+
 // Compresión de respuestas (gzip/Brotli). El plan free de Render incluye
 // 5 GB de bandwidth de salida al mes: comprimir el texto (JSON, HTML, JS,
 // CSS) recorta ~70% del consumo sin cambiar ninguna respuesta.
@@ -399,7 +446,7 @@ function getOceanPayTokenFromRequest(req) {
 function decodeOceanPayTokenOrNull(token) {
   if (!token) return null;
   try {
-    return jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    return jwt.verify(token, getStudioSecret());
   } catch (_err) {
     return null;
   }
@@ -441,7 +488,7 @@ async function getOceanPayAuthedUserFromRequest(req) {
 }
 
 async function buildOceanPayLoginPayload(opUser) {
-  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  const secret = getStudioSecret();
   const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '30d' });
 
   const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [opUser.id]);
@@ -528,7 +575,7 @@ app.post('/ocean-pay/register', async (req, res) => {
       );
       const opUser = newUser.rows[0];
 
-      const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+      const secret = getStudioSecret();
       const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '30d' });
 
       res.json({
@@ -586,10 +633,12 @@ app.post('/ocean-pay/login', async (req, res) => {
 
     let match = false;
 
-    // --- SPECIAL RECOVERY FOR OceanandWild ---
-    // User cannot access because stored hash/password is likely invalid/old format.
-    // If they provide the known correct password, we force access and update DB.
-    if (username.toLowerCase() === 'oceanandwild' && password === '59901647') {
+    // --- RECOVERY ACOTADO PARA LA CUENTA DEL ESTUDIO ---
+    // Antes había una contraseña fija escrita en el código. Ahora el rescate
+    // solo funciona si OWS_OWNER_RECOVERY_PASSWORD está definida en el entorno
+    // (y solo para la cuenta del estudio). Sin variable, la ruta no existe.
+    const ownerRecoveryPassword = String(process.env.OWS_OWNER_RECOVERY_PASSWORD || '');
+    if (ownerRecoveryPassword && username.toLowerCase() === 'oceanandwild' && safeEqual(password, ownerRecoveryPassword)) {
       console.log('RECOVERY: Force-fixing OceanandWild password.');
       const newHash = await bcrypt.hash(password, 10);
 
@@ -668,7 +717,7 @@ app.post('/ocean-pay/refresh-token', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const oldToken = authHeader.substring(7);
-    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    const secret = getStudioSecret();
 
     // Decode ignoring expiration to get user info
     let decoded;
@@ -716,7 +765,7 @@ function getTigerTasksUserFromAuthHeader(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const tigerUserId = Number(decoded.tid || 0);
     if (!Number.isFinite(tigerUserId) || tigerUserId <= 0) return null;
     return { id: tigerUserId, username: decoded.username || '' };
@@ -749,7 +798,7 @@ app.post('/tigertasks/auth/register', async (req, res) => {
     const user = rows[0];
     const token = jwt.sign(
       { tid: user.id, username: user.username, source: 'tigertasks' },
-      process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
+      getStudioSecret(),
       { expiresIn: '30d' }
     );
     res.json({ success: true, token, user: { id: user.id, username: user.username } });
@@ -776,7 +825,7 @@ app.post('/tigertasks/auth/login', async (req, res) => {
 
     const token = jwt.sign(
       { tid: user.id, username: user.username, source: 'tigertasks' },
-      process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
+      getStudioSecret(),
       { expiresIn: '30d' }
     );
     res.json({ success: true, token, user: { id: user.id, username: user.username } });
@@ -822,7 +871,7 @@ app.post('/tigertasks/link/oceanpay', async (req, res) => {
 
     const oceanPayToken = jwt.sign(
       { id: opUser.id, uid: opUser.id, username: opUser.username },
-      process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
+      getStudioSecret(),
       { expiresIn: '30d' }
     );
 
@@ -942,7 +991,10 @@ function getLocalProjectVersion(relPath, fallback = '0.0.0') {
 const OCEAN_PAY_LOCAL_VERSION = getLocalProjectVersion('Ocean Pay/package.json', '0.0.0');
 
 /* ========== OWS STORE HELPERS (SEED + CHANGELOG SYNC) ========== */
-const OWS_ADMIN_SECRET = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+// Secreto estático propio del panel OWS (header x-ows-admin-token). A
+// propósito NO cae al secreto de firma del estudio: si falta, el panel usa
+// solo los JWT de sesión emitidos por /ows-admin-panel/login.
+const OWS_ADMIN_SECRET = String(process.env.OWS_ADMIN_SECRET || '').trim();
 
 const OWS_PROJECT_RELEASE_SOURCES = [
   { slug: 'ows-store', name: 'OWS Store', repo: 'OceanandWild/owsdatabase', defaultPlatforms: ['windows', 'android'] },
@@ -969,36 +1021,37 @@ function normalizeNewsNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : Number(fallback || 0);
 }
 
-function requireOwsStoreAdmin(req, res) {
-  const provided = String(
+// Token/secret de administrador OWS. Se acepta SOLO por cabecera
+// (x-ows-admin-token, Authorization: Bearer o x-admin-secret): antes también
+// se leía de query/body, lo que dejaba el token en logs, historial y
+// referrers. La comparación del secreto estático es en tiempo constante.
+function owsAdminTokenFromRequest(req) {
+  return String(
     req.headers['x-ows-admin-token']
     || req.headers['authorization']?.replace(/^Bearer\s+/i, '')
     || req.headers['x-admin-secret']
-    || req.query?.admin_token
-    || req.body?.admin_token
     || ''
   ).trim();
+}
+
+function owsAdminTokenIsValid(provided) {
+  if (!provided) return false;
+  if (OWS_ADMIN_SECRET && safeEqual(provided, OWS_ADMIN_SECRET)) return true;
+  try {
+    const payload = jwt.verify(provided, getStudioSecret());
+    return payload?.scope === 'ows-admin-panel' && payload?.role === 'superadmin';
+  } catch (_) {
+    return false;
+  }
+}
+
+function requireOwsStoreAdmin(req, res) {
+  const provided = owsAdminTokenFromRequest(req);
   if (!provided) {
     res.status(401).json({ error: 'No autorizado. Token/Secret ausente.' });
     return false;
   }
-  
-  // 1. Check if it matches the static secret
-  if (provided === OWS_ADMIN_SECRET) {
-    return true;
-  }
-
-  // 2. Check if it is a valid JWT Token signed with the studio secret
-  const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-  try {
-    const payload = jwt.verify(provided, jwtSecret);
-    if (payload.scope === 'ows-admin-panel' && payload.role === 'superadmin') {
-      return true;
-    }
-  } catch (_) {
-    // Ignore and return 401 below
-  }
-
+  if (owsAdminTokenIsValid(provided)) return true;
   res.status(401).json({ error: 'No autorizado. Token o Secret inválido.' });
   return false;
 }
@@ -1008,23 +1061,7 @@ function requireOwsStoreAdmin(req, res) {
 // así que llamarla dos veces en un request rompería la respuesta.
 // Misma lógica de token, pero devuelve true/false y nunca escribe en res.
 function isOwsStoreAdminRequest(req) {
-  const provided = String(
-    req.headers['x-ows-admin-token']
-    || req.headers['authorization']?.replace(/^Bearer\s+/i, '')
-    || req.headers['x-admin-secret']
-    || req.query?.admin_token
-    || req.body?.admin_token
-    || ''
-  ).trim();
-  if (!provided) return false;
-  if (provided === OWS_ADMIN_SECRET) return true;
-  const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-  try {
-    const payload = jwt.verify(provided, jwtSecret);
-    return payload?.scope === 'ows-admin-panel' && payload?.role === 'superadmin';
-  } catch (_) {
-    return false;
-  }
+  return owsAdminTokenIsValid(owsAdminTokenFromRequest(req));
 }
 
 function toNewsArray(value) {
@@ -7412,7 +7449,63 @@ const adminExtendCodes = new Map(); // IP -> { code, expiresAt }
 const ADMIN_LOCKOUT_TIME = 15 * 60 * 1000;
 const MAX_ADMIN_FAILURES = 3;
 
-const getClientIp = (req) => req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+// El panel admin ya no lleva credenciales incrustadas en el código: se
+// configuran por entorno (OWS_ADMIN_USERNAME + OWS_ADMIN_PASSWORD, o
+// OWS_ADMIN_PASSWORD_SHA256 con el hash SHA-256 en hexadecimal). Sin
+// configuración, el login queda cerrado en vez de caer a una clave fija.
+function getAdminCredentials() {
+  return {
+    username: String(process.env.OWS_ADMIN_USERNAME || '').trim().toLowerCase(),
+    password: String(process.env.OWS_ADMIN_PASSWORD || ''),
+    passwordHash: String(process.env.OWS_ADMIN_PASSWORD_SHA256 || '').trim().toLowerCase()
+  };
+}
+
+// Comparación en tiempo constante (evita filtrar el secreto midiendo tiempos).
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a == null ? '' : a), 'utf8');
+  const bufB = Buffer.from(String(b == null ? '' : b), 'utf8');
+  if (!bufA.length || bufA.length !== bufB.length) return false;
+  try { return crypto.timingSafeEqual(bufA, bufB); } catch (_) { return false; }
+}
+
+function adminPasswordMatches(password) {
+  const { password: expected, passwordHash } = getAdminCredentials();
+  if (passwordHash) {
+    const digest = crypto.createHash('sha256').update(String(password || ''), 'utf8').digest('hex');
+    return safeEqual(digest, passwordHash);
+  }
+  return Boolean(expected) && safeEqual(password, expected);
+}
+
+// Secreto de taller para el Paso 1: archivo local de secretos o entorno.
+// Ya no existe una clave fija de rescate: sin secreto configurado no se
+// puede completar la verificación.
+function getWorkspaceStudioSecret() {
+  try {
+    const secretsPath = join(__dirname, 'secrets', 'workspace-secrets');
+    if (fs.existsSync(secretsPath)) {
+      const rawSecrets = fs.readFileSync(secretsPath, 'utf8');
+      for (const line of rawSecrets.split(/\r?\n/)) {
+        if (line.includes('STUDIO_SECRET:')) {
+          const value = line.split('STUDIO_SECRET:')[1];
+          if (value && value.trim()) return value.trim();
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[OWS ADMIN] No se pudo leer secrets/workspace-secrets:', err.message);
+  }
+  return String(process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || '').trim();
+}
+
+const getClientIp = (req) => {
+  // Con "trust proxy" activo, req.ip ya viene resuelto por Express a partir de
+  // las cabeceras del proxy real. Se ignora x-forwarded-for en crudo: leerlo
+  // directo permitía falsear la IP y saltarse el bloqueo por intentos.
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  return String(ip).replace(/^::ffff:/, '').trim() || 'unknown';
+};
 
 function checkAdminLockout(req, res, next) {
   const ip = getClientIp(req);
@@ -7460,17 +7553,24 @@ app.post('/ows-admin-panel/login', checkAdminLockout, async (req, res) => {
     return res.status(400).json({ error: 'Usuario y contraseña son requeridos.' });
   }
 
+  const creds = getAdminCredentials();
+  if (!creds.username || (!creds.password && !creds.passwordHash)) {
+    return res.status(503).json({
+      error: 'El panel de administración no está configurado en este servidor. Faltan OWS_ADMIN_USERNAME y OWS_ADMIN_PASSWORD (u OWS_ADMIN_PASSWORD_SHA256).'
+    });
+  }
+
   try {
     const userLower = username.trim().toLowerCase();
 
-    if (userLower === 'oceanandwild') {
-      if (password === '59901647') {
+    if (userLower === creds.username) {
+      if (adminPasswordMatches(password)) {
         const sessionId = crypto.randomUUID();
         const verifyCode = String(crypto.randomInt(100000, 1000000));
         
         adminSessions.set(sessionId, {
           ip,
-          username: 'oceanandwild',
+          username: creds.username,
           step1Passed: false,
           step2Passed: false,
           verifyCode,
@@ -7531,24 +7631,15 @@ app.post('/ows-admin-panel/verify-step1', checkAdminLockout, (req, res) => {
   }
 
   try {
-    const secretsPath = join(__dirname, 'secrets', 'workspace-secrets');
-    let expectedSecret = '';
-    if (fs.existsSync(secretsPath)) {
-      const rawSecrets = fs.readFileSync(secretsPath, 'utf8');
-      const lines = rawSecrets.split('\n');
-      for (const line of lines) {
-        if (line.includes('STUDIO_SECRET:')) {
-          expectedSecret = line.split('STUDIO_SECRET:')[1].trim();
-          break;
-        }
-      }
-    }
-    
+    const expectedSecret = getWorkspaceStudioSecret();
+
     if (!expectedSecret) {
-      expectedSecret = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || 'MUFASA1939-0';
+      return res.status(503).json({
+        error: 'El secreto administrativo no está configurado en este servidor. Define OWS_ADMIN_SECRET o STUDIO_SECRET en Render.'
+      });
     }
 
-    if (adminSecret.trim() === expectedSecret.trim()) {
+    if (safeEqual(adminSecret.trim(), expectedSecret)) {
       session.step1Passed = true;
       adminFailedAttempts.delete(ip);
 
@@ -7596,10 +7687,10 @@ app.post('/ows-admin-panel/verify-step2', checkAdminLockout, (req, res) => {
       session.step2Passed = true;
       adminFailedAttempts.delete(ip);
       
-      const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+      const secret = getStudioSecret();
       const adminToken = jwt.sign({
         id: 0,
-        username: 'oceanandwild',
+        username: session.username || 'admin',
         role: 'superadmin',
         scope: 'ows-admin-panel'
       }, secret, { expiresIn: '2h' });
@@ -7629,7 +7720,7 @@ app.post('/ows-admin-panel/request-extend-code', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: 'Token requerido.' });
 
-  const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  const jwtSecret = getStudioSecret();
   let payload;
   try {
     payload = jwt.verify(token, jwtSecret, { ignoreExpiration: false });
@@ -7668,7 +7759,7 @@ app.post('/ows-admin-panel/extend-session', async (req, res) => {
     return res.status(400).json({ error: 'Token y código de confirmación requeridos.' });
   }
 
-  const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  const jwtSecret = getStudioSecret();
   let payload;
   try {
     payload = jwt.verify(token, jwtSecret, { ignoreExpiration: false });
@@ -7682,7 +7773,7 @@ app.post('/ows-admin-panel/extend-session', async (req, res) => {
 
   const usernameKey = String(payload.username || 'oceanandwild').toLowerCase();
   const stored = adminExtendCodes.get(usernameKey);
-  if (!stored || String(confirmCode).trim() !== String(stored.code)) {
+  if (!stored || !safeEqual(String(confirmCode).trim(), String(stored.code))) {
     return res.status(401).json({ error: 'Código de extensión incorrecto.' });
   }
   if (Date.now() > stored.expiresAt) {
@@ -7718,7 +7809,7 @@ app.post('/ows-admin-panel/extend-session', async (req, res) => {
 
     const newToken = jwt.sign({
       id: 0,
-      username: 'oceanandwild',
+      username: payload.username || 'oceanandwild',
       role: 'superadmin',
       scope: 'ows-admin-panel',
       extended: true
@@ -7778,7 +7869,7 @@ function getValidAdminJwtPayload(req) {
   ).trim();
   if (!token) return null;
   try {
-    const payload = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const payload = jwt.verify(token, getStudioSecret());
     if (payload.scope !== 'ows-admin-panel' || payload.role !== 'superadmin') return null;
     return payload;
   } catch (_) {
@@ -7833,7 +7924,7 @@ app.post('/ows-admin-panel/login-with-device', checkAdminLockout, async (req, re
       [deviceId]
     );
     const row = rows[0];
-    if (!row || row.token_hash !== sha256Hex(trustToken)) {
+    if (!row || !safeEqual(String(row.token_hash || ''), sha256Hex(trustToken))) {
       return res.status(401).json({ error: 'Dispositivo no confiable. Inicia sesion manualmente.' });
     }
     if (new Date(row.expires_at).getTime() < Date.now()) {
@@ -7845,10 +7936,10 @@ app.post('/ows-admin-panel/login-with-device', checkAdminLockout, async (req, re
       `UPDATE ows_admin_trusted_devices SET last_used_at = NOW(), expires_at = NOW() + INTERVAL '30 days' WHERE id = $1`,
       [row.id]
     );
-    const jwtSecret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    const jwtSecret = getStudioSecret();
     const adminToken = jwt.sign({
       id: 0,
-      username: 'oceanandwild',
+      username: getAdminCredentials().username || 'admin',
       role: 'superadmin',
       scope: 'ows-admin-panel'
     }, jwtSecret, { expiresIn: '2h' });
@@ -8227,6 +8318,11 @@ app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer'), { maxA
 try {
   const owsWebDir = join(__dirname, 'web', 'OWS');
   if (fs.existsSync(owsWebDir)) {
+    // El panel admin (web/OWS/admin) NUNCA se sirve por HTTP: contiene
+    // secretos y lógica interna. Se abre solo en local con Live Server.
+    // La regex es case-insensitive porque en Windows el filesystem resuelve
+    // /ows/Admin igual que /ows/admin.
+    app.use(/^\/ows\/admin(\/|$)/i, (_req, res) => res.status(404).json({ error: 'Not found' }));
     app.use('/ows', express.static(owsWebDir, { maxAge: '1h' }));
     app.get('/ows', (_req, res) => res.sendFile(join(owsWebDir, 'index.html')));
     console.log('[OWS] Sirviendo frontend local en /ows ->', owsWebDir);
@@ -8386,7 +8482,7 @@ function getOceanPayUserIdFromAuthHeader(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const candidate = decoded.id || decoded.uid;
     const userId = Number(candidate);
     return Number.isFinite(userId) ? userId : null;
@@ -9483,7 +9579,7 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     // Asegurar que userId sea un entero (el id de ocean_pay_users es INTEGER)
     userId = parseInt(userId) || userId;
@@ -9585,7 +9681,7 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     // Asegurar que userId sea un entero (el id de ocean_pay_users es INTEGER)
     userId = parseInt(userId) || userId;
@@ -9623,7 +9719,7 @@ app.get('/wildshorts/wildgems/balance', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -9658,7 +9754,7 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -9706,7 +9802,7 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -9780,7 +9876,7 @@ app.get('/dinobox/amber/balance', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid) || decoded.id;
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -9815,7 +9911,7 @@ app.post('/dinobox/amber/sync', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid) || decoded.id;
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -9854,7 +9950,7 @@ app.get('/wild-savage/ecotokens/balance', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -9889,7 +9985,7 @@ app.post('/wild-savage/ecotokens/sync', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -9937,7 +10033,7 @@ app.post('/wild-savage/ecotokens/change', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -10010,7 +10106,7 @@ app.post('/wildshorts/subscribe', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -10139,7 +10235,7 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -10176,7 +10272,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -10393,7 +10489,7 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -10458,7 +10554,7 @@ app.post('/ssa/cosmicdust/sync', async (req, res) => {
   let userId;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = parseInt(decoded.id || decoded.uid || decoded.sub) || (decoded.id || decoded.uid || decoded.sub);
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -10522,7 +10618,7 @@ app.get('/ssa/cosmicdust/balance', async (req, res) => {
   let userId;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = parseInt(decoded.id || decoded.uid || decoded.sub) || (decoded.id || decoded.uid || decoded.sub);
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -10559,7 +10655,7 @@ app.post('/wildweapon/mayhemcoins/sync', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -10625,7 +10721,7 @@ app.get('/wildweapon/mayhemcoins/balance', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -10658,7 +10754,7 @@ app.post('/wildweapon/mayhemcoins/change', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -10900,7 +10996,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   const token = authHeader.substring(7);
   let authUserId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     authUserId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(authUserId) || authUserId <= 0) {
       return res.status(401).json({ error: 'Token invÃ¯Â¿Â½lido' });
@@ -10968,7 +11064,7 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = decoded.id || (decoded.id || decoded.uid) || decoded.sub;
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -11005,7 +11101,7 @@ app.get('/ocean-pay/gambits/balance', async (req, res) => {
   let userId;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token inválido' });
   } catch (_e) {
@@ -11032,7 +11128,7 @@ app.get('/ocean-pay/tides/balance', async (req, res) => {
   let userId;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token inválido' });
   } catch (_e) {
@@ -11061,7 +11157,7 @@ app.post('/ocean-pay/gambits/earn', async (req, res) => {
   let userId;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token inválido' });
   } catch (_e) {
@@ -11109,7 +11205,7 @@ function decodeWilderGambitUser(req) {
   if (!authHeader.startsWith('Bearer ')) return null;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = Number(decoded.id || decoded.uid || decoded.sub);
     return Number.isFinite(userId) && userId > 0 ? userId : null;
   } catch (_e) {
@@ -11232,7 +11328,7 @@ app.post(['/ocean-pay/cards/change-balance', '/ocean-pay/currency/change'], asyn
   let userId;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) {
       return res.status(401).json({ error: 'Token invÃ¯Â¿Â½lido' });
@@ -11362,7 +11458,7 @@ app.post('/ocean-pay/p2p/send', async (req, res) => {
   let senderId;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     senderId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(senderId) || senderId <= 0) {
       return res.status(401).json({ error: 'Token invalido' });
@@ -11516,7 +11612,7 @@ app.get('/ocean-pay/activity/overview', async (req, res) => {
   let requesterName = '';
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     requesterId = Number(decoded.id || decoded.uid || decoded.sub);
     requesterName = String(decoded.username || '').trim().toLowerCase();
     if (!Number.isFinite(requesterId) || requesterId <= 0) {
@@ -11752,7 +11848,8 @@ app.get('/ows-store/projects/:slug/changelogs', async (req, res) => {
 });
 
 // POST /ows-store/projects/:slug/changelog  (admin — crear/actualizar changelog)
-// Body: { version, adiciones?, mejoras?, arreglos?, rendimiento?, otros?, published_at?, admin_token? }
+// Auth: cabecera x-ows-admin-token / Authorization: Bearer / x-admin-secret.
+// Body: { version, adiciones?, mejoras?, arreglos?, rendimiento?, otros?, published_at? }
 app.post('/ows-store/projects/:slug/changelog', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const slug = String(req.params.slug || '').trim().toLowerCase();
@@ -11948,7 +12045,7 @@ function parseStudioAuthToken(req) {
 function decodeStudioTokenOrNull(token) {
   if (!token) return null;
   try {
-    return jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    return jwt.verify(token, getStudioSecret());
   } catch (_err) {
     return null;
   }
@@ -11999,7 +12096,7 @@ function parseWildFireworksAuthToken(req) {
 function decodeWildFireworksTokenOrNull(token) {
   if (!token) return null;
   try {
-    const payload = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const payload = jwt.verify(token, getStudioSecret());
     if (String(payload?.scope || '').toLowerCase() !== 'wildfireworks') return null;
     return payload;
   } catch (_err) {
@@ -12008,7 +12105,7 @@ function decodeWildFireworksTokenOrNull(token) {
 }
 
 function issueWildFireworksToken(user) {
-  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  const secret = getStudioSecret();
   return jwt.sign(
     {
       id: Number(user.id),
@@ -13991,6 +14088,30 @@ const OWS_NEWS_ANIM_PRESETS = ['none', 'fade', 'rise', 'zoom', 'slide', 'blur', 
 // Normaliza la config de animacion de una noticia. Acepta objeto, string
 // JSON o form-data. Devuelve {} si no hay nada configurado, o
 // { preset, duration, delay, custom? } con valores acotados.
+// El CSS "custom" se valida tambien acá: aunque lo escriba un admin, se
+// publica a todos los usuarios, así que no puede traer cargas externas,
+// @import ni selectores fuera del modal. El cliente vuelve a filtrarlo con
+// CSSOM (segunda barrera).
+function sanitizeNewsCustomCssServer(css) {
+  const raw = String(css == null ? '' : css).slice(0, 6000);
+  if (!raw.trim() || !raw.includes('{')) return '';
+  const stripped = raw.replace(/\/\*[\s\S]*?\*\//g, '');
+  if (/[<>]/.test(stripped)) return '';
+  if (/@import|@charset|@namespace|url\s*\(|image-set\s*\(|expression\s*\(|javascript\s*:|vbscript\s*:|-moz-binding|behavior\s*:|https?:\/\//i.test(stripped)) {
+    return '';
+  }
+  const withoutKeyframes = stripped.replace(/@keyframes\s+[^{]+\{(?:[^{}]|\{[^{}]*\})*\}/gi, '');
+  const selectors = withoutKeyframes.match(/[^{}]+\{/g) || [];
+  const hasForeignSelector = selectors.some((sel) => {
+    const s = sel.trim();
+    if (/^@(media|supports|layer)\b/i.test(s)) return false;
+    if (/^[0-9.]+%$|^(from|to)\b/i.test(s)) return false;
+    return !/#news-modal(?![\w-])/.test(s);
+  });
+  if (hasForeignSelector) return '';
+  return stripped.trim().slice(0, 6000);
+}
+
 function normalizeNewsAnimationConfig(input) {
   let raw = input;
   if (typeof raw === 'string') {
@@ -14004,7 +14125,7 @@ function normalizeNewsAnimationConfig(input) {
   const preset = OWS_NEWS_ANIM_PRESETS.includes(presetRaw) ? presetRaw : 'none';
   const duration = Math.min(4, Math.max(0.2, normalizeNewsNumber(raw.duration, 0.9)));
   const delay = Math.min(3, Math.max(0, normalizeNewsNumber(raw.delay, 0.15)));
-  const custom = String(raw.custom || raw.custom_css || '').trim().slice(0, 6000);
+  const custom = sanitizeNewsCustomCssServer(raw.custom || raw.custom_css || '');
   const out = { preset, duration, delay };
   if (custom) out.custom = custom;
   return out;
@@ -14026,8 +14147,8 @@ function mapOwsDashboardNewsRow(row, watermarkMap) {
     project_name: projectName,
     project_watermark: projectWatermark,
     projectWatermark: projectWatermark,
-    image_url: String(row.image_url || ''),
-    banner_url: String(row.banner_url || ''),
+    image_url: sanitizePublicHttpUrl(row.image_url),
+    banner_url: sanitizePublicHttpUrl(row.banner_url),
     animation: normalizeNewsAnimationConfig(row.animation_config),
     is_active: row.is_active !== false,
     priority: Number(row.priority || 0),
@@ -14039,7 +14160,10 @@ function mapOwsDashboardNewsRow(row, watermarkMap) {
 
 // Feed de la seccion "Ultimas Noticias" del dashboard (publico, vacio por defecto)
 app.get('/ows-dashboard/news', async (req, res) => {
-  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  // El feed es público: pedir las noticias inactivas/borrador solo vale con
+  // credenciales de admin (el panel las manda en la cabecera).
+  const includeInactive = isOwsStoreAdminRequest(req)
+    && normalizeNewsBoolean(req.query.include_inactive, false);
   const limit = Math.max(1, Math.min(100, normalizeNewsNumber(req.query.limit, 20)));
   try {
     await ensureOwsDashboardNewsTable();
@@ -14069,8 +14193,8 @@ app.post('/ows-dashboard/news', dashboardNewsFields, async (req, res) => {
   const title = String(req.body?.title || '').trim();
   const description = String(req.body?.description || '').trim();
   const projectName = String(req.body?.project_name || req.body?.projectName || 'OWS').trim() || 'OWS';
-  const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
-  const bannerUrl = String(req.body?.banner_url || req.body?.bannerUrl || '').trim();
+  const imageUrl = sanitizePublicHttpUrl(req.body?.image_url || req.body?.imageUrl || '');
+  const bannerUrl = sanitizePublicHttpUrl(req.body?.banner_url || req.body?.bannerUrl || '');
   const animation = normalizeNewsAnimationConfig(req.body?.animation_config);
   const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
   const rawPublishedAt = req.body?.published_at;
@@ -14118,16 +14242,16 @@ app.patch('/ows-dashboard/news/:id', dashboardNewsFields, async (req, res) => {
     if (req.body?.project_name !== undefined) updates.project_name = String(req.body.project_name).trim() || 'OWS';
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
-    if (req.body?.image_url !== undefined) updates.image_url = String(req.body.image_url || '').trim();
-    if (req.body?.banner_url !== undefined) updates.banner_url = String(req.body.banner_url || '').trim();
+    if (req.body?.image_url !== undefined) updates.image_url = sanitizePublicHttpUrl(req.body.image_url);
+    if (req.body?.banner_url !== undefined) updates.banner_url = sanitizePublicHttpUrl(req.body.banner_url);
     if (req.body?.animation_config !== undefined) {
       updates.animation_config = JSON.stringify(normalizeNewsAnimationConfig(req.body.animation_config));
     }
     // Archivos nuevos (Cloudinary) ganan sobre las URLs enviadas
     const imageFile = req.files && req.files.image && req.files.image[0];
     const bannerFile = req.files && req.files.banner && req.files.banner[0];
-    if (imageFile && imageFile.path) updates.image_url = String(imageFile.path);
-    if (bannerFile && bannerFile.path) updates.banner_url = String(bannerFile.path);
+    if (imageFile && imageFile.path) updates.image_url = sanitizePublicHttpUrl(imageFile.path);
+    if (bannerFile && bannerFile.path) updates.banner_url = sanitizePublicHttpUrl(bannerFile.path);
 
     if (!Object.keys(updates).length) {
       // Toggle original cuando no hay campos explicitos
@@ -14201,7 +14325,7 @@ app.post('/ows-dashboard/news/bulk-config', async (req, res) => {
   const sets = [];
   const values = [ids];
   if (req.body?.banner_url !== undefined) {
-    values.push(String(req.body.banner_url || '').trim().slice(0, 2048));
+    values.push(sanitizePublicHttpUrl(req.body.banner_url).slice(0, 2048));
     sets.push(`banner_url = $${values.length}`);
   }
   if (req.body?.animation_config !== undefined) {
@@ -14271,7 +14395,7 @@ function mapOwsQuickNewsRow(row) {
     id: Number(row.id || 0),
     text: String(row.text || '').slice(0, OWS_QUICK_NEWS_MAX_TEXT),
     tag: String(row.tag || '').slice(0, 40),
-    link_url: String(row.link_url || ''),
+    link_url: sanitizePublicHttpUrl(row.link_url),
     is_active: row.is_active !== false,
     published_at: publishedAt,
     created_at: row.created_at || null,
@@ -14517,10 +14641,10 @@ function mapOwsDashboardEventRow(row) {
     project_name: linkedName || String(row.project_name || 'OWS'),
     project_watermark: projectWatermark,
     projectWatermark: projectWatermark,
-    image_url: String(row.image_url || ''),
-    imageUrl: String(row.image_url || ''),
-    link_url: String(row.link_url || ''),
-    linkUrl: String(row.link_url || ''),
+    image_url: sanitizePublicHttpUrl(row.image_url),
+    imageUrl: sanitizePublicHttpUrl(row.image_url),
+    link_url: sanitizePublicHttpUrl(row.link_url),
+    linkUrl: sanitizePublicHttpUrl(row.link_url),
     starts_at: startsAt,
     ends_at: endsAt,
     startsAt,
@@ -14620,11 +14744,14 @@ function validateEventExpiry(expiresAt, startsAt, endsAt) {
 
 // Feed publico de la seccion "Eventos" del dashboard OWS
 app.get('/ows-dashboard/events', async (req, res) => {
-  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  // El feed es público: pedir borradores, finalizados o caducados solo vale
+  // con credenciales de admin (el panel las manda en la cabecera).
+  const adminView = isOwsStoreAdminRequest(req);
+  const includeInactive = adminView && normalizeNewsBoolean(req.query.include_inactive, false);
   const includeEnded = normalizeNewsBoolean(req.query.include_ended, true);
   // Eventos que ya cumplieron su fecha de desaparición: fuera del feed
   // público. El panel los pide con include_expired=1 para poder editarlos.
-  const includeExpired = normalizeNewsBoolean(req.query.include_expired, false);
+  const includeExpired = adminView && normalizeNewsBoolean(req.query.include_expired, false);
   const limit = Math.max(1, Math.min(100, normalizeNewsNumber(req.query.limit, 30)));
   try {
     await ensureOwsDashboardEventsTable();
@@ -14662,8 +14789,8 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
   const description = String(req.body?.description || '').trim();
   const category = normalizeDashboardEventCategory(req.body?.category);
   const projectName = String(req.body?.project_name || req.body?.projectName || 'OWS').trim() || 'OWS';
-  const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
-  const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
+  const imageUrl = sanitizePublicHttpUrl(req.body?.image_url || req.body?.imageUrl || '');
+  const linkUrl = sanitizePublicHttpUrl(req.body?.link_url || req.body?.linkUrl || '');
   const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
   // Inicio tentativo: el admin marca la fecha como "por confirmar".
   const startsExpected = normalizeNewsBoolean(req.body?.starts_expected ?? req.body?.startsExpected, false);
@@ -14675,7 +14802,7 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
   if (expiry.error) return res.status(400).json({ error: expiry.error });
   const expiryError = validateEventExpiry(expiry.value, dates.start, dates.end);
   if (expiryError) return res.status(400).json({ error: expiryError });
-  const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
+  const finalImageUrl = (req.file && req.file.path) ? sanitizePublicHttpUrl(req.file.path) : imageUrl;
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
 
   try {
@@ -14726,7 +14853,7 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
       updates.project_id = proj.pid;
       updates.project_name = proj.name;
     }
-    if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
+    if (req.body?.link_url !== undefined) updates.link_url = sanitizePublicHttpUrl(req.body.link_url);
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
     // Inicio tentativo ("fecha esperada de inicio"): se puede prender/apagar
@@ -14763,8 +14890,8 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
       }
       updates.expires_at = expiry.value;
     }
-    if (req.file && req.file.path) updates.image_url = String(req.file.path);
-    else if (req.body?.image_url !== undefined) updates.image_url = String(req.body.image_url).trim();
+    if (req.file && req.file.path) updates.image_url = sanitizePublicHttpUrl(req.file.path);
+    else if (req.body?.image_url !== undefined) updates.image_url = sanitizePublicHttpUrl(req.body.image_url);
 
     const keys = Object.keys(updates);
     if (!keys.length) return res.status(400).json({ error: 'No hay campos validos para actualizar' });
@@ -14907,10 +15034,10 @@ function mapOwsEventPopupRow(row) {
     id: Number(row.id || 0),
     title: String(row.title || ''),
     body: String(row.body || ''),
-    image_url: String(row.image_url || ''),
-    imageUrl: String(row.image_url || ''),
-    link_url: String(row.link_url || ''),
-    linkUrl: String(row.link_url || ''),
+    image_url: sanitizePublicHttpUrl(row.image_url),
+    imageUrl: sanitizePublicHttpUrl(row.image_url),
+    link_url: sanitizePublicHttpUrl(row.link_url),
+    linkUrl: sanitizePublicHttpUrl(row.link_url),
     link_label: String(row.link_label || ''),
     linkLabel: String(row.link_label || ''),
     kind: normalizePopupKind(row.kind),
@@ -14938,10 +15065,10 @@ function mapOwsPopupPresetRow(row) {
     name: String(row.name || ''),
     title: String(row.title || ''),
     body: String(row.body || ''),
-    image_url: String(row.image_url || ''),
-    imageUrl: String(row.image_url || ''),
-    link_url: String(row.link_url || ''),
-    linkUrl: String(row.link_url || ''),
+    image_url: sanitizePublicHttpUrl(row.image_url),
+    imageUrl: sanitizePublicHttpUrl(row.image_url),
+    link_url: sanitizePublicHttpUrl(row.link_url),
+    linkUrl: sanitizePublicHttpUrl(row.link_url),
     link_label: String(row.link_label || ''),
     linkLabel: String(row.link_label || ''),
     kind: normalizePopupKind(row.kind),
@@ -15007,15 +15134,15 @@ app.post('/ows-dashboard/popups', dashboardEventUpload.single('image'), async (r
   if (!requireOwsStoreAdmin(req, res)) return;
   const title = String(req.body?.title || '').trim();
   const body = String(req.body?.body || req.body?.description || '').trim();
-  const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
-  const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
+  const imageUrl = sanitizePublicHttpUrl(req.body?.image_url || req.body?.imageUrl || '');
+  const linkUrl = sanitizePublicHttpUrl(req.body?.link_url || req.body?.linkUrl || '');
   const linkLabel = String(req.body?.link_label || req.body?.linkLabel || '').trim().slice(0, 60);
   const kind = normalizePopupKind(req.body?.kind);
   const toastColor = normalizePopupColor(req.body?.toast_color ?? req.body?.toastColor);
   const toastPosition = normalizePopupPosition(req.body?.toast_position ?? req.body?.toastPosition);
   const durationMs = normalizePopupDuration(req.body?.duration_ms ?? req.body?.durationMs);
   if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
-  const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
+  const finalImageUrl = (req.file && req.file.path) ? sanitizePublicHttpUrl(req.file.path) : imageUrl;
   try {
     await ensureOwsEventPopupsTable();
     const { rows } = await pool.query(
@@ -15053,7 +15180,7 @@ app.patch('/ows-dashboard/popups/:id', dashboardEventUpload.single('image'), asy
     if (req.body?.body !== undefined || req.body?.description !== undefined) {
       updates.body = String(req.body.body ?? req.body.description ?? '').trim();
     }
-    if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
+    if (req.body?.link_url !== undefined) updates.link_url = sanitizePublicHttpUrl(req.body.link_url);
     if (req.body?.link_label !== undefined) updates.link_label = String(req.body.link_label).trim().slice(0, 60);
     if (req.body?.kind !== undefined) updates.kind = normalizePopupKind(req.body.kind);
     if (req.body?.toast_color !== undefined || req.body?.toastColor !== undefined) {
@@ -15066,8 +15193,8 @@ app.patch('/ows-dashboard/popups/:id', dashboardEventUpload.single('image'), asy
       updates.duration_ms = normalizePopupDuration(req.body.duration_ms ?? req.body.durationMs);
     }
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
-    if (req.file && req.file.path) updates.image_url = String(req.file.path);
-    else if (req.body?.image_url !== undefined) updates.image_url = String(req.body.image_url).trim();
+    if (req.file && req.file.path) updates.image_url = sanitizePublicHttpUrl(req.file.path);
+    else if (req.body?.image_url !== undefined) updates.image_url = sanitizePublicHttpUrl(req.body.image_url);
     const keys = Object.keys(updates);
     if (!keys.length) return res.status(400).json({ error: 'No hay campos validos para actualizar' });
     const setSql = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
@@ -15190,14 +15317,14 @@ app.post('/ows-dashboard/popup-presets', dashboardEventUpload.single('image'), a
   if (!name) return res.status(400).json({ error: 'El nombre del preset es obligatorio' });
   const title = String(req.body?.title || '').trim();
   const body = String(req.body?.body || req.body?.description || '').trim();
-  const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
-  const linkUrl = String(req.body?.link_url || req.body?.linkUrl || '').trim();
+  const imageUrl = sanitizePublicHttpUrl(req.body?.image_url || req.body?.imageUrl || '');
+  const linkUrl = sanitizePublicHttpUrl(req.body?.link_url || req.body?.linkUrl || '');
   const linkLabel = String(req.body?.link_label || req.body?.linkLabel || '').trim().slice(0, 60);
   const kind = normalizePopupKind(req.body?.kind);
   const toastColor = normalizePopupColor(req.body?.toast_color ?? req.body?.toastColor);
   const toastPosition = normalizePopupPosition(req.body?.toast_position ?? req.body?.toastPosition);
   const durationMs = normalizePopupDuration(req.body?.duration_ms ?? req.body?.durationMs);
-  const finalImageUrl = (req.file && req.file.path) ? String(req.file.path) : imageUrl;
+  const finalImageUrl = (req.file && req.file.path) ? sanitizePublicHttpUrl(req.file.path) : imageUrl;
   try {
     await ensureOwsPopupPresetsTable();
     const { rows } = await pool.query(
@@ -15310,10 +15437,10 @@ function mapOwsNewsModalRow(row) {
     id: Number(row.id || 0),
     title: String(row.title || ''),
     body: String(row.body || ''),
-    image_url: String(row.image_url || ''),
-    imageUrl: String(row.image_url || ''),
-    video_url: String(row.video_url || ''),
-    videoUrl: String(row.video_url || ''),
+    image_url: sanitizePublicHttpUrl(row.image_url),
+    imageUrl: sanitizePublicHttpUrl(row.image_url),
+    video_url: sanitizePublicHttpUrl(row.video_url),
+    videoUrl: sanitizePublicHttpUrl(row.video_url),
     video_duration_ms: duration,
     videoDurationMs: duration,
     display_date: displayDate,
@@ -15409,16 +15536,16 @@ app.post('/ows-dashboard/news-modals', dashboardNewsModalFields, async (req, res
   const body = String(req.body?.body ?? req.body?.content ?? '').trim();
   const chainKey = normalizeNewsModalChain(req.body?.chain_key ?? req.body?.chainKey);
   const displayDate = normalizeNewsModalDate(req.body?.display_date ?? req.body?.displayDate);
-  const imageUrlInput = String(req.body?.image_url ?? req.body?.imageUrl ?? '').trim();
-  const videoUrlInput = String(req.body?.video_url ?? req.body?.videoUrl ?? '').trim();
+  const imageUrlInput = sanitizePublicHttpUrl(req.body?.image_url ?? req.body?.imageUrl ?? '');
+  const videoUrlInput = sanitizePublicHttpUrl(req.body?.video_url ?? req.body?.videoUrl ?? '');
   const duration = normalizeNewsModalDurationMs(req.body?.video_duration_ms ?? req.body?.videoDurationMs);
   const showOnce = normalizeNewsBoolean(req.body?.show_once ?? req.body?.showOnce, true);
   const isActive = normalizeNewsBoolean(req.body?.is_active ?? req.body?.isActive, true);
   const isPublished = normalizeNewsBoolean(req.body?.is_published ?? req.body?.isPublished, true);
   const imageFile = req.files && req.files.image && req.files.image[0];
   const videoFile = req.files && req.files.video && req.files.video[0];
-  const finalImageUrl = imageFile ? String(imageFile.path) : imageUrlInput;
-  const finalVideoUrl = videoFile ? String(videoFile.path) : videoUrlInput;
+  const finalImageUrl = imageFile ? sanitizePublicHttpUrl(imageFile.path) : imageUrlInput;
+  const finalVideoUrl = videoFile ? sanitizePublicHttpUrl(videoFile.path) : videoUrlInput;
 
   if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
   if (finalVideoUrl) {
@@ -15523,9 +15650,9 @@ app.patch('/ows-dashboard/news-modals/:id', dashboardNewsModalFields, async (req
     // Imagen: archivo nuevo > URL enviada > se conserva.
     const imageFile = req.files && req.files.image && req.files.image[0];
     if (imageFile) {
-      updates.image_url = String(imageFile.path);
+      updates.image_url = sanitizePublicHttpUrl(imageFile.path);
     } else if (req.body?.image_url !== undefined || req.body?.imageUrl !== undefined) {
-      updates.image_url = String(req.body.image_url ?? req.body.imageUrl ?? '').trim();
+      updates.image_url = sanitizePublicHttpUrl(req.body.image_url ?? req.body.imageUrl ?? '');
     }
 
     // Video: archivo nuevo > URL nueva > se conserva. La duración se
@@ -15539,10 +15666,10 @@ app.patch('/ows-dashboard/news-modals/:id', dashboardNewsModalFields, async (req
       if (durationInput > OWS_NEWS_MODAL_MAX_VIDEO_MS) {
         return res.status(400).json({ error: 'El video no puede durar mas de 15 segundos' });
       }
-      updates.video_url = String(videoFile.path);
+      updates.video_url = sanitizePublicHttpUrl(videoFile.path);
       updates.video_duration_ms = durationInput;
     } else if (req.body?.video_url !== undefined || req.body?.videoUrl !== undefined) {
-      const nextVideoUrl = String(req.body.video_url ?? req.body.videoUrl ?? '').trim();
+      const nextVideoUrl = sanitizePublicHttpUrl(req.body.video_url ?? req.body.videoUrl ?? '');
       if (!nextVideoUrl) {
         updates.video_url = '';
         updates.video_duration_ms = 0;
@@ -15929,10 +16056,10 @@ function mapOwsLaunchProjectRow(row, latestRelease) {
     expectedDate: row.expected_date || null,
     confirmed_date: row.confirmed_date || null,
     confirmedDate: row.confirmed_date || null,
-    link_url: String(row.link_url || ''),
-    linkUrl: String(row.link_url || ''),
-    banner_url: String((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
-    bannerUrl: String((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
+    link_url: sanitizePublicHttpUrl(row.link_url),
+    linkUrl: sanitizePublicHttpUrl(row.link_url),
+    banner_url: sanitizePublicHttpUrl((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
+    bannerUrl: sanitizePublicHttpUrl((row.metadata && typeof row.metadata === 'object' ? row.metadata.banner_url : '') || ''),
     // ── Marca de agua (eventos y noticias del proyecto) ──
     watermark_enabled: buildProjectWatermark(row) !== null,
     watermarkEnabled: buildProjectWatermark(row) !== null,
@@ -16480,7 +16607,10 @@ async function streamItchUploadToResponse(uploadId, filename, res) {
 // (uso interno del Admin Panel; los proyectos solo-admin nunca deben
 // aparecer en OWS publico).
 app.get('/ows-launch-projects', async (req, res) => {
-  const includeHidden = normalizeNewsBoolean(req.query.include_hidden, false);
+  // include_hidden solo vale con credenciales de admin: si no, cualquiera
+  // podía enumerar proyectos ocultos y los marcados como solo-admin.
+  const includeHidden = isOwsStoreAdminRequest(req)
+    && normalizeNewsBoolean(req.query.include_hidden, false);
   try {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
@@ -17136,7 +17266,7 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
     if (req.body?.platforms !== undefined) updates.platforms = normalizeLaunchPlatforms(req.body.platforms);
     if (req.body?.expected_date !== undefined) updates.expected_date = req.body.expected_date ? String(req.body.expected_date).slice(0, 10) : null;
     if (req.body?.confirmed_date !== undefined) updates.confirmed_date = req.body.confirmed_date ? String(req.body.confirmed_date).slice(0, 10) : null;
-    if (req.body?.link_url !== undefined) updates.link_url = String(req.body.link_url).trim();
+    if (req.body?.link_url !== undefined) updates.link_url = sanitizePublicHttpUrl(req.body.link_url);
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
     if (req.body?.admin_only !== undefined || req.body?.adminOnly !== undefined || req.body?.is_admin_only !== undefined) {
@@ -23539,7 +23669,7 @@ app.get('/ocean-pay/me', async (req, res) => {
 
   // Si el token está expirado, intentamos auto-refrescarlo (grace period 30 días)
   if (!decoded && token) {
-    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    const secret = getStudioSecret();
     try {
       const expiredDecoded = jwt.verify(token, secret, { ignoreExpiration: true });
       const userId = Number(expiredDecoded.id || expiredDecoded.uid || expiredDecoded.sub || 0);
@@ -26851,7 +26981,7 @@ app.delete('/ocean-pay/delete-account', async (req, res) => {
   if (auth) {
     try {
       const token = auth.split(' ')[1];
-      const payload = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+      const payload = jwt.verify(token, getStudioSecret());
 
       // Verificar que el token corresponda al usuario
       if ((payload.id || payload.uid) !== userId) {
@@ -27095,7 +27225,7 @@ app.post('/oceanic-ethernet/link-user', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -27133,7 +27263,7 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
   const token = authHeader.substring(7);
   let oeUserId; // Renombramos a oeUserId para mayor claridad
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     oeUserId = (decoded.id || decoded.uid);
     oeUserId = parseInt(oeUserId) || oeUserId;
   } catch (e) {
@@ -27210,7 +27340,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
   const token = authHeader.substring(7);
   let opUserId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     opUserId = (decoded.id || decoded.uid);
     opUserId = parseInt(opUserId) || opUserId;
   } catch (e) {
@@ -27295,7 +27425,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -27313,7 +27443,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
   let opUserId = null;
   if (opToken && opToken.trim() !== '') {
     try {
-      const decoded = jwt.verify(opToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+      const decoded = jwt.verify(opToken, getStudioSecret());
       opUserId = (decoded.id || decoded.uid);
       opUserId = parseInt(opUserId) || opUserId;
       console.log('Ã¢Ã…â€œ—Â¦ Token de Ocean Pay válido, opUserId:', opUserId);
@@ -27666,7 +27796,7 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -27749,7 +27879,7 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -27790,7 +27920,7 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
   const token = authHeader.substring(7);
   let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -27839,8 +27969,8 @@ app.post('/api/report-error', async (req, res) => {
 });
 
 app.get('/admin/error-reports', async (req, res) => {
-  const secret = req.headers['x-admin-secret'];
-  if (secret !== (process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret')) return res.status(401).json({ error: 'No autorizado' });
+  const secret = String(req.headers['x-admin-secret'] || '');
+  if (!safeEqual(secret, getStudioSecret())) return res.status(401).json({ error: 'No autorizado' });
 
   const { rows } = await pool.query(
     'SELECT id,user_id,type,description,extensions,created_at FROM error_reports ORDER BY created_at DESC LIMIT 200'
@@ -28025,7 +28155,7 @@ app.get('/api/ecorebits/user', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const usernameToken = decoded.un || decoded.username;
     if (!usernameToken) return res.status(401).json({ message: 'Token inválido' });
 
@@ -28143,7 +28273,7 @@ app.post('/api/extend-limit', async (req, res) => {
     }
 
     // Verify token and get user
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     // Asegurar que userId sea un número (el id de ocean_pay_users es INTEGER)
     const rawId = (decoded.id || decoded.uid) || decoded.userId || decoded.id || decoded.user?.id;
     const userId = parseInt(rawId);
@@ -28313,8 +28443,8 @@ app.post('/api/extend-limit', async (req, res) => {
 
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
-  const secret = req.headers['x-admin-secret'];
-  if (secret !== (process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret')) {
+  const secret = String(req.headers['x-admin-secret'] || '');
+  if (!safeEqual(secret, getStudioSecret())) {
     return res.status(401).json({ error: 'No autorizado' });
   }
 
@@ -29687,7 +29817,7 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
     if (authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+        const decoded = jwt.verify(token, getStudioSecret());
         tokenUserId = Number(decoded.id || decoded.uid || decoded.sub || 0);
       } catch (_e) {
         tokenUserId = 0;
@@ -30044,7 +30174,7 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
   let tokenUserId = null;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     tokenUserId = Number(decoded.id || decoded.uid || decoded.sub);
   } catch (_e) {
     return res.status(401).json({ error: 'Token invalido' });
@@ -30165,7 +30295,7 @@ app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
   let tokenUserId = null;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     tokenUserId = Number(decoded.id || decoded.uid || decoded.sub);
   } catch (_e) {
     return res.status(401).json({ error: 'Token invalido' });
@@ -32017,7 +32147,7 @@ function getOPUserId(req) {
   if (!auth || !auth.startsWith('Bearer ')) return null;
   const token = auth.substring(7);
   try {
-    const d = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const d = jwt.verify(token, getStudioSecret());
     // Ocean Pay tokens carry `uid`
     return d.uid || d.userId || d.id || null;
   } catch {
@@ -33108,7 +33238,7 @@ function getWildXUserId(req) {
   const [, token] = auth.split(' ');
   if (!token) return null;
   try {
-    const payload = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const payload = jwt.verify(token, getStudioSecret());
     return payload?.wid || null;
   } catch {
     return null;
@@ -33287,7 +33417,7 @@ function getWildWaveMaxCharsForTier(tier, planId) {
 function getOceanPayUserIdFromToken(oceanPayToken) {
   if (!oceanPayToken) return null;
   try {
-    const decoded = jwt.verify(oceanPayToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(oceanPayToken, getStudioSecret());
     const idRaw = decoded?.id || decoded?.uid;
     const num = Number(idRaw);
     return Number.isFinite(num) && num > 0 ? num : null;
@@ -35251,7 +35381,7 @@ app.patch('/wildwave/api/auth/profile', async (req, res) => {
 
     let newToken = null;
     if (updates.username) {
-      newToken = jwt.sign({ id: wid, username: updates.username }, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret', { expiresIn: '90d' });
+      newToken = jwt.sign({ id: wid, username: updates.username }, getStudioSecret(), { expiresIn: '90d' });
     }
 
     res.json({ success: true, user: rows[0], token: newToken });
@@ -36194,7 +36324,7 @@ app.post('/wildwave/api/verify/blue/subscribe', async (req, res) => {
     // Validar token de Ocean Pay y obtener user_id de ocean_pay_users
     let opUserId;
     try {
-      const decoded = jwt.verify(oceanPayToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+      const decoded = jwt.verify(oceanPayToken, getStudioSecret());
       opUserId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     } catch (e) {
       return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
@@ -36649,7 +36779,7 @@ app.post('/wildwave/api/posts/:id/donate', async (req, res) => {
     // Validar token de Ocean Pay
     let opUserId;
     try {
-      const decoded = jwt.verify(oceanPayToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+      const decoded = jwt.verify(oceanPayToken, getStudioSecret());
       opUserId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     } catch (e) {
       client.release();
@@ -40065,7 +40195,7 @@ const verifyEcoConsoleToken = (req, res, next) => {
 
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     req.userId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     next();
   } catch (e) {
@@ -41562,7 +41692,7 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = Number(decoded.id || decoded.uid || decoded.sub);
     if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token invÃ¡lido' });
 
@@ -41718,7 +41848,7 @@ app.post('/ocean-cinemas/subscriptions/status', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
-    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    const secret = getStudioSecret();
     let decoded;
     try {
       decoded = jwt.verify(token, secret);
@@ -41791,7 +41921,7 @@ app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
-    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    const secret = getStudioSecret();
     let decoded;
     try {
       decoded = jwt.verify(token, secret);
@@ -41953,7 +42083,7 @@ app.get('/ocean-pay/notifications', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = decoded.id || (decoded.id || decoded.uid);
 
     const { rows } = await pool.query(
@@ -42030,7 +42160,7 @@ app.post('/ocean-pay/sync-ecoxionums', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = Number(decoded.id || (decoded.id || decoded.uid));
     const amount = Number(req.body?.amount || 0);
 
@@ -42084,7 +42214,7 @@ app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { projectId, subName, price, currency, intervalDays, cardId } = req.body;
@@ -42282,7 +42412,7 @@ app.patch('/ocean-pay/api/cards/:id/rename', async (req, res) => {
   let userId;
   try {
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = (decoded.id || decoded.uid) || decoded.id;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -42322,7 +42452,7 @@ app.post('/ocean-pay/api/transfer-self', async (req, res) => {
   let userId;
   try {
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     if ((decoded.id || decoded.uid)) {
       userId = parseInt((decoded.id || decoded.uid));
     } else if (decoded.username || decoded.un) {
@@ -42425,7 +42555,7 @@ app.delete(['/ocean-pay/api/cards/:id', '/ocean-pay/cards/:id'], async (req, res
   let userId;
   try {
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     if ((decoded.id || decoded.uid)) {
       userId = parseInt((decoded.id || decoded.uid));
     } else if (decoded.username || decoded.un) {
@@ -42481,7 +42611,7 @@ app.get('/ocean-pay/api/stats/transactions', async (req, res) => {
   let userId;
   try {
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     if ((decoded.id || decoded.uid)) {
       userId = parseInt((decoded.id || decoded.uid));
     } else if (decoded.username || decoded.un) {
@@ -42586,7 +42716,7 @@ app.get('/ocean-pay/api/stats/global-overview', async (req, res) => {
 
   try {
     const token = authHeader.substring(7);
-    jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    jwt.verify(token, getStudioSecret());
 
     const normalizeCurrency = (value) => {
       const key = String(value || '').toLowerCase().trim();
@@ -42711,7 +42841,7 @@ app.get('/ocean-pay/user-info', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { rows } = await pool.query('SELECT id, username, email FROM ocean_pay_users WHERE id = $1', [userId]);
@@ -42736,7 +42866,7 @@ app.get('/ocean-pay/ecobooks/balance', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { cardId } = req.query;
@@ -42785,7 +42915,7 @@ app.post(['/ocean-pay/ecobooks/change', '/naturepedia/ecobooks/change'], async (
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { amount, cardId, concept = 'Naturepedia', origin = 'Naturepedia' } = req.body;
@@ -42853,7 +42983,7 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
 
   const client = await pool.connect();
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const userId = decoded.id || (decoded.id || decoded.uid);
     await client.query('BEGIN');
 
@@ -42937,7 +43067,7 @@ app.get('/ocean-pay/txs/:userId', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     const requesterId = Number(decoded.id || decoded.uid || 0);
     const targetUserId = Number(req.params.userId || 0);
 
@@ -43311,7 +43441,7 @@ app.post('/ocean-pay/api/admin/set-balance', async (req, res) => {
 
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     callerId = Number(decoded.id || decoded.uid);
     callerUsername = String(decoded.username || decoded.un || '').trim();
   } catch (_e) {
@@ -43449,7 +43579,7 @@ app.delete(['/ocean-pay/api/txs/clear', '/ocean-pay/txs/:userId/clear'], async (
   let userId = null;
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getStudioSecret());
     userId = Number(decoded.id || decoded.uid || decoded.sub);
   } catch (_e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -44742,11 +44872,7 @@ app.get('/ows-store/windows/releases/dinobox/init', async (req, res) => {
 });
 
 app.post('/ows-store/windows/releases/dinobox', async (req, res) => {
-  const adminToken = req.headers['x-ows-admin-token'];
-  const expectedToken = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || process.env.JWT_SECRET;
-  if (!adminToken || adminToken !== expectedToken) {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
+  if (!requireOwsStoreAdmin(req, res)) return;
 
   const { version, installer_url, installer_size, release_notes, status } = req.body;
   if (!version || !installer_url) {
@@ -44840,11 +44966,7 @@ app.get('/ows-store/windows/releases/wildweapon-mayhem/init', async (req, res) =
 });
 
 app.post('/ows-store/windows/releases/wildweapon-mayhem', async (req, res) => {
-  const adminToken = req.headers['x-ows-admin-token'];
-  const expectedToken = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || process.env.JWT_SECRET;
-  if (!adminToken || adminToken !== expectedToken) {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
+  if (!requireOwsStoreAdmin(req, res)) return;
 
   const { version, installer_url, installer_size, release_date, release_notes, status } = req.body;
   if (!version || !installer_url) {
@@ -45382,7 +45504,7 @@ async function ensureOwsSpacesTables() {
 
 // ── Autenticación ────────────────────────────────────────────────────────────
 function owsSpacesSignToken(user) {
-  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  const secret = getStudioSecret();
   return jwt.sign(
     { owsSpacesUid: user.id, username: user.username },
     secret,
@@ -45393,7 +45515,7 @@ function owsSpacesSignToken(user) {
 async function owsSpacesUserFromToken(token) {
   if (!token) return null;
   try {
-    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+    const secret = getStudioSecret();
     const decoded = jwt.verify(token, secret);
     const uid = Number(decoded.owsSpacesUid || 0);
     if (!uid) return null;
@@ -47388,16 +47510,16 @@ app.delete('/ows-spaces/api/news/:id', async (req, res) => {
 
 // POST /ows-spaces/api/news/seed - insercion protegida por STUDIO_SECRET
 app.post('/ows-spaces/api/news/seed', async (req, res) => {
-  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || '';
+  const secret = String(process.env.STUDIO_SECRET || process.env.JWT_SECRET || '').trim();
   const provided = String(req.headers['x-studio-secret'] || '').trim();
-  if (!secret || provided !== secret) return res.status(403).json({ error: 'Forbidden' });
+  if (!secret || !provided || !safeEqual(provided, secret)) return res.status(403).json({ error: 'Forbidden' });
   try {
     await ensureOwsSpacesTables();
     const { title, description='', content_lines=[], cover_url='', project_tag='OWS Spaces', author_name='Ocean and Wild Studios', priority=0, published_at } = req.body || {};
     if (!title || !String(title).trim()) return res.status(400).json({ error: 'Titulo requerido' });
     const lines = Array.isArray(content_lines) ? content_lines.map(String).filter(Boolean) : [];
     const pubAt = published_at ? new Date(published_at) : new Date();
-    const { rows } = await pool.query(`INSERT INTO ows_spaces_news (title,description,content_lines,cover_url,project_tag,author_name,priority,published_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [String(title).trim(),String(description||'').trim(),lines,String(cover_url||'').trim(),String(project_tag||'OWS Spaces').trim(),String(author_name||'Ocean and Wild Studios').trim(),Number(priority)||0,pubAt]);
+    const { rows } = await pool.query(`INSERT INTO ows_spaces_news (title,description,content_lines,cover_url,project_tag,author_name,priority,published_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [String(title).trim(),String(description||'').trim(),lines,sanitizePublicHttpUrl(cover_url),String(project_tag||'OWS Spaces').trim(),String(author_name||'Ocean and Wild Studios').trim(),Number(priority)||0,pubAt]);
     return res.status(201).json({ success: true, news: rows[0] });
   } catch (err) { console.error('[OWS SPACES] POST /news/seed:', err); return res.status(500).json({ error: 'Error interno' }); }
 });

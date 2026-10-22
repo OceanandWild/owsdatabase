@@ -170,13 +170,32 @@ const MODAL_CLOSERS = {
   'upd-detail-modal': closeUpdatesDetail,
   'hub-changelog-modal': closeHubChangelogModal,
   'announce-modal': closeAnnounceModal,
+  'news-chain-modal': closeNewsChainModal,
 };
 
-// El scroll del body solo se libera si no queda otro modal abierto.
-function releaseBodyScroll() {
+// ¿Queda algún modal abierto? Se usa para no pisar uno con otro y para
+// liberar el scroll del body recién cuando ya no queda ninguno.
+function isAnyModalOpen(exceptId) {
   try {
-    if (!document.querySelector('.modal-overlay:not(.hidden), .release-overlay:not(.hidden), .news-modal-overlay:not(.hidden)')) {
+    const open = Array.from(document.querySelectorAll(
+      '.modal-overlay:not(.hidden), .release-overlay:not(.hidden), .news-modal-overlay:not(.hidden)'
+    ));
+    if (!open.length) return false;
+    return open.some((el) => !exceptId || el.id !== exceptId);
+  } catch (_) {
+    return false;
+  }
+}
+
+// El scroll del body solo se libera si no queda otro modal abierto.
+function releaseBodyScroll(resumeDelay) {
+  try {
+    if (!isAnyModalOpen()) {
       document.body.style.overflow = '';
+      // Al liberarse la pantalla, los anuncios/cadenas que esperaban turno
+      // pueden continuar (antes un popup bloqueado se perdía para siempre).
+      const delay = Math.max(0, Number(resumeDelay) || 0);
+      setTimeout(() => { try { resumeOwsModals(); } catch (_) {} }, delay);
     }
   } catch (_) { document.body.style.overflow = ''; }
 }
@@ -231,7 +250,7 @@ function bindStaticEvents() {
   });
 
   // Modales: cerrar al click en overlay o botón [data-close]
-  ['event-modal', 'release-modal', 'announce-modal', 'news-modal', 'pcl-modal', 'upd-detail-modal'].forEach((id) => {
+  ['event-modal', 'release-modal', 'announce-modal', 'news-chain-modal', 'news-modal', 'pcl-modal', 'upd-detail-modal'].forEach((id) => {
     const overlay = document.getElementById(id);
     if (!overlay) return;
     overlay.addEventListener('click', (e) => {
@@ -252,6 +271,9 @@ function bindStaticEvents() {
     const overlay = btn.closest('.modal-overlay, .release-overlay, .news-modal-overlay');
     if (overlay) closeModalById(overlay.id);
   });
+
+  // Modales de Noticias en cadena: botones, teclado y swipe
+  try { bindNewsChainControls(); } catch (_) {}
 
   // Barra de progreso de scroll del modal de lanzamiento
   const rdCard = document.querySelector('#release-modal .release-modal-card');
@@ -390,6 +412,7 @@ function bindStaticEvents() {
   if (releasesGrid) {
     // Dock de iconos: 1 clic = preview abajo del icono + spotlight · 2 clics = modal con banner
     let relClickTimer = null;
+    let relClickSlug = '';
     const findProject = (slug) => releasesCache.find((x) => String(x.slug) === String(slug));
     const toggleDockItem = (item) => {
       if (!item) return;
@@ -417,17 +440,27 @@ function bindStaticEvents() {
     releasesGrid.addEventListener('click', (e) => {
       const item = e.target.closest('[data-slug]');
       if (!item) return;
-      // Doble clic llega como 2 clicks seguidos: el 2º abre el modal directamente
+      // 1 clic = mini info · 2 clics = modal.
+      // El 2º clic puede llegar rápido (dentro de la ventana de 260 ms, antes de
+      // que se abra la info) o lento (la info ya está abierta): en ambos casos
+      // se abre el modal, como anuncia la propia tarjeta ("doble clic para detalles").
+      const slug = String(item.getAttribute('data-slug'));
+      const fastSecond = !!relClickTimer && relClickSlug === slug;
       if (relClickTimer) {
         try { clearTimeout(relClickTimer); } catch (_) {}
         relClickTimer = null;
+        relClickSlug = '';
+      }
+      if (fastSecond || item.classList.contains('is-open')) {
         if (!item.classList.contains('is-open')) toggleDockItem(item);
-        const p = findProject(item.getAttribute('data-slug'));
+        const p = findProject(slug);
         if (p) openReleaseModal(p, item);
         return;
       }
+      relClickSlug = slug;
       relClickTimer = setTimeout(() => {
         relClickTimer = null;
+        relClickSlug = '';
         toggleDockItem(item);
       }, 260);
     });
@@ -436,8 +469,15 @@ function bindStaticEvents() {
       const item = e.target.closest('[data-slug]');
       if (!item) return;
       e.preventDefault();
-      try { if (relClickTimer) { clearTimeout(relClickTimer); relClickTimer = null; } } catch (_) {}
+      try { if (relClickTimer) { clearTimeout(relClickTimer); relClickTimer = null; relClickSlug = ''; } } catch (_) {}
       if (!item.classList.contains('is-open')) toggleDockItem(item);
+      // El 2º clic ya abrió el modal: no se vuelve a montar (evita recargar
+      // versiones y repetir la animación de portada).
+      const modal = document.getElementById('release-modal');
+      const body = document.getElementById('release-modal-body');
+      const showing = modal && !modal.classList.contains('hidden')
+        && body && body.dataset.rmSlug === String(item.getAttribute('data-slug'));
+      if (showing) return;
       const p = findProject(item.getAttribute('data-slug'));
       if (p) openReleaseModal(p, item);
     });
@@ -467,7 +507,12 @@ function bindStaticEvents() {
       const p = releasesCache.find((x) => String(x.slug) === String(slug));
       if (p) openReleaseModal(p, releaseFlipSource(card));
     };
+    // El dock vive dentro de #rel-body, pero tiene su propio flujo (1 clic =
+    // mini info · 2 clics = modal). Si el clic/tecla nace ahí, se ignora acá:
+    // de lo contrario el evento burbujea y el modal se abre con un solo clic.
+    const fromDock = (target) => !!(target && target.closest && target.closest('#releases-grid'));
     relBody.addEventListener('click', (e) => {
+      if (fromDock(e.target)) return;
       // Un enlace real (itch.io) se abre solo: no debe disparar también el modal.
       if (e.target.closest('a[href]')) return;
       const filter = e.target.closest('[data-rel-filter]');
@@ -476,6 +521,7 @@ function bindStaticEvents() {
       if (card) openBySlug(card.getAttribute('data-slug'), card);
     });
     relBody.addEventListener('keydown', (e) => {
+      if (fromDock(e.target)) return;
       const card = e.target.closest && e.target.closest('[data-slug]');
       if (!card || e.target.closest('a[href], button')) return;
       if (e.key === 'Enter' || e.key === ' ') {
@@ -810,11 +856,17 @@ function showOwsSection(viewId, opts) {
     try { ensureUpdatesManager(); } catch (_) {}
   }
 
-  // Esa misma vista aprovecha todo el ancho del contenido (grilla + modal);
+  // Lanzamientos y el Gestor de Actualizaciones aprovechan todo el ancho del
+  // contenido (el póster destacado vive pegado al borde derecho de la zona);
   // el resto de las secciones mantiene el contenedor angosto de siempre.
   try {
     const pc = document.querySelector('.page-container');
-    if (pc) pc.classList.toggle('page-container-wide', target === 'sec-actualizaciones');
+    const esLanzamientos = target === 'sec-lanzamientos';
+    const anchoCompleto = esLanzamientos || target === 'sec-actualizaciones';
+    if (pc) {
+      pc.classList.toggle('page-container-wide', anchoCompleto);
+      pc.classList.toggle('page-container-full', esLanzamientos);
+    }
   } catch (_) {}
 
   // Sube al inicio del contenido (las vistas ya no hacen scroll entre sí)
@@ -935,6 +987,7 @@ document.addEventListener('DOMContentLoaded', function () {
     loadProjectChangelogs();
     syncProjectChangelogsTag();
     checkOwsPopups();
+    checkOwsNewsModals();
     updateAdminVisibility();
     // Gestor de Actualizaciones: se consulta al entrar para tener el badge
     // del menú listo. No bloquea nada: si falla, la vista avisa al abrirla.
@@ -1269,6 +1322,8 @@ async function handleLogin(e) {
     currentUser = data.user || { id: data.id, username };
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+    // Login explícito: los modales "en cada ingreso" vuelven a mostrarse.
+    try { resetNewsChainSessionSeen(); } catch (_) {}
     // Guarda nick del setup si existe y el login no trae username
     try { applySetupNickToUser(); } catch (_) {}
 
@@ -1283,6 +1338,7 @@ async function handleLogin(e) {
       loadDashboardEvents();
       loadDashboardReleases();
       checkOwsPopups();
+      checkOwsNewsModals();
     }, 450);
   } catch (err) {
     console.error('[OWS] Login error:', err, '| API_BASE:', API_BASE);
@@ -1356,6 +1412,8 @@ function handleLogout() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   currentUser = null;
+  // Corta cualquier cadena de Noticias abierta o en cola.
+  try { newsChainQueue = []; clearTimeout(newsChainRetryTimer); newsChainRetryTimer = 0; closeNewsChainModal(); } catch (_) {}
   updateAdminVisibility(); // oculta la tarjeta admin al cerrar sesión
   showToast('Sesión cerrada. ¡Hasta pronto!');
   setTimeout(() => showAuth(), 800);
@@ -1924,7 +1982,9 @@ function openEventModal(ev) {
   const body = document.getElementById('event-modal-body');
   if (!modal || !body || !ev) return;
   const meta = eventCategoryMeta(ev.category);
-  const hasImg = Boolean(ev.image_url || ev.cover_url);
+  const coverUrl = safeHttpUrl(ev.image_url || ev.cover_url || '');
+  const detailUrl = safeHttpUrl(ev.link_url || ev.linkUrl || '');
+  const hasImg = Boolean(coverUrl);
   const expected = eventShowsExpectedDate(ev);
   const startsText = ev.starts_at
     ? new Date(ev.starts_at).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -1947,7 +2007,7 @@ function openEventModal(ev) {
       ? 'Finalizado'
       : (expected ? 'Próximamente · fecha por confirmar' : 'Próximamente');
   body.innerHTML = `
-    ${hasImg ? `<div class="modal-banner-wrap"><img src="${escapeHtml(ev.image_url || ev.cover_url || '')}" alt="${escapeHtml(ev.title)}" class="modal-banner" />${watermarkChip(ev, { big: true })}</div>` : ''}
+    ${hasImg ? `<div class="modal-banner-wrap"><img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(ev.title)}" class="modal-banner" />${watermarkChip(ev, { big: true })}</div>` : ''}
     <div class="modal-head">
       <div class="modal-head-info">
         <span class="ev-badge ev-badge-cat ${meta.cls}" style="align-self:flex-start">${meta.icon} ${meta.label}</span>
@@ -1963,7 +2023,7 @@ function openEventModal(ev) {
       ${countdownText ? `<div class="data-row"><dt>Cuenta atrás</dt><dd><span class="ev-countdown-live" data-ev-countdown="${escapeHtml(ev.starts_at || '')}" data-ev-phase="${escapeHtml(ev.phase || '')}">${escapeHtml(countdownText)}</span></dd></div>` : ''}
       ${ev.phase === 'ended' ? `<div class="data-row data-row-expiry"><dt>Desaparición</dt><dd>${expiryValue}</dd></div>` : ''}
     </dl>
-    ${ev.link_url || ev.linkUrl ? `<div class="ev-modal-link"><a class="btn btn-primary btn-block" href="${escapeHtml(ev.link_url || ev.linkUrl)}" target="_blank" rel="noopener">Ver más detalles ↗</a></div>` : ''}
+    ${detailUrl ? `<div class="ev-modal-link"><a class="btn btn-primary btn-block" href="${escapeHtml(detailUrl)}" target="_blank" rel="noopener noreferrer">Ver más detalles ↗</a></div>` : ''}
   `;
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -1985,7 +2045,7 @@ function closeEventModal() {
       el.removeAttribute('data-ev-countdown');
       el.removeAttribute('data-ev-phase');
     });
-    document.body.style.overflow = '';
+    releaseBodyScroll();
   }
 }
 
@@ -1997,6 +2057,14 @@ function closeEventModal() {
 // ═══════════════════════════════════════════════
 
 const SEEN_POPUPS_KEY = 'ows_seen_popups';
+const OWS_POPUP_MAX_WAIT_TICKS = 40; // 40 x 2 s = 80 s esperando que se libre la pantalla
+
+let owsPopupQueue = [];
+let owsPopupRetryTicks = 0;
+let owsPopupRetryTimer = 0;
+let owsPopupFetching = false;
+let activePopupKey = '';
+let lastAnnounceFocus = null;
 
 function getSeenPopups() {
   try { return JSON.parse(localStorage.getItem(SEEN_POPUPS_KEY) || '{}') || {}; }
@@ -2007,30 +2075,92 @@ function markPopupSeen(id, token) {
   try {
     const seen = getSeenPopups();
     seen[String(id)] = Number(token || 1);
+    // Poda: el mapa no puede crecer sin límite con cada Re-mostrar.
+    const keys = Object.keys(seen);
+    if (keys.length > 300) keys.slice(0, keys.length - 300).forEach((k) => delete seen[k]);
     localStorage.setItem(SEEN_POPUPS_KEY, JSON.stringify(seen));
   } catch (_) {}
 }
 
+function popupKey(p) {
+  return `${Number(p && p.id) || 0}:${Number(p && (p.show_token ?? p.showToken)) || 1}`;
+}
+
+function popupBlockedByOtherModal() {
+  const dash = document.getElementById('dashboard-section');
+  if (!dash || dash.classList.contains('hidden')) return true;
+  const setup = document.getElementById('setup-screen');
+  if (setup && !setup.classList.contains('hidden')) return true;
+  return isAnyModalOpen();
+}
+
+// Descarga los popups y arma una cola con los que faltan ver. El turno se
+// respeta: nunca se abre uno encima de otro modal y, si está ocupado, se
+// reintenta en vez de descartarlo (antes el popup se perdía en ese caso).
 async function checkOwsPopups() {
+  if (owsPopupFetching) return;
+  owsPopupFetching = true;
   try {
-    const res = await fetch(API_BASE + '/ows-dashboard/popups/active?limit=10');
+    const res = await fetch(API_BASE + '/ows-dashboard/popups/active?limit=10', { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json().catch(() => ({}));
     const popups = Array.isArray(data.popups) ? data.popups : [];
     if (!popups.length) return;
     const seen = getSeenPopups();
-    const pending = popups.find((p) => seen[String(p.id)] !== Number(p.show_token || p.showToken || 1));
-    if (!pending) return;
-    // Da tiempo al panel y evita pisar otros modales o el setup
-    setTimeout(() => {
-      if (document.getElementById('dashboard-section').classList.contains('hidden')) return;
-      if (!document.getElementById('event-modal').classList.contains('hidden')) return;
-      if (!document.getElementById('release-modal').classList.contains('hidden')) return;
-      const setup = document.getElementById('setup-screen');
-      if (setup && !setup.classList.contains('hidden')) return;
-      openAnnounceModal(pending);
-    }, 1800);
-  } catch (_) {}
+    const pending = popups.filter((p) => {
+      if (!p || !p.id) return false;
+      if (popupKey(p) === activePopupKey) return false;
+      return seen[String(p.id)] !== Number(p.show_token || p.showToken || 1);
+    });
+    if (!pending.length) return;
+    const queued = new Set(owsPopupQueue.map(popupKey));
+    pending.forEach((p) => {
+      if (!queued.has(popupKey(p))) {
+        owsPopupQueue.push(p);
+        queued.add(popupKey(p));
+      }
+    });
+    if (!owsPopupQueue.length) return;
+    owsPopupRetryTicks = 0;
+    // Da tiempo al panel y evita pisar otros modales o el setup.
+    clearTimeout(owsPopupRetryTimer);
+    owsPopupRetryTimer = setTimeout(tryOpenOwsPopupFromQueue, 1800);
+  } catch (_) {
+    // Sin conexión: se reintenta en el próximo ingreso.
+  } finally {
+    owsPopupFetching = false;
+  }
+}
+
+function tryOpenOwsPopupFromQueue() {
+  if (!owsPopupQueue.length) return;
+  clearTimeout(owsPopupRetryTimer);
+  owsPopupRetryTimer = 0;
+  if (popupBlockedByOtherModal()) {
+    owsPopupRetryTicks += 1;
+    if (owsPopupRetryTicks <= OWS_POPUP_MAX_WAIT_TICKS) {
+      owsPopupRetryTimer = setTimeout(tryOpenOwsPopupFromQueue, 2000);
+    }
+    // Si se agotó la espera, la cola queda viva y resumeOwsModals() la
+    // retoma cuando se cierre el modal que la estaba bloqueando.
+    return;
+  }
+  owsPopupRetryTicks = 0;
+  const pending = owsPopupQueue.shift();
+  if (pending) openAnnounceModal(pending);
+}
+
+// Retoma anuncios y cadenas después de cerrar un modal. Los popups van
+// primero: si abren, la cadena vuelve a esperar su turno.
+function resumeOwsModals() {
+  if (!owsPopupQueue.length && !newsChainQueue.length) return;
+  const dash = document.getElementById('dashboard-section');
+  if (!dash || dash.classList.contains('hidden')) return;
+  const setup = document.getElementById('setup-screen');
+  if (setup && !setup.classList.contains('hidden')) return;
+  owsPopupRetryTicks = 0;
+  if (owsPopupQueue.length) tryOpenOwsPopupFromQueue();
+  if (newsChainQueue.length) tryOpenNewsChainFromQueue();
 }
 
 function announceTextOn(hex) {
@@ -2050,24 +2180,27 @@ function showAnnounceToast(p) {
   const zone = document.getElementById('announce-toasts');
   if (!zone || !p) return;
   const token = Number(p.show_token || p.showToken || 1);
-  const color = p.toast_color || p.toastColor || '#f59e0b';
+  const color = safeCssColor(p.toast_color || p.toastColor || '#f59e0b');
   const pos = (p.toast_position || p.toastPosition || 'top') === 'bottom' ? 'bottom' : 'top';
-  const dur = Math.max(2000, Math.min(30000, Number(p.duration_ms || p.durationMs || 6000)));
-  const link = p.link_url || p.linkUrl || '';
+  const dur = Math.max(2000, Math.min(30000, Number(p.duration_ms || p.durationMs || 6000) || 6000));
+  const link = safeHttpUrl(p.link_url || p.linkUrl || '');
   zone.dataset.pos = pos;
-  zone.innerHTML = '';
+  // No se borran los toasts anteriores: cada uno se marca como visto por su
+  // cuenta. Se limita el apilado para que no tape toda la pantalla.
+  while (zone.children.length >= 4) zone.firstElementChild.remove();
   const el = document.createElement('div');
   el.className = 'announce-toast';
   el.style.background = color;
   el.style.color = announceTextOn(color);
   el.setAttribute('role', 'status');
+  activePopupKey = popupKey(p);
   el.innerHTML = `
     <span class="announce-toast-ico">📢</span>
     <span class="announce-toast-main">
       <b>${escapeHtml(p.title)}</b>
       ${p.body ? `<small>${escapeHtml(p.body)}</small>` : ''}
     </span>
-    ${link ? `<a class="announce-toast-link" href="${escapeHtml(link)}" target="_blank" rel="noopener">Abrir ↗</a>` : ''}
+    ${link ? `<a class="announce-toast-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">Abrir ↗</a>` : ''}
     <button class="announce-toast-x" type="button" aria-label="Cerrar">✕</button>
   `;
   let gone = false;
@@ -2077,6 +2210,8 @@ function showAnnounceToast(p) {
     el.classList.add('announce-toast-hide');
     setTimeout(() => el.remove(), 320);
     if (mark !== false) markPopupSeen(p.id, token);
+    if (activePopupKey === popupKey(p)) activePopupKey = '';
+    setTimeout(() => { try { resumeOwsModals(); } catch (_) {} }, 340);
   };
   el.querySelector('.announce-toast-x').addEventListener('click', (e) => { e.stopPropagation(); hide(true); });
   el.addEventListener('click', () => hide(true));
@@ -2091,9 +2226,14 @@ function openAnnounceModal(p) {
   const body = document.getElementById('announce-modal-body');
   if (!modal || !body || !p) return;
   const token = Number(p.show_token || p.showToken || 1);
-  const img = p.image_url || p.imageUrl || '';
-  const link = p.link_url || p.linkUrl || '';
+  const img = safeHttpUrl(p.image_url || p.imageUrl || '');
+  const link = safeHttpUrl(p.link_url || p.linkUrl || '');
   const linkLabel = p.link_label || p.linkLabel || 'Ver más detalles ↗';
+  if (!modal.classList.contains('hidden')) return;
+  lastAnnounceFocus = document.activeElement && document.activeElement !== document.body
+    ? document.activeElement
+    : null;
+  activePopupKey = popupKey(p);
   body.innerHTML = `
     ${img ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.title)}" class="modal-banner" />` : ''}
     <div class="modal-head">
@@ -2104,7 +2244,7 @@ function openAnnounceModal(p) {
     </div>
     ${p.body ? `<div class="modal-about"><p class="modal-about-text announce-text">${escapeHtml(p.body)}</p></div>` : ''}
     <div class="announce-actions">
-      ${link ? `<a class="btn btn-primary btn-block announce-btn" href="${escapeHtml(link)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block">${escapeHtml(linkLabel)}</a>` : ''}
+      ${link ? `<a class="btn btn-primary btn-block announce-btn" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" style="text-align:center;text-decoration:none;display:block">${escapeHtml(linkLabel)}</a>` : ''}
       <button class="btn btn-ghost btn-block announce-btn" id="announce-ok" type="button">Entendido ✓</button>
     </div>
   `;
@@ -2114,6 +2254,7 @@ function openAnnounceModal(p) {
   modal.dataset.popupToken = String(token);
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+  setTimeout(() => { try { if (ok && !modal.classList.contains('hidden')) ok.focus(); } catch (_) {} }, 40);
 }
 
 function closeAnnounceModal() {
@@ -2121,13 +2262,281 @@ function closeAnnounceModal() {
   if (!modal || modal.classList.contains('hidden')) return;
   // Cerrar = visto: no vuelve a salir salvo Re-mostrar del admin
   if (modal.dataset.popupId) markPopupSeen(modal.dataset.popupId, modal.dataset.popupToken);
+  activePopupKey = '';
   modal.classList.add('hidden');
-  const newsModal = document.getElementById('news-modal');
-  if (document.getElementById('event-modal').classList.contains('hidden') &&
-      document.getElementById('release-modal').classList.contains('hidden') &&
-      (!newsModal || newsModal.classList.contains('hidden'))) {
-    document.body.style.overflow = '';
+  releaseBodyScroll();
+  // Devolver el foco a donde estaba antes de abrir el anuncio.
+  const focusTarget = lastAnnounceFocus;
+  lastAnnounceFocus = null;
+  if (focusTarget && document.contains(focusTarget)) {
+    setTimeout(() => { try { focusTarget.focus(); } catch (_) {} }, 20);
   }
+}
+
+// ═══════════════════════════════════════════════
+// NOTICIAS — modales en cadena (admin → Hub)
+// Se muestran UNA vez por usuario; varios modales de la misma
+// cadena se recorren con Anterior / Siguiente (1/3, 2/3...).
+// show_once=true  → localStorage (no vuelve nunca)
+// show_once=false → sessionStorage (una vez por inicio de sesión)
+// ═══════════════════════════════════════════════
+
+const SEEN_NEWS_MODALS_KEY = 'ows_seen_news_modals';
+const SEEN_NEWS_MODALS_SESSION_KEY = 'ows_seen_news_modals_session';
+const NEWS_CHAIN_MAX_WAIT_TICKS = 40; // 40 x 2 s = 80 s esperando que se libre la pantalla
+
+let newsChainQueue = [];       // cadenas pendientes, en orden de novedad
+let newsChainState = null;     // { key, items, index } de la cadena abierta
+let newsChainRetryTicks = 0;   // reintentos mientras hay otro modal abierto
+let newsChainRetryTimer = 0;
+let lastNewsChainFocus = null;
+
+function newsChainUserKey() {
+  const u = currentUser || {};
+  const raw = String(u.id || u.username || 'invitado').trim().toLowerCase();
+  return raw || 'invitado';
+}
+
+function newsChainSeenKey(item) {
+  return `${newsChainUserKey()}:${Number(item && item.id) || 0}:${Number(item && (item.show_token ?? item.showToken)) || 1}`;
+}
+
+function newsChainStore(persistent) {
+  try { return persistent ? window.localStorage : window.sessionStorage; } catch (_) { return null; }
+}
+
+function getSeenNewsModals(persistent) {
+  const store = newsChainStore(persistent);
+  if (!store) return {};
+  try {
+    const key = persistent ? SEEN_NEWS_MODALS_KEY : SEEN_NEWS_MODALS_SESSION_KEY;
+    return JSON.parse(store.getItem(key) || '{}') || {};
+  } catch (_) { return {}; }
+}
+
+function isNewsModalSeen(item) {
+  if (!item) return true;
+  const persistent = item.show_once !== false;
+  return getSeenNewsModals(persistent)[newsChainSeenKey(item)] === 1;
+}
+
+function markNewsModalSeen(item) {
+  if (!item) return;
+  const persistent = item.show_once !== false;
+  const store = newsChainStore(persistent);
+  if (!store) return;
+  try {
+    const key = persistent ? SEEN_NEWS_MODALS_KEY : SEEN_NEWS_MODALS_SESSION_KEY;
+    const seen = getSeenNewsModals(persistent);
+    seen[newsChainSeenKey(item)] = 1;
+    store.setItem(key, JSON.stringify(seen));
+  } catch (_) {}
+}
+
+// Un inicio de sesión nuevo vuelve a habilitar los modales "en cada ingreso".
+function resetNewsChainSessionSeen() {
+  try { window.sessionStorage.removeItem(SEEN_NEWS_MODALS_SESSION_KEY); } catch (_) {}
+}
+
+function formatNewsChainDate(value) {
+  const s = String(value || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  const d = new Date(s + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function newsChainBlockedByOtherModal() {
+  // Si hay más de un overlay abierto (p. ej. la cadena + otro modal), no se
+  // puede seguir: se compara contra todos, no solo contra el primero.
+  return isAnyModalOpen('news-chain-modal');
+}
+
+function newsChainCanShow() {
+  const dash = document.getElementById('dashboard-section');
+  if (!dash || dash.classList.contains('hidden')) return false;
+  const setup = document.getElementById('setup-screen');
+  if (setup && !setup.classList.contains('hidden')) return false;
+  return !newsChainBlockedByOtherModal();
+}
+
+// Descarga las cadenas publicadas y arma la cola con lo que falta ver.
+async function checkOwsNewsModals() {
+  if (newsChainState) return;
+  try {
+    const res = await fetch(API_BASE + '/ows-dashboard/news-modals/active');
+    if (!res.ok) return;
+    const data = await res.json().catch(() => ({}));
+    const chains = Array.isArray(data.chains) ? data.chains : [];
+    if (!chains.length) return;
+    newsChainQueue = chains
+      .map((c) => ({
+        key: String((c && (c.key || c.title)) || 'Novedades'),
+        items: (Array.isArray(c && c.items) ? c.items : []).filter((m) => m && !isNewsModalSeen(m))
+      }))
+      .filter((c) => c.items.length);
+    if (!newsChainQueue.length) return;
+    newsChainRetryTicks = 0;
+    // Deja respirar al panel y no pisa el popup de Eventos (1.8 s).
+    clearTimeout(newsChainRetryTimer);
+    newsChainRetryTimer = setTimeout(tryOpenNewsChainFromQueue, 2600);
+  } catch (_) {}
+}
+
+// Abre la siguiente cadena pendiente, esperando a que no haya otro modal.
+function tryOpenNewsChainFromQueue() {
+  if (newsChainState || !newsChainQueue.length) return;
+  clearTimeout(newsChainRetryTimer);
+  newsChainRetryTimer = 0;
+  if (!newsChainCanShow()) {
+    newsChainRetryTicks += 1;
+    if (newsChainRetryTicks <= NEWS_CHAIN_MAX_WAIT_TICKS) {
+      newsChainRetryTimer = setTimeout(tryOpenNewsChainFromQueue, 2000);
+    }
+    return;
+  }
+  newsChainRetryTicks = 0;
+  while (newsChainQueue.length) {
+    const next = newsChainQueue.shift();
+    const items = (next.items || []).filter((m) => m && !isNewsModalSeen(m));
+    if (!items.length) continue;
+    openNewsChain(next.key, items);
+    return;
+  }
+}
+
+function openNewsChain(key, items) {
+  const modal = document.getElementById('news-chain-modal');
+  if (!modal || !Array.isArray(items) || !items.length) return;
+  lastNewsChainFocus = document.activeElement && document.activeElement !== document.body
+    ? document.activeElement
+    : null;
+  newsChainState = { key: String(key || 'Novedades'), items, index: 0 };
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  renderNewsChainModal();
+  const closeBtn = modal.querySelector('.modal-close');
+  if (closeBtn) setTimeout(() => { try { if (newsChainState) closeBtn.focus(); } catch (_) {} }, 40);
+}
+
+function renderNewsChainModal() {
+  const state = newsChainState;
+  const body = document.getElementById('newschain-body');
+  if (!state || !body) return;
+  const total = state.items.length;
+  const index = Math.max(0, Math.min(total - 1, state.index));
+  state.index = index;
+  const item = state.items[index] || {};
+
+  // Un video no debe seguir sonando al pasar de modal.
+  body.querySelectorAll('video').forEach((v) => { try { v.pause(); } catch (_) {} });
+
+  const count = document.getElementById('newschain-count');
+  const prev = document.getElementById('newschain-prev');
+  const next = document.getElementById('newschain-next');
+  const dots = document.getElementById('newschain-dots');
+  if (count) count.textContent = `${index + 1}/${total}`;
+  if (prev) prev.disabled = index === 0;
+  if (next) next.textContent = index === total - 1 ? 'Cerrar ✓' : 'Siguiente →';
+  if (dots) {
+    dots.innerHTML = total > 1
+      ? state.items.map((_, i) => `<i class="${i === index ? 'is-on' : ''}"></i>`).join('')
+      : '';
+  }
+
+  const img = safeHttpUrl(item.image_url || item.imageUrl || '');
+  const video = safeHttpUrl(item.video_url || item.videoUrl || '');
+  const date = formatNewsChainDate(item.display_date || item.displayDate);
+  const text = String(item.body || '').trim();
+  const paragraphs = text
+    ? text.split(/\n{2,}/).map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br />')}</p>`).join('')
+    : '';
+
+  body.innerHTML = `
+    ${video
+      ? `<div class="newschain-media"><video src="${escapeHtml(video)}" controls playsinline preload="metadata"${img ? ` poster="${escapeHtml(img)}"` : ''}></video></div>`
+      : img
+        ? `<div class="newschain-media"><img src="${escapeHtml(img)}" alt="${escapeHtml(item.title || '')}" /></div>`
+        : ''}
+    <div class="newschain-content">
+      <div class="newschain-meta">
+        ${date ? `<span class="newschain-date">📅 ${escapeHtml(date)}</span>` : '<span></span>'}
+        <span class="newschain-pos">Noticia ${index + 1} de ${total}</span>
+      </div>
+      <h3 class="newschain-title" id="newschain-title">${escapeHtml(item.title || '')}</h3>
+      <div class="newschain-text">${paragraphs || '<p class="newschain-empty">Sin contenido.</p>'}</div>
+    </div>`;
+  body.scrollTop = 0;
+}
+
+function stepNewsChain(dir) {
+  const state = newsChainState;
+  if (!state) return;
+  const target = state.index + Number(dir || 0);
+  if (target < 0) return;
+  if (target >= state.items.length) { closeNewsChainModal(); return; }
+  state.index = target;
+  renderNewsChainModal();
+}
+
+function closeNewsChainModal() {
+  const modal = document.getElementById('news-chain-modal');
+  const state = newsChainState;
+  if (!modal || modal.classList.contains('hidden')) { newsChainState = null; return; }
+  // Cerrar = visto: toda la cadena queda marcada (no reaparece a mitad).
+  if (state) state.items.forEach((m) => markNewsModalSeen(m));
+  modal.querySelectorAll('video').forEach((v) => { try { v.pause(); } catch (_) {} });
+  modal.classList.add('hidden');
+  newsChainState = null;
+  const body = document.getElementById('newschain-body');
+  if (body) body.innerHTML = '';
+  // 450 ms para que no se sienta como un salto brusco entre cadenas.
+  releaseBodyScroll(450);
+  const focusTarget = lastNewsChainFocus;
+  lastNewsChainFocus = null;
+  if (focusTarget && document.contains(focusTarget)) {
+    setTimeout(() => { try { focusTarget.focus(); } catch (_) {} }, 20);
+  }
+}
+
+function bindNewsChainControls() {
+  const modal = document.getElementById('news-chain-modal');
+  if (!modal || modal.dataset.bound === '1') return;
+  modal.dataset.bound = '1';
+
+  const prev = document.getElementById('newschain-prev');
+  const next = document.getElementById('newschain-next');
+  if (prev) prev.addEventListener('click', () => stepNewsChain(-1));
+  if (next) next.addEventListener('click', () => stepNewsChain(1));
+
+  // Teclado: solo cuando el modal está abierto.
+  document.addEventListener('keydown', (e) => {
+    if (!newsChainState) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeNewsChainModal(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); stepNewsChain(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); stepNewsChain(-1); }
+  });
+
+  // Swipe horizontal: izquierda = siguiente, derecha = anterior.
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  modal.addEventListener('touchstart', (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    tracking = true;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  modal.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    if (!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    if (dx < 0) stepNewsChain(1); else stepNewsChain(-1);
+  }, { passive: true });
 }
 
 // ═══════════════════════════════════════════════
@@ -2148,6 +2557,88 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Solo se permiten enlaces http(s) absolutos o rutas locales simples.
+// Evita javascript:, data:, vbscript: y variantes usadas para XSS.
+function safeHttpUrl(value) {
+  let raw = String(value == null ? '' : value).trim();
+  if (!raw) return '';
+  // Mismo criterio que el servidor: "dominio.com/ruta" sin esquema se
+  // interpreta como https://, pero un esquema raro (javascript:) se descarta.
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) && !raw.startsWith('/') && !/[<>"'`\s]/.test(raw)) {
+    if (/^[^\s\/\\@]+(\/|$)/.test(raw)) raw = 'https://' + raw;
+  }
+  try {
+    const u = new URL(raw, window.location.origin);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    if (!/^https?:\/\//i.test(raw) && !/^\/(?!\/)/.test(raw)) return '';
+    if (/[\u0000-\u001F\u007F"'<>`\s]/.test(raw)) return '';
+    return raw;
+  } catch (_) { return ''; }
+}
+
+function safeCssColor(value, fallback = '#f59e0b') {
+  const raw = String(value || '').trim();
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(raw) ? raw : fallback;
+}
+
+// El CSS "custom" de la animación se escribe desde el panel admin, pero se
+// muestra a todos los usuarios: se parsea y se deja solo lo que puede animar
+// al modal. Se descartan @import, url(), expression(), reglas fuera de
+// #news-modal y cualquier propiedad que dispare cargas externas.
+function sanitizeNewsCustomCss(css) {
+  const raw = String(css || '').slice(0, 6000).trim();
+  if (!raw) return '';
+  if (typeof CSSStyleSheet === 'undefined') return '';
+  try {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(raw);
+    const cleanDeclarations = (style) => {
+      const out = [];
+      for (const prop of Array.from(style || [])) {
+        const value = style.getPropertyValue(prop);
+        if (!value) continue;
+        if (/url\s*\(|image-set\s*\(|expression\s*\(|javascript\s*:|behavior\s*:|-moz-binding|@import/i.test(value)) continue;
+        const important = style.getPropertyPriority(prop) ? ' !important' : '';
+        out.push(`${prop}:${value}${important}`);
+      }
+      return out;
+    };
+    const cleanKeyframes = (rule) => {
+      const frames = [];
+      for (const frame of Array.from(rule.cssRules || [])) {
+        const decls = cleanDeclarations(frame.style);
+        if (decls.length) frames.push(`${frame.keyText}{${decls.join(';')}}`);
+      }
+      return frames.length ? `@keyframes ${rule.name}{${frames.join('')}}` : '';
+    };
+    const out = [];
+    const walk = (rules) => {
+      for (const rule of Array.from(rules || [])) {
+        if (rule.type === CSSRule.KEYFRAMES_RULE) {
+          const kf = cleanKeyframes(rule);
+          if (kf) out.push(kf);
+          continue;
+        }
+        if (rule.type === CSSRule.MEDIA_RULE) {
+          const inner = [];
+          const nested = out.length;
+          out.push('');
+          walk(rule.cssRules);
+          const produced = out.splice(nested).filter(Boolean);
+          if (produced.length) out.push(`@media ${rule.conditionText}{${produced.join('')}}`);
+          continue;
+        }
+        if (rule.type !== CSSRule.STYLE_RULE) continue;
+        if (!/#news-modal(?![\w-])/.test(rule.selectorText)) continue;
+        const decls = cleanDeclarations(rule.style);
+        if (decls.length) out.push(`${rule.selectorText}{${decls.join(';')}}`);
+      }
+    };
+    walk(sheet.cssRules);
+    return out.join('\n').slice(0, 6000);
+  } catch (_) { return ''; }
 }
 
 let newsFeedCache = [];
@@ -2255,8 +2746,8 @@ function renderNewsTable(newsList) {
     const day = valid ? String(d.getDate()).padStart(2, '0') : '•';
     const mon = valid ? d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '').toUpperCase() : '—';
     const year = valid ? d.getFullYear() : '';
-    const media = String(item.image_url || '').trim();
-    const banner = String(item.banner_url || '').trim();
+    const media = safeHttpUrl(item.image_url || '');
+    const banner = safeHttpUrl(item.banner_url || '');
     const title = escapeHtml(item.title);
     const anim = newsAnimOf(item);
     const flags = [
@@ -2289,14 +2780,6 @@ function renderNewsTable(newsList) {
 // Sin imagen / imagen horizontal → banner arriba + contenido debajo.
 // Imagen vertical → el modal se redistribuye: contenido a la izquierda
 // y la imagen a la derecha (sticky, alto completo).
-const NEWS_MODAL_SIBLINGS = ['event-modal', 'release-modal', 'announce-modal', 'upd-detail-modal', 'hub-changelog-modal', 'hub-restart-modal'];
-
-function newsModalIsAloneOpen() {
-  return NEWS_MODAL_SIBLINGS.some((id) => {
-    const el = document.getElementById(id);
-    return el && !el.classList.contains('hidden');
-  });
-}
 
 // ── Animación de entrada por noticia (se configura desde Admin) ──
 // El editor guarda { preset, duration, delay, custom? }. Acá se traduce a
@@ -2323,7 +2806,7 @@ function newsAnimOf(item) {
   const preset = NEWS_ANIM_PRESETS.includes(presetRaw) ? presetRaw : 'none';
   const duration = Math.min(4, Math.max(0.2, Number(cfg.duration) || 0.9));
   const delay = Math.min(3, Math.max(0, Number(cfg.delay) || 0));
-  return { preset, duration, delay, custom: String(cfg.custom || cfg.custom_css || '').trim() };
+  return { preset, duration, delay, custom: sanitizeNewsCustomCss(cfg.custom || cfg.custom_css || '') };
 }
 
 function clearNewsModalAnim(modal) {
@@ -2362,8 +2845,8 @@ function openNewsModal(item) {
   const body = document.getElementById('news-modal-body');
   if (!modal || !body || !item) return;
 
-  const media = String(item.image_url || '').trim();
-  const banner = String(item.banner_url || '').trim();
+  const media = safeHttpUrl(item.image_url || '');
+  const banner = safeHttpUrl(item.banner_url || '');
   const raw = item.published_at || item.created_at;
   const d = raw ? new Date(raw) : null;
   const valid = d && !Number.isNaN(d.getTime());
@@ -2427,7 +2910,7 @@ function closeNewsModal() {
   modal.classList.add('hidden');
   modal.classList.remove('is-vertical', 'is-noimg');
   clearNewsModalAnim(modal);
-  if (!newsModalIsAloneOpen()) document.body.style.overflow = '';
+  releaseBodyScroll();
 }
 
 async function loadDashboardNews(opts) {
@@ -2501,7 +2984,7 @@ function renderQuickNews(list, meta) {
   box.innerHTML = items.map((item, qi) => {
     const isNew = !!item.is_new;
     const tag = String(item.tag || '').trim();
-    const link = String(item.link_url || '').trim();
+    const link = safeHttpUrl(item.link_url || '');
     const foot = `<span class="qnews-item-when">${escapeHtml(quickNewsWhen(item.published_at || item.created_at))}</span>`;
     const body = `
       <span class="qnews-item-dot" aria-hidden="true"></span>
@@ -3023,8 +3506,17 @@ function bindTrailerPlayers() {
   });
 }
 
+// La ficha destacada es un PÓSTER vertical que ocupa toda la zona derecha de
+// la sección (alto de pantalla, queda pegado al hacer scroll) y empuja al
+// contenido de Lanzamientos hacia la izquierda. Dentro del póster:
+//   · el banner vive anidado detrás de todo, nítido hasta la mitad del icono y
+//     apagándose de ahí para abajo: ese corte lo marca la línea;
+//   · el icono va centrado y debajo una línea corta lo separa del título;
+//   · luego el nombre centrado y los datos (chips, género, descripción,
+//     tráiler y botones, al pie).
+// El banner no flota: es un hijo del póster, no una capa suelta sobre la
+// tarjeta.
 function featuredReleaseHtml(p) {
-  const meta = releaseStatusMeta(p.status);
   const banner = p.banner_url || p.bannerUrl || '';
   const icon = p.icon_url || p.iconUrl || '';
   const version = releaseEffectiveVersion(p);
@@ -3032,21 +3524,25 @@ function featuredReleaseHtml(p) {
   return `
   <article class="rel-hero${banner ? '' : ' rel-hero-fallback'}" data-slug="${escapeHtml(p.slug)}">
     ${banner
-      ? `<div class="rel-hero-banner" data-parallax="1.6" aria-hidden="true"><img src="${escapeHtml(banner)}" alt="" loading="lazy" data-blurup /></div>
-         <div class="rel-hero-scrim" aria-hidden="true"></div>`
+      ? `<div class="rel-hero-banner" aria-hidden="true"><div class="rel-hero-banner-layer" data-parallax="1.6"><img src="${escapeHtml(banner)}" alt="" loading="lazy" data-blurup /></div></div>`
       : ''}
-    <div class="rel-hero-inner" data-parallax="0.45">
-      ${icon
-        ? `<img class="rel-hero-icon" src="${escapeHtml(icon)}" alt="${escapeHtml(p.name)}" loading="lazy" />`
-        : '<div class="rel-hero-icon rel-hero-icon-fb" aria-hidden="true">🎮</div>'}
-      <div class="rel-hero-body">
+    <div class="rel-hero-inner">
+      <div class="rel-hero-media">
+        ${icon
+          ? `<img class="rel-hero-icon" src="${escapeHtml(icon)}" alt="${escapeHtml(p.name)}" loading="lazy" />`
+          : '<div class="rel-hero-icon rel-hero-icon-fb" aria-hidden="true">🎮</div>'}
+      </div>
+      <span class="rel-hero-rule" aria-hidden="true"></span>
+      <div class="rel-hero-titles">
+        <h4 class="rel-hero-name">${escapeHtml(p.name)}</h4>
         <div class="rel-hero-chips">
           <span class="rel-chip rel-chip-star">★ Destacado</span>
           ${releaseStatusChip(p)}
           ${version ? `<span class="rel-chip rel-chip-ver">v${escapeHtml(version)}</span>` : ''}
           ${releaseDateChip(p)}
         </div>
-        <h4 class="rel-hero-name">${escapeHtml(p.name)}</h4>
+      </div>
+      <div class="rel-hero-body">
         ${p.genre ? `<p class="rel-hero-genre">${escapeHtml(p.genre)}</p>` : ''}
         ${p.description ? `<p class="rel-hero-desc">${escapeHtml(p.description)}</p>` : ''}
         ${releaseTrailerHtml(p, 'hero')}
@@ -3140,12 +3636,18 @@ function releasesSkeletonHtml() {
   const hero = `
     <div class="rel-hero rel-hero-fallback rel-skel-hero" aria-hidden="true">
       <div class="rel-hero-inner">
-        <div class="rel-shimmer rel-skel-icon"></div>
-        <div class="rel-hero-body">
+        <div class="rel-hero-media">
+          <div class="rel-shimmer rel-skel-icon"></div>
+        </div>
+        <span class="rel-hero-rule"></span>
+        <div class="rel-hero-titles">
           <div class="rel-shimmer rel-skel-line" style="width:150px;height:18px"></div>
-          <div class="rel-shimmer rel-skel-line" style="width:min(420px,70%);height:32px"></div>
-          <div class="rel-shimmer rel-skel-line" style="width:min(520px,88%);height:14px"></div>
-          <div class="rel-shimmer rel-skel-line" style="width:190px;height:38px;border-radius:999px"></div>
+          <div class="rel-shimmer rel-skel-line" style="width:120px;height:12px"></div>
+        </div>
+        <div class="rel-hero-body">
+          <div class="rel-shimmer rel-skel-line" style="width:min(240px,80%);height:14px"></div>
+          <div class="rel-shimmer rel-skel-line" style="width:min(260px,88%);height:12px"></div>
+          <div class="rel-shimmer rel-skel-line" style="width:100%;height:38px;border-radius:999px"></div>
         </div>
       </div>
     </div>`;
@@ -3243,10 +3745,11 @@ function bindHeroParallax(hero) {
 // propio (.rd-hero-flip) porque la imagen de adentro ya tiene su animación.
 function releaseFlipSource(card) {
   if (!card || !card.querySelector) return null;
-  // La ficha destacada se anima desde la tarjeta, no desde el banner: el
-  // banner tiene sangrado para el parallax y su caja es mas grande que la
-  // tarjeta, asi que la portada arrancaria descentrada y agrandada.
-  if (card.classList && card.classList.contains('rel-hero')) return card;
+  // La ficha destacada es un poster altisimo: el vuelo al modal arranca desde
+  // la zona del icono (donde esta la portada), no desde todo el poster.
+  if (card.classList && card.classList.contains('rel-hero')) {
+    return card.querySelector('.rel-hero-media') || card;
+  }
   return card.querySelector('.release-media')
     || card.querySelector('.rel-hero-banner')
     || card;
@@ -7616,6 +8119,37 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.30': [
+    'La sección Actualizaciones se rehizo para aprovechar todo el ancho de la pantalla, con un listado compacto que ahora muestra todos los proyectos de un vistazo.',
+    'Cada proyecto aparece con su icono y su nombre, y a la derecha su versión instalada, la última publicada y su estado; OWS Hub va primero, destacado, como la fila insignia del gestor.',
+    'Tocar cualquier fila abre una ficha nueva con los datos públicos de la actualización: versión instalada y disponible, fecha de publicación, peso, plataforma, canal y las novedades de la versión.',
+    'Las acciones (actualizar, instalar, reiniciar, jugar) viven ahora dentro de esa ficha, así el listado queda limpio y de lectura rápida.',
+    'Del lado derecho de la ficha quedó un acceso directo a la sección de Changelogs: te lleva allí y abre la ficha del proyecto —o la del propio launcher— y la deja destacada para que la encuentres al instante.',
+    'El historial de versiones que vivía dentro del gestor se retiró: ahora ese recorrido completo vive en Changelogs, en un solo lugar para todos los proyectos.',
+    'La actualización del propio Hub conserva el flujo de siempre —descarga con progreso, cuenta regresiva y reinicio—: solo cambió el botón de lugar y ahora vive en la ficha de OWS Hub.',
+    'OWS Hub se suma a la sección Changelogs: su ficha encabeza la lista con todas las versiones publicadas del launcher y el changelog completo de cada una, de la más nueva a la más vieja.',
+    'La ficha del launcher se distingue del resto con un marco animado, y cada versión muestra cuántos cambios trae y un adelanto de sus notas.',
+    'La sección Noticias se rediseñó por completo en formato compacto: cada noticia es una fila breve con su miniatura, fecha, proyecto y titular, para recorrer todo el feed de un vistazo.',
+    'Las noticias pueden incluir un banner ancho que aparece como portada al abrirlas y se funde hacia el contenido.',
+    'Al abrir una noticia ahora puede reproducirse una animación de entrada (fundido, subida, zoom, lateral, desenfoque o volteo), con su duración y retardo propios, o una animación personalizada.',
+    'La ficha de cada evento pasó a pantalla completa: el banner toma todo el ancho y la información se reparte con aire, cada dato en su propia fila en vez de amontonarse.',
+    'La cuenta atrás de desaparición dentro de la ficha del evento corre en vivo —semanas, días, horas, minutos y segundos—, y si la fecha se cumple con la ficha abierta, el evento se retira y la ficha se cierra sola.',
+    'En Lanzamientos, el banner del proyecto destacado se movió a la derecha y ahora es un póster vertical que ocupa toda esa zona: el icono y el nombre del juego quedan centrados por delante, el banner corre por detrás y una línea fina separa el icono del nombre.',
+    'El módulo que se conocía como Ocean Pay pasó a llamarse Surface en todo el ecosistema: carpeta nueva, identidad visual propia y accesos actualizados, con la misma cuenta y los mismos saldos de siempre.',
+    'Surface se presenta con una animación de entrada: sus bloques aparecen escalonados al abrir la billetera, y la secuencia se repite cada vez que volvés al panel.',
+    'Se retiró el aviso a pantalla completa que dejaba el módulo inutilizable: ahora cualquier problema se informa dentro de la propia interfaz, sin cortar el trabajo.',
+    'La billetera se rearmó en clave minimalista: bloques livianos, jerarquía clara y las acciones a mano, sin la invasión visual del diseño anterior.',
+    'Las transferencias entre jugadores ahora acreditan de verdad al destinatario: el envío se resuelve como un único movimiento en el servidor, que descuenta del remitente el monto más su comisión y suma el monto exacto al receptor. Si el servicio no responde, el envío se cancela y no se descuenta nada.',
+    'Los datos de la tarjeta arrancan enmascarados y se descubren con un botón "Ver datos", con un acceso directo para copiar el número. De paso se corrigió su formato, que hasta ahora reemplazaba los dígitos por espacios y dejaba el número siempre a la vista.',
+    'El envío sumó un botón "Usar todo" que calcula el máximo real teniendo en cuenta la comisión, así el total nunca se pasa del saldo disponible.',
+    'Los modales se cierran con la tecla Escape y los avisos de estado se anuncian a los lectores de pantalla.',
+    'Los movimientos del historial se arman de forma segura, sin interpretar como marcado el texto que llega desde el servidor.',
+    'La billetera quedó separada en secciones —Resumen, Enviar, Tarjeta, Historial y Configuración—, con una sola visible a la vez y la cabecera ocupando todo el ancho de la ventana. El historial dejó de ser un modal y pasó a tener su propio espacio.',
+    'El Resumen concentra la actividad de todos los juegos del ecosistema: gastos e ingresos agrupados por juego y por divisa, con filtro para ver solo Gambits o solo Tides, además de lo gastado y lo ganado en los últimos siete días.',
+    'Ese panel se alimenta de un endpoint nuevo en el servidor que lee la tabla unificada de movimientos de OWS; si el endpoint no está disponible, Surface arma el mismo resumen con el historial local para no quedar nunca vacío.',
+    'Configuración se organizó en Preferencias y Cuenta. En Preferencias se elige el menú lateral izquierdo, lateral derecho, superior o inferior —con una vista previa de cada diseño—, y también la animación de entrada, la divisa predeterminada y la limpieza automática del historial.',
+    'El diseño de la navegación y la última sección visitada quedan guardados en el dispositivo: al volver, Surface abre donde lo dejaste. En pantallas angostas el menú se acomoda solo abajo.'
+  ],
   '3.4.20': [
     'Los eventos con fecha tentativa se publican como "Fecha esperada de inicio" (por confirmar): se muestran sin cuenta atrás exacta y, cuando la fecha se confirma, vuelven al formato normal.',
     'Los eventos terminados pueden avisar cuánto les queda antes de irse: se muestra "Desaparece en …" con la cuenta atrás viva —semanas, días y horas; días, horas y minutos; o horas, minutos y segundos, según cuánto falte— y, al llegar la fecha, el evento se quita solo del calendario.',

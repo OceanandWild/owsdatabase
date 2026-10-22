@@ -20,6 +20,7 @@ Cambios:
 - Al abrir una noticia ahora puede reproducirse una animación de entrada (fundido, subida, zoom, lateral, desenfoque o volteo), con su duración y retardo propios, o una animación personalizada.
 - La ficha de cada evento pasó a pantalla completa: el banner toma todo el ancho y la información se reparte con aire, cada dato en su propia fila en vez de amontonarse.
 - La cuenta atrás de desaparición dentro de la ficha del evento corre en vivo —semanas, días, horas, minutos y segundos—, y si la fecha se cumple con la ficha abierta, el evento se retira y la ficha se cierra sola.
+- En Lanzamientos, el banner del proyecto destacado se movió a la derecha y ahora es un póster vertical que ocupa toda esa zona: el icono y el nombre del juego quedan centrados por delante, el banner corre por detrás y una línea fina separa el icono del nombre.
 - El módulo que se conocía como Ocean Pay pasó a llamarse Surface en todo el ecosistema: carpeta nueva, identidad visual propia y accesos actualizados, con la misma cuenta y los mismos saldos de siempre.
 - Surface se presenta con una animación de entrada: sus bloques aparecen escalonados al abrir la billetera, y la secuencia se repite cada vez que volvés al panel.
 - Se retiró el aviso a pantalla completa que dejaba el módulo inutilizable: ahora cualquier problema se informa dentro de la propia interfaz, sin cortar el trabajo.
@@ -55,6 +56,7 @@ Changes:
 - Opening a news item can now play an entrance animation (fade, rise, zoom, slide, blur or flip), with its own duration and delay, or a custom animation.
 - Each event's card is now fullscreen: the banner takes the full width and the information gets room to breathe, every data point on its own row instead of piling up.
 - The disappearance countdown inside the event card now runs live —weeks, days, hours, minutes and seconds—, and if the date arrives while the card is open, the event is retired and the card closes itself.
+- In Releases, the featured project's banner moved to the right and is now a vertical poster filling that whole side: the game's icon and name sit centred in front, the banner runs behind them and a thin line separates the icon from the name.
 - The module formerly known as Ocean Pay is now called Surface across the ecosystem: new folder, its own visual identity and updated links, with the same account and the same balances as always.
 - Surface introduces itself with an entrance animation: its blocks appear staggered when the wallet opens, and the sequence replays every time you come back to the panel.
 - The fullscreen notice that left the module unusable was removed: any problem is now reported inside the interface itself, without interrupting your work.

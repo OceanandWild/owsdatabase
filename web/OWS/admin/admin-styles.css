@@ -5288,9 +5288,9 @@ input.is-expected {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 460px;
-  max-height: min(88vh, 800px);
-  max-height: min(88dvh, 800px);
+  max-width: 560px;
+  max-height: min(92vh, 900px);
+  max-height: min(92dvh, 900px);
   padding: 0;
   overflow: hidden;
 }
@@ -5303,12 +5303,33 @@ input.is-expected {
   padding: 16px 58px 12px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
+.newsmp-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
 .newsmp-badge {
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--gold-light);
+}
+.newsmp-chain {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  background: linear-gradient(100deg, #ffe0b8 0%, #fdba74 32%, #f97316 68%, #facc15 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 16px rgba(249, 115, 22, 0.35));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .newsmp-count {
   flex-shrink: 0;
@@ -5329,7 +5350,8 @@ input.is-expected {
   object-fit: cover;
   background: #000;
 }
-.newsmp-media video { max-height: 360px; }
+.newsmp-media video { max-height: 460px; object-fit: contain; }
+.newsmp-media video::-webkit-media-controls { display: none !important; }
 .newsmp-content { display: flex; flex-direction: column; gap: 8px; padding: 16px 20px 20px; }
 .newsmp-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .newsmp-date {
@@ -5358,6 +5380,8 @@ input.is-expected {
 @media (max-width: 560px) {
   .newsmp-foot { flex-wrap: wrap; }
   .newsmp-hint { order: 3; flex-basis: 100%; }
+  .newsmp-chain { font-size: 1.3rem; }
+  .newsmp-media video { max-height: 320px; }
   .newsmodals-group-head { align-items: flex-start; }
   .newsmodal-row .ev-card-actions { flex-basis: 100%; padding-left: 46px; }
 }

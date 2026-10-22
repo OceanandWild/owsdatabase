@@ -2436,6 +2436,8 @@ function renderNewsChainModal() {
   const next = document.getElementById('newschain-next');
   const dots = document.getElementById('newschain-dots');
   if (count) count.textContent = `${index + 1}/${total}`;
+  const chainLabel = document.getElementById('newschain-chain');
+  if (chainLabel) chainLabel.textContent = String(state.key || 'Novedades');
   if (prev) prev.disabled = index === 0;
   if (next) next.textContent = index === total - 1 ? 'Cerrar ✓' : 'Siguiente →';
   if (dots) {
@@ -2454,7 +2456,7 @@ function renderNewsChainModal() {
 
   body.innerHTML = `
     ${video
-      ? `<div class="newschain-media"><video src="${escapeHtml(video)}" controls playsinline preload="metadata"${img ? ` poster="${escapeHtml(img)}"` : ''}></video></div>`
+      ? `<div class="newschain-media"><video class="newschain-video" src="${escapeHtml(video)}" autoplay muted loop playsinline preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"${img ? ` poster="${escapeHtml(img)}"` : ''}></video></div>`
       : img
         ? `<div class="newschain-media"><img src="${escapeHtml(img)}" alt="${escapeHtml(item.title || '')}" /></div>`
         : ''}
@@ -2467,6 +2469,16 @@ function renderNewsChainModal() {
       <div class="newschain-text">${paragraphs || '<p class="newschain-empty">Sin contenido.</p>'}</div>
     </div>`;
   body.scrollTop = 0;
+  // Reproduccion automatica: el video no tiene controles, arranca en silencio
+  // y se repite en loop mientras el modal siga abierto.
+  const videoEl = body.querySelector('video');
+  if (videoEl) {
+    videoEl.muted = true;
+    try {
+      const playPromise = videoEl.play();
+      if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(() => {});
+    } catch (_) {}
+  }
 }
 
 function stepNewsChain(dir) {

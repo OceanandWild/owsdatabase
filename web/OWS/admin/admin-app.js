@@ -8866,6 +8866,8 @@ function renderNewsModalPreview() {
   const item = state.items[state.index];
   const total = state.items.length;
   if (count) count.textContent = `${state.index + 1}/${total}`;
+  const chainLabel = document.getElementById('newsmp-chain');
+  if (chainLabel) chainLabel.textContent = String(item.chain_key || 'Novedades');
   if (prev) prev.disabled = state.index === 0;
   if (next) next.textContent = state.index === total - 1 ? 'Cerrar ✓' : 'Siguiente →';
   const dateLabel = item.display_date ? formatNewsModalDate(item.display_date, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
@@ -8875,7 +8877,7 @@ function renderNewsModalPreview() {
   const image = item.image_url || '';
   body.innerHTML = `
     ${video
-      ? `<div class="newsmp-media"><video src="${escapeHtml(video)}" controls playsinline preload="metadata" poster="${escapeHtml(image)}"></video></div>`
+      ? `<div class="newsmp-media"><video class="newsmp-video" src="${escapeHtml(video)}" autoplay muted loop playsinline preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen" poster="${escapeHtml(image)}"></video></div>`
       : image
         ? `<div class="newsmp-media"><img src="${escapeHtml(image)}" alt="" data-adm-err="rm" /></div>`
         : ''}
@@ -8888,6 +8890,14 @@ function renderNewsModalPreview() {
       <div class="newsmp-text">${paragraphs || '<p class="newsmp-empty">Sin contenido.</p>'}</div>
     </div>`;
   body.scrollTop = 0;
+  const videoEl = body.querySelector('video');
+  if (videoEl) {
+    videoEl.muted = true;
+    try {
+      const playPromise = videoEl.play();
+      if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(() => {});
+    } catch (_) {}
+  }
 }
 
 function newsModalPreviewStep(dir) {

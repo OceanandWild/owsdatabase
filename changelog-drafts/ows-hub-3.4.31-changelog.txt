@@ -1,0 +1,21 @@
+OWS Hub 3.4.31 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.31
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-22
+
+Cambios:
+- Los videos de las noticias en cadena se reproducen solos, en silencio y en bucle: se retiraron los controles del reproductor y la reproducción arranca apenas se abre el modal, sin que haya que tocar nada.
+- El modal de noticias quedó más grande: más ancho, con la portada del video más alta y el contenido con más aire para leer.
+- El nombre de la cadena —por ejemplo «Novedades»— ahora encabeza el modal con una tipografía grande y en degradado, para que se note de inmediato.
+
+=== ENGLISH ===
+Version: 3.4.31
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-22
+
+Changes:
+- Videos in chained news items now play on their own, muted and on a loop: the player controls are gone and playback starts as soon as the modal opens, with nothing to tap.
+- The news modal is now larger: wider, with a taller video cover and more breathing room for the content.
+- The chain name —for example "Novedades"— now heads the modal in a large gradient typeface, so it stands out immediately.

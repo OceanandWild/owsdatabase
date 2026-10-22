@@ -4092,9 +4092,9 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 440px;
-  max-height: min(88vh, 820px);
-  max-height: min(88dvh, 820px);
+  max-width: 560px;
+  max-height: min(92vh, 900px);
+  max-height: min(92dvh, 900px);
   padding: 0;
   overflow: hidden;
   border: 1px solid transparent;
@@ -4111,12 +4111,33 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
   padding: 15px 58px 12px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
+.newschain-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
 .newschain-badge {
   font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #fdba74;
+}
+.newschain-chain {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  background: linear-gradient(100deg, #ffe0b8 0%, #fdba74 32%, #f97316 68%, #facc15 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 16px rgba(249, 115, 22, 0.35));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .newschain-count {
   flex-shrink: 0;
@@ -4148,7 +4169,8 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
   background: #000;
   border-bottom: 1px solid rgba(245, 158, 11, 0.22);
 }
-.newschain-media video { max-height: 380px; object-fit: contain; }
+.newschain-media video { max-height: 460px; object-fit: contain; }
+.newschain-media video::-webkit-media-controls { display: none !important; }
 .newschain-content {
   display: flex;
   flex-direction: column;
@@ -4223,4 +4245,6 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
   .newschain-foot .btn { flex: 1; text-align: center; }
   .newschain-content { padding: 14px 16px 18px; }
   .newschain-top { padding-left: 16px; }
+  .newschain-chain { font-size: 1.3rem; }
+  .newschain-media video { max-height: 320px; }
 }

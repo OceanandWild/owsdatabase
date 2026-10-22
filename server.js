@@ -197,6 +197,43 @@ const dashboardNewsFields = dashboardNewsUpload.fields([
   { name: 'banner', maxCount: 1 }
 ]);
 
+// Modales de Noticias en cadena: imagen opcional + video corto (15 s max.).
+// La carpeta y el tipo de recurso se eligen segun el campo del formulario.
+const dashboardNewsModalStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: (req, file) => {
+    if (file && file.fieldname === 'video') {
+      return {
+        folder: 'ows-dashboard/news-modals/videos',
+        resource_type: 'video',
+        allowed_formats: ['mp4', 'webm', 'mov'],
+        transformation: [{ width: 1280, crop: 'limit', quality: 'auto' }]
+      };
+    }
+    return {
+      folder: 'ows-dashboard/news-modals',
+      allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif'],
+      transformation: [{ width: 1280, crop: 'limit', quality: 'auto' }]
+    };
+  }
+});
+const dashboardNewsModalUpload = multer({
+  storage: dashboardNewsModalStorage,
+  limits: { fileSize: 80 * 1024 * 1024 }, // 80 MB: alcanza de sobra para 15 s
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'video') {
+      if (/^video\//i.test(String(file.mimetype || ''))) return cb(null, true);
+      return cb(new Error('El archivo debe ser un video (MP4, WEBM o MOV)'));
+    }
+    if (/^image\//i.test(String(file.mimetype || ''))) return cb(null, true);
+    return cb(new Error('El archivo debe ser una imagen'));
+  }
+});
+const dashboardNewsModalFields = dashboardNewsModalUpload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'video', maxCount: 1 }
+]);
+
 // Función para generar ID único de usuario (100 caracteres)
 function generateUserUniqueId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -15195,6 +15232,435 @@ app.delete('/ows-dashboard/popup-presets/:id', async (req, res) => {
     return res.json({ success: true, deleted: Number(rowCount) });
   } catch (err) {
     console.error('Error en DELETE /ows-dashboard/popup-presets/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ============================================================
+   OWS NEWS MODALS — anuncios de Noticias en cadena
+   Se muestran UNA vez al entrar al Hub (cada usuario guarda lo que
+   vio). Varios modales de la misma cadena se recorren con
+   Anterior / Siguiente y el contador X/X. El video es opcional y
+   no puede superar los 15 segundos.
+   ============================================================ */
+
+let owsNewsModalsTableReady = false;
+
+const OWS_NEWS_MODAL_MAX_VIDEO_MS = 15000;
+
+async function ensureOwsNewsModalsTable() {
+  if (owsNewsModalsTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_news_modals (
+      id                BIGSERIAL PRIMARY KEY,
+      title             TEXT NOT NULL,
+      body              TEXT NOT NULL DEFAULT '',
+      image_url         TEXT NOT NULL DEFAULT '',
+      video_url         TEXT NOT NULL DEFAULT '',
+      video_duration_ms INTEGER NOT NULL DEFAULT 0,
+      display_date      DATE,
+      chain_key         TEXT NOT NULL DEFAULT 'Novedades',
+      sort_order        INTEGER NOT NULL DEFAULT 0,
+      is_active         BOOLEAN NOT NULL DEFAULT TRUE,
+      is_published      BOOLEAN NOT NULL DEFAULT TRUE,
+      show_once         BOOLEAN NOT NULL DEFAULT TRUE,
+      show_token        INTEGER NOT NULL DEFAULT 1,
+      created_by        TEXT NOT NULL DEFAULT 'OceanandWild',
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_news_modals_feed
+      ON ows_news_modals (is_published, is_active, chain_key, sort_order)
+  `);
+  owsNewsModalsTableReady = true;
+}
+
+function normalizeNewsModalChain(value) {
+  const s = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  return s || 'Novedades';
+}
+
+function normalizeNewsModalDate(value) {
+  const s = String(value || '').trim();
+  if (!s) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(s + 'T00:00:00Z');
+  return Number.isNaN(d.getTime()) ? null : s;
+}
+
+function normalizeNewsModalDurationMs(value) {
+  const n = Math.trunc(Number(value));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function normalizeNewsModalOrder(value) {
+  const n = Math.trunc(Number(value));
+  return Number.isFinite(n) ? Math.max(0, Math.min(100000, n)) : null;
+}
+
+function mapOwsNewsModalRow(row) {
+  const showOnce = row.show_once !== false;
+  const duration = normalizeNewsModalDurationMs(row.video_duration_ms);
+  const displayDate = row.display_date ? String(row.display_date).slice(0, 10) : null;
+  const chainKey = normalizeNewsModalChain(row.chain_key);
+  const sortOrder = Number(row.sort_order || 0);
+  return {
+    id: Number(row.id || 0),
+    title: String(row.title || ''),
+    body: String(row.body || ''),
+    image_url: String(row.image_url || ''),
+    imageUrl: String(row.image_url || ''),
+    video_url: String(row.video_url || ''),
+    videoUrl: String(row.video_url || ''),
+    video_duration_ms: duration,
+    videoDurationMs: duration,
+    display_date: displayDate,
+    displayDate: displayDate,
+    chain_key: chainKey,
+    chainKey: chainKey,
+    sort_order: sortOrder,
+    sortOrder: sortOrder,
+    is_active: row.is_active !== false,
+    isActive: row.is_active !== false,
+    is_published: row.is_published !== false,
+    isPublished: row.is_published !== false,
+    show_once: showOnce,
+    showOnce: showOnce,
+    show_token: Number(row.show_token || 1),
+    showToken: Number(row.show_token || 1),
+    created_by: String(row.created_by || 'OceanandWild'),
+    created_at: row.created_at || null,
+    createdAt: row.created_at || null,
+    updated_at: row.updated_at || null,
+    updatedAt: row.updated_at || null
+  };
+}
+
+function newsModalAdminName(req) {
+  return String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
+}
+
+const OWS_NEWS_MODAL_SELECT = `
+  id, title, body, image_url, video_url, video_duration_ms,
+  chain_key, sort_order, is_active, is_published, show_once, show_token,
+  created_by, created_at, updated_at,
+  to_char(display_date, 'YYYY-MM-DD') AS display_date
+`;
+
+// Feed público: cadenas con sus modales publicados y visibles.
+// El cliente decide qué falta ver según su almacenamiento local.
+app.get('/ows-dashboard/news-modals/active', async (req, res) => {
+  try {
+    await ensureOwsNewsModalsTable();
+    const { rows } = await pool.query(
+      `SELECT ${OWS_NEWS_MODAL_SELECT}
+         FROM ows_news_modals
+        WHERE is_active = TRUE AND is_published = TRUE
+        ORDER BY chain_key ASC, sort_order ASC, id ASC`
+    );
+    const chainMap = new Map();
+    rows.map(mapOwsNewsModalRow).forEach((item) => {
+      const key = item.chain_key;
+      if (!chainMap.has(key)) {
+        chainMap.set(key, { key, title: key, updated_at: item.updated_at, items: [] });
+      }
+      const chain = chainMap.get(key);
+      chain.items.push(item);
+      if (item.updated_at && (!chain.updated_at || new Date(item.updated_at) > new Date(chain.updated_at))) {
+        chain.updated_at = item.updated_at;
+      }
+    });
+    const chains = [...chainMap.values()].sort((a, b) => {
+      const at = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+      const bt = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+      return bt - at;
+    });
+    return res.json({ success: true, chains });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/news-modals/active:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Lista admin: incluye borradores, ocultos y todas las cadenas.
+app.get('/ows-dashboard/news-modals', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsNewsModalsTable();
+    const { rows } = await pool.query(
+      `SELECT ${OWS_NEWS_MODAL_SELECT}
+         FROM ows_news_modals
+        ORDER BY chain_key ASC, sort_order ASC, id ASC
+        LIMIT 1000`
+    );
+    return res.json({ success: true, modals: rows.map(mapOwsNewsModalRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/news-modals:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear modal: queda publicado al guardar (aparece en el próximo ingreso).
+app.post('/ows-dashboard/news-modals', dashboardNewsModalFields, async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const title = String(req.body?.title || '').trim();
+  const body = String(req.body?.body ?? req.body?.content ?? '').trim();
+  const chainKey = normalizeNewsModalChain(req.body?.chain_key ?? req.body?.chainKey);
+  const displayDate = normalizeNewsModalDate(req.body?.display_date ?? req.body?.displayDate);
+  const imageUrlInput = String(req.body?.image_url ?? req.body?.imageUrl ?? '').trim();
+  const videoUrlInput = String(req.body?.video_url ?? req.body?.videoUrl ?? '').trim();
+  const duration = normalizeNewsModalDurationMs(req.body?.video_duration_ms ?? req.body?.videoDurationMs);
+  const showOnce = normalizeNewsBoolean(req.body?.show_once ?? req.body?.showOnce, true);
+  const isActive = normalizeNewsBoolean(req.body?.is_active ?? req.body?.isActive, true);
+  const isPublished = normalizeNewsBoolean(req.body?.is_published ?? req.body?.isPublished, true);
+  const imageFile = req.files && req.files.image && req.files.image[0];
+  const videoFile = req.files && req.files.video && req.files.video[0];
+  const finalImageUrl = imageFile ? String(imageFile.path) : imageUrlInput;
+  const finalVideoUrl = videoFile ? String(videoFile.path) : videoUrlInput;
+
+  if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
+  if (finalVideoUrl) {
+    if (!duration) {
+      return res.status(400).json({ error: 'No se pudo verificar la duracion del video. Volve a seleccionarlo para medirla.' });
+    }
+    if (duration > OWS_NEWS_MODAL_MAX_VIDEO_MS) {
+      return res.status(400).json({ error: 'El video no puede durar mas de 15 segundos' });
+    }
+  }
+
+  try {
+    await ensureOwsNewsModalsTable();
+    let sortOrder = normalizeNewsModalOrder(req.body?.sort_order ?? req.body?.sortOrder);
+    if (sortOrder === null) {
+      const { rows: orderRows } = await pool.query(
+        `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next
+           FROM ows_news_modals WHERE chain_key = $1`,
+        [chainKey]
+      );
+      sortOrder = Number(orderRows[0]?.next || 1);
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO ows_news_modals
+         (title, body, image_url, video_url, video_duration_ms, display_date,
+          chain_key, sort_order, is_active, is_published, show_once, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING ${OWS_NEWS_MODAL_SELECT}`,
+      [
+        title, body, finalImageUrl, finalVideoUrl,
+        finalVideoUrl ? duration : 0,
+        displayDate, chainKey, sortOrder,
+        isActive, isPublished, showOnce, newsModalAdminName(req)
+      ]
+    );
+    logAdminActivity({
+      action: 'create', entityType: 'news_modal', entityId: String(rows[0]?.id || ''),
+      entityName: title, adminName: newsModalAdminName(req)
+    });
+    return res.status(201).json({ success: true, modal: mapOwsNewsModalRow(rows[0] || {}) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/news-modals:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar modal. Acepta JSON (toggles) o multipart (imagen/video nuevos).
+app.patch('/ows-dashboard/news-modals/:id', dashboardNewsModalFields, async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsNewsModalsTable();
+    const { rows: currentRows } = await pool.query(
+      `SELECT ${OWS_NEWS_MODAL_SELECT} FROM ows_news_modals WHERE id = $1`,
+      [id]
+    );
+    if (!currentRows.length) return res.status(404).json({ error: 'Modal no encontrado' });
+    const current = currentRows[0];
+    const updates = {};
+
+    if (req.body?.title !== undefined) {
+      const title = String(req.body.title).trim();
+      if (!title) return res.status(400).json({ error: 'El titulo no puede estar vacio' });
+      updates.title = title;
+    }
+    if (req.body?.body !== undefined || req.body?.content !== undefined) {
+      updates.body = String(req.body.body ?? req.body.content ?? '').trim();
+    }
+    if (req.body?.chain_key !== undefined || req.body?.chainKey !== undefined) {
+      const nextChain = normalizeNewsModalChain(req.body.chain_key ?? req.body.chainKey);
+      if (nextChain !== current.chain_key) {
+        updates.chain_key = nextChain;
+        // Si la cadena cambia, se agrega al final de la nueva.
+        if (req.body?.sort_order === undefined && req.body?.sortOrder === undefined) {
+          const { rows: orderRows } = await pool.query(
+            `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next
+               FROM ows_news_modals WHERE chain_key = $1`,
+            [nextChain]
+          );
+          updates.sort_order = Number(orderRows[0]?.next || 1);
+        }
+      }
+    }
+    if (req.body?.display_date !== undefined || req.body?.displayDate !== undefined) {
+      updates.display_date = normalizeNewsModalDate(req.body.display_date ?? req.body.displayDate);
+    }
+    if (req.body?.is_active !== undefined) {
+      updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    }
+    if (req.body?.is_published !== undefined) {
+      updates.is_published = normalizeNewsBoolean(req.body.is_published, true);
+    }
+    if (req.body?.show_once !== undefined) {
+      updates.show_once = normalizeNewsBoolean(req.body.show_once, true);
+    }
+    if (req.body?.sort_order !== undefined || req.body?.sortOrder !== undefined) {
+      const nextOrder = normalizeNewsModalOrder(req.body.sort_order ?? req.body.sortOrder);
+      if (nextOrder !== null) updates.sort_order = nextOrder;
+    }
+
+    // Imagen: archivo nuevo > URL enviada > se conserva.
+    const imageFile = req.files && req.files.image && req.files.image[0];
+    if (imageFile) {
+      updates.image_url = String(imageFile.path);
+    } else if (req.body?.image_url !== undefined || req.body?.imageUrl !== undefined) {
+      updates.image_url = String(req.body.image_url ?? req.body.imageUrl ?? '').trim();
+    }
+
+    // Video: archivo nuevo > URL nueva > se conserva. La duración se
+    // valida siempre que haya un video involucrado.
+    const videoFile = req.files && req.files.video && req.files.video[0];
+    const durationInput = normalizeNewsModalDurationMs(req.body?.video_duration_ms ?? req.body?.videoDurationMs);
+    if (videoFile) {
+      if (!durationInput) {
+        return res.status(400).json({ error: 'No se pudo verificar la duracion del video. Volve a seleccionarlo para medirla.' });
+      }
+      if (durationInput > OWS_NEWS_MODAL_MAX_VIDEO_MS) {
+        return res.status(400).json({ error: 'El video no puede durar mas de 15 segundos' });
+      }
+      updates.video_url = String(videoFile.path);
+      updates.video_duration_ms = durationInput;
+    } else if (req.body?.video_url !== undefined || req.body?.videoUrl !== undefined) {
+      const nextVideoUrl = String(req.body.video_url ?? req.body.videoUrl ?? '').trim();
+      if (!nextVideoUrl) {
+        updates.video_url = '';
+        updates.video_duration_ms = 0;
+      } else if (nextVideoUrl !== String(current.video_url || '')) {
+        if (!durationInput) {
+          return res.status(400).json({ error: 'No se pudo verificar la duracion del video. Volve a seleccionarlo para medirla.' });
+        }
+        if (durationInput > OWS_NEWS_MODAL_MAX_VIDEO_MS) {
+          return res.status(400).json({ error: 'El video no puede durar mas de 15 segundos' });
+        }
+        updates.video_url = nextVideoUrl;
+        updates.video_duration_ms = durationInput;
+      } else if (durationInput) {
+        if (durationInput > OWS_NEWS_MODAL_MAX_VIDEO_MS) {
+          return res.status(400).json({ error: 'El video no puede durar mas de 15 segundos' });
+        }
+        updates.video_duration_ms = durationInput;
+      }
+    } else if (durationInput > OWS_NEWS_MODAL_MAX_VIDEO_MS) {
+      return res.status(400).json({ error: 'El video no puede durar mas de 15 segundos' });
+    }
+
+    const keys = Object.keys(updates);
+    if (!keys.length) {
+      return res.json({ success: true, modal: mapOwsNewsModalRow(current) });
+    }
+    const values = keys.map((k) => updates[k]);
+    const setSql = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const { rows } = await pool.query(
+      `UPDATE ows_news_modals
+          SET ${setSql}, updated_at = NOW()
+        WHERE id = $${keys.length + 1}
+        RETURNING ${OWS_NEWS_MODAL_SELECT}`,
+      [...values, id]
+    );
+    logAdminActivity({
+      action: 'edit', entityType: 'news_modal', entityId: String(id),
+      entityName: String(rows[0]?.title || ''), adminName: newsModalAdminName(req),
+      meta: { fields: keys }
+    });
+    return res.json({ success: true, modal: mapOwsNewsModalRow(rows[0] || {}) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-dashboard/news-modals/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.delete('/ows-dashboard/news-modals/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsNewsModalsTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_news_modals WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Modal no encontrado' });
+    logAdminActivity({
+      action: 'delete', entityType: 'news_modal', entityId: String(id),
+      adminName: newsModalAdminName(req)
+    });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-dashboard/news-modals/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Re-mostrar: sube el token y el modal vuelve a aparecer a todos sin recrearlo.
+app.post('/ows-dashboard/news-modals/:id/reshow', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsNewsModalsTable();
+    const { rows } = await pool.query(
+      `UPDATE ows_news_modals
+          SET show_token = show_token + 1, is_active = TRUE, is_published = TRUE, updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${OWS_NEWS_MODAL_SELECT}`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Modal no encontrado' });
+    logAdminActivity({
+      action: 'reshow', entityType: 'news_modal', entityId: String(id),
+      entityName: String(rows[0]?.title || ''), adminName: newsModalAdminName(req)
+    });
+    return res.json({ success: true, modal: mapOwsNewsModalRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/news-modals/:id/reshow:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Reordenar una cadena: body { chain_key, ids: [..] } en el orden final.
+app.post('/ows-dashboard/news-modals/reorder', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const chainKey = normalizeNewsModalChain(req.body?.chain_key ?? req.body?.chainKey);
+  const ids = Array.isArray(req.body?.ids)
+    ? req.body.ids.map((v) => Number(v)).filter((v) => Number.isFinite(v) && v > 0)
+    : [];
+  if (!ids.length) return res.status(400).json({ error: 'ids vacio' });
+  try {
+    await ensureOwsNewsModalsTable();
+    const ords = ids.map((_, i) => i + 1);
+    await pool.query(
+      `UPDATE ows_news_modals AS m
+          SET sort_order = v.ord, updated_at = NOW()
+         FROM (SELECT * FROM unnest($1::bigint[], $2::int[])) AS v(id, ord)
+        WHERE m.id = v.id AND m.chain_key = $3`,
+      [ids, ords, chainKey]
+    );
+    logAdminActivity({
+      action: 'reorder', entityType: 'news_modal', entityId: chainKey,
+      entityName: chainKey, adminName: newsModalAdminName(req),
+      meta: { ids }
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en POST /ows-dashboard/news-modals/reorder:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

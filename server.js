@@ -43883,6 +43883,324 @@ app.get('/wildweapon/pvp/info', (req, res) => {
 });
 
 
+/* ===== Wilder Gambit · Cacería de Dulces (temporal) =====
+   Matchmaking y relevo de acciones en memoria. No toca la base de datos:
+   la partida dura 5 minutos y se puede reconstruir desde la semilla + el
+   log de acciones. Pensado para el modo de Halloween que termina el 2/11. */
+const candyQueue = [];
+const candyMatches = new Map();
+const CANDY_MATCH_MS = 5 * 60 * 1000;
+const CANDY_QUEUE_TTL_MS = 90 * 1000;
+const CANDY_ABANDON_MS = 25 * 1000;
+const CANDY_FINISHED_TTL_MS = 10 * 60 * 1000;
+const CANDY_MATCH_TTL_MS = 35 * 60 * 1000;
+
+function candyText(value, max) {
+  return String(value == null ? '' : value).trim().slice(0, max);
+}
+
+function candyLoadout(value) {
+  let raw = value;
+  if (typeof raw !== 'string') {
+    try { raw = JSON.stringify(raw || {}); } catch (e) { raw = '{}'; }
+  }
+  raw = String(raw || '{}');
+  return raw.length > 4096 ? raw.slice(0, 4096) : raw;
+}
+
+function candySideName(side) {
+  return side === 0 ? 'white' : 'black';
+}
+
+function candyPlayerOf(match, playerId) {
+  if (!match || !playerId) return null;
+  if (match.white && match.white.id === playerId) {
+    return { side: 0, name: 'white', me: match.white, opp: match.black };
+  }
+  if (match.black && match.black.id === playerId) {
+    return { side: 1, name: 'black', me: match.black, opp: match.white };
+  }
+  return null;
+}
+
+function candyPublicMatch(match, playerId, since) {
+  const info = candyPlayerOf(match, playerId);
+  if (!info) return null;
+
+  const actions = (match.actions || []).filter((a) => Number(a.seq) > Number(since || 0));
+  const now = Date.now();
+
+  return {
+    state: match.status === 'playing' ? 'found' : 'finished',
+    match_id: match.id,
+    side: info.side,
+    opponent_name: (info.opp && info.opp.name) || 'RIVAL',
+    white_loadout: match.white.loadout,
+    black_loadout: match.black.loadout,
+    seed: match.seed,
+    started_at: match.started_at,
+    server_time: now,
+    status: match.status,
+    turn: match.turn,
+    seq: match.seq,
+    actions,
+    result: match.result || null,
+    winner: match.winner || null,
+    opponent_connected: !!info.opp && (now - info.opp.last_seen) < 15000
+  };
+}
+
+function candyCleanupMatch(match) {
+  if (!match || match.status !== 'playing') return;
+  const now = Date.now();
+
+  if (now - match.started_at >= CANDY_MATCH_MS) {
+    match.status = 'finished';
+    match.result = 'time';
+    match.winner = null;
+    match.finished_at = now;
+    return;
+  }
+
+  const whiteGone = now - match.white.last_seen > CANDY_ABANDON_MS;
+  const blackGone = now - match.black.last_seen > CANDY_ABANDON_MS;
+  if (now - match.started_at > 12000 && whiteGone !== blackGone) {
+    match.status = 'finished';
+    match.result = 'abandon';
+    match.winner = whiteGone ? 'black' : 'white';
+    match.finished_at = now;
+  }
+}
+
+function candyCleanup() {
+  const now = Date.now();
+  for (let i = candyQueue.length - 1; i >= 0; i--) {
+    if (now - candyQueue[i].at > CANDY_QUEUE_TTL_MS) candyQueue.splice(i, 1);
+  }
+  for (const [id, match] of candyMatches) {
+    if (!match) { candyMatches.delete(id); continue; }
+    if (match.finished_at && now - match.finished_at > CANDY_FINISHED_TTL_MS) {
+      candyMatches.delete(id);
+      continue;
+    }
+    if (!match.finished_at && now - match.createdAt > CANDY_MATCH_TTL_MS) {
+      candyMatches.delete(id);
+    }
+  }
+}
+
+setInterval(candyCleanup, 30000);
+
+app.post('/multiplayer/candy/search', (req, res) => {
+  try {
+    candyCleanup();
+    const id = candyText(req.body && req.body.player_id, 64);
+    const name = candyText(req.body && req.body.player_name, 32) || 'Invitado';
+    const loadout = candyLoadout(req.body && req.body.loadout_json);
+
+    if (!/^[A-Za-z0-9_.:-]{4,64}$/.test(id)) {
+      return res.status(400).json({ error: 'player_id inválido' });
+    }
+
+    const existing = [...candyMatches.values()].find((m) =>
+      m.status === 'playing' && (m.white.id === id || m.black.id === id));
+    if (existing) {
+      candyCleanupMatch(existing);
+      return res.json(candyPublicMatch(existing, id, 0));
+    }
+
+    const waitingIndex = candyQueue.findIndex((p) => p.id === id);
+    if (waitingIndex >= 0) {
+      candyQueue[waitingIndex].name = name;
+      candyQueue[waitingIndex].at = Date.now();
+      return res.json({ state: 'waiting', server_time: Date.now() });
+    }
+
+    const opponentIndex = candyQueue.findIndex((p) =>
+      p.id !== id && Date.now() - p.at <= CANDY_QUEUE_TTL_MS);
+    if (opponentIndex >= 0) {
+      const opponent = candyQueue.splice(opponentIndex, 1)[0];
+      const now = Date.now();
+      const match = {
+        id: 'candy_' + now.toString(36) + '_' + Math.random().toString(36).slice(2, 8),
+        createdAt: now,
+        started_at: now,
+        status: 'playing',
+        turn: 'white',
+        seq: 0,
+        deployed: false,
+        seed: Math.floor(Math.random() * 2147483640) + 1,
+        actions: [],
+        result: null,
+        winner: null,
+        white: { id: opponent.id, name: opponent.name, loadout: opponent.loadout, last_seen: now },
+        black: { id, name, loadout, last_seen: now }
+      };
+      candyMatches.set(match.id, match);
+      return res.json(candyPublicMatch(match, id, 0));
+    }
+
+    candyQueue.push({ id, name, loadout, at: Date.now() });
+    return res.json({ state: 'waiting', server_time: Date.now() });
+  } catch (err) {
+    console.error('[CANDY] search:', err);
+    return res.status(500).json({ error: 'Error al buscar partida' });
+  }
+});
+
+app.post('/multiplayer/candy/cancel', (req, res) => {
+  try {
+    const id = candyText(req.body && req.body.player_id, 64);
+    const index = candyQueue.findIndex((p) => p.id === id);
+    if (index >= 0) candyQueue.splice(index, 1);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[CANDY] cancel:', err);
+    return res.status(500).json({ error: 'Error al cancelar la búsqueda' });
+  }
+});
+
+app.get('/multiplayer/candy/state', (req, res) => {
+  try {
+    candyCleanup();
+    const matchId = candyText(req.query && req.query.match_id, 80);
+    const playerId = candyText(req.query && req.query.player_id, 64);
+    const since = Math.max(0, parseInt(req.query && req.query.since, 10) || 0);
+    const match = candyMatches.get(matchId);
+
+    if (!match) return res.status(404).json({ error: 'Partida no encontrada' });
+    const info = candyPlayerOf(match, playerId);
+    if (!info) return res.status(403).json({ error: 'No pertenecés a esta partida' });
+
+    info.me.last_seen = Date.now();
+    candyCleanupMatch(match);
+    return res.json(candyPublicMatch(match, playerId, since));
+  } catch (err) {
+    console.error('[CANDY] state:', err);
+    return res.status(500).json({ error: 'Error al consultar la partida' });
+  }
+});
+
+app.post('/multiplayer/candy/action', (req, res) => {
+  try {
+    const matchId = candyText(req.body && req.body.match_id, 80);
+    const playerId = candyText(req.body && req.body.player_id, 64);
+    const action = req.body && req.body.action;
+    const match = candyMatches.get(matchId);
+
+    if (!match) return res.status(404).json({ error: 'Partida no encontrada' });
+    const info = candyPlayerOf(match, playerId);
+    if (!info) return res.status(403).json({ error: 'No pertenecés a esta partida' });
+
+    info.me.last_seen = Date.now();
+    candyCleanupMatch(match);
+
+    if (match.status !== 'playing')
+      return res.status(409).json({ error: 'La partida ya terminó', status: match.status });
+    if (match.turn !== info.name)
+      return res.status(409).json({ error: 'No es tu turno', turn: match.turn });
+
+    const kind = candyText(action && action.kind, 12).toLowerCase();
+    if (kind !== 'deploy' && kind !== 'move' && kind !== 'pass')
+      return res.status(400).json({ error: 'Acción inválida' });
+
+    const row = Number(action && action.row);
+    const col = Number(action && action.col);
+    const pieceId = Number(action && action.pieceId);
+
+    if (kind === 'deploy') {
+      if (match.deployed) return res.status(409).json({ error: 'Ya invocaste este turno' });
+      const type = candyText(action && action.type, 24);
+      if (!type) return res.status(400).json({ error: 'Falta el tipo de pieza' });
+      if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || row > 11 || col < 0 || col > 11)
+        return res.status(400).json({ error: 'Casilla de invocación inválida' });
+      match.deployed = true;
+    } else if (kind === 'move') {
+      if (!Number.isInteger(pieceId) || pieceId <= 0)
+        return res.status(400).json({ error: 'Falta la pieza' });
+      if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || row > 11 || col < 0 || col > 11)
+        return res.status(400).json({ error: 'Destino inválido' });
+      match.deployed = false;
+      match.turn = info.side === 0 ? 'black' : 'white';
+    } else {
+      match.deployed = false;
+      match.turn = info.side === 0 ? 'black' : 'white';
+    }
+
+    const clean = {
+      kind,
+      type: kind === 'deploy' ? candyText(action.type, 24) : '',
+      variant: kind === 'deploy' ? candyText(action.variant, 40) : '',
+      pieceId: kind === 'move' ? pieceId : 0,
+      row: kind === 'move' || kind === 'deploy' ? row : -1,
+      col: kind === 'move' || kind === 'deploy' ? col : -1,
+      seq: ++match.seq,
+      side: info.side
+    };
+    match.actions.push(clean);
+
+    return res.json({
+      success: true,
+      seq: match.seq,
+      turn: match.turn,
+      status: match.status,
+      server_time: Date.now(),
+      action: clean
+    });
+  } catch (err) {
+    console.error('[CANDY] action:', err);
+    return res.status(500).json({ error: 'Error al registrar la jugada' });
+  }
+});
+
+app.post('/multiplayer/candy/finish', (req, res) => {
+  try {
+    const matchId = candyText(req.body && req.body.match_id, 80);
+    const playerId = candyText(req.body && req.body.player_id, 64);
+    const match = candyMatches.get(matchId);
+    if (!match) return res.status(404).json({ error: 'Partida no encontrada' });
+    const info = candyPlayerOf(match, playerId);
+    if (!info) return res.status(403).json({ error: 'No pertenecés a esta partida' });
+
+    if (match.status === 'playing') {
+      const reason = candyText(req.body && req.body.reason, 24) || 'finished';
+      const rawWinner = candyText(req.body && req.body.winner, 12).toLowerCase();
+      match.status = 'finished';
+      match.result = reason;
+      match.winner = rawWinner === 'white' ? 'white' : (rawWinner === 'black' ? 'black' : null);
+      match.finished_at = Date.now();
+    }
+
+    return res.json({ success: true, status: match.status, server_time: Date.now() });
+  } catch (err) {
+    console.error('[CANDY] finish:', err);
+    return res.status(500).json({ error: 'Error al cerrar la partida' });
+  }
+});
+
+app.post('/multiplayer/candy/leave', (req, res) => {
+  try {
+    const matchId = candyText(req.body && req.body.match_id, 80);
+    const playerId = candyText(req.body && req.body.player_id, 64);
+    const match = candyMatches.get(matchId);
+    if (!match) return res.json({ success: true });
+    const info = candyPlayerOf(match, playerId);
+    if (!info) return res.status(403).json({ error: 'No pertenecés a esta partida' });
+
+    if (match.status === 'playing') {
+      match.status = 'finished';
+      match.result = 'forfeit';
+      match.winner = info.side === 0 ? 'black' : 'white';
+      match.finished_at = Date.now();
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[CANDY] leave:', err);
+    return res.status(500).json({ error: 'Error al abandonar la partida' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Ã°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬ API corriendo en https://owsdatabase.onrender.com/`);

@@ -143,6 +143,8 @@ namespace WildWeapon.Pvp
                     TeamForSeat(seat, opp != null ? opp.team : seat % 4));
             }
 
+            EnsurePlayableTeams();
+
             duel.pvpDriven = true;
             if (duelRoot != null) duelRoot.SetActive(true);
 
@@ -221,6 +223,33 @@ namespace WildWeapon.Pvp
         {
             if (!GameSession.PvpTeams) return GameSession.FfaTeam(seat);
             return roomTeam >= 0 ? roomTeam : Mathf.Abs(seat) % 4;
+        }
+
+        /// <summary>
+        /// Red de seguridad: si el server mando a todos los combatientes al mismo
+        /// equipo, nadie puede hacerse dano y la partida queda trabada. Solo en ese
+        /// caso se reparten equipos por asiento; una sala con equipos elegidos a
+        /// mano conserva los suyos.
+        /// </summary>
+        private void EnsurePlayableTeams()
+        {
+            if (!GameSession.TeamsActive || _localHealth == null || remotes.Count == 0) return;
+
+            bool anyDifferent = false;
+            foreach (var r in remotes)
+            {
+                if (r == null || r.health == null) continue;
+                if (r.health.team != _localHealth.team) { anyDifferent = true; break; }
+            }
+            if (anyDifferent) return;
+
+            _localHealth.team = GameSession.FfaTeam(LocalIndex);
+            foreach (var r in remotes)
+                if (r != null && r.health != null) r.health.team = GameSession.FfaTeam(r.seat);
+
+            Debug.LogWarning("[WW-PVP] Todos los combatientes llegaron con el mismo equipo: " +
+                             "se reparten equipos por asiento para habilitar el dano.");
+            RebuildRoster();
         }
 
         private RemoteEntry EnsureRemote(int seat)

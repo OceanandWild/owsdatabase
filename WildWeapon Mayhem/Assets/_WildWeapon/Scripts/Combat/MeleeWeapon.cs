@@ -123,11 +123,17 @@ namespace WildWeapon
             if (self != null && self.Visual != null) self.Visual.PlayAttack();
             Attacked?.Invoke(this, aimDir);
 
-            Vector2 origin = transform.position;
+            // El hitbox se mide desde el cuerpo del portador, no desde la mano: el
+            // arma cuelga del pivote de apuntado a la altura del pecho y su Y hacia
+            // que un golpe visualmente al alcance quedara fuera de rango (solo
+            // entraba a quemarropa). El VFX conserva su origen en el arma.
+            Vector2 origin = self != null ? (Vector2)self.transform.position : (Vector2)transform.position;
             if (def.swingVfx != null)
             {
+                // El VFX si sale desde el arma (la mano), no desde los pies.
+                Vector2 vfxOrigin = transform.position;
                 float ang = Mathf.Atan2(aimDir.y, aimDir.x) * Mathf.Rad2Deg;
-                var v = Instantiate(def.swingVfx, origin + aimDir * def.range * 0.5f, Quaternion.Euler(0f, 0f, ang));
+                var v = Instantiate(def.swingVfx, vfxOrigin + aimDir * def.range * 0.5f, Quaternion.Euler(0f, 0f, ang));
                 var slash = v.GetComponent<SlashVfx>();
                 if (slash != null) slash.Init(def.range, _swingSign);
             }

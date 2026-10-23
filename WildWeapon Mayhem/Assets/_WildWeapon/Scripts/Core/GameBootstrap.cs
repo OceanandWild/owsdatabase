@@ -34,6 +34,10 @@ namespace WildWeapon
             bool multi = mode == GameMode.Multi;
             bool duel = multi;
             bool pvp = mode == GameMode.Pvp;
+            // Jugar la Arena directo (sin pasar por el menu/lobby) deja Multi sin
+            // asientos: en vez de generar un solo pawn sin rival, se juega el duelo
+            // local con los dos combatientes de la escena.
+            bool localDuel = multi && GameSession.MultiPlayers.Count == 0;
 
             if (!pvp)
             {
@@ -58,8 +62,8 @@ namespace WildWeapon
                 map.Generate(seed, (duel || pvp) && map.map.mirroredForDuel);
             }
 
-            if (p2 != null) p2.gameObject.SetActive((duel || pvp) && !multi);
-            if (p1 != null && multi && p1.gameObject != null) p1.gameObject.SetActive(false);
+            if (p2 != null) p2.gameObject.SetActive(((duel || pvp) && !multi) || localDuel);
+            if (p1 != null && multi && !localDuel && p1.gameObject != null) p1.gameObject.SetActive(false);
             if (duelRoot != null) duelRoot.SetActive(duel);   // en PVP lo activa PvpMatchManager
             if (botsRoot != null) botsRoot.SetActive(!duel && !pvp);
             if (pvpRoot != null) pvpRoot.SetActive(pvp);
@@ -68,6 +72,9 @@ namespace WildWeapon
         void Start()
         {
             if (GameSession.Mode != GameMode.Multi) return;
+            // Sin asientos (Arena jugada directo) el duelo local ya tiene a P1 y P2
+            // de la escena: no hay que clonar jugadores ni pisar DuelManager.players.
+            if (GameSession.MultiPlayers.Count == 0) return;
             if (playerPrefab == null) { Debug.LogWarning("[WW] playerPrefab no asignado"); return; }
 
             int n = Mathf.Max(1, GameSession.MultiPlayers.Count);

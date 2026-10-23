@@ -43882,9 +43882,23 @@ function wwPvpPlayer(ws, info, seat) {
     name: String((info && info.name) || 'RETADOR').trim().slice(0, 24) || 'RETADOR',
     color: Number.isFinite(color) ? Math.max(0, Math.min(7, color | 0)) : seat,
     team: Number.isFinite(team) ? Math.max(0, Math.min(3, team | 0)) : seat % 4,
+    // El protocolo no distingue "equipo 0" de "sin equipo": JsonUtility manda
+    // team:0 en todos los joins. Por eso el equipo inicial SIEMPRE se deriva del
+    // asiento (ver wwPvpSetSeat) y solo lobby_set marca una eleccion explicita.
+    // Antes todos los humanos de una partida rapida caian en el equipo 0 y no
+    // se podian danar entre si.
+    teamChosen: false,
     control: Number.isFinite(control) ? Math.max(0, Math.min(4, control | 0)) : 0,
     bot: false, host: false, ready: false, rematchVote: false
   };
+}
+
+/** Asigna un asiento y, si el jugador no eligio equipo, lo deriva del asiento. */
+function wwPvpSetSeat(player, seat) {
+  if (!player) return player;
+  player.seat = seat | 0;
+  if (!player.teamChosen) player.team = Math.abs(player.seat) % 4;
+  return player;
 }
 
 function wwPvpOpps(room, me) {
@@ -43978,7 +43992,7 @@ function wwPvpLobbyAdmit(room, player, name, color) {
     return false;
   }
   player.host = room.players.length === 0;
-  player.seat = room.players.length;
+  wwPvpSetSeat(player, room.players.length);
   room.players.push(player);
   player.ws.wwRoom = room;
   wwPvpLobbyBroadcast(room);
@@ -44004,7 +44018,7 @@ function wwPvpLobbyDetach(room, player, reason) {
   room.players.splice(room.players.indexOf(player), 1);
   // En el lobby los asientos se compactan; en partida se respetan (los remotos ya
   // estan dibujados en cada cliente con su numero).
-  if (!started) room.players.forEach((p, i) => { p.seat = i; });
+  if (!started) room.players.forEach((p, i) => { wwPvpSetSeat(p, i); });
 
   if (wasHost) {
     const next = room.players.find(wwPvpIsHuman);
@@ -44015,7 +44029,7 @@ function wwPvpLobbyDetach(room, player, reason) {
   const botsAlive = room.players.filter((p) => p.bot);
   if (wasHost && botsAlive.length > 0) {
     room.players = room.players.filter((p) => !p.bot);
-    if (!started) room.players.forEach((p, i) => { p.seat = i; });
+    if (!started) room.players.forEach((p, i) => { wwPvpSetSeat(p, i); });
     if (started) {
       wwPvpBroadcast(room, { t: 'bots_left', seats: botsAlive.map((b) => b.seat), reason: String(reason || 'disconnect') });
     }
@@ -44202,7 +44216,7 @@ function wwPvpDetach(ws, reason) {
 
     room.players.splice(idx, 1);
     // re-seat
-    room.players.forEach((p, i) => { p.seat = i; });
+    room.players.forEach((p, i) => { wwPvpSetSeat(p, i); });
     room.scores = new Array(room.players.length).fill(0);
     room.kills = new Array(room.players.length).fill(0);
     room.lastHit = {};
@@ -44246,7 +44260,7 @@ function wwPvpOnMessage(ws, msg) {
       }
       if (!room) room = wwPvpNewRoom(wantRoom);
       if (room.players.length >= WW_PVP_MAX_PLAYERS) { wwPvpSend(me, { t: 'error', msg: 'La sala esta llena' }); ws.wwPlayer = null; return; }
-      me.seat = room.players.length;
+      wwPvpSetSeat(me, room.players.length);
       room.players.push(me);
       me.ws.wwRoom = room;
       ws.wwRoom = room;
@@ -44265,9 +44279,9 @@ function wwPvpOnMessage(ws, msg) {
       return;
     }
     // quick match: create room with both
-    me.seat = 1;
+    wwPvpSetSeat(me, 1);
     const room = wwPvpNewRoom('Q' + String(wwPvpSeq++).padStart(4, '0'));
-    rival.seat = 0; rival.ws.wwRoom = room; room.players.push(rival);
+    wwPvpSetSeat(rival, 0); rival.ws.wwRoom = room; room.players.push(rival);
     me.ws.wwRoom = room; room.players.push(me);
     wwPvpPair(room);
     return;
@@ -44328,7 +44342,10 @@ function wwPvpOnMessage(ws, msg) {
       }
       // Negativo = "sin dato" (el cliente manda -1 en lo que no cambio).
       if (typeof msg.color === 'number' && msg.color >= 0) me.color = Math.max(0, Math.min(7, msg.color | 0));
-      if (typeof msg.team === 'number' && msg.team >= 0) me.team = Math.max(0, Math.min(3, msg.team | 0));
+      if (typeof msg.team === 'number' && msg.team >= 0) {
+        me.team = Math.max(0, Math.min(3, msg.team | 0));
+        me.teamChosen = true;
+      }
       if (typeof msg.control === 'number' && msg.control >= 0) me.control = Math.max(0, Math.min(4, msg.control | 0));
       wwPvpLobbyBroadcast(room);
       break;
@@ -44362,7 +44379,7 @@ function wwPvpOnMessage(ws, msg) {
         room.players.push(bot);
         bots.push(bot);
       }
-      room.players.forEach((p, i) => { p.seat = i; });
+      room.players.forEach((p, i) => { wwPvpSetSeat(p, i); });
       wwPvpLobbyDrain(room);
       wwPvpLobbyBroadcast(room);
       wwPvpTryStart(room);

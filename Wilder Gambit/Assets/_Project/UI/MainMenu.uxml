@@ -1,0 +1,1702 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Style src="MainMenu.uss" />
+    <ui:Style src="CandyMode.uss" />
+    <ui:Style src="WgTheme.uss" />
+    <ui:VisualElement name="root-container" class="root-container">
+        <!-- Vignette cinematográfico (textura radial generada por MainMenuController) -->
+        <ui:VisualElement name="menu-vignette" class="menu-vignette" picking-mode="Ignore" />
+
+        <!-- Partículas de fondo: polvo dorado + brasas de fuego que ascienden -->
+        <ui:VisualElement name="main-menu-particles" class="main-menu-particles" picking-mode="Ignore" />
+
+        <!-- Toast de Gambits: aviso flotante al cobrar cualquier recompensa -->
+        <ui:VisualElement name="gambit-toast" class="gambit-toast hidden" picking-mode="Ignore">
+            <ui:VisualElement class="gambit-toast-icon-wrap">
+                <ui:VisualElement class="gambit-toast-icon gambits-icon" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="gambit-toast-texts">
+                <ui:Label name="gambit-toast-text" text="+0 Gambits" class="gambit-toast-text" />
+                <ui:Label name="gambit-toast-sub" text="" class="gambit-toast-sub" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 1: MAIN MENU                                   -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="main-menu-view" class="view-panel menu-main">
+            <!-- ═══ ETAPA: cabecera + cuerpo. Todo el menú vive aquí y se centra
+                 como un bloque único (antes el título, la botonera y las tarjetas
+                 de pase vivían sueltos y no compartían ninguna guía). ═══ -->
+            <ui:VisualElement class="menu-stage">
+                <ui:VisualElement class="header-section">
+                    <!-- Piezas de ajedrez decorativas de fondo -->
+                    <ui:VisualElement class="header-pieces-bg">
+                        <ui:VisualElement class="bg-piece bg-piece-rook-left" />
+                        <ui:VisualElement class="bg-piece bg-piece-knight-left" />
+                        <ui:VisualElement class="bg-piece bg-piece-king" />
+                        <ui:VisualElement class="bg-piece bg-piece-queen" />
+                        <ui:VisualElement class="bg-piece bg-piece-knight-right" />
+                        <ui:VisualElement class="bg-piece bg-piece-rook-right" />
+                    </ui:VisualElement>
+
+                    <!-- Corona decorativa superior -->
+                    <ui:Label text="♛" class="title-crown" />
+
+                    <ui:VisualElement class="title-wrap">
+                        <ui:Label text="WILDER GAMBIT" class="main-title title-glow" picking-mode="Ignore" />
+                        <ui:Label text="WILDER GAMBIT" class="main-title" picking-mode="Ignore" />
+                    </ui:VisualElement>
+
+                    <!-- Separador dorado decorativo -->
+                    <ui:VisualElement class="title-separator">
+                        <ui:VisualElement class="separator-line-left" />
+                        <ui:VisualElement class="separator-diamond" />
+                        <ui:VisualElement class="separator-line-right" />
+                    </ui:VisualElement>
+
+                    <ui:Label text="EL DESAFÍO TÁCTICO" class="main-subtitle" />
+                </ui:VisualElement>
+
+                <!-- ═══ CUERPO EN TRES COLUMNAS ═══
+                     Columna izquierda: los pases (promos del Atelier).
+                     Columna central: las acciones del juego.
+                     Columna derecha: la colección y el saldo.
+                     Las tres comparten la misma altura y la misma guía vertical. -->
+                <ui:VisualElement class="menu-columns">
+
+                    <!-- ── COLUMNA IZQUIERDA: PASES ── -->
+                    <ui:VisualElement class="menu-rail menu-rail-left">
+                        <!-- PASE DE TEMPORADA: banner + rótulo, todo el marco es clicable -->
+                        <ui:VisualElement name="seasonpass-entry" class="menu-seasonpass-entry">
+                            <ui:VisualElement name="seasonpass-banner" class="menu-seasonpass-banner" picking-mode="Ignore" />
+                            <ui:VisualElement name="seasonpass-label" class="menu-seasonpass-label" picking-mode="Ignore" />
+                        </ui:VisualElement>
+
+                        <!-- PASE DE HALLOWEEN: misma tarjeta, apilada DEBAJO. El cintillo
+                             «PRÓXIMAMENTE» va superpuesto al banner y cambia de estado
+                             en vivo: cuenta atrás antes del 20/10, «¡ACTIVO!» durante la
+                             velada y «TERMINADO» después. -->
+                        <ui:VisualElement name="halloweenpass-entry" class="menu-halloweenpass-entry">
+                            <ui:VisualElement name="halloweenpass-banner" class="menu-halloweenpass-banner" picking-mode="Ignore">
+                                <ui:Label name="halloweenpass-soon" text="PRÓXIMAMENTE" class="menu-halloweenpass-soon" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="halloweenpass-label" class="menu-halloweenpass-label" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── COLUMNA CENTRAL: ACCIONES ── -->
+                    <ui:VisualElement class="menu-actions">
+                        <!-- JUGAR: Knight sprites decorativos -->
+                        <ui:Button name="btn-play" class="menu-button btn-primary">
+                            <ui:VisualElement class="btn-shine" picking-mode="Ignore" />
+                            <ui:Image class="btn-deco btn-deco-knight-mirror" />
+                            <ui:Label text="JUGAR" class="btn-label" />
+                            <ui:Image class="btn-deco btn-deco-knight" />
+                        </ui:Button>
+
+                        <!-- TUS PIEZAS: King sprites decorativos -->
+                        <ui:Button name="btn-your-pieces" class="menu-button btn-pieces">
+                            <ui:Image class="btn-deco btn-deco-king" />
+                            <ui:Label text="TUS PIEZAS" class="btn-label" />
+                            <ui:Image class="btn-deco btn-deco-king" />
+                        </ui:Button>
+
+                        <!-- Fila de atajos: Cacería temporal + Tienda + Ajustes -->
+                        <ui:VisualElement class="menu-action-row">
+                            <ui:Button name="btn-candy-mode" class="menu-tile btn-candy">
+                                <ui:VisualElement class="btn-candy-texts" picking-mode="Ignore">
+                                    <ui:Label text="CACERÍA" class="btn-label-sm" picking-mode="Ignore" />
+                                    <ui:Label text="DE DULCES" class="btn-candy-sub" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                            </ui:Button>
+                            <ui:Button name="btn-shop" class="menu-tile btn-shop">
+                                <ui:Image class="btn-deco-sm btn-deco-rook" />
+                                <ui:Label text="TIENDA" class="btn-label-sm" />
+                            </ui:Button>
+                            <ui:Button name="btn-settings" class="menu-tile btn-secondary">
+                                <ui:Image class="btn-deco-sm btn-deco-bishop" />
+                                <ui:Label text="AJUSTES" class="btn-label-sm" />
+                            </ui:Button>
+                        </ui:VisualElement>
+
+                        <!-- Fila de estado: Progreso + salida -->
+                        <ui:VisualElement class="menu-action-row">
+                            <!-- PROGRESO: misiones diarias, barra semanal y logros -->
+                            <ui:Button name="btn-progress" class="menu-tile btn-progress">
+                                <ui:VisualElement class="btn-progress-icon gambits-icon" picking-mode="Ignore" />
+                                <ui:Label text="PROGRESO" class="btn-progress-label" picking-mode="Ignore" />
+                                <ui:Label name="btn-progress-badge" text="✓" class="btn-progress-badge hidden" picking-mode="Ignore" />
+                            </ui:Button>
+
+                            <!-- SALIR: Pawn sprite (humilde, se retira) -->
+                            <ui:Button name="btn-quit" class="menu-tile btn-danger">
+                                <ui:Image class="btn-deco-sm btn-deco-pawn" />
+                                <ui:Label text="SALIR" class="btn-label-sm" />
+                            </ui:Button>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── COLUMNA DERECHA: COLECCIÓN Y SALDO ── -->
+                    <ui:VisualElement class="menu-rail menu-rail-right">
+                        <!-- INVENTARIO: vitrina de la colección (el único sitio donde
+                             se equipa). Antes era un rail vertical pegado a la
+                             botonera; ahora es una tarjeta de la columna derecha. -->
+                        <ui:VisualElement name="menu-inventory-rail" class="menu-inventory-rail">
+                            <ui:Button name="btn-inventory" class="btn-inventory">
+                                <ui:VisualElement class="btn-inventory-halo" picking-mode="Ignore" />
+                                <ui:VisualElement class="btn-inventory-art-wrap" picking-mode="Ignore">
+                                    <ui:Label name="btn-inventory-art-fallback" text="🎒" class="btn-inventory-art-fallback" picking-mode="Ignore" />
+                                    <ui:Image name="btn-inventory-art" class="btn-inventory-art" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="btn-inventory-rule" picking-mode="Ignore" />
+                                <ui:VisualElement class="btn-inventory-label-wrap" picking-mode="Ignore">
+                                    <ui:Label text="INVENTARIO" class="btn-inventory-label" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                                <ui:Label name="btn-inventory-count" text="0" class="btn-inventory-count hidden" picking-mode="Ignore" />
+                            </ui:Button>
+                        </ui:VisualElement>
+
+                        <!-- SALDO: la divisa del juego, visible de un vistazo -->
+                        <ui:VisualElement class="menu-wallet">
+                            <ui:VisualElement class="menu-wallet-icon gambits-icon" picking-mode="Ignore" />
+                            <ui:VisualElement class="menu-wallet-texts" picking-mode="Ignore">
+                                <ui:Label name="menu-gambits-value" text="0 Gambits" class="menu-wallet-value" />
+                                <ui:Label text="SALDO" class="menu-wallet-label" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 2: DIFFICULTY SELECTOR (5 REWORKED CARDS)      -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="difficulty-view" class="view-panel hidden">
+            <ui:VisualElement class="difficulty-header">
+                <ui:Label text="SELECCIONA TU RIVAL" class="difficulty-title" />
+                <ui:Label text="Elige el nivel de IA contra el que deseas combatir" class="difficulty-subtitle" />
+            </ui:VisualElement>
+
+            <!-- Sugerencia Dinámica (Phase 8.2) -->
+            <ui:VisualElement name="difficulty-suggestion" class="difficulty-suggestion hidden">
+                <ui:VisualElement class="suggestion-icon-wrap">
+                    <ui:Label name="suggestion-icon" text="🔥" class="suggestion-icon" />
+                </ui:VisualElement>
+                <ui:VisualElement class="suggestion-texts">
+                    <ui:Label name="suggestion-title" text="¡Racha de 3 victorias!" class="suggestion-title" />
+                    <ui:Label name="suggestion-subtitle" text="Te recomendamos probar Maestro (ELO ~1800)" class="suggestion-subtitle" />
+                    <ui:Label name="suggestion-streak" text="¡Primera partida! • Sugerido: Maestro" class="suggestion-streak" />
+                </ui:VisualElement>
+                <ui:VisualElement class="suggestion-actions">
+                    <ui:Button name="btn-suggestion-accept" text="PROBAR →" class="btn-suggestion-accept" />
+                    <ui:Button name="btn-suggestion-dismiss" text="✕" class="btn-suggestion-dismiss" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="difficulty-cards-row">
+                
+                <!-- CARD 1: PRINCIPIANTE — Avatar Peón -->
+                <ui:VisualElement name="card-novice" class="diff-card tier-1">
+                    <ui:Label text="RECOMENDADO" class="diff-recommended-badge" picking-mode="Ignore" />
+                    <ui:VisualElement class="diff-avatar-wrap">
+                        <ui:Image class="diff-avatar-img avatar-pawn" />
+                        <ui:Label text="✓" class="diff-check" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Label text="PRINCIPIANTE" class="diff-name" />
+                    <ui:Label text="ELO ~600" class="diff-elo" />
+                    <ui:Label text="Piezas básicas y descuidos. Ideal para aprender." class="diff-desc" />
+                    <ui:Label name="lbl-record-1" text="" class="diff-record hidden" />
+                </ui:VisualElement>
+
+                <!-- CARD 2: APRENDIZ — Caballo -->
+                <ui:VisualElement name="card-apprentice" class="diff-card tier-2">
+                    <ui:Label text="RECOMENDADO" class="diff-recommended-badge" picking-mode="Ignore" />
+                    <ui:VisualElement class="diff-avatar-wrap">
+                        <ui:Image class="diff-avatar-img avatar-knight" />
+                        <ui:Label text="✓" class="diff-check" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Label text="APRENDIZ" class="diff-name" />
+                    <ui:Label text="ELO ~1000" class="diff-elo" />
+                    <ui:Label text="Conoce el valor de las piezas y el enroque." class="diff-desc" />
+                    <ui:Label name="lbl-record-2" text="" class="diff-record hidden" />
+                </ui:VisualElement>
+
+                <!-- CARD 3: CABALLERO — Alfil -->
+                <ui:VisualElement name="card-knight" class="diff-card tier-3">
+                    <ui:Label text="RECOMENDADO" class="diff-recommended-badge" picking-mode="Ignore" />
+                    <ui:VisualElement class="diff-avatar-wrap">
+                        <ui:Image class="diff-avatar-img avatar-bishop" />
+                        <ui:Label text="✓" class="diff-check" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Label text="CABALLERO" class="diff-name" />
+                    <ui:Label text="ELO ~1400" class="diff-elo" />
+                    <ui:Label text="Aperturas agresivas y presión táctica constante." class="diff-desc" />
+                    <ui:Label name="lbl-record-3" text="" class="diff-record hidden" />
+                </ui:VisualElement>
+
+                <!-- CARD 4: MAESTRO — Reina -->
+                <ui:VisualElement name="card-master" class="diff-card tier-4">
+                    <ui:Label text="RECOMENDADO" class="diff-recommended-badge" picking-mode="Ignore" />
+                    <ui:VisualElement class="diff-avatar-wrap">
+                        <ui:Image class="diff-avatar-img avatar-queen" />
+                        <ui:Label text="✓" class="diff-check" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Label text="MAESTRO" class="diff-name" />
+                    <ui:Label text="ELO ~1800" class="diff-elo" />
+                    <ui:Label text="Cálculo posicional y ataque implacable." class="diff-desc" />
+                    <ui:Label name="lbl-record-4" text="" class="diff-record hidden" />
+                </ui:VisualElement>
+
+                <!-- CARD 5: GRAN MAESTRO — Rey -->
+                <ui:VisualElement name="card-grandmaster" class="diff-card tier-5">
+                    <ui:Label text="RECOMENDADO" class="diff-recommended-badge" picking-mode="Ignore" />
+                    <ui:VisualElement class="diff-avatar-wrap">
+                        <ui:Image class="diff-avatar-img avatar-king" />
+                        <ui:Label text="✓" class="diff-check" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Label text="GRAN MAESTRO" class="diff-name" />
+                    <ui:Label text="ELO ~2200" class="diff-elo" />
+                    <ui:Label text="Sin descuidos: sacrificios y mates precisos." class="diff-desc" />
+                    <ui:Label name="lbl-record-5" text="" class="diff-record hidden" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+
+            <ui:VisualElement class="section-divider" />
+
+            <!-- Time Control — 4 cards (2+2), hover con info y selección visible -->
+            <ui:VisualElement class="time-control-section">
+                <ui:Label text="CONTROL DE TIEMPO" class="time-control-title" />
+                <ui:VisualElement class="time-cards-row">
+                    <ui:VisualElement class="time-mode-hint">
+                        <ui:VisualElement class="time-hint-stem" picking-mode="Ignore" />
+                        <ui:VisualElement class="time-hint-row">
+                            <ui:VisualElement class="time-hint-arrow-wrap time-hint-wrap-left" picking-mode="Ignore">
+                                <ui:Label text="◀" class="time-hint-head" picking-mode="Ignore" />
+                                <ui:VisualElement class="time-hint-bar" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:Label text="▼" class="time-hint-down" picking-mode="Ignore" />
+                            <ui:Label text="SELECCIONA UN MODO" class="time-hint-label" picking-mode="Ignore" />
+                            <ui:Label text="▼" class="time-hint-down" picking-mode="Ignore" />
+                            <ui:VisualElement class="time-hint-arrow-wrap time-hint-wrap-right" picking-mode="Ignore">
+                                <ui:VisualElement class="time-hint-bar" picking-mode="Ignore" />
+                                <ui:Label text="▶" class="time-hint-head" picking-mode="Ignore" />                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+
+            </ui:VisualElement>
+
+
+            <!-- Drawers del control de tiempo: 2 tarjetas por esquina inferior (hijos directos de la vista) -->
+            <ui:VisualElement class="time-cards-group time-group-left">
+                <ui:Button name="btn-time-none" class="time-card time-card-left time-btn-active">
+                    <ui:VisualElement class="time-card-head">
+                        <ui:Image class="time-card-icon icon-time-none" picking-mode="Ignore" />
+                        <ui:VisualElement class="time-card-texts">
+                            <ui:Label text="Sin Límite" class="time-card-title" />
+                            <ui:Label text="Partida casual" class="time-card-sub" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="Sin reloj: aprende y experimenta a tu ritmo." class="time-card-desc" />
+                </ui:Button>
+                <ui:Button name="btn-time-bullet" class="time-card time-card-left time-card-dimmed">
+                    <ui:VisualElement class="time-card-head">
+                        <ui:Image class="time-card-icon icon-time-bullet" picking-mode="Ignore" />
+                        <ui:VisualElement class="time-card-texts">
+                            <ui:Label text="BULLET" class="time-card-title" />
+                            <ui:Label text="1 min" class="time-card-sub" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="Un minuto de pura supervivencia y reflejos." class="time-card-desc" />
+                </ui:Button>
+            </ui:VisualElement>
+            <ui:VisualElement class="time-cards-group time-group-right">
+                <ui:Button name="btn-time-blitz" class="time-card time-card-right time-card-dimmed">
+                    <ui:VisualElement class="time-card-head">
+                        <ui:Image class="time-card-icon icon-time-blitz" picking-mode="Ignore" />
+                        <ui:VisualElement class="time-card-texts">
+                            <ui:Label text="BLITZ" class="time-card-title" />
+                            <ui:Label text="3 + 2" class="time-card-sub" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="3 minutos con incremento de 2s. Ritmo tenso." class="time-card-desc" />
+                </ui:Button>
+                <ui:Button name="btn-time-rapid" class="time-card time-card-right time-card-dimmed">
+                    <ui:VisualElement class="time-card-head">
+                        <ui:Image class="time-card-icon icon-time-rapid" picking-mode="Ignore" />
+                        <ui:VisualElement class="time-card-texts">
+                            <ui:Label text="RAPID" class="time-card-title" />
+                            <ui:Label text="10 min" class="time-card-sub" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="10 minutos para pensar con calma." class="time-card-desc" />
+                </ui:Button>
+            </ui:VisualElement>
+
+            <!-- CTA Único -->
+            <ui:Button name="btn-start-game" text="SELECCIONA UN RIVAL" class="cta-start cta-disabled" />
+            <ui:Label name="cta-hint" text="" class="cta-hint" picking-mode="Ignore" />
+
+            <ui:VisualElement class="bottom-bar">
+                <ui:Button name="btn-back-to-main" text="←  VOLVER AL MENÚ" class="btn-back" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 3: SETTINGS MODAL                              -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="settings-modal-view" class="modal-backdrop hidden">
+            <ui:VisualElement class="modal-dialog settings-modal-dialog">
+                <ui:Label text="⚙️  AJUSTES DEL JUEGO" class="modal-title" />
+
+                <!-- SECCIÓN: GENERAL -->
+                <ui:Label text="GENERAL" class="settings-section-title" />
+
+                <ui:VisualElement class="setting-card">
+                    <!-- Cinemáticas de Ataque -->
+                    <ui:VisualElement class="setting-item-row">
+                        <ui:VisualElement class="setting-text-col">
+                            <ui:Label text="Cinemáticas de Ataque" class="setting-label" />
+                            <ui:Label text="Reproduce videos de ataques y capturas especiales." class="setting-desc" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-toggle-cinematics" text="ACTIVADO" class="btn-toggle active" />
+                    </ui:VisualElement>
+
+                    <!-- Música del Juego (Master Toggle) -->
+                    <ui:VisualElement class="setting-item-row" style="border-top-width: 1px; border-top-color: rgba(148, 163, 184, 0.14); padding-top: 15px;">
+                        <ui:VisualElement class="setting-text-col">
+                            <ui:Label text="Música del Juego" class="setting-label" />
+                            <ui:Label text="Activa o silencia toda la música ambiental y de combate." class="setting-desc" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-toggle-music" text="ACTIVADO" class="btn-toggle active" />
+                    </ui:VisualElement>
+
+                    <!-- Pantalla completa -->
+                    <ui:VisualElement class="setting-item-row" style="border-top-width: 1px; border-top-color: rgba(148, 163, 184, 0.14); padding-top: 15px;">
+                        <ui:VisualElement class="setting-text-col">
+                            <ui:Label text="Pantalla Completa" class="setting-label" />
+                            <ui:Label text="Juego sin bordes a la resolución del monitor. F11 o Alt+Enter para alternar." class="setting-desc" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-toggle-fullscreen" text="ACTIVADO" class="btn-toggle active" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- SECCIÓN: PREFERENCIAS DE MÚSICA -->
+                <ui:Label text="PREFERENCIAS DE MÚSICA" class="settings-section-title" style="margin-top: 14px;" />
+
+                <ui:VisualElement class="setting-card">
+                    <!-- Música del Menú Principal -->
+                    <ui:VisualElement class="setting-item-row">
+                        <ui:VisualElement class="setting-text-col">
+                            <ui:Label text="Música del Menú" class="setting-label" />
+                            <ui:Label text="Pista ambiental para el menú y tienda." class="setting-desc" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="music-picker-control">
+                            <ui:Button name="btn-menu-music-prev" text="◀" class="btn-picker-arrow" />
+                            <ui:Button name="btn-menu-music-open" text="🔍 Sovereign Gambit ▾" class="btn-picker-dropdown" />
+                            <ui:Button name="btn-menu-music-next" text="▶" class="btn-picker-arrow" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- Música de Partida -->
+                    <ui:VisualElement class="setting-item-row" style="border-top-width: 1px; border-top-color: rgba(148, 163, 184, 0.14); padding-top: 15px;">
+                        <ui:VisualElement class="setting-text-col">
+                            <ui:Label text="Música en Partida" class="setting-label" />
+                            <ui:Label text="Tema durante el combate de ajedrez." class="setting-desc" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="music-picker-control">
+                            <ui:Button name="btn-battle-music-prev" text="◀" class="btn-picker-arrow" />
+                            <ui:Button name="btn-battle-music-open" text="🔍 Alternar pistas ▾" class="btn-picker-dropdown" />
+                            <ui:Button name="btn-battle-music-next" text="▶" class="btn-picker-arrow" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:Button name="btn-close-settings" text="CERRAR" class="btn-modal-close" style="margin-top: 18px;" />
+            </ui:VisualElement>
+
+            <!-- ── MODAL FLOTANTE DE BÚSQUEDA Y SELECCIÓN DE PISTAS ── -->
+            <ui:VisualElement name="music-search-popup" class="music-search-popup hidden">
+                <ui:VisualElement class="music-search-dialog">
+                    <ui:Label name="lbl-music-search-title" text="🎵  SELECCIONAR PISTA" class="music-search-title" />
+                    <ui:Label name="lbl-music-search-subtitle" text="Busca y elige una pista musical para reproducir." class="music-search-subtitle" />
+
+                    <ui:TextField name="input-music-search" placeholder-text="🔍  Escribe para buscar..." class="music-search-input" />
+
+                    <ui:ScrollView name="scroll-music-tracks" class="music-tracks-scroll" mode="Vertical">
+                        <!-- Las opciones se generan dinámicamente aquí -->
+                    </ui:ScrollView>
+
+                    <ui:Button name="btn-close-music-search" text="VOLVER" class="btn-close-music-search" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 4: SHOP VIEW — ATELIER NOIR / VAULT EDITION   -->
+        <!-- Rework total: layout split rail + stage             -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="shop-modal-view" class="shop2-root hidden">
+            <ui:VisualElement class="shop2-backdrop">
+                <ui:VisualElement class="shop2-window">
+
+                    <!-- ── TOPBAR SUPERIOR ── -->
+                    <ui:VisualElement class="shop2-topbar">
+                        <ui:VisualElement class="shop2-rail-header">
+                            <ui:Button name="btn-close-shop" text="←  VOLVER" class="shop2-back-btn" />
+                            <ui:VisualElement class="shop2-brand">
+                                <ui:Label text="ATELIER" class="shop2-brand-kicker" />
+                                <ui:Label text="COLECCIÓN" class="shop2-brand-title" />
+                                <ui:VisualElement class="shop2-brand-line" />
+                                <ui:Label text="Tableros artesanales para tu tablero de combate." class="shop2-brand-subtitle" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <!-- Tabs movidos a la barra scrolleable inferior al topbar -->
+
+                        <ui:VisualElement class="shop2-rail-vault">
+                            <ui:VisualElement class="shop2-vault-head">
+                                <ui:Label text="BÓVEDA" class="shop2-vault-eyebrow" />
+                                <ui:Label text="Saldo Ocean Pay" class="shop2-vault-sub" />
+                            </ui:VisualElement>
+                            <!-- BÓVEDA V2: rework robusto anti-descentrado (nombres intactos para C#) -->
+                            <ui:VisualElement name="shop-wallet" class="shop2-balance-card">
+                                <ui:VisualElement name="shop-slot-tides" class="shop2-balance-slot">
+                                    <ui:VisualElement class="shop2-balance-icon shop2-balance-icon--tides">
+                                        <ui:Label text="💧" class="shop2-balance-glyph" picking-mode="Ignore" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-balance-texts">
+                                        <ui:Label name="shop-tides-label" text="61,18K" class="shop2-balance-amount shop2-balance-amount--tides" />
+                                        <ui:Label text="TIDES" class="shop2-balance-caption" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+
+                                <ui:VisualElement class="shop2-balance-divider" picking-mode="Ignore" />
+
+                                <ui:VisualElement name="shop-slot-gambits" class="shop2-balance-slot">
+                                    <ui:VisualElement class="shop2-balance-icon shop2-balance-icon--gambits">
+                                        <ui:VisualElement class="shop2-balance-glyph gambits-icon" picking-mode="Ignore" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-balance-texts">
+                                        <ui:Label name="shop-gambits-label" text="0" class="shop2-balance-amount shop2-balance-amount--gambits" />
+                                        <ui:Label text="GAMBITS" class="shop2-balance-caption" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+
+                            <!-- PERFIL V2: misma lógica robusta -->
+                            <ui:VisualElement name="shop-header-user-area" class="shop2-profile-card hidden">
+                                <ui:VisualElement class="shop2-profile-avatar">
+                                    <ui:Label name="shop-avatar-initial" text="O" class="shop2-profile-avatar-letter" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="shop2-profile-texts">
+                                        <ui:Label name="shop-header-username" text="Invitado" class="shop2-profile-name" />
+                                    <ui:Label name="shop-username-label" text="Invitado" class="shop2-profile-handle" />
+                                </ui:VisualElement>
+                                <ui:Button name="btn-shop-logout" text="Salir" class="shop2-profile-logout" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="shop2-rail-footer">
+                            <ui:Label text="WILDER GAMBIT — ATELIER NOIR" class="shop2-rail-footer-text" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── TABS DE CATEGORÍAS (scrolleables horizontalmente) ── -->
+                    <ui:ScrollView class="shop2-tabs-bar" mode="Horizontal">
+                        <ui:VisualElement class="shop2-tabs">
+                            <ui:Button name="tab-boards" class="shop2-tab shop-tab-active shop2-nav-active">
+                                <ui:Label text="TABLEROS" class="shop2-tab-label" />
+                                <ui:Label text="10" class="shop2-tab-count" />
+                            </ui:Button>
+                            <ui:Button name="tab-animations" class="shop2-tab">
+                                <ui:Label text="ANIMACIONES" class="shop2-tab-label" />
+                                <ui:Label text="4" class="shop2-tab-count" />
+                            </ui:Button>
+                            <ui:Button name="tab-fonds" class="shop2-tab">
+                                <ui:Label text="FONDOS" class="shop2-tab-label" />
+                                <ui:Label text="10" class="shop2-tab-count" />
+                            </ui:Button>
+                            <ui:Button name="tab-variants" class="shop2-tab">
+                                <ui:Label text="VARIANTES DE PIEZAS" class="shop2-tab-label" />
+                                <ui:Label text="3" class="shop2-tab-count" />
+                            </ui:Button>
+                            <ui:Button name="tab-skins" class="shop2-tab">
+                                <ui:Label text="SKINS" class="shop2-tab-label" />
+                                <ui:Label text="15" class="shop2-tab-count" />
+                            </ui:Button>
+                        </ui:VisualElement>
+                    </ui:ScrollView>
+
+                    <!-- ── BODY: catálogo (izquierda) + panel de detalle (derecha) ── -->
+                    <ui:VisualElement class="shop2-body">
+                        <ui:VisualElement class="shop2-stage shop2-catalog">
+
+                        <!-- Suelo ambiental: degrada la zona inferior para enmascarar el espacio -->
+                        <ui:VisualElement name="shop-catalog-fade" class="shop2-catalog-fade" picking-mode="Ignore" />
+                        <ui:Label text="WILDER GAMBIT — ATELIER NOIR" class="shop2-catalog-footer" picking-mode="Ignore" />
+
+                        <!-- CONTENEDOR CONECTADO: Grid + Paginación -->
+                        <ui:VisualElement name="shop-connected-view" class="shop2-connected hidden">                                <ui:ScrollView name="shop-items-scroll" class="shop2-grid-scroll" mode="Vertical" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden">
+                                <ui:VisualElement name="shop-items-grid" class="shop2-grid">
+                                    <ui:VisualElement class="shop2-empty">
+                                        <ui:Label text="◈  COLECCIÓN VACÍA" class="shop2-empty-title" />
+                                        <ui:Label text="Los tableros artesanales aparecerán aquí." class="shop2-empty-desc" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:ScrollView>
+                            <ui:VisualElement class="shop2-pagination">
+                                <ui:Button name="btn-page-prev" text="‹" class="shop2-page-arrow" />
+                                <ui:VisualElement class="shop2-page-dots">
+                                    <ui:Button name="btn-page-1" text="1" class="shop2-page-dot page-active" />
+                                    <ui:Button name="btn-page-2" text="2" class="shop2-page-dot" />
+                                    <ui:Button name="btn-page-3" text="3" class="shop2-page-dot" />
+                                </ui:VisualElement>
+                                <ui:Button name="btn-page-next" text="›" class="shop2-page-arrow" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <!-- LOGIN OVERLAY (centrado sobre el stage) -->
+                        <ui:VisualElement name="shop-login-view" class="shop2-login hidden">
+                            <ui:VisualElement class="shop2-login-card">
+                                <ui:VisualElement class="shop2-login-icon-wrap">
+                                    <ui:Label text="◈" class="shop2-login-icon" />
+                                </ui:VisualElement>
+                                <ui:Label text="BÓVEDA PRIVADA" class="shop2-login-kicker" />
+                                <ui:Label text="Accede a tu colección" class="shop2-login-title" />
+                                <ui:Label text="Inicia sesión con Ocean Pay para desbloquear tus tableros y saldo." class="shop2-login-desc" />
+                                <ui:VisualElement class="shop2-field">
+                                    <ui:Label text="USUARIO" class="shop2-field-label" />
+                                    <ui:TextField name="shop-input-username" class="shop2-input" placeholder-text="tu usuario Ocean Pay" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="shop2-field">
+                                    <ui:Label text="CONTRASEÑA" class="shop2-field-label" />
+                                    <ui:TextField name="shop-input-password" class="shop2-input" placeholder-text="••••••••" password="true" />
+                                </ui:VisualElement>
+                                <ui:Label name="shop-error-label" text="" class="shop2-error hidden" />
+                                <ui:VisualElement class="shop2-login-actions">
+                                    <ui:Button name="btn-shop-login" text="INICIAR SESIÓN" class="shop2-btn-primary" />
+                                    <ui:Button name="btn-shop-register" text="CREAR CUENTA" class="shop2-btn-ghost" />
+                                </ui:VisualElement>
+                                <ui:Label text="Al continuar aceptas los términos de Ocean Pay • Cifrado SSL" class="shop2-login-footnote" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <!-- LOADING -->
+                        <ui:VisualElement name="shop-loading-view" class="shop2-loading hidden">
+                            <!-- Skeleton ARRIBA: cards fantasma mientras carga la sesión -->
+                            <ui:VisualElement class="shop2-skeleton-row">
+                                <ui:VisualElement class="shop2-skeleton-card"><ui:VisualElement class="shop2-skeleton-thumb" /><ui:VisualElement class="shop2-skeleton-line" /><ui:VisualElement class="shop2-skeleton-line short" /></ui:VisualElement>
+                                <ui:VisualElement class="shop2-skeleton-card"><ui:VisualElement class="shop2-skeleton-thumb" /><ui:VisualElement class="shop2-skeleton-line" /><ui:VisualElement class="shop2-skeleton-line short" /></ui:VisualElement>
+                                <ui:VisualElement class="shop2-skeleton-card"><ui:VisualElement class="shop2-skeleton-thumb" /><ui:VisualElement class="shop2-skeleton-line" /><ui:VisualElement class="shop2-skeleton-line short" /></ui:VisualElement>
+                                <ui:VisualElement class="shop2-skeleton-card"><ui:VisualElement class="shop2-skeleton-thumb" /><ui:VisualElement class="shop2-skeleton-line" /><ui:VisualElement class="shop2-skeleton-line short" /></ui:VisualElement>
+                                <ui:VisualElement class="shop2-skeleton-card"><ui:VisualElement class="shop2-skeleton-thumb" /><ui:VisualElement class="shop2-skeleton-line" /><ui:VisualElement class="shop2-skeleton-line short" /></ui:VisualElement>
+                                <ui:VisualElement class="shop2-skeleton-card"><ui:VisualElement class="shop2-skeleton-thumb" /><ui:VisualElement class="shop2-skeleton-line" /><ui:VisualElement class="shop2-skeleton-line short" /></ui:VisualElement>
+                            </ui:VisualElement>
+
+                            <!-- Estado ABAJO: mensaje + % y barra de progreso animadas en paralelo -->
+                            <ui:VisualElement class="shop2-loading-card">
+                                <ui:VisualElement class="shop2-loading-head">
+                                    <ui:Label text="◍" class="shop2-loading-icon" />
+                                    <ui:Label text="Sincronizando bóveda..." class="shop2-loading-text" />
+                                    <ui:Label text="0%" class="shop2-loading-percent" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="shop2-loading-bar">
+                                    <ui:VisualElement class="shop2-loading-bar-fill" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <!-- ── PANEL DE DETALLE (derecha del catálogo, solo con selección) ── -->
+                        <ui:VisualElement name="shop2-detail" class="shop2-detail hidden">
+                        <ui:VisualElement name="bg-preview-panel" class="shop2-hero bg-preview-panel">
+                            <ui:VisualElement class="shop2-hero-art">
+                                <ui:VisualElement class="shop2-hero-art-glow" picking-mode="Ignore" />
+                                <ui:VisualElement class="shop2-hero-art-glow-core" picking-mode="Ignore" />
+                                <ui:Image name="bg-preview-image" class="shop2-hero-image" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="shop2-hero-scrim" />
+                            <ui:VisualElement class="shop2-hero-content">
+                                <ui:Label name="shop-hero-kicker" text="VISTA PREVIA  •  EDICIÓN ARTESANAL" class="shop2-hero-kicker" />
+                                <ui:Label name="bg-preview-name" text="—" class="shop2-hero-title" />
+                                <ui:Label name="bg-preview-desc" text="Selecciona una card para ver los detalles del objeto." class="shop2-hero-desc" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="shop2-hero-badge">
+                                <ui:Label text="●  ACTIVO" class="shop2-hero-badge-label" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="shop2-detail-info">
+                            <ui:Label text="TABLERO  •  EDICIÓN ATELIER" class="shop2-detail-kicker" />
+                            <ui:VisualElement class="shop2-detail-pricerow">
+                                <ui:Label name="shop-detail-price" text="—" class="shop2-detail-price" />
+                                <ui:Label name="shop-detail-offer" text="" class="shop2-detail-offer hidden" picking-mode="Ignore" />
+                                <ui:Label name="shop-detail-stock" text="" class="shop2-detail-stock" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="shop2-detail-lorewrap">
+                                <ui:Label name="shop-detail-ability" text="PASIVA • LANZA" class="shop2-detail-ability" />
+                                <ui:Label name="shop-detail-lore" text="Cada tablero es una pieza artesanal: cambia la atmósfera de toda tu arena de combate. Al comprarlo entra en tu INVENTARIO, donde se equipa." class="shop2-detail-hint" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="shop2-detail-actions">
+                            <ui:Button name="btn-detail-action" text="EQUIPAR" class="shop2-btn-primary shop2-detail-cta" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-detail-close" text="CERRAR" class="shop2-detail-close" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 5: TUS PIEZAS / VARIANTES MODAL — DUAL PANEL (izquierda: Tus Piezas, derecha: Enciclopedia) -->
+        <ui:VisualElement name="your-pieces-modal-view" class="modal-overlay hidden">
+            <ui:VisualElement name="your-pieces-dual" class="your-pieces-dual-container">
+                <!-- Pestañas (solo móvil en vertical): alternan Tus Piezas / Enciclopedia -->
+                <ui:VisualElement class="ypm-tabs">
+                    <ui:Button name="ypm-tab-pieces" text="TUS PIEZAS" class="ypm-tab ypm-tab-active" />
+                    <ui:Button name="ypm-tab-ency" text="ENCICLOPEDIA" class="ypm-tab" />
+                </ui:VisualElement>
+                <!-- LEFT: Tus Piezas (variante + skins) -->
+                <ui:VisualElement class="your-pieces-modal-container vault-pedestal-modal left-panel">
+                    <!-- Header — pergamino dorado -->
+                    <ui:VisualElement class="your-pieces-header vault-header">
+                        <ui:VisualElement class="vault-header-icon-wrap">
+                            <ui:Label text="🪄" class="vault-header-icon" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="vault-header-texts">
+                            <ui:Label text="TUS PIEZAS &amp; VARIANTES" class="your-pieces-title vault-title" />
+                            <ui:Label text="Catálogo de tu colección: consulta, compara y compra. Para vestir tus piezas, entra en INVENTARIO." class="your-pieces-subtitle vault-subtitle" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:ScrollView name="your-pieces-scroll" class="your-pieces-content-scroll" mode="Vertical">
+                        <ui:VisualElement class="variant-section-container pedestal-section">
+                            <ui:VisualElement class="pedestal-section-header">
+                                <ui:VisualElement class="pedestal-header-line-left" />
+                                <ui:Label text="VARIANTE DE ALFIL — BISHOP" class="variant-section-title pedestal-title" />
+                                <ui:VisualElement class="pedestal-header-line-right" />
+                            </ui:VisualElement>
+
+                            <ui:VisualElement class="variant-cards-row pedestal-row">
+
+                                <!-- CARD 1: ALFIL CLÁSICO — bloque mármol -->
+                                <ui:VisualElement name="card-bishop-classic" class="piece-variant-card pedestal-card pedestal-card-classic">
+                                    <ui:VisualElement class="pedestal-ribbon ribbon-silver">
+                                        <ui:Label name="lbl-status-classic" text="DISPONIBLE" class="variant-card-badge ribbon-label" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="variant-portrait pedestal-portrait pedestal-portrait-classic">
+                                        <ui:VisualElement class="pedestal-glow glow-silver" />
+                                        <ui:VisualElement class="pedestal-stone">
+                                            <ui:VisualElement class="pedestal-stone-top" />
+                                            <ui:VisualElement class="pedestal-stone-front" />
+                                        </ui:VisualElement>
+                                        <ui:Image name="img-bishop-classic" class="variant-portrait-img pedestal-figure" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-left" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-right" />
+                                    </ui:VisualElement>
+                                    <ui:Label text="Alfil Clásico" class="variant-card-title pedestal-name" />
+                                    <ui:Label text="Standard Bishop" class="variant-card-role pedestal-role" />
+                                    <ui:VisualElement class="variant-card-divider pedestal-divider" />
+                                    <ui:Label text="• Movimiento diagonal sin límite.&#10;• Sin habilidades mágicas." class="variant-card-desc pedestal-desc" />
+                                    <ui:Button name="btn-equip-classic" text="✓ EN EL INVENTARIO" class="btn-variant-action pedestal-btn pedestal-btn-silver" />
+                                </ui:VisualElement>
+
+                                <!-- CARD 2: ALFIL NIGROMANTE — bloque obsidiana + esmeralda -->
+                                <ui:VisualElement name="card-bishop-necro" class="piece-variant-card pedestal-card pedestal-card-necro">
+                                    <ui:VisualElement class="pedestal-ribbon ribbon-emerald">
+                                        <ui:Label name="lbl-status-necro" text="ACTIVO EN PARTIDA" class="variant-card-badge ribbon-label ribbon-label-emerald" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="variant-portrait pedestal-portrait pedestal-portrait-necro">
+                                        <ui:VisualElement class="pedestal-glow glow-emerald" />
+                                        <ui:VisualElement class="pedestal-stone stone-necro">
+                                            <ui:VisualElement class="pedestal-stone-top top-necro" />
+                                            <ui:VisualElement class="pedestal-stone-front front-necro" />
+                                        </ui:VisualElement>
+                                        <ui:Image name="img-bishop-necro" class="variant-portrait-img pedestal-figure" />
+                                        <ui:Label text="ᛝ" class="pedestal-rune rune-left rune-emerald" />
+                                        <ui:Label text="ᛝ" class="pedestal-rune rune-right rune-emerald" />
+                                    </ui:VisualElement>
+                                    <ui:Label text="Alfil Nigromante" class="variant-card-title pedestal-name text-emerald" />
+                                    <ui:Label text="Necromancer Bishop" class="variant-card-role pedestal-role" />
+                                    <ui:VisualElement class="variant-card-divider pedestal-divider" />
+                                    <ui:Label text="• Cosecha de Almas: 0.35 por pieza aliada caída. Espectrales no cuentan.&#10;• Alzamiento Menor: 4 almas → Peón Espectral a 1-2 casillas en tu territorio, no atacada. Consume turno." class="variant-card-desc pedestal-desc" />
+                                    <ui:Button name="btn-equip-necro" text="✓ EN USO" class="btn-variant-action pedestal-btn pedestal-btn-emerald" />
+                                </ui:VisualElement>
+
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="variant-section-container pedestal-section">
+                            <ui:VisualElement class="pedestal-section-header">
+                                <ui:VisualElement class="pedestal-header-line-left" />
+                                <ui:Label text="VARIANTE DE PEÓN — PAWN" class="variant-section-title pedestal-title" />
+                                <ui:VisualElement class="pedestal-header-line-right" />
+                            </ui:VisualElement>
+
+                            <ui:VisualElement class="variant-cards-row pedestal-row">
+
+                                <!-- CARD 1: PEÓN CLÁSICO — bloque mármol -->
+                                <ui:VisualElement name="card-pawn-classic" class="piece-variant-card pedestal-card pedestal-card-classic">
+                                    <ui:VisualElement class="pedestal-ribbon ribbon-silver">
+                                        <ui:Label name="lbl-status-pawn-classic" text="DISPONIBLE" class="variant-card-badge ribbon-label" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="variant-portrait pedestal-portrait pedestal-portrait-classic">
+                                        <ui:VisualElement class="pedestal-glow glow-silver" />
+                                        <ui:VisualElement class="pedestal-stone">
+                                            <ui:VisualElement class="pedestal-stone-top" />
+                                            <ui:VisualElement class="pedestal-stone-front" />
+                                        </ui:VisualElement>
+                                        <ui:Image name="img-pawn-classic" class="variant-portrait-img pedestal-figure" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-left" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-right" />
+                                    </ui:VisualElement>
+                                    <ui:Label text="Peón Clásico" class="variant-card-title pedestal-name" />
+                                    <ui:Label text="Standard Pawn" class="variant-card-role pedestal-role" />
+                                    <ui:VisualElement class="variant-card-divider pedestal-divider" />
+                                    <ui:Label text="• Avance 1 casilla (2 desde la fila inicial).&#10;• Captura solo en diagonal." class="variant-card-desc pedestal-desc" />
+                                    <ui:Button name="btn-equip-pawn-classic" text="✓ EN EL INVENTARIO" class="btn-variant-action pedestal-btn pedestal-btn-silver" />
+                                </ui:VisualElement>
+
+                                <!-- CARD 2: PEÓN LANCERO — pasiva «Lanza» -->
+                                <ui:VisualElement name="card-pawn-lancer" class="piece-variant-card pedestal-card pedestal-card-classic pedestal-card-lancer">
+                                    <ui:VisualElement class="pedestal-ribbon ribbon-gold">
+                                        <ui:Label name="lbl-status-pawn-lancer" text="DISPONIBLE" class="variant-card-badge ribbon-label ribbon-label-gold" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="variant-portrait pedestal-portrait pedestal-portrait-classic">
+                                        <ui:VisualElement class="pedestal-glow glow-gold" />
+                                        <ui:VisualElement class="pedestal-stone stone-lancer">
+                                            <ui:VisualElement class="pedestal-stone-top top-lancer" />
+                                            <ui:VisualElement class="pedestal-stone-front front-lancer" />
+                                        </ui:VisualElement>
+                                        <ui:Image name="img-pawn-lancer" class="variant-portrait-img pedestal-figure" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-left rune-gold" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-right rune-gold" />
+                                    </ui:VisualElement>
+                                    <ui:Label text="Peón Lancero" class="variant-card-title pedestal-name text-gold" />
+                                    <ui:Label text="Lancer Pawn" class="variant-card-role pedestal-role" />
+                                    <ui:VisualElement class="variant-card-divider pedestal-divider" />
+                                    <ui:Label text="• Pasiva «Lanza»: captura hacia adelante.&#10;• Conserva avance simple y doble." class="variant-card-desc pedestal-desc" />
+                                    <ui:Button name="btn-equip-pawn-lancer" text="✓ EN EL INVENTARIO" class="btn-variant-action pedestal-btn pedestal-btn-gold" />
+                                </ui:VisualElement>
+
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="variant-section-container pedestal-section">
+                            <ui:VisualElement class="pedestal-section-header">
+                                <ui:VisualElement class="pedestal-header-line-left" />
+                                <ui:Label text="VARIANTE DE DAMA — QUEEN" class="variant-section-title pedestal-title" />
+                                <ui:VisualElement class="pedestal-header-line-right" />
+                            </ui:VisualElement>
+
+                            <ui:VisualElement class="variant-cards-row pedestal-row pedestal-row-three">
+
+                                <!-- CARD 1: DAMA CLÁSICA — bloque mármol -->
+                                <ui:VisualElement name="card-queen-classic" class="piece-variant-card pedestal-card pedestal-card-classic">
+                                    <ui:VisualElement class="pedestal-ribbon ribbon-silver">
+                                        <ui:Label name="lbl-status-queen-classic" text="DISPONIBLE" class="variant-card-badge ribbon-label" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="variant-portrait pedestal-portrait pedestal-portrait-classic">
+                                        <ui:VisualElement class="pedestal-glow glow-silver" />
+                                        <ui:VisualElement class="pedestal-stone">
+                                            <ui:VisualElement class="pedestal-stone-top" />
+                                            <ui:VisualElement class="pedestal-stone-front" />
+                                        </ui:VisualElement>
+                                        <ui:Image name="img-queen-classic" class="variant-portrait-img pedestal-figure" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-left" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-right" />
+                                    </ui:VisualElement>
+                                    <ui:Label text="Dama Clásica" class="variant-card-title pedestal-name" />
+                                    <ui:Label text="Standard Queen" class="variant-card-role pedestal-role" />
+                                    <ui:VisualElement class="variant-card-divider pedestal-divider" />
+                                    <ui:Label text="• Rectas y diagonales sin límite.&#10;• Sin habilidades mágicas." class="variant-card-desc pedestal-desc" />
+                                    <ui:Button name="btn-equip-queen-classic" text="✓ EN EL INVENTARIO" class="btn-variant-action pedestal-btn pedestal-btn-silver" />
+                                </ui:VisualElement>
+
+                                <!-- CARD 2: DAMA JINETE — pasiva «Cabalgada» -->
+                                <ui:VisualElement name="card-queen-rider" class="piece-variant-card pedestal-card pedestal-card-classic pedestal-card-lancer">
+                                    <ui:VisualElement class="pedestal-ribbon ribbon-gold">
+                                        <ui:Label name="lbl-status-queen-rider" text="DISPONIBLE" class="variant-card-badge ribbon-label ribbon-label-gold" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="variant-portrait pedestal-portrait pedestal-portrait-classic">
+                                        <ui:VisualElement class="pedestal-glow glow-gold" />
+                                        <ui:VisualElement class="pedestal-stone stone-lancer">
+                                            <ui:VisualElement class="pedestal-stone-top top-lancer" />
+                                            <ui:VisualElement class="pedestal-stone-front front-lancer" />
+                                        </ui:VisualElement>
+                                        <ui:Image name="img-queen-rider" class="variant-portrait-img pedestal-figure" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-left rune-gold" />
+                                        <ui:Label text="ᚱ" class="pedestal-rune rune-right rune-gold" />
+                                    </ui:VisualElement>
+                                    <ui:Label text="Dama Jinete" class="variant-card-title pedestal-name text-gold" />
+                                    <ui:Label text="Rider Queen" class="variant-card-role pedestal-role" />
+                                    <ui:VisualElement class="variant-card-divider pedestal-divider" />
+                                    <ui:Label text="• Pasiva «Cabalgada»: salta como Caballo 1×/partida.&#10;• Por lo demás, Dama clásica." class="variant-card-desc pedestal-desc" />
+                                    <ui:Button name="btn-equip-queen-rider" text="✓ EN EL INVENTARIO" class="btn-variant-action pedestal-btn pedestal-btn-gold" />
+                                </ui:VisualElement>
+
+                                <!-- CARD 3: REINA VAMPIRA — pasiva «No Muerta» -->
+                                <ui:VisualElement name="card-queen-vampire" class="piece-variant-card pedestal-card pedestal-card-classic pedestal-card-vampire">
+                                    <ui:VisualElement class="pedestal-ribbon ribbon-blood">
+                                        <ui:Label name="lbl-status-queen-vampire" text="DISPONIBLE" class="variant-card-badge ribbon-label ribbon-label-blood" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="variant-portrait pedestal-portrait pedestal-portrait-classic">
+                                        <ui:VisualElement class="pedestal-glow glow-blood" />
+                                        <ui:VisualElement class="pedestal-stone stone-vampire">
+                                            <ui:VisualElement class="pedestal-stone-top top-vampire" />
+                                            <ui:VisualElement class="pedestal-stone-front front-vampire" />
+                                        </ui:VisualElement>
+                                        <ui:Image name="img-queen-vampire" class="variant-portrait-img pedestal-figure" />
+                                        <ui:Label text="ᛉ" class="pedestal-rune rune-left rune-blood" />
+                                        <ui:Label text="ᛉ" class="pedestal-rune rune-right rune-blood" />
+                                    </ui:VisualElement>
+                                    <ui:Label text="Reina Vampira" class="variant-card-title pedestal-name text-blood" />
+                                    <ui:Label text="Vampire Queen" class="variant-card-role pedestal-role" />
+                                    <ui:VisualElement class="variant-card-divider pedestal-divider" />
+                                    <ui:Label text="• Pasiva «No Muerta»: renace 1×/partida.&#10;• Por lo demás, Dama clásica." class="variant-card-desc pedestal-desc" />
+                                    <ui:Button name="btn-equip-queen-vampire" text="✓ EN EL INVENTARIO" class="btn-variant-action pedestal-btn pedestal-btn-blood" />
+                                </ui:VisualElement>
+
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:ScrollView>
+
+                    <!-- Footer — fijo abajo -->
+                    <ui:VisualElement class="your-pieces-footer">
+                        <ui:Button name="btn-close-your-pieces" text="VOLVER" class="btn-your-pieces-back vault-volver" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Divider vertical estilizado -->
+                <ui:VisualElement class="dual-divider">
+                    <ui:VisualElement class="dual-divider-cap" />
+                    <ui:VisualElement class="dual-divider-line" />
+                    <ui:VisualElement class="dual-divider-node">
+                        <ui:VisualElement class="dual-divider-glow" />
+                        <ui:VisualElement class="dual-divider-diamond" />
+                        <ui:Label text="◆" class="dual-divider-rune" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="dual-divider-line" />
+                    <ui:VisualElement class="dual-divider-cap" />
+                </ui:VisualElement>
+
+                <!-- RIGHT: Enciclopedia — detalle mucho más que en partida -->
+                <ui:VisualElement class="encyclopedia-side-panel">
+                    <ui:VisualElement class="encyclopedia-header vault-header">
+                        <ui:VisualElement class="vault-header-texts">
+                            <ui:Label text="ENCICLOPEDIA" class="encyclopedia-title vault-title" />
+                            <ui:Label text="Detalle completo de cada variante y pieza. Mucho más que el panel rápido de partida." class="encyclopedia-subtitle vault-subtitle" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="encyclopedia-filter-row">
+                        <ui:Button name="ency-filter-all" text="TODAS" class="ency-filter-btn ency-filter-active" />
+                        <ui:Button name="ency-filter-bishop" text="ALFIL" class="ency-filter-btn" />
+                        <ui:Button name="ency-filter-pawn" text="PEONES" class="ency-filter-btn" />
+                        <ui:Button name="ency-filter-others" text="OTRAS" class="ency-filter-btn" />
+                    </ui:VisualElement>
+                    <ui:ScrollView name="encyclopedia-scroll" class="encyclopedia-scroll" mode="Vertical">
+                        <ui:VisualElement name="encyclopedia-grid" class="encyclopedia-grid" />
+                    </ui:ScrollView>
+                    <ui:Label text="💡 En partida usa el panel derecho ⚡ HABILIDADES para activar sin buscar la pieza." class="encyclopedia-tip" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 6: PROGRESO — BARRA DEL ATELIER DE 7 DÍAS      -->
+        <!-- Misiones diarias/semanales, retos, logros y fuentes -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="progress-modal-view" class="shop2-root hidden">
+            <ui:VisualElement class="shop2-backdrop">
+                <ui:VisualElement class="shop2-window prog-window">
+
+                    <!-- ── TOPBAR ── -->
+                    <ui:VisualElement class="shop2-topbar">
+                        <ui:VisualElement class="shop2-rail-header">
+                            <ui:Button name="btn-close-progress" text="←  VOLVER" class="shop2-back-btn" />
+                            <ui:VisualElement class="shop2-brand">
+                                <ui:Label text="ATELIER" class="shop2-brand-kicker" />
+                                <ui:Label text="PROGRESO" class="shop2-brand-title" />
+                                <ui:VisualElement class="shop2-brand-line" />
+                                <ui:Label text="Todo lo que juegas se convierte en Gambits. Aquí ves cuánto y de dónde." class="shop2-brand-subtitle" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="shop2-rail-vault">
+                            <ui:VisualElement class="shop2-vault-head">
+                                <ui:Label text="BÓVEDA" class="shop2-vault-eyebrow" />
+                                <ui:Label text="Gambits disponibles" class="shop2-vault-sub" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="shop2-vault-chips">
+                                <ui:VisualElement name="prog-chip-gambits" class="shop2-chip chip-gambits">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-gambit">
+                                        <ui:VisualElement class="shop2-chip-icon gambits-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="prog-gambits-label" text="0" class="shop2-chip-amount" />
+                                        <ui:Label text="GAMBITS" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                                <ui:VisualElement name="prog-chip-rhythm" class="shop2-chip chip-rhythm">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-rhythm">
+                                        <ui:Label text="◷" class="shop2-chip-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="prog-rhythm-label" text="Hoy: 0" class="shop2-chip-amount" />
+                                        <ui:Label name="prog-rhythm-sub" text="RITMO DEL DÍA" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── CUERPO ── -->
+                    <ui:ScrollView name="progress-scroll" class="prog-scroll" mode="Vertical" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden">
+                        <ui:VisualElement class="prog-content">
+
+                            <!-- BARRA DEL ATELIER: 7 días -->
+                            <ui:VisualElement name="prog-card-week" class="prog-card prog-week-card">
+                                <ui:VisualElement class="prog-card-head">
+                                    <ui:Label text="BARRA DEL ATELIER" class="prog-kicker" />
+                                    <ui:Label text="SEMANA PERFECTA" class="prog-title" />
+                                    <ui:Label name="prog-week-subtitle" text="Completa las 3 misiones de cada día para cobrar su recompensa. Los 7 días abren el cofre." class="prog-sub" />
+                                </ui:VisualElement>
+
+                                <ui:VisualElement name="prog-week-bar" class="prog-week-bar" />
+
+                                <ui:VisualElement class="prog-week-foot">
+                                    <ui:Label name="prog-week-status" text="0 / 7 días perfectos · faltan 7 para abrir el cofre" class="prog-week-status" />
+                                    <ui:Label name="prog-week-reset" text="Se reinicia en 7 d" class="prog-week-reset" />
+                                </ui:VisualElement>
+
+                                <ui:VisualElement name="prog-chest" class="prog-chest">
+                                    <!-- Escenario del cofre: las 8 capas de VFX y el sprite del cofre.
+                                         Los dos contenedores están vacíos a propósito: los rellena
+                                         ChestStage.cs, y el UXML sólo fija dónde van. -->
+                                    <ui:VisualElement name="prog-chest-stage" class="prog-chest-stage">
+                                        <ui:VisualElement name="prog-chest-fx" class="prog-chest-fx" picking-mode="Ignore" />
+                                        <ui:VisualElement name="prog-chest-art" class="prog-chest-art" picking-mode="Ignore" />
+                                        <ui:VisualElement name="prog-chest-fx-front" class="prog-chest-fx" picking-mode="Ignore" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="prog-chest-texts">
+                                        <ui:Label text="COFRE DEL ATELIER" class="prog-chest-kicker" />
+                                        <ui:Label name="prog-chest-title" text="1.000 Gambits" class="prog-chest-title" />
+                                        <ui:Label name="prog-chest-sub" text="Rellena los 7 días para reclamarlo. Encadena semanas perfectas y sube +200 cada vez." class="prog-chest-sub" />
+                                    </ui:VisualElement>
+                                    <ui:Button name="btn-claim-chest" text="🔒 COBRAR COFRE" class="prog-claim prog-claim-locked" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+
+                            <!-- MISIONES -->
+                            <ui:VisualElement class="prog-columns">
+                                <ui:VisualElement name="prog-card-daily" class="prog-card prog-col">
+                                    <ui:VisualElement class="prog-card-head">
+                                        <ui:Label text="MISIONES DIARIAS" class="prog-kicker" />
+                                        <ui:Label name="prog-daily-timer" text="Se reinician en 7 h" class="prog-reset" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="prog-daily-list" class="prog-list" />
+                                    <ui:Button name="btn-reroll-daily" text="CAMBIAR UNA MISIÓN" class="prog-ghost" />
+                                </ui:VisualElement>
+
+                                <ui:VisualElement name="prog-card-weekly" class="prog-card prog-col">
+                                    <ui:VisualElement class="prog-card-head">
+                                        <ui:Label text="MISIONES SEMANALES" class="prog-kicker" />
+                                        <ui:Label name="prog-weekly-timer" text="Se reinician en 7 d" class="prog-reset" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="prog-weekly-list" class="prog-list" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+
+                            <!-- RETOS -->
+                            <ui:VisualElement name="prog-card-challenges" class="prog-card">
+                                <ui:VisualElement class="prog-card-head">
+                                    <ui:Label text="RETOS DEL DÍA" class="prog-kicker" />
+                                    <ui:Label text="Una posición diaria y 5 puzzles con premio. Después puedes seguir practicando todo lo que quieras." class="prog-sub" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="prog-challenges">
+                                    <ui:VisualElement name="prog-challenge-daily" class="prog-challenge">
+                                        <ui:VisualElement class="prog-challenge-icon-wrap">
+                                            <ui:Label text="🎯" class="prog-challenge-icon" />
+                                        </ui:VisualElement>
+                                        <ui:VisualElement class="prog-challenge-texts">
+                                            <ui:Label text="DESAFÍO DIARIO" class="prog-challenge-title" />
+                                            <ui:Label name="prog-challenge-sub" text="Premio de hoy: 50 Gambits · cada día seguido sube el premio (hasta 100)" class="prog-challenge-sub" />
+                                        </ui:VisualElement>
+                                        <ui:Button name="btn-daily-challenge" text="JUGAR DESAFÍO" class="prog-claim" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement name="prog-challenge-training" class="prog-challenge">
+                                        <ui:VisualElement class="prog-challenge-icon-wrap">
+                                            <ui:Label text="🧩" class="prog-challenge-icon" />
+                                        </ui:VisualElement>
+                                        <ui:VisualElement class="prog-challenge-texts">
+                                            <ui:Label text="ENTRENAMIENTO TÁCTICO" class="prog-challenge-title" />
+                                            <ui:Label name="prog-training-sub" text="Tu rating: 1000 · 20–60 Gambits por puzzle · mejor racha: 0" class="prog-challenge-sub" />
+                                        </ui:VisualElement>
+                                        <ui:Button name="btn-training" text="ENTRENAR 5 PUZZLES" class="prog-claim" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+
+                            <!-- LOGROS -->
+                            <ui:VisualElement name="prog-card-ach" class="prog-card">
+                                <ui:VisualElement class="prog-card-head">
+                                    <ui:Label text="LOGROS" class="prog-kicker" />
+                                    <ui:Label name="prog-ach-progress" text="0 / 0 desbloqueados" class="prog-reset" />
+                                </ui:VisualElement>
+                                <ui:VisualElement name="prog-achievements-list" class="prog-ach-grid" />
+                            </ui:VisualElement>
+
+                            <!-- FUENTES -->
+                            <ui:VisualElement name="prog-card-sources" class="prog-card">
+                                <ui:VisualElement class="prog-card-head">
+                                    <ui:Label text="FORMAS DE GANAR GAMBITS" class="prog-kicker" />
+                                    <ui:Label name="prog-sources-note" text="Solo se ganan jugando. Cada fuente tiene su tope diario para que el ritmo sea sostenible." class="prog-sub" />
+                                </ui:VisualElement>
+                                <ui:VisualElement name="prog-sources-list" class="prog-sources" />
+                            </ui:VisualElement>
+
+                        </ui:VisualElement>
+                    </ui:ScrollView>
+
+                    <!-- Footer fijo -->
+                    <ui:VisualElement class="prog-footer">
+                        <ui:Label name="prog-footer-note" text="Los Gambits se abonan al instante y también viajan a tu cuenta de Ocean Pay." class="prog-footer-note" />
+                        <ui:Button name="btn-close-progress-foot" text="VOLVER" class="shop2-back-btn prog-footer-btn" />
+                    </ui:VisualElement>
+
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 7: INVENTARIO — el ÚNICO sitio donde se equipa -->
+        <!-- Variantes de pieza, skins y tableros en posesión     -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="inventory-modal-view" class="shop2-root hidden">
+            <ui:VisualElement class="shop2-backdrop">
+                <ui:VisualElement class="shop2-window inv-window">
+
+                    <!-- Marca de agua: el macuto y su río de piezas (detrás del catálogo) -->
+                    <ui:Image name="inv-watermark" class="inv-watermark" picking-mode="Ignore" />
+
+                    <!-- ── TOPBAR ── -->
+                    <ui:VisualElement class="shop2-topbar">
+                        <ui:VisualElement class="shop2-rail-header">
+                            <ui:Button name="btn-close-inventory" text="←  VOLVER" class="shop2-back-btn" />
+                            <ui:VisualElement class="inv-crest">
+                                <ui:Label name="inv-crest-fallback" text="🎒" class="inv-crest-icon" picking-mode="Ignore" />
+                                <ui:Image name="inv-crest-art" class="inv-crest-art" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="shop2-brand">
+                                <ui:Label text="INVENTARIO" class="shop2-brand-title" />
+                                <ui:VisualElement class="shop2-brand-line" />
+                                <ui:Label text="Tu colección. Aquí es donde se equipa todo lo que ya es tuyo." class="shop2-brand-subtitle" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="shop2-rail-vault">
+                            <ui:VisualElement class="shop2-vault-chips">
+                                <ui:VisualElement class="shop2-chip chip-gambits">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-gambit">
+                                        <ui:VisualElement class="shop2-chip-icon gambits-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="inv-chip-gambits" text="0" class="shop2-chip-amount" />
+                                        <ui:Label text="GAMBITS" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                                <ui:VisualElement class="shop2-chip chip-owned">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-owned">
+                                        <ui:Label text="✦" class="shop2-chip-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="inv-chip-owned" text="0 / 0" class="shop2-chip-amount" />
+                                        <ui:Label name="inv-chip-owned-label" text="EN POSESIÓN" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── PESTAÑAS ── -->
+                    <ui:VisualElement class="inv-tabs">
+                        <ui:Button name="inv-tab-variants" class="shop2-tab shop2-nav-active">
+                            <ui:Label text="VARIANTES" class="shop2-tab-label" />
+                            <ui:Label name="inv-count-variants" text="0" class="shop2-tab-count" />
+                        </ui:Button>
+                        <ui:Button name="inv-tab-skins" class="shop2-tab">
+                            <ui:Label text="SKINS" class="shop2-tab-label" />
+                            <ui:Label name="inv-count-skins" text="0" class="shop2-tab-count" />
+                        </ui:Button>
+                        <ui:Button name="inv-tab-boards" class="shop2-tab">
+                            <ui:Label text="TABLEROS" class="shop2-tab-label" />
+                            <ui:Label name="inv-count-boards" text="0" class="shop2-tab-count" />
+                        </ui:Button>
+                        <ui:Label name="inv-tab-hint" text="Pulsa una carta para equiparla." class="inv-tab-hint" picking-mode="Ignore" />
+                    </ui:VisualElement>
+
+                    <!-- ── FILTRO (solo pestaña de skins) ── -->
+                    <ui:VisualElement name="inv-filter-row" class="inv-filter-row hidden">
+                        <ui:Label text="FILTRAR" class="inv-filter-label" picking-mode="Ignore" />
+                        <ui:Button name="inv-filter-all" text="TODAS" class="skin-filter-btn skin-filter-active" />
+                        <ui:Button name="inv-filter-knight" text="CABALLO" class="skin-filter-btn" />
+                        <ui:Button name="inv-filter-bishop" text="ALFIL" class="skin-filter-btn" />
+                        <ui:Button name="inv-filter-queen" text="DAMA Y REY" class="skin-filter-btn" />
+                        <ui:Button name="inv-filter-pawn" text="PEÓN" class="skin-filter-btn" />
+                    </ui:VisualElement>
+
+                    <!-- ── CATÁLOGO ── -->
+                    <ui:ScrollView name="inv-scroll" class="inv-scroll" mode="Vertical" vertical-scroller-visibility="Hidden" horizontal-scroller-visibility="Hidden">
+                        <ui:VisualElement name="inv-grid" class="inv-grid" />
+                    </ui:ScrollView>
+
+                    <!-- ── PIE ── -->
+                    <ui:VisualElement class="prog-footer">
+                        <ui:Label name="inv-footer-note" text="Lo que compres en la tienda llega aquí para equiparse." class="prog-footer-note" />
+                        <ui:Button name="btn-close-inventory-foot" text="VOLVER" class="shop2-back-btn prog-footer-btn" />
+                    </ui:VisualElement>
+
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 8: PASE DE TEMPORADA — pantalla completa       -->
+        <!-- Hero con banner + título, barra ornamental y        -->
+        <!-- medallones de nivel con doble vía de recompensas    -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="seasonpass-modal-view" class="shop2-root season-root hidden">
+            <ui:VisualElement class="shop2-backdrop">
+                <ui:VisualElement class="shop2-window season-window">
+
+                    <!-- ── TOPBAR ── -->
+                    <ui:VisualElement class="shop2-topbar season-topbar">
+                        <ui:VisualElement class="shop2-rail-header">
+                            <ui:Button name="btn-close-season" text="←  VOLVER" class="shop2-back-btn" />
+                            <ui:VisualElement class="shop2-brand">
+                                <ui:Label text="ATELIER" class="shop2-brand-kicker" />
+                                <ui:Label text="PASE DE TEMPORADA" class="shop2-brand-title" />
+                                <ui:VisualElement class="shop2-brand-line" />
+                                <ui:Label text="Juega, sube de nivel y cobra las dos vías." class="shop2-brand-subtitle" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="shop2-rail-vault">
+                            <ui:VisualElement class="shop2-vault-chips">
+                                <ui:VisualElement class="shop2-chip chip-gambits">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-gambit">
+                                        <ui:VisualElement class="shop2-chip-icon gambits-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="season-level-label" text="NIVEL 0" class="shop2-chip-amount" />
+                                        <ui:Label name="season-count-label" text="0/30 niveles" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                                <ui:VisualElement class="shop2-chip chip-owned">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-owned">
+                                        <ui:Label text="✦" class="shop2-chip-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="season-xp-label" text="0 / 1.800 XP" class="shop2-chip-amount" />
+                                        <ui:Label name="season-premium-badge" text="◇ GAMBITO LIBRE" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── HERO: banner del rey + título diseñado ── -->
+                    <ui:VisualElement name="season-hero" class="season-hero">
+                        <ui:VisualElement class="season-hero-scrim" picking-mode="Ignore" />
+                        <ui:VisualElement class="season-hero-content">
+                            <ui:VisualElement name="season-title-art" class="season-title-art" picking-mode="Ignore" />
+                            <ui:Label name="season-season-label" text="TEMPORADA 1 · EL REY ÍGNEO" class="season-season-label" picking-mode="Ignore" />
+                            <ui:Label name="season-timer-label" text="JUEGA MISIONES Y PARTIDAS PARA GANAR XP" class="season-timer-label" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-season-premium" text="DESBLOQUEAR GAMBITO REAL" class="season-premium-btn" />
+                    </ui:VisualElement>
+
+                    <!-- ── CUERPO: progreso + pista de niveles. Sin scroll
+                         vertical: la pista se escala para caber (SeasonPassModal.FitTrack)
+                         y solo se navega en horizontal. ── -->
+                    <ui:VisualElement name="season-scroll" class="season-scroll">
+                        <!-- ── BANNER VÍA LIBRE (peón acero, sobre la fila gratuita) ── -->
+                        <ui:VisualElement name="season-lane-libre" class="season-side-banner season-side-libre">
+                            <ui:VisualElement class="season-side-icon season-side-icon-libre" picking-mode="Ignore" />
+                            <ui:Label text="GAMBITO LIBRE" class="season-side-title season-side-title-libre" picking-mode="Ignore" />
+                            <ui:Label name="season-libre-hint" text="30 NIVELES · 60 XP CADA UNO · EL XP VIENE DE JUGAR" class="season-side-hint" picking-mode="Ignore" />
+                        </ui:VisualElement>
+
+                        <!-- ── PISTA DE NIVELES: solo scroll horizontal ── -->
+                        <ui:VisualElement class="season-track-row">
+                            <ui:Button name="btn-season-track-prev" text="←" class="season-track-nav season-track-nav-prev" />
+                            <ui:ScrollView name="season-track-scroll" class="season-track-scroll" mode="Horizontal" horizontal-scroller-visibility="Auto" vertical-scroller-visibility="Hidden">
+                                <ui:VisualElement name="season-track" class="season-track" />
+                            </ui:ScrollView>
+                            <ui:Button name="btn-season-track-next" text="→" class="season-track-nav season-track-nav-next" />
+                        </ui:VisualElement>
+
+                        <!-- ── BANNER GAMBITO REAL (rey dorado, bajo la fila premium) ── -->
+                        <ui:VisualElement name="season-lane-real" class="season-side-banner season-side-real">
+                            <ui:VisualElement class="season-side-icon season-side-icon-real" picking-mode="Ignore" />
+                            <ui:Label text="GAMBITO REAL" class="season-side-title season-side-title-real" picking-mode="Ignore" />
+                            <ui:Label text="SOLO CON EL PASE DESBLOQUEADO · RECLAMA LA VÍA DORADA" class="season-side-hint" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── PIE ── -->
+                    <ui:VisualElement class="prog-footer season-footer">
+                        <ui:Label text="Gambits, cambios de misión, piezas, variantes, animaciones, fondos y tableros. Todo se desbloquea al instante." class="prog-footer-note" />
+                        <ui:Button name="btn-close-season-foot" text="VOLVER" class="shop2-back-btn prog-footer-btn" />
+                    </ui:VisualElement>
+
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- ── MODAL DE COMPRA: Gambito Libre vs Gambito Real ──
+                 Dos banners separados por un hr ornamental; el precio en
+                 Tides lo pinta SeasonPassModal con el valor del servidor. ── -->
+            <ui:VisualElement name="season-buy-view" class="season-buy hidden">
+                <ui:VisualElement name="season-buy-window" class="season-buy-window">
+
+                    <ui:VisualElement class="season-buy-head">
+                        <ui:VisualElement class="season-buy-head-texts">
+                            <ui:Label text="PASE DE TEMPORADA · TEMPORADA 1" class="season-buy-kicker" />
+                            <ui:Label text="ELIGE TU VÍA" class="season-buy-title" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-season-buy-close" text="✕" class="season-buy-close" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="season-buy-body">
+
+                        <!-- ── BANNER: GAMBITO LIBRE ── -->
+                        <ui:VisualElement class="season-buy-banner season-buy-banner-libre">
+                            <ui:VisualElement class="season-buy-banner-top">
+                                <ui:VisualElement class="season-buy-icon season-side-icon-libre" picking-mode="Ignore" />
+                                <ui:VisualElement class="season-buy-banner-names">
+                                    <ui:Label text="GAMBITO LIBRE" class="season-buy-banner-title" />
+                                    <ui:Label text="Vía estándar · siempre disponible" class="season-buy-banner-sub" />
+                                </ui:VisualElement>
+                                <ui:Label text="INCLUIDO" class="season-buy-tag season-buy-tag-libre" />
+                            </ui:VisualElement>
+                            <ui:Label text="30 niveles de recompensas básicas: Gambits, Dulces de la velada, skins de entrada, fondos y tableros. El XP se gana jugando partidas y misiones, sin gastar nada." class="season-buy-banner-text" />
+                            <ui:Label text="GRATIS" class="season-buy-price season-buy-price-libre" />
+                        </ui:VisualElement>
+
+                        <!-- ── HR ORNAMENTAL entre las dos vías ── -->
+                        <ui:VisualElement class="season-buy-hr">
+                            <ui:VisualElement class="season-buy-hr-line" picking-mode="Ignore" />
+                            <ui:Label text="◆" class="season-buy-hr-gem" picking-mode="Ignore" />
+                            <ui:VisualElement class="season-buy-hr-line" picking-mode="Ignore" />
+                        </ui:VisualElement>
+
+                        <!-- ── BANNER: GAMBITO REAL ── -->
+                        <ui:VisualElement class="season-buy-banner season-buy-banner-real">
+                            <ui:VisualElement class="season-buy-banner-top">
+                                <ui:VisualElement class="season-buy-icon season-side-icon-real" picking-mode="Ignore" />
+                                <ui:VisualElement class="season-buy-banner-names">
+                                    <ui:Label text="GAMBITO REAL" class="season-buy-banner-title" />
+                                    <ui:Label text="Vía premium · pago único con Tides" class="season-buy-banner-sub" />
+                                </ui:VisualElement>
+                                <ui:Label text="PREMIUM" class="season-buy-tag season-buy-tag-real" />
+                            </ui:VisualElement>
+                            <ui:Label text="La vía dorada completa: skins legendarias, variantes (Lancero, Jinete, Nigromante y Fragua), animaciones, fondos, tableros exclusivos y la mayor ración de Dulces de la velada. Se abre al instante y dura toda la temporada." class="season-buy-banner-text" />
+                            <ui:VisualElement class="season-buy-buyrow">
+                                <ui:VisualElement class="season-buy-pricebox">
+                                    <ui:Label text="PRECIO ÚNICO · SE DESCUENTA DE TU CUENTA" class="season-buy-pricelabel" />
+                                    <ui:Label name="season-buy-price" text="💧 450 Tides" class="season-buy-price season-buy-price-real" />
+                                </ui:VisualElement>
+                                <ui:Button name="btn-season-buy-confirm" text="PAGAR 💧 450 TIDES" class="season-buy-confirm" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                    </ui:VisualElement>
+
+                    <!-- ── PIE: cuenta Ocean Pay, saldo y acceso ── -->
+                    <ui:VisualElement class="season-buy-foot">
+                        <ui:VisualElement class="season-buy-account">
+                            <ui:Label text="🌊" class="season-buy-account-dot" picking-mode="Ignore" />
+                            <ui:Label name="season-buy-account-label" text="Inicia sesión con Ocean Pay para comprar el Gambito Real con Tides." class="season-buy-account-text" />
+                            <ui:Label name="season-buy-balance" text="" class="season-buy-balance" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="season-buy-login" class="season-buy-login">
+                            <ui:TextField name="season-buy-username" class="season-buy-input" placeholder-text="usuario Ocean Pay" />
+                            <ui:TextField name="season-buy-password" class="season-buy-input" placeholder-text="contraseña" />
+                            <ui:Button name="btn-season-buy-login" text="ENTRAR" class="season-buy-login-btn" />
+                        </ui:VisualElement>
+                        <ui:Label name="season-buy-error" text="" class="season-buy-error" />
+                    </ui:VisualElement>
+
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 9: PASE DE HALLOWEEN — la velada en vivo        -->
+        <!-- Mini-pase paralelo a la temporada (20/10 → 2/11):    -->
+        <!-- 20 niveles de 60 XP, dos vías (Luna gratis / Sangre  -->
+        <!-- con Dulces), misiones diarias del evento y cobro a    -->
+        <!-- mano. Estados: PRÓXIMAMENTE → ACTIVO → TERMINADO.     -->
+        <!--                                                       -->
+        <!-- Escritorio: carril HORIZONTAL como el Pase de        -->
+        <!-- Temporada (columnas con carta Luna arriba, medallón   -->
+        <!-- sobre la línea al medio y carta Sangre abajo).        -->
+        <!-- Móvil en vertical: el mismo camino como lista         -->
+        <!-- (medallón + carta Luna + carta Sangre por fila).      -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="halloweenpass-modal-view" class="shop2-root halloween-root hidden">
+            <ui:VisualElement class="shop2-backdrop">
+                <ui:VisualElement class="shop2-window halloween-window">
+
+                    <!-- ── TOPBAR: volver + marca + chips de progreso + tienda ── -->
+                    <ui:VisualElement class="shop2-topbar halloween-topbar">
+                        <ui:VisualElement class="shop2-rail-header">
+                            <ui:Button name="btn-close-halloween" text="←  VOLVER" class="shop2-back-btn" />
+                            <ui:VisualElement class="shop2-brand">
+                                <ui:Label text="ATELIER" class="shop2-brand-kicker" />
+                                <ui:Label text="PASE DE HALLOWEEN" class="shop2-brand-title" />
+                                <ui:VisualElement class="shop2-brand-line" />
+                                <ui:Label text="Una sola velada. Después, se apaga la vela." class="shop2-brand-subtitle" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="shop2-rail-vault">
+                            <ui:VisualElement class="shop2-vault-chips hw-chips">
+                                <ui:VisualElement name="hw-chip-nivel" class="shop2-chip chip-gambits">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-gambit">
+                                        <ui:VisualElement class="shop2-chip-icon gambits-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="hw-level-label" text="NIVEL 0" class="shop2-chip-amount" />
+                                        <ui:Label name="hw-count-label" text="0/20 niveles" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                                <ui:VisualElement class="hw-sep" picking-mode="Ignore" />
+                                <ui:VisualElement name="hw-chip-xp" class="shop2-chip chip-owned">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-owned">
+                                        <ui:Label text="✦" class="shop2-chip-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="hw-xp-label" text="0 / 1.200 XP" class="shop2-chip-amount" />
+                                        <ui:Label text="XP DE LA VELADA" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                                <ui:VisualElement class="hw-sep" picking-mode="Ignore" />
+                                <ui:VisualElement name="hw-chip-dulces" class="shop2-chip chip-owned">
+                                    <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-owned">
+                                        <ui:Label text="🍬" class="shop2-chip-icon" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="shop2-chip-texts">
+                                        <ui:Label name="hw-dulces-label" text="0" class="shop2-chip-amount" />
+                                        <ui:Label text="DULCES DE LA VELADA" class="shop2-chip-label" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                                <ui:VisualElement class="hw-sep" picking-mode="Ignore" />
+                                <ui:Label name="hw-state-chip" text="PRÓXIMAMENTE" class="hw-state-chip" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="hw-topbar-actions">
+                            <!-- MISIONES abre el modal del tablero de misiones (encima del pase). -->
+                            <ui:Button name="btn-halloween-missions" text="MISIONES" class="hw-missions-btn" />
+                            <ui:Button name="btn-halloween-shop" text="TIENDA" class="hw-shop-btn" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── HERO: banner + título + estado + abrir Sangre ──
+                         El estado cambia en vivo: cuenta atrás antes del 20/10,
+                         «¡LA VELADA ESTÁ ABIERTA!» durante el evento y
+                         «LAS PUERTAS SE CERRARON» después. -->
+                    <ui:VisualElement class="halloween-hero">
+                        <ui:VisualElement class="halloween-hero-scrim" picking-mode="Ignore" />
+                        <ui:VisualElement name="halloween-banner-art" class="halloween-banner-art" picking-mode="Ignore" />
+                        <ui:VisualElement class="halloween-hero-content">
+                            <ui:VisualElement name="halloween-title-art" class="halloween-title-art" picking-mode="Ignore" />
+                            <ui:Label name="halloween-hero-state" text="" class="halloween-hero-soon" picking-mode="Ignore" />
+                            <ui:Label name="hw-timer-label" text="Abre el 20/10" class="hw-timer" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-halloween-sangre" text="ABRIR VÍA SANGRE" class="season-premium-btn hw-sangre-btn" />
+                    </ui:VisualElement>
+
+                    <!-- ── CUERPO ESCRITORIO: misiones + carril horizontal ──
+                         Columna fija, sin scroll vertical: la pista se mide y
+                         se escala para caber (HalloweenPassModal.FitTrack) y
+                         solo se navega en horizontal. -->
+                    <ui:VisualElement class="halloween-body-desk">
+                        <ui:VisualElement class="hw-missions-block">
+                            <ui:VisualElement class="hw-section-row">
+                                <ui:Label text="MISIONES DE LA VELADA" class="hw-section-title" picking-mode="Ignore" />
+                                <ui:VisualElement class="hw-section-line" picking-mode="Ignore" />
+                                <ui:Label name="hw-missions-note-desk" text="" class="hw-section-note" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="hw-missions-desk" class="hw-missions" />
+                        </ui:VisualElement>
+
+                        <!-- ── BANNER VÍA LUNA (sobre la fila gratuita) ── -->
+                        <ui:VisualElement class="hw-lane-banner hw-lane-banner-free">
+                            <ui:Label text="🌙" class="hw-lane-icon" picking-mode="Ignore" />
+                            <ui:Label text="VÍA LUNA" class="hw-lane-title hw-lane-title-free" picking-mode="Ignore" />
+                            <ui:Label text="20 NIVELES · 60 XP CADA UNO · EL XP VIENE DE JUGAR" class="hw-lane-hint" picking-mode="Ignore" />
+                        </ui:VisualElement>
+
+                        <!-- ── PISTA DE NIVELES: solo scroll horizontal ── -->
+                        <ui:VisualElement class="hw-track-row">
+                            <ui:Button name="btn-hw-track-prev" text="←" class="hw-track-nav hw-track-nav-prev" />
+                            <ui:ScrollView name="hw-track-scroll" class="hw-track-scroll" mode="Horizontal" horizontal-scroller-visibility="Auto" vertical-scroller-visibility="Hidden">
+                                <ui:VisualElement name="hw-track-h" class="hw-track-h" />
+                            </ui:ScrollView>
+                            <ui:Button name="btn-hw-track-next" text="→" class="hw-track-nav hw-track-nav-next" />
+                        </ui:VisualElement>
+
+                        <!-- ── BANNER VÍA SANGRE (bajo la fila premium) ── -->
+                        <ui:VisualElement class="hw-lane-banner hw-lane-banner-sangre">
+                            <ui:Label text="🩸" class="hw-lane-icon" picking-mode="Ignore" />
+                            <ui:Label text="VÍA SANGRE" class="hw-lane-title hw-lane-title-sangre" picking-mode="Ignore" />
+                            <ui:Label name="hw-lane-hint-sangre" text="SE ABRE CON 🍬 150 DULCES DE LA VELADA" class="hw-lane-hint" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── CUERPO MÓVIL (vertical): misiones + lista de niveles
+                         con scroll. Medallón + carta Luna + carta Sangre por
+                         fila (20 filas). ── -->
+                    <ui:ScrollView name="hw-body-scroll" class="halloween-body-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto">
+                        <ui:VisualElement class="halloween-body">
+
+                            <!-- ── MISIONES DEL DÍA (3 por jornada, deterministas) ── -->
+                            <ui:VisualElement class="hw-section-row">
+                                <ui:Label text="MISIONES DE LA VELADA" class="hw-section-title" picking-mode="Ignore" />
+                                <ui:VisualElement class="hw-section-line" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="hw-missions-mob" class="hw-missions" />
+                            <ui:Label name="hw-missions-note-mob" text="" class="hw-mission-note" picking-mode="Ignore" />
+
+                            <!-- ── PISTA: 20 niveles, dos vías (Luna / Sangre) ── -->
+                            <ui:VisualElement class="hw-section-row">
+                                <ui:Label text="CAMINO DE NIVELES" class="hw-section-title" picking-mode="Ignore" />
+                                <ui:VisualElement class="hw-section-line" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="hw-track-v" class="hw-track-v" />
+
+                        </ui:VisualElement>
+                    </ui:ScrollView>
+
+                    <!-- ── PIE ── -->
+                    <ui:VisualElement class="prog-footer halloween-footer">
+                        <ui:Label name="hw-footer-note" text="" class="prog-footer-note" picking-mode="Ignore" />
+                        <ui:Button name="btn-close-halloween-foot" text="VOLVER" class="shop2-back-btn prog-footer-btn" />
+                    </ui:VisualElement>
+
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 10: MISIONES DE LA VELADA — modal del tablero  -->
+        <!-- Se abre desde el pase (botón MISIONES del topbar o  -->
+        <!-- las fichas de resumen). Dos pestañas:               -->
+        <!--  · VÍA LUNA: las 3 misiones del día (pool de 25).   -->
+        <!--  · VÍA SANGRE: 10 exclusivas de la edición, 5       -->
+        <!--    libres y 5 premium (piden la vía abierta).       -->
+        <!-- Fuera de la ventana de la velada se abre igual: se  -->
+        <!-- ve qué viene, pero los cobros esperan.              -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="halloween-missions-modal-view" class="shop2-root hwm-root hidden">
+            <ui:VisualElement class="shop2-backdrop">
+                <ui:VisualElement class="shop2-window hwm-window">
+
+                    <!-- ── TOPBAR: volver + marca + chips ── -->
+                    <ui:VisualElement class="shop2-topbar hwm-topbar">
+                        <ui:VisualElement class="shop2-rail-header">
+                            <ui:Button name="btn-close-hw-missions" text="←  VOLVER" class="shop2-back-btn" />
+                            <ui:VisualElement class="shop2-brand">
+                                <ui:Label text="ATELIER" class="shop2-brand-kicker" />
+                                <ui:Label text="MISIONES DE LA VELADA" class="shop2-brand-title" />
+                                <ui:VisualElement class="shop2-brand-line" />
+                                <ui:Label text="El tablero de la velada: Luna, Sangre libre y Sangre premium." class="shop2-brand-subtitle" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="hwm-chips">
+                            <ui:VisualElement class="hwm-chip hwm-chip-xp">
+                                <ui:Label text="✦" class="hwm-chip-icon" picking-mode="Ignore" />
+                                <ui:Label name="hwm-xp-label" text="0 / 1.200 XP" class="hwm-chip-text" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="hwm-chip hwm-chip-dulces">
+                                <ui:Label text="🍬" class="hwm-chip-icon" picking-mode="Ignore" />
+                                <ui:Label name="hwm-dulces-label" text="0" class="hwm-chip-text" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:Label name="hwm-state-chip" text="PRÓXIMAMENTE" class="hw-state-chip" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── HERO: estado de la velada + pestañas ── -->
+                    <ui:VisualElement class="hwm-hero">
+                        <ui:VisualElement name="hwm-crest" class="hwm-crest" picking-mode="Ignore" />
+                        <ui:VisualElement class="hwm-hero-texts">
+                            <ui:Label text="LA VELADA PAGA EN XP Y DULCES" class="hwm-hero-kicker" picking-mode="Ignore" />
+                            <ui:Label name="hwm-hero-note" text="" class="hwm-hero-note" picking-mode="Ignore" />
+                            <ui:Label name="hwm-hero-timer" text="" class="hwm-hero-timer" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="hwm-tabs">
+                            <ui:Button name="hwm-tab-luna" text="🌙 VÍA LUNA" class="hwm-tab hwm-tab-active" />
+                            <ui:Button name="hwm-tab-sangre" text="🩸 VÍA SANGRE" class="hwm-tab hwm-tab-sangre" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── CUERPO: Luna (diarias) / Sangre (exclusivas) ── -->
+                    <ui:ScrollView name="hwm-body-scroll" class="hwm-body-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto">
+                        <ui:VisualElement class="hwm-body">
+
+                            <ui:VisualElement name="hwm-pane-luna" class="hwm-pane">
+                                <ui:VisualElement class="hwm-section-row">
+                                    <ui:Label text="MISIONES DE HOY" class="hwm-section-title" picking-mode="Ignore" />
+                                    <ui:VisualElement class="hwm-section-line" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                                <ui:Label name="hwm-note-luna" text="" class="hwm-section-note" picking-mode="Ignore" />
+                                <ui:VisualElement name="hwm-list-luna" class="hwm-list" />
+                                <ui:Label text="El progreso sale de tus partidas reales (dificultad, precisión, capturas, puzzles y desafío diario). Al cerrar el día, lo completado y sin cobrar se paga solo." class="hwm-hint" picking-mode="Ignore" />
+                            </ui:VisualElement>
+
+                            <ui:VisualElement name="hwm-pane-sangre" class="hwm-pane hidden">
+                                <ui:VisualElement class="hwm-section-row">
+                                    <ui:Label text="EXCLUSIVAS DE LA VÍA SANGRE" class="hwm-section-title hwm-section-title-sangre" picking-mode="Ignore" />
+                                    <ui:VisualElement class="hwm-section-line hwm-section-line-sangre" picking-mode="Ignore" />
+                                </ui:VisualElement>
+
+                                <ui:VisualElement name="hwm-sangre-banner" class="hwm-banner">
+                                    <ui:VisualElement class="hwm-banner-texts">
+                                        <ui:Label name="hwm-sangre-banner-title" text="🔒 VÍA SANGRE" class="hwm-banner-title" picking-mode="Ignore" />
+                                        <ui:Label name="hwm-sangre-banner-note" text="" class="hwm-banner-note" picking-mode="Ignore" />
+                                    </ui:VisualElement>
+                                    <ui:Button name="hwm-btn-sangre" text="ABRIR" class="hwm-banner-btn" />
+                                </ui:VisualElement>
+
+                                <ui:VisualElement class="hwm-section-row hwm-section-row-sub">
+                                    <ui:Label text="SANGRE LIBRE" class="hwm-sub-title" picking-mode="Ignore" />
+                                    <ui:VisualElement class="hwm-section-line" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                                <ui:Label name="hwm-note-sangre-free" text="" class="hwm-section-note" picking-mode="Ignore" />
+                                <ui:VisualElement name="hwm-list-sangre-free" class="hwm-list" />
+
+                                <ui:VisualElement class="hwm-section-row hwm-section-row-sub">
+                                    <ui:Label text="SANGRE PREMIUM" class="hwm-sub-title hwm-sub-title-premium" picking-mode="Ignore" />
+                                    <ui:VisualElement class="hwm-section-line hwm-section-line-sangre" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                                <ui:Label name="hwm-note-sangre-paid" text="" class="hwm-section-note" picking-mode="Ignore" />
+                                <ui:VisualElement name="hwm-list-sangre-paid" class="hwm-list" />
+                                <ui:Label text="Las 10 exclusivas de Sangre duran toda la velada y se cobran una sola vez. Las libres no piden nada; las premium esperan a que la Vía Sangre esté abierta." class="hwm-hint" picking-mode="Ignore" />
+                            </ui:VisualElement>
+
+                        </ui:VisualElement>
+                    </ui:ScrollView>
+
+                    <!-- ── PIE ── -->
+                    <ui:VisualElement class="prog-footer hwm-footer">
+                        <ui:Label name="hwm-footer-note" text="" class="prog-footer-note" picking-mode="Ignore" />
+                        <ui:Button name="btn-close-hw-missions-foot" text="VOLVER" class="shop2-back-btn prog-footer-btn" />
+                    </ui:VisualElement>
+
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- VIEW 11: TIENDA DE LA VELADA — el destino de los    -->
+        <!-- Dulces. Tres pestañas: NIVELES (mini-pase +         -->
+        <!-- completar todo el pase), SKINS esculpidas y         -->
+        <!-- VARIANTES. La tienda vende; el inventario equipa.   -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:VisualElement name="halloween-shop-modal-view" class="shop2-root hwshop-root hidden">
+            <ui:VisualElement class="shop2-backdrop">
+                <ui:VisualElement class="shop2-window hwshop-window">
+
+                    <!-- ── TOPBAR: volver + marca + chips ── -->
+                    <ui:VisualElement class="shop2-topbar hwshop-topbar">
+                        <ui:VisualElement class="shop2-rail-header">
+                            <ui:Button name="btn-close-hw-shop" text="←  VOLVER" class="shop2-back-btn" />
+                            <ui:VisualElement class="shop2-brand">
+                                <ui:Label text="ATELIER" class="shop2-brand-kicker" />
+                                <ui:Label text="TIENDA DE LA VELADA" class="shop2-brand-title" />
+                                <ui:VisualElement class="shop2-brand-line" />
+                                <ui:Label text="Los Dulces de Halloween se cambian aquí." class="shop2-brand-subtitle" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="hwshop-chips">
+                            <ui:VisualElement class="hwshop-chip hwshop-chip-dulces">
+                                <ui:Label text="🍬" class="hwshop-chip-icon" picking-mode="Ignore" />
+                                <ui:Label name="hwshop-dulces-label" text="0" class="hwshop-chip-text" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="hwshop-chip hwshop-chip-gambits">
+                                <ui:VisualElement class="hwshop-chip-icon gambits-icon" picking-mode="Ignore" />
+                                <ui:Label name="hwshop-gambits-label" text="0" class="hwshop-chip-text" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                            <ui:Label name="hwshop-state-chip" text="PRÓXIMAMENTE" class="hw-state-chip" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- ── PESTAÑAS ── -->
+                    <ui:VisualElement class="hwshop-tabs">
+                        <ui:Button name="hwshop-tab-levels" text="✦ NIVELES" class="hwshop-tab hwshop-tab-active" />
+                        <ui:Button name="hwshop-tab-skins" text="🕷️ SKINS" class="hwshop-tab" />
+                        <ui:Button name="hwshop-tab-variants" text="🎃 VARIANTES" class="hwshop-tab" />
+                    </ui:VisualElement>
+
+                    <!-- ── CUERPO: una lista por pestaña ── -->
+                    <ui:ScrollView name="hwshop-body-scroll" class="hwshop-body-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto">
+                        <ui:VisualElement class="hwshop-body">
+
+                            <ui:VisualElement name="hwshop-pane-levels" class="hwshop-pane">
+                                <ui:VisualElement class="hwshop-section-row">
+                                    <ui:Label text="NIVELES DEL PASE" class="hwshop-section-title" picking-mode="Ignore" />
+                                    <ui:VisualElement class="hwshop-section-line" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                                <ui:Label name="hwshop-note-levels" text="" class="hwshop-section-note" picking-mode="Ignore" />
+                                <ui:VisualElement name="hwshop-list-levels" class="hwshop-list" />
+                                <ui:Label text="Cada nivel son 60 XP de la velada. Los niveles se venden solo con la velada abierta; «completar todo el pase» es el atajo caro para quien llegó tarde." class="hwshop-hint" picking-mode="Ignore" />
+                            </ui:VisualElement>
+
+                            <ui:VisualElement name="hwshop-pane-skins" class="hwshop-pane hidden">
+                                <ui:VisualElement class="hwshop-section-row">
+                                    <ui:Label text="SKINS ESCULPIDAS" class="hwshop-section-title" picking-mode="Ignore" />
+                                    <ui:VisualElement class="hwshop-section-line" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                                <ui:Label name="hwshop-note-skins" text="" class="hwshop-section-note" picking-mode="Ignore" />
+                                <ui:VisualElement name="hwshop-list-skins" class="hwshop-list" />
+                                <ui:Label text="Se compran aquí, se equipan en el inventario. Pertenecen a la velada: no salen en la tienda con Gambits." class="hwshop-hint" picking-mode="Ignore" />
+                            </ui:VisualElement>
+
+                            <ui:VisualElement name="hwshop-pane-variants" class="hwshop-pane hidden">
+                                <ui:VisualElement class="hwshop-section-row">
+                                    <ui:Label text="ESCULTURAS DE LA VELADA" class="hwshop-section-title" picking-mode="Ignore" />
+                                    <ui:VisualElement class="hwshop-section-line" picking-mode="Ignore" />
+                                </ui:VisualElement>
+                                <ui:Label name="hwshop-note-variants" text="" class="hwshop-section-note" picking-mode="Ignore" />
+                                <ui:VisualElement name="hwshop-list-variants" class="hwshop-list" />
+                                <ui:Label text="Las variantes entran al tablero con su propia escultura y su habilidad. Se compran en la tienda y se equipan desde el inventario." class="hwshop-hint" picking-mode="Ignore" />
+                            </ui:VisualElement>
+
+                        </ui:VisualElement>
+                    </ui:ScrollView>
+
+                    <!-- ── PIE ── -->
+                    <ui:VisualElement class="prog-footer hwshop-footer">
+                        <ui:Label name="hwshop-footer-note" text="" class="prog-footer-note" picking-mode="Ignore" />
+                        <ui:Button name="btn-close-hw-shop-foot" text="VOLVER" class="shop2-back-btn prog-footer-btn" />
+                    </ui:VisualElement>
+
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,24 @@
+Wilder Gambit 1.1.1 — Pantalla completa corregida
+Fecha: 23/10/2026
+
+Resumen:
+Corrección del modo de ventana. La 1.1.0 podía abrir en ventana después de
+actualizar porque el motor restauraba el último modo guardado por encima de
+la configuración del juego; además, la ventana no era redimensionable y el
+botón de maximizar no hacía nada. La 1.1.1 arranca en pantalla completa sin
+bordes y deja el modo a la vista en los ajustes.
+
+Cambios:
+- El juego arranca en pantalla completa sin bordes, a la resolución del
+  monitor, sin depender del último modo que haya guardado Windows.
+- F11 o Alt+Enter alternan entre pantalla completa y ventana en cualquier
+  momento.
+- Nuevo interruptor "Pantalla Completa" en Ajustes > General, con el estado
+  actual y la opción de volver a ventana.
+- Si se juega en ventana, ahora se puede redimensionar y maximizar con el
+  botón de la barra de título.
+- La preferencia de pantalla se guarda aparte de la configuración del
+  motor, así que las próximas actualizaciones no vuelven a dejar el juego
+  en ventana.
+
+Plataforma: Windows

@@ -18316,11 +18316,18 @@ async function ensureOwsProjectDevelopmentTable() {
       id          BIGSERIAL PRIMARY KEY,
       project_id  BIGINT NOT NULL UNIQUE REFERENCES ows_launch_projects(id) ON DELETE CASCADE,
       percent     INTEGER NOT NULL DEFAULT 0 CHECK (percent >= 0 AND percent <= 100),
+      status      TEXT NOT NULL DEFAULT '',
       updated_by  TEXT NOT NULL DEFAULT 'OceanandWild',
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Estado actual del proyecto (testing, ajustes, listo…). Se guarda como
+  // clave corta para que la UI lo traduzca y el Hub lo pueda reutilizar.
+  await pool.query(`
+    ALTER TABLE ows_project_development
+      ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT ''
+  `).catch((err) => console.log(' Aviso: migración ows_project_development (status):', err.message));
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_project_dev_project ON ows_project_development(project_id)');
   owsProjectDevelopmentReady = true;
   await ensureOwsPercentColumns();
@@ -18337,11 +18344,17 @@ async function ensureOwsProjectProgressLogTable() {
       percent_after  INTEGER NOT NULL DEFAULT 0,
       delta          INTEGER NOT NULL DEFAULT 0,
       mode           TEXT NOT NULL DEFAULT 'day',
+      status         TEXT NOT NULL DEFAULT '',
       note           TEXT NOT NULL DEFAULT '',
       created_by     TEXT NOT NULL DEFAULT 'OceanandWild',
       created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Migración: estado de la actualización (testing, ajustes, listo…).
+  await pool.query(`
+    ALTER TABLE ows_project_progress_log
+      ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT ''
+  `).catch((err) => console.log(' Aviso: migración ows_project_progress_log (status):', err.message));
   // Migración: proyectos ya registrados antes del historial.
   await pool.query(`
     ALTER TABLE ows_project_progress_log
@@ -18365,6 +18378,7 @@ function sanitizeProgressLogRow(r) {
     percent_after: clampPercent(r?.percent_after) ?? 0,
     delta: Math.round(Number(r?.delta || 0) * 100) / 100,
     mode,
+    status: normalizeProjectUpdateStatus(r?.status),
     note: String(r?.note || ''),
     created_by: String(r?.created_by || 'OceanandWild'),
     created_at: r?.created_at ? new Date(r.created_at).toISOString() : null
@@ -18381,6 +18395,7 @@ app.get('/ows-project-development', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT p.id AS project_id, p.slug, p.name, p.icon_url, p.admin_only,
               COALESCE(d.percent, 0) AS percent,
+              COALESCE(d.status, '') AS status,
               d.updated_by AS updated_by,
               d.updated_at AS updated_at
          FROM ows_launch_projects p
@@ -18396,6 +18411,7 @@ app.get('/ows-project-development', async (req, res) => {
         icon_url: String(r.icon_url || ''),
         admin_only: r.admin_only === true,
         percent: clampPercent(r.percent) ?? 0,
+        status: normalizeProjectUpdateStatus(r.status),
         updated_by: r.updated_by ? String(r.updated_by) : null,
         updated_at: r.updated_at || null
       }))
@@ -18456,6 +18472,10 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
   const updatedBy = String(req.body?.updated_by || req.body?.updatedBy || headerAdmin || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
   const mode = String(req.body?.mode || req.body?.Mode || 'day').trim().toLowerCase() === 'total' ? 'total' : 'day';
   const note = String(req.body?.note || req.body?.Note || '').trim().slice(0, 500);
+  // El estado es opcional: si no viene, se conserva el que ya tenía el
+  // proyecto. Si viene vacío, se limpia.
+  const hasStatus = !!req.body && Object.prototype.hasOwnProperty.call(req.body, 'status');
+  const statusInput = normalizeProjectUpdateStatus(req.body?.status);
   try {
     await ensureOwsLaunchProjectsTable();
     await ensureOwsProjectDevelopmentTable();
@@ -18464,25 +18484,28 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
     if (!projRows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
     // % previo: el actual si ya había fila, 0 si el proyecto es nuevo.
     const { rows: prevRows } = await pool.query(
-      'SELECT percent FROM ows_project_development WHERE project_id = $1',
+      'SELECT percent, status FROM ows_project_development WHERE project_id = $1',
       [projectId]
     );
     const percentBefore = prevRows.length ? clampPercent(prevRows[0].percent) ?? 0 : 0;
+    const statusBefore = prevRows.length ? normalizeProjectUpdateStatus(prevRows[0].status) : '';
+    const status = hasStatus ? statusInput : statusBefore;
     const { rows } = await pool.query(
-      `INSERT INTO ows_project_development (project_id, percent, updated_by, updated_at)
-       VALUES ($1, $2, $3, NOW())
+      `INSERT INTO ows_project_development (project_id, percent, status, updated_by, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
        ON CONFLICT (project_id)
-       DO UPDATE SET percent = EXCLUDED.percent, updated_by = EXCLUDED.updated_by, updated_at = NOW()
-       RETURNING project_id, percent, updated_by, updated_at`,
-      [projectId, percent, updatedBy]
+       DO UPDATE SET percent = EXCLUDED.percent, status = EXCLUDED.status,
+                     updated_by = EXCLUDED.updated_by, updated_at = NOW()
+       RETURNING project_id, percent, status, updated_by, updated_at`,
+      [projectId, percent, status, updatedBy]
     );
     const row = rows[0] || {};
     // Todo cambio queda registrado: sirve de historial aunque sea un ajuste total.
     const { rows: logRows } = await pool.query(
-      `INSERT INTO ows_project_progress_log (project_id, percent_before, percent_after, delta, mode, note, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, project_id, percent_before, percent_after, delta, mode, note, created_by, created_at`,
-      [projectId, percentBefore, percent, percent - percentBefore, mode, note, updatedBy]
+      `INSERT INTO ows_project_progress_log (project_id, percent_before, percent_after, delta, mode, status, note, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, project_id, percent_before, percent_after, delta, mode, status, note, created_by, created_at`,
+      [projectId, percentBefore, percent, percent - percentBefore, mode, status, note, updatedBy]
     );
     const historyEntry = logRows[0] ? sanitizeProgressLogRow({
       ...logRows[0],
@@ -18492,7 +18515,7 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
     logAdminActivity({
       action: 'update-development', entityType: 'launch_project', entityId: String(projRows[0].slug || projectId),
       entityName: String(projRows[0].name || ''), adminName: updatedBy,
-      meta: { percent, mode, delta: percent - percentBefore, note }
+      meta: { percent, mode, delta: percent - percentBefore, status, note }
     });
     // Celebraciones automáticas por hitos de euforia (90/95/99/100).
     // Se crean solo al CRUZAR cada umbral hacia arriba (before < umbral <= after)
@@ -18511,10 +18534,12 @@ app.put('/ows-project-development/:projectId', async (req, res) => {
       development: {
         project_id: Number(row.project_id || projectId),
         percent: clampPercent(row.percent ?? percent),
+        status: normalizeProjectUpdateStatus(row.status ?? status),
         updated_by: String(row.updated_by || updatedBy),
         updated_at: row.updated_at || new Date().toISOString()
       },
       mode,
+      status,
       percent_before: percentBefore,
       delta: Math.round((percent - percentBefore) * 100) / 100,
       history: historyEntry,
@@ -18853,6 +18878,18 @@ function clampPercent(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(100, Math.round(n * 100) / 100));
+}
+
+// Estados posibles de una actualización de proyecto. Se guardan como clave
+// corta (sin acentos) y la UI los traduce; el Hub puede reutilizar la misma
+// lista más adelante.
+const OWS_PROJECT_UPDATE_STATUSES = [
+  'planificacion', 'prototipo', 'desarrollo', 'testing', 'ajustes', 'listo', 'publicado', 'pausado'
+];
+
+function normalizeProjectUpdateStatus(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return OWS_PROJECT_UPDATE_STATUSES.includes(key) ? key : '';
 }
 
 // Los % pasaron de INTEGER a NUMERIC(5,2) para admitir decimales.

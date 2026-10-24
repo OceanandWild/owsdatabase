@@ -44,12 +44,13 @@ Estas reglas tienen prioridad operativa cuando se trabaje en este workspace, esp
 - Todo el ecosistema de OWS usa un único certificado universal. Reemplazarlo corrompe la ruta de actualización para todos los usuarios (error "Paquete no válido").
 - Si hay problemas de firma, revisar `build.gradle` y el workflow de GitHub, pero NUNCA rotar la llave criptográfica.
 
-8. Backup a owsrecover (OBLIGATORIO)
-- SIEMPRE usar `scripts/backup-to-github.ps1` (o el lanzador `OWS Store/scripts/ejecutar-backup.bat`) para sincronizar a owsrecover.
+8. Backup a owsrecover (SOLO SI EL USUARIO LO MENCIONA)
+- El backup NO es una acción automática del agente. Ejecutarlo ÚNICAMENTE cuando el usuario lo pida o lo mencione explícitamente.
+- El agente PUEDE recomendar el backup y notificar que conviene respaldar, pero NUNCA correrlo por iniciativa propia ni como paso de cierre de una tarea.
+- Cuando el usuario lo mencione, SIEMPRE usar `scripts/backup-to-github.ps1` (o el lanzador `OWS Store/scripts/ejecutar-backup.bat`) para sincronizar a owsrecover.
 - NUNCA usar `git add/commit/push` directo desde la carpeta owsrecover: eso no actualiza `BACKUP_STATUS.json` y rompe el Centro de Control OWS.
-- Cada vez que se hagan cambios de código (WIP) o se publique una release, se DEBE correr el script para registrar la versión con timestamp Uruguay.
-- Si el usuario NO pidió release/publicación → correr `ejecutar-backup.bat` sin parámetros (queda como `WIP-YYYY.M.D-tHHMM`).
-- Si el usuario SÍ pidió release → correr `ejecutar-backup.bat -version <version-real>` (la misma que se bumpea en OWS Store).
+- Si el usuario menciona el backup y NO pidió release/publicación → correr `ejecutar-backup.bat` sin parámetros (queda como `WIP-YYYY.M.D-tHHMM`).
+- Si el usuario menciona el backup y SÍ pidió release → correr `ejecutar-backup.bat -version <version-real>` (la misma que se bumpea en OWS Store).
 - WIP ≠ Release. WIP = cambios de preparación, no publicados. Release = cambio publicado con versión fija.
 
 9. OWS Admin Panel = SOLO LOCAL (OBLIGATORIO)

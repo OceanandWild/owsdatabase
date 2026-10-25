@@ -2001,6 +2001,18 @@ const OWS_RECOVER_REPO = 'OceanandWild/owsrecover';
 const OWS_RECOVER_PROBE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function isOwsStoreOwner(req) {
+  // Si el request trae un JWT del panel, el usuario firmado manda: así el
+  // header x-ows-admin-name no puede suplantar al Owner. El secret estático
+  // (automatizaciones internas) y los tokens sin username caen al header.
+  const provided = owsAdminTokenFromRequest(req);
+  if (provided) {
+    try {
+      const payload = jwt.verify(provided, getStudioSecret());
+      if (payload?.scope === 'ows-admin-panel' && payload?.role === 'superadmin') {
+        return String(payload.username || '').trim().toLowerCase() === OWS_OWNER_NAME;
+      }
+    } catch (_) {}
+  }
   const adminName = String(req.headers['x-ows-admin-name'] || '').trim().toLowerCase();
   return adminName === OWS_OWNER_NAME;
 }
@@ -16031,7 +16043,7 @@ function toPlainDateString(v) {
   return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
 }
 
-function mapOwsLaunchProjectRow(row, latestRelease) {
+function mapOwsLaunchProjectRow(row, latestRelease, opts = {}) {
   const adminOnly = row.admin_only === true || String(row.admin_only || '').toLowerCase() === 'true' || Number(row.admin_only) === 1;
   // Permanencia del estado: true = permanente, false = temporal, null = no aplica
   // (solo tiene sentido en estados terminales: cancelado / descontinuado).
@@ -16042,6 +16054,17 @@ function mapOwsLaunchProjectRow(row, latestRelease) {
   const _meta = (row.metadata && typeof row.metadata === 'object') ? row.metadata : {};
   const _itch = (_meta.itch && typeof _meta.itch === 'object') ? _meta.itch : {};
   const _itchUrl = String(_itch.url || row.link_url || '').trim();
+  // Checklist de publicación editable desde el Admin Panel. Se guarda en
+  // metadata: overrides de los 9 puntos automáticos + requisitos propios.
+  const _pubCheck = (_meta.publication_checklist && typeof _meta.publication_checklist === 'object' && !Array.isArray(_meta.publication_checklist))
+    ? _meta.publication_checklist
+    : {};
+  const _pubCheckCustom = Array.isArray(_meta.publication_checklist_custom)
+    ? _meta.publication_checklist_custom
+    : [];
+  // El checklist es material interno: solo se expone en respuestas admin
+  // (listado con include_hidden=1, alta y edición). El Hub público no lo ve.
+  const includeChecklist = !!(opts && opts.includeChecklist === true);
   return {
     id: Number(row.id || 0),
     slug: String(row.slug || ''),
@@ -16076,6 +16099,12 @@ function mapOwsLaunchProjectRow(row, latestRelease) {
     statusFeedback: String(row.status_feedback || ''),
     status_permanent: statusPermanent,
     statusPermanent,
+    ...(includeChecklist ? {
+      publication_checklist: _pubCheck,
+      publicationChecklist: _pubCheck,
+      publication_checklist_custom: _pubCheckCustom,
+      publicationChecklistCustom: _pubCheckCustom
+    } : {}),
     admin_only: adminOnly,
     adminOnly,
     visibility: adminOnly ? 'admin_only' : 'public',
@@ -16319,7 +16348,22 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
                 expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata, created_at, updated_at`,
     [row.id, nextMeta, nextLinkUrl]
   );
-  return { project: mapOwsLaunchProjectRow(updated[0]), itch: nextItch };
+
+  // La versión queda registrada sin que el admin escriba nada: es el paso
+  // "interno" del que habla el panel. Si falla, la sincronización de itch
+  // sigue siendo válida (el Hub puede resolver la descarga por metadata).
+  let syncedRelease = null;
+  try {
+    syncedRelease = await upsertReleaseFromItch(updated[0], nextItch);
+  } catch (err) {
+    console.warn('[itch] no se pudo registrar la release automática:', err?.message || err);
+  }
+
+  return {
+    project: mapOwsLaunchProjectRow(updated[0]),
+    itch: nextItch,
+    release: syncedRelease ? mapOwsProjectReleaseRow(syncedRelease) : null
+  };
 }
 
 // ── Descarga directa del instalador vía servidor (OWS Hub) ──
@@ -16624,7 +16668,7 @@ app.get('/ows-launch-projects', async (req, res) => {
     );
     let relMap = {};
     try { relMap = await getLatestReleasesMapByProjectIds(rows.map((r) => Number(r.id))); } catch (_) { relMap = {}; }
-    return res.json({ success: true, projects: rows.map((r) => mapOwsLaunchProjectRow(r, relMap[Number(r.id)] || null)) });
+    return res.json({ success: true, projects: rows.map((r) => mapOwsLaunchProjectRow(r, relMap[Number(r.id)] || null, { includeChecklist: includeHidden })) });
   } catch (err) {
     console.error('Error en GET /ows-launch-projects:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -17226,7 +17270,7 @@ app.post('/ows-launch-projects', async (req, res) => {
     } catch (e) {
       console.error('[celebrations] bienvenida falló:', e?.message || e);
     }
-    return res.status(201).json({ success: true, project: mapOwsLaunchProjectRow(rows[0] || {}), celebration: birthCelebration });
+    return res.status(201).json({ success: true, project: mapOwsLaunchProjectRow(rows[0] || {}, null, { includeChecklist: true }), celebration: birthCelebration });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Ya existe un proyecto OWS con ese slug' });
@@ -17349,7 +17393,7 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
     } catch (e) {
       console.error('[celebrations] entrada a catálogo falló:', e?.message || e);
     }
-    return res.json({ success: true, project: mapOwsLaunchProjectRow(rows[0]), celebration: catalogCelebration });
+    return res.json({ success: true, project: mapOwsLaunchProjectRow(rows[0], null, { includeChecklist: true }), celebration: catalogCelebration });
   } catch (err) {
     console.error('Error en PATCH /ows-launch-projects/:id:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -17552,6 +17596,415 @@ async function resolveLaunchProjectIdBySlug(slug) {
   );
   return rows.length ? Number(rows[0].id) : null;
 }
+
+// ── Registro automático de versiones desde itch.io ──────────────────────
+// El panel ya no carga versiones a mano. Cuando el backend sincroniza el
+// build (syncItchForProject), la release queda registrada acá para que el
+// Hub y el Gestor de Actualizaciones la vean sin intervención del admin.
+// Es idempotente por (proyecto, plataforma, versión): si el mismo build se
+// sincroniza dos veces, se actualizan archivo/tamaño, no se duplica.
+async function upsertReleaseFromItch(projectRow, itch) {
+  const version = String(itch?.version || '').trim();
+  if (!version) return null;
+  const file = String(itch?.file || '').trim();
+  const installerUrl = String(itch?.installer_url || '').trim();
+  if (!file && !installerUrl) return null;
+  const platform = /\.apk$/i.test(file) ? 'android' : 'windows';
+  await ensureOwsProjectReleasesTable();
+
+  const { rows: same } = await pool.query(
+    `SELECT * FROM ows_project_releases
+      WHERE project_id = $1 AND platform = $2 AND LOWER(version) = LOWER($3)
+      ORDER BY id DESC LIMIT 1`,
+    [projectRow.id, platform, version]
+  );
+  if (same.length) {
+    const { rows } = await pool.query(
+      `UPDATE ows_project_releases
+          SET file_label = COALESCE(NULLIF($2, ''), file_label),
+              size_label = COALESCE(NULLIF($3, ''), size_label),
+              itch_url = COALESCE(NULLIF($4, ''), itch_url),
+              installer_url = COALESCE(NULLIF($5, ''), installer_url),
+              updated_at = NOW()
+        WHERE id = $1
+        RETURNING *`,
+      [same[0].id, file, String(itch?.size || '').trim(), String(itch?.url || '').trim(), installerUrl]
+    );
+    return rows[0] || null;
+  }
+
+  // Una versión más vieja que la última activa no reemplaza nada: se conserva
+  // el historial y el Hub sigue ofreciendo el build más nuevo.
+  const { rows: latest } = await pool.query(
+    `SELECT version FROM ows_project_releases
+      WHERE project_id = $1 AND platform = $2 AND is_active = TRUE
+      ORDER BY released_at DESC NULLS LAST, id DESC LIMIT 1`,
+    [projectRow.id, platform]
+  );
+  if (latest.length && compareVersionStrings(version, latest[0].version) < 0) return null;
+
+  const { rows } = await pool.query(
+    `INSERT INTO ows_project_releases
+       (project_id, version, file_label, size_label, installer_url, itch_url,
+        channel, platform, notes, is_active, released_at)
+     VALUES ($1,$2,$3,$4,$5,$6,'stable',$7,$8,TRUE,NOW())
+     RETURNING *`,
+    [
+      projectRow.id, version, file, String(itch?.size || '').trim(),
+      installerUrl, String(itch?.url || '').trim(), platform,
+      'Sincronizado automáticamente desde itch.io'
+    ]
+  );
+  return rows[0] || null;
+}
+
+// ═══════════════════════════════════════════════
+// CÓDIGO FUENTE — descarga para el Owner y estado de actualización
+// ═══════════════════════════════════════════════
+// Una fila por alcance: "hub" (launcher OWS Hub) o "project:<slug>".
+// Solo el Owner escribe; cualquier admin puede leer. La fecha se sella al
+// guardar y el estado "probable desactualizado" sale de los devlogs y las
+// sesiones de trabajo posteriores a esa fecha.
+let owsSourceCodeTableReady = false;
+
+async function ensureOwsSourceCodeTable() {
+  if (owsSourceCodeTableReady) return;
+  await ensureOwsLaunchProjectsTable();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_source_code (
+      id           BIGSERIAL PRIMARY KEY,
+      scope        TEXT NOT NULL UNIQUE,
+      project_id   BIGINT REFERENCES ows_launch_projects(id) ON DELETE CASCADE,
+      name         TEXT NOT NULL DEFAULT '',
+      version      TEXT NOT NULL DEFAULT '',
+      download_url TEXT NOT NULL DEFAULT '',
+      file_label   TEXT NOT NULL DEFAULT '',
+      notes        TEXT NOT NULL DEFAULT '',
+      updated_by   TEXT NOT NULL DEFAULT '',
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_source_code_project ON ows_source_code(project_id)');
+  owsSourceCodeTableReady = true;
+}
+
+function sourceScopeForProject(slug) {
+  const s = normalizeProjectSlug(slug);
+  return s ? 'project:' + s : '';
+}
+
+function mapOwsSourceCodeRow(row) {
+  const r = row || {};
+  return {
+    id: Number(r.id || 0),
+    scope: String(r.scope || ''),
+    project_id: r.project_id != null ? Number(r.project_id) : null,
+    name: String(r.name || ''),
+    version: String(r.version || '').trim(),
+    download_url: String(r.download_url || '').trim(),
+    downloadUrl: String(r.download_url || '').trim(),
+    file_label: String(r.file_label || '').trim(),
+    fileLabel: String(r.file_label || '').trim(),
+    notes: String(r.notes || '').trim(),
+    updated_by: String(r.updated_by || ''),
+    updatedBy: String(r.updated_by || ''),
+    created_at: r.created_at || null,
+    updated_at: r.updated_at || null,
+    updatedAt: r.updated_at || null
+  };
+}
+
+// Actividad posterior a la última carga de código, por alcance. Los devlogs
+// y las sesiones sin proyecto cuentan para OWS Hub; los que tienen proyecto
+// cuentan para ese proyecto. Es la señal que usa el panel para avisar.
+async function fetchSourceActivityByScope(scopes) {
+  const list = (Array.isArray(scopes) ? scopes : []).filter(Boolean);
+  if (!list.length) return {};
+  await ensureOwsDevlogsTable();
+  await ensureOwsWorkSessionsTable();
+
+  const [devRes, sesRes, dayRes] = await Promise.all([
+    pool.query(`
+      SELECT s.scope,
+             COUNT(d.id)::int AS devlogs,
+             MAX(COALESCE(d.updated_at, d.created_at)) AS last_devlog
+        FROM ows_source_code s
+        LEFT JOIN ows_devlogs d
+          ON ((s.project_id IS NOT NULL AND d.project_id = s.project_id)
+              OR (s.project_id IS NULL AND d.project_id IS NULL))
+         AND COALESCE(d.updated_at, d.created_at) > s.updated_at
+       WHERE s.scope = ANY($1::text[])
+       GROUP BY s.scope
+    `, [list]),
+    pool.query(`
+      SELECT s.scope,
+             COUNT(ws.id)::int AS sessions,
+             COALESCE(SUM(
+               CASE
+                 WHEN ws.id IS NULL THEN 0
+                 -- Tramos trabajados: las pausas no cuentan como trabajo.
+                 WHEN jsonb_array_length(ws.parts) > 0 THEN (
+                   SELECT COALESCE(SUM(
+                     EXTRACT(EPOCH FROM (
+                       (CASE
+                         WHEN NULLIF(part->>'to','') IS NULL THEN NOW()
+                         WHEN part->>'to' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' THEN (part->>'to')::timestamptz
+                         ELSE NULL
+                       END) - (part->>'from')::timestamptz
+                     )) / 60
+                   ), 0)
+                   FROM jsonb_array_elements(ws.parts) AS part
+                   WHERE part->>'from' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+                 )
+                 -- Sesiones viejas sin tramos: inicio → fin (o ahora).
+                 ELSE EXTRACT(EPOCH FROM (COALESCE(ws.ended_at, NOW()) - ws.started_at)) / 60
+               END
+             ), 0)::numeric AS minutes,
+             MAX(CASE WHEN ws.id IS NOT NULL THEN COALESCE(ws.ended_at, NOW()) END) AS last_session
+        FROM ows_source_code s
+        LEFT JOIN ows_work_sessions ws
+          ON ((s.project_id IS NOT NULL AND ws.project_id = s.project_id)
+              OR (s.project_id IS NULL AND ws.project_id IS NULL))
+         AND COALESCE(ws.ended_at, ws.started_at) > s.updated_at
+       WHERE s.scope = ANY($1::text[])
+       GROUP BY s.scope
+    `, [list]),
+    pool.query(`
+      SELECT scope, COUNT(DISTINCT day)::int AS active_days
+        FROM (
+          SELECT s.scope, DATE(COALESCE(d.updated_at, d.created_at)) AS day
+            FROM ows_source_code s
+            JOIN ows_devlogs d
+              ON ((s.project_id IS NOT NULL AND d.project_id = s.project_id)
+                  OR (s.project_id IS NULL AND d.project_id IS NULL))
+             AND COALESCE(d.updated_at, d.created_at) > s.updated_at
+           WHERE s.scope = ANY($1::text[])
+          UNION
+          SELECT s.scope, DATE(COALESCE(ws.ended_at, ws.started_at)) AS day
+            FROM ows_source_code s
+            JOIN ows_work_sessions ws
+              ON ((s.project_id IS NOT NULL AND ws.project_id = s.project_id)
+                  OR (s.project_id IS NULL AND ws.project_id IS NULL))
+             AND COALESCE(ws.ended_at, ws.started_at) > s.updated_at
+           WHERE s.scope = ANY($1::text[])
+        ) x
+       GROUP BY scope
+    `, [list])
+  ]);
+
+  const out = {};
+  list.forEach((scope) => {
+    out[scope] = { devlogs: 0, sessions: 0, minutes: 0, active_days: 0, last_devlog: null, last_session: null };
+  });
+  devRes.rows.forEach((r) => {
+    const row = out[r.scope];
+    if (!row) return;
+    row.devlogs = Number(r.devlogs || 0);
+    row.last_devlog = r.last_devlog || null;
+  });
+  sesRes.rows.forEach((r) => {
+    const row = out[r.scope];
+    if (!row) return;
+    row.sessions = Number(r.sessions || 0);
+    row.minutes = Math.max(0, Math.round(Number(r.minutes || 0)));
+    row.last_session = r.last_session || null;
+  });
+  dayRes.rows.forEach((r) => {
+    const row = out[r.scope];
+    if (row) row.active_days = Number(r.active_days || 0);
+  });
+  return out;
+}
+
+function buildSourceActivity(raw, hasSource) {
+  const a = raw || {};
+  const devlogs = Math.max(0, Number(a.devlogs || 0));
+  const sessions = Math.max(0, Number(a.sessions || 0));
+  const minutes = Math.max(0, Number(a.minutes || 0));
+  const activeDays = Math.max(0, Number(a.active_days || 0));
+  // Normalizar a ISO: las filas de pg traen Date y ordenar Date con el
+  // comparador por defecto (lexicográfico sobre toString) no es cronológico.
+  const lastAt = [a.last_devlog, a.last_session]
+    .filter(Boolean)
+    .map((value) => {
+      const date = value instanceof Date ? value : new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date.getTime();
+    })
+    .filter((time) => time !== null)
+    .reduce((max, time) => (max === null || time > max ? time : max), null);
+  const lastAtIso = lastAt === null ? null : new Date(lastAt).toISOString();
+
+  if (!hasSource) {
+    return {
+      devlogs: 0, sessions: 0, minutes: 0, active_days: 0, last_at: null,
+      stale: false, severity: 'none', score: 0,
+      reason: 'Sin código cargado: todavía no hay una fecha contra la cual comparar la actividad.'
+    };
+  }
+
+  // Heurística transparente: 2 devlogs, 2 h de sesiones o una combinación
+  // equivalente (1 devlog + 1 h) ya justifican revisar el código.
+  const score = Math.round((devlogs + (minutes / 60) * 1.5) * 10) / 10;
+  const stale = devlogs >= 2 || minutes >= 120 || score >= 2.5;
+  const severity = stale
+    ? ((devlogs >= 4 || minutes >= 360 || score >= 5) ? 'high' : 'medium')
+    : 'none';
+
+  const bits = [];
+  if (devlogs) bits.push(`${devlogs} devlog${devlogs === 1 ? '' : 's'}`);
+  if (minutes >= 1) bits.push(`${formatWorkMinutes(minutes)} de sesiones`);
+  const reason = bits.length
+    ? `${bits.join(' y ')} desde la última actualización.`
+    : 'Sin devlogs ni sesiones posteriores a la última actualización.';
+
+  return { devlogs, sessions, minutes, active_days: activeDays, last_at: lastAtIso, stale, severity, score, reason };
+}
+
+// Listado para el panel: OWS Hub + todos los proyectos, con o sin código.
+app.get('/ows-source-code', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsSourceCodeTable();
+    const [sourceRes, projectRes] = await Promise.all([
+      pool.query('SELECT * FROM ows_source_code ORDER BY updated_at DESC, id DESC'),
+      pool.query(`
+        SELECT id, slug, name, icon_url, admin_only, is_active, priority
+          FROM ows_launch_projects
+         ORDER BY is_active DESC, priority DESC, name ASC
+      `)
+    ]);
+    const sourceByScope = new Map(sourceRes.rows.map((r) => [String(r.scope), mapOwsSourceCodeRow(r)]));
+    const activityByScope = await fetchSourceActivityByScope([...sourceByScope.keys()]);
+
+    const makeEntry = (base, source) => {
+      const activity = buildSourceActivity(activityByScope[base.scope], !!source);
+      return Object.assign({}, base, {
+        source: source || null,
+        activity,
+        state: !source ? 'missing' : (activity.stale ? 'stale' : 'current')
+      });
+    };
+
+    const entries = [makeEntry({
+      scope: 'hub', kind: 'hub', project_id: null, slug: '', name: 'OWS Hub',
+      icon_url: '', admin_only: false, is_active: true
+    }, sourceByScope.get('hub') || null)];
+
+    projectRes.rows.forEach((p) => {
+      const slug = String(p.slug || '');
+      const scope = sourceScopeForProject(slug);
+      if (!scope) return;
+      entries.push(makeEntry({
+        scope, kind: 'project', project_id: Number(p.id || 0), slug,
+        name: String(p.name || slug), icon_url: String(p.icon_url || ''),
+        admin_only: p.admin_only === true, is_active: p.is_active !== false
+      }, sourceByScope.get(scope) || null));
+    });
+
+    const summary = {
+      total: entries.length,
+      with_source: entries.filter((e) => !!e.source).length,
+      stale: entries.filter((e) => e.state === 'stale').length,
+      missing: entries.filter((e) => e.state === 'missing').length,
+      current: entries.filter((e) => e.state === 'current').length
+    };
+
+    return res.json({
+      success: true,
+      owner: isOwsStoreOwner(req),
+      generated_at: new Date().toISOString(),
+      summary,
+      entries
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-source-code:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Guardar/reemplazar el código fuente. Solo Owner.
+app.put('/ows-source-code', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  if (!isOwsStoreOwner(req)) {
+    return res.status(403).json({ error: 'Solo el Owner puede actualizar el código fuente.' });
+  }
+  const rawScope = String(req.body?.scope || '').trim();
+  const version = String(req.body?.version || '').trim().slice(0, 60);
+  const downloadUrl = sanitizePublicHttpUrl(req.body?.download_url ?? req.body?.downloadUrl ?? '');
+  const fileLabel = String(req.body?.file_label ?? req.body?.fileLabel ?? '').trim().slice(0, 160);
+  const notes = String(req.body?.notes || '').trim().slice(0, 1000);
+  if (!rawScope) return res.status(400).json({ error: 'Falta el proyecto o alcance.' });
+  if (!downloadUrl || !/^https?:\/\//i.test(downloadUrl)) {
+    return res.status(400).json({ error: 'La URL de descarga no es válida. Usá http(s)://…' });
+  }
+
+  const adminName = String(req.headers['x-ows-admin-name'] || '').trim().slice(0, 120) || 'OceanandWild';
+  try {
+    await ensureOwsSourceCodeTable();
+    let scope = '';
+    let projectId = null;
+    let name = 'OWS Hub';
+    if (rawScope.toLowerCase() === 'hub') {
+      scope = 'hub';
+    } else {
+      const slug = normalizeProjectSlug(rawScope.replace(/^project:/i, ''));
+      if (!slug) return res.status(400).json({ error: 'Proyecto inválido.' });
+      const { rows } = await pool.query(
+        'SELECT id, slug, name FROM ows_launch_projects WHERE LOWER(slug) = LOWER($1) LIMIT 1',
+        [slug]
+      );
+      if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado.' });
+      scope = sourceScopeForProject(rows[0].slug);
+      projectId = Number(rows[0].id);
+      name = String(rows[0].name || rows[0].slug);
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO ows_source_code
+         (scope, project_id, name, version, download_url, file_label, notes, updated_by, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+       ON CONFLICT (scope) DO UPDATE
+         SET project_id = EXCLUDED.project_id,
+             name = EXCLUDED.name,
+             version = EXCLUDED.version,
+             download_url = EXCLUDED.download_url,
+             file_label = EXCLUDED.file_label,
+             notes = EXCLUDED.notes,
+             updated_by = EXCLUDED.updated_by,
+             updated_at = NOW()
+       RETURNING *`,
+      [scope, projectId, name, version, downloadUrl, fileLabel, notes, adminName]
+    );
+    return res.json({ success: true, source: mapOwsSourceCodeRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en PUT /ows-source-code:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Quitar el código fuente de un proyecto / del Hub. Solo Owner.
+app.delete('/ows-source-code/:scope', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  if (!isOwsStoreOwner(req)) {
+    return res.status(403).json({ error: 'Solo el Owner puede quitar el código fuente.' });
+  }
+  const raw = String(req.params.scope || '').trim();
+  if (!raw) return res.status(400).json({ error: 'Falta el alcance.' });
+  const scope = raw.toLowerCase() === 'hub'
+    ? 'hub'
+    : sourceScopeForProject(raw.replace(/^project:/i, ''));
+  if (!scope) return res.status(400).json({ error: 'Alcance inválido.' });
+  try {
+    await ensureOwsSourceCodeTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_source_code WHERE scope = $1', [scope]);
+    if (!rowCount) return res.status(404).json({ error: 'Ese código fuente no existe.' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-source-code/:scope:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
 
 // Listar releases (público: solo activas; con ?slug= filtra por proyecto).
 // ?include_inactive=1 requiere admin (para el panel).

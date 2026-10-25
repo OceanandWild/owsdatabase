@@ -15105,7 +15105,7 @@ async function ensureOwsDashboardEventsTable() {
       project_name  TEXT NOT NULL DEFAULT 'OWS',
       image_url     TEXT NOT NULL DEFAULT '',
       link_url      TEXT NOT NULL DEFAULT '',
-      starts_at     TIMESTAMPTZ NOT NULL,
+      starts_at     TIMESTAMPTZ,
       ends_at       TIMESTAMPTZ,
       is_active     BOOLEAN NOT NULL DEFAULT TRUE,
       priority      INTEGER NOT NULL DEFAULT 0,
@@ -15135,6 +15135,15 @@ async function ensureOwsDashboardEventsTable() {
   await pool.query(`
     ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
   `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (expires_at):', err.message));
+  // Fecha opcional: un evento puede publicarse sin fecha de inicio ("aún no
+  // definida"). Se guarda NULL y la web lo muestra así, sin inventar fechas ni
+  // cuentas atrás. Al definirla después, el evento se ordena y cuenta normal.
+  await pool.query(`
+    ALTER TABLE ows_dashboard_events ALTER COLUMN starts_at DROP NOT NULL
+  `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (starts_at opcional):', err.message));
+  await pool.query(`
+    ALTER TABLE ows_dashboard_events ALTER COLUMN starts_at DROP DEFAULT
+  `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (starts_at sin default):', err.message));
   owsDashboardEventsTableReady = true;
 }
 
@@ -15187,6 +15196,10 @@ function mapOwsDashboardEventRow(row) {
     ends_at: endsAt,
     startsAt,
     endsAt,
+    // Sin fecha de inicio: la web y el panel muestran "Fecha aún no definida"
+    // (no se inventa una fecha ni se promete cuenta atrás).
+    date_pending: !startsAt,
+    datePending: !startsAt,
     // Inicio tentativo ("fecha esperada de inicio"): visible en la web como
     // fecha por confirmar, sin countdown exacto.
     starts_expected: row.starts_expected === true || String(row.starts_expected || '').toLowerCase() === 'true',
@@ -15233,16 +15246,23 @@ async function resolveDashboardEventProject(body, fallbackName = 'OWS') {
 const OWS_EVENT_COLUMNS_SELECT = `id, title, description, category, project_name, project_id,
        image_url, link_url, starts_at, ends_at, starts_expected, expires_at, is_active, priority, created_by, created_at, updated_at`;
 
+// Fechas del evento. `starts_at` es OPCIONAL: sin fecha el evento se publica
+// como "Fecha aún no definida" (no se rellena con una fecha inventada).
+// Si viene un fin, el inicio tiene que existir para poder validar el rango.
 function resolveDashboardEventDates(body = {}) {
   const rawStart = body.starts_at || body.startsAt || body.event_start || body.eventStart || body.start_date || body.startDate;
   const rawEnd = body.ends_at || body.endsAt || body.event_end || body.eventEnd || body.end_date || body.endDate;
-  if (!rawStart) return { error: 'La fecha de inicio del evento es obligatoria (starts_at)' };
-  const start = new Date(rawStart);
-  if (Number.isNaN(start.getTime())) return { error: 'starts_at invalido' };
+  const hasStart = rawStart !== undefined && rawStart !== null && String(rawStart).trim() !== '';
+  let start = null;
+  if (hasStart) {
+    start = new Date(rawStart);
+    if (Number.isNaN(start.getTime())) return { error: 'starts_at invalido' };
+  }
   let end = null;
-  if (rawEnd) {
+  if (rawEnd !== undefined && rawEnd !== null && String(rawEnd).trim() !== '') {
     end = new Date(rawEnd);
     if (Number.isNaN(end.getTime())) return { error: 'ends_at invalido' };
+    if (!start) return { error: 'Para cargar una fecha de fin, primero definí la fecha de inicio' };
     if (end < start) return { error: 'La fecha de fin no puede ser anterior a la de inicio' };
   }
   return { start, end };
@@ -15330,11 +15350,13 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
   const imageUrl = sanitizePublicHttpUrl(req.body?.image_url || req.body?.imageUrl || '');
   const linkUrl = sanitizePublicHttpUrl(req.body?.link_url || req.body?.linkUrl || '');
   const priority = Math.trunc(normalizeNewsNumber(req.body?.priority, 0));
-  // Inicio tentativo: el admin marca la fecha como "por confirmar".
-  const startsExpected = normalizeNewsBoolean(req.body?.starts_expected ?? req.body?.startsExpected, false);
   const dates = resolveDashboardEventDates(req.body || {});
   if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
   if (dates.error) return res.status(400).json({ error: dates.error });
+  // Inicio tentativo: solo tiene sentido cuando hay una fecha cargada.
+  const startsExpected = dates.start
+    ? normalizeNewsBoolean(req.body?.starts_expected ?? req.body?.startsExpected, false)
+    : false;
   // Desaparición automática (opcional): cuándo se quita solo de OWS.
   const expiry = resolveDashboardEventExpiry(req.body || {});
   if (expiry.error) return res.status(400).json({ error: expiry.error });
@@ -15395,19 +15417,36 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
     // Inicio tentativo ("fecha esperada de inicio"): se puede prender/apagar
-    // sin tocar las fechas.
+    // sin tocar las fechas. Sin una fecha cargada no hay nada que "esperar":
+    // se guarda apagado para no dejar estados incoherentes.
     if (req.body?.starts_expected !== undefined || req.body?.startsExpected !== undefined) {
-      updates.starts_expected = normalizeNewsBoolean(req.body.starts_expected ?? req.body.startsExpected, false);
+      const wanted = normalizeNewsBoolean(req.body.starts_expected ?? req.body.startsExpected, false);
+      let hasStart = updates.starts_at !== undefined ? Boolean(updates.starts_at) : null;
+      if (hasStart === null) {
+        const { rows: startRows } = await pool.query('SELECT starts_at FROM ows_dashboard_events WHERE id = $1', [id]);
+        if (!startRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
+        hasStart = Boolean(startRows[0].starts_at);
+      }
+      updates.starts_expected = wanted && hasStart;
     }
     if (req.body?.starts_at !== undefined || req.body?.ends_at !== undefined) {
       const { rows: currentRows } = await pool.query('SELECT starts_at, ends_at FROM ows_dashboard_events WHERE id = $1', [id]);
       if (!currentRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
       const rawStart = req.body?.starts_at !== undefined ? req.body.starts_at : currentRows[0].starts_at;
       const rawEnd = req.body?.ends_at !== undefined ? req.body.ends_at : currentRows[0].ends_at;
-      const merged = resolveDashboardEventDates({ starts_at: rawStart, ends_at: rawEnd || undefined });
-      if (merged.error) return res.status(400).json({ error: merged.error });
-      updates.starts_at = merged.start;
-      updates.ends_at = merged.end;
+      const startEmpty = rawStart === undefined || rawStart === null || String(rawStart).trim() === '';
+      if (startEmpty) {
+        // Quitar la fecha de inicio limpia también el fin (un fin sin inicio no
+        // significa nada) y apaga el modo "fecha esperada".
+        updates.starts_at = null;
+        updates.ends_at = null;
+        updates.starts_expected = false;
+      } else {
+        const merged = resolveDashboardEventDates({ starts_at: rawStart, ends_at: rawEnd || undefined });
+        if (merged.error) return res.status(400).json({ error: merged.error });
+        updates.starts_at = merged.start;
+        updates.ends_at = merged.end;
+      }
     }
     // Desaparición automática: se puede fijar, corregir o quitar (cadena vacía).
     const expiry = resolveDashboardEventExpiry(req.body || {});
@@ -42123,11 +42162,103 @@ app.post('/pos/create', async (req, res) => {
   }
 });
 
+// Base pública para que Mercado Pago pueda notificar el pago.
+const MP_TIDES_WEBHOOK_URL = `${String(process.env.MP_WEBHOOK_BASE_URL || OWS_PUBLIC_BASE_URL).replace(/\/+$/, '')}/ocean-pay/tides/webhook`;
+
+// Interruptor de compras de Tides. Por defecto quedan pausadas; para
+// habilitarlas hay que definir TIDES_PURCHASES_ENABLED=true en el entorno.
+// Confirmacion y webhook NO dependen de este flag: los pagos ya iniciados
+// deben poder acreditarse igual.
+function areTidesPurchasesEnabled() {
+  const raw = String(process.env.TIDES_PURCHASES_ENABLED || '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+function parseTidesExternalReference(raw) {
+  const reference = String(raw || '').trim();
+  if (!reference) return null;
+  const parts = reference.split(':');
+  if (parts.length < 4) return null;
+  const prefix = String(parts[0] || '').toLowerCase();
+  if (prefix !== 'op-tides' && prefix !== 'op-aurex') return null;
+  const userId = Number(parts[1] || 0);
+  const packageId = String(parts[2] || '').trim().toLowerCase();
+  if (!Number.isFinite(userId) || userId <= 0 || !packageId) return null;
+  return { prefix, userId, packageId, reference };
+}
+
+async function fetchMercadoPagoPayment(paymentId) {
+  const id = Number(paymentId);
+  if (!Number.isFinite(id) || id <= 0) {
+    return { ok: false, error: 'paymentId invalido', payment: null, status: 0 };
+  }
+  const response = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(String(id))}`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` }
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: data?.message || 'No se pudo validar el pago en Mercado Pago',
+      payment: null,
+      status: response.status
+    };
+  }
+  return { ok: true, payment: data, error: null, status: response.status };
+}
+
+// Acredita un pago aprobado. Es idempotente y serializa por paymentId para
+// que el retorno del cliente y el webhook no puedan acreditar dos veces.
+async function creditTidesPurchase({ userId, pkg, paymentId, externalReference }) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`tides-payment:${paymentId}`]);
+
+    const creditConcept = `Tides Pack ${pkg.id} - payment:${paymentId} - ref:${externalReference}`;
+    const { rows: existingTx } = await client.query(
+      `SELECT id FROM ocean_pay_txs
+        WHERE user_id = $1
+          AND origen = 'Mercado Pago Tides'
+          AND concepto = $2
+        LIMIT 1`,
+      [userId, creditConcept]
+    );
+
+    if (existingTx.length) {
+      const currentBalance = await getUnifiedBalance(client, userId, 'tides');
+      await client.query('COMMIT');
+      return { alreadyApplied: true, credited: 0, newBalance: currentBalance };
+    }
+
+    const currentBalance = await getUnifiedBalance(client, userId, 'tides');
+    const credited = Number(pkg.tidesAmount || 0) + Number(pkg.bonus || 0);
+    const newBalance = currentBalance + credited;
+
+    await setUnifiedBalance(client, userId, 'tides', newBalance);
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, creditConcept, credited, 'Mercado Pago Tides', 'tides']
+    );
+
+    await client.query('COMMIT');
+    return { alreadyApplied: false, credited, newBalance };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // Catalogo de recargas Tides (Moneda premium)
 app.get(['/ocean-pay/tides/packages', '/ocean-pay/aurex/packages'], async (_req, res) => {
   return res.json({
     success: true,
     currency: 'tides',
+    available: areTidesPurchasesEnabled(),
     packages: AUREX_PACKAGES
   });
 });
@@ -42137,6 +42268,13 @@ app.post(['/ocean-pay/tides/checkout', '/ocean-pay/aurex/checkout'], async (req,
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
+  if (!areTidesPurchasesEnabled()) {
+    return res.status(503).json({
+      error: 'La compra de Tides esta indisponible por el momento.',
+      code: 'TIDES_PURCHASES_DISABLED'
+    });
+  }
+
   const packageId = String(req.body?.packageId || '').trim().toLowerCase();
   const pkg = getAurexPackageById(packageId);
   if (!pkg) return res.status(400).json({ error: 'Paquete Tides invalido' });
@@ -42144,31 +42282,42 @@ app.post(['/ocean-pay/tides/checkout', '/ocean-pay/aurex/checkout'], async (req,
   const rawReturnUrl = String(req.body?.returnUrl || '').trim();
   const safeReturnUrl = /^https?:\/\//i.test(rawReturnUrl)
     ? rawReturnUrl
-    : 'https://owsdatabase.onrender.com';
+    : `${OWS_PUBLIC_BASE_URL}/ows/Surface/index.html`;
+
+  // auto_return exige una URL HTTPS pública. En localhost/http se omite para
+  // que Mercado Pago no rechace la preferencia.
+  const isPublicHttpsReturn = /^https:\/\//i.test(safeReturnUrl)
+    && !/^https:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(safeReturnUrl);
 
   try {
     const externalReference = `op-tides:${userId}:${pkg.id}:${Date.now()}`;
     const preference = new Preference(mpClient);
-    const result = await preference.create({
-      body: {
-        external_reference: externalReference,
-        statement_descriptor: 'OCEANWILD',
-        items: [
-          {
-            title: `Ocean Pay - ${pkg.title}`,
-            quantity: 1,
-            unit_price: Number(pkg.priceUyu),
-            currency_id: 'UYU'
-          }
-        ],
-        back_urls: {
-          success: safeReturnUrl,
-          failure: safeReturnUrl,
-          pending: safeReturnUrl
-        },
-        auto_return: 'approved'
+    const preferenceBody = {
+      external_reference: externalReference,
+      statement_descriptor: 'OCEANWILD',
+      items: [
+        {
+          title: `OWS - ${pkg.title}`,
+          quantity: 1,
+          unit_price: Number(pkg.priceUyu),
+          currency_id: 'UYU'
+        }
+      ],
+      metadata: {
+        user_id: String(userId),
+        package_id: pkg.id,
+        product: 'tides'
+      },
+      notification_url: MP_TIDES_WEBHOOK_URL,
+      back_urls: {
+        success: safeReturnUrl,
+        failure: safeReturnUrl,
+        pending: safeReturnUrl
       }
-    });
+    };
+    if (isPublicHttpsReturn) preferenceBody.auto_return = 'approved';
+
+    const result = await preference.create({ body: preferenceBody });
 
     return res.json({
       success: true,
@@ -42189,90 +42338,127 @@ app.post(['/ocean-pay/tides/confirm', '/ocean-pay/aurex/confirm'], async (req, r
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
   const paymentId = Number(req.body?.paymentId || 0);
-  const externalReference = String(req.body?.externalReference || '').trim();
-  if (!paymentId || !externalReference) {
-    return res.status(400).json({ error: 'paymentId y externalReference son requeridos' });
+  const providedReference = String(req.body?.externalReference || '').trim();
+  if (!paymentId) {
+    return res.status(400).json({ error: 'paymentId es requerido' });
   }
-
-  if (!externalReference.startsWith(`op-tides:${userId}:`) && !externalReference.startsWith(`op-aurex:${userId}:`)) {
-    return res.status(403).json({ error: 'externalReference no coincide con el usuario autenticado' });
-  }
-
-  const segments = externalReference.split(':');
-  const packageId = String(segments[2] || '').trim().toLowerCase();
-  const pkg = getAurexPackageById(packageId);
-  if (!pkg) return res.status(400).json({ error: 'Paquete de Tides no reconocido' });
 
   try {
-    const mpResp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` }
-    });
-    const paymentData = await mpResp.json().catch(() => ({}));
-    if (!mpResp.ok) {
-      return res.status(400).json({ error: 'No se pudo validar el pago en Mercado Pago', details: paymentData?.message || null });
+    const validation = await fetchMercadoPagoPayment(paymentId);
+    if (!validation.ok) {
+      return res.status(400).json({ error: validation.error || 'No se pudo validar el pago en Mercado Pago' });
     }
-    if (String(paymentData?.status || '').toLowerCase() !== 'approved') {
-      return res.status(400).json({ error: 'El pago aun no figura como aprobado', status: paymentData?.status || 'unknown' });
-    }
-    if (String(paymentData?.external_reference || '') !== externalReference) {
+
+    const payment = validation.payment || {};
+    const paymentReference = String(payment.external_reference || '').trim();
+    if (providedReference && paymentReference && providedReference !== paymentReference) {
       return res.status(400).json({ error: 'El pago validado no corresponde a esta orden' });
     }
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      const creditConcept = `Tides Pack ${pkg.id} - payment:${paymentId} - ref:${externalReference}`;
-      const { rows: existingTx } = await client.query(
-        `SELECT id FROM ocean_pay_txs
-          WHERE user_id = $1
-            AND origen = 'Mercado Pago Tides'
-            AND concepto = $2
-          LIMIT 1`,
-        [userId, creditConcept]
-      );
-
-      if (existingTx.length) {
-        const currentBalance = await getUnifiedBalance(client, userId, 'tides');
-        await client.query('COMMIT');
-        return res.json({
-          success: true,
-          alreadyApplied: true,
-          credited: 0,
-          package: pkg,
-          newBalance: currentBalance
-        });
-      }
-
-      const currentBalance = await getUnifiedBalance(client, userId, 'tides');
-      const credited = Number(pkg.tidesAmount || 0) + Number(pkg.bonus || 0);
-      const newBalance = currentBalance + credited;
-      await setUnifiedBalance(client, userId, 'tides', newBalance);
-
-      await client.query(
-        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [userId, creditConcept, credited, 'Mercado Pago Tides', 'tides']
-      );
-
-      await client.query('COMMIT');
-      return res.json({
-        success: true,
-        credited,
-        package: pkg,
-        newBalance
-      });
-    } catch (err) {
-      await client.query('ROLLBACK');
-      console.error('Error interno en confirmacion Tides:', err);
-      return res.status(500).json({ error: 'No se pudo acreditar Tides' });
-    } finally {
-      client.release();
+    const externalReference = paymentReference || providedReference;
+    const parsed = parseTidesExternalReference(externalReference);
+    if (!parsed) {
+      return res.status(400).json({ error: 'externalReference invalido' });
     }
+    if (parsed.userId !== userId) {
+      return res.status(403).json({ error: 'externalReference no coincide con el usuario autenticado' });
+    }
+
+    const pkg = getAurexPackageById(parsed.packageId);
+    if (!pkg) return res.status(400).json({ error: 'Paquete de Tides no reconocido' });
+
+    if (String(payment.status || '').toLowerCase() !== 'approved') {
+      return res.status(400).json({ error: 'El pago aun no figura como aprobado', status: payment.status || 'unknown' });
+    }
+
+    const paymentCurrency = String(payment.currency_id || '').toUpperCase();
+    if (paymentCurrency && paymentCurrency !== 'UYU') {
+      return res.status(400).json({ error: 'La moneda del pago no corresponde a Tides' });
+    }
+
+    const result = await creditTidesPurchase({
+      userId,
+      pkg,
+      paymentId,
+      externalReference
+    });
+
+    return res.json({
+      success: true,
+      ...result,
+      package: pkg
+    });
   } catch (err) {
     console.error('Error en POST /ocean-pay/tides/confirm:', err);
     return res.status(500).json({ error: 'Error interno al confirmar compra Tides' });
+  }
+});
+
+// Webhook de Mercado Pago: acredita el pago aunque el cliente cierre la
+// pestaña antes de volver. Se valida siempre contra la API de Mercado Pago.
+app.post(['/ocean-pay/tides/webhook', '/ocean-pay/aurex/webhook'], async (req, res) => {
+  const type = String(
+    req.query.type || req.query.topic || req.body?.type || req.body?.topic || ''
+  ).toLowerCase();
+  const paymentId = Number(
+    req.query['data.id'] ||
+    req.query?.data?.id ||
+    req.body?.data?.id ||
+    req.query.id ||
+    req.body?.payment_id ||
+    0
+  );
+
+  if (!paymentId) {
+    return res.status(200).json({ success: true, ignored: true, reason: 'sin paymentId' });
+  }
+  if (type && type !== 'payment') {
+    return res.status(200).json({ success: true, ignored: true, reason: 'tipo no soportado' });
+  }
+
+  try {
+    const validation = await fetchMercadoPagoPayment(paymentId);
+    if (!validation.ok) {
+      // Un fallo temporal de Mercado Pago debe reintentarse; un pago invalido no.
+      if (!validation.status || validation.status === 429 || validation.status >= 500) {
+        return res.status(500).json({ error: 'Mercado Pago no disponible para validar el pago' });
+      }
+      console.warn('[MP Tides webhook] No se pudo validar el pago', paymentId, validation.error);
+      return res.status(200).json({ success: false, ignored: true, reason: 'pago no validado' });
+    }
+
+    const payment = validation.payment || {};
+    if (String(payment.status || '').toLowerCase() !== 'approved') {
+      return res.status(200).json({ success: true, ignored: true, status: payment.status || 'unknown' });
+    }
+
+    const parsed = parseTidesExternalReference(payment.external_reference);
+    if (!parsed) {
+      return res.status(200).json({ success: true, ignored: true, reason: 'referencia ajena' });
+    }
+
+    const pkg = getAurexPackageById(parsed.packageId);
+    if (!pkg) {
+      return res.status(200).json({ success: true, ignored: true, reason: 'paquete desconocido' });
+    }
+
+    const result = await creditTidesPurchase({
+      userId: parsed.userId,
+      pkg,
+      paymentId,
+      externalReference: parsed.reference
+    });
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+      userId: parsed.userId,
+      package: pkg
+    });
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/tides/webhook:', err);
+    // 500 para que Mercado Pago reintente si fue un fallo temporal de la DB.
+    return res.status(500).json({ error: 'Error interno al procesar el webhook de Tides' });
   }
 });
 
@@ -45827,6 +46013,1607 @@ app.post('/multiplayer/candy/leave', (req, res) => {
   } catch (err) {
     console.error('[CANDY] leave:', err);
     return res.status(500).json({ error: 'Error al abandonar la partida' });
+  }
+});
+
+/* ============================================================
+   OWS ADMIN — NOTAS Y ANOTACIONES
+   ------------------------------------------------------------
+   Espacio interno del estudio para tareas, ideas, referencias y
+   anotaciones. Cada nota guarda quién la creó y quién la editó,
+   además de categoría, lista, proyecto, etiquetas, checklist,
+   enlaces, prioridad, estado, vencimiento y visibilidad.
+
+   Adaptación narrativa: los proyectos se pueden marcar como
+   "historia" y usar UNA de dos estructuras:
+     · Temporadas + Episodios
+     · Solo capítulos
+   La estructura se define por proyecto y el servidor limpia los
+   campos que no correspondan para que nunca convivan ambas.
+
+   Rutas (todas requieren token de administración):
+     GET    /ows-admin/notes/meta
+     GET    /ows-admin/notes
+     POST   /ows-admin/notes
+     GET    /ows-admin/notes/:id
+     PATCH  /ows-admin/notes/:id
+     DELETE /ows-admin/notes/:id
+     POST   /ows-admin/notes/bulk
+     PUT    /ows-admin/notes/projects/:slug
+     GET/POST/PATCH/DELETE /ows-admin/note-categories[/:id]
+     GET/POST/PATCH/DELETE /ows-admin/note-lists[/:id]
+   ============================================================ */
+
+const OWS_NOTE_TYPES = new Set(['note', 'task', 'idea', 'reference']);
+const OWS_NOTE_STATUSES = new Set(['open', 'doing', 'done']);
+const OWS_NOTE_PRIORITIES = new Set(['low', 'normal', 'high', 'urgent']);
+const OWS_NOTE_STORY_MODES = new Set(['none', 'seasons', 'chapters']);
+
+let owsAdminNotesTablesReady = false;
+let owsAdminNotesTablesPromise = null;
+
+async function ensureOwsAdminNotesTables() {
+  if (owsAdminNotesTablesReady) return;
+  if (owsAdminNotesTablesPromise) return owsAdminNotesTablesPromise;
+
+  owsAdminNotesTablesPromise = (async () => {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_admin_note_categories (
+        id BIGSERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#f59e0b',
+        icon TEXT NOT NULL DEFAULT '',
+        position INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL DEFAULT 'OceanandWild',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_ows_admin_note_categories_name
+      ON ows_admin_note_categories (LOWER(name))
+    `).catch(() => {});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_admin_note_lists (
+        id BIGSERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        color TEXT NOT NULL DEFAULT '#38bdf8',
+        position INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL DEFAULT 'OceanandWild',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_ows_admin_note_lists_name
+      ON ows_admin_note_lists (LOWER(name))
+    `).catch(() => {});
+
+    // Configuración narrativa por proyecto. Vive separada del catálogo
+    // para no tocar las tablas de OWS Store y para poder marcar también
+    // proyectos que todavía no están publicados.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_admin_note_projects (
+        project_slug TEXT PRIMARY KEY,
+        project_name TEXT NOT NULL DEFAULT '',
+        is_story BOOLEAN NOT NULL DEFAULT FALSE,
+        story_structure TEXT NOT NULL DEFAULT '',
+        updated_by TEXT NOT NULL DEFAULT 'OceanandWild',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_admin_notes (
+        id BIGSERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL DEFAULT '',
+        note_type TEXT NOT NULL DEFAULT 'note',
+        status TEXT NOT NULL DEFAULT 'open',
+        priority TEXT NOT NULL DEFAULT 'normal',
+        category_id BIGINT REFERENCES ows_admin_note_categories(id) ON DELETE SET NULL,
+        list_id BIGINT REFERENCES ows_admin_note_lists(id) ON DELETE SET NULL,
+        project_slug TEXT NOT NULL DEFAULT '',
+        project_name TEXT NOT NULL DEFAULT '',
+        story_mode TEXT NOT NULL DEFAULT 'none',
+        season_number INTEGER,
+        episode_number INTEGER,
+        chapter_number INTEGER,
+        chapter_title TEXT NOT NULL DEFAULT '',
+        tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+        checklist JSONB NOT NULL DEFAULT '[]'::jsonb,
+        links JSONB NOT NULL DEFAULT '[]'::jsonb,
+        due_date DATE,
+        is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+        is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+        is_private BOOLEAN NOT NULL DEFAULT FALSE,
+        created_by TEXT NOT NULL DEFAULT 'OceanandWild',
+        updated_by TEXT NOT NULL DEFAULT 'OceanandWild',
+        completed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // Migraciones idempotentes para instalaciones que ya tenían una
+    // versión anterior de la tabla (por ejemplo, al iterar en local).
+    await pool.query(`
+      ALTER TABLE ows_admin_notes
+        ADD COLUMN IF NOT EXISTS project_name TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS story_mode TEXT NOT NULL DEFAULT 'none',
+        ADD COLUMN IF NOT EXISTS season_number INTEGER,
+        ADD COLUMN IF NOT EXISTS episode_number INTEGER,
+        ADD COLUMN IF NOT EXISTS chapter_number INTEGER,
+        ADD COLUMN IF NOT EXISTS chapter_title TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS checklist JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS links JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS due_date DATE,
+        ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS updated_by TEXT NOT NULL DEFAULT 'OceanandWild'
+    `).catch((err) => console.warn('[OWS Notas] Migración idempotente:', err.message));
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_admin_notes_active
+      ON ows_admin_notes (is_archived, is_pinned, updated_at DESC)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_admin_notes_category
+      ON ows_admin_notes (category_id)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_admin_notes_list
+      ON ows_admin_notes (list_id)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_admin_notes_project
+      ON ows_admin_notes (project_slug, story_mode)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_admin_notes_due
+      ON ows_admin_notes (due_date)
+      WHERE due_date IS NOT NULL
+    `).catch(() => {});
+
+    owsAdminNotesTablesReady = true;
+  })().catch((err) => {
+    owsAdminNotesTablesPromise = null;
+    throw err;
+  });
+
+  return owsAdminNotesTablesPromise;
+}
+
+/* ── Helpers de normalización ───────────────────────────────────────── */
+
+function owsNoteText(value, max = 1000) {
+  return String(value == null ? '' : value)
+    .replace(/\u0000/g, '')
+    .trim()
+    .slice(0, Math.max(0, max));
+}
+
+function owsNoteBody(value, max = 50000) {
+  return String(value == null ? '' : value)
+    .replace(/\u0000/g, '')
+    .slice(0, Math.max(0, max));
+}
+
+function owsNoteColor(value, fallback = '#f59e0b') {
+  const color = String(value == null ? '' : value).trim().slice(0, 24);
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : fallback;
+}
+
+function owsNoteIntOrNull(value, min, max) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n) || n < min || n > max) return null;
+  return n;
+}
+
+function owsNoteSlug(value) {
+  return String(value == null ? '' : value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+function owsNoteEnum(value, allowed, fallback) {
+  const clean = String(value == null ? '' : value).trim().toLowerCase();
+  return allowed.has(clean) ? clean : fallback;
+}
+
+function owsNoteJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function owsNoteTags(value) {
+  let source = [];
+  if (Array.isArray(value)) source = value;
+  else if (typeof value === 'string') source = value.split(',');
+  const out = [];
+  const seen = new Set();
+  for (const raw of source) {
+    const tag = String(raw == null ? '' : raw)
+      .replace(/^#+/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 40);
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+    if (out.length >= 24) break;
+  }
+  return out;
+}
+
+function owsNoteChecklist(value) {
+  const source = owsNoteJsonArray(value);
+  const out = [];
+  const seen = new Set();
+  for (const raw of source.slice(0, 200)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const text = owsNoteText(raw.text ?? raw.label, 500);
+    if (!text) continue;
+    let id = String(raw.id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+    if (!id || seen.has(id)) {
+      id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+    seen.add(id);
+    const done = raw.done === true || raw.done === 1 || String(raw.done).toLowerCase() === 'true';
+    out.push({ id, text, done });
+  }
+  return out;
+}
+
+function owsNoteLinks(value) {
+  const source = owsNoteJsonArray(value);
+  const out = [];
+  for (const raw of source.slice(0, 30)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const url = sanitizePublicHttpUrl(raw.url ?? raw.href ?? '');
+    if (!url) continue;
+    const label = owsNoteText(raw.label ?? raw.title, 120) || url;
+    out.push({ label, url });
+  }
+  return out;
+}
+
+// DATE de Postgres llega como Date local: se devuelve siempre YYYY-MM-DD
+// sin pasar por UTC para no correr el día según la zona horaria.
+function owsNoteDateValue(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const raw = String(value == null ? '' : value).trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  if (!match) return null;
+  const iso = `${match[1]}-${match[2]}-${match[3]}`;
+  const parsed = new Date(iso + 'T00:00:00Z');
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== iso) return null;
+  return iso;
+}
+
+function owsNoteSqlDate(value) {
+  return owsNoteDateValue(value);
+}
+
+function owsNoteActor(req) {
+  // El JWT del panel es la fuente de verdad del autor: así el header
+  // x-ows-admin-name no puede firmar una nota a nombre de otro admin.
+  const provided = owsAdminTokenFromRequest(req);
+  if (provided) {
+    try {
+      const payload = jwt.verify(provided, getStudioSecret());
+      const username = owsNoteText(payload && payload.username, 80);
+      if (username) return username;
+    } catch (_) {
+      // Token estático o inválido: se usa el header como respaldo.
+    }
+  }
+  return owsNoteText(req.headers['x-ows-admin-name'], 80) || 'OceanandWild';
+}
+
+function owsNoteIsOwner(req) {
+  try {
+    return isOwsStoreOwner(req);
+  } catch (_) {
+    return false;
+  }
+}
+
+function owsNoteCanAccess(row, req) {
+  if (!row) return false;
+  if (row.is_private !== true) return true;
+  if (owsNoteIsOwner(req)) return true;
+  return String(row.created_by || '').toLowerCase() === owsNoteActor(req).toLowerCase();
+}
+
+function owsNoteIdParam(req) {
+  const id = Number(req.params && req.params.id);
+  return Number.isInteger(id) && id > 0 ? id : 0;
+}
+
+function owsNoteUniqueViolation(err) {
+  return err && err.code === '23505';
+}
+
+/* ── Mapeo de filas ─────────────────────────────────────────────────── */
+
+function mapOwsAdminNoteRow(row) {
+  if (!row) return null;
+  const tags = owsNoteTags(owsNoteJsonArray(row.tags));
+  const checklist = owsNoteChecklist(row.checklist);
+  const links = owsNoteLinks(row.links);
+  const categoryId = row.category_id == null ? null : Number(row.category_id);
+  const listId = row.list_id == null ? null : Number(row.list_id);
+  const storyMode = OWS_NOTE_STORY_MODES.has(String(row.story_mode || ''))
+    ? String(row.story_mode)
+    : 'none';
+  return {
+    id: Number(row.id || 0),
+    title: String(row.title || ''),
+    body: String(row.body || ''),
+    type: OWS_NOTE_TYPES.has(String(row.note_type || '')) ? String(row.note_type) : 'note',
+    note_type: OWS_NOTE_TYPES.has(String(row.note_type || '')) ? String(row.note_type) : 'note',
+    status: OWS_NOTE_STATUSES.has(String(row.status || '')) ? String(row.status) : 'open',
+    priority: OWS_NOTE_PRIORITIES.has(String(row.priority || '')) ? String(row.priority) : 'normal',
+    category_id: Number.isInteger(categoryId) && categoryId > 0 ? categoryId : null,
+    list_id: Number.isInteger(listId) && listId > 0 ? listId : null,
+    category: row.category_name
+      ? {
+          id: categoryId,
+          name: String(row.category_name || ''),
+          color: owsNoteColor(row.category_color),
+          icon: String(row.category_icon || '')
+        }
+      : null,
+    list: row.list_name
+      ? {
+          id: listId,
+          name: String(row.list_name || ''),
+          color: owsNoteColor(row.list_color, '#38bdf8')
+        }
+      : null,
+    project_slug: String(row.project_slug || ''),
+    project_name: String(row.project_name || ''),
+    story_mode: storyMode,
+    season_number: row.season_number == null ? null : Number(row.season_number),
+    episode_number: row.episode_number == null ? null : Number(row.episode_number),
+    chapter_number: row.chapter_number == null ? null : Number(row.chapter_number),
+    chapter_title: String(row.chapter_title || ''),
+    tags,
+    checklist,
+    links,
+    due_date: row.due_date ? owsNoteDateValue(row.due_date) : null,
+    is_pinned: row.is_pinned === true,
+    is_archived: row.is_archived === true,
+    is_private: row.is_private === true,
+    created_by: String(row.created_by || 'OceanandWild'),
+    updated_by: String(row.updated_by || row.created_by || 'OceanandWild'),
+    completed_at: row.completed_at ? new Date(row.completed_at).toISOString() : null,
+    created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+    updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null
+  };
+}
+
+function mapOwsAdminNoteCategoryRow(row) {
+  return {
+    id: Number(row.id || 0),
+    name: String(row.name || ''),
+    color: owsNoteColor(row.color),
+    icon: String(row.icon || ''),
+    position: Number(row.position || 0),
+    count: Number(row.count || 0),
+    created_by: String(row.created_by || 'OceanandWild'),
+    created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+    updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null
+  };
+}
+
+function mapOwsAdminNoteListRow(row) {
+  return {
+    id: Number(row.id || 0),
+    name: String(row.name || ''),
+    description: String(row.description || ''),
+    color: owsNoteColor(row.color, '#38bdf8'),
+    position: Number(row.position || 0),
+    count: Number(row.count || 0),
+    created_by: String(row.created_by || 'OceanandWild'),
+    created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+    updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null
+  };
+}
+
+/* ── Catálogo de proyectos y estructura narrativa ───────────────────── */
+
+async function owsNoteProjectInfo(slug, fallbackName = '') {
+  const clean = owsNoteSlug(slug);
+  if (!clean) return { slug: '', name: '', is_story: false, story_structure: '' };
+
+  let setting = null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT project_slug, project_name, is_story, story_structure
+         FROM ows_admin_note_projects
+        WHERE project_slug = $1
+        LIMIT 1`,
+      [clean]
+    );
+    setting = rows[0] || null;
+  } catch (_) {}
+
+  let name = owsNoteText(setting && setting.project_name, 140) || owsNoteText(fallbackName, 140);
+  if (!name) {
+    try {
+      const { rows } = await pool.query(
+        `SELECT name FROM ows_admin_projects WHERE slug = $1
+         UNION ALL
+         SELECT name FROM ows_launch_projects WHERE slug = $1
+         LIMIT 1`,
+        [clean]
+      );
+      name = owsNoteText(rows[0] && rows[0].name, 140);
+    } catch (_) {}
+  }
+  if (!name) name = clean;
+
+  const structure = ['seasons', 'chapters'].includes(String(setting && setting.story_structure))
+    ? String(setting.story_structure)
+    : '';
+
+  return {
+    slug: clean,
+    name,
+    is_story: !!(setting && setting.is_story === true),
+    story_structure: structure
+  };
+}
+
+async function owsNoteCatalogProjects() {
+  const map = new Map();
+  const add = (slug, name, preferName) => {
+    const clean = owsNoteSlug(slug);
+    if (!clean) return;
+    const display = owsNoteText(name, 140) || clean;
+    if (!map.has(clean)) {
+      map.set(clean, { slug: clean, name: display, is_story: false, story_structure: '', note_count: 0 });
+    } else if (preferName) {
+      map.get(clean).name = display;
+    }
+  };
+
+  try {
+    const { rows } = await pool.query('SELECT slug, name FROM ows_admin_projects');
+    rows.forEach((row) => add(row.slug, row.name, true));
+  } catch (_) {}
+  try {
+    const { rows } = await pool.query('SELECT slug, name FROM ows_launch_projects');
+    rows.forEach((row) => add(row.slug, row.name, false));
+  } catch (_) {}
+
+  let settings = [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT project_slug, project_name, is_story, story_structure
+         FROM ows_admin_note_projects`
+    );
+    settings = rows;
+  } catch (_) {}
+
+  settings.forEach((row) => {
+    add(row.project_slug, row.project_name, false);
+    const project = map.get(owsNoteSlug(row.project_slug));
+    if (!project) return;
+    project.is_story = row.is_story === true;
+    project.story_structure = ['seasons', 'chapters'].includes(String(row.story_structure))
+      ? String(row.story_structure)
+      : '';
+  });
+
+  return map;
+}
+
+/* ── Normalización del payload de una nota ──────────────────────────── */
+
+async function owsNoteCategoryExists(value) {
+  if (value === null || value === undefined || value === '' || value === 'none') return null;
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const { rows } = await pool.query('SELECT id FROM ows_admin_note_categories WHERE id = $1 LIMIT 1', [id]);
+  return rows.length ? id : null;
+}
+
+async function owsNoteListExists(value) {
+  if (value === null || value === undefined || value === '' || value === 'none') return null;
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const { rows } = await pool.query('SELECT id FROM ows_admin_note_lists WHERE id = $1 LIMIT 1', [id]);
+  return rows.length ? id : null;
+}
+
+async function normalizeOwsNotePayload(input, options = {}) {
+  const body = input && typeof input === 'object' ? input : {};
+  const current = options.current && typeof options.current === 'object' ? options.current : {};
+  const has = (key) => Object.prototype.hasOwnProperty.call(body, key);
+  const pick = (key, fallback) => (has(key) ? body[key] : fallback);
+
+  const title = owsNoteText(pick('title', current.title), 200).replace(/\s+/g, ' ');
+  const content = owsNoteBody(pick('body', current.body), 50000);
+  const noteType = owsNoteEnum(pick('note_type', pick('type', current.note_type)), OWS_NOTE_TYPES, 'note');
+  const status = owsNoteEnum(pick('status', current.status), OWS_NOTE_STATUSES, 'open');
+  const priority = owsNoteEnum(pick('priority', current.priority), OWS_NOTE_PRIORITIES, 'normal');
+
+  const categoryId = await owsNoteCategoryExists(pick('category_id', current.category_id));
+  const listId = await owsNoteListExists(pick('list_id', current.list_id));
+
+  const projectSlugRaw = pick('project_slug', pick('projectSlug', current.project_slug));
+  const projectNameRaw = pick('project_name', current.project_name);
+  const project = await owsNoteProjectInfo(projectSlugRaw, projectNameRaw);
+  const projectChanged = owsNoteSlug(current.project_slug) !== project.slug;
+
+  let storyMode = 'none';
+  let seasonNumber = null;
+  let episodeNumber = null;
+  let chapterNumber = null;
+  let chapterTitle = '';
+
+  if (project.is_story && project.story_structure === 'seasons') {
+    storyMode = 'seasons';
+    const hasSeason = has('season_number');
+    const hasEpisode = has('episode_number');
+    seasonNumber = owsNoteIntOrNull(
+      hasSeason ? body.season_number : (projectChanged ? null : current.season_number),
+      1,
+      999
+    );
+    episodeNumber = owsNoteIntOrNull(
+      hasEpisode ? body.episode_number : (projectChanged ? null : current.episode_number),
+      1,
+      9999
+    );
+  } else if (project.is_story && project.story_structure === 'chapters') {
+    storyMode = 'chapters';
+    const hasChapter = has('chapter_number');
+    const hasTitle = has('chapter_title');
+    chapterNumber = owsNoteIntOrNull(
+      hasChapter ? body.chapter_number : (projectChanged ? null : current.chapter_number),
+      1,
+      99999
+    );
+    chapterTitle = hasTitle
+      ? owsNoteText(body.chapter_title, 200)
+      : (projectChanged ? '' : owsNoteText(current.chapter_title, 200));
+  }
+
+  const dueRaw = pick('due_date', current.due_date);
+  const dueDate = dueRaw === null || dueRaw === undefined || dueRaw === ''
+    ? null
+    : owsNoteSqlDate(dueRaw);
+
+  return {
+    title,
+    body: content,
+    note_type: noteType,
+    status,
+    priority,
+    category_id: categoryId,
+    list_id: listId,
+    project_slug: project.slug,
+    project_name: project.name,
+    story_mode: storyMode,
+    season_number: seasonNumber,
+    episode_number: episodeNumber,
+    chapter_number: chapterNumber,
+    chapter_title: chapterTitle,
+    tags: owsNoteTags(pick('tags', current.tags)),
+    checklist: owsNoteChecklist(pick('checklist', current.checklist)),
+    links: owsNoteLinks(pick('links', current.links)),
+    due_date: dueDate,
+    is_pinned: normalizeNewsBoolean(pick('is_pinned', current.is_pinned), false),
+    is_archived: normalizeNewsBoolean(pick('is_archived', current.is_archived), false),
+    is_private: normalizeNewsBoolean(pick('is_private', current.is_private), false)
+  };
+}
+
+/* ── Consultas y respuestas ─────────────────────────────────────────── */
+
+const OWS_NOTE_SELECT = `
+  SELECT n.*,
+         c.name AS category_name,
+         c.color AS category_color,
+         c.icon AS category_icon,
+         l.name AS list_name,
+         l.color AS list_color
+    FROM ows_admin_notes n
+    LEFT JOIN ows_admin_note_categories c ON c.id = n.category_id
+    LEFT JOIN ows_admin_note_lists l ON l.id = n.list_id
+`;
+
+async function owsNoteFetchById(id) {
+  const { rows } = await pool.query(`${OWS_NOTE_SELECT} WHERE n.id = $1 LIMIT 1`, [id]);
+  return rows.length ? mapOwsAdminNoteRow(rows[0]) : null;
+}
+
+function owsNotePrivacySql(params, req, alias = 'n') {
+  if (owsNoteIsOwner(req)) return '';
+  params.push(owsNoteActor(req));
+  return ` AND (${alias}.is_private = FALSE OR LOWER(${alias}.created_by) = LOWER($${params.length}))`;
+}
+
+async function owsNoteCountsBy(column, req) {
+  const params = [];
+  const privacy = owsNotePrivacySql(params, req);
+  const { rows } = await pool.query(
+    `SELECT ${column} AS id, COUNT(*)::int AS count
+       FROM ows_admin_notes n
+      WHERE n.is_archived = FALSE AND n.${column} IS NOT NULL${privacy}
+      GROUP BY ${column}`,
+    params
+  );
+  const map = new Map();
+  rows.forEach((row) => map.set(Number(row.id), Number(row.count) || 0));
+  return map;
+}
+
+async function owsNoteMetaPayload(req) {
+  const actor = owsNoteActor(req);
+  const privacyParams = [];
+  const privacy = owsNotePrivacySql(privacyParams, req);
+
+  const [categoriesResult, listsResult, statsResult, tagsResult, authorsResult, categoryCounts, listCounts, projectCounts] = await Promise.all([
+    pool.query('SELECT * FROM ows_admin_note_categories ORDER BY position ASC, LOWER(name) ASC'),
+    pool.query('SELECT * FROM ows_admin_note_lists ORDER BY position ASC, LOWER(name) ASC'),
+    pool.query(
+      `SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE)::int AS active,
+         COUNT(*) FILTER (WHERE n.is_archived = TRUE)::int AS archived,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.status = 'open')::int AS open,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.status = 'doing')::int AS doing,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.status = 'done')::int AS done,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.is_pinned = TRUE)::int AS pinned,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.is_private = TRUE)::int AS private,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.note_type = 'task')::int AS tasks,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.note_type = 'idea')::int AS ideas,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.category_id IS NULL)::int AS uncategorized,
+         COUNT(*) FILTER (WHERE n.is_archived = FALSE AND n.list_id IS NULL)::int AS unlisted,
+         COUNT(*) FILTER (
+           WHERE n.is_archived = FALSE
+             AND n.status <> 'done'
+             AND n.due_date IS NOT NULL
+             AND n.due_date < CURRENT_DATE
+         )::int AS overdue
+       FROM ows_admin_notes n
+       WHERE TRUE${privacy}`,
+      privacyParams
+    ),
+    pool.query(
+      `SELECT tag, COUNT(*)::int AS count
+         FROM ows_admin_notes n,
+              LATERAL jsonb_array_elements_text(n.tags) AS tag
+        WHERE n.is_archived = FALSE${privacy}
+        GROUP BY tag
+        ORDER BY count DESC, tag ASC
+        LIMIT 200`,
+      privacyParams
+    ),
+    pool.query(
+      `SELECT n.created_by AS name, COUNT(*)::int AS count
+         FROM ows_admin_notes n
+        WHERE n.is_archived = FALSE${privacy}
+        GROUP BY n.created_by
+        ORDER BY count DESC, name ASC
+        LIMIT 100`,
+      privacyParams
+    ),
+    owsNoteCountsBy('category_id', req),
+    owsNoteCountsBy('list_id', req),
+    pool.query(
+      `SELECT n.project_slug, MAX(n.project_name) AS project_name, COUNT(*)::int AS count
+         FROM ows_admin_notes n
+        WHERE n.is_archived = FALSE AND n.project_slug <> ''${privacy}
+        GROUP BY n.project_slug`,
+      privacyParams
+    )
+  ]);
+
+  const categories = categoriesResult.rows.map((row) => {
+    const mapped = mapOwsAdminNoteCategoryRow(row);
+    mapped.count = categoryCounts.get(mapped.id) || 0;
+    return mapped;
+  });
+  const lists = listsResult.rows.map((row) => {
+    const mapped = mapOwsAdminNoteListRow(row);
+    mapped.count = listCounts.get(mapped.id) || 0;
+    return mapped;
+  });
+
+  const projectMap = await owsNoteCatalogProjects();
+  projectCounts.rows.forEach((row) => {
+    const slug = owsNoteSlug(row.project_slug);
+    if (!slug) return;
+    if (!projectMap.has(slug)) {
+      projectMap.set(slug, {
+        slug,
+        name: owsNoteText(row.project_name, 140) || slug,
+        is_story: false,
+        story_structure: '',
+        note_count: 0
+      });
+    }
+    projectMap.get(slug).note_count = Number(row.count) || 0;
+  });
+
+  const statsRow = statsResult.rows[0] || {};
+  const stats = {
+    total: Number(statsRow.total) || 0,
+    active: Number(statsRow.active) || 0,
+    archived: Number(statsRow.archived) || 0,
+    open: Number(statsRow.open) || 0,
+    doing: Number(statsRow.doing) || 0,
+    done: Number(statsRow.done) || 0,
+    pinned: Number(statsRow.pinned) || 0,
+    private: Number(statsRow.private) || 0,
+    tasks: Number(statsRow.tasks) || 0,
+    ideas: Number(statsRow.ideas) || 0,
+    uncategorized: Number(statsRow.uncategorized) || 0,
+    unlisted: Number(statsRow.unlisted) || 0,
+    overdue: Number(statsRow.overdue) || 0
+  };
+
+  return {
+    success: true,
+    actor,
+    categories,
+    lists,
+    projects: Array.from(projectMap.values()).sort((a, b) =>
+      String(a.name || a.slug).localeCompare(String(b.name || b.slug), 'es')
+    ),
+    tags: tagsResult.rows.map((row) => ({
+      tag: String(row.tag || ''),
+      count: Number(row.count) || 0
+    })).filter((row) => row.tag),
+    authors: authorsResult.rows.map((row) => ({
+      name: String(row.name || 'OceanandWild'),
+      count: Number(row.count) || 0
+    })),
+    stats
+  };
+}
+
+/* ── Endpoints: meta, listado y CRUD ────────────────────────────────── */
+
+app.get('/ows-admin/notes/meta', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsAdminNotesTables();
+    const payload = await owsNoteMetaPayload(req);
+    return res.json(payload);
+  } catch (err) {
+    console.error('Error en GET /ows-admin/notes/meta:', err);
+    return res.status(500).json({ error: 'No se pudieron cargar las notas.' });
+  }
+});
+
+app.get('/ows-admin/notes', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsAdminNotesTables();
+
+    const params = [];
+    const where = [];
+    const addParam = (value) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
+
+    const privacy = owsNotePrivacySql(params, req);
+    const archived = String(req.query.archived == null ? '0' : req.query.archived).toLowerCase();
+    if (archived === '1' || archived === 'true' || archived === 'only') {
+      where.push('n.is_archived = TRUE');
+    } else if (archived !== 'all') {
+      where.push('n.is_archived = FALSE');
+    }
+
+    const view = String(req.query.view || '').toLowerCase();
+    if (view === 'pinned') where.push('n.is_pinned = TRUE');
+    else if (view === 'tasks') where.push(`n.note_type = 'task'`);
+    else if (view === 'ideas') where.push(`n.note_type = 'idea'`);
+    else if (view === 'done') where.push(`n.status = 'done'`);
+    else if (view === 'private') where.push('n.is_private = TRUE');
+    else if (view === 'overdue') {
+      where.push(`n.status <> 'done' AND n.due_date IS NOT NULL AND n.due_date < CURRENT_DATE`);
+    }
+
+    const noteType = String(req.query.type || '').toLowerCase();
+    if (OWS_NOTE_TYPES.has(noteType)) where.push(`n.note_type = '${noteType}'`);
+
+    const status = String(req.query.status || '').toLowerCase();
+    if (OWS_NOTE_STATUSES.has(status)) where.push(`n.status = '${status}'`);
+
+    const priority = String(req.query.priority || '').toLowerCase();
+    if (OWS_NOTE_PRIORITIES.has(priority)) where.push(`n.priority = '${priority}'`);
+
+    const category = String(req.query.category_id == null ? '' : req.query.category_id).trim();
+    if (category) {
+      if (category === 'none') where.push('n.category_id IS NULL');
+      else {
+        const id = Number(category);
+        if (Number.isInteger(id) && id > 0) where.push(`n.category_id = ${addParam(id)}`);
+      }
+    }
+
+    const list = String(req.query.list_id == null ? '' : req.query.list_id).trim();
+    if (list) {
+      if (list === 'none') where.push('n.list_id IS NULL');
+      else {
+        const id = Number(list);
+        if (Number.isInteger(id) && id > 0) where.push(`n.list_id = ${addParam(id)}`);
+      }
+    }
+
+    const project = owsNoteSlug(req.query.project_slug || req.query.project);
+    if (project) where.push(`n.project_slug = ${addParam(project)}`);
+
+    const story = String(req.query.story_mode || req.query.story || '').toLowerCase();
+    if (OWS_NOTE_STORY_MODES.has(story)) where.push(`n.story_mode = '${story}'`);
+
+    const tag = owsNoteText(req.query.tag, 40);
+    if (tag) where.push(`n.tags ? ${addParam(tag)}`);
+
+    const author = owsNoteText(req.query.author, 80);
+    if (author) where.push(`LOWER(n.created_by) = LOWER(${addParam(author)})`);
+
+    const query = owsNoteText(req.query.q, 120);
+    if (query) {
+      const like = `%${query}%`;
+      const p = addParam(like);
+      where.push(`(
+        n.title ILIKE ${p}
+        OR n.body ILIKE ${p}
+        OR n.project_name ILIKE ${p}
+        OR n.chapter_title ILIKE ${p}
+        OR n.tags::text ILIKE ${p}
+        OR n.checklist::text ILIKE ${p}
+      )`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}${privacy}` : `WHERE TRUE${privacy}`;
+    const limit = Math.max(1, Math.min(500, Number.parseInt(req.query.limit, 10) || 100));
+    const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
+
+    const sortMap = {
+      updated: 'n.updated_at DESC, n.id DESC',
+      created: 'n.created_at DESC, n.id DESC',
+      title: 'LOWER(n.title) ASC, n.id DESC',
+      due: 'n.due_date ASC NULLS LAST, n.updated_at DESC',
+      priority: `CASE n.priority
+                   WHEN 'urgent' THEN 0
+                   WHEN 'high' THEN 1
+                   WHEN 'normal' THEN 2
+                   ELSE 3
+                 END ASC,
+                 n.updated_at DESC`
+    };
+    const sort = sortMap[String(req.query.sort || 'updated')] || sortMap.updated;
+
+    const listParams = params.concat([limit, offset]);
+    const [listResult, countResult] = await Promise.all([
+      pool.query(
+        `${OWS_NOTE_SELECT}
+         ${whereSql}
+         ORDER BY n.is_pinned DESC, ${sort}
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        listParams
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS total FROM ows_admin_notes n ${whereSql}`,
+        params
+      )
+    ]);
+
+    const total = Number(countResult.rows[0] && countResult.rows[0].total) || 0;
+    const notes = listResult.rows.map(mapOwsAdminNoteRow);
+    return res.json({
+      success: true,
+      notes,
+      total,
+      limit,
+      offset,
+      has_more: offset + notes.length < total
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-admin/notes:', err);
+    return res.status(500).json({ error: 'No se pudieron cargar las notas.' });
+  }
+});
+
+app.get('/ows-admin/notes/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = owsNoteIdParam(req);
+  if (!id) return res.status(400).json({ error: 'Nota inválida.' });
+  try {
+    await ensureOwsAdminNotesTables();
+    const { rows } = await pool.query(`${OWS_NOTE_SELECT} WHERE n.id = $1 LIMIT 1`, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Nota no encontrada.' });
+    if (!owsNoteCanAccess(rows[0], req)) {
+      return res.status(403).json({ error: 'Esta nota es privada.' });
+    }
+    return res.json({ success: true, note: mapOwsAdminNoteRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en GET /ows-admin/notes/:id:', err);
+    return res.status(500).json({ error: 'No se pudo cargar la nota.' });
+  }
+});
+
+app.post('/ows-admin/notes', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsAdminNotesTables();
+    const actor = owsNoteActor(req);
+    const payload = await normalizeOwsNotePayload(req.body || {}, { current: {} });
+    if (!payload.title) return res.status(400).json({ error: 'El título es obligatorio.' });
+
+    const { rows } = await pool.query(
+      `INSERT INTO ows_admin_notes (
+         title, body, note_type, status, priority,
+         category_id, list_id, project_slug, project_name,
+         story_mode, season_number, episode_number, chapter_number, chapter_title,
+         tags, checklist, links, due_date,
+         is_pinned, is_archived, is_private,
+         created_by, updated_by, completed_at
+       ) VALUES (
+         $1, $2, $3, $4, $5,
+         $6, $7, $8, $9,
+         $10, $11, $12, $13, $14,
+         $15::jsonb, $16::jsonb, $17::jsonb, $18,
+         $19, $20, $21,
+         $22, $23, $24
+       )
+       RETURNING id`,
+      [
+        payload.title,
+        payload.body,
+        payload.note_type,
+        payload.status,
+        payload.priority,
+        payload.category_id,
+        payload.list_id,
+        payload.project_slug,
+        payload.project_name,
+        payload.story_mode,
+        payload.season_number,
+        payload.episode_number,
+        payload.chapter_number,
+        payload.chapter_title,
+        JSON.stringify(payload.tags),
+        JSON.stringify(payload.checklist),
+        JSON.stringify(payload.links),
+        payload.due_date,
+        payload.is_pinned,
+        payload.is_archived,
+        payload.is_private,
+        actor,
+        actor,
+        payload.status === 'done' ? new Date().toISOString() : null
+      ]
+    );
+
+    const id = Number(rows[0] && rows[0].id);
+    const note = await owsNoteFetchById(id);
+    await logAdminActivity({
+      action: 'create',
+      entityType: 'admin_note',
+      entityId: String(id),
+      entityName: payload.title,
+      adminName: actor,
+      meta: {
+        note_type: payload.note_type,
+        status: payload.status,
+        project_slug: payload.project_slug,
+        story_mode: payload.story_mode
+      }
+    });
+    return res.status(201).json({ success: true, note });
+  } catch (err) {
+    console.error('Error en POST /ows-admin/notes:', err);
+    return res.status(500).json({ error: 'No se pudo crear la nota.' });
+  }
+});
+
+app.patch('/ows-admin/notes/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = owsNoteIdParam(req);
+  if (!id) return res.status(400).json({ error: 'Nota inválida.' });
+  try {
+    await ensureOwsAdminNotesTables();
+    const existingResult = await pool.query('SELECT * FROM ows_admin_notes WHERE id = $1 LIMIT 1', [id]);
+    if (!existingResult.rows.length) return res.status(404).json({ error: 'Nota no encontrada.' });
+    const existing = existingResult.rows[0];
+    if (!owsNoteCanAccess(existing, req)) {
+      return res.status(403).json({ error: 'Esta nota es privada.' });
+    }
+
+    const actor = owsNoteActor(req);
+    const payload = await normalizeOwsNotePayload(req.body || {}, { current: existing });
+    if (!payload.title) return res.status(400).json({ error: 'El título es obligatorio.' });
+
+    let completedAt = existing.completed_at || null;
+    if (payload.status === 'done' && existing.status !== 'done') completedAt = new Date().toISOString();
+    if (payload.status !== 'done') completedAt = null;
+
+    await pool.query(
+      `UPDATE ows_admin_notes SET
+         title = $1,
+         body = $2,
+         note_type = $3,
+         status = $4,
+         priority = $5,
+         category_id = $6,
+         list_id = $7,
+         project_slug = $8,
+         project_name = $9,
+         story_mode = $10,
+         season_number = $11,
+         episode_number = $12,
+         chapter_number = $13,
+         chapter_title = $14,
+         tags = $15::jsonb,
+         checklist = $16::jsonb,
+         links = $17::jsonb,
+         due_date = $18,
+         is_pinned = $19,
+         is_archived = $20,
+         is_private = $21,
+         updated_by = $22,
+         completed_at = $23,
+         updated_at = NOW()
+       WHERE id = $24`,
+      [
+        payload.title,
+        payload.body,
+        payload.note_type,
+        payload.status,
+        payload.priority,
+        payload.category_id,
+        payload.list_id,
+        payload.project_slug,
+        payload.project_name,
+        payload.story_mode,
+        payload.season_number,
+        payload.episode_number,
+        payload.chapter_number,
+        payload.chapter_title,
+        JSON.stringify(payload.tags),
+        JSON.stringify(payload.checklist),
+        JSON.stringify(payload.links),
+        payload.due_date,
+        payload.is_pinned,
+        payload.is_archived,
+        payload.is_private,
+        actor,
+        completedAt,
+        id
+      ]
+    );
+
+    const note = await owsNoteFetchById(id);
+    await logAdminActivity({
+      action: 'edit',
+      entityType: 'admin_note',
+      entityId: String(id),
+      entityName: payload.title,
+      adminName: actor,
+      meta: {
+        fields: Object.keys(req.body || {}).slice(0, 30),
+        status: payload.status,
+        archived: payload.is_archived
+      }
+    });
+    return res.json({ success: true, note });
+  } catch (err) {
+    console.error('Error en PATCH /ows-admin/notes/:id:', err);
+    return res.status(500).json({ error: 'No se pudo guardar la nota.' });
+  }
+});
+
+app.delete('/ows-admin/notes/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = owsNoteIdParam(req);
+  if (!id) return res.status(400).json({ error: 'Nota inválida.' });
+  try {
+    await ensureOwsAdminNotesTables();
+    const existingResult = await pool.query('SELECT * FROM ows_admin_notes WHERE id = $1 LIMIT 1', [id]);
+    if (!existingResult.rows.length) return res.status(404).json({ error: 'Nota no encontrada.' });
+    const existing = existingResult.rows[0];
+    if (!owsNoteCanAccess(existing, req)) {
+      return res.status(403).json({ error: 'Esta nota es privada.' });
+    }
+    const actor = owsNoteActor(req);
+    await pool.query('DELETE FROM ows_admin_notes WHERE id = $1', [id]);
+    await logAdminActivity({
+      action: 'delete',
+      entityType: 'admin_note',
+      entityId: String(id),
+      entityName: String(existing.title || ''),
+      adminName: actor,
+      meta: { was_private: existing.is_private === true }
+    });
+    return res.json({ success: true, deleted: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-admin/notes/:id:', err);
+    return res.status(500).json({ error: 'No se pudo eliminar la nota.' });
+  }
+});
+
+app.post('/ows-admin/notes/bulk', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsAdminNotesTables();
+    const input = req.body && typeof req.body === 'object' ? req.body : {};
+    const ids = Array.from(new Set(
+      (Array.isArray(input.ids) ? input.ids : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )).slice(0, 500);
+    if (!ids.length) return res.status(400).json({ error: 'No hay notas seleccionadas.' });
+
+    const action = String(input.action || '').trim().toLowerCase();
+    const actor = owsNoteActor(req);
+    const params = [ids];
+    const addParam = (value) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
+
+    let privacy = '';
+    if (!owsNoteIsOwner(req)) {
+      const actorParam = addParam(actor);
+      privacy = ` AND (is_private = FALSE OR LOWER(created_by) = LOWER(${actorParam}))`;
+    }
+
+    let sql = '';
+    if (action === 'delete') {
+      sql = `DELETE FROM ows_admin_notes WHERE id = ANY($1::bigint[])${privacy}`;
+    } else if (action === 'archive' || action === 'unarchive') {
+      const flagParam = addParam(action === 'archive');
+      const actorParam = addParam(actor);
+      sql = `UPDATE ows_admin_notes
+                SET is_archived = ${flagParam}, updated_by = ${actorParam}, updated_at = NOW()
+              WHERE id = ANY($1::bigint[])${privacy}`;
+    } else if (action === 'pin' || action === 'unpin') {
+      const flagParam = addParam(action === 'pin');
+      const actorParam = addParam(actor);
+      sql = `UPDATE ows_admin_notes
+                SET is_pinned = ${flagParam}, updated_by = ${actorParam}, updated_at = NOW()
+              WHERE id = ANY($1::bigint[])${privacy}`;
+    } else if (action === 'status') {
+      const status = owsNoteEnum(input.status, OWS_NOTE_STATUSES, '');
+      if (!status) return res.status(400).json({ error: 'Estado inválido.' });
+      const statusParam = addParam(status);
+      const actorParam = addParam(actor);
+      sql = `UPDATE ows_admin_notes
+                SET status = ${statusParam},
+                    completed_at = CASE WHEN ${statusParam} = 'done' THEN NOW() ELSE NULL END,
+                    updated_by = ${actorParam},
+                    updated_at = NOW()
+              WHERE id = ANY($1::bigint[])${privacy}`;
+    } else if (action === 'category' || action === 'list') {
+      const column = action === 'category' ? 'category_id' : 'list_id';
+      const value = action === 'category'
+        ? await owsNoteCategoryExists(input.category_id)
+        : await owsNoteListExists(input.list_id);
+      const valueParam = addParam(value);
+      const actorParam = addParam(actor);
+      sql = `UPDATE ows_admin_notes
+                SET ${column} = ${valueParam}, updated_by = ${actorParam}, updated_at = NOW()
+              WHERE id = ANY($1::bigint[])${privacy}`;
+    } else {
+      return res.status(400).json({ error: 'Acción masiva no válida.' });
+    }
+
+    const result = await pool.query(sql, params);
+    await logAdminActivity({
+      action,
+      entityType: 'admin_note_bulk',
+      entityId: ids.slice(0, 40).join(','),
+      entityName: `${ids.length} nota(s)`,
+      adminName: actor,
+      meta: { ids_count: ids.length, status: input.status || '' }
+    });
+    return res.json({ success: true, updated: Number(result.rowCount || 0) });
+  } catch (err) {
+    console.error('Error en POST /ows-admin/notes/bulk:', err);
+    return res.status(500).json({ error: 'No se pudo aplicar la acción masiva.' });
+  }
+});
+
+app.put('/ows-admin/notes/projects/:slug', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const slug = owsNoteSlug(req.params && req.params.slug);
+  if (!slug) return res.status(400).json({ error: 'Proyecto inválido.' });
+  try {
+    await ensureOwsAdminNotesTables();
+    const input = req.body && typeof req.body === 'object' ? req.body : {};
+    const isStory = normalizeNewsBoolean(input.is_story, false);
+    let structure = String(input.story_structure || '').trim().toLowerCase();
+    if (isStory && !['seasons', 'chapters'].includes(structure)) structure = 'seasons';
+    if (!isStory) structure = '';
+
+    const actor = owsNoteActor(req);
+    const info = await owsNoteProjectInfo(slug, input.project_name);
+    const projectName = owsNoteText(input.project_name, 140) || info.name || slug;
+
+    await pool.query(
+      `INSERT INTO ows_admin_note_projects (
+         project_slug, project_name, is_story, story_structure, updated_by, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, NOW())
+       ON CONFLICT (project_slug) DO UPDATE SET
+         project_name = EXCLUDED.project_name,
+         is_story = EXCLUDED.is_story,
+         story_structure = EXCLUDED.story_structure,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = NOW()`,
+      [slug, projectName, isStory, structure, actor]
+    );
+
+    // La estructura es excluyente: al cambiarla se limpian los campos
+    // que ya no aplican en todas las notas del proyecto.
+    if (!isStory) {
+      await pool.query(
+        `UPDATE ows_admin_notes
+            SET story_mode = 'none',
+                season_number = NULL,
+                episode_number = NULL,
+                chapter_number = NULL,
+                chapter_title = ''
+          WHERE project_slug = $1`,
+        [slug]
+      );
+    } else if (structure === 'seasons') {
+      await pool.query(
+        `UPDATE ows_admin_notes
+            SET story_mode = 'seasons',
+                chapter_number = NULL,
+                chapter_title = ''
+          WHERE project_slug = $1`,
+        [slug]
+      );
+    } else if (structure === 'chapters') {
+      await pool.query(
+        `UPDATE ows_admin_notes
+            SET story_mode = 'chapters',
+                season_number = NULL,
+                episode_number = NULL
+          WHERE project_slug = $1`,
+        [slug]
+      );
+    }
+
+    await logAdminActivity({
+      action: 'edit',
+      entityType: 'note_project',
+      entityId: slug,
+      entityName: projectName,
+      adminName: actor,
+      meta: { is_story: isStory, story_structure: structure }
+    });
+
+    return res.json({
+      success: true,
+      project: {
+        slug,
+        name: projectName,
+        is_story: isStory,
+        story_structure: structure
+      }
+    });
+  } catch (err) {
+    console.error('Error en PUT /ows-admin/notes/projects/:slug:', err);
+    return res.status(500).json({ error: 'No se pudo guardar la estructura del proyecto.' });
+  }
+});
+
+/* ── Categorías ─────────────────────────────────────────────────────── */
+
+app.get('/ows-admin/note-categories', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsAdminNotesTables();
+    const { rows } = await pool.query(
+      'SELECT * FROM ows_admin_note_categories ORDER BY position ASC, LOWER(name) ASC'
+    );
+    return res.json({ success: true, categories: rows.map(mapOwsAdminNoteCategoryRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-admin/note-categories:', err);
+    return res.status(500).json({ error: 'No se pudieron cargar las categorías.' });
+  }
+});
+
+app.post('/ows-admin/note-categories', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsAdminNotesTables();
+    const input = req.body && typeof req.body === 'object' ? req.body : {};
+    const name = owsNoteText(input.name, 60);
+    if (!name) return res.status(400).json({ error: 'El nombre de la categoría es obligatorio.' });
+    const duplicate = await pool.query(
+      'SELECT id FROM ows_admin_note_categories WHERE LOWER(name) = LOWER($1) LIMIT 1',
+      [name]
+    );
+    if (duplicate.rows.length) return res.status(409).json({ error: 'Ya existe una categoría con ese nombre.' });
+
+    const maxResult = await pool.query(
+      'SELECT COALESCE(MAX(position), 0) + 10 AS next FROM ows_admin_note_categories'
+    );
+    const position = Number.isFinite(Number(input.position))
+      ? Math.trunc(Number(input.position))
+      : Number(maxResult.rows[0] && maxResult.rows[0].next) || 10;
+    const actor = owsNoteActor(req);
+    const { rows } = await pool.query(
+      `INSERT INTO ows_admin_note_categories (name, color, icon, position, created_by)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [name, owsNoteColor(input.color), owsNoteText(input.icon, 8), position, actor]
+    );
+    await logAdminActivity({
+      action: 'create',
+      entityType: 'note_category',
+      entityId: String(rows[0].id),
+      entityName: name,
+      adminName: actor
+    });
+    return res.status(201).json({ success: true, category: mapOwsAdminNoteCategoryRow(rows[0]) });
+  } catch (err) {
+    if (owsNoteUniqueViolation(err)) {
+      return res.status(409).json({ error: 'Ya existe una categoría con ese nombre.' });
+    }
+    console.error('Error en POST /ows-admin/note-categories:', err);
+    return res.status(500).json({ error: 'No se pudo crear la categoría.' });
+  }
+});
+
+app.patch('/ows-admin/note-categories/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = owsNoteIdParam(req);
+  if (!id) return res.status(400).json({ error: 'Categoría inválida.' });
+  try {
+    await ensureOwsAdminNotesTables();
+    const existingResult = await pool.query('SELECT * FROM ows_admin_note_categories WHERE id = $1 LIMIT 1', [id]);
+    if (!existingResult.rows.length) return res.status(404).json({ error: 'Categoría no encontrada.' });
+    const existing = existingResult.rows[0];
+    const input = req.body && typeof req.body === 'object' ? req.body : {};
+    const name = owsNoteText(Object.prototype.hasOwnProperty.call(input, 'name') ? input.name : existing.name, 60);
+    if (!name) return res.status(400).json({ error: 'El nombre de la categoría es obligatorio.' });
+    const duplicate = await pool.query(
+      'SELECT id FROM ows_admin_note_categories WHERE LOWER(name) = LOWER($1) AND id <> $2 LIMIT 1',
+      [name, id]
+    );
+    if (duplicate.rows.length) return res.status(409).json({ error: 'Ya existe una categoría con ese nombre.' });
+
+    const color = owsNoteColor(
+      Object.prototype.hasOwnProperty.call(input, 'color') ? input.color : existing.color
+    );
+    const icon = owsNoteText(
+      Object.prototype.hasOwnProperty.call(input, 'icon') ? input.icon : existing.icon,
+      8
+    );
+    const position = Number.isFinite(Number(input.position))
+      ? Math.trunc(Number(input.position))
+      : Number(existing.position) || 0;
+    const actor = owsNoteActor(req);
+    const { rows } = await pool.query(
+      `UPDATE ows_admin_note_categories
+          SET name = $1, color = $2, icon = $3, position = $4, updated_at = NOW()
+        WHERE id = $5
+        RETURNING *`,
+      [name, color, icon, position, id]
+    );
+    await logAdminActivity({
+      action: 'edit',
+      entityType: 'note_category',
+      entityId: String(id),
+      entityName: name,
+      adminName: actor
+    });
+    return res.json({ success: true, category: mapOwsAdminNoteCategoryRow(rows[0]) });
+  } catch (err) {
+    if (owsNoteUniqueViolation(err)) {
+      return res.status(409).json({ error: 'Ya existe una categoría con ese nombre.' });
+    }
+    console.error('Error en PATCH /ows-admin/note-categories/:id:', err);
+    return res.status(500).json({ error: 'No se pudo guardar la categoría.' });
+  }
+});
+
+app.delete('/ows-admin/note-categories/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = owsNoteIdParam(req);
+  if (!id) return res.status(400).json({ error: 'Categoría inválida.' });
+  try {
+    await ensureOwsAdminNotesTables();
+    const existingResult = await pool.query('SELECT * FROM ows_admin_note_categories WHERE id = $1 LIMIT 1', [id]);
+    if (!existingResult.rows.length) return res.status(404).json({ error: 'Categoría no encontrada.' });
+    await pool.query('UPDATE ows_admin_notes SET category_id = NULL WHERE category_id = $1', [id]);
+    await pool.query('DELETE FROM ows_admin_note_categories WHERE id = $1', [id]);
+    const actor = owsNoteActor(req);
+    await logAdminActivity({
+      action: 'delete',
+      entityType: 'note_category',
+      entityId: String(id),
+      entityName: String(existingResult.rows[0].name || ''),
+      adminName: actor
+    });
+    return res.json({ success: true, deleted: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-admin/note-categories/:id:', err);
+    return res.status(500).json({ error: 'No se pudo eliminar la categoría.' });
+  }
+});
+
+/* ── Listas ─────────────────────────────────────────────────────────── */
+
+app.get('/ows-admin/note-lists', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsAdminNotesTables();
+    const { rows } = await pool.query(
+      'SELECT * FROM ows_admin_note_lists ORDER BY position ASC, LOWER(name) ASC'
+    );
+    return res.json({ success: true, lists: rows.map(mapOwsAdminNoteListRow) });
+  } catch (err) {
+    console.error('Error en GET /ows-admin/note-lists:', err);
+    return res.status(500).json({ error: 'No se pudieron cargar las listas.' });
+  }
+});
+
+app.post('/ows-admin/note-lists', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureOwsAdminNotesTables();
+    const input = req.body && typeof req.body === 'object' ? req.body : {};
+    const name = owsNoteText(input.name, 60);
+    if (!name) return res.status(400).json({ error: 'El nombre de la lista es obligatorio.' });
+    const duplicate = await pool.query(
+      'SELECT id FROM ows_admin_note_lists WHERE LOWER(name) = LOWER($1) LIMIT 1',
+      [name]
+    );
+    if (duplicate.rows.length) return res.status(409).json({ error: 'Ya existe una lista con ese nombre.' });
+
+    const maxResult = await pool.query(
+      'SELECT COALESCE(MAX(position), 0) + 10 AS next FROM ows_admin_note_lists'
+    );
+    const position = Number.isFinite(Number(input.position))
+      ? Math.trunc(Number(input.position))
+      : Number(maxResult.rows[0] && maxResult.rows[0].next) || 10;
+    const actor = owsNoteActor(req);
+    const { rows } = await pool.query(
+      `INSERT INTO ows_admin_note_lists (name, description, color, position, created_by)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [
+        name,
+        owsNoteText(input.description, 300),
+        owsNoteColor(input.color, '#38bdf8'),
+        position,
+        actor
+      ]
+    );
+    await logAdminActivity({
+      action: 'create',
+      entityType: 'note_list',
+      entityId: String(rows[0].id),
+      entityName: name,
+      adminName: actor
+    });
+    return res.status(201).json({ success: true, list: mapOwsAdminNoteListRow(rows[0]) });
+  } catch (err) {
+    if (owsNoteUniqueViolation(err)) {
+      return res.status(409).json({ error: 'Ya existe una lista con ese nombre.' });
+    }
+    console.error('Error en POST /ows-admin/note-lists:', err);
+    return res.status(500).json({ error: 'No se pudo crear la lista.' });
+  }
+});
+
+app.patch('/ows-admin/note-lists/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = owsNoteIdParam(req);
+  if (!id) return res.status(400).json({ error: 'Lista inválida.' });
+  try {
+    await ensureOwsAdminNotesTables();
+    const existingResult = await pool.query('SELECT * FROM ows_admin_note_lists WHERE id = $1 LIMIT 1', [id]);
+    if (!existingResult.rows.length) return res.status(404).json({ error: 'Lista no encontrada.' });
+    const existing = existingResult.rows[0];
+    const input = req.body && typeof req.body === 'object' ? req.body : {};
+    const name = owsNoteText(Object.prototype.hasOwnProperty.call(input, 'name') ? input.name : existing.name, 60);
+    if (!name) return res.status(400).json({ error: 'El nombre de la lista es obligatorio.' });
+    const duplicate = await pool.query(
+      'SELECT id FROM ows_admin_note_lists WHERE LOWER(name) = LOWER($1) AND id <> $2 LIMIT 1',
+      [name, id]
+    );
+    if (duplicate.rows.length) return res.status(409).json({ error: 'Ya existe una lista con ese nombre.' });
+
+    const description = owsNoteText(
+      Object.prototype.hasOwnProperty.call(input, 'description') ? input.description : existing.description,
+      300
+    );
+    const color = owsNoteColor(
+      Object.prototype.hasOwnProperty.call(input, 'color') ? input.color : existing.color,
+      '#38bdf8'
+    );
+    const position = Number.isFinite(Number(input.position))
+      ? Math.trunc(Number(input.position))
+      : Number(existing.position) || 0;
+    const actor = owsNoteActor(req);
+    const { rows } = await pool.query(
+      `UPDATE ows_admin_note_lists
+          SET name = $1, description = $2, color = $3, position = $4, updated_at = NOW()
+        WHERE id = $5
+        RETURNING *`,
+      [name, description, color, position, id]
+    );
+    await logAdminActivity({
+      action: 'edit',
+      entityType: 'note_list',
+      entityId: String(id),
+      entityName: name,
+      adminName: actor
+    });
+    return res.json({ success: true, list: mapOwsAdminNoteListRow(rows[0]) });
+  } catch (err) {
+    if (owsNoteUniqueViolation(err)) {
+      return res.status(409).json({ error: 'Ya existe una lista con ese nombre.' });
+    }
+    console.error('Error en PATCH /ows-admin/note-lists/:id:', err);
+    return res.status(500).json({ error: 'No se pudo guardar la lista.' });
+  }
+});
+
+app.delete('/ows-admin/note-lists/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = owsNoteIdParam(req);
+  if (!id) return res.status(400).json({ error: 'Lista inválida.' });
+  try {
+    await ensureOwsAdminNotesTables();
+    const existingResult = await pool.query('SELECT * FROM ows_admin_note_lists WHERE id = $1 LIMIT 1', [id]);
+    if (!existingResult.rows.length) return res.status(404).json({ error: 'Lista no encontrada.' });
+    await pool.query('UPDATE ows_admin_notes SET list_id = NULL WHERE list_id = $1', [id]);
+    await pool.query('DELETE FROM ows_admin_note_lists WHERE id = $1', [id]);
+    const actor = owsNoteActor(req);
+    await logAdminActivity({
+      action: 'delete',
+      entityType: 'note_list',
+      entityId: String(id),
+      entityName: String(existingResult.rows[0].name || ''),
+      adminName: actor
+    });
+    return res.json({ success: true, deleted: true });
+  } catch (err) {
+    console.error('Error en DELETE /ows-admin/note-lists/:id:', err);
+    return res.status(500).json({ error: 'No se pudo eliminar la lista.' });
   }
 });
 

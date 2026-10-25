@@ -11746,6 +11746,11 @@ app.get('/ocean-pay/activity/overview', async (req, res) => {
 // Normalizacion de divisa: la columna `moneda` llega como 'gambits', 'GAMBITS',
 // 'tides', 'TIDES', ...; se usa el mismo criterio que el resumen de actividad
 // (LIKE 'gambit%' / 'tide%') para que el gasto acumulado coincida con la web.
+//
+// Alcance y pausa temporal: `limits.scope` decide si el tope rige para toda la
+// billetera o solo cuando `limits.activeCardId` coincide con `limits.cardId`.
+// `limits.suspendedUntil` (+ `suspendedPeriod`) desactiva unicamente el tope
+// del periodo hasta esa fecha; el maximo por operacion sigue vigente.
 // ---------------------------------------------------------------------------
 
 const SURFACE_CHECKOUT_CURRENCIES = new Set(['gambits', 'tides']);
@@ -11784,6 +11789,18 @@ function surfaceCheckoutInt(value) {
   return Math.floor(num);
 }
 
+function surfaceCheckoutCardId(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return Math.floor(num);
+}
+
+function surfaceCheckoutIso(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 function surfaceCheckoutAmount(value) {
   const num = Math.round(Number(value) || 0);
   return num.toLocaleString('es-AR', { maximumFractionDigits: 0 });
@@ -11798,6 +11815,20 @@ function sanitizeSurfaceManagement(raw) {
   const rawPeriod = String(limitsRaw.period || '').trim().toLowerCase();
   const rawThreshold = Number(limitsRaw.threshold);
   const logRaw = Array.isArray(source.log) ? source.log : [];
+
+  // Alcance: toda la billetera o una tarjeta puntual. La tarjeta activa la
+  // sincroniza Surface y permite decidir si el tope rige en este checkout.
+  const scope = String(limitsRaw.scope || '').trim().toLowerCase() === 'card' ? 'card' : 'all';
+  const cardId = surfaceCheckoutCardId(limitsRaw.cardId);
+  const activeCardId = surfaceCheckoutCardId(limitsRaw.activeCardId);
+
+  // Desactivación temporal: solo vale hasta la fecha guardada y para el
+  // período con el que se pidió. Vencida, el tope vuelve solo.
+  const suspendedUntil = surfaceCheckoutIso(limitsRaw.suspendedUntil);
+  const rawSuspendedPeriod = String(limitsRaw.suspendedPeriod || '').trim().toLowerCase();
+  const suspendedPeriod = suspendedUntil && SURFACE_CHECKOUT_PERIODS.has(rawSuspendedPeriod)
+    ? rawSuspendedPeriod
+    : null;
 
   const log = logRaw.map((entry, index) => {
     if (!entry || typeof entry !== 'object') return null;
@@ -11814,7 +11845,7 @@ function sanitizeSurfaceManagement(raw) {
   }).filter(Boolean).slice(0, SURFACE_CHECKOUT_LOG_LIMIT);
 
   return {
-    version: 2,
+    version: 3,
     limits: {
       enabled: limitsRaw.enabled === true,
       period: SURFACE_CHECKOUT_PERIODS.has(rawPeriod) ? rawPeriod : 'monthly',
@@ -11828,6 +11859,14 @@ function sanitizeSurfaceManagement(raw) {
         ? Math.min(100, Math.max(0, Math.round(rawThreshold)))
         : 80,
       block: limitsRaw.block !== false,
+      scope,
+      scopeConfirmed: limitsRaw.scopeConfirmed === true,
+      cardId,
+      cardLabel: String(limitsRaw.cardLabel || '').trim().slice(0, 80),
+      activeCardId,
+      suspendedAt: suspendedUntil ? surfaceCheckoutIso(limitsRaw.suspendedAt) : null,
+      suspendedUntil,
+      suspendedPeriod,
     },
     controls: {
       alertLimit: controlsRaw.alertLimit !== false,
@@ -11900,8 +11939,29 @@ function evaluateSurfaceCheckout({ currency, amount, balance, spent, management 
   const enabled = limits.enabled === true;
   const period = SURFACE_CHECKOUT_PERIODS.has(limits.period) ? limits.period : 'monthly';
 
-  const limitAmount = enabled ? surfaceCheckoutInt(limits[currency]) : 0;
-  const perOpLimit = enabled ? surfaceCheckoutInt(limits.perOp ? limits.perOp[currency] : 0) : 0;
+  // Alcance: un tope de una sola tarjeta solo rige cuando esa tarjeta está
+  // activa. Si falta el dato de la tarjeta activa se aplica igual: es más
+  // seguro frenar de más que dejar pasar el gasto.
+  const scope = String(limits.scope || '').trim().toLowerCase() === 'card' ? 'card' : 'all';
+  const scopeCardId = surfaceCheckoutCardId(limits.cardId);
+  const activeCardId = surfaceCheckoutCardId(limits.activeCardId);
+  const scopeActive = scope !== 'card' || scopeCardId == null ||
+    activeCardId == null || activeCardId === scopeCardId;
+
+  // Desactivación temporal: solo suspende el tope del período. El máximo por
+  // operación sigue funcionando como red de seguridad.
+  const suspendedUntil = surfaceCheckoutIso(limits.suspendedUntil);
+  const rawSuspendedPeriod = String(limits.suspendedPeriod || '').trim().toLowerCase();
+  const suspendedPeriod = SURFACE_CHECKOUT_PERIODS.has(rawSuspendedPeriod) ? rawSuspendedPeriod : null;
+  const suspended = enabled && !!suspendedUntil &&
+    suspendedPeriod === period &&
+    new Date(suspendedUntil).getTime() > Date.now();
+  const limitsApply = enabled && scopeActive && !suspended;
+
+  const limitAmount = limitsApply ? surfaceCheckoutInt(limits[currency]) : 0;
+  const perOpLimit = enabled && scopeActive
+    ? surfaceCheckoutInt(limits.perOp ? limits.perOp[currency] : 0)
+    : 0;
   const blockOnExceed = limits.block !== false;
   const rawThreshold = Number(limits.threshold);
   const threshold = Number.isFinite(rawThreshold)
@@ -11915,7 +11975,7 @@ function evaluateSurfaceCheckout({ currency, amount, balance, spent, management 
 
   const sufficientBalance = safeAmount > 0 && safeBalance >= safeAmount;
   const perOpExceeded = perOpLimit > 0 && safeAmount > perOpLimit;
-  const limitExceeded = enabled && limitAmount > 0 && projected > limitAmount;
+  const limitExceeded = limitsApply && limitAmount > 0 && projected > limitAmount;
   const blocked = safeAmount <= 0
     || perOpExceeded
     || (limitExceeded && blockOnExceed)
@@ -11966,6 +12026,7 @@ function evaluateSurfaceCheckout({ currency, amount, balance, spent, management 
     balance: safeBalance,
     sufficientBalance,
     limitEnabled: enabled,
+    limitsApply,
     period,
     periodLabel,
     limitAmount,
@@ -11978,6 +12039,13 @@ function evaluateSurfaceCheckout({ currency, amount, balance, spent, management 
     blockOnExceed,
     limitExceeded,
     perOpExceeded,
+    scope,
+    scopeCardId,
+    activeCardId,
+    scopeActive,
+    suspended,
+    suspendedUntil: suspended ? suspendedUntil : null,
+    suspendedPeriod: suspended ? suspendedPeriod : null,
     canPurchase: !blocked,
     blocked,
     warn,

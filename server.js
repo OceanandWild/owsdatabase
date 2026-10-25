@@ -11751,6 +11751,10 @@ app.get('/ocean-pay/activity/overview', async (req, res) => {
 // billetera o solo cuando `limits.activeCardId` coincide con `limits.cardId`.
 // `limits.suspendedUntil` (+ `suspendedPeriod`) desactiva unicamente el tope
 // del periodo hasta esa fecha; el maximo por operacion sigue vigente.
+//
+// Avisos previos: `limits.warnings` guarda varios porcentajes (5-100). El
+// checkout devuelve el nivel mas alto cruzado y el proximo aviso; `threshold`
+// queda como alias del primero para clientes viejos.
 // ---------------------------------------------------------------------------
 
 const SURFACE_CHECKOUT_CURRENCIES = new Set(['gambits', 'tides']);
@@ -11801,6 +11805,34 @@ function surfaceCheckoutIso(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+/* Avisos previos del límite. La lista es la fuente nueva; si el cliente
+   todavía manda `threshold`, se conserva como único aviso. */
+function surfaceCheckoutWarnings(limits) {
+  const source = limits && Array.isArray(limits.warnings) ? limits.warnings : null;
+  const out = [];
+  const push = (value) => {
+    const num = Math.round(Number(value));
+    if (!Number.isFinite(num) || num < 1 || num > 100) return;
+    if (out.indexOf(num) === -1) out.push(num);
+  };
+  if (source) source.forEach(push);
+  else {
+    const hasLegacy = limits
+      && Object.prototype.hasOwnProperty.call(limits, 'threshold')
+      && limits.threshold !== null
+      && limits.threshold !== ''
+      && Number.isFinite(Number(limits.threshold));
+    if (hasLegacy) {
+      const legacy = Number(limits.threshold);
+      if (legacy > 0) push(legacy);
+    } else {
+      push(80);
+    }
+  }
+  out.sort((a, b) => a - b);
+  return out.slice(0, 8);
+}
+
 function surfaceCheckoutAmount(value) {
   const num = Math.round(Number(value) || 0);
   return num.toLocaleString('es-AR', { maximumFractionDigits: 0 });
@@ -11813,7 +11845,7 @@ function sanitizeSurfaceManagement(raw) {
   const controlsRaw = source.controls && typeof source.controls === 'object' ? source.controls : {};
 
   const rawPeriod = String(limitsRaw.period || '').trim().toLowerCase();
-  const rawThreshold = Number(limitsRaw.threshold);
+  const warnings = surfaceCheckoutWarnings(limitsRaw);
   const logRaw = Array.isArray(source.log) ? source.log : [];
 
   // Alcance: toda la billetera o una tarjeta puntual. La tarjeta activa la
@@ -11845,7 +11877,7 @@ function sanitizeSurfaceManagement(raw) {
   }).filter(Boolean).slice(0, SURFACE_CHECKOUT_LOG_LIMIT);
 
   return {
-    version: 3,
+    version: 4,
     limits: {
       enabled: limitsRaw.enabled === true,
       period: SURFACE_CHECKOUT_PERIODS.has(rawPeriod) ? rawPeriod : 'monthly',
@@ -11855,9 +11887,8 @@ function sanitizeSurfaceManagement(raw) {
         gambits: surfaceCheckoutInt(perOpRaw.gambits),
         tides: surfaceCheckoutInt(perOpRaw.tides),
       },
-      threshold: Number.isFinite(rawThreshold)
-        ? Math.min(100, Math.max(0, Math.round(rawThreshold)))
-        : 80,
+      threshold: warnings.length ? warnings[0] : 0,
+      warnings,
       block: limitsRaw.block !== false,
       scope,
       scopeConfirmed: limitsRaw.scopeConfirmed === true,
@@ -11963,10 +11994,8 @@ function evaluateSurfaceCheckout({ currency, amount, balance, spent, management 
     ? surfaceCheckoutInt(limits.perOp ? limits.perOp[currency] : 0)
     : 0;
   const blockOnExceed = limits.block !== false;
-  const rawThreshold = Number(limits.threshold);
-  const threshold = Number.isFinite(rawThreshold)
-    ? Math.min(100, Math.max(0, Math.round(rawThreshold)))
-    : 80;
+  const warnings = surfaceCheckoutWarnings(limits);
+  const threshold = warnings.length ? warnings[0] : 0;
 
   const safeAmount = surfaceCheckoutInt(amount);
   const safeBalance = Math.max(0, Number(balance) || 0);
@@ -11981,6 +12010,9 @@ function evaluateSurfaceCheckout({ currency, amount, balance, spent, management 
     || (limitExceeded && blockOnExceed)
     || !sufficientBalance;
   const percentUsed = limitAmount > 0 ? (projected * 100) / limitAmount : 0;
+  const warningsCrossed = warnings.filter((value) => percentUsed >= value);
+  const warningLevel = warningsCrossed.length ? warningsCrossed[warningsCrossed.length - 1] : 0;
+  const nextWarning = warnings.find((value) => value > percentUsed) || 0;
 
   const periodLabel = period === 'daily'
     ? 'Hoy'
@@ -12014,10 +12046,11 @@ function evaluateSurfaceCheckout({ currency, amount, balance, spent, management 
     warn = true;
     hint = 'Con esta compra superás tu tope de ' + label + ' para ' + periodPhrase +
       '; el tope solo avisa, no bloquea.';
-  } else if (enabled && limitAmount > 0 && threshold > 0 && percentUsed >= threshold) {
+  } else if (limitsApply && limitAmount > 0 && warningLevel > 0) {
     warn = true;
     hint = 'Con esta compra vas a usar el ' + Math.round(percentUsed) + '% de tu tope de ' +
-      label + ' (' + surfaceCheckoutAmount(limitAmount) + ' para ' + periodPhrase + ').';
+      label + ' (' + surfaceCheckoutAmount(limitAmount) + ' para ' + periodPhrase + '); aviso del ' +
+      warningLevel + '%' + (nextWarning ? '. Próximo aviso al ' + nextWarning + '%.' : '.');
   }
 
   return {
@@ -12036,6 +12069,10 @@ function evaluateSurfaceCheckout({ currency, amount, balance, spent, management 
     projected,
     percentUsed,
     threshold,
+    warnings,
+    warningsCrossed,
+    warningLevel,
+    nextWarning,
     blockOnExceed,
     limitExceeded,
     perOpExceeded,

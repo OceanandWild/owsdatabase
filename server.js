@@ -11723,6 +11723,532 @@ app.get('/ocean-pay/activity/overview', async (req, res) => {
 });
 
 
+// ---------------------------------------------------------------------------
+// SURFACE CHECKOUT  -  modulo global de compras para los juegos de OWS
+//
+// Los juegos (Unity + UI Toolkit) llaman a estos endpoints cuando el jugador
+// inicia una compra:
+//
+//   GET  /surface/checkout/session?currency=&amount=&origin=
+//        Saldo, gasto del periodo, topes de Surface > Gestion y veredicto.
+//   POST /surface/checkout/purchase
+//        Revalida todo y, si corresponde, debita y registra la transaccion.
+//   GET  /surface/checkout/settings
+//   PUT  /surface/checkout/settings
+//        Puente de Surface > Gestion: la web guarda aca los topes para que el
+//        checkout de Unity (y el servidor) puedan aplicarlos.
+//
+// La validacion NO se confia al cliente: el POST vuelve a leer saldo, gasto
+// del periodo y topes dentro de una transaccion con lock por usuario. El
+// movimiento se inserta en ocean_pay_txs con el `origen` del juego, asi que
+// aparece en Surface > Transacciones como cualquier otra operacion.
+//
+// Normalizacion de divisa: la columna `moneda` llega como 'gambits', 'GAMBITS',
+// 'tides', 'TIDES', ...; se usa el mismo criterio que el resumen de actividad
+// (LIKE 'gambit%' / 'tide%') para que el gasto acumulado coincida con la web.
+// ---------------------------------------------------------------------------
+
+const SURFACE_CHECKOUT_CURRENCIES = new Set(['gambits', 'tides']);
+const SURFACE_CHECKOUT_PERIODS = new Set(['daily', 'weekly', 'monthly']);
+const SURFACE_CHECKOUT_PERIOD_START_SQL = {
+  daily: "date_trunc('day', NOW())",
+  weekly: "NOW() - INTERVAL '7 days'",
+  monthly: "date_trunc('month', NOW())",
+};
+const SURFACE_CHECKOUT_LOG_LIMIT = 60;
+const SURFACE_CHECKOUT_LOG_TYPES = new Set([
+  'settings', 'limits', 'rates', 'transfer', 'pause', 'alert', 'credit'
+]);
+
+let surfaceCheckoutSettingsReady = null;
+
+function ensureSurfaceCheckoutSettingsTable() {
+  if (!surfaceCheckoutSettingsReady) {
+    surfaceCheckoutSettingsReady = pool.query(`
+      CREATE TABLE IF NOT EXISTS surface_checkout_settings (
+        user_id INTEGER PRIMARY KEY,
+        management JSONB NOT NULL DEFAULT '{}'::jsonb,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `).catch((err) => {
+      surfaceCheckoutSettingsReady = null;
+      throw err;
+    });
+  }
+  return surfaceCheckoutSettingsReady;
+}
+
+function surfaceCheckoutInt(value) {
+  const num = Number(String(value == null ? '' : value).replace(',', '.'));
+  if (!Number.isFinite(num) || num <= 0) return 0;
+  return Math.floor(num);
+}
+
+function surfaceCheckoutAmount(value) {
+  const num = Math.round(Number(value) || 0);
+  return num.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+}
+
+function sanitizeSurfaceManagement(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const limitsRaw = source.limits && typeof source.limits === 'object' ? source.limits : {};
+  const perOpRaw = limitsRaw.perOp && typeof limitsRaw.perOp === 'object' ? limitsRaw.perOp : {};
+  const controlsRaw = source.controls && typeof source.controls === 'object' ? source.controls : {};
+
+  const rawPeriod = String(limitsRaw.period || '').trim().toLowerCase();
+  const rawThreshold = Number(limitsRaw.threshold);
+  const logRaw = Array.isArray(source.log) ? source.log : [];
+
+  const log = logRaw.map((entry, index) => {
+    if (!entry || typeof entry !== 'object') return null;
+    const text = String(entry.text || '').trim().slice(0, 180);
+    if (!text) return null;
+    const at = new Date(entry.at);
+    const type = String(entry.type || 'settings');
+    return {
+      id: String(entry.id || '').slice(0, 60) || ('mgl_' + index),
+      at: Number.isNaN(at.getTime()) ? new Date().toISOString() : at.toISOString(),
+      type: SURFACE_CHECKOUT_LOG_TYPES.has(type) ? type : 'settings',
+      text,
+    };
+  }).filter(Boolean).slice(0, SURFACE_CHECKOUT_LOG_LIMIT);
+
+  return {
+    version: 2,
+    limits: {
+      enabled: limitsRaw.enabled === true,
+      period: SURFACE_CHECKOUT_PERIODS.has(rawPeriod) ? rawPeriod : 'monthly',
+      gambits: surfaceCheckoutInt(limitsRaw.gambits),
+      tides: surfaceCheckoutInt(limitsRaw.tides),
+      perOp: {
+        gambits: surfaceCheckoutInt(perOpRaw.gambits),
+        tides: surfaceCheckoutInt(perOpRaw.tides),
+      },
+      threshold: Number.isFinite(rawThreshold)
+        ? Math.min(100, Math.max(0, Math.round(rawThreshold)))
+        : 80,
+      block: limitsRaw.block !== false,
+    },
+    controls: {
+      alertLimit: controlsRaw.alertLimit !== false,
+      alertLarge: controlsRaw.alertLarge !== false,
+      confirmLarge: controlsRaw.confirmLarge === true,
+      largeAmount: surfaceCheckoutInt(controlsRaw.largeAmount),
+      pauseTransfers: controlsRaw.pauseTransfers === true,
+    },
+    log,
+  };
+}
+
+async function readSurfaceManagement(client, userId, forUpdate = false) {
+  await client.query(
+    `INSERT INTO surface_checkout_settings (user_id, management)
+     VALUES ($1, $2::jsonb)
+     ON CONFLICT (user_id) DO NOTHING`,
+    [userId, JSON.stringify(sanitizeSurfaceManagement(null))]
+  );
+
+  const { rows } = await client.query(
+    `SELECT management
+       FROM surface_checkout_settings
+      WHERE user_id = $1
+      ${forUpdate ? 'FOR UPDATE' : ''}`,
+    [userId]
+  );
+
+  return sanitizeSurfaceManagement(rows.length ? rows[0].management : null);
+}
+
+async function writeSurfaceManagement(client, userId, raw) {
+  const clean = sanitizeSurfaceManagement(raw);
+  await client.query(
+    `INSERT INTO surface_checkout_settings (user_id, management, updated_at)
+     VALUES ($1, $2::jsonb, NOW())
+     ON CONFLICT (user_id) DO UPDATE
+       SET management = EXCLUDED.management,
+           updated_at = NOW()`,
+    [userId, JSON.stringify(clean)]
+  );
+  return clean;
+}
+
+async function getSurfacePeriodSpent(client, userId, period) {
+  const startSql = SURFACE_CHECKOUT_PERIOD_START_SQL[period] ||
+    SURFACE_CHECKOUT_PERIOD_START_SQL.monthly;
+
+  const { rows } = await client.query(
+    `SELECT
+        COALESCE(SUM(CASE WHEN LOWER(COALESCE(moneda, '')) LIKE 'gambit%' THEN -monto ELSE 0 END), 0) AS gambits,
+        COALESCE(SUM(CASE WHEN LOWER(COALESCE(moneda, '')) LIKE 'tide%'   THEN -monto ELSE 0 END), 0) AS tides
+       FROM ocean_pay_txs
+      WHERE user_id = $1
+        AND monto < 0
+        AND created_at >= ${startSql}`,
+    [userId]
+  );
+
+  const row = rows[0] || {};
+  return {
+    gambits: Math.max(0, Number(row.gambits) || 0),
+    tides: Math.max(0, Number(row.tides) || 0),
+  };
+}
+
+function evaluateSurfaceCheckout({ currency, amount, balance, spent, management }) {
+  const label = currency === 'tides' ? 'TIDES' : 'GAMBITS';
+  const limits = (management && management.limits) || {};
+  const enabled = limits.enabled === true;
+  const period = SURFACE_CHECKOUT_PERIODS.has(limits.period) ? limits.period : 'monthly';
+
+  const limitAmount = enabled ? surfaceCheckoutInt(limits[currency]) : 0;
+  const perOpLimit = enabled ? surfaceCheckoutInt(limits.perOp ? limits.perOp[currency] : 0) : 0;
+  const blockOnExceed = limits.block !== false;
+  const rawThreshold = Number(limits.threshold);
+  const threshold = Number.isFinite(rawThreshold)
+    ? Math.min(100, Math.max(0, Math.round(rawThreshold)))
+    : 80;
+
+  const safeAmount = surfaceCheckoutInt(amount);
+  const safeBalance = Math.max(0, Number(balance) || 0);
+  const safeSpent = Math.max(0, Number(spent) || 0);
+  const projected = safeSpent + safeAmount;
+
+  const sufficientBalance = safeAmount > 0 && safeBalance >= safeAmount;
+  const perOpExceeded = perOpLimit > 0 && safeAmount > perOpLimit;
+  const limitExceeded = enabled && limitAmount > 0 && projected > limitAmount;
+  const blocked = safeAmount <= 0
+    || perOpExceeded
+    || (limitExceeded && blockOnExceed)
+    || !sufficientBalance;
+  const percentUsed = limitAmount > 0 ? (projected * 100) / limitAmount : 0;
+
+  const periodLabel = period === 'daily'
+    ? 'Hoy'
+    : (period === 'weekly' ? 'Últimos 7 días' : 'Este mes');
+  const periodPhrase = period === 'daily'
+    ? 'hoy'
+    : (period === 'weekly' ? 'los últimos 7 días' : 'este mes');
+
+  let code = '';
+  let reason = '';
+  let hint = '';
+  let warn = false;
+
+  if (safeAmount <= 0) {
+    code = 'INVALID_AMOUNT';
+    reason = 'El importe de la compra no es válido.';
+  } else if (perOpExceeded) {
+    code = 'PER_OP_LIMIT';
+    reason = 'El máximo por operación en ' + label + ' es ' +
+      surfaceCheckoutAmount(perOpLimit) + '.';
+  } else if (limitExceeded && blockOnExceed) {
+    code = 'PERIOD_LIMIT';
+    reason = 'Este gasto supera tu tope de ' + label + ' para ' + periodPhrase +
+      '. Ya usaste ' + surfaceCheckoutAmount(safeSpent) + ' y esta compra necesita ' +
+      surfaceCheckoutAmount(safeAmount) + '.';
+  } else if (!sufficientBalance) {
+    code = 'INSUFFICIENT_BALANCE';
+    reason = 'Saldo insuficiente: tenés ' + surfaceCheckoutAmount(safeBalance) + ' ' +
+      label + ' y necesitás ' + surfaceCheckoutAmount(safeAmount) + '.';
+  } else if (limitExceeded) {
+    warn = true;
+    hint = 'Con esta compra superás tu tope de ' + label + ' para ' + periodPhrase +
+      '; el tope solo avisa, no bloquea.';
+  } else if (enabled && limitAmount > 0 && threshold > 0 && percentUsed >= threshold) {
+    warn = true;
+    hint = 'Con esta compra vas a usar el ' + Math.round(percentUsed) + '% de tu tope de ' +
+      label + ' (' + surfaceCheckoutAmount(limitAmount) + ' para ' + periodPhrase + ').';
+  }
+
+  return {
+    currency,
+    amount: safeAmount,
+    balance: safeBalance,
+    sufficientBalance,
+    limitEnabled: enabled,
+    period,
+    periodLabel,
+    limitAmount,
+    perOpLimit,
+    spent: safeSpent,
+    remaining: limitAmount > 0 ? Math.max(0, limitAmount - safeSpent) : 0,
+    projected,
+    percentUsed,
+    threshold,
+    blockOnExceed,
+    limitExceeded,
+    perOpExceeded,
+    canPurchase: !blocked,
+    blocked,
+    warn,
+    code,
+    reason,
+    hint,
+  };
+}
+
+function surfaceCheckoutAuth(req) {
+  const token = parseStudioAuthToken(req);
+  const decoded = decodeStudioTokenOrNull(token);
+  if (!decoded) return null;
+
+  const id = Number(decoded.id || decoded.uid || decoded.sub || 0);
+  if (!Number.isFinite(id) || id <= 0) return null;
+
+  return { id, username: String(decoded.username || '').trim() };
+}
+
+// GET /surface/checkout/settings  -  topes vigentes para el checkout
+app.get('/surface/checkout/settings', async (req, res) => {
+  const auth = surfaceCheckoutAuth(req);
+  if (!auth) return res.status(401).json({ success: false, error: 'Token requerido' });
+
+  try {
+    await ensureSurfaceCheckoutSettingsTable();
+    const { rows } = await pool.query(
+      `SELECT management FROM surface_checkout_settings WHERE user_id = $1 LIMIT 1`,
+      [auth.id]
+    );
+    const management = sanitizeSurfaceManagement(rows.length ? rows[0].management : null);
+    return res.json({ success: true, management });
+  } catch (err) {
+    console.error('Error en GET /surface/checkout/settings:', err);
+    return res.status(500).json({ success: false, error: 'Error al leer la gestión de Surface' });
+  }
+});
+
+// PUT /surface/checkout/settings  -  Surface > Gestión sincroniza sus topes
+app.put('/surface/checkout/settings', async (req, res) => {
+  const auth = surfaceCheckoutAuth(req);
+  if (!auth) return res.status(401).json({ success: false, error: 'Token requerido' });
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const raw = body.management && typeof body.management === 'object' ? body.management : body;
+
+  try {
+    await ensureSurfaceCheckoutSettingsTable();
+    const management = await writeSurfaceManagement(pool, auth.id, raw);
+    return res.json({ success: true, management });
+  } catch (err) {
+    console.error('Error en PUT /surface/checkout/settings:', err);
+    return res.status(500).json({ success: false, error: 'Error al guardar la gestión de Surface' });
+  }
+});
+
+// GET /surface/checkout/session  -  saldo + topes + veredicto para el ticket
+app.get('/surface/checkout/session', async (req, res) => {
+  const auth = surfaceCheckoutAuth(req);
+  if (!auth) return res.status(401).json({ success: false, error: 'Token requerido' });
+
+  const currency = String(req.query.currency || 'gambits').trim().toLowerCase();
+  if (!SURFACE_CHECKOUT_CURRENCIES.has(currency)) {
+    return res.status(400).json({
+      success: false,
+      code: 'INVALID_CURRENCY',
+      error: "La divisa debe ser 'gambits' o 'tides'.",
+    });
+  }
+
+  const amount = surfaceCheckoutInt(req.query.amount);
+
+  try {
+    await ensureSurfaceCheckoutSettingsTable();
+
+    const userRes = await pool.query(
+      `SELECT id, username FROM ocean_pay_users WHERE id = $1 LIMIT 1`,
+      [auth.id]
+    );
+    if (!userRes.rows.length) {
+      return res.status(404).json({ success: false, error: 'Cuenta Surface no encontrada' });
+    }
+    const user = userRes.rows[0];
+
+    const management = await readSurfaceManagement(pool, auth.id, false);
+
+    const balances = {
+      gambits: Math.max(0, Number(await getUnifiedBalance(pool, auth.id, 'gambits')) || 0),
+      tides: Math.max(0, Number(await getUnifiedBalance(pool, auth.id, 'tides')) || 0),
+    };
+    const spent = await getSurfacePeriodSpent(pool, auth.id, management.limits.period);
+    const evaluation = evaluateSurfaceCheckout({
+      currency,
+      amount,
+      balance: balances[currency],
+      spent: spent[currency],
+      management,
+    });
+
+    return res.json({
+      success: true,
+      user: { id: Number(user.id), username: user.username || '' },
+      balances,
+      spent,
+      management,
+      evaluation,
+      origin: String(req.query.origin || '').slice(0, 60),
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Error en GET /surface/checkout/session:', err);
+    return res.status(500).json({
+      success: false,
+      error: 'No pudimos leer tu cuenta de Surface.',
+    });
+  }
+});
+
+// POST /surface/checkout/purchase  -  debita y registra en Transacciones
+app.post('/surface/checkout/purchase', async (req, res) => {
+  const auth = surfaceCheckoutAuth(req);
+  if (!auth) return res.status(401).json({ success: false, error: 'Token requerido' });
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const productName = String(body.productName || body.product_name || '').trim().slice(0, 140);
+  const productId = String(body.productId || body.product_id || '').trim().slice(0, 80);
+  const description = String(body.description || '').trim().slice(0, 240);
+  const origin = (String(body.origin || '').trim() || 'Surface').slice(0, 60);
+  const currency = String(body.currency || '').trim().toLowerCase();
+  const amount = surfaceCheckoutInt(body.amount);
+
+  if (!productName) {
+    return res.status(400).json({
+      success: false,
+      code: 'INVALID_PRODUCT',
+      error: 'La compra no tiene un producto válido.',
+    });
+  }
+  if (!SURFACE_CHECKOUT_CURRENCIES.has(currency)) {
+    return res.status(400).json({
+      success: false,
+      code: 'INVALID_CURRENCY',
+      error: "La divisa debe ser 'gambits' o 'tides'.",
+    });
+  }
+  if (amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      code: 'INVALID_AMOUNT',
+      error: 'El precio de la compra debe ser mayor a cero.',
+    });
+  }
+
+  const client = await pool.connect();
+  let inTransaction = false;
+
+  try {
+    await ensureSurfaceCheckoutSettingsTable();
+
+    await client.query('BEGIN');
+    inTransaction = true;
+
+    // Un lock por usuario serializa compras simultaneas (doble click, dos
+    // juegos abiertos) para que no se pise el saldo ni el tope acumulado.
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext('surface_checkout'), $1::int)`,
+      [auth.id]
+    );
+
+    const userRes = await client.query(
+      `SELECT id, username FROM ocean_pay_users WHERE id = $1 LIMIT 1`,
+      [auth.id]
+    );
+    if (!userRes.rows.length) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      return res.status(404).json({
+        success: false,
+        code: 'USER_NOT_FOUND',
+        error: 'Cuenta Surface no encontrada',
+      });
+    }
+
+    const management = await readSurfaceManagement(client, auth.id, true);
+
+    const balances = {
+      gambits: Math.max(0, Number(await getUnifiedBalance(client, auth.id, 'gambits')) || 0),
+      tides: Math.max(0, Number(await getUnifiedBalance(client, auth.id, 'tides')) || 0),
+    };
+    const spent = await getSurfacePeriodSpent(client, auth.id, management.limits.period);
+    const evaluation = evaluateSurfaceCheckout({
+      currency,
+      amount,
+      balance: balances[currency],
+      spent: spent[currency],
+      management,
+    });
+
+    if (!evaluation.canPurchase) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      return res.status(409).json({
+        success: false,
+        error: evaluation.reason || 'Surface no autorizó esta compra.',
+        code: evaluation.code || 'BLOCKED',
+        balances,
+        spent,
+        management,
+        evaluation,
+      });
+    }
+
+    const previousBalance = balances[currency];
+    const newBalance = previousBalance - amount;
+    await setUnifiedBalance(client, auth.id, currency, newBalance);
+
+    const moneda = currency === 'tides' ? 'TIDES' : 'GAMBITS';
+    const { rows: txRows } = await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, created_at`,
+      [auth.id, productName, -amount, origin, moneda]
+    );
+    const tx = txRows[0] || {};
+
+    await client.query('COMMIT');
+    inTransaction = false;
+
+    balances[currency] = newBalance;
+    const spentAfter = { ...spent, [currency]: spent[currency] + amount };
+    const purchasedAt = tx.created_at
+      ? new Date(tx.created_at).toISOString()
+      : new Date().toISOString();
+
+    console.log('[Surface/Checkout] ' + auth.username + ' -> ' + origin + ': ' +
+      productName + ' (' + amount + ' ' + moneda + ')');
+
+    return res.json({
+      success: true,
+      transactionId: Number(tx.id) || 0,
+      concept: productName,
+      productId: productId || null,
+      description: description || null,
+      amount,
+      currency: moneda,
+      origin,
+      previousBalance,
+      newBalance,
+      purchasedAt,
+      balances,
+      spent,          // gasto del periodo ANTES de esta compra
+      spentAfter,     // gasto del periodo con esta compra incluida
+      evaluation,     // veredicto que autorizo la operacion
+    });
+  } catch (err) {
+    if (inTransaction) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
+    console.error('Error en POST /surface/checkout/purchase:', err);
+    return res.status(500).json({
+      success: false,
+      code: 'PURCHASE_FAILED',
+      error: 'No pudimos registrar la compra en Surface.',
+    });
+  } finally {
+    client.release();
+  }
+});
+
+
 // Changelogs centralizados para todos los proyectos (fuente: ows_store_timeline + sync GitHub)
 app.get('/ows-store/changelogs', async (req, res) => {
   const projectFilter = String(req.query.project || req.query.slug || '').trim().toLowerCase();

@@ -42288,6 +42288,12 @@ const PAYPAL_ENV = String(process.env.PAYPAL_ENV || 'sandbox').trim().toLowerCas
 const PAYPAL_CLIENT_ID = String(process.env.PAYPAL_CLIENT_ID || '').trim();
 const PAYPAL_CLIENT_SECRET = String(process.env.PAYPAL_CLIENT_SECRET || '').trim();
 const PAYPAL_WEBHOOK_ID = String(process.env.PAYPAL_WEBHOOK_ID || '').trim();
+// PayPal permite un webhook por URL (hasta 10 por app). Cada uno tiene su
+// propio ID, asi que aceptamos una lista separada por comas para que el mismo
+// codigo sirva en principal y espejo sin depender del orden de despliegue.
+const PAYPAL_WEBHOOK_IDS = PAYPAL_WEBHOOK_ID
+  ? PAYPAL_WEBHOOK_ID.split(',').map((id) => id.trim()).filter(Boolean)
+  : [];
 const PAYPAL_API_BASE = PAYPAL_ENV === 'live'
   ? 'https://api-m.paypal.com'
   : 'https://api-m.sandbox.paypal.com';
@@ -42771,23 +42777,36 @@ function paypalCaptureCompleted(order, capture) {
 }
 
 async function verifyPayPalWebhookSignature(req) {
-  if (!PAYPAL_WEBHOOK_ID) {
+  if (!PAYPAL_WEBHOOK_IDS.length) {
     throw new Error('PAYPAL_WEBHOOK_ID no configurado');
   }
   const headers = req.headers || {};
-  const data = await paypalApiRequest('/v1/notifications/verify-webhook-signature', {
-    method: 'POST',
-    body: JSON.stringify({
-      auth_algo: headers['paypal-auth-algo'],
-      cert_url: headers['paypal-cert-url'],
-      transmission_id: headers['paypal-transmission-id'],
-      transmission_sig: headers['paypal-transmission-sig'],
-      transmission_time: headers['paypal-transmission-time'],
-      webhook_id: PAYPAL_WEBHOOK_ID,
-      webhook_event: req.body
-    })
-  });
-  return String(data?.verification_status || '').toUpperCase() === 'SUCCESS';
+  let lastError = null;
+
+  // Con varios webhooks (principal + espejo) el evento puede llegar firmado
+  // con cualquiera de los IDs. Se prueba cada uno hasta que PayPal confirme.
+  for (const webhookId of PAYPAL_WEBHOOK_IDS) {
+    try {
+      const data = await paypalApiRequest('/v1/notifications/verify-webhook-signature', {
+        method: 'POST',
+        body: JSON.stringify({
+          auth_algo: headers['paypal-auth-algo'],
+          cert_url: headers['paypal-cert-url'],
+          transmission_id: headers['paypal-transmission-id'],
+          transmission_sig: headers['paypal-transmission-sig'],
+          transmission_time: headers['paypal-transmission-time'],
+          webhook_id: webhookId,
+          webhook_event: req.body
+        })
+      });
+      if (String(data?.verification_status || '').toUpperCase() === 'SUCCESS') return true;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (lastError) throw lastError;
+  return false;
 }
 
 // Config publica para que Surface cargue el SDK de PayPal.

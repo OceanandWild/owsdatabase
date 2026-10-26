@@ -1,5 +1,5 @@
 /* ============================================================================
- * OWS API FAILOVER — v1 (2026-10-15)
+ * OWS API FAILOVER — v2 (2026-10-26)
  * ----------------------------------------------------------------------------
  * Respaldo automático entre el servidor API principal y su espejo:
  *
@@ -10,6 +10,9 @@
  *    - Envuelve window.fetch. Si la URL apunta a una base conocida, reintenta
  *      la MISMA petición contra la otra base cuando hay error de red/CORS
  *      (típico de Render suspendido) o respuesta 502/503/504.
+ *    - Si la página se sirve desde una base conocida (por ejemplo el espejo),
+ *      esa misma base va primero. Así la primera petición no choca contra la
+ *      principal suspendida.
  *    - Recuerda la última base que respondió y la usa primero. Una sonda de
  *      salud cada 45 s vuelve sola a la principal cuando se recupera.
  *    - Expone window.OWS_API_FAILOVER para construir URLs (links de descarga,
@@ -35,6 +38,12 @@
   var nativeFetch = window.fetch ? window.fetch.bind(window) : null;
   if (!nativeFetch) return;
 
+  // Origen actual de la página (si es una base conocida, manda al arrancar).
+  var SELF = '';
+  try {
+    SELF = String(window.location.origin || '').replace(/\/+$/, '');
+  } catch (_) {}
+
   // Orden de intento en memoria. Arranca por la última base sana conocida en
   // esta pestaña (sessionStorage); si no hay, por la principal.
   var activeOrder = KNOWN.slice();
@@ -44,6 +53,12 @@
       activeOrder = [lastGood].concat(KNOWN.filter(function (b) { return b !== lastGood; }));
     }
   } catch (_) {}
+
+  // Mismo origen primero: si la página se sirve desde el espejo, no tiene
+  // sentido intentar la principal suspendida en la primera petición.
+  if (SELF && KNOWN.indexOf(SELF) !== -1) {
+    activeOrder = [SELF].concat(KNOWN.filter(function (b) { return b !== SELF; }));
+  }
 
   // Override de pruebas: si apunta a una base conocida, arranca por ahí.
   try {
@@ -186,6 +201,9 @@
 
   // Sonda inicial (no bloquea): con la principal caída, hasta los links de
   // descarga construidos antes de la primera petición apuntan al espejo.
+  // Si arrancamos en el espejo por mismo origen, la sonda periódica queda
+  // activa para volver a la principal cuando se recupere.
+  if (activeOrder[0] !== PRIMARY) startProbe();
   try {
     nativeFetch(PRIMARY + HEALTH_PATH, { cache: 'no-store' })
       .then(function (res) {

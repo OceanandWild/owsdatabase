@@ -45,9 +45,43 @@ const VIEW_KEY = 'ocean_pay_last_section';
 const ANIM_KEY = 'ocean_pay_pref_animations';
 const DEFAULT_CURRENCY_KEY = 'ocean_pay_pref_currency';
 const LAYOUT_MODES = ['left', 'right', 'top', 'bottom'];
-const SURFACE_VIEWS = ['overview', 'transfer', 'card', 'history', 'settings'];
+const SURFACE_VIEWS = ['overview', 'transfer', 'tides', 'card', 'history', 'management', 'settings'];
+
+// Compra de Tides con Mercado Pago: el retorno se guarda en sessionStorage
+// para poder confirmar el pago aunque la URL se limpie o haya que iniciar sesión.
+// Se conserva como respaldo: el checkout activo es PayPal.
+const TIDES_RETURN_KEY = 'surface_tides_return';
+
+// Interruptor de la tienda de Tides. El cobro activo es PayPal (USD).
+const TIDES_SHOP_ENABLED = true;
+
+const PAYPAL_SDK_ID = 'surface-paypal-sdk';
+
+let tidesPackages = [];
+let selectedTidesPackageId = '';
+let tidesPackagesLoading = false;
+let tidesPackagesLoaded = false;
+let tidesCheckoutBusy = false;
+let tidesReturnProcessing = false;
+
+// PayPal: config pública, SDK y botones montados una sola vez por sesión.
+let tidesPayPalConfig = null;
+let tidesPayPalConfigPromise = null;
+let tidesPayPalSdkPromise = null;
+let tidesPayPalButtonsMounted = false;
+let tidesPayPalPendingPackageId = '';
 
 let currentView = 'overview';
+
+// Gestión: los ajustes son locales de cada cuenta (clave por usuario).
+let mgTab = 'summary';
+const mgSessionNotices = {};
+let mgSuspensionTimer = null;
+let mgCardSelectionTouched = false;
+let pendingLimitScopeContext = null;
+let pendingLimitSnoozeContext = null;
+let mgWarningDraft = 80;
+let mgWarningDraftTouched = false;
 
 // Resumen de actividad (gastos e ingresos de cualquier juego del ecosistema)
 let overviewData = null;
@@ -198,9 +232,12 @@ document.addEventListener('DOMContentLoaded', function () {
   if (window.location.protocol === 'file:') {
     console.warn('[Surface] Abierto como archivo local (file://). La API sigue siendo ' + API_BASE + '.');
   }
+  // Antes que nada: capturar el retorno de Mercado Pago y limpiar la URL.
+  captureTidesReturnParams();
   // Preferencias antes de mostrar nada: evita el salto de layout al entrar.
   applyLayoutMode(getLayoutMode());
   applyAnimationPref();
+  applyTidesShopLock();
   bindSurfaceEvents();
   restoreSession();
 });
@@ -214,7 +251,9 @@ function restoreSession() {
 
   if (token) {
     showDashboard();
-    loadWalletData();
+    loadWalletData().then(function () {
+      processPendingTidesReturn();
+    });
   } else {
     showAuth();
   }
@@ -271,6 +310,120 @@ function bindSurfaceEvents() {
   on('#pref-animations', 'change', (e) => setAnimationsEnabled(!!e.target.checked));
   on('#pref-default-currency', 'change', (e) => setDefaultCurrency(e.target.value));
 
+  // Gestión: topes, equivalencias y controles
+  all('[data-mg-tab]', 'click', (e) => setManagementTab(e.currentTarget.getAttribute('data-mg-tab')));
+
+  on('#mg-limits-enabled', 'change', handleLimitsEnabledChange);
+  on('#btn-mg-change-scope', 'click', () => openLimitScopeModal());
+  on('#btn-apply-limit-scope', 'click', applyLimitScopeModal);
+  all('[data-close-limit-scope]', 'click', () => closeLimitScopeModal(true));
+  on('#limit-scope-modal', 'click', (e) => { if (e.target.id === 'limit-scope-modal') closeLimitScopeModal(true); });
+  all('input[name="limit-scope-radio"]', 'change', syncLimitScopeModalUI);
+  on('#limit-scope-card-select', 'change', syncLimitScopeModalUI);
+  on('#btn-confirm-limit-snooze', 'click', confirmLimitSnooze);
+  all('[data-close-limit-snooze]', 'click', closeLimitSnoozeModal);
+  on('#limit-snooze-modal', 'click', (e) => { if (e.target.id === 'limit-snooze-modal') closeLimitSnoozeModal(); });
+  on('#btn-snooze-limit', 'click', () => openLimitSnoozeModal({
+    currency: currentCurrency(),
+    amount: parseInt(el('transfer-amount')?.value, 10) || 0
+  }));
+
+  on('#mg-period', 'change', (e) => {
+    const nextPeriod = e.target.value;
+    const before = loadManagement();
+    const wasSuspended = mgSuspensionActive(before);
+    mgUpdate(
+      (s) => {
+        s.limits.period = nextPeriod;
+        if (s.limits.suspendedUntil) clearMgSuspensionFields(s);
+      },
+      'Período del límite: ' + (MG_PERIODS[nextPeriod] ? MG_PERIODS[nextPeriod].label : nextPeriod) + '.' +
+        (wasSuspended ? ' El límite se reactivó al cambiar de período.' : ''),
+      'limits'
+    );
+    mgScheduleSuspensionWake();
+  });
+  on('#mg-limit-gambits', 'change', (e) => {
+    const value = mgInt(e.target.value);
+    mgUpdate(
+      (s) => { s.limits.gambits = value; },
+      value > 0
+        ? 'Tope en Gambits: ' + mgFormatAmount(value) + ' (' + MG_PERIODS[loadManagement().limits.period].label + ').'
+        : 'Tope en Gambits desactivado.',
+      'limits'
+    );
+  });
+  on('#mg-limit-tides', 'change', (e) => {
+    const value = mgInt(e.target.value);
+    mgUpdate(
+      (s) => { s.limits.tides = value; },
+      value > 0
+        ? 'Tope en Tides: ' + mgFormatAmount(value) + ' (' + MG_PERIODS[loadManagement().limits.period].label + ').'
+        : 'Tope en Tides desactivado.',
+      'limits'
+    );
+  });
+  on('#mg-perop-gambits', 'change', (e) => {
+    const value = mgInt(e.target.value);
+    mgUpdate(
+      (s) => { s.limits.perOp.gambits = value; },
+      value > 0 ? 'Máximo por envío en Gambits: ' + mgFormatAmount(value) + '.' : 'Máximo por envío en Gambits desactivado.',
+      'limits'
+    );
+  });
+  on('#mg-perop-tides', 'change', (e) => {
+    const value = mgInt(e.target.value);
+    mgUpdate(
+      (s) => { s.limits.perOp.tides = value; },
+      value > 0 ? 'Máximo por envío en Tides: ' + mgFormatAmount(value) + '.' : 'Máximo por envío en Tides desactivado.',
+      'limits'
+    );
+  });
+  on('#mg-warning-range', 'input', (e) => syncMgWarningDraft(e.target.value));
+  on('#btn-mg-add-warning', 'click', addMgWarning);
+  on('#mg-warning-chips', 'click', (e) => {
+    const btn = e.target.closest('[data-remove-warning]');
+    if (!btn) return;
+    removeMgWarning(parseInt(btn.getAttribute('data-remove-warning'), 10));
+  });
+  on('#mg-block-exceeded', 'change', (e) => mgUpdate(
+    (s) => { s.limits.block = !!e.target.checked; },
+    e.target.checked ? 'Bloqueo al superar el tope activado.' : 'El tope ya no bloquea: solo avisa.',
+    'limits'
+  ));
+
+  on('#mg-alert-limit', 'change', (e) => mgUpdate(
+    (s) => { s.controls.alertLimit = !!e.target.checked; },
+    e.target.checked ? 'Aviso de límite activado.' : 'Aviso de límite desactivado.'
+  ));
+  on('#mg-alert-large', 'change', (e) => mgUpdate(
+    (s) => { s.controls.alertLarge = !!e.target.checked; },
+    e.target.checked ? 'Aviso de envíos grandes activado.' : 'Aviso de envíos grandes desactivado.'
+  ));
+  on('#mg-confirm-large', 'change', (e) => mgUpdate(
+    (s) => { s.controls.confirmLarge = !!e.target.checked; },
+    e.target.checked ? 'Confirmación extra para envíos grandes activada.' : 'Confirmación extra desactivada.'
+  ));
+  on('#mg-large-amount', 'change', (e) => {
+    const value = mgInt(e.target.value);
+    mgUpdate(
+      (s) => { s.controls.largeAmount = value; },
+      value > 0 ? 'Umbral de envío grande: ' + mgFormatAmount(value) + '.' : 'Umbral de envío grande desactivado.'
+    );
+  });
+  on('#mg-pause-transfers', 'change', (e) => mgUpdate(
+    (s) => { s.controls.pauseTransfers = !!e.target.checked; },
+    e.target.checked ? 'Envíos pausados desde Gestión.' : 'Pausa de envíos desactivada.',
+    'pause'
+  ));
+
+  on('#mg-calc-form', 'submit', (e) => { e.preventDefault(); updateMgCalculator(); });
+  on('#mg-calc-currency', 'change', updateMgCalculator);
+  on('#mg-calc-amount', 'input', updateMgCalculator);
+  on('#mg-log-export', 'click', exportMgLog);
+  on('#mg-log-clear', 'click', clearMgLog);
+  on('#mg-reset', 'click', resetManagement);
+
   // Tarjeta: selector + revelado + copia
   on('#card-select-dropdown', 'change', (e) => handleCardSelection(e.target.value));
   on('#btn-reveal-card', 'click', toggleCardData);
@@ -285,6 +438,17 @@ function bindSurfaceEvents() {
   on('#btn-max-amount', 'click', setTransferMaxAmount);
   on('#transfer-amount', 'input', (e) => handleAmountInput(e.target.value));
   all('[data-preset]', 'click', (e) => addAmountPreset(Number(e.currentTarget.getAttribute('data-preset'))));
+
+  // Compra de Tides (los paquetes se generan dinámicamente)
+  on('#btn-buy-tides', 'click', startTidesCheckout);
+  on('#tides-packages', 'click', handleTidesPackageClick);
+  window.addEventListener('pageshow', function () {
+    // Al volver desde Mercado Pago (o desde la caché del navegador) el botón
+    // no debe quedar bloqueado en «Conectando…».
+    if (!tidesCheckoutBusy) return;
+    tidesCheckoutBusy = false;
+    updateTidesSummary();
+  });
 
   // Modales
   all('[data-close-confirm]', 'click', closeConfirmModal);
@@ -317,10 +481,19 @@ function bindSurfaceEvents() {
   // Escape cierra el modal abierto de arriba hacia abajo
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (!el('limit-snooze-modal')?.classList.contains('hidden')) return closeLimitSnoozeModal();
+    if (!el('limit-scope-modal')?.classList.contains('hidden')) return closeLimitScopeModal(true);
     if (!el('admin-modal')?.classList.contains('hidden')) return closeAdminModal();
     if (!el('clear-history-confirm-modal')?.classList.contains('hidden')) return closeClearHistoryModal();
     if (!el('confirm-modal')?.classList.contains('hidden')) return closeConfirmModal();
   });
+
+  // El navegador puede dormir los timers en segundo plano: al volver a la
+  // pestaña se revisa si el período ya se reinició y el límite debe volver.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) mgCheckSuspensionWake();
+  });
+  window.addEventListener('focus', mgCheckSuspensionWake);
 }
 
 // =========================================
@@ -355,13 +528,19 @@ function showDashboard() {
   checkAdminPrivileges();
   populateCardsDropdown();
   displaySelectedCard();
+  mgApplyStoredActiveCard(loadManagement());
   updateCurrencySelectionUI();
   updateTransferPreview();
   updateFreeQuotaUI();
   syncSettingsUI();
+  renderManagement();
+  mgScheduleSuspensionWake();
 
   // Arranca siempre en la última sección visitada (Overview la primera vez).
-  const initialView = viewFromHash() || getStoredValue(VIEW_KEY, SURFACE_VIEWS, 'overview');
+  // Si venimos de Mercado Pago, la sección de compra tiene prioridad.
+  const initialView = readPendingTidesReturn()
+    ? 'tides'
+    : (viewFromHash() || getStoredValue(VIEW_KEY, SURFACE_VIEWS, 'overview'));
   goToView(initialView);
 }
 
@@ -447,6 +626,7 @@ async function handleLogin(e) {
     showToast('¡Bienvenido, ' + username + '!');
     showDashboard();
     await loadWalletData();
+    await processPendingTidesReturn();
   } catch (err) {
     console.error('[Surface] Error de login:', err, '| API_BASE:', API_BASE);
     let msg = err.message || 'Error de conexión con el servidor.';
@@ -506,9 +686,25 @@ function handleLogout() {
   pendingTransferPayload = null;
   overviewData = null;
   overviewLoading = false;
+  tidesCheckoutBusy = false;
+  tidesReturnProcessing = false;
+  mgTab = 'summary';
+  mgCardSelectionTouched = false;
+  mgWarningDraft = 80;
+  mgWarningDraftTouched = false;
+  Object.keys(mgSessionNotices).forEach(function (key) { delete mgSessionNotices[key]; });
+  if (mgSuspensionTimer) { clearTimeout(mgSuspensionTimer); mgSuspensionTimer = null; }
+  mgServerReset();
+  clearTidesReturn();
+  resetTidesPayPalButtons();
+  setTidesPayPalStatus('Iniciá sesión para comprar Tides con PayPal.', 'info');
+  hideAlert('tides-shop-alert');
+  updateTidesSummary();
 
   closeConfirmModal();
   closeAdminModal();
+  closeLimitScopeModal(false);
+  closeLimitSnoozeModal();
   resetTransferForm();
   showToast('Sesión cerrada.');
   showAuth();
@@ -578,11 +774,14 @@ async function loadWalletData(opts) {
     updateUserUI();
     populateCardsDropdown();
     displaySelectedCard();
+    mgApplyStoredActiveCard(loadManagement());
     updateBalanceDisplay();
     updatePillsBalances();
     updateTransferPreview();
     updateFreeQuotaUI();
     updateAccountPanel();
+    renderManagement();
+    mgServerHydrate();
 
     // El historial es la fuente de respaldo del resumen: primero se carga
     // (si hace falta) y después se pide la actividad agregada al servidor.
@@ -595,8 +794,10 @@ async function loadWalletData(opts) {
 function updateBalanceDisplay() {
   const tidesEl = el('balance-tides');
   const gambitsEl = el('balance-gambits');
+  const shopTidesEl = el('tides-shop-balance');
   if (tidesEl) tidesEl.textContent = currentBalances.tides.toLocaleString();
   if (gambitsEl) gambitsEl.textContent = currentBalances.gambits.toLocaleString();
+  if (shopTidesEl) shopTidesEl.textContent = currentBalances.tides.toLocaleString();
 }
 
 function updatePillsBalances() {
@@ -688,7 +889,9 @@ function populateCardsDropdown() {
 
 function handleCardSelection(indexStr) {
   selectedCardIndex = parseInt(indexStr, 10) || 0;
+  mgCardSelectionTouched = true;
   displaySelectedCard();
+  mgSyncActiveCard();
 }
 
 function displaySelectedCard() {
@@ -882,15 +1085,37 @@ function addAmountPreset(delta) {
 function setTransferMaxAmount() {
   const currency = currentCurrency();
   const available = Number(currentBalances[currency] || 0);
-  const max = calcMaxSendable(currency, available);
+  const state = loadManagement();
+  const limitsApply = state.limits.enabled && mgScopeMatchesActiveCard(state);
+  const hasLimit = limitsApply && !mgSuspensionActive(state) && Number(state.limits[currency] || 0) > 0;
+  const perOp = limitsApply ? Number(state.limits.perOp[currency] || 0) : 0;
+  const room = mgMaxAvailable(currency, available);
+  const cappedRoom = perOp > 0 ? Math.min(room, perOp) : room;
+  const max = calcMaxSendable(currency, cappedRoom);
   const input = el('transfer-amount');
 
   if (!max) {
-    showToast('No tenés saldo disponible en ' + currency.toUpperCase() + '.');
+    if (hasLimit && room <= 0) {
+      showToast('No te queda margen dentro del límite de ' + currencyLabel(currency) + '.');
+    } else if (available <= 0) {
+      showToast('No tenés saldo disponible en ' + currency.toUpperCase() + '.');
+    } else if (cappedRoom > 0) {
+      showToast('El monto disponible no alcanza para cubrir la comisión de ' + currencyLabel(currency) + '.');
+    } else {
+      showToast('No tenés saldo disponible en ' + currency.toUpperCase() + '.');
+    }
     return;
   }
   if (input) input.value = String(max);
   updateTransferPreview();
+
+  const caps = [];
+  if (hasLimit && room < available) caps.push('tu límite del período');
+  if (perOp > 0 && perOp < room) caps.push('tu máximo por envío');
+  if (caps.length) {
+    showToast('Máximo disponible según ' + caps.join(' y ') + ': ' +
+      max.toLocaleString('es-AR') + ' ' + currencyLabel(currency) + '.');
+  }
 }
 
 /* Resumen: comisión, motivo y total. También decide si se puede enviar. */
@@ -902,6 +1127,7 @@ function updateTransferPreview() {
 
   const feeData = calculateFee(currency, amount);
   const total = amount + feeData.fee;
+  const mgCheck = mgEvaluateTransfer(currency, amount, total);
 
   const feeValueEl = el('fee-value-display');
   const feeHintEl  = el('fee-hint-display');
@@ -926,13 +1152,34 @@ function updateTransferPreview() {
 
   if (totalEl) totalEl.textContent = total.toLocaleString() + ' ' + currencyLabel;
 
+  const limitHintEl = el('limit-hint-display');
+  if (limitHintEl) {
+    const showHint = !!mgCheck.hint && (amount > 0 || mgCheck.blocked);
+    limitHintEl.textContent = showHint ? mgCheck.hint : '';
+    limitHintEl.classList.toggle('hidden', !showHint);
+    limitHintEl.classList.toggle('is-warn', !!mgCheck.warn && !mgCheck.suspended && !mgCheck.scopeInactive);
+    limitHintEl.classList.toggle('is-info', !!(mgCheck.suspended || mgCheck.scopeInactive));
+  }
+
+  const snoozeBtn = el('btn-snooze-limit');
+  if (snoozeBtn) {
+    const showSnooze = !!mgCheck.periodLimitHit && !mgCheck.suspended;
+    snoozeBtn.classList.toggle('hidden', !showSnooze);
+  }
+
   const submitBtn = el('btn-submit-transfer');
   if (submitBtn) {
     const over = amount > 0 && total > available;
-    submitBtn.disabled = !(isRecipientValid && amount > 0 && !over);
-    submitBtn.textContent = over
-      ? 'Saldo insuficiente'
-      : (amount > 0 ? 'Enviar ' + amount.toLocaleString() + ' ' + currencyLabel : 'Enviar');
+    submitBtn.disabled = !(isRecipientValid && amount > 0 && !over && !mgCheck.blocked);
+    if (mgCheck.blocked) {
+      submitBtn.textContent = mgCheck.button || 'No disponible';
+    } else if (over) {
+      submitBtn.textContent = 'Saldo insuficiente';
+    } else {
+      submitBtn.textContent = amount > 0
+        ? 'Enviar ' + amount.toLocaleString() + ' ' + currencyLabel
+        : 'Enviar';
+    }
   }
 }
 
@@ -979,6 +1226,15 @@ function promptTransferConfirmation(e) {
     return showAlert('operation-alert', msg, 'error');
   }
 
+  const mgCheck = mgEvaluateTransfer(currency, amount, totalDebit);
+  if (mgCheck.blocked) {
+    return showAlert('operation-alert', mgCheck.message, 'error');
+  }
+
+  const mgState = loadManagement();
+  const largeThreshold = Number(mgState.controls.largeAmount || 0);
+  const isLarge = largeThreshold > 0 && amount >= largeThreshold;
+
   pendingTransferPayload = {
     recipient,
     currency,
@@ -1022,12 +1278,37 @@ function promptTransferConfirmation(e) {
     discountText.closest('.srf-rows-item')?.classList.toggle('hidden', !reasons);
   }
 
+  // Gestión: umbral de envío grande y aviso de límite dentro del modal.
+  const mgRowBox = el('confirm-mg-row');
+  const mgText = el('confirm-mg-text');
+  if (mgRowBox && mgText) {
+    let note = '';
+    if (isLarge) {
+      note = 'Envío grande: supera tu umbral de ' + largeThreshold.toLocaleString('es-AR') + ' ' + currencyLabel + '.';
+    } else if (mgCheck.hint) {
+      note = mgCheck.hint;
+    }
+    mgText.textContent = note;
+    mgRowBox.classList.toggle('hidden', !note);
+  }
+
+  const finalBtn = el('btn-final-transfer');
+  if (finalBtn) {
+    finalBtn.textContent = (mgState.controls.confirmLarge && isLarge) ? 'Confirmar envío grande' : 'Sí, enviar';
+  }
+
+  if (mgState.controls.alertLarge && isLarge) {
+    showToast('Envío grande: ' + amount.toLocaleString('es-AR') + ' ' + currencyLabel + '.');
+  }
+
   el('confirm-modal')?.classList.remove('hidden');
   el('btn-final-transfer')?.focus();
 }
 
 function closeConfirmModal() {
   el('confirm-modal')?.classList.add('hidden');
+  const btn = el('btn-final-transfer');
+  if (btn) btn.textContent = 'Sí, enviar';
   pendingTransferPayload = null;
 }
 
@@ -1072,6 +1353,7 @@ async function executeFinalTransfer() {
     if (!res.ok) throw new Error(data.error || 'No se pudo completar el envío.');
 
     recordTransferInCounter(payload.currency, payload.amount);
+    mgAddLog('transfer', 'Envío de ' + payload.amount.toLocaleString('es-AR') + ' ' + payload.currencyLabel + ' a @' + payload.recipient + '.');
     closeConfirmModal();
 
     const feeMsg = payload.fee > 0
@@ -1092,6 +1374,785 @@ async function executeFinalTransfer() {
       btn.disabled = false;
       btn.textContent = 'Sí, enviar';
     }
+  }
+}
+
+// =========================================
+// COMPRA DE TIDES (MERCADO PAGO)
+// =========================================
+
+/* Aplica el estado de la tienda: con TIDES_SHOP_ENABLED en false se muestra
+   el candado y se oculta por completo el catálogo y el checkout. */
+function applyTidesShopLock() {
+  const panel = el('tides-lock-panel');
+  const content = el('tides-shop-content');
+  if (panel) panel.classList.toggle('hidden', TIDES_SHOP_ENABLED);
+  if (content) content.classList.toggle('hidden', !TIDES_SHOP_ENABLED);
+
+  if (TIDES_SHOP_ENABLED) return;
+
+  resetTidesPayPalButtons();
+  setTidesPayPalStatus('Pagos con PayPal no disponibles por el momento.', 'info');
+  hideAlert('tides-shop-alert');
+}
+
+function formatTidesAmount(value) {
+  const amount = Number(value || 0);
+  return Number.isFinite(amount) ? amount.toLocaleString() : '0';
+}
+
+function formatUyu(value) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) return '—';
+  try { return '$U ' + amount.toLocaleString('es-UY'); } catch (_) { return '$U ' + amount; }
+}
+
+function formatUsd(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return '—';
+  try {
+    return 'US$ ' + amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  } catch (_) {
+    return 'US$ ' + amount.toFixed(2);
+  }
+}
+
+function tidesPackagePriceLabel(pkg) {
+  if (!pkg) return '—';
+  const usd = Number(pkg.priceUsd);
+  if (Number.isFinite(usd) && usd > 0) return formatUsd(usd);
+  return formatUyu(pkg.priceUyu);
+}
+
+function setTidesPayPalStatus(message, tone) {
+  const node = el('tides-paypal-status');
+  if (!node) return;
+  const text = String(message || '').trim();
+  node.textContent = text;
+  node.classList.toggle('hidden', !text);
+  node.classList.remove('is-info', 'is-success', 'is-error');
+  if (text && tone) node.classList.add('is-' + tone);
+}
+
+function resetTidesPayPalButtons() {
+  const container = el('paypal-button-container');
+  if (container) container.innerHTML = '';
+  tidesPayPalButtonsMounted = false;
+  tidesPayPalPendingPackageId = '';
+}
+
+function loadTidesPayPalConfig(force) {
+  if (tidesPayPalConfig && !force) return Promise.resolve(tidesPayPalConfig);
+  if (tidesPayPalConfigPromise && !force) return tidesPayPalConfigPromise;
+
+  tidesPayPalConfigPromise = (async function () {
+    try {
+      const res = await fetch(API_BASE + '/ocean-pay/paypal/config');
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(data.error || 'No se pudo consultar PayPal.');
+
+      tidesPayPalConfig = {
+        enabled: !!data.enabled,
+        configured: !!data.configured,
+        environment: String(data.environment || 'live').toLowerCase() === 'sandbox' ? 'sandbox' : 'live',
+        clientId: String(data.clientId || '').trim(),
+        currency: String(data.currency || 'USD').toUpperCase()
+      };
+      return tidesPayPalConfig;
+    } catch (err) {
+      tidesPayPalConfig = null;
+      throw err;
+    } finally {
+      tidesPayPalConfigPromise = null;
+    }
+  })();
+
+  return tidesPayPalConfigPromise;
+}
+
+function loadTidesPayPalSdk(config) {
+  if (window.paypal && window.paypal.Buttons) return Promise.resolve(window.paypal);
+  if (tidesPayPalSdkPromise) return tidesPayPalSdkPromise;
+
+  tidesPayPalSdkPromise = new Promise(function (resolve, reject) {
+    const removeSdkTag = function () {
+      const tag = document.getElementById(PAYPAL_SDK_ID);
+      if (tag && tag.parentNode) tag.parentNode.removeChild(tag);
+    };
+    const finishOk = function () {
+      if (window.paypal && window.paypal.Buttons) resolve(window.paypal);
+      else {
+        removeSdkTag();
+        reject(new Error('PayPal SDK no disponible.'));
+      }
+    };
+    const finishError = function () {
+      removeSdkTag();
+      reject(new Error('No se pudo cargar PayPal.'));
+    };
+
+    const existing = document.getElementById(PAYPAL_SDK_ID);
+    if (existing) {
+      existing.addEventListener('load', finishOk);
+      existing.addEventListener('error', finishError);
+      return;
+    }
+
+    const host = config && config.environment === 'sandbox'
+      ? 'https://www.sandbox.paypal.com'
+      : 'https://www.paypal.com';
+    const params = new URLSearchParams({
+      'client-id': String(config && config.clientId || ''),
+      currency: String(config && config.currency || 'USD'),
+      intent: 'capture',
+      components: 'buttons'
+    });
+
+    const script = document.createElement('script');
+    script.id = PAYPAL_SDK_ID;
+    script.src = host + '/sdk/js?' + params.toString();
+    script.async = true;
+    script.onload = finishOk;
+    script.onerror = finishError;
+    document.head.appendChild(script);
+  }).catch(function (err) {
+    tidesPayPalSdkPromise = null;
+    throw err;
+  });
+
+  return tidesPayPalSdkPromise;
+}
+
+async function createTidesPayPalOrder(pkg) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    handleLogout();
+    throw new Error('Iniciá sesión para comprar Tides.');
+  }
+
+  const res = await fetch(API_BASE + '/ocean-pay/tides/paypal/order', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify({ packageId: pkg.id })
+  });
+  const data = await res.json().catch(function () { return {}; });
+  if (res.status === 401) {
+    handleLogout();
+    throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
+  }
+  if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el pago con PayPal.');
+  if (!data.orderId) throw new Error('PayPal no devolvió una orden válida.');
+  return String(data.orderId);
+}
+
+async function captureTidesPayPalOrder(orderId, packageId) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    handleLogout();
+    throw new Error('Iniciá sesión para confirmar el pago.');
+  }
+  if (!orderId) throw new Error('PayPal no devolvió una orden válida.');
+
+  setTidesPayPalStatus('Confirmando el pago con PayPal…', 'info');
+
+  const res = await fetch(API_BASE + '/ocean-pay/tides/paypal/capture', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify({ orderId: orderId, packageId: packageId || '' })
+  });
+  const data = await res.json().catch(function () { return {}; });
+  if (res.status === 401) {
+    handleLogout();
+    throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
+  }
+  if (res.status === 409) {
+    const pendingMessage = data.error || 'Tu pago quedó pendiente de confirmación. Las Tides se acreditarán automáticamente.';
+    setTidesPayPalStatus(pendingMessage, 'info');
+    showAlert('tides-shop-alert', pendingMessage, 'info');
+    showToast('Pago pendiente de confirmación.');
+    return null;
+  }
+  if (!res.ok) throw new Error(data.error || 'No se pudo confirmar el pago.');
+
+  const credited = Number(data.credited || 0);
+  const packageTitle = data.package && data.package.title ? data.package.title : '';
+
+  if (data.alreadyApplied) {
+    setTidesPayPalStatus('Este pago ya estaba acreditado en tu cuenta.', 'info');
+    showAlert('tides-shop-alert', 'Este pago ya estaba acreditado en tu cuenta.', 'info');
+  } else {
+    const message = '¡Listo! Se acreditaron ' + formatTidesAmount(credited) + ' Tides' +
+      (packageTitle ? ' (' + packageTitle + ')' : '') + ' en tu billetera.';
+    setTidesPayPalStatus(message, 'success');
+    showAlert('tides-shop-alert', message, 'success');
+    showToast('+' + formatTidesAmount(credited) + ' Tides acreditadas.');
+  }
+
+  const newBalance = Number(data.newBalance);
+  if (Number.isFinite(newBalance)) {
+    currentBalances.tides = newBalance;
+    updateBalanceDisplay();
+    updatePillsBalances();
+    updateTidesBalanceUI();
+  }
+  await loadWalletData();
+  return data;
+}
+
+function mountTidesPayPalButtons() {
+  const container = el('paypal-button-container');
+  if (!container) return;
+  if (tidesPayPalButtonsMounted) return;
+  if (!window.paypal || !window.paypal.Buttons) return;
+  if (!localStorage.getItem(TOKEN_KEY)) {
+    setTidesPayPalStatus('Iniciá sesión para comprar Tides con PayPal.', 'info');
+    return;
+  }
+
+  container.innerHTML = '';
+  const buttons = window.paypal.Buttons({
+    style: {
+      layout: 'vertical',
+      shape: 'pill',
+      label: 'paypal',
+      height: 46,
+      color: 'gold'
+    },
+    onClick: function (_data, actions) {
+      if (tidesCheckoutBusy) return actions.reject();
+      if (!localStorage.getItem(TOKEN_KEY)) {
+        showAlert('tides-shop-alert', 'Iniciá sesión para comprar Tides.', 'error');
+        return actions.reject();
+      }
+      if (!getTidesPackage(selectedTidesPackageId)) {
+        showAlert('tides-shop-alert', 'Elegí un paquete para continuar.', 'error');
+        return actions.reject();
+      }
+      hideAlert('tides-shop-alert');
+      return actions.resolve();
+    },
+    createOrder: async function () {
+      const pkg = getTidesPackage(selectedTidesPackageId);
+      if (!pkg) throw new Error('Elegí un paquete para continuar.');
+
+      tidesCheckoutBusy = true;
+      tidesPayPalPendingPackageId = pkg.id;
+      setTidesPayPalStatus('Abriendo PayPal…', 'info');
+
+      try {
+        return await createTidesPayPalOrder(pkg);
+      } catch (err) {
+        tidesCheckoutBusy = false;
+        tidesPayPalPendingPackageId = '';
+        setTidesPayPalStatus(err.message || 'No se pudo iniciar el pago.', 'error');
+        showAlert('tides-shop-alert', err.message || 'No se pudo iniciar el pago con PayPal.', 'error');
+        throw err;
+      }
+    },
+    onApprove: async function (data) {
+      const packageId = tidesPayPalPendingPackageId || selectedTidesPackageId;
+      try {
+        await captureTidesPayPalOrder(String(data && data.orderID || ''), packageId);
+      } catch (err) {
+        console.error('[Surface] Error confirmando pago PayPal:', err);
+        setTidesPayPalStatus(err.message || 'No se pudo confirmar el pago.', 'error');
+        showAlert(
+          'tides-shop-alert',
+          err.message || 'No se pudo confirmar el pago. Si ya pagaste, esperá unos segundos y recargá Surface.',
+          'error'
+        );
+        showToast('No se pudo confirmar el pago.');
+      } finally {
+        tidesCheckoutBusy = false;
+        tidesPayPalPendingPackageId = '';
+      }
+    },
+    onCancel: function () {
+      tidesCheckoutBusy = false;
+      tidesPayPalPendingPackageId = '';
+      setTidesPayPalStatus('Pago cancelado. No se descontó nada.', 'info');
+    },
+    onError: function (err) {
+      console.error('[Surface] Error de PayPal:', err);
+      tidesCheckoutBusy = false;
+      tidesPayPalPendingPackageId = '';
+      setTidesPayPalStatus('PayPal reportó un error. Podés intentar de nuevo.', 'error');
+      showAlert('tides-shop-alert', 'No se pudo completar el pago con PayPal. Intentá de nuevo.', 'error');
+    }
+  });
+
+  tidesPayPalButtonsMounted = true;
+  const rendered = buttons.render('#paypal-button-container');
+  if (rendered && typeof rendered.catch === 'function') {
+    rendered.catch(function (err) {
+      tidesPayPalButtonsMounted = false;
+      console.error('[Surface] No se pudieron montar los botones de PayPal:', err);
+      setTidesPayPalStatus('No se pudo cargar el botón de PayPal.', 'error');
+    });
+  }
+}
+
+async function ensureTidesPayPalReady() {
+  if (!TIDES_SHOP_ENABLED) return;
+
+  if (!localStorage.getItem(TOKEN_KEY)) {
+    resetTidesPayPalButtons();
+    setTidesPayPalStatus('Iniciá sesión para comprar Tides con PayPal.', 'info');
+    return;
+  }
+  if (tidesPayPalButtonsMounted) return;
+
+  setTidesPayPalStatus('Cargando PayPal…', 'info');
+
+  try {
+    const config = await loadTidesPayPalConfig();
+    if (!config || !config.enabled || !config.clientId) {
+      resetTidesPayPalButtons();
+      setTidesPayPalStatus(
+        config && config.configured === false
+          ? 'PayPal todavía no está configurado en el servidor.'
+          : 'El pago con PayPal no está disponible por el momento.',
+        'info'
+      );
+      return;
+    }
+
+    await loadTidesPayPalSdk(config);
+
+    if (!localStorage.getItem(TOKEN_KEY)) {
+      resetTidesPayPalButtons();
+      setTidesPayPalStatus('Iniciá sesión para comprar Tides con PayPal.', 'info');
+      return;
+    }
+
+    mountTidesPayPalButtons();
+    if (tidesPayPalButtonsMounted) setTidesPayPalStatus('', '');
+  } catch (err) {
+    console.error('[Surface] Error preparando PayPal:', err);
+    resetTidesPayPalButtons();
+    setTidesPayPalStatus('No se pudo cargar PayPal. Recargá la página e intentá de nuevo.', 'error');
+  }
+}
+
+function getTidesPackage(packageId) {
+  return tidesPackages.find(function (pkg) { return pkg.id === packageId; }) || null;
+}
+
+function handleTidesPackageClick(e) {
+  const target = e.target && e.target.closest ? e.target.closest('[data-tides-package]') : null;
+  if (!target) return;
+  selectTidesPackage(target.getAttribute('data-tides-package'));
+}
+
+function selectTidesPackage(packageId) {
+  if (!getTidesPackage(packageId)) return;
+  selectedTidesPackageId = packageId;
+  document.querySelectorAll('[data-tides-package]').forEach(function (btn) {
+    const active = btn.getAttribute('data-tides-package') === packageId;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  hideAlert('tides-shop-alert');
+  updateTidesSummary();
+}
+
+function renderTidesPackagesError(message) {
+  const container = el('tides-packages');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const box = document.createElement('div');
+  box.className = 'srf-packs-error';
+
+  const note = document.createElement('p');
+  note.className = 'srf-empty';
+  note.textContent = message || 'No se pudieron cargar los paquetes de Tides.';
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'srf-ghost';
+  retry.textContent = 'Reintentar';
+  retry.addEventListener('click', function () { loadTidesPackages(true); });
+
+  box.appendChild(note);
+  box.appendChild(retry);
+  container.appendChild(box);
+}
+
+function renderTidesPackages() {
+  const container = el('tides-packages');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!tidesPackages.length) {
+    renderTidesPackagesError('No hay paquetes de Tides disponibles por ahora.');
+    return;
+  }
+
+  tidesPackages.forEach(function (pkg) {
+    const base = Number(pkg.tidesAmount || 0);
+    const bonus = Number(pkg.bonus || 0);
+    const total = base + bonus;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'srf-pack';
+    btn.setAttribute('data-tides-package', pkg.id);
+    btn.setAttribute('aria-pressed', String(pkg.id === selectedTidesPackageId));
+    btn.classList.toggle('is-active', pkg.id === selectedTidesPackageId);
+
+    if (bonus > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'srf-pack-bonus';
+      badge.textContent = '+' + formatTidesAmount(bonus) + ' bono';
+      btn.appendChild(badge);
+    }
+
+    const amount = document.createElement('span');
+    amount.className = 'srf-pack-amount';
+    amount.textContent = formatTidesAmount(base);
+    const unit = document.createElement('small');
+    unit.textContent = ' Tides';
+    amount.appendChild(unit);
+
+    const totalEl = document.createElement('span');
+    totalEl.className = 'srf-pack-total';
+    totalEl.textContent = total > base
+      ? formatTidesAmount(total) + ' en total'
+      : 'Paquete base';
+
+    const price = document.createElement('span');
+    price.className = 'srf-pack-price';
+    price.textContent = tidesPackagePriceLabel(pkg);
+
+    btn.appendChild(amount);
+    btn.appendChild(totalEl);
+    btn.appendChild(price);
+    container.appendChild(btn);
+  });
+}
+
+async function loadTidesPackages(force) {
+  if (!TIDES_SHOP_ENABLED) return;
+  if (tidesPackagesLoading) return;
+  if (tidesPackagesLoaded && !force) return;
+
+  tidesPackagesLoading = true;
+  const container = el('tides-packages');
+  if (container) {
+    container.innerHTML = '';
+    const loading = document.createElement('p');
+    loading.className = 'srf-empty';
+    loading.textContent = 'Cargando paquetes…';
+    container.appendChild(loading);
+  }
+  updateTidesSummary();
+
+  try {
+    const res = await fetch(API_BASE + '/ocean-pay/tides/packages?v=2');
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || 'No se pudieron cargar los paquetes.');
+
+    tidesPackages = Array.isArray(data.packages) ? data.packages : [];
+    tidesPackagesLoaded = true;
+    if (!getTidesPackage(selectedTidesPackageId)) {
+      selectedTidesPackageId = tidesPackages.length ? tidesPackages[0].id : '';
+    }
+    renderTidesPackages();
+  } catch (err) {
+    console.error('[Surface] Error cargando paquetes Tides:', err);
+    tidesPackagesLoaded = false;
+    renderTidesPackagesError('No se pudieron cargar los paquetes de Tides.');
+  } finally {
+    tidesPackagesLoading = false;
+    updateTidesSummary();
+  }
+}
+
+function updateTidesBalanceUI() {
+  const value = el('tides-shop-balance');
+  if (value) value.textContent = currentBalances.tides.toLocaleString();
+}
+
+function updateTidesSummary() {
+  const pkg = getTidesPackage(selectedTidesPackageId);
+  const packEl = el('tides-summary-pack');
+  const baseEl = el('tides-summary-base');
+  const bonusEl = el('tides-summary-bonus');
+  const totalEl = el('tides-summary-total');
+  const priceEl = el('tides-summary-price');
+
+  if (!TIDES_SHOP_ENABLED) {
+    setTidesPayPalStatus('Pagos con PayPal no disponibles por el momento.', 'info');
+    return;
+  }
+
+  if (!pkg) {
+    if (packEl) packEl.textContent = '—';
+    if (baseEl) baseEl.textContent = '—';
+    if (bonusEl) bonusEl.textContent = '—';
+    if (totalEl) totalEl.textContent = '—';
+    if (priceEl) priceEl.textContent = '—';
+    return;
+  }
+
+  const base = Number(pkg.tidesAmount || 0);
+  const bonus = Number(pkg.bonus || 0);
+  const total = base + bonus;
+
+  if (packEl) packEl.textContent = pkg.title || pkg.id;
+  if (baseEl) baseEl.textContent = formatTidesAmount(base) + ' Tides';
+  if (bonusEl) bonusEl.textContent = bonus > 0 ? '+' + formatTidesAmount(bonus) + ' Tides' : 'Sin bono';
+  if (totalEl) totalEl.textContent = formatTidesAmount(total) + ' Tides';
+  if (priceEl) priceEl.textContent = tidesPackagePriceLabel(pkg);
+}
+
+function buildTidesReturnUrl() {
+  try {
+    const url = new URL(window.location.href);
+    if (/^https?:$/i.test(url.protocol)) {
+      const apiOverride = url.searchParams.get('api');
+      url.search = '';
+      url.hash = '';
+      // Conservar el override de API (?api=...) para no perder la sesión local.
+      if (apiOverride && /^https?:\/\//i.test(apiOverride)) {
+        url.searchParams.set('api', apiOverride);
+      }
+      return url.toString();
+    }
+  } catch (_) {}
+  // file:// u otro esquema no sirve como back_url: volvemos a la copia pública.
+  return API_BASE.replace(/\/+$/, '') + '/ows/Surface/index.html';
+}
+
+async function startTidesCheckout() {
+  if (!TIDES_SHOP_ENABLED) {
+    showToast('La compra de Tides está indisponible por el momento.');
+    return;
+  }
+  if (tidesCheckoutBusy) return;
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return handleLogout();
+
+  const pkg = getTidesPackage(selectedTidesPackageId);
+  if (!pkg) {
+    showAlert('tides-shop-alert', 'Elegí un paquete para continuar.', 'error');
+    return;
+  }
+
+  tidesCheckoutBusy = true;
+  hideAlert('tides-shop-alert');
+  updateTidesSummary();
+
+  try {
+    const res = await fetch(API_BASE + '/ocean-pay/tides/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ packageId: pkg.id, returnUrl: buildTidesReturnUrl() })
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (res.status === 401) return handleLogout();
+    if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el pago.');
+    if (!data.initPoint) throw new Error('Mercado Pago no devolvió un enlace de pago.');
+
+    // Guardar la referencia esperada: evita confirmar un pago de otra compra.
+    try {
+      sessionStorage.setItem(TIDES_RETURN_KEY + '_ref', String(data.externalReference || ''));
+    } catch (_) {}
+
+    window.location.href = data.initPoint;
+  } catch (err) {
+    console.error('[Surface] Error iniciando checkout Tides:', err);
+    tidesCheckoutBusy = false;
+    updateTidesSummary();
+    showAlert('tides-shop-alert', err.message || 'No se pudo iniciar el pago con Mercado Pago.', 'error');
+    showToast('No se pudo iniciar el pago.');
+  }
+}
+
+function readTidesReturnParams() {
+  const out = {};
+  const collect = function (search) {
+    if (!search) return;
+    try {
+      new URLSearchParams(search).forEach(function (value, key) {
+        if (!(key in out)) out[key] = value;
+      });
+    } catch (_) {}
+  };
+  collect(window.location.search || '');
+  const hash = String(window.location.hash || '');
+  const queryIndex = hash.indexOf('?');
+  if (queryIndex !== -1) collect(hash.slice(queryIndex + 1));
+  return out;
+}
+
+function readPendingTidesReturn() {
+  try {
+    const raw = sessionStorage.getItem(TIDES_RETURN_KEY);
+    const pending = raw ? JSON.parse(raw) : null;
+    if (!pending || !Number(pending.paymentId)) return null;
+    return pending;
+  } catch (_) { return null; }
+}
+
+function clearTidesReturn() {
+  try {
+    sessionStorage.removeItem(TIDES_RETURN_KEY);
+    sessionStorage.removeItem(TIDES_RETURN_KEY + '_ref');
+  } catch (_) {}
+}
+
+function cleanTidesReturnUrl() {
+  try {
+    const url = new URL(window.location.href);
+    stripTidesReturnParams(url.searchParams);
+    const hash = String(url.hash || '');
+    const queryIndex = hash.indexOf('?');
+    if (queryIndex !== -1) {
+      const hashPath = hash.slice(0, queryIndex);
+      const hashParams = new URLSearchParams(hash.slice(queryIndex + 1));
+      stripTidesReturnParams(hashParams);
+      const remaining = hashParams.toString();
+      url.hash = remaining ? hashPath + '?' + remaining : hashPath;
+    }
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  } catch (_) {}
+}
+
+function stripTidesReturnParams(params) {
+  [
+    'payment_id', 'collection_id', 'collection_status', 'status',
+    'external_reference', 'payment_type', 'merchant_order_id',
+    'preference_id', 'site_id', 'processing_mode', 'merchant_account_id'
+  ].forEach(function (key) { params.delete(key); });
+}
+
+function captureTidesReturnParams() {
+  const params = readTidesReturnParams();
+  const paymentId = Number(params.payment_id || params.collection_id || 0);
+  if (!Number.isFinite(paymentId) || paymentId <= 0) return null;
+
+  const pending = {
+    paymentId: paymentId,
+    externalReference: String(params.external_reference || '').trim(),
+    status: String(params.status || params.collection_status || '').trim().toLowerCase(),
+    capturedAt: Date.now()
+  };
+  try { sessionStorage.setItem(TIDES_RETURN_KEY, JSON.stringify(pending)); } catch (_) {}
+  cleanTidesReturnUrl();
+  return pending;
+}
+
+async function processPendingTidesReturn() {
+  if (tidesReturnProcessing) return;
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return;
+
+  const pending = readPendingTidesReturn();
+  if (!pending) return;
+
+  tidesReturnProcessing = true;
+  if (currentView !== 'tides') goToView('tides', { keepHash: true });
+
+  const expectedRef = (function () {
+    try { return sessionStorage.getItem(TIDES_RETURN_KEY + '_ref') || ''; } catch (_) { return ''; }
+  })();
+
+  if (expectedRef && pending.externalReference && pending.externalReference !== expectedRef) {
+    clearTidesReturn();
+    tidesReturnProcessing = false;
+    showAlert('tides-shop-alert', 'El pago recibido no corresponde a esta compra. No se acreditó nada.', 'error');
+    return;
+  }
+
+  const status = String(pending.status || '').toLowerCase();
+  if (status && status !== 'approved') {
+    clearTidesReturn();
+    tidesReturnProcessing = false;
+    if (status === 'pending' || status === 'in_process' || status === 'authorized') {
+      showAlert('tides-shop-alert', 'Tu pago quedó pendiente de confirmación. Cuando Mercado Pago lo apruebe, las Tides se acreditan automáticamente.', 'info');
+      showToast('Pago pendiente de confirmación.');
+    } else {
+      showAlert('tides-shop-alert', 'El pago no se completó (estado: ' + status + '). No se descontó nada; podés intentar de nuevo.', 'error');
+      showToast('El pago no se completó.');
+    }
+    updateTidesSummary();
+    return;
+  }
+
+  showAlert('tides-shop-alert', 'Estamos confirmando tu pago con Mercado Pago…', 'info');
+  updateTidesSummary();
+
+  try {
+    const res = await fetch(API_BASE + '/ocean-pay/tides/confirm', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        paymentId: pending.paymentId,
+        externalReference: pending.externalReference || ''
+      })
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (res.status === 401) return handleLogout();
+    if (!res.ok) {
+      const errorMessage = String(data.error || '');
+      if (res.status === 403 || /no corresponde|inv[aá]lido|no reconocido/i.test(errorMessage)) {
+        clearTidesReturn();
+      }
+      throw new Error(errorMessage || 'No se pudo confirmar el pago.');
+    }
+
+    clearTidesReturn();
+    const credited = Number(data.credited || 0);
+    const packageTitle = data.package && data.package.title ? data.package.title : '';
+
+    if (data.alreadyApplied) {
+      showAlert('tides-shop-alert', 'Este pago ya estaba acreditado en tu cuenta.', 'info');
+    } else {
+      showAlert(
+        'tides-shop-alert',
+        '¡Listo! Se acreditaron ' + formatTidesAmount(credited) + ' Tides' +
+          (packageTitle ? ' (' + packageTitle + ')' : '') + ' en tu billetera.',
+        'success'
+      );
+      showToast('+' + formatTidesAmount(credited) + ' Tides acreditadas.');
+    }
+
+    const newBalance = Number(data.newBalance);
+    if (Number.isFinite(newBalance)) {
+      currentBalances.tides = newBalance;
+      updateBalanceDisplay();
+      updatePillsBalances();
+      updateTidesBalanceUI();
+    }
+    await loadWalletData();
+  } catch (err) {
+    console.error('[Surface] Error confirmando pago Tides:', err);
+    showAlert(
+      'tides-shop-alert',
+      err.message || 'No se pudo confirmar el pago. Si ya pagaste, esperá unos segundos y recargá Surface.',
+      'error'
+    );
+    showToast('No se pudo confirmar el pago.');
+  } finally {
+    tidesReturnProcessing = false;
+    updateTidesSummary();
   }
 }
 
@@ -1142,6 +2203,7 @@ async function loadAllTransactionsFromDB(showLoading) {
     allTransactionsList = Array.from(merged.values()).sort((a, b) => b.date.getTime() - a.date.getTime());
     renderTransactionsList(allTransactionsList);
     updateTransferPreview();
+    if (currentView === 'management') renderManagement();
   } catch (_) {
     renderTransactionsList(allTransactionsList);
   }
@@ -1367,7 +2429,11 @@ function goToView(name, opts) {
   try { localStorage.setItem(VIEW_KEY, name); } catch (_) {}
 
   if (!(opts && opts.keepHash)) {
-    try { history.replaceState(null, '', '#/' + name); } catch (_) {}
+    try {
+      // Conservar la query (por ejemplo ?api=...) al cambiar de sección.
+      const query = window.location.search || '';
+      history.replaceState(null, '', query + '#/' + name);
+    } catch (_) {}
   }
 
   onEnterView(name);
@@ -1393,6 +2459,14 @@ function onEnterView(name) {
     syncSettingsUI();
   } else if (name === 'transfer') {
     updateTransferPreview();
+  } else if (name === 'management') {
+    setManagementTab(mgTab);
+    mgAnnounceOnEnter();
+  } else if (name === 'tides') {
+    updateTidesBalanceUI();
+    updateTidesSummary();
+    if (TIDES_SHOP_ENABLED && !tidesPackagesLoaded && !tidesPackagesLoading) loadTidesPackages();
+    if (TIDES_SHOP_ENABLED) ensureTidesPayPalReady();
   }
 }
 
@@ -1429,6 +2503,1915 @@ function updateAccountPanel() {
   if (cardsEl) cardsEl.textContent = String(userCards.length);
   const adminBtn = el('btn-account-admin');
   if (adminBtn) adminBtn.classList.toggle('hidden', String(name).toLowerCase() !== 'oceanandwild');
+}
+
+// =========================================
+// GESTIÓN — límites, equivalencias y controles
+// =========================================
+
+const MG_KEY_PREFIX = 'ocean_pay_management::';
+const MG_LOG_LIMIT = 60;
+const MG_TABS = ['summary', 'limits', 'credit', 'rates', 'controls'];
+const MG_PERIODS = {
+  daily:   { label: 'Hoy',            short: 'hoy',      note: 'Se reinicia a las 00:00.' },
+  weekly:  { label: 'Últimos 7 días', short: '7 días',   note: 'Ventana móvil de 7 días.' },
+  monthly: { label: 'Este mes',       short: 'este mes', note: 'Se reinicia el día 1 de cada mes.' }
+};
+const MG_CURRENCIES = [
+  { id: 'gambits', name: 'Gambits', code: 'GAMBITS', ico: '🃏' },
+  { id: 'tides',   name: 'Tides',   code: 'TIDES',   ico: '🌊' }
+];
+/* Equivalencias oficiales de OWS. Único origen para todos los usuarios.
+   Se completan acá cuando OWS publique las tasas; la interfaz no las edita. */
+const MG_OFFICIAL_RATES = Object.freeze({
+  base: 'USD',
+  updatedAt: null,
+  values: Object.freeze({ gambits: null, tides: null })
+});
+const MG_LOG_ICONS = {
+  settings: '⚙️',
+  limits:   '🛡️',
+  rates:    '🧮',
+  transfer: '💸',
+  pause:    '⏸️',
+  alert:    '🔔',
+  credit:   '💳'
+};
+
+function mgUserKey() {
+  const raw = String((currentUser && (currentUser.username || currentUser.id)) || 'invitado').trim().toLowerCase();
+  return MG_KEY_PREFIX + raw;
+}
+
+function mgDefaults() {
+  return {
+    version: 4,
+    limits: {
+      enabled: false,
+      period: 'monthly',
+      gambits: 0,
+      tides: 0,
+      perOp: { gambits: 0, tides: 0 },
+      threshold: 80,
+      warnings: [80],
+      block: true,
+      scope: 'all',
+      scopeConfirmed: false,
+      cardId: null,
+      cardLabel: '',
+      activeCardId: null,
+      suspendedAt: null,
+      suspendedUntil: null,
+      suspendedPeriod: null
+    },
+    controls: {
+      alertLimit: true,
+      alertLarge: true,
+      confirmLarge: false,
+      largeAmount: 0,
+      pauseTransfers: false
+    },
+    log: []
+  };
+}
+
+function mgInt(raw) {
+  const num = Number(String(raw == null ? '' : raw).replace(',', '.'));
+  if (!Number.isFinite(num) || num <= 0) return 0;
+  return Math.floor(num);
+}
+
+/* Avisos previos del límite: porcentajes únicos, ordenados y acotados. */
+const MG_WARNING_LIMIT = 8;
+
+function mgNormalizeWarnings(raw, legacyThreshold) {
+  const out = [];
+  const push = function (value) {
+    const num = Math.round(Number(value));
+    if (!Number.isFinite(num) || num < 1 || num > 100) return;
+    if (out.indexOf(num) === -1) out.push(num);
+  };
+  if (Array.isArray(raw)) raw.forEach(push);
+  else {
+    const legacy = Number(legacyThreshold);
+    if (Number.isFinite(legacy) && legacy > 0) push(legacy);
+  }
+  out.sort(function (a, b) { return a - b; });
+  return out.slice(0, MG_WARNING_LIMIT);
+}
+
+function mgCardId(raw) {
+  const num = Number(raw);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return Math.floor(num);
+}
+
+function mgIsoOrNull(raw) {
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function mgRateValue(raw) {
+  if (raw == null || raw === '') return null;
+  const num = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(num * 1000000) / 1000000;
+}
+
+function mgBoolean(value, fallback) {
+  if (value === undefined || value === null) return !!fallback;
+  return !!value;
+}
+
+function sanitizeManagement(raw) {
+  const base = mgDefaults();
+  if (!raw || typeof raw !== 'object') return base;
+
+  const limits = raw.limits && typeof raw.limits === 'object' ? raw.limits : {};
+  base.limits.enabled = !!limits.enabled;
+  base.limits.period = Object.prototype.hasOwnProperty.call(MG_PERIODS, limits.period) ? limits.period : 'monthly';
+  base.limits.gambits = mgInt(limits.gambits);
+  base.limits.tides = mgInt(limits.tides);
+  const perOp = limits.perOp && typeof limits.perOp === 'object' ? limits.perOp : {};
+  base.limits.perOp = { gambits: mgInt(perOp.gambits), tides: mgInt(perOp.tides) };
+  // `warnings` es la fuente nueva; `threshold` queda como alias del primero
+  // para que los clientes y el backend viejo sigan entendiendo el ajuste.
+  const legacyThreshold = limits.threshold;
+  const warnings = Array.isArray(limits.warnings)
+    ? mgNormalizeWarnings(limits.warnings)
+    : mgNormalizeWarnings(null, legacyThreshold == null || legacyThreshold === '' ? 80 : legacyThreshold);
+  base.limits.warnings = warnings;
+  base.limits.threshold = warnings.length ? warnings[0] : 0;
+  base.limits.block = limits.block !== false;
+
+  // Alcance del límite: toda la billetera o una tarjeta puntual.
+  base.limits.scope = limits.scope === 'card' ? 'card' : 'all';
+  base.limits.scopeConfirmed = limits.scopeConfirmed === true;
+  base.limits.cardId = mgCardId(limits.cardId);
+  base.limits.cardLabel = String(limits.cardLabel || '').trim().slice(0, 80);
+  base.limits.activeCardId = mgCardId(limits.activeCardId);
+
+  // Desactivación temporal: se reactiva sola cuando arranca el período.
+  const suspendedUntil = mgIsoOrNull(limits.suspendedUntil);
+  const suspendedPeriod = Object.prototype.hasOwnProperty.call(MG_PERIODS, limits.suspendedPeriod)
+    ? limits.suspendedPeriod
+    : null;
+  base.limits.suspendedUntil = suspendedUntil;
+  base.limits.suspendedPeriod = suspendedUntil ? suspendedPeriod : null;
+  base.limits.suspendedAt = suspendedUntil ? mgIsoOrNull(limits.suspendedAt) : null;
+
+  const controls = raw.controls && typeof raw.controls === 'object' ? raw.controls : {};
+  base.controls.alertLimit = mgBoolean(controls.alertLimit, true);
+  base.controls.alertLarge = mgBoolean(controls.alertLarge, true);
+  base.controls.confirmLarge = mgBoolean(controls.confirmLarge, false);
+  base.controls.largeAmount = mgInt(controls.largeAmount);
+  base.controls.pauseTransfers = mgBoolean(controls.pauseTransfers, false);
+
+  const log = Array.isArray(raw.log) ? raw.log : [];
+  base.log = log.map(function (entry, index) {
+    if (!entry || typeof entry !== 'object') return null;
+    const text = String(entry.text || '').trim().slice(0, 180);
+    if (!text) return null;
+    const at = new Date(entry.at);
+    const type = String(entry.type || 'settings');
+    return {
+      id: String(entry.id || ('mgl_' + index)),
+      at: isNaN(at.getTime()) ? new Date().toISOString() : at.toISOString(),
+      type: Object.prototype.hasOwnProperty.call(MG_LOG_ICONS, type) ? type : 'settings',
+      text: text
+    };
+  }).filter(Boolean).slice(0, MG_LOG_LIMIT);
+
+  return base;
+}
+
+function loadManagement() {
+  try {
+    const raw = localStorage.getItem(mgUserKey());
+    const parsed = raw ? JSON.parse(raw) : null;
+    const clean = sanitizeManagement(parsed);
+    // Migración: versiones anteriores guardaban tasas editables por usuario.
+    if (parsed && (parsed.rates || parsed.version !== clean.version)) {
+      if (parsed.rates) {
+        clean.log = clean.log.filter(function (entry) { return entry.type !== 'rates'; });
+      }
+      try { localStorage.setItem(mgUserKey(), JSON.stringify(clean)); } catch (_) {}
+    }
+    return clean;
+  } catch (_) {
+    return mgDefaults();
+  }
+}
+
+function saveManagement(state) {
+  const clean = sanitizeManagement(state);
+  try { localStorage.setItem(mgUserKey(), JSON.stringify(clean)); } catch (_) {}
+  mgServerSchedulePush(clean);
+  return clean;
+}
+
+// =========================================
+// GESTIÓN — puente con el servidor
+// -----------------------------------------
+// El checkout global de Unity valida los topes contra el servidor, así que
+// Surface › Gestión no puede vivir solo en localStorage. Reglas:
+//   · Si este dispositivo ya tiene ajustes guardados, esos mandan y se suben.
+//   · Si no tiene nada, se adoptan los del servidor (otro dispositivo).
+//   · Cada cambio local se empuja con un pequeño debounce.
+// =========================================
+
+let mgServerPushTimer = null;
+let mgServerLastPushed = '';
+
+/* El backend necesita saber qué tarjeta está activa para poder aplicar un
+   límite de una sola tarjeta en los checkouts de los juegos. */
+function mgServerSnapshot(state) {
+  const clean = state ? sanitizeManagement(state) : loadManagement();
+  const activeId = mgActiveCardId();
+  if (activeId) clean.limits.activeCardId = activeId;
+  return clean;
+}
+
+function mgServerToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return ''; }
+}
+
+function mgServerSchedulePush(state) {
+  if (!mgServerToken()) return;
+  const clean = mgServerSnapshot(state);
+  const serialized = JSON.stringify(clean);
+  if (serialized === mgServerLastPushed) return;
+
+  if (mgServerPushTimer) clearTimeout(mgServerPushTimer);
+  mgServerPushTimer = setTimeout(function () {
+    mgServerPushTimer = null;
+    mgServerPush(clean);
+  }, 450);
+}
+
+async function mgServerPush(state) {
+  const token = mgServerToken();
+  if (!token) return;
+  const clean = mgServerSnapshot(state);
+  const serialized = JSON.stringify(clean);
+  if (serialized === mgServerLastPushed) return;
+
+  try {
+    const res = await fetch(API_BASE + '/surface/checkout/settings', {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ management: clean })
+    });
+    if (res.ok) mgServerLastPushed = serialized;
+  } catch (err) {
+    console.warn('[Surface] No se pudo sincronizar Gestión con el servidor:', err);
+  }
+}
+
+async function mgServerHydrate() {
+  const token = mgServerToken();
+  if (!token) return;
+
+  let localRaw = null;
+  try { localRaw = localStorage.getItem(mgUserKey()); } catch (_) {}
+
+  // Este dispositivo ya tiene ajustes propios: se empujan al servidor.
+  if (localRaw) {
+    mgServerSchedulePush(loadManagement());
+    return;
+  }
+
+  try {
+    const res = await fetch(API_BASE + '/surface/checkout/settings', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.status === 401 || !res.ok) return;
+
+    const data = await res.json().catch(function () { return {}; });
+    if (!data || !data.management) return;
+
+    const clean = sanitizeManagement(data.management);
+    try { localStorage.setItem(mgUserKey(), JSON.stringify(clean)); } catch (_) {}
+    mgServerLastPushed = JSON.stringify(clean);
+    mgApplyStoredActiveCard(clean);
+    mgResolveSuspension({ announce: true });
+    renderManagement();
+    updateTransferPreview();
+    mgScheduleSuspensionWake();
+  } catch (err) {
+    console.warn('[Surface] No se pudo leer la gestión del servidor:', err);
+  }
+}
+
+function mgServerReset() {
+  if (mgServerPushTimer) clearTimeout(mgServerPushTimer);
+  mgServerPushTimer = null;
+  mgServerLastPushed = '';
+}
+
+// =========================================
+// GESTIÓN — alcance por tarjeta y suspensión temporal
+// =========================================
+
+function mgActiveCardId() {
+  const card = activeCard();
+  return card && card.id != null ? mgCardId(card.id) : null;
+}
+
+function mgCardById(cardId) {
+  const id = mgCardId(cardId);
+  if (!id) return null;
+  return userCards.find(function (card) { return Number(card.id) === id; }) || null;
+}
+
+function mgCardDisplayName(card) {
+  if (!card) return 'Tarjeta';
+  const digits = String(card.card_number || '').replace(/\D/g, '');
+  return (card.card_name || 'Tarjeta') + (digits ? ' · •• ' + digits.slice(-4) : '');
+}
+
+function mgScopedCard(state) {
+  const limits = (state || loadManagement()).limits;
+  return mgCardById(limits.cardId);
+}
+
+function mgScopeLabel(state) {
+  const limits = (state || loadManagement()).limits;
+  if (limits.scope !== 'card') return 'Todas tus tarjetas';
+  const card = mgScopedCard(state);
+  if (card) return mgCardDisplayName(card);
+  if (limits.cardLabel) return limits.cardLabel;
+  return 'Tarjeta seleccionada';
+}
+
+/* Un límite de una sola tarjeta solo se controla cuando esa tarjeta está
+   activa. Si el dato todavía no está disponible, se aplica igual: es más
+   seguro frenar de más que dejar pasar el gasto. */
+function mgScopeMatchesActiveCard(state) {
+  const limits = (state || loadManagement()).limits;
+  if (limits.scope !== 'card') return true;
+  const scoped = mgScopedCard(state);
+  if (!scoped) return true;
+  const active = activeCard();
+  return !!active && Number(active.id) === Number(scoped.id);
+}
+
+function mgApplyStoredActiveCard(state) {
+  if (mgCardSelectionTouched) return;
+  const limits = (state || loadManagement()).limits;
+  const stored = mgCardId(limits.activeCardId);
+  if (!stored) return;
+  const index = userCards.findIndex(function (card) { return Number(card.id) === stored; });
+  if (index < 0 || index === selectedCardIndex) return;
+  selectedCardIndex = index;
+  populateCardsDropdown();
+  displaySelectedCard();
+  updateTransferPreview();
+}
+
+/* Al cambiar la tarjeta activa se guarda y se empuja al servidor: los
+   checkouts de los juegos necesitan saber cuál está activa. */
+function mgSyncActiveCard() {
+  const activeId = mgActiveCardId();
+  const state = loadManagement();
+  if (mgCardId(state.limits.activeCardId) === activeId) {
+    mgServerSchedulePush(state);
+    return;
+  }
+  state.limits.activeCardId = activeId;
+  saveManagement(state);
+  if (currentView === 'management') renderManagement();
+  updateTransferPreview();
+}
+
+function clearMgSuspensionFields(state) {
+  if (!state || !state.limits) return;
+  state.limits.suspendedAt = null;
+  state.limits.suspendedUntil = null;
+  state.limits.suspendedPeriod = null;
+}
+
+function mgSuspensionActive(state) {
+  const limits = (state || loadManagement()).limits;
+  if (!limits.enabled || !limits.suspendedUntil) return false;
+  if (limits.suspendedPeriod !== limits.period) return false;
+  const until = new Date(limits.suspendedUntil).getTime();
+  return Number.isFinite(until) && until > Date.now();
+}
+
+function mgSuspensionUntilDate(state) {
+  if (!mgSuspensionActive(state)) return null;
+  const until = new Date(state.limits.suspendedUntil);
+  return Number.isNaN(until.getTime()) ? null : until;
+}
+
+function mgFormatDateTime(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }) + ' · ' + date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function mgNextFixedReset(period, from) {
+  const now = from instanceof Date ? from : new Date();
+  if (period === 'daily') {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  }
+  if (period === 'monthly') {
+    return new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
+  }
+  return null;
+}
+
+/* Para la ventana móvil de 7 días no hay un reinicio fijo: el tope vuelve a
+   tener margen cuando las compras más viejas salen de la ventana. */
+function mgWeeklyResetAt(currency, targetRemaining) {
+  const now = Date.now();
+  const windowMs = 7 * 24 * 60 * 60 * 1000;
+  const since = now - windowMs;
+  const spends = (Array.isArray(allTransactionsList) ? allTransactionsList : [])
+    .filter(function (tx) {
+      const amount = Number(tx && tx.amount);
+      if (!Number.isFinite(amount) || amount >= 0) return false;
+      if (currencyBucket(tx.currency) !== currency) return false;
+      const date = tx.date instanceof Date ? tx.date : new Date(tx.date);
+      return !Number.isNaN(date.getTime()) && date.getTime() >= since;
+    })
+    .map(function (tx) {
+      const date = tx.date instanceof Date ? tx.date : new Date(tx.date);
+      return { at: date.getTime(), amount: Math.abs(Number(tx.amount) || 0) };
+    })
+    .sort(function (a, b) { return a.at - b.at; });
+
+  if (!spends.length) return new Date(now + windowMs);
+
+  let remaining = spends.reduce(function (sum, tx) { return sum + tx.amount; }, 0);
+  const target = Math.max(0, Number(targetRemaining) || 0);
+  for (let i = 0; i < spends.length; i++) {
+    remaining -= spends[i].amount;
+    const expiresAt = spends[i].at + windowMs;
+    if (remaining <= target && expiresAt > now) return new Date(expiresAt);
+  }
+
+  const lastExpiry = spends[spends.length - 1].at + windowMs;
+  return new Date(Math.max(now + 60 * 1000, lastExpiry));
+}
+
+/* Fecha en la que el tope del período vuelve a quedar disponible. */
+function mgSuspensionUntil(state, opts) {
+  const options = opts || {};
+  const period = state.limits.period;
+  const fixed = mgNextFixedReset(period);
+  if (fixed) return fixed;
+
+  const requested = MG_CURRENCIES.some(function (cur) { return cur.id === options.currency; })
+    ? options.currency
+    : '';
+  const requestedAmount = Math.max(0, Number(options.amount) || 0);
+
+  let candidates = requested ? [requested] : [];
+  if (!candidates.length) {
+    candidates = MG_CURRENCIES
+      .filter(function (cur) {
+        const limit = Number(state.limits[cur.id] || 0);
+        return limit > 0 && mgSpent(cur.id, 'weekly') >= limit;
+      })
+      .map(function (cur) { return cur.id; });
+  }
+  if (!candidates.length) {
+    candidates = MG_CURRENCIES
+      .filter(function (cur) { return Number(state.limits[cur.id] || 0) > 0; })
+      .map(function (cur) { return cur.id; });
+  }
+
+  let latest = 0;
+  candidates.forEach(function (currency) {
+    const limit = Number(state.limits[currency] || 0);
+    if (limit <= 0) return;
+    const amount = currency === requested ? requestedAmount : 1;
+    const target = Math.max(0, limit - Math.max(1, amount));
+    const reset = mgWeeklyResetAt(currency, target);
+    latest = Math.max(latest, reset.getTime());
+  });
+
+  if (!latest) latest = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  return new Date(Math.max(Date.now() + 60 * 1000, latest));
+}
+
+function mgScheduleSuspensionWake() {
+  if (mgSuspensionTimer) {
+    clearTimeout(mgSuspensionTimer);
+    mgSuspensionTimer = null;
+  }
+  const state = loadManagement();
+  if (!state.limits.suspendedUntil) return;
+  const until = new Date(state.limits.suspendedUntil).getTime();
+  if (!Number.isFinite(until)) return;
+  const delay = Math.max(1000, Math.min(until - Date.now() + 1200, 2147483000));
+  mgSuspensionTimer = setTimeout(function () {
+    mgSuspensionTimer = null;
+    if (mgResolveSuspension({ announce: true })) {
+      renderManagement();
+      updateTransferPreview();
+    }
+    mgScheduleSuspensionWake();
+  }, delay);
+}
+
+function mgResolveSuspension(options) {
+  const state = loadManagement();
+  const limits = state.limits;
+  if (!limits.suspendedUntil) return false;
+
+  const until = new Date(limits.suspendedUntil).getTime();
+  const periodChanged = !!limits.suspendedPeriod && limits.suspendedPeriod !== limits.period;
+  const invalid = !limits.suspendedPeriod || !Number.isFinite(until);
+  const expired = invalid || until <= Date.now() || periodChanged;
+  if (!expired) return false;
+
+  clearMgSuspensionFields(state);
+  mgLogTo(state, 'limits', periodChanged
+    ? 'Límite reactivado al cambiar el período.'
+    : (invalid
+      ? 'Límite reactivado: la desactivación temporal no era válida.'
+      : 'Límite reactivado automáticamente al reiniciarse el período.'));
+  saveManagement(state);
+  mgScheduleSuspensionWake();
+
+  if (!options || options.announce !== false) {
+    const key = mgUserKey() + ':reactivated';
+    if (!mgSessionNotices[key]) {
+      mgSessionNotices[key] = true;
+      setTimeout(function () {
+        if (periodChanged) {
+          showToast('El límite se reactivó al cambiar el período.');
+        } else if (invalid) {
+          showToast('El límite volvió a estar activo.');
+        } else {
+          showToast('El límite se reactivó solo al reiniciarse el período.');
+        }
+      }, 80);
+    }
+  }
+  return true;
+}
+
+function mgCheckSuspensionWake() {
+  if (mgResolveSuspension({ announce: true })) {
+    renderManagement();
+    updateTransferPreview();
+  }
+  mgScheduleSuspensionWake();
+}
+
+function handleLimitsEnabledChange(e) {
+  const enabled = !!e.target.checked;
+  const state = loadManagement();
+
+  if (!enabled) {
+    mgUpdate(
+      (s) => {
+        s.limits.enabled = false;
+        clearMgSuspensionFields(s);
+      },
+      'Límites de gasto desactivados.',
+      'limits'
+    );
+    return;
+  }
+
+  const staleCard = state.limits.scope === 'card' &&
+    (!mgCardId(state.limits.cardId) || (userCards.length > 0 && !mgScopedCard(state)));
+  const needsScopeChoice = !state.limits.scopeConfirmed || staleCard;
+
+  if (needsScopeChoice) {
+    // La pregunta se responde en el modal: el switch queda apagado hasta
+    // confirmar el alcance (o se queda apagado si se cancela).
+    e.target.checked = false;
+    openLimitScopeModal({ enableOnApply: true });
+    return;
+  }
+
+  mgUpdate(
+    (s) => {
+      s.limits.enabled = true;
+      s.limits.activeCardId = mgActiveCardId() || s.limits.activeCardId;
+      clearMgSuspensionFields(s);
+    },
+    'Límites de gasto activados.',
+    'limits'
+  );
+  mgScheduleSuspensionWake();
+}
+
+// ── Alcance del límite: todas las tarjetas o una sola ──
+
+function limitScopeRadioNodes() {
+  return Array.prototype.slice.call(
+    document.querySelectorAll('input[name="limit-scope-radio"]')
+  );
+}
+
+function selectedLimitScope() {
+  const node = limitScopeRadioNodes().find(function (radio) { return radio.checked; });
+  return node ? node.value : '';
+}
+
+function populateLimitScopeCards(state) {
+  const select = el('limit-scope-card-select');
+  if (!select) return;
+
+  select.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = userCards.length ? 'Elegí una tarjeta' : 'No tenés tarjetas guardadas';
+  select.appendChild(placeholder);
+
+  const activeId = mgActiveCardId();
+  userCards.forEach(function (card) {
+    const option = document.createElement('option');
+    option.value = String(card.id);
+    let text = mgCardDisplayName(card);
+    if (Number(card.id) === activeId) text += ' · activa';
+    if (card.is_primary) text += ' · principal';
+    option.textContent = text;
+    select.appendChild(option);
+  });
+
+  const current = mgCardId(state.limits.cardId);
+  if (current && userCards.some(function (card) { return Number(card.id) === current; })) {
+    select.value = String(current);
+  } else if (userCards.length === 1) {
+    select.value = String(userCards[0].id);
+  } else {
+    select.value = '';
+  }
+  select.disabled = !userCards.length;
+}
+
+function hideLimitScopeAlert() {
+  const box = el('limit-scope-alert');
+  if (box) box.classList.add('hidden');
+}
+
+function showLimitScopeAlert(message) {
+  const box = el('limit-scope-alert');
+  if (!box) return;
+  box.textContent = message;
+  box.classList.remove('hidden');
+}
+
+function syncLimitScopeModalUI() {
+  const scope = selectedLimitScope();
+  const cardField = el('limit-scope-card-field');
+  if (cardField) cardField.classList.toggle('hidden', scope !== 'card');
+
+  const hint = el('limit-scope-hint');
+  if (hint) {
+    if (!scope) {
+      hint.textContent = 'Elegí una opción para aplicar el límite.';
+    } else if (scope === 'card') {
+      hint.textContent = userCards.length
+        ? 'El tope se controla solo cuando esa tarjeta está activa en Surface.'
+        : 'Para aplicar el límite a una tarjeta, primero agregá una en Surface.';
+    } else {
+      hint.textContent = 'El tope se aplica a toda la billetera, sin importar qué tarjeta esté activa.';
+    }
+  }
+
+  const select = el('limit-scope-card-select');
+  const apply = el('btn-apply-limit-scope');
+  if (apply) {
+    const missingCard = scope === 'card' && !(select && mgCardId(select.value));
+    apply.disabled = !scope || missingCard;
+  }
+  hideLimitScopeAlert();
+}
+
+function openLimitScopeModal(options) {
+  const state = loadManagement();
+  pendingLimitScopeContext = options && typeof options === 'object' ? options : {};
+
+  populateLimitScopeCards(state);
+  const current = state.limits.scopeConfirmed ? state.limits.scope : '';
+  limitScopeRadioNodes().forEach(function (radio) {
+    radio.checked = !!current && radio.value === current;
+  });
+
+  hideLimitScopeAlert();
+  syncLimitScopeModalUI();
+
+  const modal = el('limit-scope-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const focusTarget = document.querySelector('#limit-scope-modal input[name="limit-scope-radio"]:checked') ||
+    document.querySelector('#limit-scope-modal input[name="limit-scope-radio"]');
+  if (focusTarget) {
+    setTimeout(function () { focusTarget.focus({ preventScroll: true }); }, 40);
+  }
+}
+
+function closeLimitScopeModal(syncSwitch) {
+  const modal = el('limit-scope-modal');
+  if (modal) modal.classList.add('hidden');
+  pendingLimitScopeContext = null;
+  hideLimitScopeAlert();
+
+  // Si se canceló después de tocar el switch, el control vuelve a reflejar
+  // el estado real (los límites siguen apagados).
+  if (syncSwitch !== false) {
+    const state = loadManagement();
+    const toggle = el('mg-limits-enabled');
+    if (toggle) toggle.checked = !!state.limits.enabled;
+  }
+}
+
+function applyLimitScopeModal() {
+  const scope = selectedLimitScope();
+  if (!scope) {
+    return showLimitScopeAlert('Elegí si el límite controla todas tus tarjetas o solo una.');
+  }
+
+  let card = null;
+  if (scope === 'card') {
+    const select = el('limit-scope-card-select');
+    card = mgCardById(select && select.value);
+    if (!card) {
+      return showLimitScopeAlert(userCards.length
+        ? 'Elegí la tarjeta a la que querés aplicar el límite.'
+        : 'No tenés tarjetas guardadas en Surface. Agregá una para usar este alcance.');
+    }
+  }
+
+  const context = pendingLimitScopeContext || {};
+  const enable = !!context.enableOnApply;
+  const cardLabel = card ? mgCardDisplayName(card) : '';
+  const scopeText = card ? cardLabel : 'todas tus tarjetas';
+
+  mgUpdate(
+    function (s) {
+      s.limits.scope = scope;
+      s.limits.scopeConfirmed = true;
+      s.limits.cardId = card ? mgCardId(card.id) : null;
+      s.limits.cardLabel = cardLabel;
+      s.limits.activeCardId = mgActiveCardId() || s.limits.activeCardId;
+      if (enable) {
+        s.limits.enabled = true;
+        // Activar de nuevo arranca sin la desactivación temporal anterior.
+        clearMgSuspensionFields(s);
+      }
+    },
+    (enable ? 'Límites de gasto activados. ' : '') + 'Alcance del límite: ' + scopeText + '.',
+    'limits'
+  );
+
+  closeLimitScopeModal(true);
+  mgScheduleSuspensionWake();
+  showToast(enable
+    ? 'Límites activados para ' + scopeText + '.'
+    : 'El límite ahora controla ' + scopeText + '.');
+}
+
+function mgReachedLimitCurrencies(state) {
+  return MG_CURRENCIES.filter(function (cur) {
+    const limit = Number(state.limits[cur.id] || 0);
+    return limit > 0 && mgSpent(cur.id, state.limits.period) >= limit;
+  }).map(function (cur) { return cur.id; });
+}
+
+/* Aviso antes de desactivar: deja claro que es temporal y cuándo vuelve. */
+function openLimitSnoozeModal(options) {
+  const opts = options && typeof options === 'object' ? options : {};
+  const state = loadManagement();
+
+  if (!state.limits.enabled) {
+    showToast('Los límites de gasto están desactivados.');
+    return;
+  }
+  if (!mgScopeMatchesActiveCard(state)) {
+    showToast('El límite pertenece a ' + mgScopeLabel(state) + '. Activá esa tarjeta para desactivarlo.');
+    return;
+  }
+  if (mgSuspensionActive(state)) {
+    showToast('El límite ya está desactivado hasta ' + mgFormatDateTime(mgSuspensionUntilDate(state)) + '.');
+    return;
+  }
+
+  const reached = mgReachedLimitCurrencies(state);
+  let currency = '';
+  if (opts.currency && reached.indexOf(opts.currency) !== -1) {
+    currency = opts.currency;
+  } else if (reached.length) {
+    currency = reached[0];
+  } else {
+    const withLimit = MG_CURRENCIES.find(function (cur) {
+      return Number(state.limits[cur.id] || 0) > 0;
+    });
+    currency = withLimit ? withLimit.id : '';
+  }
+  if (!currency) {
+    showToast('No hay un tope configurado para desactivar.');
+    return;
+  }
+
+  const amount = Math.max(0, Number(opts.amount) || 0);
+  const until = mgSuspensionUntil(state, { currency: currency, amount: amount });
+  pendingLimitSnoozeContext = { currency: currency, amount: amount };
+
+  const scopeEl = el('limit-snooze-scope');
+  if (scopeEl) scopeEl.textContent = mgScopeLabel(state);
+  const periodEl = el('limit-snooze-period');
+  if (periodEl) {
+    periodEl.textContent = MG_PERIODS[state.limits.period]
+      ? MG_PERIODS[state.limits.period].label
+      : 'Período';
+  }
+  const untilEl = el('limit-snooze-until');
+  if (untilEl) untilEl.textContent = mgFormatDateTime(until);
+  const noteEl = el('limit-snooze-note');
+  if (noteEl) {
+    noteEl.textContent = state.limits.period === 'weekly'
+      ? 'Se reactiva solo cuando las compras más viejas salgan de la ventana de 7 días. Podés reactivarlo antes desde Gestión.'
+      : 'También podés reactivarlo antes desde Gestión › Límite de gasto.';
+  }
+
+  const modal = el('limit-snooze-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const cancel = document.querySelector('#limit-snooze-modal [data-close-limit-snooze]');
+  if (cancel) {
+    setTimeout(function () { cancel.focus({ preventScroll: true }); }, 40);
+  }
+}
+
+function closeLimitSnoozeModal() {
+  const modal = el('limit-snooze-modal');
+  if (modal) modal.classList.add('hidden');
+  pendingLimitSnoozeContext = null;
+}
+
+function confirmLimitSnooze() {
+  const context = pendingLimitSnoozeContext;
+  if (!context) return;
+
+  // Se recalcula al confirmar por si el período cambió con el modal abierto.
+  const state = loadManagement();
+  const until = mgSuspensionUntil(state, { currency: context.currency, amount: context.amount });
+  const untilIso = until.toISOString();
+
+  mgUpdate(
+    function (s) {
+      s.limits.suspendedAt = new Date().toISOString();
+      s.limits.suspendedUntil = untilIso;
+      s.limits.suspendedPeriod = s.limits.period;
+    },
+    'Límite desactivado hasta ' + mgFormatDateTime(until) + '. Se reactiva solo.',
+    'limits'
+  );
+
+  closeLimitSnoozeModal();
+  mgScheduleSuspensionWake();
+  showToast('Límite desactivado. Se reactiva solo el ' + mgFormatDateTime(until) + '.');
+}
+
+function reactivateLimitNow() {
+  const state = loadManagement();
+  if (!state.limits.suspendedUntil) {
+    showToast('El límite ya está activo.');
+    return;
+  }
+  mgUpdate(
+    function (s) { clearMgSuspensionFields(s); },
+    'Límite reactivado manualmente.',
+    'limits'
+  );
+  mgScheduleSuspensionWake();
+  showToast('Límite reactivado.');
+}
+
+/* Si una cuenta llega con límites activos pero sin alcance confirmado (por
+   ejemplo, datos migrados), se pregunta una vez al entrar a Gestión. */
+function mgMaybePromptLimitScope() {
+  const state = loadManagement();
+  if (!state.limits.enabled || state.limits.scopeConfirmed) return;
+  if (!el('limit-scope-modal')?.classList.contains('hidden')) return;
+  const key = mgUserKey() + ':scope-prompt';
+  if (mgSessionNotices[key]) return;
+  mgSessionNotices[key] = true;
+  openLimitScopeModal();
+}
+
+function mgLogTo(state, type, text) {
+  if (!state || !text) return;
+  if (!Array.isArray(state.log)) state.log = [];
+  state.log.unshift({
+    id: 'mgl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    at: new Date().toISOString(),
+    type: String(type || 'settings'),
+    text: String(text).slice(0, 180)
+  });
+  state.log = state.log.slice(0, MG_LOG_LIMIT);
+}
+
+function mgAddLog(type, text) {
+  const state = loadManagement();
+  mgLogTo(state, type, text);
+  saveManagement(state);
+  if (currentView === 'management') renderManagement();
+}
+
+function mgFormatAmount(value) {
+  const num = Number(value || 0);
+  return Number.isFinite(num) ? num.toLocaleString('es-AR') : '0';
+}
+
+function mgFormatMoney(value) {
+  if (value == null || value === '' || !Number.isFinite(Number(value))) return 'Pendiente';
+  try {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: MG_OFFICIAL_RATES.base || 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 6
+    }).format(Number(value));
+  } catch (_) {
+    return Number(value).toLocaleString('es-AR');
+  }
+}
+
+function mgFormatDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' · ' +
+    date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function mgPeriodStart(period) {
+  const now = new Date();
+  if (period === 'daily') return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (period === 'weekly') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+}
+
+/* Frase natural del período para los avisos de límite. */
+function mgPeriodPhrase(period) {
+  if (period === 'daily') return 'hoy';
+  if (period === 'weekly') return 'los últimos 7 días';
+  return 'este mes';
+}
+
+/* Porcentajes de aviso vigentes, de menor a mayor. */
+function mgLimitWarnings(state) {
+  const limits = (state || loadManagement()).limits;
+  const legacy = limits.threshold;
+  return mgNormalizeWarnings(
+    Array.isArray(limits.warnings) ? limits.warnings : null,
+    legacy == null || legacy === '' ? 80 : legacy
+  );
+}
+
+/* Aviso más alto ya cruzado (0 si todavía no llegó a ninguno). */
+function mgWarningLevel(warnings, pct) {
+  let level = 0;
+  (Array.isArray(warnings) ? warnings : []).forEach(function (value) {
+    if (pct >= value) level = value;
+  });
+  return level;
+}
+
+function mgWarningLabel(warnings) {
+  const list = Array.isArray(warnings) ? warnings : [];
+  return list.length ? list.map(function (value) { return value + '%'; }).join(' · ') : 'Sin avisos';
+}
+
+/* Gasto acumulado del período en una divisa (solo movimientos negativos). */
+function mgSpent(currency, period) {
+  const key = period === 'daily' || period === 'weekly' || period === 'monthly' ? period : 'monthly';
+  const since = mgPeriodStart(key).getTime();
+  let total = 0;
+  (Array.isArray(allTransactionsList) ? allTransactionsList : []).forEach(function (tx) {
+    const amount = Number(tx && tx.amount);
+    if (!Number.isFinite(amount) || amount >= 0) return;
+    if (currencyBucket(tx.currency) !== currency) return;
+    const date = tx.date instanceof Date ? tx.date : new Date(tx.date);
+    if (isNaN(date.getTime()) || date.getTime() < since) return;
+    total += Math.abs(amount);
+  });
+  return total;
+}
+
+/* Evalúa un envío contra la pausa, el tope del período y el máximo por operación. */
+function mgEvaluateTransfer(currency, amount, totalDebit) {
+  mgResolveSuspension({ announce: true });
+  const state = loadManagement();
+  const label = currencyLabel(currency);
+  const result = {
+    blocked: false,
+    message: '',
+    hint: '',
+    button: '',
+    warn: false,
+    warningLevel: 0,
+    periodLimitHit: false,
+    suspended: false,
+    suspendedUntil: null,
+    scopeInactive: false
+  };
+
+  if (state.controls.pauseTransfers) {
+    result.blocked = true;
+    result.button = 'Envíos pausados';
+    result.message = 'Los envíos están pausados desde Gestión. Desactivá la pausa para volver a enviar.';
+    result.hint = 'Pausa de seguridad activa: no se pueden confirmar envíos.';
+    return result;
+  }
+
+  if (!state.limits.enabled) return result;
+
+  if (!mgScopeMatchesActiveCard(state)) {
+    result.scopeInactive = true;
+    result.hint = 'El límite está asignado a ' + mgScopeLabel(state) +
+      '. La tarjeta activa es ' + mgCardDisplayName(activeCard()) + ', así que el tope no se aplica.';
+    return result;
+  }
+
+  const suspended = mgSuspensionActive(state);
+  const suspendedUntil = suspended ? mgSuspensionUntilDate(state) : null;
+  result.suspended = suspended;
+  result.suspendedUntil = suspendedUntil ? suspendedUntil.toISOString() : null;
+  if (suspended) {
+    result.hint = 'Límite del período desactivado hasta ' + mgFormatDateTime(suspendedUntil) +
+      '. Se reactiva automáticamente; el máximo por operación sigue activo.';
+  }
+
+  const perOp = Number(state.limits.perOp[currency] || 0);
+
+  if (perOp > 0 && Number(amount) > perOp) {
+    result.blocked = true;
+    result.button = 'Máximo por envío';
+    result.message = 'El máximo por envío en ' + label + ' es ' + mgFormatAmount(perOp) + '.';
+    result.hint = 'Supera el máximo por envío de ' + mgFormatAmount(perOp) + ' ' + label + '.';
+    return result;
+  }
+
+  // La desactivación temporal solo libera el tope del período. El máximo
+  // por operación se mantiene como red de seguridad.
+  if (suspended) return result;
+
+  const limit = Number(state.limits[currency] || 0);
+  const spent = mgSpent(currency, state.limits.period);
+  const periodPhrase = mgPeriodPhrase(state.limits.period);
+  const debit = Number(totalDebit || 0);
+
+  if (limit <= 0) return result;
+
+  const projected = spent + debit;
+  const rawPct = (projected / limit) * 100;
+  const pct = Math.round(rawPct);
+  const scopeSuffix = state.limits.scope === 'card' ? ' (' + mgScopeLabel(state) + ')' : '';
+
+  if (projected > limit) {
+    const detail = 'Tope de ' + label + ' para ' + periodPhrase + scopeSuffix + ': ' + mgFormatAmount(limit) +
+      '. Ya usaste ' + mgFormatAmount(spent) + ' y este envío necesita ' + mgFormatAmount(debit) + '.';
+    result.hint = 'Este envío supera tu tope de ' + label + ' para ' + periodPhrase + '.';
+    result.warn = true;
+    result.periodLimitHit = true;
+    if (state.limits.block) {
+      result.blocked = true;
+      result.button = 'Límite alcanzado';
+      result.message = detail;
+      return result;
+    }
+    return result;
+  }
+
+  if (spent >= limit) {
+    result.warn = true;
+    result.periodLimitHit = true;
+    result.hint = 'Ya alcanzaste tu tope de ' + label + ' para ' + periodPhrase + '.';
+    if (state.limits.block) {
+      result.blocked = true;
+      result.button = 'Límite alcanzado';
+      result.message = 'Tope de ' + label + ' para ' + periodPhrase + scopeSuffix + ': ' +
+        mgFormatAmount(limit) + '. Ya usaste ' + mgFormatAmount(spent) + '.';
+      return result;
+    }
+    return result;
+  }
+
+  const warnings = mgLimitWarnings(state);
+  const warningLevel = mgWarningLevel(warnings, rawPct);
+  if (state.controls.alertLimit && warningLevel > 0) {
+    const nextWarning = warnings.find(function (value) { return value > rawPct; }) || 0;
+    result.warn = true;
+    result.warningLevel = warningLevel;
+    result.hint = 'Con este envío vas a usar el ' + pct + '% de tu tope de ' + label +
+      ' (' + mgFormatAmount(limit) + ' para ' + periodPhrase + '); aviso del ' + warningLevel + '%.' +
+      (nextWarning ? ' Próximo aviso al ' + nextWarning + '%.' : '');
+  }
+
+  return result;
+}
+
+/* Margen disponible dentro del límite (para «Usar todo»). */
+function mgMaxAvailable(currency, available) {
+  mgResolveSuspension({ announce: true });
+  const state = loadManagement();
+  if (!state.limits.enabled) return available;
+  if (!mgScopeMatchesActiveCard(state)) return available;
+  if (mgSuspensionActive(state)) return available;
+  const limit = Number(state.limits[currency] || 0);
+  if (limit <= 0) return available;
+  const remaining = Math.max(0, limit - mgSpent(currency, state.limits.period));
+  return Math.min(available, remaining);
+}
+
+/* Tasa oficial global. No depende del usuario ni se guarda en su dispositivo. */
+function mgOfficialRate(code) {
+  const key = String(code || '').toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(MG_OFFICIAL_RATES.values, key)) return null;
+  return mgRateValue(MG_OFFICIAL_RATES.values[key]);
+}
+
+function mgCurrencyName(code) {
+  const key = String(code || '').toLowerCase();
+  const cur = MG_CURRENCIES.find(function (item) { return item.id === key; });
+  return cur ? cur.name : String(code || '—').toUpperCase();
+}
+
+function mgCurrencySingular(name) {
+  if (name === 'Gambits') return 'Gambit';
+  if (name === 'Tides') return 'Tide';
+  return name;
+}
+
+function mgActiveWarnings(state) {
+  mgResolveSuspension({ announce: true });
+  state = state || loadManagement();
+  const out = [];
+  if (state.controls.pauseTransfers) {
+    out.push({ tone: 'error', code: 'pause', text: 'Los envíos están pausados desde Gestión.' });
+  }
+  if (!state.limits.enabled) return out;
+
+  if (!mgScopeMatchesActiveCard(state)) {
+    out.push({
+      tone: 'info',
+      code: 'scope',
+      text: 'El límite está asignado a ' + mgScopeLabel(state) + ', que no es la tarjeta activa. Se aplica cuando esa tarjeta esté activa.'
+    });
+    return out;
+  }
+
+  if (mgSuspensionActive(state)) {
+    out.push({
+      tone: 'info',
+      code: 'suspended',
+      text: 'Límite desactivado temporalmente hasta ' + mgFormatDateTime(mgSuspensionUntilDate(state)) + '. Se reactiva solo.'
+    });
+    return out;
+  }
+
+  const limitWarnings = mgLimitWarnings(state);
+  MG_CURRENCIES.forEach(function (cur) {
+    const limit = Number(state.limits[cur.id] || 0);
+    if (limit <= 0) return;
+    const spent = mgSpent(cur.id, state.limits.period);
+    const rawPct = (spent / limit) * 100;
+    const pct = Math.round(rawPct);
+    if (spent > limit) {
+      out.push({
+        tone: 'error',
+        code: 'limit',
+        text: 'Te pasaste del tope de ' + cur.name + ' por ' + mgFormatAmount(spent - limit) + '.'
+      });
+    } else if (spent === limit) {
+      out.push({
+        tone: 'error',
+        code: 'limit',
+        text: 'Llegaste justo al tope de ' + cur.name + ' del período.'
+      });
+    } else if (state.controls.alertLimit) {
+      const level = mgWarningLevel(limitWarnings, rawPct);
+      if (level > 0) {
+        out.push({
+          tone: 'info',
+          code: 'near',
+          level: level,
+          text: 'Usaste el ' + pct + '% del tope de ' + cur.name + ' (aviso del ' + level + '%).'
+        });
+      }
+    }
+  });
+  return out;
+}
+
+function mgEl(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+function setManagementTab(tab) {
+  mgTab = MG_TABS.indexOf(tab) !== -1 ? tab : 'summary';
+  MG_TABS.forEach(function (name) {
+    const panel = el('mg-panel-' + name);
+    if (panel) panel.classList.toggle('hidden', name !== mgTab);
+  });
+  document.querySelectorAll('.srf-mg-tabs [data-mg-tab]').forEach(function (btn) {
+    const active = btn.getAttribute('data-mg-tab') === mgTab;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-selected', String(active));
+  });
+  renderManagement();
+}
+
+function mgUpdate(mutator, logText, type) {
+  const state = loadManagement();
+  const before = JSON.stringify(state);
+  try { mutator(state); } catch (_) {}
+  if (JSON.stringify(state) === before) return state;
+  if (logText) mgLogTo(state, type || 'settings', logText);
+  saveManagement(state);
+  renderManagement();
+  updateTransferPreview();
+  return state;
+}
+
+function mgAnnounceOnEnter() {
+  const key = mgUserKey();
+  if (!mgSessionNotices[key]) {
+    const state = loadManagement();
+    const warnings = mgActiveWarnings(state).filter(function (w) { return w.tone === 'error'; });
+    if (warnings.length) {
+      mgSessionNotices[key] = true;
+      showToast(warnings[0].text);
+    }
+  }
+  mgMaybePromptLimitScope();
+}
+
+function renderManagement() {
+  mgResolveSuspension({ announce: true });
+  const state = loadManagement();
+  renderMgStatusPill(state);
+  renderMgSummary(state);
+  renderMgLimits(state);
+  renderMgRates();
+  renderMgControls(state);
+  renderMgLogs(state);
+}
+
+function renderMgStatusPill(state) {
+  const pill = el('mg-status-pill');
+  if (!pill) return;
+  pill.classList.remove('is-ok', 'is-bad', 'is-warn');
+  if (state.controls.pauseTransfers) {
+    pill.textContent = 'Envíos pausados';
+    pill.classList.add('is-bad');
+  } else if (state.limits.enabled) {
+    if (mgSuspensionActive(state)) {
+      pill.textContent = 'Límite pausado';
+      pill.classList.add('is-warn');
+    } else if (!mgScopeMatchesActiveCard(state)) {
+      pill.textContent = 'Límite en otra tarjeta';
+      pill.classList.add('is-warn');
+    } else {
+      pill.textContent = 'Límites activos';
+      pill.classList.add('is-ok');
+    }
+  } else {
+    pill.textContent = 'Sin límites';
+  }
+}
+
+function renderMgSummary(state) {
+  const period = state.limits.period;
+  const periodShort = MG_PERIODS[period] ? MG_PERIODS[period].short : 'período';
+  const periodLabel = MG_PERIODS[period] ? MG_PERIODS[period].label : 'Período';
+  const officialRates = MG_CURRENCIES.map(function (cur) { return mgOfficialRate(cur.id); });
+  const totalRates = officialRates.length;
+  const loadedRates = officialRates.filter(function (value) { return value != null; }).length;
+  const suspended = mgSuspensionActive(state);
+  const suspendedDate = suspended ? mgSuspensionUntilDate(state) : null;
+  const scopeApplies = mgScopeMatchesActiveCard(state);
+  const scopeLabel = mgScopeLabel(state);
+  const limitWarnings = mgLimitWarnings(state);
+
+  // Aviso superior: pausa, tope superado o cercanía al límite.
+  const alertBox = el('mg-summary-alert');
+  const warnings = mgActiveWarnings(state);
+  if (alertBox) {
+    alertBox.innerHTML = '';
+    if (warnings.length) {
+      const isError = warnings.some(function (w) { return w.tone === 'error'; });
+      alertBox.className = 'srf-alert srf-alert-' + (isError ? 'error' : 'info');
+      alertBox.classList.remove('hidden');
+      alertBox.appendChild(mgEl('span', 'srf-alert-text', warnings.map(function (w) { return w.text; }).join(' · ')));
+      if (warnings.some(function (w) { return w.code === 'limit'; })) {
+        const cta = mgEl('button', 'srf-textlink srf-alert-cta', 'Desactivar límite hasta el reinicio');
+        cta.type = 'button';
+        cta.addEventListener('click', function () { openLimitSnoozeModal(); });
+        alertBox.appendChild(cta);
+      }
+    } else {
+      alertBox.classList.add('hidden');
+    }
+  }
+
+  // Tarjetas de resumen.
+  const stats = el('mg-summary-stats');
+  if (stats) {
+    stats.innerHTML = '';
+
+    MG_CURRENCIES.forEach(function (cur) {
+      const spent = mgSpent(cur.id, period);
+      const limit = Number(state.limits[cur.id] || 0);
+      const pct = limit > 0 ? (spent / limit) * 100 : 0;
+      const card = mgEl('div', 'srf-stat srf-mg-stat');
+      card.appendChild(mgEl('span', 'srf-stat-label', cur.ico + ' ' + cur.name + ' · ' + periodShort));
+
+      const value = mgEl('b', 'srf-stat-value', mgFormatAmount(spent));
+      if (limit > 0 && spent >= limit && !suspended && scopeApplies) value.classList.add('srf-stat-neg');
+      else if (limit > 0 && limitWarnings.length && pct >= limitWarnings[0] && !suspended && scopeApplies) value.classList.add('srf-mg-warn');
+      card.appendChild(value);
+
+      let sub = limit > 0
+        ? 'Tope ' + mgFormatAmount(limit) + ' · ' + Math.min(999, Math.round(pct)) + '% usado'
+        : (state.limits.enabled ? 'Sin tope para esta divisa' : 'Límites desactivados');
+      if (limit > 0 && suspended) sub += ' · pausado';
+      else if (limit > 0 && !scopeApplies) sub += ' · otra tarjeta';
+      card.appendChild(mgEl('small', 'srf-stat-sub', sub));
+      stats.appendChild(card);
+    });
+
+    const limitsCard = mgEl('div', 'srf-stat srf-mg-stat');
+    limitsCard.appendChild(mgEl('span', 'srf-stat-label', 'Límites de gasto'));
+    const limitsValue = mgEl('b', 'srf-stat-value',
+      suspended ? 'Pausados' : (state.limits.enabled ? 'Activos' : 'Inactivos'));
+    limitsValue.classList.add(suspended ? 'srf-mg-warn' : (state.limits.enabled ? 'srf-ok-text' : 'srf-mg-muted'));
+    limitsCard.appendChild(limitsValue);
+    let limitsSub;
+    if (!state.limits.enabled) limitsSub = 'Activá un tope para empezar';
+    else if (suspended) limitsSub = 'Se reactiva ' + mgFormatDateTime(suspendedDate);
+    else limitsSub = scopeLabel + ' · avisos ' + mgWarningLabel(limitWarnings);
+    limitsCard.appendChild(mgEl('small', 'srf-stat-sub', limitsSub));
+    stats.appendChild(limitsCard);
+
+    const ratesCard = mgEl('div', 'srf-stat srf-mg-stat');
+    ratesCard.appendChild(mgEl('span', 'srf-stat-label', 'Equivalencias'));
+    ratesCard.appendChild(mgEl('b', 'srf-stat-value', loadedRates + ' de ' + totalRates));
+    ratesCard.appendChild(mgEl('small', 'srf-stat-sub',
+      loadedRates === 0
+        ? 'Pendientes de OWS'
+        : 'Oficiales en ' + MG_OFFICIAL_RATES.base));
+    stats.appendChild(ratesCard);
+  }
+
+  const usageSub = el('mg-usage-sub');
+  if (usageSub) {
+    if (!state.limits.enabled) {
+      usageSub.textContent = 'Activá los límites para poner un tope por período.';
+    } else {
+      usageSub.textContent = 'Período: ' + periodLabel + '. ' + (MG_PERIODS[period] ? MG_PERIODS[period].note : '') +
+        ' Alcance: ' + scopeLabel + '.' +
+        (suspended ? ' Desactivado hasta ' + mgFormatDateTime(suspendedDate) + '.' : '');
+    }
+  }
+
+  const usage = el('mg-summary-usage');
+  if (usage) {
+    usage.innerHTML = '';
+    MG_CURRENCIES.forEach(function (cur) {
+      const spent = mgSpent(cur.id, period);
+      const limit = Number(state.limits[cur.id] || 0);
+      const rawPct = limit > 0 ? (spent / limit) * 100 : 0;
+      const pct = Math.min(100, Math.max(0, rawPct));
+
+      const row = mgEl('div', 'srf-mg-usage-row');
+
+      const top = mgEl('div', 'srf-mg-usage-top');
+      top.appendChild(mgEl('span', 'srf-mg-usage-name', cur.ico + ' ' + cur.name));
+      top.appendChild(mgEl('b', 'srf-mg-usage-value', limit > 0
+        ? mgFormatAmount(spent) + ' / ' + mgFormatAmount(limit)
+        : mgFormatAmount(spent)));
+      row.appendChild(top);
+
+      const bar = mgEl('span', 'srf-mg-usage-bar');
+      const fill = mgEl('span', 'srf-mg-usage-fill');
+      fill.style.width = pct + '%';
+      if (limit > 0 && spent > limit && !suspended && scopeApplies) fill.classList.add('is-over');
+      else if (limit > 0 && limitWarnings.length && rawPct >= limitWarnings[0] && !suspended && scopeApplies) fill.classList.add('is-warn');
+      else if (limit > 0 && (!scopeApplies || suspended)) fill.classList.add('is-paused');
+      bar.appendChild(fill);
+      row.appendChild(bar);
+
+      let note;
+      if (suspended) {
+        note = 'Límite desactivado hasta ' + mgFormatDateTime(suspendedDate) + '.';
+      } else if (!scopeApplies) {
+        note = 'Solo se controla con ' + scopeLabel + ' activa.';
+      } else if (limit <= 0) {
+        note = state.limits.enabled ? 'Sin tope para ' + cur.name + '.' : 'Los límites están desactivados.';
+      } else if (spent > limit) {
+        note = 'Te pasaste por ' + mgFormatAmount(spent - limit) + ' ' + cur.name + '.';
+      } else if (spent === limit) {
+        note = 'Alcanzaste justo el tope de ' + cur.name + '.';
+      } else {
+        note = 'Te quedan ' + mgFormatAmount(limit - spent) + ' ' + cur.name + ' · ' + Math.round(rawPct) + '% usado.';
+      }
+      row.appendChild(mgEl('small', 'srf-mg-usage-note', note));
+      usage.appendChild(row);
+    });
+  }
+
+  const status = el('mg-summary-status');
+  if (status) {
+    status.innerHTML = '';
+    status.appendChild(mgRow('Límites', state.limits.enabled ? (suspended ? 'Pausados' : 'Activos') : 'Inactivos',
+      state.limits.enabled ? (suspended ? 'bad' : 'ok') : ''));
+    status.appendChild(mgRow('Alcance', scopeLabel));
+    if (state.limits.scope === 'card' && !scopeApplies) {
+      status.appendChild(mgRow('Tarjeta activa', mgCardDisplayName(activeCard())));
+    }
+    status.appendChild(mgRow('Período', state.limits.enabled ? periodLabel : '—'));
+    status.appendChild(mgRow('Se reactiva', suspended ? mgFormatDateTime(suspendedDate) : '—',
+      suspended ? 'warn' : ''));
+    status.appendChild(mgRow('Envíos', state.controls.pauseTransfers ? 'Pausados' : 'Habilitados', state.controls.pauseTransfers ? 'bad' : 'ok'));
+    status.appendChild(mgRow('Avisos previos',
+      state.controls.alertLimit ? (limitWarnings.length ? mgWarningLabel(limitWarnings) : 'Sin avisos') : 'Desactivado'));
+    status.appendChild(mgRow('Bloqueo al superar', state.limits.block ? 'Activado' : 'Solo aviso', state.limits.block ? 'ok' : ''));
+    status.appendChild(mgRow('Equivalencias', loadedRates === totalRates && totalRates > 0 ? 'Oficiales' : 'Pendientes de OWS', loadedRates === totalRates && totalRates > 0 ? 'ok' : ''));
+  }
+}
+
+function mgRow(label, value, tone) {
+  const row = mgEl('div', 'srf-rows-item');
+  row.appendChild(mgEl('span', null, label));
+  const bold = mgEl('b', null, value);
+  if (tone === 'ok') bold.classList.add('srf-ok-text');
+  if (tone === 'bad') bold.classList.add('srf-mg-bad-text');
+  if (tone === 'warn') bold.classList.add('srf-mg-warn');
+  row.appendChild(bold);
+  return row;
+}
+
+function mgIsEditing(node) {
+  return !!node && document.activeElement === node;
+}
+
+function mgWarningSuggestion(warnings, after) {
+  const suggestions = [50, 65, 80, 90, 95];
+  const list = Array.isArray(warnings) ? warnings : [];
+  const free = suggestions.filter(function (value) { return list.indexOf(value) === -1; });
+  if (!free.length) return null;
+  const next = free.find(function (value) { return value > (Number(after) || 0); });
+  return next || free[0];
+}
+
+function syncMgWarningDraft(raw) {
+  const parsed = parseInt(raw, 10);
+  const value = Math.min(100, Math.max(5, Math.round((Number.isFinite(parsed) ? parsed : mgWarningDraft) / 5) * 5));
+  mgWarningDraft = value;
+  mgWarningDraftTouched = true;
+  const out = el('mg-warning-out');
+  if (out) out.textContent = value + '%';
+  updateMgWarningAddButton(loadManagement());
+}
+
+function updateMgWarningAddButton(state) {
+  const add = el('btn-mg-add-warning');
+  if (!add) return;
+  const warnings = mgLimitWarnings(state);
+  const full = warnings.length >= MG_WARNING_LIMIT;
+  const duplicate = warnings.indexOf(mgWarningDraft) !== -1;
+  add.disabled = full || duplicate;
+  add.textContent = full ? 'Máximo de avisos' : (duplicate ? 'Ya agregado' : 'Agregar aviso');
+  add.title = full
+    ? 'Podés configurar hasta ' + MG_WARNING_LIMIT + ' avisos previos.'
+    : (duplicate ? 'Ese aviso ya está en la lista.' : '');
+}
+
+function addMgWarning() {
+  const state = loadManagement();
+  const warnings = mgLimitWarnings(state);
+  if (warnings.length >= MG_WARNING_LIMIT) {
+    showToast('Podés configurar hasta ' + MG_WARNING_LIMIT + ' avisos previos.');
+    return;
+  }
+  const value = mgWarningDraft;
+  if (warnings.indexOf(value) !== -1) {
+    showToast('Ese aviso ya está en la lista.');
+    return;
+  }
+  const next = mgWarningSuggestion(warnings.concat(value), value);
+  if (next) mgWarningDraft = next;
+  mgWarningDraftTouched = false;
+  mgUpdate(function (s) {
+    s.limits.warnings = mgNormalizeWarnings(
+      (Array.isArray(s.limits.warnings) ? s.limits.warnings : []).concat(value)
+    );
+    s.limits.threshold = s.limits.warnings[0] || 0;
+  }, 'Aviso previo agregado al ' + value + '%.', 'limits');
+}
+
+function removeMgWarning(value) {
+  const state = loadManagement();
+  if (mgLimitWarnings(state).indexOf(value) === -1) return;
+  mgUpdate(function (s) {
+    s.limits.warnings = mgNormalizeWarnings(
+      (Array.isArray(s.limits.warnings) ? s.limits.warnings : []).filter(function (item) {
+        return item !== value;
+      })
+    );
+    s.limits.threshold = s.limits.warnings[0] || 0;
+  }, 'Aviso previo del ' + value + '% quitado.', 'limits');
+}
+
+/* Lista editable de avisos: chips con quitar + selector para sumar otro. */
+function renderMgWarnings(state) {
+  const warnings = mgLimitWarnings(state);
+  // Al abrir Gestión, el selector arranca en un valor que todavía no esté
+  // usado para que «Agregar aviso» sea accionable desde el primer momento.
+  if (!mgWarningDraftTouched && warnings.indexOf(mgWarningDraft) !== -1) {
+    const next = mgWarningSuggestion(warnings, mgWarningDraft);
+    if (next) mgWarningDraft = next;
+  }
+
+  const chips = el('mg-warning-chips');
+  if (chips) {
+    chips.innerHTML = '';
+    if (!warnings.length) {
+      chips.appendChild(mgEl('span', 'srf-mg-warning-empty', 'Sin avisos previos. Agregá uno para que Surface te avise.'));
+    } else {
+      warnings.forEach(function (value) {
+        const chip = mgEl('span', 'srf-mg-warning-chip');
+        chip.appendChild(mgEl('b', null, value + '%'));
+        const remove = mgEl('button', 'srf-mg-warning-remove', '×');
+        remove.type = 'button';
+        remove.setAttribute('data-remove-warning', String(value));
+        remove.setAttribute('aria-label', 'Quitar aviso al ' + value + '%');
+        chip.appendChild(remove);
+        chips.appendChild(chip);
+      });
+    }
+  }
+
+  const range = el('mg-warning-range');
+  if (range && !mgIsEditing(range)) range.value = String(mgWarningDraft);
+  const out = el('mg-warning-out');
+  if (out) out.textContent = mgWarningDraft + '%';
+  updateMgWarningAddButton(state);
+}
+
+function renderMgLimits(state) {
+  const enabled = el('mg-limits-enabled');
+  if (enabled) enabled.checked = !!state.limits.enabled;
+
+  const period = el('mg-period');
+  if (period) period.value = state.limits.period;
+
+  const scopeLabelEl = el('mg-scope-label');
+  if (scopeLabelEl) scopeLabelEl.textContent = mgScopeLabel(state);
+
+  const scopeNoteEl = el('mg-scope-note');
+  if (scopeNoteEl) {
+    if (!state.limits.enabled) {
+      scopeNoteEl.textContent = 'Activá los límites para elegir el alcance.';
+    } else if (state.limits.scope === 'card') {
+      const scoped = mgScopedCard(state);
+      if (!scoped) {
+        scopeNoteEl.textContent = 'Elegí una tarjeta para aplicar el tope.';
+      } else if (!mgScopeMatchesActiveCard(state)) {
+        scopeNoteEl.textContent = 'Solo se controla con ' + mgScopeLabel(state) + ' activa. Ahora: ' +
+          mgCardDisplayName(activeCard()) + '.';
+      } else {
+        scopeNoteEl.textContent = 'El tope se controla con ' + mgScopeLabel(state) + ' activa.';
+      }
+    } else {
+      scopeNoteEl.textContent = 'El tope controla toda la billetera, sin importar la tarjeta activa.';
+    }
+  }
+
+  const scopeBtn = el('btn-mg-change-scope');
+  if (scopeBtn) scopeBtn.disabled = !state.limits.enabled;
+
+  const suspendedNow = mgSuspensionActive(state);
+  const scopeAppliesNow = mgScopeMatchesActiveCard(state);
+  const enforceNow = !suspendedNow && scopeAppliesNow;
+  const warnings = mgLimitWarnings(state);
+
+  MG_CURRENCIES.forEach(function (cur) {
+    const input = el('mg-limit-' + cur.id);
+    if (input && !mgIsEditing(input)) input.value = state.limits[cur.id] ? String(state.limits[cur.id]) : '';
+
+    const perOp = el('mg-perop-' + cur.id);
+    if (perOp && !mgIsEditing(perOp)) perOp.value = state.limits.perOp[cur.id] ? String(state.limits.perOp[cur.id]) : '';
+
+    const spent = mgSpent(cur.id, state.limits.period);
+    const limit = Number(state.limits[cur.id] || 0);
+    const spentEl = el('mg-spent-' + cur.id);
+    if (spentEl) spentEl.textContent = 'Gastado ' + MG_PERIODS[state.limits.period].short + ': ' + mgFormatAmount(spent) + ' ' + cur.name;
+
+    const bar = el('mg-bar-' + cur.id);
+    if (bar) {
+      const pct = limit > 0 ? Math.min(100, (spent / limit) * 100) : 0;
+      bar.style.width = pct + '%';
+      bar.className = '';
+      if (limit > 0 && enforceNow && spent > limit) bar.classList.add('is-over');
+      else if (limit > 0 && enforceNow && warnings.length && pct >= warnings[0]) bar.classList.add('is-warn');
+      else if (limit > 0 && !enforceNow) bar.classList.add('is-paused');
+    }
+  });
+
+  renderMgWarnings(state);
+
+  const block = el('mg-block-exceeded');
+  if (block) block.checked = state.limits.block !== false;
+
+  renderMgLimitState(state);
+}
+
+/* Aviso contextual bajo los topes: pausa temporal, tope alcanzado o tarjeta
+   del límite que no está activa. */
+function renderMgLimitState(state) {
+  const box = el('mg-limit-state');
+  if (!box) return;
+  box.innerHTML = '';
+
+  if (!state.limits.enabled) return;
+
+  if (mgSuspensionActive(state)) {
+    const until = mgSuspensionUntilDate(state);
+    const banner = mgEl('div', 'srf-mg-limit-banner is-suspended');
+    banner.appendChild(mgEl('span', 'srf-mg-limit-banner-ico', '⏸️'));
+    const body = mgEl('span', 'srf-mg-limit-banner-body');
+    body.appendChild(mgEl('b', null, 'Límite desactivado temporalmente'));
+    body.appendChild(mgEl('small', null, 'Se reactiva solo el ' + mgFormatDateTime(until) + '.'));
+    banner.appendChild(body);
+    const reactivate = mgEl('button', 'srf-textlink', 'Reactivar ahora');
+    reactivate.type = 'button';
+    reactivate.addEventListener('click', reactivateLimitNow);
+    banner.appendChild(reactivate);
+    box.appendChild(banner);
+    return;
+  }
+
+  if (!mgScopeMatchesActiveCard(state)) {
+    const banner = mgEl('div', 'srf-mg-limit-banner is-info');
+    banner.appendChild(mgEl('span', 'srf-mg-limit-banner-ico', '💳'));
+    const body = mgEl('span', 'srf-mg-limit-banner-body');
+    body.appendChild(mgEl('b', null, 'El límite está en otra tarjeta'));
+    body.appendChild(mgEl('small', null, 'Se controla con ' + mgScopeLabel(state) + ' activa.'));
+    banner.appendChild(body);
+    const useCard = mgEl('button', 'srf-textlink', 'Usar esa tarjeta');
+    useCard.type = 'button';
+    useCard.addEventListener('click', useScopedCardNow);
+    banner.appendChild(useCard);
+    box.appendChild(banner);
+    return;
+  }
+
+  const reached = MG_CURRENCIES.filter(function (cur) {
+    const limit = Number(state.limits[cur.id] || 0);
+    return limit > 0 && mgSpent(cur.id, state.limits.period) >= limit;
+  });
+  if (!reached.length) return;
+
+  const names = reached.map(function (cur) { return cur.name; }).join(' y ');
+  const banner = mgEl('div', 'srf-mg-limit-banner is-reached');
+  banner.appendChild(mgEl('span', 'srf-mg-limit-banner-ico', '⚠️'));
+  const body = mgEl('span', 'srf-mg-limit-banner-body');
+  body.appendChild(mgEl('b', null, 'Alcanzaste el tope de ' + names));
+  body.appendChild(mgEl('small', null, 'Si necesitás seguir operando, podés desactivarlo hasta el reinicio del período.'));
+  banner.appendChild(body);
+  const snooze = mgEl('button', 'srf-warn srf-mg-limit-banner-btn', 'Desactivar hasta el reinicio');
+  snooze.type = 'button';
+  snooze.addEventListener('click', function () { openLimitSnoozeModal(); });
+  banner.appendChild(snooze);
+  box.appendChild(banner);
+}
+
+function useScopedCardNow() {
+  const state = loadManagement();
+  const scoped = mgScopedCard(state);
+  if (!scoped) {
+    openLimitScopeModal();
+    return;
+  }
+  const index = userCards.findIndex(function (card) { return Number(card.id) === Number(scoped.id); });
+  if (index < 0) return;
+  selectedCardIndex = index;
+  mgCardSelectionTouched = true;
+  populateCardsDropdown();
+  displaySelectedCard();
+  mgSyncActiveCard();
+  showToast('Tarjeta activa: ' + mgCardDisplayName(scoped) + '.');
+}
+
+function mgRateRow(item) {
+  const row = mgEl('div', 'srf-mg-rate-row');
+
+  const nameWrap = mgEl('span', 'srf-mg-rate-name');
+  nameWrap.appendChild(mgEl('span', 'srf-mg-rate-ico', item.ico || '🪙'));
+  const meta = mgEl('span', 'srf-mg-rate-meta');
+  meta.appendChild(mgEl('b', null, item.name));
+  meta.appendChild(mgEl('small', null, item.code));
+  nameWrap.appendChild(meta);
+
+  const value = mgEl('b', 'srf-mg-rate-value', mgFormatMoney(item.value));
+  if (item.value == null) value.classList.add('is-pending');
+  value.setAttribute('aria-label', 'Valor oficial de 1 ' + mgCurrencySingular(item.name) + ' en ' + MG_OFFICIAL_RATES.base);
+
+  row.appendChild(nameWrap);
+  row.appendChild(value);
+  return row;
+}
+
+function renderMgRates() {
+  const body = el('mg-rates-body');
+  if (body) {
+    body.innerHTML = '';
+    MG_CURRENCIES.forEach(function (cur) {
+      body.appendChild(mgRateRow({
+        id: cur.id,
+        name: cur.name,
+        code: cur.code,
+        ico: cur.ico,
+        value: mgOfficialRate(cur.id)
+      }));
+    });
+  }
+
+  const rateItems = MG_CURRENCIES.map(function (cur) { return mgOfficialRate(cur.id); });
+  const loaded = rateItems.filter(function (value) { return value != null; }).length;
+  const note = el('mg-rates-note');
+  if (note) {
+    if (loaded === 0) {
+      note.textContent = 'Las equivalencias oficiales todavía no fueron publicadas por OWS.';
+    } else {
+      note.textContent = 'Tasas oficiales en ' + MG_OFFICIAL_RATES.base + ': ' + loaded + ' de ' +
+        rateItems.length + ' publicadas. Se aplican a todos los usuarios.' +
+        (MG_OFFICIAL_RATES.updatedAt ? ' Actualizadas: ' + mgFormatDate(MG_OFFICIAL_RATES.updatedAt) + '.' : '');
+    }
+  }
+
+  // Selector de la calculadora: solo divisas oficiales.
+  const select = el('mg-calc-currency');
+  if (select) {
+    const previous = select.value;
+    select.innerHTML = '';
+    MG_CURRENCIES.forEach(function (cur) {
+      const option = document.createElement('option');
+      option.value = cur.id;
+      option.textContent = cur.ico + ' ' + cur.name;
+      select.appendChild(option);
+    });
+    if (previous && Array.prototype.some.call(select.options, function (opt) { return opt.value === previous; })) {
+      select.value = previous;
+    }
+  }
+
+  updateMgCalculator();
+}
+
+function updateMgCalculator() {
+  const code = el('mg-calc-currency')?.value || 'gambits';
+  const amount = Math.max(0, Number(el('mg-calc-amount')?.value || 0));
+  const resultEl = el('mg-calc-result');
+  const noteEl = el('mg-calc-note');
+  const rate = mgOfficialRate(code);
+  const name = mgCurrencyName(code);
+
+  if (rate == null) {
+    if (resultEl) resultEl.textContent = 'Pendiente';
+    if (noteEl) noteEl.textContent = 'Todavía no hay una tasa oficial publicada para ' + name + '.';
+    return;
+  }
+
+  if (resultEl) resultEl.textContent = mgFormatMoney(rate * (Number.isFinite(amount) ? amount : 0));
+  if (noteEl) {
+    noteEl.textContent = '1 ' + mgCurrencySingular(name) + ' = ' + mgFormatMoney(rate) + ' · ' +
+      mgFormatAmount(amount) + ' ' + name + '.';
+  }
+}
+
+function renderMgControls(state) {
+  const setChecked = function (id, value) {
+    const node = el(id);
+    if (node) node.checked = !!value;
+  };
+  setChecked('mg-alert-limit', state.controls.alertLimit);
+  setChecked('mg-alert-large', state.controls.alertLarge);
+  setChecked('mg-confirm-large', state.controls.confirmLarge);
+  setChecked('mg-pause-transfers', state.controls.pauseTransfers);
+
+  const large = el('mg-large-amount');
+  if (large && !mgIsEditing(large)) large.value = state.controls.largeAmount ? String(state.controls.largeAmount) : '';
+
+  const pauseState = el('mg-pause-state');
+  if (pauseState) {
+    pauseState.textContent = state.controls.pauseTransfers
+      ? '⏸️ Envíos pausados hasta que desactives la pausa.'
+      : '✅ Envíos habilitados.';
+    pauseState.classList.toggle('is-bad', state.controls.pauseTransfers);
+  }
+
+  const pauseNote = el('mg-pause-note');
+  if (pauseNote) {
+    pauseNote.textContent = state.controls.pauseTransfers
+      ? 'Mientras la pausa esté activa, Surface no deja confirmar envíos.'
+      : 'Con la pausa activa, Surface no deja confirmar envíos hasta que la desactives.';
+  }
+}
+
+function mgRenderLog(container, entries, emptyText) {
+  if (!container) return;
+  container.innerHTML = '';
+  if (!entries || !entries.length) {
+    container.appendChild(mgEl('p', 'srf-empty', emptyText || 'Sin actividad todavía.'));
+    return;
+  }
+  entries.forEach(function (entry) {
+    const row = mgEl('div', 'srf-mg-log-row');
+    row.appendChild(mgEl('span', 'srf-mg-log-ico', MG_LOG_ICONS[entry.type] || '•'));
+    const txt = mgEl('span', 'srf-mg-log-txt');
+    txt.appendChild(mgEl('span', 'srf-mg-log-title', entry.text));
+    txt.appendChild(mgEl('small', 'srf-mg-log-meta', mgFormatDate(entry.at)));
+    row.appendChild(txt);
+    container.appendChild(row);
+  });
+}
+
+function renderMgLogs(state) {
+  mgRenderLog(el('mg-log-list'), state.log, 'Sin actividad todavía.');
+  mgRenderLog(el('mg-summary-log'), state.log.slice(0, 4), 'Sin actividad todavía.');
+}
+
+function exportMgLog() {
+  const state = loadManagement();
+  const name = (currentUser && (currentUser.username || currentUser.id)) || 'jugador';
+  const payload = {
+    usuario: name,
+    exportado: new Date().toISOString(),
+    limites: state.limits,
+    controles: state.controls,
+    equivalencias_oficiales: {
+      base: MG_OFFICIAL_RATES.base,
+      actualizado: MG_OFFICIAL_RATES.updatedAt,
+      valores: {
+        gambits: mgOfficialRate('gambits'),
+        tides: mgOfficialRate('tides')
+      }
+    },
+    registro: state.log
+  };
+  try {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'surface-gestion-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    showToast('Registro exportado.');
+  } catch (err) {
+    console.error('[Surface] No se pudo exportar el registro:', err);
+    showToast('No se pudo exportar el registro.');
+  }
+}
+
+function clearMgLog() {
+  const state = loadManagement();
+  state.log = [];
+  saveManagement(state);
+  renderManagement();
+  showToast('Registro de gestión vaciado.');
+}
+
+function resetManagement() {
+  if (mgSuspensionTimer) { clearTimeout(mgSuspensionTimer); mgSuspensionTimer = null; }
+  mgWarningDraft = 80;
+  mgWarningDraftTouched = false;
+  const state = mgDefaults();
+  mgLogTo(state, 'settings', 'Gestión restablecida a los valores iniciales.');
+  saveManagement(state);
+  mgTab = 'summary';
+  setManagementTab('summary');
+  mgScheduleSuspensionWake();
+  showToast('Gestión restablecida.');
 }
 
 // =========================================
@@ -1480,7 +4463,8 @@ const GAME_META = {
   'tiger tasks':        { label: 'Tiger Tasks',         ico: '🐯' },
   'tigertasks':         { label: 'Tiger Tasks',         ico: '🐯' },
   'global goal reward': { label: 'Recompensas OWS',     ico: '🎁' },
-  'mercado pago tides': { label: 'Mercado Pago Tides',  ico: '💳' }
+  'mercado pago tides': { label: 'Mercado Pago Tides',  ico: '💳' },
+  'paypal tides':       { label: 'PayPal Tides',        ico: '🅿️' }
 };
 
 function gameMeta(origen) {

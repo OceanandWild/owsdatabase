@@ -26245,14 +26245,14 @@ function getOceanPassPriceForCurrency(currency) {
 }
 
 const AUREX_PACKAGES = Object.freeze([
-  { id: 'tides-200', title: 'Tides 200', tidesAmount: 200, priceUyu: 99, bonus: 0 },
-  { id: 'tides-600', title: 'Tides 600', tidesAmount: 600, priceUyu: 249, bonus: 20 },
-  { id: 'tides-1500', title: 'Tides 1500', tidesAmount: 1500, priceUyu: 499, bonus: 80 },
-  { id: 'tides-3200', title: 'Tides 3200', tidesAmount: 3200, priceUyu: 899, bonus: 200 },
-  { id: 'tides-5000', title: 'Tides 5000', tidesAmount: 5000, priceUyu: 1299, bonus: 380 },
-  { id: 'tides-8500', title: 'Tides 8500', tidesAmount: 8500, priceUyu: 1999, bonus: 900 },
-  { id: 'tides-15000', title: 'Tides 15000', tidesAmount: 15000, priceUyu: 3299, bonus: 2100 },
-  { id: 'tides-30000', title: 'Tides 30000', tidesAmount: 30000, priceUyu: 5999, bonus: 5000 }
+  { id: 'tides-200', title: 'Tides 200', tidesAmount: 200, priceUyu: 99, priceUsd: 2.49, bonus: 0 },
+  { id: 'tides-600', title: 'Tides 600', tidesAmount: 600, priceUyu: 249, priceUsd: 6.49, bonus: 20 },
+  { id: 'tides-1500', title: 'Tides 1500', tidesAmount: 1500, priceUyu: 499, priceUsd: 12.49, bonus: 80 },
+  { id: 'tides-3200', title: 'Tides 3200', tidesAmount: 3200, priceUyu: 899, priceUsd: 22.49, bonus: 200 },
+  { id: 'tides-5000', title: 'Tides 5000', tidesAmount: 5000, priceUyu: 1299, priceUsd: 32.49, bonus: 380 },
+  { id: 'tides-8500', title: 'Tides 8500', tidesAmount: 8500, priceUyu: 1999, priceUsd: 49.99, bonus: 900 },
+  { id: 'tides-15000', title: 'Tides 15000', tidesAmount: 15000, priceUyu: 3299, priceUsd: 82.49, bonus: 2100 },
+  { id: 'tides-30000', title: 'Tides 30000', tidesAmount: 30000, priceUyu: 5999, priceUsd: 149.99, bonus: 5000 }
 ]);
 
 function getAurexPackageById(packageId) {
@@ -42279,6 +42279,155 @@ function areTidesPurchasesEnabled() {
   return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 }
 
+// =========================================
+// PAYPAL — cobro de Tides en USD
+// =========================================
+const PAYPAL_ENV = String(process.env.PAYPAL_ENV || 'sandbox').trim().toLowerCase() === 'live'
+  ? 'live'
+  : 'sandbox';
+const PAYPAL_CLIENT_ID = String(process.env.PAYPAL_CLIENT_ID || '').trim();
+const PAYPAL_CLIENT_SECRET = String(process.env.PAYPAL_CLIENT_SECRET || '').trim();
+const PAYPAL_WEBHOOK_ID = String(process.env.PAYPAL_WEBHOOK_ID || '').trim();
+const PAYPAL_API_BASE = PAYPAL_ENV === 'live'
+  ? 'https://api-m.paypal.com'
+  : 'https://api-m.sandbox.paypal.com';
+const PAYPAL_TIDES_CURRENCY = 'USD';
+
+function isPayPalConfigured() {
+  return !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET);
+}
+
+function paypalUsdAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return amount.toFixed(2);
+}
+
+let paypalTokenCache = { token: '', expiresAt: 0 };
+
+async function getPayPalAccessToken() {
+  if (!isPayPalConfigured()) throw new Error('PayPal no esta configurado');
+
+  const now = Date.now();
+  if (paypalTokenCache.token && paypalTokenCache.expiresAt > now + 30000) {
+    return paypalTokenCache.token;
+  }
+
+  const basic = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
+  const response = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${basic}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json'
+    },
+    body: 'grant_type=client_credentials'
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error_description || data.error || 'No se pudo autenticar con PayPal');
+  }
+
+  const expiresIn = Number(data.expires_in || 0);
+  paypalTokenCache = {
+    token: String(data.access_token),
+    expiresAt: now + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn * 1000 : 300000)
+  };
+  return paypalTokenCache.token;
+}
+
+async function paypalApiRequest(pathname, options = {}) {
+  const token = await getPayPalAccessToken();
+  const response = await fetch(`${PAYPAL_API_BASE}${pathname}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.message || data?.error_description || data?.error || `PayPal error ${response.status}`;
+    const error = new Error(message);
+    error.status = response.status;
+    error.details = data;
+    throw error;
+  }
+  return data;
+}
+
+// custom_id: paypal-tides:<userId>:<packageId>:<timestamp>
+function parsePayPalTidesReference(raw) {
+  const reference = String(raw || '').trim();
+  if (!reference) return null;
+  const parts = reference.split(':');
+  if (parts.length < 4) return null;
+  const prefix = String(parts[0] || '').toLowerCase();
+  if (prefix !== 'paypal-tides') return null;
+  const userId = Number(parts[1] || 0);
+  const packageId = String(parts[2] || '').trim().toLowerCase();
+  if (!Number.isFinite(userId) || userId <= 0 || !packageId) return null;
+  return { prefix, userId, packageId, reference };
+}
+
+function buildPayPalTidesReference(userId, packageId) {
+  return `paypal-tides:${userId}:${packageId}:${Date.now()}`;
+}
+
+async function createPayPalTidesOrder({ userId, pkg }) {
+  const amount = paypalUsdAmount(pkg.priceUsd);
+  if (!amount) throw new Error('Precio USD no configurado para este paquete');
+
+  const totalTides = Number(pkg.tidesAmount || 0) + Number(pkg.bonus || 0);
+  const reference = buildPayPalTidesReference(userId, pkg.id);
+
+  const order = await paypalApiRequest('/v2/checkout/orders', {
+    method: 'POST',
+    headers: {
+      'PayPal-Request-Id': `tides-order-${userId}-${pkg.id}-${Date.now()}`
+    },
+    body: JSON.stringify({
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          reference_id: pkg.id,
+          custom_id: reference,
+          invoice_id: `ows-tides-${userId}-${Date.now()}`,
+          description: `OWS - ${pkg.title}`,
+          amount: {
+            currency_code: PAYPAL_TIDES_CURRENCY,
+            value: amount,
+            breakdown: {
+              item_total: { currency_code: PAYPAL_TIDES_CURRENCY, value: amount }
+            }
+          },
+          items: [
+            {
+              name: `OWS ${pkg.title}`,
+              description: `Recarga de ${totalTides} Tides para Surface`,
+              sku: pkg.id,
+              quantity: '1',
+              category: 'DIGITAL_GOODS',
+              unit_amount: { currency_code: PAYPAL_TIDES_CURRENCY, value: amount }
+            }
+          ]
+        }
+      ],
+      application_context: {
+        brand_name: 'OWS Surface',
+        shipping_preference: 'NO_SHIPPING',
+        user_action: 'PAY_NOW'
+      }
+    })
+  });
+
+  return { order, reference };
+}
+
 function parseTidesExternalReference(raw) {
   const reference = String(raw || '').trim();
   if (!reference) return null;
@@ -42313,22 +42462,25 @@ async function fetchMercadoPagoPayment(paymentId) {
   return { ok: true, payment: data, error: null, status: response.status };
 }
 
-// Acredita un pago aprobado. Es idempotente y serializa por paymentId para
+// Acredita un pago aprobado. Es idempotente y serializa por pago para
 // que el retorno del cliente y el webhook no puedan acreditar dos veces.
-async function creditTidesPurchase({ userId, pkg, paymentId, externalReference }) {
+async function creditTidesPurchase({ userId, pkg, paymentId, externalReference, provider = 'Mercado Pago Tides' }) {
+  const origin = provider === 'PayPal Tides' ? 'PayPal Tides' : 'Mercado Pago Tides';
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`tides-payment:${paymentId}`]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`tides-payment:${origin}:${paymentId}`]);
 
-    const creditConcept = `Tides Pack ${pkg.id} - payment:${paymentId} - ref:${externalReference}`;
+    const creditConcept = origin === 'PayPal Tides'
+      ? `Tides Pack ${pkg.id} - PayPal - payment:${paymentId}`
+      : `Tides Pack ${pkg.id} - payment:${paymentId} - ref:${externalReference}`;
     const { rows: existingTx } = await client.query(
       `SELECT id FROM ocean_pay_txs
         WHERE user_id = $1
-          AND origen = 'Mercado Pago Tides'
-          AND concepto = $2
+          AND origen = $2
+          AND concepto = $3
         LIMIT 1`,
-      [userId, creditConcept]
+      [userId, origin, creditConcept]
     );
 
     if (existingTx.length) {
@@ -42345,7 +42497,7 @@ async function creditTidesPurchase({ userId, pkg, paymentId, externalReference }
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
        VALUES ($1, $2, $3, $4, $5)`,
-      [userId, creditConcept, credited, 'Mercado Pago Tides', 'tides']
+      [userId, creditConcept, credited, origin, 'tides']
     );
 
     await client.query('COMMIT');
@@ -42360,6 +42512,7 @@ async function creditTidesPurchase({ userId, pkg, paymentId, externalReference }
 
 // Catalogo de recargas Tides (Moneda premium)
 app.get(['/ocean-pay/tides/packages', '/ocean-pay/aurex/packages'], async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   return res.json({
     success: true,
     currency: 'tides',
@@ -42564,6 +42717,297 @@ app.post(['/ocean-pay/tides/webhook', '/ocean-pay/aurex/webhook'], async (req, r
     console.error('Error en POST /ocean-pay/tides/webhook:', err);
     // 500 para que Mercado Pago reintente si fue un fallo temporal de la DB.
     return res.status(500).json({ error: 'Error interno al procesar el webhook de Tides' });
+  }
+});
+
+// =========================================
+// PAYPAL — endpoints de Tides (USD)
+// =========================================
+
+async function fetchPayPalOrder(orderId) {
+  return paypalApiRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}`);
+}
+
+async function capturePayPalOrder(orderId) {
+  try {
+    return await paypalApiRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
+      method: 'POST',
+      headers: { 'PayPal-Request-Id': `tides-capture-${orderId}` },
+      body: JSON.stringify({})
+    });
+  } catch (err) {
+    const issue = String(err?.details?.details?.[0]?.issue || '').toUpperCase();
+    // Si la captura ya se hizo (reintento del cliente), leemos la orden para
+    // acreditar de forma idempotente con el mismo captureId.
+    if (issue === 'ORDER_ALREADY_CAPTURED') {
+      return fetchPayPalOrder(orderId);
+    }
+    throw err;
+  }
+}
+
+function readPayPalOrderUnit(order) {
+  const unit = Array.isArray(order?.purchase_units) ? order.purchase_units[0] : null;
+  const captures = Array.isArray(unit?.payments?.captures) ? unit.payments.captures : [];
+  const capture = captures[0] || null;
+  const customId = String(unit?.custom_id || capture?.custom_id || '').trim();
+  return { unit, capture, customId, parsed: parsePayPalTidesReference(customId) };
+}
+
+function paypalAmountMatchesUsd(amount, pkg) {
+  const expected = paypalUsdAmount(pkg?.priceUsd);
+  if (!expected) return false;
+  const value = Number(amount?.value);
+  if (!Number.isFinite(value)) return false;
+  if (Math.abs(value - Number(expected)) > 0.005) return false;
+  const currency = String(amount?.currency_code || '').toUpperCase();
+  return !currency || currency === PAYPAL_TIDES_CURRENCY;
+}
+
+function paypalCaptureCompleted(order, capture) {
+  const orderStatus = String(order?.status || '').toUpperCase();
+  const captureStatus = String(capture?.status || '').toUpperCase();
+  return orderStatus === 'COMPLETED' && captureStatus === 'COMPLETED';
+}
+
+async function verifyPayPalWebhookSignature(req) {
+  if (!PAYPAL_WEBHOOK_ID) {
+    throw new Error('PAYPAL_WEBHOOK_ID no configurado');
+  }
+  const headers = req.headers || {};
+  const data = await paypalApiRequest('/v1/notifications/verify-webhook-signature', {
+    method: 'POST',
+    body: JSON.stringify({
+      auth_algo: headers['paypal-auth-algo'],
+      cert_url: headers['paypal-cert-url'],
+      transmission_id: headers['paypal-transmission-id'],
+      transmission_sig: headers['paypal-transmission-sig'],
+      transmission_time: headers['paypal-transmission-time'],
+      webhook_id: PAYPAL_WEBHOOK_ID,
+      webhook_event: req.body
+    })
+  });
+  return String(data?.verification_status || '').toUpperCase() === 'SUCCESS';
+}
+
+// Config publica para que Surface cargue el SDK de PayPal.
+app.get('/ocean-pay/paypal/config', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return res.json({
+    success: true,
+    configured: isPayPalConfigured(),
+    enabled: areTidesPurchasesEnabled() && isPayPalConfigured(),
+    environment: PAYPAL_ENV,
+    clientId: PAYPAL_CLIENT_ID,
+    currency: PAYPAL_TIDES_CURRENCY
+  });
+});
+
+// Crear una orden de PayPal para un paquete Tides.
+app.post('/ocean-pay/tides/paypal/order', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  if (!areTidesPurchasesEnabled()) {
+    return res.status(503).json({
+      error: 'La compra de Tides esta indisponible por el momento.',
+      code: 'TIDES_PURCHASES_DISABLED'
+    });
+  }
+  if (!isPayPalConfigured()) {
+    return res.status(503).json({
+      error: 'PayPal no esta configurado.',
+      code: 'PAYPAL_NOT_CONFIGURED'
+    });
+  }
+
+  const packageId = String(req.body?.packageId || '').trim().toLowerCase();
+  const pkg = getAurexPackageById(packageId);
+  if (!pkg) return res.status(400).json({ error: 'Paquete Tides invalido' });
+
+  try {
+    const { order, reference } = await createPayPalTidesOrder({ userId, pkg });
+    return res.json({
+      success: true,
+      orderId: order?.id || null,
+      reference,
+      package: pkg
+    });
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/tides/paypal/order:', err);
+    return res.status(502).json({ error: 'No se pudo crear la orden de PayPal' });
+  }
+});
+
+// Capturar una orden aprobada y acreditar Tides.
+app.post('/ocean-pay/tides/paypal/capture', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const orderId = String(req.body?.orderId || '').trim();
+  if (!orderId) return res.status(400).json({ error: 'orderId es requerido' });
+
+  const requestedPackageId = String(req.body?.packageId || '').trim().toLowerCase();
+
+  try {
+    let order = await capturePayPalOrder(orderId);
+    let { unit, capture, parsed } = readPayPalOrderUnit(order);
+
+    // Una orden ya capturada puede no traer las capturas en la primera lectura;
+    // reintentamos con un GET antes de rechazar.
+    if (!capture) {
+      order = await fetchPayPalOrder(orderId);
+      ({ unit, capture, parsed } = readPayPalOrderUnit(order));
+    }
+
+    if (!parsed) {
+      return res.status(400).json({ error: 'La orden no corresponde a una compra de Tides' });
+    }
+    if (parsed.userId !== userId) {
+      return res.status(403).json({ error: 'La orden no pertenece al usuario autenticado' });
+    }
+
+    const pkg = getAurexPackageById(parsed.packageId);
+    if (!pkg) return res.status(400).json({ error: 'Paquete de Tides no reconocido' });
+    if (requestedPackageId && requestedPackageId !== pkg.id) {
+      return res.status(400).json({ error: 'El paquete de la orden no coincide con el solicitado' });
+    }
+
+    if (!paypalCaptureCompleted(order, capture)) {
+      return res.status(409).json({
+        error: 'PayPal aun no confirmo el pago',
+        status: String(capture?.status || order?.status || 'unknown')
+      });
+    }
+
+    if (!paypalAmountMatchesUsd(capture?.amount || unit?.amount, pkg)) {
+      return res.status(400).json({ error: 'El monto de la orden no corresponde al paquete' });
+    }
+
+    const captureId = String(capture.id || '').trim();
+    if (!captureId) {
+      return res.status(502).json({ error: 'PayPal no devolvio el identificador de la captura' });
+    }
+
+    const result = await creditTidesPurchase({
+      userId,
+      pkg,
+      paymentId: captureId,
+      externalReference: parsed.reference,
+      provider: 'PayPal Tides'
+    });
+
+    return res.json({
+      success: true,
+      ...result,
+      captureId,
+      package: pkg
+    });
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/tides/paypal/capture:', err);
+    const issue = String(err?.details?.details?.[0]?.issue || '').toUpperCase();
+    if (issue === 'ORDER_NOT_APPROVED') {
+      return res.status(409).json({ error: 'La orden de PayPal todavia no esta aprobada' });
+    }
+    return res.status(502).json({ error: 'No se pudo capturar el pago de PayPal' });
+  }
+});
+
+// Webhook de PayPal: respaldo para acreditar aunque el cliente cierre la
+// pestaña. La firma se valida contra la API de PayPal antes de procesar.
+app.post('/ocean-pay/tides/paypal/webhook', async (req, res) => {
+  if (!isPayPalConfigured()) {
+    return res.status(503).json({ error: 'PayPal no esta configurado' });
+  }
+
+  let verified = false;
+  try {
+    verified = await verifyPayPalWebhookSignature(req);
+  } catch (err) {
+    console.error('Error verificando firma del webhook de PayPal:', err);
+    return res.status(500).json({ error: 'No se pudo verificar la firma del webhook' });
+  }
+  if (!verified) {
+    return res.status(400).json({ error: 'Firma de webhook invalida' });
+  }
+
+  const eventType = String(req.body?.event_type || '').toUpperCase();
+  const resource = req.body?.resource || {};
+
+  if (eventType !== 'PAYMENT.CAPTURE.COMPLETED') {
+    // Denegados, reembolsados y revertidos se registran para revision manual:
+    // nunca acreditaron Tides automaticamente.
+    if (['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.REFUNDED', 'PAYMENT.CAPTURE.REVERSED'].includes(eventType)) {
+      console.warn('[PayPal Tides webhook] Evento para revisar:', eventType, resource?.id || '', resource?.custom_id || '');
+    }
+    return res.status(200).json({ success: true, ignored: true, eventType });
+  }
+
+  const parsedReference = parsePayPalTidesReference(resource?.custom_id);
+  let parsed = parsedReference;
+  let capture = resource;
+
+  // El recurso del webhook de captura no siempre incluye custom_id. En ese
+  // caso se lee la orden enlazada para recuperar la referencia y la captura.
+  if (!parsed) {
+    const relatedOrderId = String(resource?.supplementary_data?.related_ids?.order_id || '').trim();
+    if (!relatedOrderId) {
+      return res.status(200).json({ success: true, ignored: true, reason: 'referencia ajena' });
+    }
+    try {
+      const order = await fetchPayPalOrder(relatedOrderId);
+      const context = readPayPalOrderUnit(order);
+      parsed = context.parsed;
+      if (context.capture && String(context.capture.id || '') === String(resource?.id || '')) {
+        capture = context.capture;
+      }
+    } catch (err) {
+      console.error('Error leyendo la orden de PayPal en webhook:', err);
+      return res.status(500).json({ error: 'No se pudo validar la orden de PayPal' });
+    }
+  }
+
+  if (!parsed) {
+    return res.status(200).json({ success: true, ignored: true, reason: 'referencia ajena' });
+  }
+
+  const pkg = getAurexPackageById(parsed.packageId);
+  if (!pkg) {
+    return res.status(200).json({ success: true, ignored: true, reason: 'paquete desconocido' });
+  }
+
+  if (String(capture?.status || '').toUpperCase() !== 'COMPLETED') {
+    return res.status(200).json({ success: true, ignored: true, status: capture?.status || 'unknown' });
+  }
+  if (!paypalAmountMatchesUsd(capture?.amount, pkg)) {
+    console.warn('[PayPal Tides webhook] Monto no coincide:', capture?.id || '', capture?.amount);
+    return res.status(200).json({ success: true, ignored: true, reason: 'monto no coincide' });
+  }
+
+  const captureId = String(capture?.id || '').trim();
+  if (!captureId) {
+    return res.status(200).json({ success: true, ignored: true, reason: 'sin captureId' });
+  }
+
+  try {
+    const result = await creditTidesPurchase({
+      userId: parsed.userId,
+      pkg,
+      paymentId: captureId,
+      externalReference: parsed.reference,
+      provider: 'PayPal Tides'
+    });
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+      captureId,
+      userId: parsed.userId,
+      package: pkg
+    });
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/tides/paypal/webhook:', err);
+    return res.status(500).json({ error: 'Error interno al procesar el webhook de PayPal' });
   }
 });
 

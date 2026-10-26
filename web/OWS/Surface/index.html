@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Surface — Billetera OWS</title>
   <meta name="description" content="Surface, la billetera del ecosistema OWS: divisas, transferencias entre jugadores y tarjeta virtual." />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=9" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -108,11 +108,17 @@
         <button class="srf-nav-btn" type="button" data-goto-view="transfer">
           <span class="srf-nav-ico" aria-hidden="true">💸</span><span class="srf-nav-txt">Enviar</span>
         </button>
+        <button class="srf-nav-btn" type="button" data-goto-view="tides">
+          <span class="srf-nav-ico" aria-hidden="true">🌊</span><span class="srf-nav-txt">Comprar Tides</span>
+        </button>
         <button class="srf-nav-btn" type="button" data-goto-view="card">
           <span class="srf-nav-ico" aria-hidden="true">💳</span><span class="srf-nav-txt">Tarjeta</span>
         </button>
         <button class="srf-nav-btn" type="button" data-goto-view="history">
           <span class="srf-nav-ico" aria-hidden="true">🧾</span><span class="srf-nav-txt">Historial</span>
+        </button>
+        <button class="srf-nav-btn" type="button" data-goto-view="management">
+          <span class="srf-nav-ico" aria-hidden="true">🧭</span><span class="srf-nav-txt">Gestión</span>
         </button>
         <button class="srf-nav-btn" type="button" data-goto-view="settings">
           <span class="srf-nav-ico" aria-hidden="true">⚙️</span><span class="srf-nav-txt">Configuración</span>
@@ -130,6 +136,8 @@
             </div>
             <div class="srf-view-actions">
               <button class="srf-primary" type="button" data-goto-view="transfer">Enviar divisas</button>
+              <button class="srf-ghost" type="button" data-goto-view="management">Gestión</button>
+              <button class="srf-ghost" type="button" data-goto-view="tides">Comprar Tides</button>
               <button class="srf-ghost" type="button" data-goto-view="card">Ver tarjeta</button>
             </div>
           </header>
@@ -262,6 +270,8 @@
                     <b id="fee-value-display" class="srf-free">Gratis</b>
                   </span>
                   <span class="srf-summary-hint hidden" id="fee-hint-display"></span>
+                  <span class="srf-summary-hint is-warn hidden" id="limit-hint-display"></span>
+                  <button type="button" id="btn-snooze-limit" class="srf-textlink srf-limit-snooze hidden">Desactivar límite hasta el reinicio</button>
                   <span class="srf-summary-row srf-summary-total">
                     <span>Total a debitar</span>
                     <b id="summary-total-display">0 GAMBITS</b>
@@ -294,6 +304,7 @@
                   <li><span>🌊</span> Tides: tarifa reducida por ser divisa premium.</li>
                   <li><span>🎁</span> Los primeros 5 envíos del mes son gratis, en cualquier divisa.</li>
                   <li><span>📈</span> Enviar seguido en la misma divisa baja la tarifa hasta un 15%.</li>
+                  <li><span>🧭</span> En Gestión podés poner topes, pausar envíos y consultar las equivalencias oficiales.</li>
                 </ul>
               </section>
 
@@ -306,7 +317,98 @@
           </div>
         </section>
 
-        <!-- ─────────── SECCIÓN 3: TARJETA ─────────── -->
+        <!-- ─────────── SECCIÓN 3: COMPRAR TIDES ─────────── -->
+        <section class="srf-view hidden" id="view-tides" data-view="tides" aria-labelledby="tides-title">
+          <header class="srf-view-head">
+            <div class="srf-view-head-text">
+              <h2 class="srf-view-title" id="tides-title">Comprar Tides</h2>
+              <p class="srf-view-sub">Recarga de Tides con dinero real para usar en todo el ecosistema OWS.</p>
+            </div>
+            <div class="srf-view-actions">
+              <button class="srf-ghost" type="button" data-goto-view="history">Ver historial</button>
+            </div>
+          </header>
+
+          <div class="srf-lock-panel" id="tides-lock-panel" role="status">
+            <span class="srf-lock-badge" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="10.4" width="16" height="9.6" rx="2.6"></rect>
+                <path d="M8 10.4V7.5a4 4 0 0 1 8 0v2.9"></path>
+                <circle cx="12" cy="15.2" r="1.15" fill="currentColor" stroke="none"></circle>
+              </svg>
+            </span>
+            <p class="srf-lock-text">Indisponible por el momento</p>
+          </div>
+
+          <div class="srf-tides-grid hidden" id="tides-shop-content">
+            <section class="srf-panel">
+              <div class="srf-panel-head">
+                <div>
+                  <h3 class="srf-block-title">Elegí un paquete</h3>
+                  <p class="srf-block-sub">Cada paquete suma Tides directo a tu billetera. Los bonos ya están incluidos en el total.</p>
+                </div>
+                <span class="srf-pill srf-pill-tides">PayPal</span>
+              </div>
+
+              <div class="srf-packs" id="tides-packages" aria-live="polite">
+                <p class="srf-empty">Cargando paquetes…</p>
+              </div>
+
+              <p class="srf-packs-note">
+                Precios en dólares estadounidenses (USD). PayPal acepta tarjetas de crédito y débito.
+              </p>
+            </section>
+
+            <div class="srf-col">
+              <section class="srf-panel srf-tides-balance">
+                <div class="srf-tides-balance-head">
+                  <span class="srf-tides-balance-ico" aria-hidden="true">🌊</span>
+                  <span class="srf-tides-balance-meta">
+                    <small>Tu saldo actual</small>
+                    <b class="srf-tides-balance-value" id="tides-shop-balance">0</b>
+                  </span>
+                </div>
+                <p class="srf-tides-balance-note">Las Tides se acreditan automáticamente cuando PayPal confirma el pago.</p>
+              </section>
+
+              <section class="srf-panel srf-tides-order">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Resumen de compra</h3>
+                  <p class="srf-block-sub">Revisá el paquete antes de ir a pagar.</p>
+                </div>
+
+                <div class="srf-rows">
+                  <div class="srf-rows-item"><span>Paquete</span><b id="tides-summary-pack">—</b></div>
+                  <div class="srf-rows-item"><span>Tides base</span><b id="tides-summary-base">—</b></div>
+                  <div class="srf-rows-item"><span>Bono</span><b class="srf-ok-text" id="tides-summary-bonus">—</b></div>
+                  <div class="srf-rows-item srf-rows-total"><span>Total a acreditar</span><b id="tides-summary-total">—</b></div>
+                </div>
+
+                <div class="srf-tides-price">
+                  <span>Total a pagar</span>
+                  <b id="tides-summary-price">—</b>
+                </div>
+
+                <div id="tides-shop-alert" class="srf-alert hidden" role="status"></div>
+
+                <div id="paypal-button-container" class="srf-paypal-slot" aria-live="polite"></div>
+                <p id="tides-paypal-status" class="srf-paypal-status hidden" role="status"></p>
+                <p class="srf-buy-note">Pago seguro con PayPal en dólares (USD). Surface no guarda los datos de tu tarjeta.</p>
+              </section>
+
+              <section class="srf-panel">
+                <h3 class="srf-block-title">Cómo funciona</h3>
+                <ul class="srf-tides-steps">
+                  <li><span aria-hidden="true">🛒</span> Elegí el paquete de Tides que quieras comprar.</li>
+                  <li><span aria-hidden="true">🔒</span> Pagá con PayPal usando tu cuenta o una tarjeta.</li>
+                  <li><span aria-hidden="true">⚡</span> Volvés a Surface y el saldo se acredita solo.</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────── SECCIÓN 4: TARJETA ─────────── -->
         <section class="srf-view hidden" id="view-card" data-view="card" aria-labelledby="card-title">
           <header class="srf-view-head">
             <div class="srf-view-head-text">
@@ -362,7 +464,7 @@
           </div>
         </section>
 
-        <!-- ─────────── SECCIÓN 4: HISTORIAL ─────────── -->
+        <!-- ─────────── SECCIÓN 5: HISTORIAL ─────────── -->
         <section class="srf-view hidden" id="view-history" data-view="history" aria-labelledby="hist-title">
           <header class="srf-view-head">
             <div class="srf-view-head-text">
@@ -393,7 +495,384 @@
           </div>
         </section>
 
-        <!-- ─────────── SECCIÓN 5: CONFIGURACIÓN ─────────── -->
+        <!-- ─────────── SECCIÓN 6: GESTIÓN ─────────── -->
+        <section class="srf-view hidden" id="view-management" data-view="management" aria-labelledby="mg-title">
+          <header class="srf-view-head">
+            <div class="srf-view-head-text">
+              <h2 class="srf-view-title" id="mg-title">Gestión</h2>
+              <p class="srf-view-sub">Poné topes a tus gastos, revisá equivalencias y controlá cómo se mueve tu billetera.</p>
+            </div>
+            <div class="srf-view-actions">
+              <span class="srf-pill" id="mg-status-pill">Sin límites</span>
+            </div>
+          </header>
+
+          <div class="srf-tabs srf-tabs-inline srf-mg-tabs" role="tablist" aria-label="Secciones de gestión">
+            <button class="srf-tab is-active" type="button" data-mg-tab="summary" role="tab" aria-selected="true">Resumen</button>
+            <button class="srf-tab" type="button" data-mg-tab="limits" role="tab" aria-selected="false">Límite de gasto</button>
+            <button class="srf-tab" type="button" data-mg-tab="credit" role="tab" aria-selected="false">
+              Añadir crédito <span class="srf-tab-tag">Pronto</span>
+            </button>
+            <button class="srf-tab" type="button" data-mg-tab="rates" role="tab" aria-selected="false">Equivalencias</button>
+            <button class="srf-tab" type="button" data-mg-tab="controls" role="tab" aria-selected="false">Controles</button>
+          </div>
+
+          <!-- Sub-sección: Resumen -->
+          <div class="srf-set-panel" id="mg-panel-summary" role="tabpanel" aria-label="Resumen de gestión">
+            <div id="mg-summary-alert" class="srf-alert hidden" role="status"></div>
+
+            <div class="srf-mg-stats" id="mg-summary-stats" aria-live="polite"></div>
+
+            <div class="srf-mg-grid">
+              <section class="srf-panel">
+                <div class="srf-panel-head">
+                  <div>
+                    <h3 class="srf-block-title">Consumo del período</h3>
+                    <p class="srf-block-sub" id="mg-usage-sub">Todavía no definiste un período.</p>
+                  </div>
+                  <button class="srf-textlink" type="button" data-mg-tab="limits">Editar</button>
+                </div>
+                <div class="srf-mg-usage" id="mg-summary-usage"></div>
+              </section>
+
+              <section class="srf-panel">
+                <div class="srf-panel-head">
+                  <div>
+                    <h3 class="srf-block-title">Estado de la gestión</h3>
+                    <p class="srf-block-sub">Lo que está activo ahora mismo en tu cuenta.</p>
+                  </div>
+                </div>
+                <div class="srf-rows" id="mg-summary-status"></div>
+                <div class="srf-card-actions srf-mg-actions">
+                  <button class="srf-ghost" type="button" data-mg-tab="rates">Equivalencias</button>
+                  <button class="srf-ghost" type="button" data-mg-tab="controls">Controles</button>
+                </div>
+              </section>
+            </div>
+
+            <section class="srf-panel">
+              <div class="srf-panel-head">
+                <div>
+                  <h3 class="srf-block-title">Actividad de gestión</h3>
+                  <p class="srf-block-sub">Cambios de límites, avisos y movimientos relevantes.</p>
+                </div>
+                <button class="srf-textlink" type="button" data-mg-tab="controls">Ver todo</button>
+              </div>
+              <div class="srf-mg-log srf-mg-log-compact" id="mg-summary-log">
+                <p class="srf-empty">Sin actividad todavía.</p>
+              </div>
+            </section>
+          </div>
+
+          <!-- Sub-sección: Límite de gasto -->
+          <div class="srf-set-panel hidden" id="mg-panel-limits" role="tabpanel" aria-label="Límite de gasto">
+            <div class="srf-mg-grid">
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Tope de gasto</h3>
+                  <p class="srf-block-sub">Surface frena los envíos cuando llegás al tope del período. Podés cambiarlo cuando quieras.</p>
+                </div>
+
+                <label class="srf-switch srf-mg-switch">
+                  <input type="checkbox" id="mg-limits-enabled" class="srf-sr" />
+                  <span class="srf-switch-track" aria-hidden="true"><span class="srf-switch-knob"></span></span>
+                  <span class="srf-switch-txt">Activar límites de gasto</span>
+                </label>
+
+                <label class="srf-field srf-mg-period">
+                  <span class="srf-field-label">Período del límite</span>
+                  <select id="mg-period" class="srf-select">
+                    <option value="daily">Por día</option>
+                    <option value="weekly">Últimos 7 días</option>
+                    <option value="monthly">Por mes</option>
+                  </select>
+                </label>
+
+                <div class="srf-mg-scope-row">
+                  <span class="srf-mg-scope-meta">
+                    <span class="srf-field-label">Alcance del límite</span>
+                    <b id="mg-scope-label">Todas tus tarjetas</b>
+                    <small id="mg-scope-note">El tope controla toda la billetera.</small>
+                  </span>
+                  <button class="srf-ghost srf-mg-scope-btn" type="button" id="btn-mg-change-scope">Cambiar alcance</button>
+                </div>
+
+                <div class="srf-mg-limits">
+                  <div class="srf-mg-limit-row" data-mg-currency="gambits">
+                    <span class="srf-mg-limit-ico" aria-hidden="true">🃏</span>
+                    <span class="srf-mg-limit-meta">
+                      <b>Gambits</b>
+                      <small id="mg-spent-gambits">Gastado: —</small>
+                      <span class="srf-mg-limit-bar" aria-hidden="true"><span id="mg-bar-gambits"></span></span>
+                    </span>
+                    <label class="srf-mg-limit-input">
+                      <span class="srf-sr">Límite en Gambits</span>
+                      <input type="number" id="mg-limit-gambits" min="0" step="1" inputmode="numeric" placeholder="Sin límite" autocomplete="off" />
+                      <small>GAMBITS</small>
+                    </label>
+                  </div>
+
+                  <div class="srf-mg-limit-row" data-mg-currency="tides">
+                    <span class="srf-mg-limit-ico" aria-hidden="true">🌊</span>
+                    <span class="srf-mg-limit-meta">
+                      <b>Tides</b>
+                      <small id="mg-spent-tides">Gastado: —</small>
+                      <span class="srf-mg-limit-bar" aria-hidden="true"><span id="mg-bar-tides"></span></span>
+                    </span>
+                    <label class="srf-mg-limit-input">
+                      <span class="srf-sr">Límite en Tides</span>
+                      <input type="number" id="mg-limit-tides" min="0" step="1" inputmode="numeric" placeholder="Sin límite" autocomplete="off" />
+                      <small>TIDES</small>
+                    </label>
+                  </div>
+                </div>
+
+                <p class="srf-block-sub srf-block-note">Dejá un campo en 0 para no poner tope en esa divisa.</p>
+
+                <div class="srf-mg-limit-state" id="mg-limit-state" aria-live="polite"></div>
+              </section>
+
+              <div class="srf-col">
+                <section class="srf-panel">
+                  <div class="srf-block-head">
+                    <h3 class="srf-block-title">Por operación</h3>
+                    <p class="srf-block-sub">Un máximo para cada envío, además del tope del período.</p>
+                  </div>
+                  <div class="srf-mg-inline-fields">
+                    <label class="srf-field">
+                      <span class="srf-field-label">Gambits por envío</span>
+                      <input type="number" id="mg-perop-gambits" min="0" step="1" inputmode="numeric" placeholder="Sin máximo" autocomplete="off" />
+                    </label>
+                    <label class="srf-field">
+                      <span class="srf-field-label">Tides por envío</span>
+                      <input type="number" id="mg-perop-tides" min="0" step="1" inputmode="numeric" placeholder="Sin máximo" autocomplete="off" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="srf-panel">
+                  <div class="srf-block-head">
+                    <h3 class="srf-block-title">Avisos previos</h3>
+                    <p class="srf-block-sub">Cuándo te avisamos que estás cerca del tope. Podés sumar varios.</p>
+                  </div>
+                  <div class="srf-mg-warning-chips" id="mg-warning-chips" aria-live="polite"></div>
+                  <div class="srf-mg-warning-editor">
+                    <label class="srf-field srf-mg-warning-field">
+                      <span class="srf-field-label">Agregar aviso al <b id="mg-warning-out">80%</b> del límite</span>
+                      <input type="range" id="mg-warning-range" min="5" max="100" step="5" value="80" class="srf-mg-range" />
+                    </label>
+                    <button type="button" id="btn-mg-add-warning" class="srf-ghost srf-mg-warning-add">Agregar aviso</button>
+                  </div>
+                  <p class="srf-block-sub srf-block-note">
+                    Se avisa al llegar a cada porcentaje. Por ejemplo: 50%, 80% y 95%.
+                  </p>
+                  <label class="srf-switch">
+                    <input type="checkbox" id="mg-block-exceeded" class="srf-sr" />
+                    <span class="srf-switch-track" aria-hidden="true"><span class="srf-switch-knob"></span></span>
+                    <span class="srf-switch-txt">Bloquear el envío al superar el tope</span>
+                  </label>
+                  <p class="srf-block-sub srf-block-note">Si lo desactivás, el aviso aparece igual pero el envío no se frena.</p>
+                </section>
+
+                <section class="srf-panel srf-hintblock">
+                  <h3 class="srf-block-title">Cómo se cuenta el gasto</h3>
+                  <ul class="srf-hintlist">
+                    <li><span>📤</span> Se suman los envíos y los gastos negativos de tus movimientos.</li>
+                    <li><span>🧾</span> El historial es la fuente: si borrás movimientos, el consumo baja.</li>
+                    <li><span>🛡️</span> Los límites son locales de este dispositivo y de esta cuenta.</li>
+                  </ul>
+                </section>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-sección: Añadir crédito -->
+          <div class="srf-set-panel hidden" id="mg-panel-credit" role="tabpanel" aria-label="Añadir crédito">
+            <div class="srf-lock-panel" role="status">
+              <span class="srf-lock-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="4" y="10.4" width="16" height="9.6" rx="2.6"></rect>
+                  <path d="M8 10.4V7.5a4 4 0 0 1 8 0v2.9"></path>
+                  <circle cx="12" cy="15.2" r="1.15" fill="currentColor" stroke="none"></circle>
+                </svg>
+              </span>
+              <p class="srf-lock-text">Indisponible por el momento</p>
+            </div>
+
+            <div class="srf-mg-grid">
+              <section class="srf-panel">
+                <div class="srf-mg-tagrow">
+                  <span class="srf-pill srf-pill-gold">Próximamente</span>
+                  <span class="srf-pill">Dinero real</span>
+                </div>
+                <h3 class="srf-block-title srf-mg-lead">Añadir crédito a tu billetera</h3>
+                <p class="srf-block-sub">
+                  Vas a poder cargar saldo con dinero real y usarlo en cualquier juego de OWS,
+                  sin depender de comprar Tides por separado.
+                </p>
+
+                <div class="srf-mg-credit-preview" aria-hidden="true">
+                  <span class="srf-mg-credit-chip">Elegís el monto</span>
+                  <span class="srf-mg-credit-chip">Pagás seguro</span>
+                  <span class="srf-mg-credit-chip">Se acredita al instante</span>
+                </div>
+
+                <button class="srf-primary srf-mg-credit-btn" type="button" disabled>Próximamente</button>
+                <p class="srf-block-sub srf-block-note">
+                  Cuando esté activo, el saldo cargado va a reemplazar a las Tides y a cualquier otra divisa interna.
+                </p>
+              </section>
+
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Qué vas a poder hacer</h3>
+                  <p class="srf-block-sub">El objetivo de la carga con dinero real.</p>
+                </div>
+                <ul class="srf-hintlist">
+                  <li><span>💳</span> Cargar saldo con tarjeta, débito o billeteras virtuales.</li>
+                  <li><span>🔁</span> Convertir ese saldo a la divisa del juego que elijas.</li>
+                  <li><span>🧮</span> Ver el equivalente en dinero real antes de confirmar.</li>
+                  <li><span>🧾</span> Tener el comprobante de cada carga en el historial.</li>
+                </ul>
+                <p class="srf-block-sub srf-block-note">
+                  Mientras tanto, podés seguir usando Gambits y Tides como hasta ahora.
+                </p>
+              </section>
+            </div>
+          </div>
+
+          <!-- Sub-sección: Equivalencias -->
+          <div class="srf-set-panel hidden" id="mg-panel-rates" role="tabpanel" aria-label="Equivalencias">
+            <section class="srf-panel">
+              <div class="srf-panel-head">
+                <div>
+                  <h3 class="srf-block-title">Cuánto vale 1 unidad</h3>
+                  <p class="srf-block-sub">Tasas oficiales de OWS. Son iguales para todos los usuarios y no se pueden editar desde Surface.</p>
+                </div>
+                <span class="srf-pill srf-pill-gold">Oficial</span>
+              </div>
+
+              <div class="srf-mg-table">
+                <div class="srf-mg-table-head">
+                  <span>Divisa</span>
+                  <span>1 unidad vale</span>
+                </div>
+                <div id="mg-rates-body"></div>
+              </div>
+
+              <p class="srf-block-sub srf-block-note" id="mg-rates-note">Las equivalencias oficiales todavía no fueron publicadas por OWS.</p>
+            </section>
+
+            <div class="srf-mg-grid">
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Calculadora rápida</h3>
+                  <p class="srf-block-sub">Pasá una cantidad de divisa a dinero real con las tasas oficiales.</p>
+                </div>
+                <form id="mg-calc-form" class="srf-form" novalidate>
+                  <label class="srf-field">
+                    <span class="srf-field-label">Divisa</span>
+                    <select id="mg-calc-currency" class="srf-select"></select>
+                  </label>
+                  <label class="srf-field">
+                    <span class="srf-field-label">Cantidad</span>
+                    <input type="number" id="mg-calc-amount" min="0" step="1" inputmode="numeric" placeholder="0" autocomplete="off" />
+                  </label>
+                  <div class="srf-mg-money" id="mg-calc-result">—</div>
+                  <p class="srf-block-sub srf-block-note" id="mg-calc-note">Elegí una divisa con tasa oficial publicada.</p>
+                </form>
+              </section>
+
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Tasas oficiales</h3>
+                  <p class="srf-block-sub">Cómo funcionan las equivalencias de Surface.</p>
+                </div>
+                <ul class="srf-hintlist">
+                  <li><span>🏛️</span> Las define OWS y se aplican a todos los usuarios por igual.</li>
+                  <li><span>🔒</span> No se pueden cambiar desde la billetera.</li>
+                  <li><span>🧮</span> La calculadora usa siempre la última tasa publicada.</li>
+                  <li><span>⏳</span> Si una divisa no tiene tasa, se muestra como Pendiente.</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+
+          <!-- Sub-sección: Controles -->
+          <div class="srf-set-panel hidden" id="mg-panel-controls" role="tabpanel" aria-label="Controles">
+            <div class="srf-mg-grid">
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Avisos y confirmaciones</h3>
+                  <p class="srf-block-sub">Elegí qué te avisa Surface antes de mover divisas.</p>
+                </div>
+                <div class="srf-mg-switches">
+                  <label class="srf-switch">
+                    <input type="checkbox" id="mg-alert-limit" class="srf-sr" />
+                    <span class="srf-switch-track" aria-hidden="true"><span class="srf-switch-knob"></span></span>
+                    <span class="srf-switch-txt">Avisarme cuando me acerco al límite</span>
+                  </label>
+                  <label class="srf-switch">
+                    <input type="checkbox" id="mg-alert-large" class="srf-sr" />
+                    <span class="srf-switch-track" aria-hidden="true"><span class="srf-switch-knob"></span></span>
+                    <span class="srf-switch-txt">Avisarme en envíos grandes</span>
+                  </label>
+                  <label class="srf-switch">
+                    <input type="checkbox" id="mg-confirm-large" class="srf-sr" />
+                    <span class="srf-switch-track" aria-hidden="true"><span class="srf-switch-knob"></span></span>
+                    <span class="srf-switch-txt">Pedir confirmación extra en envíos grandes</span>
+                  </label>
+                </div>
+                <label class="srf-field srf-mg-large">
+                  <span class="srf-field-label">Monto considerado grande</span>
+                  <input type="number" id="mg-large-amount" min="0" step="1" inputmode="numeric" placeholder="Sin umbral" autocomplete="off" />
+                </label>
+              </section>
+
+              <section class="srf-panel">
+                <div class="srf-block-head">
+                  <h3 class="srf-block-title">Pausa de seguridad</h3>
+                  <p class="srf-block-sub">Un interruptor para frenar todos los envíos sin tocar tus saldos.</p>
+                </div>
+                <label class="srf-switch srf-mg-pause">
+                  <input type="checkbox" id="mg-pause-transfers" class="srf-sr" />
+                  <span class="srf-switch-track" aria-hidden="true"><span class="srf-switch-knob"></span></span>
+                  <span class="srf-switch-txt">Pausar todos los envíos</span>
+                </label>
+                <p class="srf-block-sub srf-block-note" id="mg-pause-note">
+                  Con la pausa activa, Surface no deja confirmar envíos hasta que la desactives.
+                </p>
+                <div class="srf-mg-note" id="mg-pause-state">Envíos habilitados.</div>
+              </section>
+            </div>
+
+            <section class="srf-panel">
+              <div class="srf-panel-head">
+                <div>
+                  <h3 class="srf-block-title">Registro de gestión</h3>
+                  <p class="srf-block-sub">Los últimos cambios y avisos, guardados en este dispositivo.</p>
+                </div>
+                <div class="srf-card-actions srf-mg-actions">
+                  <button class="srf-ghost" type="button" id="mg-log-export">Exportar</button>
+                  <button class="srf-danger-ghost" type="button" id="mg-log-clear">Vaciar</button>
+                </div>
+              </div>
+              <div class="srf-mg-log" id="mg-log-list">
+                <p class="srf-empty">Sin actividad todavía.</p>
+              </div>
+            </section>
+
+            <section class="srf-panel srf-mg-danger">
+              <div class="srf-block-head">
+                <h3 class="srf-block-title">Restablecer gestión</h3>
+                <p class="srf-block-sub">Vuelve los límites y los controles a su estado inicial. No toca saldos, historial ni equivalencias.</p>
+              </div>
+              <button class="srf-danger-ghost" type="button" id="mg-reset">Restablecer gestión</button>
+            </section>
+          </div>
+        </section>
+
+        <!-- ─────────── SECCIÓN 7: CONFIGURACIÓN ─────────── -->
         <section class="srf-view hidden" id="view-settings" data-view="settings" aria-labelledby="set-title">
           <header class="srf-view-head">
             <div class="srf-view-head-text">
@@ -511,8 +990,10 @@
                 <div class="srf-shortcuts">
                   <button class="srf-shortcut" type="button" data-goto-view="overview"><span aria-hidden="true">📊</span> Resumen</button>
                   <button class="srf-shortcut" type="button" data-goto-view="transfer"><span aria-hidden="true">💸</span> Enviar divisas</button>
+                  <button class="srf-shortcut" type="button" data-goto-view="tides"><span aria-hidden="true">🌊</span> Comprar Tides</button>
                   <button class="srf-shortcut" type="button" data-goto-view="card"><span aria-hidden="true">💳</span> Tarjeta</button>
                   <button class="srf-shortcut" type="button" data-goto-view="history"><span aria-hidden="true">🧾</span> Historial</button>
+                  <button class="srf-shortcut" type="button" data-goto-view="management"><span aria-hidden="true">🧭</span> Gestión</button>
                   <button class="srf-shortcut" type="button" id="btn-account-admin"><span aria-hidden="true">🛠️</span> Panel de administración</button>
                   <button class="srf-shortcut" type="button" id="btn-account-hub"><span aria-hidden="true">🏠</span> Volver a OWS Hub</button>
                 </div>
@@ -540,6 +1021,7 @@
         <div class="srf-rows-item"><span>Divisa</span><b id="confirm-currency-text">GAMBITS</b></div>
         <div class="srf-rows-item"><span>Comisión</span><b id="confirm-fee-text">Gratis</b></div>
         <div class="srf-rows-item" id="confirm-discount-row"><span id="confirm-discount-text"></span></div>
+        <div class="srf-rows-item hidden" id="confirm-mg-row"><span>Gestión</span><b id="confirm-mg-text"></b></div>
         <div class="srf-rows-item srf-rows-total"><span>Total a debitar</span><b id="confirm-total-text">0 GAMBITS</b></div>
       </div>
 
@@ -605,9 +1087,89 @@
     </div>
   </div>
 
+  <!-- ═══ MODAL: alcance del límite (todas las tarjetas o una sola) ═══ -->
+  <div id="limit-scope-modal" class="srf-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="limit-scope-title">
+    <div class="srf-modal srf-modal-sm">
+      <div class="srf-modal-head">
+        <h2 class="srf-modal-title" id="limit-scope-title">¿Dónde aplicamos el límite?</h2>
+        <button class="srf-ico" type="button" data-close-limit-scope aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p class="srf-modal-sub">Elegí si el tope controla todas tus tarjetas o solo una de las que tenés en Surface.</p>
+
+      <div class="srf-scope-options" role="radiogroup" aria-label="Alcance del límite">
+        <label class="srf-scope-opt">
+          <input type="radio" name="limit-scope-radio" value="all" class="srf-sr" />
+          <span class="srf-scope-card">
+            <span class="srf-scope-ico" aria-hidden="true">🗂️</span>
+            <span class="srf-scope-txt">
+              <b>Todas mis tarjetas</b>
+              <small>Un mismo tope para toda la billetera, sin importar qué tarjeta esté activa.</small>
+            </span>
+          </span>
+        </label>
+        <label class="srf-scope-opt">
+          <input type="radio" name="limit-scope-radio" value="card" class="srf-sr" />
+          <span class="srf-scope-card">
+            <span class="srf-scope-ico" aria-hidden="true">💳</span>
+            <span class="srf-scope-txt">
+              <b>Solo una tarjeta</b>
+              <small>El tope se controla únicamente cuando esa tarjeta está activa.</small>
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <label class="srf-field srf-mg-modal-card hidden" id="limit-scope-card-field">
+        <span class="srf-field-label">Tarjeta del límite</span>
+        <select id="limit-scope-card-select" class="srf-select"></select>
+      </label>
+
+      <p class="srf-mg-modal-note" id="limit-scope-hint">El tope se aplica a toda la billetera.</p>
+      <div id="limit-scope-alert" class="srf-alert srf-alert-error hidden" role="alert"></div>
+
+      <div class="srf-modal-actions">
+        <button class="srf-ghost" type="button" data-close-limit-scope>Cancelar</button>
+        <button class="srf-primary" type="button" id="btn-apply-limit-scope">Aplicar límite</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: desactivar límite hasta el reinicio ═══ -->
+  <div id="limit-snooze-modal" class="srf-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="limit-snooze-title">
+    <div class="srf-modal srf-modal-sm">
+      <div class="srf-modal-head">
+        <h2 class="srf-modal-title" id="limit-snooze-title">Desactivar el límite hasta el reinicio</h2>
+        <button class="srf-ico" type="button" data-close-limit-snooze aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p class="srf-modal-sub">El tope se desactiva ahora y se vuelve a activar solo cuando arranca un nuevo período.</p>
+
+      <div class="srf-mg-warning-strip" aria-hidden="true">
+        <span class="srf-mg-warning-ico">⚠️</span>
+        <span>Mientras esté desactivado, Surface no va a frenar el tope del período. El máximo por operación sigue activo.</span>
+      </div>
+
+      <div class="srf-rows">
+        <div class="srf-rows-item"><span>Alcance</span><b id="limit-snooze-scope">Todas tus tarjetas</b></div>
+        <div class="srf-rows-item"><span>Período</span><b id="limit-snooze-period">Este mes</b></div>
+        <div class="srf-rows-item"><span>Se reactiva</span><b id="limit-snooze-until">—</b></div>
+      </div>
+
+      <p class="srf-mg-modal-note" id="limit-snooze-note">El límite se reactiva automáticamente al reiniciarse el período.</p>
+
+      <div class="srf-modal-actions">
+        <button class="srf-ghost" type="button" data-close-limit-snooze>Cancelar</button>
+        <button class="srf-primary srf-warn" type="button" id="btn-confirm-limit-snooze">Sí, desactivar hasta el reinicio</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="srf-toast hidden" role="status" aria-live="polite"></div>
 
   <script src="../ows-api-failover.js?v=1"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

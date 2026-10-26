@@ -42282,25 +42282,143 @@ function areTidesPurchasesEnabled() {
 // =========================================
 // PAYPAL — cobro de Tides en USD
 // =========================================
-const PAYPAL_ENV = String(process.env.PAYPAL_ENV || 'sandbox').trim().toLowerCase() === 'live'
-  ? 'live'
-  : 'sandbox';
-const PAYPAL_CLIENT_ID = String(process.env.PAYPAL_CLIENT_ID || '').trim();
-const PAYPAL_CLIENT_SECRET = String(process.env.PAYPAL_CLIENT_SECRET || '').trim();
-const PAYPAL_WEBHOOK_ID = String(process.env.PAYPAL_WEBHOOK_ID || '').trim();
-// PayPal permite un webhook por URL (hasta 10 por app). Cada uno tiene su
-// propio ID, asi que aceptamos una lista separada por comas para que el mismo
-// codigo sirva en principal y espejo sin depender del orden de despliegue.
-const PAYPAL_WEBHOOK_IDS = PAYPAL_WEBHOOK_ID
-  ? PAYPAL_WEBHOOK_ID.split(',').map((id) => id.trim()).filter(Boolean)
-  : [];
-const PAYPAL_API_BASE = PAYPAL_ENV === 'live'
-  ? 'https://api-m.paypal.com'
-  : 'https://api-m.sandbox.paypal.com';
-const PAYPAL_TIDES_CURRENCY = 'USD';
 
-function isPayPalConfigured() {
-  return !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET);
+// Cada entorno (live/sandbox) tiene sus propias credenciales, su webhook y su
+// API. El entorno activo se puede cambiar en caliente desde el panel admin
+// (Ajustes > Integraciones) sin reiniciar el servicio.
+const PAYPAL_ENV_REQUESTED = String(process.env.PAYPAL_ENV || '').trim().toLowerCase();
+const PAYPAL_TIDES_CURRENCY = 'USD';
+const PAYPAL_ENV_SETTING_KEY = 'paypal.environment';
+const PAYPAL_ENV_CACHE_MS = 15000;
+
+function paypalWebhookIdList(raw) {
+  return String(raw || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+// PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_WEBHOOK_ID siguen siendo
+// los nombres historicos de live para no romper el despliegue actual.
+function readPayPalEnvConfig(env) {
+  const environment = String(env || '').toLowerCase() === 'live' ? 'live' : 'sandbox';
+  const isLive = environment === 'live';
+  const clientId = String(
+    (isLive
+      ? process.env.PAYPAL_LIVE_CLIENT_ID || process.env.PAYPAL_CLIENT_ID
+      : process.env.PAYPAL_SANDBOX_CLIENT_ID) || ''
+  ).trim();
+  const clientSecret = String(
+    (isLive
+      ? process.env.PAYPAL_LIVE_CLIENT_SECRET || process.env.PAYPAL_CLIENT_SECRET
+      : process.env.PAYPAL_SANDBOX_CLIENT_SECRET) || ''
+  ).trim();
+  // PayPal permite varios webhooks por app (hasta 10). Aceptamos una lista
+  // separada por comas para cubrir principal + espejo con el mismo servicio.
+  const webhookIds = paypalWebhookIdList(
+    isLive
+      ? process.env.PAYPAL_LIVE_WEBHOOK_ID || process.env.PAYPAL_WEBHOOK_ID
+      : process.env.PAYPAL_SANDBOX_WEBHOOK_ID
+  );
+
+  return {
+    environment,
+    isLive,
+    clientId,
+    clientSecret,
+    webhookIds,
+    apiBase: isLive ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com',
+    configured: !!(clientId && clientSecret)
+  };
+}
+
+// Entorno por defecto cuando la DB todavia no tiene un valor guardado:
+// respeta PAYPAL_ENV si ese entorno tiene credenciales; si no, usa el unico
+// configurado. Con ambos configurados y sin PAYPAL_ENV, arranca en sandbox.
+const PAYPAL_DEFAULT_ENV = (() => {
+  const requested = PAYPAL_ENV_REQUESTED === 'sandbox'
+    ? 'sandbox'
+    : PAYPAL_ENV_REQUESTED === 'live'
+      ? 'live'
+      : '';
+  if (requested && readPayPalEnvConfig(requested).configured) return requested;
+  if (readPayPalEnvConfig('sandbox').configured) return 'sandbox';
+  if (readPayPalEnvConfig('live').configured) return 'live';
+  return requested || 'sandbox';
+})();
+
+let owsRuntimeSettingsReady = false;
+
+async function ensureOwsRuntimeSettingsTable() {
+  if (owsRuntimeSettingsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_runtime_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by TEXT
+    )
+  `);
+  owsRuntimeSettingsReady = true;
+}
+
+// Cache corto: cada request de PayPal refresca como mucho cada 15s para no
+// castigar la DB, y el panel fuerza la relectura al guardar.
+let paypalRuntimeEnv = {
+  value: PAYPAL_DEFAULT_ENV,
+  source: 'env',
+  updatedAt: null,
+  updatedBy: null,
+  loadedAt: 0
+};
+
+async function readPayPalEnvironmentSetting() {
+  await ensureOwsRuntimeSettingsTable();
+  const { rows } = await pool.query(
+    `SELECT value, updated_at, updated_by
+       FROM ows_runtime_settings
+      WHERE key = $1
+      LIMIT 1`,
+    [PAYPAL_ENV_SETTING_KEY]
+  );
+  const row = rows[0] || null;
+  const value = String(row?.value || '').trim().toLowerCase();
+  if (value === 'live' || value === 'sandbox') {
+    return {
+      value,
+      source: 'panel',
+      updatedAt: row?.updated_at || null,
+      updatedBy: row?.updated_by || null
+    };
+  }
+  return { value: PAYPAL_DEFAULT_ENV, source: 'env', updatedAt: null, updatedBy: null };
+}
+
+async function refreshPayPalRuntimeEnv(force) {
+  const now = Date.now();
+  if (!force && now - paypalRuntimeEnv.loadedAt < PAYPAL_ENV_CACHE_MS) return paypalRuntimeEnv;
+  try {
+    const setting = await readPayPalEnvironmentSetting();
+    paypalRuntimeEnv = { ...setting, loadedAt: now };
+  } catch (err) {
+    // Si la DB falla seguimos con el ultimo valor conocido: un problema de
+    // lectura no debe dejar la tienda sin PayPal.
+    console.error('[PayPal] No se pudo leer el entorno activo:', err?.message || err);
+    paypalRuntimeEnv = { ...paypalRuntimeEnv, loadedAt: now };
+  }
+  return paypalRuntimeEnv;
+}
+
+function activePayPalEnvironment() {
+  return paypalRuntimeEnv.value === 'live' ? 'live' : 'sandbox';
+}
+
+function activePayPalConfig() {
+  return readPayPalEnvConfig(activePayPalEnvironment());
+}
+
+function isPayPalConfigured(env) {
+  return readPayPalEnvConfig(env || activePayPalEnvironment()).configured;
 }
 
 function paypalUsdAmount(value) {
@@ -42309,18 +42427,25 @@ function paypalUsdAmount(value) {
   return amount.toFixed(2);
 }
 
-let paypalTokenCache = { token: '', expiresAt: 0 };
+// Cache de token separada por entorno: cambiar de live a sandbox no reutiliza
+// nunca el token del otro entorno.
+const paypalTokenCache = {
+  live: { token: '', expiresAt: 0 },
+  sandbox: { token: '', expiresAt: 0 }
+};
 
-async function getPayPalAccessToken() {
-  if (!isPayPalConfigured()) throw new Error('PayPal no esta configurado');
+async function getPayPalAccessToken(env) {
+  const settings = readPayPalEnvConfig(env || activePayPalEnvironment());
+  if (!settings.configured) throw new Error('PayPal no esta configurado');
 
+  const cache = paypalTokenCache[settings.environment];
   const now = Date.now();
-  if (paypalTokenCache.token && paypalTokenCache.expiresAt > now + 30000) {
-    return paypalTokenCache.token;
+  if (cache.token && cache.expiresAt > now + 30000) {
+    return cache.token;
   }
 
-  const basic = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
-  const response = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+  const basic = Buffer.from(`${settings.clientId}:${settings.clientSecret}`).toString('base64');
+  const response = await fetch(`${settings.apiBase}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${basic}`,
@@ -42336,16 +42461,15 @@ async function getPayPalAccessToken() {
   }
 
   const expiresIn = Number(data.expires_in || 0);
-  paypalTokenCache = {
-    token: String(data.access_token),
-    expiresAt: now + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn * 1000 : 300000)
-  };
-  return paypalTokenCache.token;
+  cache.token = String(data.access_token);
+  cache.expiresAt = now + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn * 1000 : 300000);
+  return cache.token;
 }
 
-async function paypalApiRequest(pathname, options = {}) {
-  const token = await getPayPalAccessToken();
-  const response = await fetch(`${PAYPAL_API_BASE}${pathname}`, {
+async function paypalApiRequest(pathname, options = {}, env) {
+  const settings = readPayPalEnvConfig(env || activePayPalEnvironment());
+  const token = await getPayPalAccessToken(settings.environment);
+  const response = await fetch(`${settings.apiBase}${pathname}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -42366,7 +42490,7 @@ async function paypalApiRequest(pathname, options = {}) {
   return data;
 }
 
-// custom_id: paypal-tides:<userId>:<packageId>:<timestamp>
+// custom_id: paypal-tides:<userId>:<packageId>:<timestamp>:<environment>
 function parsePayPalTidesReference(raw) {
   const reference = String(raw || '').trim();
   if (!reference) return null;
@@ -42377,24 +42501,30 @@ function parsePayPalTidesReference(raw) {
   const userId = Number(parts[1] || 0);
   const packageId = String(parts[2] || '').trim().toLowerCase();
   if (!Number.isFinite(userId) || userId <= 0 || !packageId) return null;
-  return { prefix, userId, packageId, reference };
+  // Las ordenes viejas (antes del switch) no llevan entorno: se deduce del
+  // webhook verificado o del entorno activo.
+  const envRaw = String(parts[4] || '').trim().toLowerCase();
+  const environment = envRaw === 'live' || envRaw === 'sandbox' ? envRaw : null;
+  return { prefix, userId, packageId, environment, reference };
 }
 
-function buildPayPalTidesReference(userId, packageId) {
-  return `paypal-tides:${userId}:${packageId}:${Date.now()}`;
+function buildPayPalTidesReference(userId, packageId, env) {
+  const environment = String(env || '').toLowerCase() === 'live' ? 'live' : 'sandbox';
+  return `paypal-tides:${userId}:${packageId}:${Date.now()}:${environment}`;
 }
 
-async function createPayPalTidesOrder({ userId, pkg }) {
+async function createPayPalTidesOrder({ userId, pkg, env }) {
+  const environment = env === 'live' || env === 'sandbox' ? env : activePayPalEnvironment();
   const amount = paypalUsdAmount(pkg.priceUsd);
   if (!amount) throw new Error('Precio USD no configurado para este paquete');
 
   const totalTides = Number(pkg.tidesAmount || 0) + Number(pkg.bonus || 0);
-  const reference = buildPayPalTidesReference(userId, pkg.id);
+  const reference = buildPayPalTidesReference(userId, pkg.id, environment);
 
   const order = await paypalApiRequest('/v2/checkout/orders', {
     method: 'POST',
     headers: {
-      'PayPal-Request-Id': `tides-order-${userId}-${pkg.id}-${Date.now()}`
+      'PayPal-Request-Id': `tides-order-${environment}-${userId}-${pkg.id}-${Date.now()}`
     },
     body: JSON.stringify({
       intent: 'CAPTURE',
@@ -42429,9 +42559,9 @@ async function createPayPalTidesOrder({ userId, pkg }) {
         user_action: 'PAY_NOW'
       }
     })
-  });
+  }, environment);
 
-  return { order, reference };
+  return { order, reference, environment };
 }
 
 function parseTidesExternalReference(raw) {
@@ -42470,15 +42600,21 @@ async function fetchMercadoPagoPayment(paymentId) {
 
 // Acredita un pago aprobado. Es idempotente y serializa por pago para
 // que el retorno del cliente y el webhook no puedan acreditar dos veces.
+// Los pagos de prueba se guardan con origen propio para poder auditar y
+// limpiar creditos de sandbox sin mezclarlos con ventas reales.
 async function creditTidesPurchase({ userId, pkg, paymentId, externalReference, provider = 'Mercado Pago Tides' }) {
-  const origin = provider === 'PayPal Tides' ? 'PayPal Tides' : 'Mercado Pago Tides';
+  const isPayPalSandbox = provider === 'PayPal Tides Sandbox';
+  const isPayPal = provider === 'PayPal Tides' || isPayPalSandbox;
+  const origin = isPayPal
+    ? (isPayPalSandbox ? 'PayPal Tides Sandbox' : 'PayPal Tides')
+    : 'Mercado Pago Tides';
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`tides-payment:${origin}:${paymentId}`]);
 
-    const creditConcept = origin === 'PayPal Tides'
-      ? `Tides Pack ${pkg.id} - PayPal - payment:${paymentId}`
+    const creditConcept = isPayPal
+      ? `Tides Pack ${pkg.id} - PayPal${isPayPalSandbox ? ' Sandbox' : ''} - payment:${paymentId}`
       : `Tides Pack ${pkg.id} - payment:${paymentId} - ref:${externalReference}`;
     const { rows: existingTx } = await client.query(
       `SELECT id FROM ocean_pay_txs
@@ -42730,23 +42866,42 @@ app.post(['/ocean-pay/tides/webhook', '/ocean-pay/aurex/webhook'], async (req, r
 // PAYPAL — endpoints de Tides (USD)
 // =========================================
 
-async function fetchPayPalOrder(orderId) {
-  return paypalApiRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}`);
+async function fetchPayPalOrder(orderId, env) {
+  return paypalApiRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}`, {}, env);
 }
 
-async function capturePayPalOrder(orderId) {
+function paypalErrorIssues(err) {
+  const issues = [];
+  const details = err?.details;
+  if (Array.isArray(details?.details)) {
+    for (const item of details.details) issues.push(String(item?.issue || '').toUpperCase());
+  }
+  if (details?.name) issues.push(String(details.name).toUpperCase());
+  return issues;
+}
+
+// Una orden existe en un solo entorno: si el entorno activo no la encuentra,
+// puede ser una compra iniciada antes de cambiar el switch. No se reintenta
+// ante errores de credenciales o de red.
+function paypalOrderMissingInEnv(err) {
+  if (Number(err?.status) === 404) return true;
+  return paypalErrorIssues(err).some((issue) =>
+    ['INVALID_RESOURCE_ID', 'ORDER_NOT_FOUND', 'RESOURCE_NOT_FOUND'].includes(issue)
+  );
+}
+
+async function capturePayPalOrder(orderId, env) {
   try {
     return await paypalApiRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
       method: 'POST',
       headers: { 'PayPal-Request-Id': `tides-capture-${orderId}` },
       body: JSON.stringify({})
-    });
+    }, env);
   } catch (err) {
-    const issue = String(err?.details?.details?.[0]?.issue || '').toUpperCase();
     // Si la captura ya se hizo (reintento del cliente), leemos la orden para
     // acreditar de forma idempotente con el mismo captureId.
-    if (issue === 'ORDER_ALREADY_CAPTURED') {
-      return fetchPayPalOrder(orderId);
+    if (paypalErrorIssues(err).includes('ORDER_ALREADY_CAPTURED')) {
+      return fetchPayPalOrder(orderId, env);
     }
     throw err;
   }
@@ -42776,16 +42931,17 @@ function paypalCaptureCompleted(order, capture) {
   return orderStatus === 'COMPLETED' && captureStatus === 'COMPLETED';
 }
 
-async function verifyPayPalWebhookSignature(req) {
-  if (!PAYPAL_WEBHOOK_IDS.length) {
-    throw new Error('PAYPAL_WEBHOOK_ID no configurado');
+async function verifyPayPalWebhookSignature(req, env) {
+  const settings = readPayPalEnvConfig(env);
+  if (!settings.webhookIds.length) {
+    throw new Error(`PayPal webhook no configurado para ${settings.environment}`);
   }
   const headers = req.headers || {};
   let lastError = null;
 
   // Con varios webhooks (principal + espejo) el evento puede llegar firmado
   // con cualquiera de los IDs. Se prueba cada uno hasta que PayPal confirme.
-  for (const webhookId of PAYPAL_WEBHOOK_IDS) {
+  for (const webhookId of settings.webhookIds) {
     try {
       const data = await paypalApiRequest('/v1/notifications/verify-webhook-signature', {
         method: 'POST',
@@ -42798,7 +42954,7 @@ async function verifyPayPalWebhookSignature(req) {
           webhook_id: webhookId,
           webhook_event: req.body
         })
-      });
+      }, settings.environment);
       if (String(data?.verification_status || '').toUpperCase() === 'SUCCESS') return true;
     } catch (err) {
       lastError = err;
@@ -42809,15 +42965,46 @@ async function verifyPayPalWebhookSignature(req) {
   return false;
 }
 
+// Un webhook de sandbox jamas valida contra la API live (y viceversa). Se
+// prueban ambos entornos configurados y se devuelve el que firmo el evento.
+async function verifyPayPalWebhookSignatureAnyEnv(req) {
+  const candidates = ['live', 'sandbox'].filter((env) => {
+    const settings = readPayPalEnvConfig(env);
+    return settings.configured && settings.webhookIds.length > 0;
+  });
+
+  if (!candidates.length) {
+    throw new Error('PayPal no tiene webhook configurado');
+  }
+
+  // Primero el entorno activo: en operacion normal acierta al primer intento.
+  const active = activePayPalEnvironment();
+  candidates.sort((a, b) => (a === active ? -1 : b === active ? 1 : 0));
+
+  let lastError = null;
+  for (const env of candidates) {
+    try {
+      if (await verifyPayPalWebhookSignature(req, env)) return env;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (lastError) throw lastError;
+  return null;
+}
+
 // Config publica para que Surface cargue el SDK de PayPal.
-app.get('/ocean-pay/paypal/config', (_req, res) => {
+app.get('/ocean-pay/paypal/config', async (_req, res) => {
   res.set('Cache-Control', 'no-store');
+  await refreshPayPalRuntimeEnv();
+  const settings = activePayPalConfig();
   return res.json({
     success: true,
-    configured: isPayPalConfigured(),
-    enabled: areTidesPurchasesEnabled() && isPayPalConfigured(),
-    environment: PAYPAL_ENV,
-    clientId: PAYPAL_CLIENT_ID,
+    configured: settings.configured,
+    enabled: areTidesPurchasesEnabled() && settings.configured,
+    environment: settings.environment,
+    clientId: settings.clientId,
     currency: PAYPAL_TIDES_CURRENCY
   });
 });
@@ -42827,15 +43014,18 @@ app.post('/ocean-pay/tides/paypal/order', async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
+  await refreshPayPalRuntimeEnv();
+  const paypalSettings = activePayPalConfig();
+
   if (!areTidesPurchasesEnabled()) {
     return res.status(503).json({
       error: 'La compra de Tides esta indisponible por el momento.',
       code: 'TIDES_PURCHASES_DISABLED'
     });
   }
-  if (!isPayPalConfigured()) {
+  if (!paypalSettings.configured) {
     return res.status(503).json({
-      error: 'PayPal no esta configurado.',
+      error: `PayPal (${paypalSettings.environment}) no esta configurado.`,
       code: 'PAYPAL_NOT_CONFIGURED'
     });
   }
@@ -42845,11 +43035,16 @@ app.post('/ocean-pay/tides/paypal/order', async (req, res) => {
   if (!pkg) return res.status(400).json({ error: 'Paquete Tides invalido' });
 
   try {
-    const { order, reference } = await createPayPalTidesOrder({ userId, pkg });
+    const { order, reference, environment } = await createPayPalTidesOrder({
+      userId,
+      pkg,
+      env: paypalSettings.environment
+    });
     return res.json({
       success: true,
       orderId: order?.id || null,
       reference,
+      environment,
       package: pkg
     });
   } catch (err) {
@@ -42868,14 +43063,41 @@ app.post('/ocean-pay/tides/paypal/capture', async (req, res) => {
 
   const requestedPackageId = String(req.body?.packageId || '').trim().toLowerCase();
 
+  await refreshPayPalRuntimeEnv();
+  const activeEnv = activePayPalEnvironment();
+  const otherEnv = activeEnv === 'live' ? 'sandbox' : 'live';
+  // Se intenta primero el entorno activo y, si la orden no existe alli, el
+  // otro entorno configurado (compras iniciadas antes de mover el switch).
+  const candidateEnvs = [activeEnv];
+  if (isPayPalConfigured(otherEnv)) candidateEnvs.push(otherEnv);
+
   try {
-    let order = await capturePayPalOrder(orderId);
+    let order = null;
+    let captureEnv = null;
+    let lastError = null;
+
+    for (const env of candidateEnvs) {
+      if (!isPayPalConfigured(env)) continue;
+      try {
+        order = await capturePayPalOrder(orderId, env);
+        captureEnv = env;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (!paypalOrderMissingInEnv(err)) throw err;
+      }
+    }
+
+    if (!order || !captureEnv) {
+      throw lastError || new Error('PayPal no esta configurado');
+    }
+
     let { unit, capture, parsed } = readPayPalOrderUnit(order);
 
     // Una orden ya capturada puede no traer las capturas en la primera lectura;
     // reintentamos con un GET antes de rechazar.
     if (!capture) {
-      order = await fetchPayPalOrder(orderId);
+      order = await fetchPayPalOrder(orderId, captureEnv);
       ({ unit, capture, parsed } = readPayPalOrderUnit(order));
     }
 
@@ -42884,6 +43106,9 @@ app.post('/ocean-pay/tides/paypal/capture', async (req, res) => {
     }
     if (parsed.userId !== userId) {
       return res.status(403).json({ error: 'La orden no pertenece al usuario autenticado' });
+    }
+    if (parsed.environment && parsed.environment !== captureEnv) {
+      console.warn('[PayPal] Referencia de entorno distinto al de la captura:', parsed.reference, captureEnv);
     }
 
     const pkg = getAurexPackageById(parsed.packageId);
@@ -42913,19 +43138,19 @@ app.post('/ocean-pay/tides/paypal/capture', async (req, res) => {
       pkg,
       paymentId: captureId,
       externalReference: parsed.reference,
-      provider: 'PayPal Tides'
+      provider: captureEnv === 'sandbox' ? 'PayPal Tides Sandbox' : 'PayPal Tides'
     });
 
     return res.json({
       success: true,
       ...result,
       captureId,
+      environment: captureEnv,
       package: pkg
     });
   } catch (err) {
     console.error('Error en POST /ocean-pay/tides/paypal/capture:', err);
-    const issue = String(err?.details?.details?.[0]?.issue || '').toUpperCase();
-    if (issue === 'ORDER_NOT_APPROVED') {
+    if (paypalErrorIssues(err).includes('ORDER_NOT_APPROVED')) {
       return res.status(409).json({ error: 'La orden de PayPal todavia no esta aprobada' });
     }
     return res.status(502).json({ error: 'No se pudo capturar el pago de PayPal' });
@@ -42935,18 +43160,16 @@ app.post('/ocean-pay/tides/paypal/capture', async (req, res) => {
 // Webhook de PayPal: respaldo para acreditar aunque el cliente cierre la
 // pestaña. La firma se valida contra la API de PayPal antes de procesar.
 app.post('/ocean-pay/tides/paypal/webhook', async (req, res) => {
-  if (!isPayPalConfigured()) {
-    return res.status(503).json({ error: 'PayPal no esta configurado' });
-  }
+  await refreshPayPalRuntimeEnv();
 
-  let verified = false;
+  let verifiedEnv = null;
   try {
-    verified = await verifyPayPalWebhookSignature(req);
+    verifiedEnv = await verifyPayPalWebhookSignatureAnyEnv(req);
   } catch (err) {
     console.error('Error verificando firma del webhook de PayPal:', err);
     return res.status(500).json({ error: 'No se pudo verificar la firma del webhook' });
   }
-  if (!verified) {
+  if (!verifiedEnv) {
     return res.status(400).json({ error: 'Firma de webhook invalida' });
   }
 
@@ -42974,7 +43197,7 @@ app.post('/ocean-pay/tides/paypal/webhook', async (req, res) => {
       return res.status(200).json({ success: true, ignored: true, reason: 'referencia ajena' });
     }
     try {
-      const order = await fetchPayPalOrder(relatedOrderId);
+      const order = await fetchPayPalOrder(relatedOrderId, verifiedEnv);
       const context = readPayPalOrderUnit(order);
       parsed = context.parsed;
       if (context.capture && String(context.capture.id || '') === String(resource?.id || '')) {
@@ -43008,25 +43231,117 @@ app.post('/ocean-pay/tides/paypal/webhook', async (req, res) => {
     return res.status(200).json({ success: true, ignored: true, reason: 'sin captureId' });
   }
 
+  if (parsed.environment && parsed.environment !== verifiedEnv) {
+    console.warn('[PayPal Tides webhook] Entorno de la referencia distinto al verificado:', parsed.reference, verifiedEnv);
+  }
+
   try {
     const result = await creditTidesPurchase({
       userId: parsed.userId,
       pkg,
       paymentId: captureId,
       externalReference: parsed.reference,
-      provider: 'PayPal Tides'
+      provider: verifiedEnv === 'sandbox' ? 'PayPal Tides Sandbox' : 'PayPal Tides'
     });
 
     return res.status(200).json({
       success: true,
       ...result,
       captureId,
+      environment: verifiedEnv,
       userId: parsed.userId,
       package: pkg
     });
   } catch (err) {
     console.error('Error en POST /ocean-pay/tides/paypal/webhook:', err);
     return res.status(500).json({ error: 'Error interno al procesar el webhook de PayPal' });
+  }
+});
+
+// =========================================
+// PAYPAL — switch live/sandbox (solo admin)
+// =========================================
+
+function paypalAdminUpdatedBy(req) {
+  const fromHeader = String(req.headers['x-ows-admin-name'] || '').trim();
+  if (fromHeader) return fromHeader.slice(0, 80);
+  const payload = getValidAdminJwtPayload(req);
+  return String(payload?.username || 'admin').trim().slice(0, 80) || 'admin';
+}
+
+function paypalIntegrationPayload() {
+  const environment = activePayPalEnvironment();
+  const active = readPayPalEnvConfig(environment);
+  const environments = ['live', 'sandbox'].map((env) => {
+    const settings = readPayPalEnvConfig(env);
+    return {
+      environment: env,
+      configured: settings.configured,
+      webhooks: settings.webhookIds.length,
+      clientIdTail: settings.clientId ? settings.clientId.slice(-6) : ''
+    };
+  });
+
+  return {
+    success: true,
+    environment,
+    configured: active.configured,
+    enabled: areTidesPurchasesEnabled() && active.configured,
+    purchasesEnabled: areTidesPurchasesEnabled(),
+    source: paypalRuntimeEnv.source,
+    updatedAt: paypalRuntimeEnv.updatedAt || null,
+    updatedBy: paypalRuntimeEnv.updatedBy || null,
+    environments
+  };
+}
+
+app.get('/ows-admin-panel/integrations/paypal', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  await refreshPayPalRuntimeEnv(true);
+  return res.json(paypalIntegrationPayload());
+});
+
+app.put('/ows-admin-panel/integrations/paypal', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const environment = String(req.body?.environment || '').trim().toLowerCase();
+  if (environment !== 'live' && environment !== 'sandbox') {
+    return res.status(400).json({ error: 'Entorno invalido. Usa live o sandbox.' });
+  }
+
+  const target = readPayPalEnvConfig(environment);
+  if (!target.configured) {
+    return res.status(409).json({
+      error: `PayPal ${environment} no tiene credenciales configuradas en el servidor.`,
+      code: 'PAYPAL_ENV_NOT_CONFIGURED'
+    });
+  }
+
+  const updatedBy = paypalAdminUpdatedBy(req);
+
+  try {
+    await ensureOwsRuntimeSettingsTable();
+    await pool.query(
+      `INSERT INTO ows_runtime_settings (key, value, updated_at, updated_by)
+       VALUES ($1, $2, NOW(), $3)
+       ON CONFLICT (key) DO UPDATE
+         SET value = EXCLUDED.value,
+             updated_at = NOW(),
+             updated_by = EXCLUDED.updated_by`,
+      [PAYPAL_ENV_SETTING_KEY, environment, updatedBy]
+    );
+    paypalRuntimeEnv = {
+      value: environment,
+      source: 'panel',
+      updatedAt: new Date(),
+      updatedBy,
+      loadedAt: Date.now()
+    };
+    console.log(`[PayPal] Entorno activo: ${environment} (por ${updatedBy})`);
+    return res.json(paypalIntegrationPayload());
+  } catch (err) {
+    console.error('Error en PUT /ows-admin-panel/integrations/paypal:', err);
+    return res.status(500).json({ error: 'No se pudo guardar el entorno de PayPal' });
   }
 });
 

@@ -1548,6 +1548,12 @@ async function createTidesPayPalOrder(pkg) {
   }
   if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el pago con PayPal.');
   if (!data.orderId) throw new Error('PayPal no devolvió una orden válida.');
+
+  const orderEnv = String(data.environment || '').toLowerCase() === 'sandbox' ? 'sandbox' : 'live';
+  if (tidesPayPalConfig && tidesPayPalConfig.environment !== orderEnv) {
+    tidesPayPalConfig = null;
+    throw new Error('El modo de PayPal cambió. Recargá la página para continuar.');
+  }
   return String(data.orderId);
 }
 
@@ -1735,7 +1741,13 @@ async function ensureTidesPayPalReady() {
     }
 
     mountTidesPayPalButtons();
-    if (tidesPayPalButtonsMounted) setTidesPayPalStatus('', '');
+    if (tidesPayPalButtonsMounted) {
+      const isSandbox = config.environment === 'sandbox';
+      setTidesPayPalStatus(
+        isSandbox ? 'Modo prueba: PayPal Sandbox, no se cobra dinero real.' : '',
+        isSandbox ? 'info' : ''
+      );
+    }
   } catch (err) {
     console.error('[Surface] Error preparando PayPal:', err);
     resetTidesPayPalButtons();
@@ -4464,7 +4476,8 @@ const GAME_META = {
   'tigertasks':         { label: 'Tiger Tasks',         ico: '🐯' },
   'global goal reward': { label: 'Recompensas OWS',     ico: '🎁' },
   'mercado pago tides': { label: 'Mercado Pago Tides',  ico: '💳' },
-  'paypal tides':       { label: 'PayPal Tides',        ico: '🅿️' }
+  'paypal tides':       { label: 'PayPal Tides',        ico: '🅿️' },
+  'paypal tides sandbox': { label: 'PayPal Sandbox',    ico: '🧪' }
 };
 
 function gameMeta(origen) {

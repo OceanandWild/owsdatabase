@@ -1,5 +1,5 @@
 /* ============================================================================
- * OWS API FAILOVER — v2 (2026-10-26)
+ * OWS API FAILOVER — v3 (2026-10-26)
  * ----------------------------------------------------------------------------
  * Respaldo automático entre el servidor API principal y su espejo:
  *
@@ -11,10 +11,12 @@
  *      la MISMA petición contra la otra base cuando hay error de red/CORS
  *      (típico de Render suspendido) o respuesta 502/503/504.
  *    - Si la página se sirve desde una base conocida (por ejemplo el espejo),
- *      esa misma base va primero. Así la primera petición no choca contra la
- *      principal suspendida.
- *    - Recuerda la última base que respondió y la usa primero. Una sonda de
- *      salud cada 45 s vuelve sola a la principal cuando se recupera.
+ *      esa misma base va primero y se mantiene. Así la primera petición no
+ *      choca contra la principal suspendida y tampoco se vuelve a una principal
+ *      que podría tener un deploy viejo.
+ *    - Recuerda la última base que respondió y la usa primero. En páginas que
+ *      no se sirven desde una base conocida, una sonda de salud cada 45 s
+ *      vuelve sola a la principal cuando se recupera.
  *    - Expone window.OWS_API_FAILOVER para construir URLs (links de descarga,
  *      window.open, invoke) contra la base sana actual.
  *
@@ -45,7 +47,8 @@
   } catch (_) {}
 
   // Orden de intento en memoria. Arranca por la última base sana conocida en
-  // esta pestaña (sessionStorage); si no hay, por la principal.
+  // esta pestaña (sessionStorage); si no hay, por la principal. El mismo origen
+  // conocido, si existe, se aplica después y manda sobre esto.
   var activeOrder = KNOWN.slice();
   try {
     var lastGood = sessionStorage.getItem(LAST_GOOD_KEY);
@@ -56,7 +59,8 @@
 
   // Mismo origen primero: si la página se sirve desde el espejo, no tiene
   // sentido intentar la principal suspendida en la primera petición.
-  if (SELF && KNOWN.indexOf(SELF) !== -1) {
+  var SELF_IS_KNOWN = !!(SELF && KNOWN.indexOf(SELF) !== -1);
+  if (SELF_IS_KNOWN) {
     activeOrder = [SELF].concat(KNOWN.filter(function (b) { return b !== SELF; }));
   }
 
@@ -94,7 +98,8 @@
     if (persist) {
       try { sessionStorage.setItem(LAST_GOOD_KEY, base); } catch (_) {}
     }
-    if (base === PRIMARY) stopProbe(); else startProbe();
+    if (base === PRIMARY) stopProbe();
+    else if (!SELF_IS_KNOWN) startProbe();
     if (was !== base) {
       try {
         console.info('[OWS/API] Base activa: ' + base +
@@ -201,17 +206,19 @@
 
   // Sonda inicial (no bloquea): con la principal caída, hasta los links de
   // descarga construidos antes de la primera petición apuntan al espejo.
-  // Si arrancamos en el espejo por mismo origen, la sonda periódica queda
-  // activa para volver a la principal cuando se recupere.
-  if (activeOrder[0] !== PRIMARY) startProbe();
-  try {
-    nativeFetch(PRIMARY + HEALTH_PATH, { cache: 'no-store' })
-      .then(function (res) {
-        if (res && res.ok) return;
-        if (activeOrder[0] === PRIMARY) setActive(MIRRORS[0], false);
-      })
-      .catch(function () {
-        if (activeOrder[0] === PRIMARY) setActive(MIRRORS[0], false);
-      });
-  } catch (_) {}
+  // Si la página ya se sirve desde una base conocida, no se sondea la principal:
+  // se mantiene el mismo origen y se evitan errores de CORS innecesarios.
+  if (!SELF_IS_KNOWN) {
+    if (activeOrder[0] !== PRIMARY) startProbe();
+    try {
+      nativeFetch(PRIMARY + HEALTH_PATH, { cache: 'no-store' })
+        .then(function (res) {
+          if (res && res.ok) return;
+          if (activeOrder[0] === PRIMARY) setActive(MIRRORS[0], false);
+        })
+        .catch(function () {
+          if (activeOrder[0] === PRIMARY) setActive(MIRRORS[0], false);
+        });
+    } catch (_) {}
+  }
 })();

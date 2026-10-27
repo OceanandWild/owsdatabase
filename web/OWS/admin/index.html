@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=16" />
+  <link rel="stylesheet" href="admin-styles.css?v=17" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -77,6 +77,7 @@
         <button class="ptab active" id="ptab-news" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:news">📰 Noticias</button>
         <button class="ptab" id="ptab-events" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:events">🗓️ Eventos</button>
         <button class="ptab" id="ptab-projects" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:projects">📁 Proyectos</button>
+        <button class="ptab" id="ptab-banners" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:banners">📣 Banners</button>
         <button class="ptab" id="ptab-manage" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:manage">🛡️ Gestión</button>
          <button class="ptab" id="ptab-incidents" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:incidents">🚨 Incidentes</button>
         <button class="ptab" id="ptab-reports" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:reports">📋 Informes</button>
@@ -1068,6 +1069,105 @@
             </div>
           </div>
           <div id="projects-list" class="admin-list"><p class="loading-note">Cargando…</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TAB: BANNERS (avisos de lanzamiento en OWS Hub) ============ -->
+    <div id="tab-banners" class="tab-content hidden">
+      <div class="glass-card page-head">
+        <div class="page-head-icon">📣</div>
+        <div class="page-head-body">
+          <h3 class="form-title">Banners de lanzamiento</h3>
+          <p class="form-hint">Avisos que aparecen arriba en <b>OWS Hub</b>. El banner de <b>Lanzamiento</b> se crea solo cuando un proyecto pasa a estado <b>Lanzado</b>; el de <b>Próximo lanzamiento</b> se anuncia antes, con fecha e icono. Si un banner no aparece, usá <b>⚡ Forzar</b>.</p>
+          <div class="manage-badges">
+            <span class="status-pill status-on">🎉 Lanzamiento</span>
+            <span class="status-pill status-from-projects">⏳ Próximo</span>
+            <span class="status-pill status-forced">⚡ Forzado</span>
+          </div>
+        </div>
+        <div class="page-head-actions">
+          <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="openBannerForm">＋ Nuevo banner</button>
+          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadBanners" data-adm-a0="b:1" title="Recargar banners">↻ Actualizar</button>
+        </div>
+      </div>
+      <div class="panel-grid">
+        <div class="glass-card form-card" data-mform="banner">
+          <h3 class="form-title">Nuevo banner</h3>
+          <p class="form-hint">Elegí el proyecto y el tipo: los textos se completan solos con sus datos. Después podés ajustar todo.</p>
+          <form data-adm-ev="submit" data-adm="saveBanner" data-adm-a0="ev">
+            <div class="field-row">
+              <div class="field-group">
+                <label for="banner-project">Proyecto *</label>
+                <select id="banner-project" data-adm-ev="change" data-adm="onBannerProjectChange" required>
+                  <option value="">— Elegí un proyecto —</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="banner-kind">Tipo de banner</label>
+                <select id="banner-kind" data-adm-ev="change" data-adm="onBannerKindChange">
+                  <option value="release">🎉 Lanzamiento (delgado)</option>
+                  <option value="upcoming">⏳ Próximo lanzamiento (grueso)</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="banner-title">Título *</label>
+              <input type="text" id="banner-title" maxlength="160" placeholder="ej: 🎉 Wilder Gambit ya está disponible" required data-adm-ev="input" data-adm="renderBannerAdminPreview" />
+            </div>
+            <div class="field-group">
+              <label for="banner-message">Mensaje</label>
+              <textarea id="banner-message" rows="2" maxlength="500" placeholder="Texto corto que acompaña al banner." data-adm-ev="input" data-adm="renderBannerAdminPreview"></textarea>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="banner-date">Fecha de lanzamiento <span class="opt-tag">próximo</span></label>
+                <input type="date" id="banner-date" data-adm-ev="change" data-adm="renderBannerAdminPreview" />
+              </div>
+              <div class="field-group">
+                <label for="banner-ends">Mostrar hasta <span class="opt-tag">opcional</span></label>
+                <input type="date" id="banner-ends" />
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="banner-icon">Icono del proyecto (URL)</label>
+              <input type="text" id="banner-icon" placeholder="https://…" data-adm-ev="input" data-adm="renderBannerAdminPreview" />
+              <p class="form-hint">Vacío = usa el icono del proyecto. Se luce en el banner grueso de “próximo lanzamiento”.</p>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="banner-cta-label">Texto del botón</label>
+                <input type="text" id="banner-cta-label" maxlength="60" placeholder="Ver lanzamiento" data-adm-ev="input" data-adm="renderBannerAdminPreview" />
+              </div>
+              <div class="field-group">
+                <label for="banner-cta-url">Link del botón <span class="opt-tag">opcional</span></label>
+                <input type="text" id="banner-cta-url" placeholder="https://… (vacío = ficha del proyecto)" />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Visibilidad</label>
+              <div class="check-row">
+                <label class="check-item"><input type="checkbox" id="banner-active" checked /> Visible en el Hub</label>
+                <label class="check-item"><input type="checkbox" id="banner-force" /> ⚡ Forzar (aunque ya lo hayan cerrado)</label>
+              </div>
+            </div>
+            <div class="banner-adm-preview-wrap">
+              <span class="banner-adm-preview-label">Vista previa</span>
+              <div id="banner-adm-preview" class="banner-adm-preview"></div>
+            </div>
+            <div id="banner-alert" class="alert-box hidden"></div>
+            <button type="submit" class="btn btn-primary btn-block" id="btn-save-banner">📣 Crear banner</button>
+            <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-banner" data-adm-ev="click" data-adm="resetBannerForm">Cancelar edición</button>
+          </form>
+        </div>
+        <div class="glass-card list-card">
+          <div class="card-head">
+            <div class="card-head-text">
+              <h3 class="form-title">Banners configurados</h3>
+              <p class="form-hint">El Hub muestra uno a la vez: forzado → lanzamiento → próximo lanzamiento.</p>
+            </div>
+          </div>
+          <div id="banners-list" class="admin-list"><p class="loading-note">Cargando…</p></div>
         </div>
       </div>
     </div>
@@ -2430,7 +2530,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="../ows-api-failover.js?v=1"></script>
-  <script src="admin-app.js?v=12"></script>
+  <script src="admin-app.js?v=13"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

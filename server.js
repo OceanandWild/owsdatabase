@@ -17949,7 +17949,23 @@ app.post('/ows-launch-projects', async (req, res) => {
     } catch (e) {
       console.error('[celebrations] bienvenida falló:', e?.message || e);
     }
-    return res.status(201).json({ success: true, project: mapOwsLaunchProjectRow(rows[0] || {}, null, { includeChecklist: true }), celebration: birthCelebration });
+    // Si nace ya lanzado y público, el banner del Hub aparece igual.
+    let birthBanner = null;
+    if (String(rows[0]?.status || '').toLowerCase() === 'launched' && !adminOnly) {
+      try {
+        birthBanner = await createReleaseBannerOnce({
+          projectId: Number(rows[0].id), createdBy: adminName, metadata: { birth: true }
+        });
+      } catch (e) {
+        console.error('[banners] lanzamiento inicial falló:', e?.message || e);
+      }
+    }
+    return res.status(201).json({
+      success: true,
+      project: mapOwsLaunchProjectRow(rows[0] || {}, null, { includeChecklist: true }),
+      celebration: birthCelebration,
+      release_banner: birthBanner
+    });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Ya existe un proyecto OWS con ese slug' });
@@ -18072,7 +18088,29 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
     } catch (e) {
       console.error('[celebrations] entrada a catálogo falló:', e?.message || e);
     }
-    return res.json({ success: true, project: mapOwsLaunchProjectRow(rows[0], null, { includeChecklist: true }), celebration: catalogCelebration });
+    // Banner público del Hub: se crea solo al pasar a "Lanzado". El Admin
+    // puede editarlo después desde su pestaña; si ya existía, no se duplica.
+    let releaseBanner = null;
+    try {
+      const wasLaunched = String(prevRow?.status || '').toLowerCase() === 'launched';
+      const isLaunched = String(rows[0]?.status || '').toLowerCase() === 'launched';
+      if (!wasLaunched && isLaunched) {
+        releaseBanner = await createReleaseBannerOnce({
+          projectId: Number(rows[0].id),
+          createdBy: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild'
+        });
+        // El anuncio de "llega pronto" ya cumplió su función.
+        try { await deactivateUpcomingReleaseBanners(Number(rows[0].id)); } catch (_) {}
+      }
+    } catch (e) {
+      console.error('[banners] lanzamiento falló:', e?.message || e);
+    }
+    return res.json({
+      success: true,
+      project: mapOwsLaunchProjectRow(rows[0], null, { includeChecklist: true }),
+      celebration: catalogCelebration,
+      release_banner: releaseBanner
+    });
   } catch (err) {
     console.error('Error en PATCH /ows-launch-projects/:id:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -19955,6 +19993,432 @@ app.delete('/ows-celebrations/:id', async (req, res) => {
     return res.json({ success: true, deleted: Number(rowCount) });
   } catch (err) {
     console.error('Error en DELETE /ows-celebrations/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ═══════════════════════════════════════════════
+// BANNERS DE LANZAMIENTO — aviso público del Hub
+// Tabla: ows_release_banners (1 fila por proyecto + tipo).
+//   kind='release'  → banner delgado: el proyecto YA salió.
+//   kind='upcoming' → banner grueso: llegada anunciada con fecha + icono.
+// El release se crea solo cuando un proyecto pasa a estado 'launched'.
+// El Admin puede editar, activar/desactivar, forzar (force_show) o borrar.
+// Lectura pública (solo banners de proyectos visibles); escritura solo-admin.
+// ═══════════════════════════════════════════════
+let owsReleaseBannersReady = false;
+
+const OWS_RELEASE_BANNER_KINDS = new Set(['release', 'upcoming']);
+
+function normalizeReleaseBannerKind(value, fallback = 'release') {
+  const raw = String(value || '').trim().toLowerCase();
+  if (OWS_RELEASE_BANNER_KINDS.has(raw)) return raw;
+  return fallback;
+}
+
+function normalizeReleaseBannerDate(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const raw = String(value || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(raw + 'T00:00:00Z');
+  if (Number.isNaN(d.getTime())) return null;
+  return raw;
+}
+
+function normalizeReleaseBannerEndsAt(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+async function ensureOwsReleaseBannersTable() {
+  if (owsReleaseBannersReady) return;
+  await ensureOwsLaunchProjectsTable();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ows_release_banners (
+      id             BIGSERIAL PRIMARY KEY,
+      kind           VARCHAR(20) NOT NULL DEFAULT 'release',
+      project_id     BIGINT REFERENCES ows_launch_projects(id) ON DELETE CASCADE,
+      project_slug   TEXT NOT NULL DEFAULT '',
+      project_name   TEXT NOT NULL DEFAULT '',
+      title          TEXT NOT NULL DEFAULT '',
+      message        TEXT NOT NULL DEFAULT '',
+      icon_url       TEXT NOT NULL DEFAULT '',
+      release_date   DATE,
+      cta_label      TEXT NOT NULL DEFAULT '',
+      cta_url        TEXT NOT NULL DEFAULT '',
+      is_active      BOOLEAN NOT NULL DEFAULT TRUE,
+      force_show     BOOLEAN NOT NULL DEFAULT FALSE,
+      ends_at        TIMESTAMPTZ,
+      created_by     TEXT NOT NULL DEFAULT 'OceanandWild',
+      metadata       JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_banners_kind ON ows_release_banners(kind)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_banners_project ON ows_release_banners(project_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_banners_active ON ows_release_banners(is_active, created_at DESC)');
+  // Un banner de cada tipo por proyecto: el release se crea una sola vez y
+  // luego el Admin lo edita (no se duplica al volver a pasar por 'launched').
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS ux_ows_banners_project_kind ON ows_release_banners(project_id, kind)');
+  owsReleaseBannersReady = true;
+}
+
+function releaseBannerDefaults(kind, project = {}) {
+  const name = String(project?.name || '').trim() || 'el proyecto';
+  const desc = String(project?.description || '').trim();
+  const date = normalizeReleaseBannerDate(project?.confirmed_date || project?.expected_date || '');
+  if (kind === 'upcoming') {
+    return {
+      title: `⏳ ${name} llega pronto`,
+      message: desc || `${name} ya tiene fecha de llegada al Hub.`,
+      cta_label: 'Ver proyecto',
+      release_date: date
+    };
+  }
+  return {
+    title: `🎉 ${name} ya está disponible`,
+    message: desc || `El lanzamiento de ${name} ya está en el Hub.`,
+    cta_label: 'Ver lanzamiento',
+    release_date: date
+  };
+}
+
+function sanitizeReleaseBannerRow(r) {
+  let meta = {};
+  try { meta = (r?.metadata && typeof r.metadata === 'object') ? r.metadata : JSON.parse(String(r?.metadata || '{}')); } catch (_) { meta = {}; }
+  return {
+    id: Number(r?.id || 0),
+    kind: normalizeReleaseBannerKind(r?.kind, 'release'),
+    project_id: r?.project_id != null ? Number(r.project_id) : null,
+    project_slug: String(r?.project_slug || ''),
+    project_name: String(r?.project_name || ''),
+    title: String(r?.title || ''),
+    message: String(r?.message || ''),
+    icon_url: String(r?.icon_url || ''),
+    release_date: r?.release_date ? normalizeReleaseBannerDate(r.release_date) : null,
+    cta_label: String(r?.cta_label || ''),
+    cta_url: String(r?.cta_url || ''),
+    is_active: r?.is_active === true,
+    force_show: r?.force_show === true,
+    ends_at: r?.ends_at ? new Date(r.ends_at).toISOString() : null,
+    created_by: String(r?.created_by || 'OceanandWild'),
+    metadata: meta,
+    created_at: r?.created_at ? new Date(r.created_at).toISOString() : null,
+    updated_at: r?.updated_at ? new Date(r.updated_at).toISOString() : null
+  };
+}
+
+// Crea (una sola vez por proyecto) el banner de release. Devuelve la fila
+// existente si ya estaba creado: así una edición del Admin no se pisa.
+async function createReleaseBannerOnce({ projectId = null, createdBy = 'OceanandWild', metadata = {} } = {}) {
+  const pid = Number(projectId);
+  if (!Number.isFinite(pid) || pid <= 0) return null;
+  await ensureOwsLaunchProjectsTable();
+  await ensureOwsReleaseBannersTable();
+  const { rows: projRows } = await pool.query(
+    'SELECT id, slug, name, description, icon_url, confirmed_date, expected_date FROM ows_launch_projects WHERE id = $1 LIMIT 1',
+    [pid]
+  );
+  if (!projRows.length) return null;
+  const p = projRows[0];
+  const { rows: existing } = await pool.query(
+    "SELECT * FROM ows_release_banners WHERE project_id = $1 AND kind = 'release' LIMIT 1",
+    [pid]
+  );
+  if (existing.length) return sanitizeReleaseBannerRow(existing[0]);
+  const def = releaseBannerDefaults('release', p);
+  const by = String(createdBy || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+  const { rows } = await pool.query(
+    `INSERT INTO ows_release_banners
+       (kind, project_id, project_slug, project_name, title, message, icon_url, release_date,
+        cta_label, cta_url, is_active, force_show, ends_at, created_by, metadata)
+     VALUES ('release', $1, $2, $3, $4, $5, $6, $7, $8, '', TRUE, FALSE, NOW() + INTERVAL '30 days', $9, $10::jsonb)
+     ON CONFLICT (project_id, kind) DO NOTHING
+     RETURNING *`,
+    [pid, String(p.slug || ''), String(p.name || ''), def.title, def.message,
+      String(p.icon_url || ''), def.release_date, def.cta_label, by,
+      JSON.stringify({ ...(metadata && typeof metadata === 'object' ? metadata : {}), auto: true })]
+  );
+  if (!rows.length) {
+    const { rows: again } = await pool.query(
+      "SELECT * FROM ows_release_banners WHERE project_id = $1 AND kind = 'release' LIMIT 1",
+      [pid]
+    );
+    return again.length ? sanitizeReleaseBannerRow(again[0]) : null;
+  }
+  const created = sanitizeReleaseBannerRow(rows[0]);
+  try {
+    logAdminActivity({
+      action: 'banner', entityType: 'launch_project', entityId: String(p.slug || pid),
+      entityName: String(p.name || ''), adminName: by,
+      meta: { kind: 'release', banner_id: created.id, auto: true }
+    });
+  } catch (_) { /* no bloquea */ }
+  return created;
+}
+
+// Al lanzarse un proyecto, el anuncio de "llega pronto" ya no aplica.
+async function deactivateUpcomingReleaseBanners(projectId) {
+  const pid = Number(projectId);
+  if (!Number.isFinite(pid) || pid <= 0) return 0;
+  await ensureOwsReleaseBannersTable();
+  const { rowCount } = await pool.query(
+    "UPDATE ows_release_banners SET is_active = FALSE, updated_at = NOW() WHERE project_id = $1 AND kind = 'upcoming' AND is_active = TRUE",
+    [pid]
+  );
+  return Number(rowCount || 0);
+}
+
+async function resolveReleaseBannerProject({ projectId = 0, slug = '' } = {}) {
+  await ensureOwsLaunchProjectsTable();
+  let pid = Number(projectId);
+  if (Number.isFinite(pid) && pid > 0) {
+    const { rows } = await pool.query(
+      'SELECT id, slug, name, description, icon_url, confirmed_date, expected_date FROM ows_launch_projects WHERE id = $1 LIMIT 1',
+      [pid]
+    );
+    return rows[0] || null;
+  }
+  const cleanSlug = normalizeProjectSlug(slug);
+  if (!cleanSlug) return null;
+  const { rows } = await pool.query(
+    'SELECT id, slug, name, description, icon_url, confirmed_date, expected_date FROM ows_launch_projects WHERE LOWER(slug) = LOWER($1) LIMIT 1',
+    [cleanSlug]
+  );
+  return rows[0] || null;
+}
+
+// Público: banners activos de proyectos visibles. El Hub elige uno solo
+// (forzado → release → upcoming). Los 'upcoming' vencidos se ocultan solos.
+app.get('/ows-release-banners', async (req, res) => {
+  try {
+    await ensureOwsReleaseBannersTable();
+    const { rows } = await pool.query(`
+      SELECT b.*, p.icon_url AS project_icon_url
+        FROM ows_release_banners b
+        JOIN ows_launch_projects p ON p.id = b.project_id
+       WHERE b.is_active = TRUE
+         AND p.is_active = TRUE
+         AND COALESCE(p.admin_only, FALSE) = FALSE
+         AND (b.ends_at IS NULL OR b.ends_at > NOW())
+         AND (b.kind <> 'upcoming' OR b.release_date IS NULL OR b.release_date >= CURRENT_DATE - 1)
+       ORDER BY b.force_show DESC,
+                CASE WHEN b.kind = 'release' THEN 0 ELSE 1 END,
+                b.created_at DESC
+       LIMIT 20
+    `);
+    return res.json({
+      success: true,
+      banners: rows.map((r) => ({
+        ...sanitizeReleaseBannerRow(r),
+        icon_url: String(r.icon_url || r.project_icon_url || '')
+      }))
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-release-banners:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listar TODOS los banners (solo-admin), incluidos inactivos/forzados.
+app.get('/ows-release-banners/admin', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const kind = String(req.query?.kind || '').trim().toLowerCase();
+  const projectId = Number(req.query?.project_id || 0);
+  const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 100) || 100));
+  try {
+    await ensureOwsReleaseBannersTable();
+    const where = [];
+    const params = [];
+    if (OWS_RELEASE_BANNER_KINDS.has(kind)) { params.push(kind); where.push(`b.kind = $${params.length}`); }
+    if (Number.isFinite(projectId) && projectId > 0) { params.push(projectId); where.push(`b.project_id = $${params.length}`); }
+    params.push(limit);
+    const { rows } = await pool.query(
+      `SELECT b.*, p.icon_url AS project_icon_url, p.status AS project_status, p.admin_only AS project_admin_only
+         FROM ows_release_banners b
+         LEFT JOIN ows_launch_projects p ON p.id = b.project_id
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY b.force_show DESC, b.created_at DESC, b.id DESC
+        LIMIT $${params.length}`,
+      params
+    );
+    return res.json({
+      success: true,
+      banners: rows.map((r) => ({
+        ...sanitizeReleaseBannerRow(r),
+        icon_url: String(r.icon_url || r.project_icon_url || ''),
+        project_icon_url: String(r.project_icon_url || ''),
+        project_status: String(r.project_status || ''),
+        project_admin_only: r.project_admin_only === true
+      }))
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-release-banners/admin:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear banner manual (solo-admin). Body: { kind, project_id|slug, title?, ... }
+app.post('/ows-release-banners', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const kind = normalizeReleaseBannerKind(req.body?.kind, '');
+  if (!OWS_RELEASE_BANNER_KINDS.has(kind)) {
+    return res.status(400).json({ error: "kind inválido (release | upcoming)" });
+  }
+  try {
+    const project = await resolveReleaseBannerProject({
+      projectId: req.body?.project_id ?? req.body?.projectId ?? 0,
+      slug: req.body?.slug || req.body?.project_slug || ''
+    });
+    if (!project) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    await ensureOwsReleaseBannersTable();
+    const { rows: dup } = await pool.query(
+      'SELECT id FROM ows_release_banners WHERE project_id = $1 AND kind = $2 LIMIT 1',
+      [Number(project.id), kind]
+    );
+    if (dup.length) {
+      return res.status(409).json({
+        error: kind === 'release'
+          ? 'Ese proyecto ya tiene un banner de lanzamiento. Editalo en la lista.'
+          : 'Ese proyecto ya tiene un banner de "llega pronto". Editalo en la lista.',
+        banner_id: Number(dup[0].id)
+      });
+    }
+    const def = releaseBannerDefaults(kind, project);
+    const by = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim().slice(0, 120) || 'OceanandWild';
+    const releaseDate = normalizeReleaseBannerDate(req.body?.release_date ?? req.body?.releaseDate ?? def.release_date);
+    const endsAt = normalizeReleaseBannerEndsAt(req.body?.ends_at ?? req.body?.endsAt ?? '');
+    const { rows } = await pool.query(
+      `INSERT INTO ows_release_banners
+         (kind, project_id, project_slug, project_name, title, message, icon_url, release_date,
+          cta_label, cta_url, is_active, force_show, ends_at, created_by, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
+       RETURNING *`,
+      [
+        kind, Number(project.id), String(project.slug || ''), String(project.name || ''),
+        String(req.body?.title || '').trim().slice(0, 160) || def.title,
+        String(req.body?.message || '').trim().slice(0, 500) || def.message,
+        String(req.body?.icon_url ?? req.body?.iconUrl ?? project.icon_url ?? '').trim(),
+        releaseDate,
+        String(req.body?.cta_label ?? req.body?.ctaLabel ?? def.cta_label).trim().slice(0, 60),
+        sanitizePublicHttpUrl(req.body?.cta_url ?? req.body?.ctaUrl ?? ''),
+        normalizeNewsBoolean(req.body?.is_active ?? req.body?.isActive, true),
+        normalizeNewsBoolean(req.body?.force_show ?? req.body?.forceShow, false),
+        endsAt,
+        by,
+        JSON.stringify({ manual: true, ...(req.body?.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : {}) })
+      ]
+    );
+    const created = sanitizeReleaseBannerRow(rows[0]);
+    try {
+      logAdminActivity({
+        action: 'banner', entityType: 'launch_project', entityId: String(project.slug || project.id),
+        entityName: String(project.name || ''), adminName: by,
+        meta: { kind, banner_id: created.id, manual: true }
+      });
+    } catch (_) { /* no bloquea */ }
+    return res.status(201).json({ success: true, banner: created });
+  } catch (err) {
+    console.error('Error en POST /ows-release-banners:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar banner (solo-admin). Todos los campos son opcionales.
+app.patch('/ows-release-banners/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id inválido' });
+  try {
+    await ensureOwsReleaseBannersTable();
+    const updates = {};
+    if (req.body?.kind !== undefined) {
+      const kind = normalizeReleaseBannerKind(req.body.kind, '');
+      if (!OWS_RELEASE_BANNER_KINDS.has(kind)) return res.status(400).json({ error: 'kind inválido' });
+      updates.kind = kind;
+    }
+    if (req.body?.title !== undefined) updates.title = String(req.body.title).trim().slice(0, 160);
+    if (req.body?.message !== undefined) updates.message = String(req.body.message).trim().slice(0, 500);
+    if (req.body?.icon_url !== undefined || req.body?.iconUrl !== undefined) {
+      updates.icon_url = String(req.body.icon_url ?? req.body.iconUrl ?? '').trim();
+    }
+    if (req.body?.release_date !== undefined || req.body?.releaseDate !== undefined) {
+      updates.release_date = normalizeReleaseBannerDate(req.body.release_date ?? req.body.releaseDate);
+    }
+    if (req.body?.cta_label !== undefined || req.body?.ctaLabel !== undefined) {
+      updates.cta_label = String(req.body.cta_label ?? req.body.ctaLabel ?? '').trim().slice(0, 60);
+    }
+    if (req.body?.cta_url !== undefined || req.body?.ctaUrl !== undefined) {
+      updates.cta_url = sanitizePublicHttpUrl(req.body.cta_url ?? req.body.ctaUrl ?? '');
+    }
+    if (req.body?.is_active !== undefined || req.body?.isActive !== undefined) {
+      updates.is_active = normalizeNewsBoolean(req.body.is_active ?? req.body.isActive, true);
+    }
+    if (req.body?.force_show !== undefined || req.body?.forceShow !== undefined) {
+      updates.force_show = normalizeNewsBoolean(req.body.force_show ?? req.body.forceShow, false);
+    }
+    if (req.body?.ends_at !== undefined || req.body?.endsAt !== undefined) {
+      updates.ends_at = normalizeReleaseBannerEndsAt(req.body.ends_at ?? req.body.endsAt ?? '');
+    }
+    // Cambiar de proyecto: se refrescan slug/nombre/icono desde la ficha.
+    if (req.body?.project_id !== undefined || req.body?.projectId !== undefined || req.body?.slug !== undefined) {
+      const project = await resolveReleaseBannerProject({
+        projectId: req.body?.project_id ?? req.body?.projectId ?? 0,
+        slug: req.body?.slug || req.body?.project_slug || ''
+      });
+      if (!project) return res.status(404).json({ error: 'Proyecto no encontrado' });
+      updates.project_id = Number(project.id);
+      updates.project_slug = String(project.slug || '');
+      updates.project_name = String(project.name || '');
+      if (req.body?.icon_url === undefined && req.body?.iconUrl === undefined) {
+        updates.icon_url = String(project.icon_url || '');
+      }
+    }
+    const keys = Object.keys(updates);
+    if (!keys.length) return res.status(400).json({ error: 'No hay campos válidos para actualizar' });
+    const setSql = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const { rows } = await pool.query(
+      `UPDATE ows_release_banners SET ${setSql}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [id, ...keys.map((k) => updates[k])]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Banner no encontrado' });
+    const banner = sanitizeReleaseBannerRow(rows[0]);
+    try {
+      logAdminActivity({
+        action: 'edit', entityType: 'release_banner', entityId: String(id),
+        entityName: banner.title,
+        adminName: String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild',
+        meta: { fields: keys, force_show: banner.force_show, is_active: banner.is_active }
+      });
+    } catch (_) { /* no bloquea */ }
+    return res.json({ success: true, banner });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ya existe un banner de ese tipo para el proyecto' });
+    }
+    console.error('Error en PATCH /ows-release-banners/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Borrar banner (solo-admin).
+app.delete('/ows-release-banners/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id inválido' });
+  try {
+    await ensureOwsReleaseBannersTable();
+    const { rowCount } = await pool.query('DELETE FROM ows_release_banners WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Banner no encontrado' });
+    return res.json({ success: true, deleted: Number(rowCount) });
+  } catch (err) {
+    console.error('Error en DELETE /ows-release-banners/:id:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

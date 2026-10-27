@@ -1225,6 +1225,9 @@ function showDashboard() {
   try { syncNavProfile(); } catch (_) {}
   // Avisos de eventos, noticias y lanzamientos mientras el Hub esté abierto.
   try { startOwsContentNotifs(); } catch (_) {}
+  // Banner de lanzamiento / próximo lanzamiento (arriba del contenido).
+  try { loadOwsReleaseBanner(); } catch (_) {}
+  try { startOwsReleaseBannerRefresh(); } catch (_) {}
   // Re-aplica la vista actual al entrar (deep-link / última vista / Inicio)
   try {
     const fromHash = resolveOwsView(window.location.hash);
@@ -6200,6 +6203,161 @@ function stopOwsContentNotifs() {
   if (owsContentTickTimer) { clearInterval(owsContentTickTimer); owsContentTickTimer = 0; }
   owsContentPolling = false;
   owsContentLastPoll = 0;
+}
+
+// ═══════════════════════════════════════════════
+// BANNER DE LANZAMIENTOS — release (delgado) / upcoming (grueso)
+// GET /ows-release-banners → se muestra uno a la vez:
+//   force_show → release → upcoming.
+// El release lo crea el backend al pasar un proyecto a "Lanzado" y el
+// Admin puede ajustarlo/forzarlo. La X de la izquierda lo cierra:
+//   - banner normal   → no vuelve hasta que el Admin lo edite.
+//   - banner forzado  → se oculta en esta visita y reaparece al recargar.
+// ═══════════════════════════════════════════════
+const OWS_BANNER_KEY = 'ows_release_banner_v1';
+let owsReleaseBanners = [];
+let owsReleaseBannersCurrent = null;
+let owsReleaseBannersLoading = false;
+let owsReleaseBannerBound = false;
+const owsBannerForceHidden = {};
+
+function owsBannerUser() {
+  return String((currentUser && (currentUser.username || currentUser.id)) || 'invitado').trim().toLowerCase();
+}
+
+function owsBannerStorageKey(banner) {
+  const id = banner && banner.id != null ? String(banner.id) : '0';
+  const stamp = String((banner && banner.updated_at) || '');
+  return OWS_BANNER_KEY + '::' + owsBannerUser() + '::' + id + '::' + stamp;
+}
+
+function owsBannerDismissed(banner) {
+  if (!banner) return true;
+  const key = owsBannerStorageKey(banner);
+  if (banner.force_show) return !!owsBannerForceHidden[key];
+  try { return localStorage.getItem(key) === '1'; } catch (_) { return false; }
+}
+
+function owsBannerDismiss(banner) {
+  if (!banner) return;
+  const key = owsBannerStorageKey(banner);
+  if (banner.force_show) owsBannerForceHidden[key] = true;
+  else { try { localStorage.setItem(key, '1'); } catch (_) {} }
+  const host = document.getElementById('hub-release-banner');
+  if (host) { host.innerHTML = ''; host.classList.add('hidden'); }
+}
+
+function owsBannerPick(list) {
+  const items = (Array.isArray(list) ? list : [])
+    .filter((b) => b && b.is_active !== false && (b.title || b.project_name));
+  const visible = items.filter((b) => !owsBannerDismissed(b));
+  return visible.find((b) => b.force_show)
+    || visible.find((b) => b.kind === 'release')
+    || visible.find((b) => b.kind === 'upcoming')
+    || null;
+}
+
+function owsBannerDateLabel(value) {
+  const raw = String(value || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
+  try {
+    const d = new Date(raw + 'T00:00:00');
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/\./g, '');
+  } catch (_) { return raw; }
+}
+
+function owsBannerOpen(banner) {
+  if (!banner) return;
+  const url = safeHttpUrl(banner.cta_url || '');
+  if (url) {
+    try { window.open(url, '_blank', 'noopener'); } catch (_) {}
+    return;
+  }
+  const slug = String(banner.project_slug || '').trim();
+  if (!slug) return;
+  try { showOwsSection('sec-lanzamientos'); } catch (_) {}
+  let tries = 10;
+  const attempt = () => {
+    const proj = (typeof releasesCache !== 'undefined' ? releasesCache : [])
+      .find((x) => String(x.slug) === slug);
+    if (proj) { try { openReleaseModal(proj); } catch (_) {} return; }
+    if (tries-- <= 0) return;
+    setTimeout(attempt, 350);
+  };
+  setTimeout(attempt, 240);
+}
+
+function renderOwsReleaseBanner() {
+  const host = document.getElementById('hub-release-banner');
+  if (!host) return;
+  if (!owsReleaseBannerBound) {
+    owsReleaseBannerBound = true;
+    host.addEventListener('click', (e) => {
+      if (e.target.closest('[data-hub-banner-close]')) {
+        e.preventDefault();
+        owsBannerDismiss(owsReleaseBannersCurrent);
+        return;
+      }
+      if (e.target.closest('[data-hub-banner-cta]')) {
+        e.preventDefault();
+        owsBannerOpen(owsReleaseBannersCurrent);
+      }
+    });
+  }
+  const banner = owsBannerPick(owsReleaseBanners);
+  owsReleaseBannersCurrent = banner;
+  if (!banner) { host.innerHTML = ''; host.classList.add('hidden'); return; }
+  const upcoming = banner.kind === 'upcoming';
+  const icon = safeHttpUrl(banner.icon_url || '');
+  const dateLabel = upcoming ? owsBannerDateLabel(banner.release_date) : '';
+  const hasCta = !!(safeHttpUrl(banner.cta_url || '') || String(banner.project_slug || '').trim());
+  const title = String(banner.title || banner.project_name || 'Nuevo lanzamiento');
+  const message = String(banner.message || '');
+  const projectName = String(banner.project_name || '');
+  host.innerHTML = `
+    <div class="hub-banner ${upcoming ? 'hub-banner-upcoming' : 'hub-banner-release'}${banner.force_show ? ' is-forced' : ''}">
+      <button type="button" class="hub-banner-x" data-hub-banner-close aria-label="Cerrar aviso" title="Cerrar">✕</button>
+      ${upcoming && icon
+        ? `<img class="hub-banner-icon" src="${escapeHtml(icon)}" alt="${escapeHtml(projectName)}" loading="lazy" />`
+        : `<span class="hub-banner-emoji" aria-hidden="true">${upcoming ? '⏳' : '🎉'}</span>`}
+      <div class="hub-banner-main">
+        <span class="hub-banner-kicker">${upcoming ? 'Próximo lanzamiento' : 'Nuevo lanzamiento'}${banner.force_show ? ' · Destacado' : ''}</span>
+        <span class="hub-banner-title">${escapeHtml(title)}</span>
+        ${message ? `<span class="hub-banner-msg">${escapeHtml(message)}</span>` : ''}
+      </div>
+      ${dateLabel ? `<span class="hub-banner-date"><small>Llega</small>🗓️ ${escapeHtml(dateLabel)}</span>` : ''}
+      ${hasCta ? `<button type="button" class="hub-banner-cta" data-hub-banner-cta>${escapeHtml(banner.cta_label || (upcoming ? 'Ver proyecto' : 'Ver lanzamiento'))} →</button>` : ''}
+    </div>`;
+  host.classList.remove('hidden');
+}
+
+async function loadOwsReleaseBanner() {
+  if (owsReleaseBannersLoading) return;
+  owsReleaseBannersLoading = true;
+  try {
+    const res = await fetch(API_BASE + '/ows-release-banners', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    owsReleaseBanners = Array.isArray(data.banners) ? data.banners : [];
+    renderOwsReleaseBanner();
+  } catch (err) {
+    console.warn('[OWS] No se pudo cargar el banner de lanzamientos:', err);
+  } finally {
+    owsReleaseBannersLoading = false;
+  }
+}
+
+function startOwsReleaseBannerRefresh() {
+  if (startOwsReleaseBannerRefresh.bound) return;
+  startOwsReleaseBannerRefresh.bound = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const dash = document.getElementById('dashboard-section');
+    if (dash && !dash.classList.contains('hidden')) {
+      try { loadOwsReleaseBanner(); } catch (_) {}
+    }
+  });
 }
 
 function initOwsSettings() {

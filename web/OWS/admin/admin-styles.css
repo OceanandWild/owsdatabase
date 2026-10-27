@@ -5385,3 +5385,94 @@ input.is-expected {
   .newsmodals-group-head { align-items: flex-start; }
   .newsmodal-row .ev-card-actions { flex-basis: 100%; padding-left: 46px; }
 }
+
+/* ── Banners de lanzamiento (pestaña Banners) ─────────────── */
+.status-forced {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+.admin-item.banner-item-forced {
+  border-color: rgba(245, 158, 11, 0.55);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.08) inset;
+}
+.admin-item-chips {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.admin-item-thumb.banner-icon-wrap {
+  width: 50px; height: 50px; border-radius: 12px;
+  position: relative; font-size: 1.15rem;
+  background: rgba(168, 85, 247, 0.14);
+}
+.admin-item-thumb.banner-icon-wrap img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; background: rgba(8, 0, 16, 0.92);
+  border: 1px solid var(--gold-border); border-radius: 12px;
+  padding: 4px; z-index: 1;
+}
+.banner-adm-preview-wrap { margin: 4px 0 14px; }
+.banner-adm-preview-label {
+  display: block; margin-bottom: 6px;
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.banner-adm-preview {
+  padding: 10px; border-radius: 12px;
+  background: rgba(4, 0, 10, 0.55); border: 1px dashed var(--gold-border);
+}
+.banner-adm-banner {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 9px; border-radius: 11px;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  background: linear-gradient(120deg, rgba(37, 10, 64, 0.95), rgba(15, 4, 28, 0.95));
+}
+.banner-adm-banner.is-upcoming {
+  padding: 10px;
+  border-color: rgba(167, 139, 250, 0.45);
+  background: linear-gradient(120deg, rgba(46, 16, 90, 0.96), rgba(18, 6, 36, 0.96));
+}
+.banner-adm-x {
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.04);
+}
+.banner-adm-emoji {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; background: rgba(245, 158, 11, 0.14);
+  border: 1px solid var(--gold-border);
+}
+.banner-adm-icon {
+  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 10px;
+  object-fit: cover; border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.banner-adm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.banner-adm-kicker {
+  font-size: 0.5rem; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold);
+}
+.banner-adm-banner.is-upcoming .banner-adm-kicker { color: #c4b5fd; }
+.banner-adm-main b {
+  font-size: 0.76rem; color: var(--text-main); line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.banner-adm-banner.is-upcoming .banner-adm-main b { font-size: 0.84rem; white-space: normal; }
+.banner-adm-main small {
+  font-size: 0.66rem; color: var(--text-muted); line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.banner-adm-date {
+  flex: 0 0 auto; padding: 3px 7px; border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.42); background: rgba(91, 33, 182, 0.22);
+  color: #ddd6fe; font-size: 0.62rem; font-weight: 700; white-space: nowrap;
+}
+.banner-adm-cta {
+  flex: 0 0 auto; padding: 4px 8px; border-radius: 999px;
+  background: var(--gold-light); color: #1a0b00;
+  font-size: 0.62rem; font-weight: 800; white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .banner-adm-banner { flex-wrap: wrap; }
+  .banner-adm-cta { display: none; }
+}

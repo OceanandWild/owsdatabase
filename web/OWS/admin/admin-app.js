@@ -633,7 +633,7 @@ function revealAdminTab(el) {
 
 function switchAdminTab(tab) {
   try { closeFormModal(); } catch (_) {}
-  ['news', 'events', 'projects', 'manage', 'incidents', 'reports', 'users'].forEach((t) => {
+  ['news', 'events', 'projects', 'banners', 'manage', 'incidents', 'reports', 'users'].forEach((t) => {
     const pane = document.getElementById(`tab-${t}`);
     const btn = document.getElementById(`ptab-${t}`);
     if (pane) pane.classList.toggle('hidden', t !== tab);
@@ -644,6 +644,7 @@ function switchAdminTab(tab) {
   // Proyectos y Gestión siempre estén sincronizados (admin_only, etc.)
   if (tab === 'manage') { loadAdminManage(); loadProjectDevelopment(); loadDevlogs(); loadProjectActivity(); loadWorkSessions(); loadWsDaily(); loadCelebrations(); }
   if (tab === 'projects') { loadAdminProjects(); loadProjectDevelopment(); }
+  if (tab === 'banners') loadBanners();
   if (tab === 'events') {
     loadAdminEvents();
     if (adminSubState.events === 'popups') loadEventPopups();
@@ -2011,6 +2012,322 @@ function euphoriaGotoCelebs() {
   closeEuphoriaOverlay();
   switchAdminTab('manage');
   switchAdminSub('manage', 'hitos');
+}
+
+// =======================================================
+// BANNERS DE LANZAMIENTO — aviso público de OWS Hub
+// GET/POST/PATCH/DELETE /ows-release-banners (solo-admin).
+//  - release: se crea solo al pasar un proyecto a Lanzado.
+//  - upcoming: se anuncia con fecha e icono antes del lanzamiento.
+// El Hub muestra uno a la vez: forzado → release → upcoming.
+// =======================================================
+
+let bannersCache = [];
+let bannerProjectsCache = [];
+let editingBannerId = null;
+let bannersLoadedOnce = false;
+
+function bannerKindMeta(kind) {
+  return kind === 'upcoming'
+    ? { icon: '⏳', label: 'Próximo lanzamiento', cls: 'status-from-projects' }
+    : { icon: '🎉', label: 'Lanzamiento', cls: 'status-on' };
+}
+
+function bannerAdminDate(value) {
+  return fmtProjectCreatedDay(String(value || '').slice(0, 10));
+}
+
+function populateBannerProjectOptions(selectedId) {
+  const sel = document.getElementById('banner-project');
+  if (!sel) return;
+  const current = selectedId != null ? String(selectedId) : String(sel.value || '');
+  const opts = ['<option value="">— Elegí un proyecto —</option>']
+    .concat(bannerProjectsCache.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}${p.slug ? ` (${escapeHtml(p.slug)})` : ''}</option>`));
+  sel.innerHTML = opts.join('');
+  if (current && bannerProjectsCache.some((p) => String(p.id) === current)) sel.value = current;
+}
+
+async function loadBanners() {
+  const list = document.getElementById('banners-list');
+  if (!list) return;
+  if (!bannersLoadedOnce) list.innerHTML = '<p class="loading-note">Cargando…</p>';
+  try {
+    const [resB, resP] = await Promise.all([
+      fetch(API_BASE + '/ows-release-banners/admin', { headers: adminHeaders() }),
+      fetch(API_BASE + '/ows-launch-projects?include_hidden=1', { headers: adminHeaders() })
+    ]);
+    const dataB = await resB.json().catch(() => ({}));
+    if (!resB.ok) throw new Error(dataB.error || `Error (${resB.status})`);
+    const dataP = await resP.json().catch(() => ({}));
+    bannersCache = Array.isArray(dataB.banners) ? dataB.banners : [];
+    bannerProjectsCache = (Array.isArray(dataP.projects) ? dataP.projects : [])
+      .filter((p) => !(p.admin_only === true || p.adminOnly === true));
+    bannersLoadedOnce = true;
+    populateBannerProjectOptions();
+    renderBannersList();
+    renderBannerAdminPreview();
+  } catch (err) {
+    list.innerHTML = `<p class="loading-note">⚠️ ${escapeHtml(err.message || 'No se pudieron cargar los banners')}</p>`;
+  }
+}
+
+function renderBannersList() {
+  const list = document.getElementById('banners-list');
+  if (!list) return;
+  if (!bannersCache.length) {
+    list.innerHTML = '<p class="loading-note">No hay banners todavía. Al pasar un proyecto a <b>Lanzado</b> se crea uno solo. También podés crear uno de <b>próximo lanzamiento</b> desde el formulario ←</p>';
+    return;
+  }
+  list.innerHTML = bannersCache.map((b) => {
+    const meta = bannerKindMeta(b.kind);
+    const icon = String(b.icon_url || '');
+    const thumb = `<div class="admin-item-thumb banner-icon-wrap">${b.kind === 'upcoming' ? '⏳' : '🎉'}${icon ? `<img src="${escapeHtml(icon)}" alt="" data-adm-err="rm" />` : ''}</div>`;
+    const chips = [
+      `<span class="status-pill ${meta.cls}">${meta.icon} ${meta.label}</span>`,
+      b.force_show ? '<span class="status-pill status-forced">⚡ Forzado</span>' : '',
+      b.is_active ? '' : '<span class="status-pill status-off">Oculto</span>'
+    ].filter(Boolean).join(' ');
+    const date = b.kind === 'upcoming' && b.release_date ? ` · 🗓️ ${bannerAdminDate(b.release_date)}` : '';
+    const ends = b.ends_at ? ` · hasta ${bannerAdminDate(b.ends_at)}` : '';
+    const msg = String(b.message || '').trim();
+    return `
+      <div class="admin-item${b.force_show ? ' banner-item-forced' : ''}">
+        ${thumb}
+        <div class="admin-item-info">
+          <span class="admin-item-title">${escapeHtml(b.title || 'Sin título')}</span>
+          <span class="admin-item-chips">${chips}</span>
+          <span class="admin-item-sub">${escapeHtml(b.project_name || b.project_slug || '—')}${date}${ends}</span>
+          ${msg ? `<span class="admin-item-desc" title="${escapeHtml(msg)}">📝 ${escapeHtml(msg)}</span>` : ''}
+        </div>
+        <div class="admin-item-actions">
+          <button class="btn btn-ghost btn-mini" title="${b.force_show ? 'Quitar forzado' : 'Forzar en el Hub'}" data-adm-ev="click" data-adm="toggleBannerForce" data-adm-a0="r:${b.id}" data-adm-a1="r:${b.force_show ? 'false' : 'true'}">${b.force_show ? '🔕' : '⚡'}</button>
+          <button class="btn btn-ghost btn-mini" title="${b.is_active ? 'Ocultar del Hub' : 'Mostrar en el Hub'}" data-adm-ev="click" data-adm="toggleBannerActive" data-adm-a0="r:${b.id}" data-adm-a1="r:${b.is_active ? 'false' : 'true'}">${b.is_active ? '👁️' : '🚫'}</button>
+          <button class="btn btn-ghost btn-mini" title="Editar banner" data-adm-ev="click" data-adm="editBanner" data-adm-a0="r:${b.id}">✏️</button>
+          <button class="btn btn-danger btn-mini" title="Eliminar banner" data-adm-ev="click" data-adm="deleteBanner" data-adm-a0="r:${b.id}">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function resetBannerForm() {
+  editingBannerId = null;
+  hideAlert('banner-alert');
+  ['banner-title', 'banner-message', 'banner-date', 'banner-ends', 'banner-icon', 'banner-cta-label', 'banner-cta-url'].forEach((elId) => {
+    const el = document.getElementById(elId);
+    if (el) el.value = '';
+  });
+  const sel = document.getElementById('banner-project');
+  if (sel) sel.value = '';
+  const kind = document.getElementById('banner-kind');
+  if (kind) kind.value = 'release';
+  const active = document.getElementById('banner-active');
+  if (active) active.checked = true;
+  const force = document.getElementById('banner-force');
+  if (force) force.checked = false;
+  const title = document.querySelector('[data-mform="banner"] > h3.form-title');
+  if (title) title.textContent = 'Nuevo banner';
+  const cancel = document.getElementById('btn-cancel-banner');
+  if (cancel) cancel.classList.add('hidden');
+  const save = document.getElementById('btn-save-banner');
+  if (save) save.textContent = '📣 Crear banner';
+  renderBannerAdminPreview();
+  try { closeFormModal(); } catch (_) {}
+}
+
+function openBannerForm(kind) {
+  resetBannerForm();
+  if (kind === 'upcoming') {
+    const sel = document.getElementById('banner-kind');
+    if (sel) sel.value = 'upcoming';
+  }
+  renderBannerAdminPreview();
+  openFormModal('banner');
+}
+
+function onBannerProjectChange() {
+  const sel = document.getElementById('banner-project');
+  const project = bannerProjectsCache.find((p) => String(p.id) === String(sel ? sel.value : ''));
+  if (!project) { renderBannerAdminPreview(); return; }
+  const kindEl = document.getElementById('banner-kind');
+  const kind = kindEl && kindEl.value === 'upcoming' ? 'upcoming' : 'release';
+  const name = String(project.name || 'el proyecto').trim() || 'el proyecto';
+  const desc = String(project.description || '').trim();
+  const set = (elId, value) => { const el = document.getElementById(elId); if (el) el.value = value; };
+  set('banner-title', kind === 'upcoming' ? `⏳ ${name} llega pronto` : `🎉 ${name} ya está disponible`);
+  set('banner-message', desc || (kind === 'upcoming'
+    ? `${name} ya tiene fecha de llegada al Hub.`
+    : `El lanzamiento de ${name} ya está en el Hub.`));
+  set('banner-icon', String(project.icon_url || ''));
+  set('banner-date', String(project.confirmed_date || project.expected_date || '').slice(0, 10));
+  set('banner-cta-label', kind === 'upcoming' ? 'Ver proyecto' : 'Ver lanzamiento');
+  renderBannerAdminPreview();
+}
+
+function onBannerKindChange() {
+  if (editingBannerId != null) {
+    const kindEl = document.getElementById('banner-kind');
+    const kind = kindEl && kindEl.value === 'upcoming' ? 'upcoming' : 'release';
+    const cta = document.getElementById('banner-cta-label');
+    if (cta && !cta.value.trim()) cta.value = kind === 'upcoming' ? 'Ver proyecto' : 'Ver lanzamiento';
+    renderBannerAdminPreview();
+    return;
+  }
+  onBannerProjectChange();
+}
+
+function renderBannerAdminPreview() {
+  const host = document.getElementById('banner-adm-preview');
+  if (!host) return;
+  const val = (elId) => { const el = document.getElementById(elId); return el ? String(el.value || '').trim() : ''; };
+  const kind = val('banner-kind') === 'upcoming' ? 'upcoming' : 'release';
+  const title = val('banner-title') || 'Título del banner';
+  const message = val('banner-message');
+  const iconRaw = val('banner-icon');
+  const icon = /^https?:\/\//i.test(iconRaw) ? iconRaw : '';
+  const date = kind === 'upcoming' ? bannerAdminDate(val('banner-date')) : '';
+  const cta = val('banner-cta-label') || (kind === 'upcoming' ? 'Ver proyecto' : 'Ver lanzamiento');
+  host.innerHTML = `
+    <div class="banner-adm-banner ${kind === 'upcoming' ? 'is-upcoming' : ''}">
+      <span class="banner-adm-x">✕</span>
+      ${kind === 'upcoming' && icon ? `<img class="banner-adm-icon" src="${escapeHtml(icon)}" alt="" />` : `<span class="banner-adm-emoji">${kind === 'upcoming' ? '⏳' : '🎉'}</span>`}
+      <span class="banner-adm-main">
+        <span class="banner-adm-kicker">${kind === 'upcoming' ? 'Próximo lanzamiento' : 'Nuevo lanzamiento'}</span>
+        <b>${escapeHtml(title)}</b>
+        ${message ? `<small>${escapeHtml(message)}</small>` : ''}
+      </span>
+      ${date ? `<span class="banner-adm-date">🗓️ ${escapeHtml(date)}</span>` : ''}
+      <span class="banner-adm-cta">${escapeHtml(cta)} →</span>
+    </div>`;
+}
+
+function editBanner(id) {
+  const b = bannersCache.find((x) => Number(x.id) === Number(id));
+  if (!b) return showToast('⚠️ Banner no encontrado');
+  editingBannerId = Number(id);
+  hideAlert('banner-alert');
+  populateBannerProjectOptions(b.project_id);
+  const set = (elId, value) => { const el = document.getElementById(elId); if (el) el.value = value; };
+  set('banner-project', b.project_id ? String(b.project_id) : '');
+  set('banner-kind', b.kind === 'upcoming' ? 'upcoming' : 'release');
+  set('banner-title', b.title || '');
+  set('banner-message', b.message || '');
+  set('banner-date', b.release_date ? String(b.release_date).slice(0, 10) : '');
+  set('banner-ends', b.ends_at ? String(b.ends_at).slice(0, 10) : '');
+  set('banner-icon', b.icon_url || '');
+  set('banner-cta-label', b.cta_label || '');
+  set('banner-cta-url', b.cta_url || '');
+  const active = document.getElementById('banner-active');
+  if (active) active.checked = b.is_active !== false;
+  const force = document.getElementById('banner-force');
+  if (force) force.checked = b.force_show === true;
+  const title = document.querySelector('[data-mform="banner"] > h3.form-title');
+  if (title) title.textContent = `Editando banner: ${b.project_name || b.title || '#' + id}`;
+  const cancel = document.getElementById('btn-cancel-banner');
+  if (cancel) cancel.classList.remove('hidden');
+  const save = document.getElementById('btn-save-banner');
+  if (save) save.textContent = '💾 Guardar cambios';
+  renderBannerAdminPreview();
+  openFormModal('banner');
+}
+
+async function saveBanner(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  hideAlert('banner-alert');
+  const val = (elId) => { const el = document.getElementById(elId); return el ? String(el.value || '').trim() : ''; };
+  const projectId = Number(val('banner-project'));
+  const title = val('banner-title');
+  if (!projectId) {
+    showAlert('banner-alert', 'Elegí el proyecto del banner.', 'error');
+    return;
+  }
+  if (!title) {
+    showAlert('banner-alert', 'El título del banner no puede estar vacío.', 'error');
+    document.getElementById('banner-title')?.focus();
+    return;
+  }
+  const ctaUrl = val('banner-cta-url');
+  if (ctaUrl && !/^https?:\/\//i.test(ctaUrl)) {
+    showAlert('banner-alert', 'El link del botón tiene que empezar con http:// o https://', 'error');
+    document.getElementById('banner-cta-url')?.focus();
+    return;
+  }
+  const editing = editingBannerId != null;
+  const btn = document.getElementById('btn-save-banner');
+  if (btn) { btn.disabled = true; btn.textContent = editing ? '💾 Guardando…' : '📣 Creando…'; }
+  try {
+    const endsRaw = val('banner-ends');
+    const body = {
+      kind: val('banner-kind') === 'upcoming' ? 'upcoming' : 'release',
+      project_id: projectId,
+      title,
+      message: val('banner-message'),
+      icon_url: val('banner-icon'),
+      release_date: val('banner-date') || null,
+      cta_label: val('banner-cta-label'),
+      cta_url: ctaUrl,
+      is_active: !!(document.getElementById('banner-active') || {}).checked,
+      force_show: !!(document.getElementById('banner-force') || {}).checked,
+      ends_at: endsRaw ? `${endsRaw}T23:59:59` : null
+    };
+    const res = await fetch(API_BASE + (editing ? `/ows-release-banners/${editingBannerId}` : '/ows-release-banners'), {
+      method: editing ? 'PATCH' : 'POST',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast(editing ? '✅ Banner actualizado' : '✅ Banner creado');
+    resetBannerForm();
+    loadBanners();
+  } catch (err) {
+    showAlert('banner-alert', err.message, 'error');
+    showToast('⚠️ ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = editing ? '💾 Guardar cambios' : '📣 Crear banner'; }
+  }
+}
+
+async function patchBanner(id, body, okMsg) {
+  try {
+    const res = await fetch(API_BASE + `/ows-release-banners/${id}`, {
+      method: 'PATCH',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    if (okMsg) showToast(okMsg);
+    loadBanners();
+  } catch (err) {
+    showToast('⚠️ ' + err.message);
+  }
+}
+
+function toggleBannerForce(id, state) {
+  const on = state === true || state === 'true';
+  return patchBanner(id, { force_show: on }, on ? '⚡ Banner forzado: aparecerá en el Hub' : 'Banner ya no está forzado');
+}
+
+function toggleBannerActive(id, state) {
+  const on = state === true || state === 'true';
+  return patchBanner(id, { is_active: on }, on ? 'Banner visible en el Hub' : 'Banner oculto del Hub');
+}
+
+async function deleteBanner(id) {
+  if (!confirm('¿Eliminar este banner? El Hub dejará de mostrarlo.')) return;
+  try {
+    const res = await fetch(API_BASE + `/ows-release-banners/${id}`, {
+      method: 'DELETE',
+      headers: adminHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast('Banner eliminado');
+    if (editingBannerId === Number(id)) resetBannerForm();
+    loadBanners();
+  } catch (err) {
+    showToast('⚠️ ' + err.message);
+  }
 }
 
 // =======================================================
@@ -14465,6 +14782,7 @@ const ADM_FORM_MODAL = {
   popup:    { eyebrow: 'Modales · Formulario', focus: 'popup-title', titleSel: '#popup-form-title' },
   preset:   { eyebrow: 'Presets · Formulario', focus: 'preset-name', titleSel: '#preset-form-title' },
   project:  { eyebrow: 'Proyectos · Formulario', focus: 'proj-slug', titleSel: '[data-mform="project"] > h3.form-title' },
+  banner:   { eyebrow: 'Banners · Formulario', focus: 'banner-project', titleSel: '[data-mform="banner"] > h3.form-title' },
   manage:   { eyebrow: 'Gestión · Formulario', focus: 'mproj-slug', titleSel: '#manage-form-title' },
   incident: { eyebrow: 'Incidentes · Formulario', focus: 'inc-title', titleSel: '#inc-form-title', extraPreview: 'inc-preview' },
   report:   { eyebrow: 'Informes · Formulario', focus: 'rep-title', titleSel: '#rep-form-title', extraPreview: 'rep-preview' },

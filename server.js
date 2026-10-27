@@ -42365,6 +42365,11 @@ function paypalEnvQuirks(env) {
     const trimmed = value.trim();
     if (/^["']/.test(trimmed) || /["']$/.test(trimmed)) quirks.push(label + ' con comillas');
     if (/\s/.test(trimmed)) quirks.push(label + ' con espacios internos');
+    if (/^basic\s/i.test(trimmed)) quirks.push(label + ' incluye "Basic "');
+    if (trimmed.includes(':')) quirks.push(label + ' incluye ":"');
+    if (label === 'CLIENT_SECRET' && trimmed.length > 0 && trimmed.length < 20) {
+      quirks.push(label + ' parece incompleto');
+    }
   });
   return quirks;
 }

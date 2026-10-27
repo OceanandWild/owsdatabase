@@ -1223,6 +1223,8 @@ function showDashboard() {
   if (navName)  navName.textContent  = name;
   if (welcome)  welcome.textContent  = name;
   try { syncNavProfile(); } catch (_) {}
+  // Avisos de eventos, noticias y lanzamientos mientras el Hub esté abierto.
+  try { startOwsContentNotifs(); } catch (_) {}
   // Re-aplica la vista actual al entrar (deep-link / última vista / Inicio)
   try {
     const fromHash = resolveOwsView(window.location.hash);
@@ -1414,6 +1416,7 @@ function handleLogout() {
   currentUser = null;
   // Corta cualquier cadena de Noticias abierta o en cola.
   try { newsChainQueue = []; clearTimeout(newsChainRetryTimer); newsChainRetryTimer = 0; closeNewsChainModal(); } catch (_) {}
+  try { stopOwsContentNotifs(); } catch (_) {}
   updateAdminVisibility(); // oculta la tarjeta admin al cerrar sesión
   showToast('Sesión cerrada. ¡Hasta pronto!');
   setTimeout(() => showAuth(), 800);
@@ -5701,7 +5704,7 @@ document.addEventListener('keydown', (e) => {
 // ═══════════════════════════════════════════════
 // INTRO CINEMÁTICA (GSAP) + SETUP WIZARD
 // Flujo: intro → (CTA) → setup 3 pasos → auth
-// Settings: localStorage ows_settings_v1 { downloadDir, nick, notifs, autoLaunch, showNews }
+// Settings: localStorage ows_settings_v1 { downloadDir, nick, notifs, contentNotifs, autoLaunch, showNews }
 // ═══════════════════════════════════════════════
 
 const OWS_SETUP_DONE_KEY = 'ows_setup_done_v1';
@@ -5719,9 +5722,9 @@ function defaultDownloadDir() {
 function getOwsSettings() {
   try {
     const raw = localStorage.getItem(OWS_SETTINGS_KEY);
-    if (raw) return { downloadDir: defaultDownloadDir(), nick: '', notifs: true, autoLaunch: true, showNews: true, ...JSON.parse(raw) };
+    if (raw) return { downloadDir: defaultDownloadDir(), nick: '', notifs: true, contentNotifs: true, autoLaunch: true, showNews: true, ...JSON.parse(raw) };
   } catch (_) {}
-  return { downloadDir: defaultDownloadDir(), nick: '', notifs: true, autoLaunch: true, showNews: true };
+  return { downloadDir: defaultDownloadDir(), nick: '', notifs: true, contentNotifs: true, autoLaunch: true, showNews: true };
 }
 
 function saveOwsSettings(patch) {
@@ -5738,8 +5741,7 @@ function saveOwsSettings(patch) {
 // de vista (fetch/Rust no se cancelan); este módulo avisa aunque no estés
 // en el Gestor: toaster persistente + título con % + notificación del SO.
 // ═══════════════════════════════════════════════
-const OWS_BG_NOTIFY_MILESTONES = [25, 50, 75];
-const owsBgNotified = new Map(); // id -> Set(hitos avisados)
+const owsBgNotified = new Map(); // id -> Set(avisos ya enviados)
 let owsBgTitleBase = '';
 
 function owsBgNotifsOn() {
@@ -5808,9 +5810,11 @@ function owsBgOnDownloadStart(d) {
   try {
     if (!d) return;
     // El progreso ya vive en el toaster aunque cambies de sección; se avisa
-    // una vez para que sepas que puedes seguir usando el Hub tranquilo.
+    // una sola vez al arrancar. Nada de hitos por porcentaje: en Windows las
+    // descargas rápidas apilaban avisos en el centro de notificaciones.
     if (owsCurrentView !== 'sec-descargas') { try { syncDlToaster(); } catch (_) {} }
-    owsBgNotify(`⬇ ${d.name || 'Descarga'} en segundo plano`, 'Puedes seguir usando OWS Hub · el progreso sigue arriba y en Descargas.');
+    if (!owsBgMarkNotified(d.id, 'start')) return;
+    owsBgNotify(`⬇ ${d.name || 'Descarga'} empezó`, 'Puedes seguir usando OWS Hub · el progreso sigue arriba y en Descargas.');
   } catch (_) {}
 }
 
@@ -5818,12 +5822,8 @@ function owsBgOnDownloadTick(d) {
   try {
     if (!d) return;
     owsBgSyncTitle();
-    const pct = Math.max(0, Math.min(100, Number(d.pct || 0)));
-    for (const m of OWS_BG_NOTIFY_MILESTONES) {
-      if (pct >= m && owsBgMarkNotified(d.id, 'm' + m)) {
-        owsBgNotify(`${d.name || 'Descarga'} · ${Math.round(pct)}%`, `${formatMB(d.downloaded)} / ${formatMB(d.total || d.downloaded)} · sigue en segundo plano`);
-      }
-    }
+    // Solo dos avisos por descarga: inicio (al crearla) y final. Los hitos de
+    // 25/50/75 % se quitaron porque en descargas rápidas se apilaban.
     if (d.status === 'completed' && owsBgMarkNotified(d.id, 'done')) {
       owsBgNotify(`✓ ${d.name || 'Descarga'} listo`, d.mode === 'desktop' ? 'Instalado · el juego ya se está abriendo 🎮' : 'Descarga completa · míralo en el Gestor');
       try { owsBgSyncTitle(); } catch (_) {}
@@ -5834,24 +5834,372 @@ function owsBgOnDownloadTick(d) {
   } catch (_) {}
 }
 
-let owsBgHubLastMilestone = 0;
 function owsBgOnHubTick(pct, info, done, version) {
   try {
     if (!owsBgTitleBase) owsBgTitleBase = document.title || 'OWS Hub';
+    const updateId = 'ows-hub-update::' + String(version || '');
     if (done) {
       document.title = owsBgTitleBase;
-      owsBgNotify(`✓ OWS Hub v${version || ''} listo`, 'Se descargó en segundo plano · confirma el reinicio 🎉');
+      // El evento Finished y el cierre del invoke llegan casi juntos: sin esta
+      // marca se enviaban dos avisos de "listo" seguidos.
+      if (!owsBgMarkNotified(updateId, 'done')) return;
+      owsBgNotify(`✓ OWS Hub v${version || ''} listo`, 'Se descargó · confirma el reinicio para instalarla 🎉');
       return;
     }
     document.title = `(${Math.round(pct)}%) Actualizando OWS Hub — en segundo plano`;
-    for (const m of OWS_BG_NOTIFY_MILESTONES) {
-      if (pct >= m && owsBgHubLastMilestone < m) {
-        owsBgHubLastMilestone = m;
-        owsBgNotify(`OWS Hub · ${m}%`, String(info || 'Descargando actualización en segundo plano…'));
-      }
-    }
-    if (pct <= 1) owsBgHubLastMilestone = 0;
+    // El aviso de inicio lo manda hubUpdToastShow. No se avisa por porcentaje:
+    // la actualización del Hub baja muy rápido y los avisos se apilaban.
   } catch (_) {}
+}
+
+// ═══════════════════════════════════════════════
+// AVISOS DE CONTENIDO — eventos, noticias y lanzamientos
+// Se consultan en segundo plano cada pocos minutos y se guarda lo ya avisado
+// por usuario para no repetir. El primer arranque solo siembra el estado: no
+// notifica lo que ya existía antes de activar los avisos.
+// ═══════════════════════════════════════════════
+const OWS_CONTENT_KEY = 'ows_content_notifs_v1';
+const OWS_CONTENT_POLL_MS = 5 * 60 * 1000;
+const OWS_CONTENT_TICK_MS = 30 * 1000;
+const OWS_CONTENT_FOCUS_MIN_MS = 60 * 1000;
+const OWS_CONTENT_START_GRACE_MS = 24 * 60 * 60 * 1000;
+const OWS_CONTENT_END_GRACE_MS = 48 * 60 * 60 * 1000;
+const OWS_CONTENT_NEWS_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
+const OWS_CONTENT_MAX_NOTIFS = 3;
+const OWS_CONTENT_KEEP_EVENTS = 200;
+
+let owsContentTimer = 0;
+let owsContentTickTimer = 0;
+let owsContentPolling = false;
+let owsContentLastPoll = 0;
+let owsContentUser = '';
+let owsContentFocusBound = false;
+
+function owsContentNotifsOn() {
+  try {
+    const s = getOwsSettings();
+    return s.notifs !== false && s.contentNotifs !== false;
+  } catch (_) { return true; }
+}
+
+function owsContentKey() {
+  const raw = String((currentUser && (currentUser.username || currentUser.id)) || 'invitado').trim().toLowerCase();
+  return OWS_CONTENT_KEY + '::' + raw;
+}
+
+function owsContentLoad(key) {
+  const empty = { events: {}, news: [], releases: {}, sources: {} };
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return empty;
+    return {
+      events: parsed.events && typeof parsed.events === 'object' ? parsed.events : {},
+      news: Array.isArray(parsed.news) ? parsed.news : [],
+      releases: parsed.releases && typeof parsed.releases === 'object' ? parsed.releases : {},
+      sources: parsed.sources && typeof parsed.sources === 'object' ? parsed.sources : {}
+    };
+  } catch (_) { return empty; }
+}
+
+function owsContentSave(key, state) {
+  try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) {}
+}
+
+async function owsContentFetch(path) {
+  const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, 12000) : 0;
+  try {
+    const res = await fetch(API_BASE + path, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function owsContentSummarize(names) {
+  const list = (names || []).map((n) => String(n || '').trim()).filter(Boolean);
+  if (!list.length) return '';
+  if (list.length === 1) return list[0];
+  if (list.length === 2) return list[0] + ' y ' + list[1];
+  return list[0] + ', ' + list[1] + ' y ' + (list.length - 2) + ' más';
+}
+
+function owsContentNotify(title, body) {
+  if (!owsContentNotifsOn()) return;
+  try { owsBgNotify(title, body); } catch (_) {}
+  // Con la ventana a la vista se suma el toast de la app: en Windows muchos
+  // avisos nativos se silencian cuando la app está en primer plano.
+  try {
+    if (document.visibilityState === 'visible') showToast(title + ' — ' + body);
+  } catch (_) {}
+}
+
+function owsContentFlush(pending) {
+  if (!pending) return;
+  let sent = 0;
+  const send = (title, names) => {
+    const list = (names || []).filter(Boolean);
+    if (!list.length || sent >= OWS_CONTENT_MAX_NOTIFS) return;
+    sent += 1;
+    owsContentNotify(title, owsContentSummarize(list));
+  };
+  const n = (list) => (Array.isArray(list) ? list.length : 0);
+  if (n(pending.created)) {
+    send(n(pending.created) === 1 ? '🗓️ Nuevo evento en OWS' : `🗓️ ${n(pending.created)} eventos nuevos en OWS`, pending.created);
+  }
+  if (n(pending.started)) {
+    send(n(pending.started) === 1 ? '▶️ Empezó un evento' : `▶️ Empezaron ${n(pending.started)} eventos`, pending.started);
+  }
+  if (n(pending.ended)) {
+    send(n(pending.ended) === 1 ? '🏁 Terminó un evento' : `🏁 Terminaron ${n(pending.ended)} eventos`, pending.ended);
+  }
+  if (n(pending.releases)) {
+    send(n(pending.releases) === 1 ? '🚀 Nuevo lanzamiento en OWS' : `🚀 ${n(pending.releases)} lanzamientos nuevos en OWS`, pending.releases);
+  }
+  if (n(pending.news)) {
+    send(n(pending.news) === 1 ? '📰 Nueva noticia en OWS' : `📰 ${n(pending.news)} noticias nuevas en OWS`, pending.news);
+  }
+}
+
+function owsContentEventEntry(ev) {
+  const rawStart = (ev && (ev.starts_at || ev.startsAt)) || '';
+  const rawEnd = (ev && (ev.ends_at || ev.endsAt)) || '';
+  const project = (ev && (ev.project_is_admin ? 'Proyecto interno' : ev.project_name)) || 'OWS';
+  return {
+    t: String((ev && ev.title) || 'Evento'),
+    p: String(project),
+    s: rawStart ? String(rawStart) : '',
+    e: rawEnd ? String(rawEnd) : ''
+  };
+}
+
+function owsContentPruneEvents(state) {
+  const ids = Object.keys(state.events || {});
+  if (ids.length <= OWS_CONTENT_KEEP_EVENTS) return;
+  ids.sort((a, b) => Number(state.events[b].at || 0) - Number(state.events[a].at || 0));
+  ids.slice(OWS_CONTENT_KEEP_EVENTS).forEach((id) => { delete state.events[id]; });
+}
+
+/* Evalúa los eventos: nuevos, inicio y fin. Con `list` null usa lo guardado
+   (tick local sin red) para avisar el inicio/fin en el segundo exacto. */
+function owsContentEvalEvents(state, list, opts) {
+  const now = (opts && opts.now) || Date.now();
+  const seeded = !!(opts && opts.seeded);
+  const pending = { created: [], started: [], ended: [] };
+  const entries = [];
+  if (Array.isArray(list)) {
+    list.forEach((ev) => {
+      const id = String(Number(ev && ev.id) || 0);
+      if (!id || id === '0') return;
+      entries.push({ id, ev });
+    });
+  } else {
+    Object.keys(state.events || {}).forEach((id) => {
+      const e = state.events[id] || {};
+      entries.push({ id, ev: { id, title: e.t, project_name: e.p, starts_at: e.s, ends_at: e.e } });
+    });
+  }
+
+  entries.forEach(({ id, ev }) => {
+    const base = owsContentEventEntry(ev);
+    const prev = state.events[id];
+    const next = {
+      ...base,
+      start: !!(prev && prev.start),
+      end: !!(prev && prev.end),
+      at: now
+    };
+    const startTs = base.s ? Date.parse(base.s) : NaN;
+    const endTs = base.e ? Date.parse(base.e) : NaN;
+    const isNew = !prev;
+
+    // Primer arranque: solo se registra lo que ya existe. Un evento en curso o
+    // ya terminado no dispara avisos retroactivos.
+    if (isNew && !seeded) {
+      if (Number.isFinite(startTs) && now >= startTs) next.start = true;
+      if (Number.isFinite(endTs) && now >= endTs) next.end = true;
+    }
+
+    if (isNew && seeded && Array.isArray(list)) {
+      // Un evento que ya terminó no se anuncia como "nuevo".
+      if (!(Number.isFinite(endTs) && now >= endTs)) pending.created.push(base.t);
+      // Si ya había empezado, el aviso de inicio no se duplica.
+      if (Number.isFinite(startTs) && now >= startTs) next.start = true;
+      if (Number.isFinite(endTs) && now >= endTs) next.end = true;
+    }
+
+    if (Number.isFinite(startTs) && now >= startTs && !next.start) {
+      // La app pudo estar cerrada: se avisa solo si el inicio es reciente.
+      if (now - startTs <= OWS_CONTENT_START_GRACE_MS) pending.started.push(base.t);
+      next.start = true;
+    }
+    if (Number.isFinite(endTs) && now >= endTs && !next.end) {
+      if (now - endTs <= OWS_CONTENT_END_GRACE_MS) pending.ended.push(base.t);
+      next.end = true;
+    }
+
+    state.events[id] = next;
+  });
+
+  owsContentPruneEvents(state);
+  return pending;
+}
+
+function owsContentEvalNews(state, list, opts) {
+  const now = (opts && opts.now) || Date.now();
+  const seeded = !!(opts && opts.seeded);
+  const pending = [];
+  const known = new Set((state.news || []).map(String));
+  const fresh = [];
+  (list || []).forEach((item) => {
+    const id = String(Number(item && item.id) || 0);
+    if (!id || id === '0') return;
+    if (known.has(id)) return;
+    known.add(id);
+    fresh.push(item);
+  });
+  fresh.sort((a, b) => {
+    const ta = Date.parse(a.published_at || a.created_at || 0) || 0;
+    const tb = Date.parse(b.published_at || b.created_at || 0) || 0;
+    return tb - ta;
+  });
+  fresh.forEach((item) => {
+    if (!seeded) return;
+    const when = Date.parse(item.published_at || item.created_at || '');
+    if (Number.isFinite(when) && now - when > OWS_CONTENT_NEWS_GRACE_MS) return;
+    pending.push(String(item.title || 'Noticia'));
+  });
+  state.news = Array.from(known).slice(-300);
+  return pending;
+}
+
+function owsContentEvalReleases(state, list, opts) {
+  const seeded = !!(opts && opts.seeded);
+  const pending = [];
+  const map = (state.releases && typeof state.releases === 'object') ? { ...state.releases } : {};
+  (list || []).forEach((p) => {
+    if (!p) return;
+    const slug = String(p.slug || '').trim().toLowerCase();
+    if (!slug) return;
+    const status = String(p.status || '').trim().toLowerCase();
+    const prev = map[slug];
+    map[slug] = status;
+    if (!seeded || status !== 'launched' || prev === 'launched') return;
+    // /ows-launch-projects ya filtra activos y no-admin; se revalida igual.
+    if (p.is_active === false || p.admin_only === true) return;
+    pending.push(String(p.name || slug));
+  });
+  state.releases = map;
+  return pending;
+}
+
+async function owsContentPoll() {
+  if (owsContentPolling || !owsContentUser) return;
+  const key = owsContentKey();
+  const state = owsContentLoad(key);
+  const now = Date.now();
+  const pending = { created: [], started: [], ended: [], news: [], releases: [] };
+  owsContentPolling = true;
+  owsContentLastPoll = now;
+  try {
+    const [eventsRes, newsRes, projectsRes] = await Promise.allSettled([
+      owsContentFetch('/ows-dashboard/events?limit=30'),
+      owsContentFetch('/ows-dashboard/news?limit=20'),
+      owsContentFetch('/ows-launch-projects')
+    ]);
+
+    if (eventsRes.status === 'fulfilled') {
+      const p = owsContentEvalEvents(state, (eventsRes.value && eventsRes.value.events) || [], {
+        seeded: state.sources.events === true,
+        now
+      });
+      pending.created.push(...p.created);
+      pending.started.push(...p.started);
+      pending.ended.push(...p.ended);
+      state.sources.events = true;
+    }
+
+    if (newsRes.status === 'fulfilled') {
+      pending.news.push(...owsContentEvalNews(state, (newsRes.value && newsRes.value.news) || [], {
+        seeded: state.sources.news === true,
+        now
+      }));
+      state.sources.news = true;
+    }
+
+    if (projectsRes.status === 'fulfilled') {
+      pending.releases.push(...owsContentEvalReleases(state, (projectsRes.value && projectsRes.value.projects) || [], {
+        seeded: state.sources.releases === true
+      }));
+      state.sources.releases = true;
+    }
+
+    owsContentSave(key, state);
+    owsContentFlush(pending);
+  } catch (err) {
+    console.warn('[OWS] Avisos de contenido sin respuesta:', err);
+  } finally {
+    owsContentPolling = false;
+  }
+}
+
+function owsContentTick() {
+  if (!owsContentUser) return;
+  // El poll ya evalúa inicio/fin con datos frescos; si está en vuelo se evita
+  // escribir el estado dos veces y duplicar un aviso.
+  if (owsContentPolling) return;
+  const key = owsContentKey();
+  const state = owsContentLoad(key);
+  if (state.sources.events !== true) return;
+  const pending = owsContentEvalEvents(state, null, { seeded: true, now: Date.now() });
+  if (!pending.started.length && !pending.ended.length) return;
+  owsContentSave(key, state);
+  owsContentFlush({ created: [], started: pending.started, ended: pending.ended, news: [], releases: [] });
+}
+
+function owsContentBindFocus() {
+  if (owsContentFocusBound) return;
+  owsContentFocusBound = true;
+  const kick = () => {
+    try {
+      if (!owsContentUser) return;
+      if (document.visibilityState === 'hidden') return;
+      if (Date.now() - owsContentLastPoll < OWS_CONTENT_FOCUS_MIN_MS) return;
+      owsContentPoll();
+      owsContentTick();
+    } catch (_) {}
+  };
+  document.addEventListener('visibilitychange', kick);
+  window.addEventListener('focus', kick);
+}
+
+function startOwsContentNotifs() {
+  try {
+    const user = String((currentUser && (currentUser.username || currentUser.id)) || '').trim().toLowerCase();
+    if (!user) return;
+    if (owsContentUser === user && owsContentTimer) return;
+    stopOwsContentNotifs();
+    owsContentUser = user;
+    try { owsBgEnsurePermission(); } catch (_) {}
+    owsContentBindFocus();
+    // Primer chequeo diferido: deja que el panel termine de cargar.
+    owsContentTimer = setTimeout(function owsContentLoop() {
+      owsContentPoll();
+      owsContentTimer = setTimeout(owsContentLoop, OWS_CONTENT_POLL_MS);
+    }, 6000);
+    owsContentTickTimer = setInterval(owsContentTick, OWS_CONTENT_TICK_MS);
+  } catch (_) {}
+}
+
+function stopOwsContentNotifs() {
+  owsContentUser = '';
+  if (owsContentTimer) { clearTimeout(owsContentTimer); owsContentTimer = 0; }
+  if (owsContentTickTimer) { clearInterval(owsContentTickTimer); owsContentTickTimer = 0; }
+  owsContentPolling = false;
+  owsContentLastPoll = 0;
 }
 
 function initOwsSettings() {
@@ -5869,6 +6217,7 @@ function initOwsSettings() {
     const nick = document.getElementById('setup-nick');
     if (nick && !nick.value) nick.value = s.nick || '';
     if (s.notifs === false) { const el = document.getElementById('setup-opt-notifs'); if (el) el.checked = false; }
+    if (s.contentNotifs === false) { const el = document.getElementById('setup-opt-content'); if (el) el.checked = false; }
     if (s.autoLaunch === false) { const el = document.getElementById('setup-opt-autolaunch'); if (el) el.checked = false; }
     if (s.showNews === false) { const el = document.getElementById('setup-opt-news'); if (el) el.checked = false; }
   } catch (_) {}
@@ -7953,8 +8302,11 @@ function hubUpdToastShow(version) {
     </div>`;
   box.classList.remove('hidden');
   try {
-    owsBgHubLastMilestone = 0;
-    owsBgNotify(`⬇ OWS Hub v${version} en segundo plano`, 'Puedes seguir usando el Hub · el progreso sigue arriba.');
+    // Un solo aviso al empezar (sin hitos por porcentaje). La marca usa la
+    // versión para que un reintento de la misma actualización no duplique.
+    if (owsBgMarkNotified('ows-hub-update::' + String(version || ''), 'start')) {
+      owsBgNotify(`⬇ OWS Hub v${version} en segundo plano`, 'Puedes seguir usando el Hub · el progreso sigue arriba.');
+    }
   } catch (_) {}
 }
 
@@ -8685,6 +9037,11 @@ async function runHubSelfUpdate(btn) {
     } else {
       showToast('No se pudo actualizar el Hub: ' + msg);
     }
+    // Cierre del aviso: si la descarga había empezado, también se entera por
+    // notificación (y no queda solo el toast de la ventana).
+    try {
+      if (version) owsBgNotify('⚠ No se pudo actualizar OWS Hub', msg);
+    } catch (_) {}
     hubUpdateBusy = false;
     refreshUpdatesDetailIfOpen();
   }
@@ -9098,10 +9455,12 @@ function setupNext() {
     setupGoToStep(2);
   } else if (owsSetupStep === 2) {
     const notifs = document.getElementById('setup-opt-notifs');
+    const content = document.getElementById('setup-opt-content');
     const auto = document.getElementById('setup-opt-autolaunch');
     const news = document.getElementById('setup-opt-news');
     saveOwsSettings({
       notifs: !notifs || !!notifs.checked,
+      contentNotifs: !content || !!content.checked,
       autoLaunch: !auto || !!auto.checked,
       showNews: !news || !!news.checked,
     });
@@ -9146,6 +9505,7 @@ function renderSetupSummary() {
     <dl class="setup-summary-row"><dt>📁 Descargas en</dt><dd><code>${esc(dir)}</code>${isCustom ? ' ✎' : ''}</dd></dl>
     <dl class="setup-summary-row"><dt>🎮 Nick</dt><dd>${esc(nick || '—')}</dd></dl>
     <dl class="setup-summary-row"><dt>🔔 Notificaciones</dt><dd>${on(s.notifs)}</dd></dl>
+    <dl class="setup-summary-row"><dt>🗓️ Novedades de OWS</dt><dd>${on(s.contentNotifs)}</dd></dl>
     <dl class="setup-summary-row"><dt>🚀 Auto-abrir juegos</dt><dd>${on(s.autoLaunch)}</dd></dl>
     <dl class="setup-summary-row"><dt>📰 Noticias en inicio</dt><dd>${on(s.showNews)}</dd></dl>
   `;

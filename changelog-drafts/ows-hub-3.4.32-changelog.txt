@@ -1,0 +1,39 @@
+OWS Hub 3.4.32 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.32
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-25
+
+Cambios:
+- Eventos sin fecha: el panel permite publicar un evento sin fecha de inicio. En el Hub se anuncia solo como «Fecha aún no definida», sin cuenta atrás ni fechas inventadas, y se puede completar más adelante desde el mismo formulario. El panel suma el estado, el filtro y el contador «Sin fecha».
+- Surface — Comprar Tides: nueva sección con paquetes, resumen de la compra y el pago con Mercado Pago ya integrado (al volver del checkout la compra se confirma sola y el botón no queda bloqueado). Por ahora la tienda se muestra como «Indisponible por el momento» hasta habilitarla.
+- Surface — Gestión: nueva sección con resumen del período, límites de gasto por día, últimos 7 días o mes, topes por operación en Gambits y Tides, aviso al acercarse al límite y bloqueo opcional al superarlo.
+- Surface — Controles: pausa de seguridad para frenar envíos, avisos de límite y de envíos grandes, y confirmación extra antes de operaciones altas.
+- Surface — Equivalencias: tabla de tasas oficiales de OWS (solo lectura) y calculadora rápida para pasar Gambits o Tides a dinero.
+- Surface — Registro de gestión: historial de cambios con exportación y limpieza, más una opción para restablecer todos los ajustes de la cuenta.
+- Surface — Añadir crédito: subsección informativa marcada como próximamente para cargar saldo con dinero real.
+- Los límites y la pausa de Gestión se aplican al enviar desde Surface: si el envío supera el tope del período o los envíos están pausados, el botón queda bloqueado y se explica el motivo. Las preferencias quedan guardadas en la cuenta.
+- Notificaciones de OWS: el Hub ahora avisa cuando se publica un evento nuevo, cuando empieza y cuando termina, cuando aparece una noticia y cuando un juego pasa a «Lanzado» y queda público. El aviso llega al sistema y, con la ventana abierta, también aparece como toast del Hub. Se revisa cada pocos minutos y al volver a la ventana; el primer arranque solo registra lo que ya existía, sin avisar.
+- Descargas y actualizaciones: solo dos avisos, al empezar y al terminar. Se quitaron los avisos de 25 %, 50 % y 75 % que en Windows se apilaban cuando la descarga era rápida (sobre todo al actualizar OWS Hub), y se evita el «listo» duplicado al cerrar la actualización del Hub. Si la actualización del Hub falla, ahora también se avisa.
+- Novedades agrupadas: si llegan varias juntas, un solo aviso las resume («3 noticias nuevas», «2 eventos nuevos») en vez de apilar una notificación por cada una. Cada aviso queda recordado por usuario para no repetirse.
+- Configuración: nuevo interruptor «Novedades de OWS» en el setup para activar o desactivar solo los avisos de eventos, noticias y lanzamientos, sin tocar los de descargas.
+
+=== ENGLISH ===
+Version: 3.4.32
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-25
+
+Changes:
+- Undated events: the panel can now publish an event without a start date. The Hub announces it as "Date not set yet", with no countdown and no made-up dates, and it can be completed later from the same form. The panel adds a dedicated "No date" status, filter and counter.
+- Surface — Buy Tides: a new section with packs, purchase summary and Mercado Pago checkout already wired in (returning from checkout confirms the purchase automatically and leaves the button unlocked). For now the shop shows as "Unavailable at the moment" until it is enabled.
+- Surface — Management: a new section with a period summary, daily/7-day/monthly spending limits, per-transaction caps in Gambits and Tides, a warning near the limit and an optional block when it is exceeded.
+- Surface — Controls: a safety pause to stop transfers, limit and large-transfer warnings, and an extra confirmation before large operations.
+- Surface — Equivalences: OWS official rates table (read-only) and a quick converter from Gambits or Tides to money.
+- Surface — Management log: a change history with export and clear actions, plus an option to reset all account settings.
+- Surface — Add credit: an informational subsection marked as coming soon for topping up with real money.
+- Management limits and the safety pause apply when sending from Surface: if a transfer goes over the period cap or transfers are paused, the button is locked and the reason is shown. Preferences are stored on the account.
+- OWS notifications: the Hub now notifies when a new event is published, when it starts and when it ends, when a news item appears, and when a game moves to "Launched" and becomes public. The alert reaches the system tray and, with the window open, also shows as a Hub toast. Content is checked every few minutes and when the window regains focus; the first run only records what already existed, without notifying.
+- Downloads and updates: only two notifications, on start and on finish. The 25%, 50% and 75% alerts are gone because on Windows they piled up during fast downloads (especially when updating OWS Hub), and the duplicated "ready" alert at the end of the Hub update is fixed. A failed Hub update now notifies too.
+- Grouped highlights: when several items arrive together, a single notification summarizes them ("3 new posts", "2 new events") instead of stacking one alert per item. Each alert is remembered per user so it is never repeated.
+- Settings: a new "OWS highlights" switch in the setup wizard to turn event, news and release alerts on or off without touching download notifications.

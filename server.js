@@ -8335,7 +8335,16 @@ try {
     // La regex es case-insensitive porque en Windows el filesystem resuelve
     // /ows/Admin igual que /ows/admin.
     app.use(/^\/ows\/admin(\/|$)/i, (_req, res) => res.status(404).json({ error: 'Not found' }));
-    app.use('/ows', express.static(owsWebDir, { maxAge: '1h' }));
+    app.use('/ows', express.static(owsWebDir, {
+      maxAge: '1h',
+      // El HTML debe revalidarse: si queda cacheado, un deploy nuevo sigue
+      // cargando los app.js/styles.css viejos aunque se suba la version.
+      setHeaders: (res, filePath) => {
+        if (/\.html?$/i.test(String(filePath || ''))) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      }
+    }));
     app.get('/ows', (_req, res) => res.sendFile(join(owsWebDir, 'index.html')));
     console.log('[OWS] Sirviendo frontend local en /ows ->', owsWebDir);
   }

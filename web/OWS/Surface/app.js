@@ -610,7 +610,7 @@ async function handleLogin(e) {
   }
 
   try {
-    const res = await fetch(API_BASE + '/ocean-pay/login', {
+    const res = await fetch(API_BASE + '/surface/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -654,7 +654,7 @@ async function handleRegister(e) {
   }
 
   try {
-    const res = await fetch(API_BASE + '/ocean-pay/register', {
+    const res = await fetch(API_BASE + '/surface/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -730,7 +730,7 @@ async function loadWalletData(opts) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    const res = await fetch(API_BASE + '/ocean-pay/me', {
+    const res = await fetch(API_BASE + '/surface/me', {
       headers: { 'Authorization': 'Bearer ' + token },
       signal: controller.signal
     });
@@ -752,8 +752,8 @@ async function loadWalletData(opts) {
     // Verificación directa de saldos (por si /me viene con datos viejos)
     try {
       const [tidesRes, gambitsRes] = await Promise.allSettled([
-        fetch(API_BASE + '/ocean-pay/tides/balance',   { headers: { 'Authorization': 'Bearer ' + token } }),
-        fetch(API_BASE + '/ocean-pay/gambits/balance', { headers: { 'Authorization': 'Bearer ' + token } })
+        fetch(API_BASE + '/surface/tides/balance',   { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch(API_BASE + '/surface/gambits/balance', { headers: { 'Authorization': 'Bearer ' + token } })
       ]);
       if (tidesRes.status === 'fulfilled' && tidesRes.value.ok) {
         const tData = await tidesRes.value.json().catch(() => ({}));
@@ -1017,7 +1017,7 @@ function setRecipientState(state, name) {
 async function verifyRecipientExists(username) {
   const token = localStorage.getItem(TOKEN_KEY);
   try {
-    const res = await fetch(API_BASE + '/ocean-pay/api/users/check?username=' + encodeURIComponent(username), {
+    const res = await fetch(API_BASE + '/surface/api/users/check?username=' + encodeURIComponent(username), {
       headers: { 'Authorization': 'Bearer ' + (token || '') }
     });
     if (!res.ok) throw new Error('Error del servidor (' + res.status + ')');
@@ -1329,7 +1329,7 @@ async function executeFinalTransfer() {
     // Un solo movimiento atómico en el servidor: debita al remitente y
     // acredita al destinatario. Si el backend no lo tiene activo todavía,
     // se avisa y NO se toca ningún saldo.
-    const res = await fetch(API_BASE + '/ocean-pay/p2p/send', {
+    const res = await fetch(API_BASE + '/surface/p2p/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1450,7 +1450,7 @@ function loadTidesPayPalConfig(force) {
 
   tidesPayPalConfigPromise = (async function () {
     try {
-      const res = await fetch(API_BASE + '/ocean-pay/paypal/config');
+      const res = await fetch(API_BASE + '/surface/paypal/config');
       const data = await res.json().catch(function () { return {}; });
       if (!res.ok) throw new Error(data.error || 'No se pudo consultar PayPal.');
 
@@ -1533,7 +1533,7 @@ async function createTidesPayPalOrder(pkg) {
     throw new Error('Iniciá sesión para comprar Tides.');
   }
 
-  const res = await fetch(API_BASE + '/ocean-pay/tides/paypal/order', {
+  const res = await fetch(API_BASE + '/surface/tides/paypal/order', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1567,7 +1567,7 @@ async function captureTidesPayPalOrder(orderId, packageId) {
 
   setTidesPayPalStatus('Confirmando el pago con PayPal…', 'info');
 
-  const res = await fetch(API_BASE + '/ocean-pay/tides/paypal/capture', {
+  const res = await fetch(API_BASE + '/surface/tides/paypal/capture', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1870,7 +1870,7 @@ async function loadTidesPackages(force) {
   updateTidesSummary();
 
   try {
-    const res = await fetch(API_BASE + '/ocean-pay/tides/packages?v=2');
+    const res = await fetch(API_BASE + '/surface/tides/packages?v=2');
     const data = await res.json().catch(function () { return {}; });
     if (!res.ok) throw new Error(data.error || 'No se pudieron cargar los paquetes.');
 
@@ -1966,7 +1966,7 @@ async function startTidesCheckout() {
   updateTidesSummary();
 
   try {
-    const res = await fetch(API_BASE + '/ocean-pay/tides/checkout', {
+    const res = await fetch(API_BASE + '/surface/tides/checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2109,7 +2109,7 @@ async function processPendingTidesReturn() {
   updateTidesSummary();
 
   try {
-    const res = await fetch(API_BASE + '/ocean-pay/tides/confirm', {
+    const res = await fetch(API_BASE + '/surface/tides/confirm', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -2188,7 +2188,7 @@ async function loadAllTransactionsFromDB(showLoading) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    const res = await fetch(API_BASE + '/ocean-pay/txs/' + userId, {
+    const res = await fetch(API_BASE + '/surface/txs/' + userId, {
       headers: { 'Authorization': 'Bearer ' + token },
       signal: controller.signal
     });
@@ -4558,7 +4558,7 @@ function normalizeOverview(payload) {
 }
 
 /* Respaldo: si el endpoint todavía no está desplegado, el mismo resumen se
-   arma con el historial que ya se trajo de /ocean-pay/txs/:userId. */
+   arma con el historial que ya se trajo de /surface/txs/:userId. */
 function buildOverviewFromLocal() {
   const totalsMap = new Map();
   const gamesMap = new Map();
@@ -4628,7 +4628,7 @@ async function loadOverviewActivity() {
     const controller = new AbortController();
     const timeoutId = setTimeout(function () { controller.abort(); }, 12000);
 
-    const res = await fetch(API_BASE + '/ocean-pay/activity/overview', {
+    const res = await fetch(API_BASE + '/surface/activity/overview', {
       headers: { 'Authorization': 'Bearer ' + token },
       signal: controller.signal
     });
@@ -4863,7 +4863,7 @@ async function executeClearHistory(isAuto) {
       try { userId = JSON.parse(localStorage.getItem(USER_KEY) || '{}').id; } catch (_) {}
     }
 
-    const endpoint = userId ? '/ocean-pay/txs/' + userId + '/clear' : '/ocean-pay/api/txs/clear';
+    const endpoint = userId ? '/surface/txs/' + userId + '/clear' : '/surface/api/txs/clear';
     const res = await fetch(API_BASE + endpoint, {
       method: 'DELETE',
       headers: { 'Authorization': 'Bearer ' + token }
@@ -4951,7 +4951,7 @@ async function handleAdminBalanceSubmit(e) {
   }
 
   try {
-    const res = await fetch(API_BASE + '/ocean-pay/api/admin/set-balance', {
+    const res = await fetch(API_BASE + '/surface/api/admin/set-balance', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

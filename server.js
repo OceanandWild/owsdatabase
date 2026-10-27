@@ -550,7 +550,7 @@ async function buildOceanPayLoginPayload(opUser) {
 }
 
 // --- Ocean Pay Authentication ---
-app.post('/ocean-pay/register', async (req, res) => {
+app.post(['/surface/register', '/ocean-pay/register'], async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
 
@@ -602,7 +602,7 @@ app.post('/ocean-pay/register', async (req, res) => {
 // Endpoint to get current user info (AquaBux, etc.)
 // [DUPLICATE ENDPOINT REMOVED] - Redirecting to line ~10663 implementation
 
-app.post('/ocean-pay/login', async (req, res) => {
+app.post(['/surface/login', '/ocean-pay/login'], async (req, res) => {
   let { username, password, client } = req.body;
 
   username = username?.trim();
@@ -11105,7 +11105,7 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // GET /ocean-pay/gambits/balance  →  { gambits: number }
-app.get('/ocean-pay/gambits/balance', async (req, res) => {
+app.get(['/surface/gambits/balance', '/ocean-pay/gambits/balance'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
@@ -11132,7 +11132,7 @@ app.get('/ocean-pay/gambits/balance', async (req, res) => {
 });
 
 // GET /ocean-pay/tides/balance  →  { tides: number }
-app.get('/ocean-pay/tides/balance', async (req, res) => {
+app.get(['/surface/tides/balance', '/ocean-pay/tides/balance'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
@@ -11461,7 +11461,7 @@ app.post(['/ocean-pay/cards/change-balance', '/ocean-pay/currency/change'], asyn
 // acredita el monto (sin comision) al destinatario. La comision queda en la
 // plataforma, como hasta ahora: el cliente la anuncia y aca se valida.
 // ---------------------------------------------------------------------------
-app.post('/ocean-pay/p2p/send', async (req, res) => {
+app.post(['/surface/p2p/send', '/ocean-pay/p2p/send'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
@@ -11614,7 +11614,7 @@ const SURFACE_CURRENCY_BUCKET_SQL = `CASE
       ELSE LOWER(COALESCE(moneda, ''))
     END`;
 
-app.get('/ocean-pay/activity/overview', async (req, res) => {
+app.get(['/surface/activity/overview', '/ocean-pay/activity/overview'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
@@ -24822,7 +24822,7 @@ app.get('/ows-store/github/repos/:owner/:repo', githubProxyHandler);
 app.get('/ows-store/github/repos/:owner/:repo/*', githubProxyHandler);
 
 // Perfil Ocean Pay usado por apps (cards + balances unificados)
-app.get('/ocean-pay/me', async (req, res) => {
+app.get(['/surface/me', '/ocean-pay/me'], async (req, res) => {
   const token = parseStudioAuthToken(req);
   let decoded = decodeStudioTokenOrNull(token);
   let freshToken = null;
@@ -42268,7 +42268,7 @@ app.post('/pos/create', async (req, res) => {
 });
 
 // Base pública para que Mercado Pago pueda notificar el pago.
-const MP_TIDES_WEBHOOK_URL = `${String(process.env.MP_WEBHOOK_BASE_URL || OWS_PUBLIC_BASE_URL).replace(/\/+$/, '')}/ocean-pay/tides/webhook`;
+const MP_TIDES_WEBHOOK_URL = `${String(process.env.MP_WEBHOOK_BASE_URL || OWS_PUBLIC_BASE_URL).replace(/\/+$/, '')}/surface/tides/webhook`;
 
 // Interruptor de compras de Tides. Por defecto quedan pausadas; para
 // habilitarlas hay que definir TIDES_PURCHASES_ENABLED=true en el entorno.
@@ -42653,7 +42653,7 @@ async function creditTidesPurchase({ userId, pkg, paymentId, externalReference, 
 }
 
 // Catalogo de recargas Tides (Moneda premium)
-app.get(['/ocean-pay/tides/packages', '/ocean-pay/aurex/packages'], async (_req, res) => {
+app.get(['/surface/tides/packages', '/surface/aurex/packages', '/ocean-pay/tides/packages', '/ocean-pay/aurex/packages'], async (_req, res) => {
   res.set('Cache-Control', 'no-store');
   return res.json({
     success: true,
@@ -42664,7 +42664,7 @@ app.get(['/ocean-pay/tides/packages', '/ocean-pay/aurex/packages'], async (_req,
 });
 
 // Crear checkout de Mercado Pago para recarga Tides
-app.post(['/ocean-pay/tides/checkout', '/ocean-pay/aurex/checkout'], async (req, res) => {
+app.post(['/surface/tides/checkout', '/surface/aurex/checkout', '/ocean-pay/tides/checkout', '/ocean-pay/aurex/checkout'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
@@ -42727,13 +42727,13 @@ app.post(['/ocean-pay/tides/checkout', '/ocean-pay/aurex/checkout'], async (req,
       initPoint: result?.init_point || result?.sandbox_init_point || null
     });
   } catch (err) {
-    console.error('Error en POST /ocean-pay/tides/checkout:', err);
+    console.error('Error en POST /surface/tides/checkout:', err);
     return res.status(500).json({ error: 'No se pudo iniciar el checkout de Tides' });
   }
 });
 
 // Confirmar pago aprobado de Mercado Pago y acreditar Tides
-app.post(['/ocean-pay/tides/confirm', '/ocean-pay/aurex/confirm'], async (req, res) => {
+app.post(['/surface/tides/confirm', '/surface/aurex/confirm', '/ocean-pay/tides/confirm', '/ocean-pay/aurex/confirm'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
@@ -42789,14 +42789,14 @@ app.post(['/ocean-pay/tides/confirm', '/ocean-pay/aurex/confirm'], async (req, r
       package: pkg
     });
   } catch (err) {
-    console.error('Error en POST /ocean-pay/tides/confirm:', err);
+    console.error('Error en POST /surface/tides/confirm:', err);
     return res.status(500).json({ error: 'Error interno al confirmar compra Tides' });
   }
 });
 
 // Webhook de Mercado Pago: acredita el pago aunque el cliente cierre la
 // pestaña antes de volver. Se valida siempre contra la API de Mercado Pago.
-app.post(['/ocean-pay/tides/webhook', '/ocean-pay/aurex/webhook'], async (req, res) => {
+app.post(['/surface/tides/webhook', '/surface/aurex/webhook', '/ocean-pay/tides/webhook', '/ocean-pay/aurex/webhook'], async (req, res) => {
   const type = String(
     req.query.type || req.query.topic || req.body?.type || req.body?.topic || ''
   ).toLowerCase();
@@ -42856,7 +42856,7 @@ app.post(['/ocean-pay/tides/webhook', '/ocean-pay/aurex/webhook'], async (req, r
       package: pkg
     });
   } catch (err) {
-    console.error('Error en POST /ocean-pay/tides/webhook:', err);
+    console.error('Error en POST /surface/tides/webhook:', err);
     // 500 para que Mercado Pago reintente si fue un fallo temporal de la DB.
     return res.status(500).json({ error: 'Error interno al procesar el webhook de Tides' });
   }
@@ -42995,7 +42995,7 @@ async function verifyPayPalWebhookSignatureAnyEnv(req) {
 }
 
 // Config publica para que Surface cargue el SDK de PayPal.
-app.get('/ocean-pay/paypal/config', async (_req, res) => {
+app.get(['/surface/paypal/config', '/ocean-pay/paypal/config'], async (_req, res) => {
   res.set('Cache-Control', 'no-store');
   await refreshPayPalRuntimeEnv();
   const settings = activePayPalConfig();
@@ -43010,7 +43010,7 @@ app.get('/ocean-pay/paypal/config', async (_req, res) => {
 });
 
 // Crear una orden de PayPal para un paquete Tides.
-app.post('/ocean-pay/tides/paypal/order', async (req, res) => {
+app.post(['/surface/tides/paypal/order', '/ocean-pay/tides/paypal/order'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
@@ -43048,13 +43048,13 @@ app.post('/ocean-pay/tides/paypal/order', async (req, res) => {
       package: pkg
     });
   } catch (err) {
-    console.error('Error en POST /ocean-pay/tides/paypal/order:', err);
+    console.error('Error en POST /surface/tides/paypal/order:', err);
     return res.status(502).json({ error: 'No se pudo crear la orden de PayPal' });
   }
 });
 
 // Capturar una orden aprobada y acreditar Tides.
-app.post('/ocean-pay/tides/paypal/capture', async (req, res) => {
+app.post(['/surface/tides/paypal/capture', '/ocean-pay/tides/paypal/capture'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
@@ -43149,7 +43149,7 @@ app.post('/ocean-pay/tides/paypal/capture', async (req, res) => {
       package: pkg
     });
   } catch (err) {
-    console.error('Error en POST /ocean-pay/tides/paypal/capture:', err);
+    console.error('Error en POST /surface/tides/paypal/capture:', err);
     if (paypalErrorIssues(err).includes('ORDER_NOT_APPROVED')) {
       return res.status(409).json({ error: 'La orden de PayPal todavia no esta aprobada' });
     }
@@ -43159,7 +43159,7 @@ app.post('/ocean-pay/tides/paypal/capture', async (req, res) => {
 
 // Webhook de PayPal: respaldo para acreditar aunque el cliente cierre la
 // pestaña. La firma se valida contra la API de PayPal antes de procesar.
-app.post('/ocean-pay/tides/paypal/webhook', async (req, res) => {
+app.post(['/surface/tides/paypal/webhook', '/ocean-pay/tides/paypal/webhook'], async (req, res) => {
   await refreshPayPalRuntimeEnv();
 
   let verifiedEnv = null;
@@ -43253,7 +43253,7 @@ app.post('/ocean-pay/tides/paypal/webhook', async (req, res) => {
       package: pkg
     });
   } catch (err) {
-    console.error('Error en POST /ocean-pay/tides/paypal/webhook:', err);
+    console.error('Error en POST /surface/tides/paypal/webhook:', err);
     return res.status(500).json({ error: 'Error interno al procesar el webhook de PayPal' });
   }
 });
@@ -45144,7 +45144,7 @@ app.get('/ocean-pay/notifications/me', async (req, res) => {
 // Marcar notificación como leída
 
 // Historial de transacciones (compatibilidad de cliente)
-app.get('/ocean-pay/txs/:userId', async (req, res) => {
+app.get(['/surface/txs/:userId', '/ocean-pay/txs/:userId'], async (req, res) => {
   try {
     const authHeader = req.headers.authorization || '';
     if (!authHeader.startsWith('Bearer ')) {
@@ -45515,7 +45515,7 @@ app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
 });
 
 // ── Admin: verificación estricta y panel de saldo para la administración ──
-app.post('/ocean-pay/api/admin/set-balance', async (req, res) => {
+app.post(['/surface/api/admin/set-balance', '/ocean-pay/api/admin/set-balance'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
@@ -45617,7 +45617,7 @@ app.post('/ocean-pay/api/admin/set-balance', async (req, res) => {
 });
 
 // Endpoint público autenticado para verificar si un destinatario existe
-app.get('/ocean-pay/api/users/check', async (req, res) => {
+app.get(['/surface/api/users/check', '/ocean-pay/api/users/check'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ exists: false, error: 'Token requerido' });
@@ -45655,7 +45655,7 @@ app.get('/ocean-pay/api/users/check', async (req, res) => {
 });
 
 // Endpoint para limpiar/eliminar el historial de transacciones del usuario autenticado
-app.delete(['/ocean-pay/api/txs/clear', '/ocean-pay/txs/:userId/clear'], async (req, res) => {
+app.delete(['/surface/api/txs/clear', '/surface/txs/:userId/clear', '/ocean-pay/api/txs/clear', '/ocean-pay/txs/:userId/clear'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });

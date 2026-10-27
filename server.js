@@ -43572,7 +43572,11 @@ async function creditSurfaceTopUp({ userId, cents, paymentId, reference, env }) 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Dos locks con orden fijo: primero el pago (idempotencia) y despues el
+    // usuario (evita que dos recargas simultaneas lean el mismo saldo y una
+    // pise a la otra al escribir).
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`surface-credit:${origin}:${paymentId}`]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`surface-credit-user:${userId}`]);
 
     const { rows: existingTx } = await client.query(
       `SELECT id FROM ocean_pay_txs

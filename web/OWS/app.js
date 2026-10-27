@@ -1494,7 +1494,7 @@ function eventCategoryMeta(category) {
 function formatEventRange(startIso, endIso) {
   const s = startIso ? new Date(startIso) : null;
   const e = endIso ? new Date(endIso) : null;
-  if (!s || Number.isNaN(s.getTime())) return 'Fechas por confirmar';
+  if (!s || Number.isNaN(s.getTime())) return 'Fecha aún no definida';
   const sameDay = e && s.toDateString() === e.toDateString();
   if (e && !Number.isNaN(e.getTime()) && !sameDay) {
     return `${s.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — ${e.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}`;
@@ -1554,9 +1554,11 @@ function eventStartsExpected(ev) {
 }
 
 // Solo los eventos que todavía no empezaron muestran la fecha como esperada:
-// una vez en curso (o terminado) manda la fecha real.
+// una vez en curso (o terminado) manda la fecha real. Un evento sin fecha no
+// muestra "fecha esperada": se anuncia como "Fecha aún no definida".
 function eventShowsExpectedDate(ev) {
   if (!eventStartsExpected(ev)) return false;
+  if (!ev.starts_at) return false;
   return ev.phase !== 'active' && ev.phase !== 'ended';
 }
 
@@ -1893,6 +1895,9 @@ function renderEvents(eventsList) {
     const hasImg = Boolean(ev.image_url || ev.cover_url);
     const img = escapeHtml(ev.image_url || ev.cover_url || '');
     const phaseClass = ev.phase === 'active' ? 'ev-active' : ev.phase === 'ended' ? 'ev-ended' : 'ev-upcoming';
+    // Sin fecha de inicio: se avisa que todavía no fue definida, sin inventar
+    // una fecha ni prometer una cuenta atrás.
+    const undated = !ev.starts_at;
     const expected = eventShowsExpectedDate(ev);
     // Desaparición automática: cuenta atrás viva sobre la tarjeta.
     const expiryIso = eventExpiresAt(ev);
@@ -1907,9 +1912,11 @@ function renderEvents(eventsList) {
         ? (disappearing
             ? `<span class="ev-badge ev-badge-expiry"${expiryAttr} title="${escapeHtml(expiryLong)}">🗑️ Desaparece en ${escapeHtml(expiryShort)}</span>`
             : '<span class="ev-badge ev-badge-ended">Finalizado</span>')
-        : expected
-          ? '<span class="ev-badge ev-badge-expected" title="Fecha esperada de inicio, todavía por confirmar">🕰️ Fecha por confirmar</span>'
-          : `<span class="ev-badge ev-badge-soon" data-ev-countdown="${escapeHtml(ev.starts_at || '')}" data-ev-phase="${escapeHtml(ev.phase || '')}">${escapeHtml(eventCountdown(ev.starts_at, ev.phase)) || 'Próximamente'}</span>`;
+        : undated
+          ? '<span class="ev-badge ev-badge-expected" title="La fecha de este evento todavía no fue definida">📅 Fecha aún no definida</span>'
+          : expected
+            ? '<span class="ev-badge ev-badge-expected" title="Fecha esperada de inicio, todavía por confirmar">🕰️ Fecha por confirmar</span>'
+            : `<span class="ev-badge ev-badge-soon" data-ev-countdown="${escapeHtml(ev.starts_at || '')}" data-ev-phase="${escapeHtml(ev.phase || '')}">${escapeHtml(eventCountdown(ev.starts_at, ev.phase)) || 'Próximamente'}</span>`;
     // En curso con desaparición: se avisa en el cuerpo (el badge lo ocupa "En curso").
     const expiryNote = disappearing && ev.phase === 'active'
       ? `<span class="event-card-note"${expiryAttr} title="${escapeHtml(expiryLong)}">🗑️ Se quita en ${escapeHtml(expiryShort)}</span>`
@@ -1920,9 +1927,11 @@ function renderEvents(eventsList) {
       ? `<span class="ev-expiry-marker"${expiryAttr} style="display:none" aria-hidden="true">${escapeHtml(expiryShort)}</span>`
       : '';
     const dateRange = escapeHtml(formatEventRange(ev.starts_at, ev.ends_at));
-    const dateLine = expected
-      ? `<span class="event-card-date is-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada: ${dateRange} <span class="ev-date-note">(por confirmar)</span></span>`
-      : `<span class="event-card-date">📅 ${dateRange}</span>`;
+    const dateLine = undated
+      ? `<span class="event-card-date is-pending" title="La fecha de este evento todavía no fue definida">📅 Fecha aún no definida</span>`
+      : expected
+        ? `<span class="event-card-date is-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada: ${dateRange} <span class="ev-date-note">(por confirmar)</span></span>`
+        : `<span class="event-card-date">📅 ${dateRange}</span>`;
     return `
       <article class="event-card glass-card ${phaseClass} ${hasImg ? '' : 'ev-noimg'}" data-ev-idx="${evIdx}" role="button" tabindex="0">
         <div class="event-card-media">
@@ -1991,10 +2000,11 @@ function openEventModal(ev) {
   const coverUrl = safeHttpUrl(ev.image_url || ev.cover_url || '');
   const detailUrl = safeHttpUrl(ev.link_url || ev.linkUrl || '');
   const hasImg = Boolean(coverUrl);
+  const undated = !ev.starts_at;
   const expected = eventShowsExpectedDate(ev);
   const startsText = ev.starts_at
     ? new Date(ev.starts_at).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    : '—';
+    : 'Fecha aún no definida';
   const countdownText = (!expected && ev.phase !== 'ended') ? eventCountdown(ev.starts_at, ev.phase) : '';
   // Desaparición automática: fecha exacta + cuenta atrás larga que corre en
   // vivo mientras el modal esté abierto (data-ev-modal-expiry la refresca).
@@ -2011,7 +2021,9 @@ function openEventModal(ev) {
     ? 'En curso'
     : ev.phase === 'ended'
       ? 'Finalizado'
-      : (expected ? 'Próximamente · fecha por confirmar' : 'Próximamente');
+      : undated
+        ? 'Próximamente · fecha aún no definida'
+        : (expected ? 'Próximamente · fecha por confirmar' : 'Próximamente');
   body.innerHTML = `
     ${hasImg ? `<div class="modal-banner-wrap"><img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(ev.title)}" class="modal-banner" />${watermarkChip(ev, { big: true })}</div>` : ''}
     <div class="modal-head">
@@ -8641,6 +8653,26 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.4.32': [
+    'Notificaciones — mejora completa: el Hub ahora te avisa lo que pasa en OWS sin que tengas que estar mirando la pantalla. Avisa cuando se publica un evento, cuando empieza y cuando termina, cuando aparece una noticia y cuando un juego pasa a «Lanzado» y queda público. Los avisos llegan al sistema y, con la ventana abierta, se muestran también como toast del Hub; se revisan cada pocos minutos y al volver a la ventana, y el primer arranque solo registra lo que ya existía, sin avisar.',
+    'Descargas y actualizaciones: solo dos avisos, al empezar y al terminar. Se quitaron los avisos de 25 %, 50 % y 75 % que en Windows se apilaban cuando la descarga era rápida (sobre todo al actualizar OWS Hub), y se evita el «listo» duplicado al cerrar la actualización del Hub. Si la actualización del Hub falla, ahora también se avisa.',
+    'Sin avalancha de avisos: si llegan varias novedades juntas, un solo aviso las resume («3 noticias nuevas», «2 eventos nuevos») y nunca se apilan más de tres por revisión. Cada aviso queda recordado por usuario para no repetirse.',
+    'Configuración: nuevo interruptor «Novedades de OWS» en el setup para activar o desactivar solo los avisos de eventos, noticias y lanzamientos, sin tocar los de descargas.',
+    'Avisos de lanzamiento en el Hub: al pasar un proyecto a «Lanzado» aparece arriba un banner delgado con su nombre, descripción e icono, que se cierra con la X de la izquierda y se retira solo a los 30 días. Para avisar con antelación hay un segundo banner, más grueso, con el icono del proyecto y la fecha de llegada. Se muestra uno por vez, el Hub recuerda los que cerraste y los devuelve si el equipo los edita; el panel suma la pestaña Banners para crearlos, ajustarlos y forzarlos cuando no aparezcan.',
+    'Eventos sin fecha: el panel permite publicar un evento sin fecha de inicio. En el Hub se anuncia solo como «Fecha aún no definida», sin cuenta atrás ni fechas inventadas, y se puede completar más adelante desde el mismo formulario. El panel suma el estado, el filtro y el contador «Sin fecha».',
+    'Surface — Comprar Tides: nueva sección con paquetes, resumen de la compra y el pago con Mercado Pago ya integrado (al volver del checkout la compra se confirma sola y el botón no queda bloqueado). Por ahora la tienda se muestra como «Indisponible por el momento» hasta habilitarla.',
+    'Surface — Gestión: nueva sección con resumen del período, límites de gasto por día, últimos 7 días o mes, topes por operación en Gambits y Tides, aviso al acercarse al límite y bloqueo opcional al superarlo.',
+    'Surface — Controles: pausa de seguridad para frenar envíos, avisos de límite y de envíos grandes, y confirmación extra antes de operaciones altas.',
+    'Surface — Equivalencias: tabla de tasas oficiales de OWS (solo lectura) y calculadora rápida para pasar Gambits o Tides a dinero.',
+    'Surface — Registro de gestión: historial de cambios con exportación y limpieza, más una opción para restablecer todos los ajustes de la cuenta.',
+    'Surface — Añadir crédito: subsección informativa marcada como próximamente para cargar saldo con dinero real.',
+    'Los límites y la pausa de Gestión se aplican al enviar desde Surface: si el envío supera el tope del período o los envíos están pausados, el botón queda bloqueado y se explica el motivo. Las preferencias quedan guardadas en la cuenta.'
+  ],
+  '3.4.31': [
+    'Los videos de las noticias en cadena se reproducen solos, en silencio y en bucle: se retiraron los controles del reproductor y la reproducción arranca apenas se abre el modal, sin que haya que tocar nada.',
+    'El modal de noticias quedó más grande: más ancho, con la portada del video más alta y el contenido con más aire para leer.',
+    'El nombre de la cadena —por ejemplo «Novedades»— ahora encabeza el modal con una tipografía grande y en degradado, para que se note de inmediato.'
+  ],
   '3.4.30': [
     'La sección Actualizaciones se rehizo para aprovechar todo el ancho de la pantalla, con un listado compacto que ahora muestra todos los proyectos de un vistazo.',
     'Cada proyecto aparece con su icono y su nombre, y a la derecha su versión instalada, la última publicada y su estado; OWS Hub va primero, destacado, como la fila insignia del gestor.',

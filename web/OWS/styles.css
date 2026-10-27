@@ -480,7 +480,6 @@ body {
 
 /* Main column */
 .main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-
 /* ── Banner de lanzamiento / próximo lanzamiento (arriba del Hub) ──
    Vive dentro de .main-col para empujar el contenido (no tapa el menú).
    release  = delgado, como un toaster cerrable con la X a la izquierda.
@@ -584,6 +583,7 @@ body {
   .hub-banner-date { padding: 4px 9px; font-size: 0.7rem; }
   .hub-banner-cta { padding: 5px 11px; }
 }
+
 
 /* Page container + hero (zen) */
 .page-container { width: 100%; max-width: 960px; margin: 0 auto; padding: 0 28px; }
@@ -741,6 +741,7 @@ body {
 }
 .event-card-date.is-expected { color: #fcd34d; }
 .event-card-date.is-expected .ev-date-note { font-style: italic; opacity: 0.85; }
+.event-card-date.is-pending { color: #fcd34d; }
 .ev-date-note { font-style: italic; opacity: 0.85; }
 
 /* Desaparición automática: aviso ámbar sobre el evento que ya terminó.

@@ -42332,6 +42332,27 @@ function readPayPalEnvConfig(env) {
   };
 }
 
+// Diagnostico para el panel: nombres exactos que lee el servidor. Nunca se
+// expone el valor, solo si la variable llego al proceso.
+function paypalEnvVarStatus(env) {
+  const isLive = String(env || '').toLowerCase() === 'live';
+  const has = (names) => names.some((name) => String(process.env[name] || '').trim().length > 0);
+  return {
+    clientId: has(isLive ? ['PAYPAL_LIVE_CLIENT_ID', 'PAYPAL_CLIENT_ID'] : ['PAYPAL_SANDBOX_CLIENT_ID']),
+    clientSecret: has(isLive ? ['PAYPAL_LIVE_CLIENT_SECRET', 'PAYPAL_CLIENT_SECRET'] : ['PAYPAL_SANDBOX_CLIENT_SECRET']),
+    webhook: has(isLive ? ['PAYPAL_LIVE_WEBHOOK_ID', 'PAYPAL_WEBHOOK_ID'] : ['PAYPAL_SANDBOX_WEBHOOK_ID'])
+  };
+}
+
+function paypalMissingEnvNames(env) {
+  const isLive = String(env || '').toLowerCase() === 'live';
+  const status = paypalEnvVarStatus(env);
+  const missing = [];
+  if (!status.clientId) missing.push(isLive ? 'PAYPAL_CLIENT_ID' : 'PAYPAL_SANDBOX_CLIENT_ID');
+  if (!status.clientSecret) missing.push(isLive ? 'PAYPAL_CLIENT_SECRET' : 'PAYPAL_SANDBOX_CLIENT_SECRET');
+  return missing;
+}
+
 // Entorno por defecto cuando la DB todavia no tiene un valor guardado:
 // respeta PAYPAL_ENV si ese entorno tiene credenciales; si no, usa el unico
 // configurado. Con ambos configurados y sin PAYPAL_ENV, arranca en sandbox.
@@ -43005,7 +43026,10 @@ app.get(['/surface/paypal/config', '/ocean-pay/paypal/config'], async (_req, res
     enabled: areTidesPurchasesEnabled() && settings.configured,
     environment: settings.environment,
     clientId: settings.clientId,
-    currency: PAYPAL_TIDES_CURRENCY
+    currency: PAYPAL_TIDES_CURRENCY,
+    service: String(process.env.RENDER_SERVICE_NAME || '').trim(),
+    liveConfigured: readPayPalEnvConfig('live').configured,
+    sandboxConfigured: readPayPalEnvConfig('sandbox').configured
   });
 });
 
@@ -43278,7 +43302,8 @@ function paypalIntegrationPayload() {
       environment: env,
       configured: settings.configured,
       webhooks: settings.webhookIds.length,
-      clientIdTail: settings.clientId ? settings.clientId.slice(-6) : ''
+      clientIdTail: settings.clientId ? settings.clientId.slice(-6) : '',
+      vars: paypalEnvVarStatus(env)
     };
   });
 
@@ -43288,6 +43313,8 @@ function paypalIntegrationPayload() {
     configured: active.configured,
     enabled: areTidesPurchasesEnabled() && active.configured,
     purchasesEnabled: areTidesPurchasesEnabled(),
+    missing: paypalMissingEnvNames(environment),
+    service: String(process.env.RENDER_SERVICE_NAME || '').trim(),
     source: paypalRuntimeEnv.source,
     updatedAt: paypalRuntimeEnv.updatedAt || null,
     updatedBy: paypalRuntimeEnv.updatedBy || null,
@@ -43311,9 +43338,12 @@ app.put('/ows-admin-panel/integrations/paypal', async (req, res) => {
 
   const target = readPayPalEnvConfig(environment);
   if (!target.configured) {
+    const missing = paypalMissingEnvNames(environment);
     return res.status(409).json({
-      error: `PayPal ${environment} no tiene credenciales configuradas en el servidor.`,
-      code: 'PAYPAL_ENV_NOT_CONFIGURED'
+      error: `PayPal ${environment} no tiene credenciales configuradas en el servidor`
+        + (missing.length ? ` (faltan: ${missing.join(', ')})` : '') + '.',
+      code: 'PAYPAL_ENV_NOT_CONFIGURED',
+      missing
     });
   }
 

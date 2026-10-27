@@ -2956,11 +2956,12 @@ const MG_CURRENCIES = [
   { id: 'tides',   name: 'Tides',   code: 'TIDES',   ico: '🌊' }
 ];
 /* Equivalencias oficiales de OWS. Único origen para todos los usuarios.
-   Se completan acá cuando OWS publique las tasas; la interfaz no las edita. */
+   Se completan acá cuando OWS publique las tasas; la interfaz no las edita.
+   1 Gambit = USD 0,002 · 1 Tide = USD 0,01 */
 const MG_OFFICIAL_RATES = Object.freeze({
   base: 'USD',
-  updatedAt: null,
-  values: Object.freeze({ gambits: null, tides: null })
+  updatedAt: '2026-10-26T23:45:00-03:00',
+  values: Object.freeze({ gambits: 0.002, tides: 0.01 })
 });
 const MG_LOG_ICONS = {
   settings: '⚙️',

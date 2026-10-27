@@ -1526,6 +1526,12 @@ function loadTidesPayPalSdk(config) {
   return tidesPayPalSdkPromise;
 }
 
+function tidesPayPalErrorMessage(data, fallback) {
+  const base = String((data && data.error) || fallback || '').trim();
+  const detail = String((data && data.detail) || '').trim();
+  return detail ? base + ' — ' + detail : base;
+}
+
 async function createTidesPayPalOrder(pkg) {
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
@@ -1546,7 +1552,7 @@ async function createTidesPayPalOrder(pkg) {
     handleLogout();
     throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
   }
-  if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el pago con PayPal.');
+  if (!res.ok) throw new Error(tidesPayPalErrorMessage(data, 'No se pudo iniciar el pago con PayPal.'));
   if (!data.orderId) throw new Error('PayPal no devolvió una orden válida.');
 
   const orderEnv = String(data.environment || '').toLowerCase() === 'sandbox' ? 'sandbox' : 'live';
@@ -1587,7 +1593,7 @@ async function captureTidesPayPalOrder(orderId, packageId) {
     showToast('Pago pendiente de confirmación.');
     return null;
   }
-  if (!res.ok) throw new Error(data.error || 'No se pudo confirmar el pago.');
+  if (!res.ok) throw new Error(tidesPayPalErrorMessage(data, 'No se pudo confirmar el pago.'));
 
   const credited = Number(data.credited || 0);
   const packageTitle = data.package && data.package.title ? data.package.title : '';

@@ -64,6 +64,13 @@
     activeOrder = [SELF].concat(KNOWN.filter(function (b) { return b !== SELF; }));
   }
 
+  // Archivo local (file://): no hay origen propio y la principal puede estar
+  // suspendida. Arrancamos por el espejo; la sonda devuelve la preferencia a la
+  // principal en cuanto vuelve a responder.
+  if (!SELF_IS_KNOWN && (SELF === 'null' || SELF === '')) {
+    activeOrder = [MIRRORS[0]].concat(KNOWN.filter(function (b) { return b !== MIRRORS[0]; }));
+  }
+
   // Override de pruebas: si apunta a una base conocida, arranca por ahí.
   try {
     var params = new URLSearchParams(window.location.search || '');
@@ -89,7 +96,13 @@
   }
 
   function isGatewayDown(res) {
-    return !!res && (res.status === 502 || res.status === 503 || res.status === 504);
+    if (!res) return false;
+    if (res.status !== 502 && res.status !== 503 && res.status !== 504) return false;
+    // Un 502/503/504 en JSON lo generó la app (por ejemplo, PayPal caído).
+    // Cambiar de host no arregla eso y, en POST, puede duplicar la operación.
+    var type = '';
+    try { type = String(res.headers.get('content-type') || '').toLowerCase(); } catch (_) {}
+    return type.indexOf('application/json') === -1;
   }
 
   function setActive(base, persist) {

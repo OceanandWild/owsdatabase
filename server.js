@@ -42511,6 +42511,23 @@ async function paypalApiRequest(pathname, options = {}, env) {
   return data;
 }
 
+// Mensaje corto y sin secretos para devolver al cliente cuando PayPal falla.
+function paypalErrorDetail(err) {
+  const details = err && err.details ? err.details : {};
+  const issue = Array.isArray(details.details) ? details.details[0] : null;
+  const parts = [
+    details.error_description,
+    details.message,
+    issue && (issue.description || issue.issue),
+    err && err.message
+  ].map((value) => String(value || '').trim()).filter(Boolean);
+  const unique = [];
+  parts.forEach((part) => {
+    if (!unique.includes(part)) unique.push(part);
+  });
+  return unique.join(' · ').slice(0, 240);
+}
+
 // custom_id: paypal-tides:<userId>:<packageId>:<timestamp>:<environment>
 function parsePayPalTidesReference(raw) {
   const reference = String(raw || '').trim();
@@ -43072,8 +43089,13 @@ app.post(['/surface/tides/paypal/order', '/ocean-pay/tides/paypal/order'], async
       package: pkg
     });
   } catch (err) {
-    console.error('Error en POST /surface/tides/paypal/order:', err);
-    return res.status(502).json({ error: 'No se pudo crear la orden de PayPal' });
+    console.error('Error en POST /surface/tides/paypal/order:', err?.details || err);
+    return res.status(500).json({
+      error: 'No se pudo crear la orden de PayPal',
+      code: 'PAYPAL_ORDER_FAILED',
+      detail: paypalErrorDetail(err),
+      environment: paypalSettings.environment
+    });
   }
 });
 
@@ -43173,11 +43195,15 @@ app.post(['/surface/tides/paypal/capture', '/ocean-pay/tides/paypal/capture'], a
       package: pkg
     });
   } catch (err) {
-    console.error('Error en POST /surface/tides/paypal/capture:', err);
+    console.error('Error en POST /surface/tides/paypal/capture:', err?.details || err);
     if (paypalErrorIssues(err).includes('ORDER_NOT_APPROVED')) {
       return res.status(409).json({ error: 'La orden de PayPal todavia no esta aprobada' });
     }
-    return res.status(502).json({ error: 'No se pudo capturar el pago de PayPal' });
+    return res.status(500).json({
+      error: 'No se pudo capturar el pago de PayPal',
+      code: 'PAYPAL_CAPTURE_FAILED',
+      detail: paypalErrorDetail(err)
+    });
   }
 });
 
@@ -43372,6 +43398,47 @@ app.put('/ows-admin-panel/integrations/paypal', async (req, res) => {
   } catch (err) {
     console.error('Error en PUT /ows-admin-panel/integrations/paypal:', err);
     return res.status(500).json({ error: 'No se pudo guardar el entorno de PayPal' });
+  }
+});
+
+// Prueba real de credenciales: pide un token nuevo a PayPal (sin cache) para
+// confirmar que el client id y el secret del entorno elegido son validos.
+app.post('/ows-admin-panel/integrations/paypal/test', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const environment = String(req.body?.environment || '').trim().toLowerCase();
+  if (environment !== 'live' && environment !== 'sandbox') {
+    return res.status(400).json({ error: 'Entorno invalido. Usa live o sandbox.' });
+  }
+  if (!isPayPalConfigured(environment)) {
+    const missing = paypalMissingEnvNames(environment);
+    return res.status(409).json({
+      error: `PayPal ${environment} no tiene credenciales configuradas`
+        + (missing.length ? ` (faltan: ${missing.join(', ')})` : '') + '.',
+      code: 'PAYPAL_ENV_NOT_CONFIGURED',
+      missing
+    });
+  }
+
+  const settings = readPayPalEnvConfig(environment);
+  try {
+    paypalTokenCache[environment].token = '';
+    paypalTokenCache[environment].expiresAt = 0;
+    await getPayPalAccessToken(environment);
+    return res.json({
+      success: true,
+      environment,
+      apiBase: settings.apiBase,
+      webhooks: settings.webhookIds.length
+    });
+  } catch (err) {
+    console.error(`Error probando credenciales PayPal ${environment}:`, err?.details || err);
+    return res.status(502).json({
+      error: `PayPal rechazo las credenciales de ${environment}`,
+      code: 'PAYPAL_CREDENTIALS_REJECTED',
+      detail: paypalErrorDetail(err),
+      environment
+    });
   }
 });
 

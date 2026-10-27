@@ -46551,7 +46551,6 @@ const WW_PVP_QUEUE_TIMEOUT = 120000;
 const WW_PVP_ROUND_DELAY = 3600;
 const WW_LOBBY_TTL = 3 * 3600000;        // una sala de lobby sin jugadores se limpia sola
 const WW_LOBBY_BOT_COLORS = 8;
-const WW_PVP_MAX_SPECTATORS = 40;        // transmisiones simultaneas por sala
 
 const wwPvpQueue = [];
 const wwPvpRooms = new Map();
@@ -46567,118 +46566,6 @@ function wwPvpBroadcast(room, payload, except) {
     if (p === except) continue;
     wwPvpSend(p, payload);
   }
-  // Los espectadores reciben el mismo arbitraje (rondas, estado, golpes y bajas)
-  // para poder reconstruir la partida sin ocupar asiento ni mandar estado.
-  wwPvpSendSpectators(room, payload);
-}
-
-/** Envia a las transmisiones de la sala (no a los jugadores). */
-function wwPvpSendSpectators(room, payload, except) {
-  if (!room || !Array.isArray(room.spectators)) return;
-  for (const spec of room.spectators) {
-    if (spec === except) continue;
-    wwPvpSend(spec, payload);
-  }
-}
-
-/** Cierra las transmisiones de una sala y suelta el socket de cada espectador. */
-function wwPvpEndSpectators(room, message, over) {
-  if (!room || !Array.isArray(room.spectators)) return;
-  const payload = {
-    t: 'spectate_end',
-    room: room.key,
-    code: room.key,
-    msg: String(message || ''),
-    over: !!over,
-    round: Math.max(1, room.round | 0),
-    scores: Array.isArray(room.scores) ? room.scores.slice() : [],
-    kills: Array.isArray(room.kills) ? room.kills.slice() : []
-  };
-  for (const spec of room.spectators) {
-    wwPvpSend(spec, payload);
-    if (spec.ws) {
-      spec.ws.wwSpectator = null;
-      if (spec.ws.wwRoom === room) spec.ws.wwRoom = null;
-    }
-  }
-  room.spectators.length = 0;
-}
-
-/** Datos completos para armar la Arena como espectador (misma semilla y plantel). */
-function wwPvpSpectatePayload(room, spec) {
-  return {
-    t: 'spectate_ok',
-    room: room.key,
-    code: room.key,
-    seed: room.seed,
-    round: Math.max(1, room.round | 0),
-    teams: room.teams ? 1 : 0,
-    scores: Array.isArray(room.scores) ? room.scores.slice() : [],
-    kills: Array.isArray(room.kills) ? room.kills.slice() : [],
-    specs: room.spectators.length,
-    players: room.players.map((p) => ({
-      seat: p.seat, name: p.name, color: p.color, team: p.team | 0,
-      control: p.control | 0, bot: !!p.bot, host: !!p.host
-    }))
-  };
-}
-
-/** Alta de un espectador por codigo de sala. */
-function wwPvpHandleSpectate(ws, msg) {
-  const code = wwPvpLobbyCode(msg.room || msg.code);
-  const room = wwPvpRooms.get(code);
-
-  // La Arena vuelve a pedir "spectate" al cargar (para refrescar ronda/marcador):
-  // si el socket ya esta mirando esa sala, solo se reenvia el estado.
-  if (ws.wwSpectator) {
-    if (ws.wwRoom === room && room) {
-      wwPvpSend(ws.wwSpectator, wwPvpSpectatePayload(room, ws.wwSpectator));
-      return;
-    }
-    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'Ya estas mirando otra partida.' });
-    return;
-  }
-
-  if (ws.wwPlayer || ws.wwRoom) {
-    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'Sal de la sala actual antes de mirar otra partida.' });
-    return;
-  }
-
-  if (code.length < 4 || !room) {
-    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'No encontramos esa sala. Fijate el codigo.' });
-    return;
-  }
-  if (room.finished) {
-    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La partida de esa sala ya termino.' });
-    return;
-  }
-  if (room.lobby && !room.started) {
-    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La partida todavia no arranco. Entra como jugador.' });
-    return;
-  }
-  if (!room.lobby && room.round < 1) {
-    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La partida todavia no arranco.' });
-    return;
-  }
-  if (room.players.length < 2) {
-    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La sala no tiene combatientes en este momento.' });
-    return;
-  }
-  if (room.spectators.length >= WW_PVP_MAX_SPECTATORS) {
-    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La transmision esta llena. Proba en un rato.' });
-    return;
-  }
-
-  const spec = {
-    ws,
-    name: String((msg && msg.name) || 'ESPECTADOR').trim().slice(0, 24) || 'ESPECTADOR',
-    joinedAt: Date.now()
-  };
-  room.spectators.push(spec);
-  ws.wwSpectator = spec;
-  ws.wwRoom = room;
-  wwPvpSend(spec, wwPvpSpectatePayload(room, spec));
-  console.log(`[WW-PVP] ${spec.name} mira la sala ${room.key} (${room.spectators.length} espectador(es))`);
 }
 
 function wwPvpQueueStatus() {
@@ -46691,8 +46578,6 @@ function wwPvpNewRoom(key) {
     key, players: [], scores: [], round: 0, active: false, seed: 0,
     createdAt: Date.now(), timer: null, host: null,
     lobby: false, started: false, waiters: [],
-    // Transmisiones en vivo: no juegan, no ocupan asiento y solo reciben eventos.
-    spectators: [], finished: false,
     // Equipos activos por defecto: el anfitrion puede apagarlos en la sala
     // (todos contra todos) desde MultiplayerLobbyController.
     teams: true,
@@ -46871,7 +46756,6 @@ function wwPvpLobbyDetach(room, player, reason) {
     if (room.timer) clearTimeout(room.timer);
     for (const w of room.waiters) wwPvpSend(w, { t: 'lobby_closed', room: room.key, msg: 'La sala se cerro' });
     room.waiters.length = 0;
-    wwPvpEndSpectators(room, 'LA SALA SE CERRO', true);
     wwPvpRooms.delete(room.key);
     console.log(`[WW-PVP] Sala ${room.key} eliminada`);
     return;
@@ -46924,7 +46808,6 @@ function wwPvpHandleLobbyMessage(ws, msg) {
 
 function wwPvpPair(room) {
   room.active = true;
-  room.finished = false;
   // La ronda la arranca el "ready" de todos (wwPvpTryStart): queda en 0 hasta entonces.
   room.round = 0;
   room.scores = new Array(room.players.length).fill(0);
@@ -46952,7 +46835,6 @@ function wwPvpStartRound(room, newMatch) {
     room.lastHit = {};
     room.round = 1;
     room.active = true;
-    room.finished = false;
   }
   wwPvpBroadcast(room, {
     t: 'round_start', round: room.round,
@@ -46989,13 +46871,6 @@ function wwPvpHandleDeath(room, player, killerSeat) {
   }
   wwPvpBroadcast(room, { t: 'kills', kills: room.kills.slice() });
 
-  // Baja confirmada solo para las transmisiones: el feed puede nombrar victima y
-  // culpable sin tocar el flujo de los jugadores (que ya lo resolvieron localmente).
-  wwPvpSendSpectators(room, {
-    t: 'ko', target: player.seat, killer,
-    kills: room.kills.slice()
-  });
-
   const remaining = room.players.filter((p) => !p.dead);
   // Con equipos activos, la ronda termina cuando queda un solo EQUIPO (los
   // companeros no se pueden danar entre si). Sin equipos cada asiento es su
@@ -47017,11 +46892,7 @@ function wwPvpHandleDeath(room, player, killerSeat) {
       scores: room.scores.slice(), kills: room.kills.slice()
     });
     console.log(`[WW-PVP] Sala ${room.key}: ronda ${room.round} para ${winner >= 0 ? 'J' + (winner + 1) : 'la IA'}${final ? ' - FIN' : ''}`);
-    if (final) {
-      room.finished = true;
-      wwPvpEndSpectators(room, 'PARTIDA FINALIZADA', true);
-      return;
-    }
+    if (final) return;
     // reset dead flags
     for (const p of room.players) p.dead = false;
     room.timer = setTimeout(() => {
@@ -47042,18 +46913,6 @@ function wwPvpDetach(ws, reason) {
   if (qi >= 0) { wwPvpQueue.splice(qi, 1); wwPvpQueueStatus(); }
 
   for (const room of wwPvpRooms.values()) {
-    // Transmision en vivo: el espectador solo se desengancha.
-    if (Array.isArray(room.spectators)) {
-      const si = room.spectators.findIndex((s) => s.ws === ws);
-      if (si >= 0) {
-        room.spectators.splice(si, 1);
-        ws.wwSpectator = null;
-        ws.wwRoom = null;
-        console.log(`[WW-PVP] Sala ${room.key}: queda(n) ${room.spectators.length} espectador(es)`);
-        break;
-      }
-    }
-
     // Lista de espera de una sala llena: solo se desengancha.
     const wi = room.waiters.findIndex((p) => p.ws === ws);
     if (wi >= 0) {
@@ -47079,7 +46938,6 @@ function wwPvpDetach(ws, reason) {
     room.lastHit = {};
     if (room.players.length === 0) {
       if (room.timer) clearTimeout(room.timer);
-      wwPvpEndSpectators(room, 'LA SALA SE CERRO', true);
       wwPvpRooms.delete(room.key);
       console.log(`[WW-PVP] Sala ${room.key} eliminada`);
       break;
@@ -47098,19 +46956,6 @@ function wwPvpOnMessage(ws, msg) {
 
   // Lobby por codigo: crear sala / entrar con codigo (antes de estar en una sala).
   if (wwPvpHandleLobbyMessage(ws, msg)) return;
-
-  // Transmision en vivo: entrar por codigo a una partida ya arrancada.
-  if (msg.t === 'spectate') {
-    wwPvpHandleSpectate(ws, msg);
-    return;
-  }
-
-  if (msg.t === 'leave' || msg.t === 'lobby_leave') {
-    if (ws.wwSpectator) {
-      wwPvpDetach(ws, 'leave');
-      return;
-    }
-  }
 
   if (msg.t === 'join') {
     if (ws.wwRoom && ws.wwPlayer) return;
@@ -47327,11 +47172,7 @@ setInterval(() => {
   if (changed) wwPvpQueueStatus();
 
   for (const room of wwPvpRooms.values()) {
-    if (room.players.length === 0) {
-      wwPvpEndSpectators(room, 'LA SALA SE CERRO', true);
-      wwPvpRooms.delete(room.key);
-      continue;
-    }
+    if (room.players.length === 0) { wwPvpRooms.delete(room.key); continue; }
     if (room.lobby) {
       // Las salas de lobby viven mientras tengan jugadores (el anfitrion arma el
       // plantel con calma); se limpian solas despues del TTL.
@@ -47339,14 +47180,12 @@ setInterval(() => {
         for (const p of room.players) { if (wwPvpIsHuman(p)) wwPvpSend(p, { t: 'lobby_closed', room: room.key, msg: 'La sala expiro' }); }
         for (const w of room.waiters) wwPvpSend(w, { t: 'lobby_closed', room: room.key, msg: 'La sala expiro' });
         if (room.timer) clearTimeout(room.timer);
-        wwPvpEndSpectators(room, 'LA SALA EXPIRO', true);
         wwPvpRooms.delete(room.key);
       }
       continue;
     }
     if (room.players.length < 2 && now - room.createdAt > 600000) {
       if (room.timer) clearTimeout(room.timer);
-      wwPvpEndSpectators(room, 'LA SALA SE CERRO', true);
       wwPvpRooms.delete(room.key);
     }
   }
@@ -47367,9 +47206,7 @@ app.get('/wildweapon/pvp/info', (req, res) => {
     rooms: [...wwPvpRooms.values()].map((r) => ({
       key: r.key, round: r.round, scores: r.scores, active: r.active,
       lobby: !!r.lobby, started: !!r.started, waiters: r.waiters.length,
-      players: r.players.length, bots: r.players.filter((p) => p.bot).length,
-      spectators: Array.isArray(r.spectators) ? r.spectators.length : 0,
-      finished: !!r.finished
+      players: r.players.length, bots: r.players.filter((p) => p.bot).length
     }))
   });
 });

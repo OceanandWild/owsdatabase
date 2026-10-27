@@ -1508,19 +1508,84 @@ body.srf-no-anim .srf-view { animation: none !important; }
 .srf-mg-inline-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .srf-mg-range { width: 100%; accent-color: var(--srf-accent); }
 
-/* Añadir crédito (bloqueado) */
+/* Añadir crédito */
 .srf-mg-tagrow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .srf-mg-lead { font-size: 1.05rem; margin-bottom: 4px; }
-.srf-mg-credit-preview { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-.srf-mg-credit-chip {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px dashed var(--srf-line-2);
-  background: rgba(255, 255, 255, 0.02);
-  font-size: 0.75rem;
-  color: var(--srf-muted);
+.srf-credit-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 4px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(79, 211, 232, 0.24);
+  background: linear-gradient(135deg, rgba(79, 211, 232, 0.1), rgba(79, 211, 232, 0.02));
 }
-.srf-mg-credit-btn { width: 100%; }
+.srf-credit-balance-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--srf-dim);
+}
+.srf-credit-balance-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.22rem;
+  color: var(--srf-accent);
+}
+.srf-credit-field { margin-top: 12px; }
+.srf-credit-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--srf-line-2);
+  background: rgba(5, 8, 14, 0.75);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.srf-credit-input:focus-within {
+  border-color: rgba(79, 211, 232, 0.55);
+  box-shadow: var(--srf-ring);
+}
+.srf-credit-prefix {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--srf-dim);
+}
+.srf-credit-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 0;
+  border: 0;
+  background: transparent;
+  color: var(--srf-text);
+  font: inherit;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.08rem;
+  outline: none;
+}
+.srf-credit-input input::-webkit-outer-spin-button,
+.srf-credit-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.srf-credit-input input[type='number'] { appearance: textfield; -moz-appearance: textfield; }
+.srf-credit-quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.srf-credit-quick-btn {
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--srf-line-2);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--srf-muted);
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+.srf-credit-quick-btn:hover { border-color: rgba(79, 211, 232, 0.45); color: var(--srf-text); }
+.srf-credit-quick-btn.is-active {
+  border-color: rgba(79, 211, 232, 0.55);
+  background: rgba(79, 211, 232, 0.13);
+  color: var(--srf-text);
+}
 
 /* Equivalencias oficiales (solo lectura) */
 .srf-mg-table { display: flex; flex-direction: column; gap: 6px; }

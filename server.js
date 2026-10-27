@@ -42970,11 +42970,12 @@ function paypalOrderMissingInEnv(err) {
   );
 }
 
-async function capturePayPalOrder(orderId, env) {
+async function capturePayPalOrder(orderId, env, requestPrefix) {
+  const prefix = String(requestPrefix || 'tides');
   try {
     return await paypalApiRequest(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
       method: 'POST',
-      headers: { 'PayPal-Request-Id': `tides-capture-${orderId}` },
+      headers: { 'PayPal-Request-Id': `${prefix}-capture-${orderId}` },
       body: JSON.stringify({})
     }, env);
   } catch (err) {
@@ -43267,14 +43268,44 @@ app.post(['/surface/tides/paypal/webhook', '/ocean-pay/tides/paypal/webhook'], a
 
   const eventType = String(req.body?.event_type || '').toUpperCase();
   const resource = req.body?.resource || {};
+  const relatedOrderId = String(resource?.supplementary_data?.related_ids?.order_id || '').trim();
+  const webhookReference = String(resource?.custom_id || '').trim();
+
+  // Saldo Surface (monto libre): se reconoce por la tabla de ordenes o por la
+  // referencia propia. Se resuelve antes que Tides para no mezclar prefijos.
+  let creditRecord = null;
+  try {
+    creditRecord = await findSurfaceCreditOrder({ orderId: relatedOrderId, reference: webhookReference });
+  } catch (err) {
+    console.error('[PayPal Saldo webhook] Error leyendo la orden:', err);
+  }
 
   if (eventType !== 'PAYMENT.CAPTURE.COMPLETED') {
     // Denegados, reembolsados y revertidos se registran para revision manual:
-    // nunca acreditaron Tides automaticamente.
+    // nunca acreditaron saldo ni Tides automaticamente.
     if (['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.REFUNDED', 'PAYMENT.CAPTURE.REVERSED'].includes(eventType)) {
-      console.warn('[PayPal Tides webhook] Evento para revisar:', eventType, resource?.id || '', resource?.custom_id || '');
+      if (creditRecord) {
+        const creditStatus = eventType === 'PAYMENT.CAPTURE.DENIED'
+          ? 'denied'
+          : (eventType === 'PAYMENT.CAPTURE.REFUNDED' ? 'refunded' : 'reversed');
+        await pool.query(
+          `UPDATE surface_credit_orders SET status = $2, updated_at = NOW() WHERE order_id = $1`,
+          [creditRecord.order_id, creditStatus]
+        ).catch(() => {});
+      }
+      console.warn('[PayPal webhook] Evento para revisar:', eventType, resource?.id || '', webhookReference || '');
     }
     return res.status(200).json({ success: true, ignored: true, eventType });
+  }
+
+  if (creditRecord) {
+    try {
+      const outcome = await settleSurfaceCreditWebhook({ record: creditRecord, resource, verifiedEnv });
+      return res.status(200).json({ success: true, scope: 'surface-credit', ...outcome });
+    } catch (err) {
+      console.error('Error en POST /surface/tides/paypal/webhook (saldo):', err);
+      return res.status(500).json({ error: 'No se pudo acreditar el saldo de Surface' });
+    }
   }
 
   const parsedReference = parsePayPalTidesReference(resource?.custom_id);
@@ -43347,6 +43378,456 @@ app.post(['/surface/tides/paypal/webhook', '/ocean-pay/tides/paypal/webhook'], a
   } catch (err) {
     console.error('Error en POST /surface/tides/paypal/webhook:', err);
     return res.status(500).json({ error: 'Error interno al procesar el webhook de PayPal' });
+  }
+});
+
+// =========================================
+// PAYPAL — saldo Surface (monto libre en USD)
+// =========================================
+
+// A diferencia de Tides no hay catalogo: el usuario decide cuanto cargar y se
+// acredita 1:1 en la wallet con la moneda 'usd'. El tope evita ordenes
+// absurdas y el minimo cubre la comision de PayPal.
+const SURFACE_CREDIT_CURRENCY = 'usd';
+const SURFACE_CREDIT_MIN_CENTS = 100;      // US$ 1,00
+const SURFACE_CREDIT_MAX_CENTS = 50000;    // US$ 500,00
+
+let surfaceCreditOrdersReady = false;
+async function ensureSurfaceCreditOrdersTable() {
+  if (surfaceCreditOrdersReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS surface_credit_orders (
+      order_id TEXT PRIMARY KEY,
+      reference TEXT NOT NULL UNIQUE,
+      user_id BIGINT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'USD',
+      environment TEXT NOT NULL DEFAULT 'live',
+      status TEXT NOT NULL DEFAULT 'created',
+      capture_id TEXT,
+      credited_amount NUMERIC(20,2),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_surface_credit_orders_user
+      ON surface_credit_orders(user_id)
+  `).catch(() => {});
+  surfaceCreditOrdersReady = true;
+}
+
+function surfaceCreditLimits() {
+  const envMin = Math.round(Number(process.env.SURFACE_CREDIT_MIN_USD || 0) * 100);
+  const envMax = Math.round(Number(process.env.SURFACE_CREDIT_MAX_USD || 0) * 100);
+  const minCents = Number.isFinite(envMin) && envMin >= SURFACE_CREDIT_MIN_CENTS
+    ? envMin
+    : SURFACE_CREDIT_MIN_CENTS;
+  const maxCandidate = Number.isFinite(envMax) && envMax > minCents
+    ? envMax
+    : SURFACE_CREDIT_MAX_CENTS;
+  const maxCents = Math.min(Math.max(maxCandidate, minCents + 100), 500000);
+  return { minCents, maxCents, minUsd: minCents / 100, maxUsd: maxCents / 100 };
+}
+
+// Acepta solo montos con dos decimales dentro del rango permitido.
+function readSurfaceCreditAmount(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  const cents = Math.round(amount * 100);
+  if (!Number.isFinite(cents) || Math.abs(amount * 100 - cents) > 0.001) return null;
+  const { minCents, maxCents } = surfaceCreditLimits();
+  if (cents < minCents || cents > maxCents) return null;
+  return { cents, amount: cents / 100 };
+}
+
+// custom_id: surface-credit:<userId>:<cents>:<timestamp>:<environment>
+function buildSurfaceCreditReference(userId, cents, env) {
+  const environment = String(env || '').toLowerCase() === 'live' ? 'live' : 'sandbox';
+  return `surface-credit:${userId}:${Math.round(cents)}:${Date.now()}:${environment}`;
+}
+
+function parseSurfaceCreditReference(raw) {
+  const reference = String(raw || '').trim();
+  if (!reference) return null;
+  const parts = reference.split(':');
+  if (parts.length < 5) return null;
+  if (String(parts[0] || '').toLowerCase() !== 'surface-credit') return null;
+  const userId = Number(parts[1] || 0);
+  const cents = Number(parts[2] || 0);
+  if (!Number.isFinite(userId) || userId <= 0) return null;
+  if (!Number.isFinite(cents) || cents <= 0) return null;
+  const envRaw = String(parts[4] || '').trim().toLowerCase();
+  const environment = envRaw === 'live' || envRaw === 'sandbox' ? envRaw : null;
+  return { prefix: 'surface-credit', userId, cents: Math.round(cents), environment, reference };
+}
+
+function paypalAmountMatchesUsdCents(amount, cents) {
+  const expected = Number(cents) / 100;
+  const value = Number(amount?.value);
+  if (!Number.isFinite(value) || !Number.isFinite(expected)) return false;
+  if (Math.abs(value - expected) > 0.005) return false;
+  const currency = String(amount?.currency_code || '').toUpperCase();
+  return !currency || currency === PAYPAL_TIDES_CURRENCY;
+}
+
+async function createPayPalSurfaceCreditOrder({ userId, cents, env }) {
+  const environment = env === 'live' || env === 'sandbox' ? env : activePayPalEnvironment();
+  const amount = paypalUsdAmount(cents / 100);
+  if (!amount) throw new Error('Monto de saldo invalido');
+  const reference = buildSurfaceCreditReference(userId, cents, environment);
+
+  const order = await paypalApiRequest('/v2/checkout/orders', {
+    method: 'POST',
+    headers: {
+      'PayPal-Request-Id': `surface-credit-${environment}-${userId}-${cents}-${Date.now()}`
+    },
+    body: JSON.stringify({
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          reference_id: 'surface-credit',
+          custom_id: reference,
+          invoice_id: `ows-credit-${userId}-${Date.now()}`,
+          description: 'OWS Surface - Carga de saldo',
+          amount: {
+            currency_code: PAYPAL_TIDES_CURRENCY,
+            value: amount,
+            breakdown: {
+              item_total: { currency_code: PAYPAL_TIDES_CURRENCY, value: amount }
+            }
+          },
+          items: [
+            {
+              name: 'Saldo Surface',
+              description: `Carga de saldo por US$ ${amount} en la billetera OWS`,
+              sku: 'surface-credit',
+              quantity: '1',
+              category: 'DIGITAL_GOODS',
+              unit_amount: { currency_code: PAYPAL_TIDES_CURRENCY, value: amount }
+            }
+          ]
+        }
+      ],
+      application_context: {
+        brand_name: 'OWS Surface',
+        shipping_preference: 'NO_SHIPPING',
+        user_action: 'PAY_NOW'
+      }
+    })
+  }, environment);
+
+  const orderId = String(order?.id || '').trim();
+  if (!orderId) throw new Error('PayPal no devolvio el identificador de la orden');
+
+  await ensureSurfaceCreditOrdersTable();
+  await pool.query(
+    `INSERT INTO surface_credit_orders
+       (order_id, reference, user_id, amount_cents, currency, environment)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (order_id) DO NOTHING`,
+    [orderId, reference, userId, Math.round(cents), PAYPAL_TIDES_CURRENCY, environment]
+  );
+
+  return { order, orderId, reference, environment, amountUsd: Math.round(cents) / 100 };
+}
+
+async function findSurfaceCreditOrder({ orderId, reference }) {
+  await ensureSurfaceCreditOrdersTable();
+  if (orderId) {
+    const byOrder = await pool.query(
+      'SELECT * FROM surface_credit_orders WHERE order_id = $1 LIMIT 1',
+      [orderId]
+    );
+    if (byOrder.rows.length) return byOrder.rows[0];
+  }
+  if (reference) {
+    const byRef = await pool.query(
+      'SELECT * FROM surface_credit_orders WHERE reference = $1 LIMIT 1',
+      [reference]
+    );
+    if (byRef.rows.length) return byRef.rows[0];
+  }
+  return null;
+}
+
+// Idempotente: el cliente y el webhook pueden llegar en cualquier orden.
+async function creditSurfaceTopUp({ userId, cents, paymentId, reference, env }) {
+  const isSandbox = env === 'sandbox';
+  const origin = isSandbox ? 'PayPal Saldo Sandbox' : 'PayPal Saldo';
+  const amount = Math.round(Number(cents) || 0) / 100;
+  if (!(amount > 0)) throw new Error('Monto de saldo invalido');
+  const concept = `Saldo Surface - PayPal${isSandbox ? ' Sandbox' : ''} - payment:${paymentId}`;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`surface-credit:${origin}:${paymentId}`]);
+
+    const { rows: existingTx } = await client.query(
+      `SELECT id FROM ocean_pay_txs
+        WHERE user_id = $1 AND origen = $2 AND concepto = $3
+        LIMIT 1`,
+      [userId, origin, concept]
+    );
+
+    const currentBalance = await getUnifiedBalance(client, userId, SURFACE_CREDIT_CURRENCY);
+
+    if (existingTx.length) {
+      await client.query('COMMIT');
+      return { alreadyApplied: true, credited: 0, newBalance: currentBalance, amountUsd: amount };
+    }
+
+    const newBalance = Math.round((currentBalance + amount) * 100) / 100;
+    await setUnifiedBalance(client, userId, SURFACE_CREDIT_CURRENCY, newBalance);
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, 'USD')`,
+      [userId, concept, amount, origin]
+    );
+
+    if (reference) {
+      await client.query(
+        `UPDATE surface_credit_orders
+            SET status = 'credited',
+                capture_id = $2,
+                credited_amount = $3,
+                updated_at = NOW()
+          WHERE reference = $1`,
+        [reference, String(paymentId), amount]
+      ).catch(() => {});
+    }
+
+    await client.query('COMMIT');
+    return { alreadyApplied: false, credited: amount, newBalance, amountUsd: amount };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// Respaldo del webhook cuando el cliente cierra la pestaña antes de capturar.
+async function settleSurfaceCreditWebhook({ record, resource, verifiedEnv }) {
+  const expectedCents = Number(record.amount_cents);
+  let capture = resource;
+
+  if (String(capture?.status || '').toUpperCase() !== 'COMPLETED') {
+    const order = await fetchPayPalOrder(String(record.order_id || ''), verifiedEnv);
+    capture = readPayPalOrderUnit(order).capture;
+  }
+  if (String(capture?.status || '').toUpperCase() !== 'COMPLETED') {
+    return { ignored: true, reason: 'captura no completada', status: capture?.status || 'unknown' };
+  }
+  if (!paypalAmountMatchesUsdCents(capture?.amount, expectedCents)) {
+    console.warn('[PayPal Saldo webhook] Monto no coincide:', capture?.id || '', capture?.amount, expectedCents);
+    return { ignored: true, reason: 'monto no coincide' };
+  }
+
+  const captureId = String(capture?.id || '').trim();
+  if (!captureId) return { ignored: true, reason: 'sin captureId' };
+
+  const result = await creditSurfaceTopUp({
+    userId: Number(record.user_id),
+    cents: expectedCents,
+    paymentId: captureId,
+    reference: record.reference,
+    env: verifiedEnv
+  });
+
+  return {
+    ...result,
+    captureId,
+    environment: verifiedEnv,
+    userId: Number(record.user_id),
+    currency: PAYPAL_TIDES_CURRENCY
+  };
+}
+
+app.get(['/surface/credit/config', '/ocean-pay/credit/config'], async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  await refreshPayPalRuntimeEnv();
+  const settings = activePayPalConfig();
+  const limits = surfaceCreditLimits();
+  return res.json({
+    success: true,
+    enabled: settings.configured,
+    configured: settings.configured,
+    clientId: settings.clientId,
+    environment: settings.environment,
+    currency: PAYPAL_TIDES_CURRENCY,
+    minUsd: limits.minUsd,
+    maxUsd: limits.maxUsd,
+    rate: 1,
+    service: String(process.env.RENDER_SERVICE_NAME || '').trim(),
+    liveConfigured: readPayPalEnvConfig('live').configured,
+    sandboxConfigured: readPayPalEnvConfig('sandbox').configured
+  });
+});
+
+app.get(['/surface/credit/balance', '/ocean-pay/credit/balance'], async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const client = await pool.connect();
+  try {
+    const balance = await getUnifiedBalance(client, userId, SURFACE_CREDIT_CURRENCY);
+    return res.json({ success: true, usd: balance, currency: PAYPAL_TIDES_CURRENCY });
+  } catch (err) {
+    console.error('Error en GET /surface/credit/balance:', err);
+    return res.status(500).json({ error: 'No se pudo leer el saldo' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post(['/surface/credit/paypal/order', '/ocean-pay/credit/paypal/order'], async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  await refreshPayPalRuntimeEnv();
+  const paypalSettings = activePayPalConfig();
+  if (!paypalSettings.configured) {
+    return res.status(503).json({
+      error: `PayPal (${paypalSettings.environment}) no esta configurado.`,
+      code: 'PAYPAL_NOT_CONFIGURED'
+    });
+  }
+
+  const parsed = readSurfaceCreditAmount(req.body?.amount);
+  if (!parsed) {
+    const limits = surfaceCreditLimits();
+    return res.status(400).json({
+      error: `Elegi un monto entre US$ ${limits.minUsd.toFixed(2)} y US$ ${limits.maxUsd.toFixed(2)}.`,
+      code: 'SURFACE_CREDIT_AMOUNT_INVALID',
+      minUsd: limits.minUsd,
+      maxUsd: limits.maxUsd
+    });
+  }
+
+  try {
+    const { orderId, reference, environment, amountUsd } = await createPayPalSurfaceCreditOrder({
+      userId,
+      cents: parsed.cents,
+      env: paypalSettings.environment
+    });
+    return res.json({
+      success: true,
+      orderId,
+      reference,
+      environment,
+      amountUsd
+    });
+  } catch (err) {
+    console.error('Error en POST /surface/credit/paypal/order:', err?.details || err);
+    return res.status(500).json({
+      error: 'No se pudo crear la orden de saldo',
+      code: 'SURFACE_CREDIT_ORDER_FAILED',
+      detail: paypalErrorDetail(err),
+      environment: paypalSettings.environment
+    });
+  }
+});
+
+app.post(['/surface/credit/paypal/capture', '/ocean-pay/credit/paypal/capture'], async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const orderId = String(req.body?.orderId || '').trim();
+  if (!orderId) return res.status(400).json({ error: 'orderId es requerido' });
+
+  await refreshPayPalRuntimeEnv();
+
+  let record = null;
+  try {
+    record = await findSurfaceCreditOrder({ orderId });
+  } catch (err) {
+    console.error('Error leyendo la orden de saldo:', err);
+    return res.status(500).json({ error: 'No se pudo leer la orden de saldo' });
+  }
+
+  if (!record) {
+    return res.status(404).json({
+      error: 'Orden de saldo no encontrada',
+      code: 'SURFACE_CREDIT_ORDER_NOT_FOUND'
+    });
+  }
+  if (Number(record.user_id) !== userId) {
+    return res.status(403).json({ error: 'La orden pertenece a otra cuenta' });
+  }
+
+  const expectedCents = Number(record.amount_cents);
+  const activeEnv = activePayPalEnvironment();
+  const otherEnv = activeEnv === 'live' ? 'sandbox' : 'live';
+  const preferred = String(record.environment || activeEnv);
+  const candidateEnvs = [preferred];
+  if (isPayPalConfigured(otherEnv) && otherEnv !== preferred) candidateEnvs.push(otherEnv);
+
+  try {
+    let order = null;
+    let usedEnv = null;
+    let lastError = null;
+
+    for (const env of candidateEnvs) {
+      if (!isPayPalConfigured(env)) continue;
+      try {
+        order = await capturePayPalOrder(orderId, env, 'surface-credit');
+        usedEnv = env;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (paypalOrderMissingInEnv(err)) continue;
+        throw err;
+      }
+    }
+
+    if (!order) throw lastError || new Error('No se pudo capturar la orden de PayPal');
+
+    const context = readPayPalOrderUnit(order);
+    const capture = context.capture;
+    if (!paypalCaptureCompleted(order, capture)) {
+      return res.status(409).json({
+        error: 'PayPal aun no confirmo el pago',
+        status: String(capture?.status || order?.status || 'unknown')
+      });
+    }
+    if (!paypalAmountMatchesUsdCents(capture?.amount || context.unit?.amount, expectedCents)) {
+      return res.status(400).json({ error: 'El monto de la orden no coincide con la carga solicitada' });
+    }
+
+    const captureId = String(capture?.id || '').trim();
+    if (!captureId) {
+      return res.status(500).json({ error: 'PayPal no devolvio el identificador de la captura' });
+    }
+
+    const result = await creditSurfaceTopUp({
+      userId,
+      cents: expectedCents,
+      paymentId: captureId,
+      reference: record.reference,
+      env: usedEnv
+    });
+
+    return res.json({
+      success: true,
+      ...result,
+      orderId,
+      captureId,
+      environment: usedEnv,
+      currency: PAYPAL_TIDES_CURRENCY
+    });
+  } catch (err) {
+    console.error('Error en POST /surface/credit/paypal/capture:', err?.details || err);
+    if (paypalErrorIssues(err).includes('ORDER_NOT_APPROVED')) {
+      return res.status(409).json({ error: 'La orden de PayPal todavia no esta aprobada' });
+    }
+    return res.status(500).json({
+      error: 'No se pudo capturar la carga de saldo',
+      code: 'SURFACE_CREDIT_CAPTURE_FAILED',
+      detail: paypalErrorDetail(err)
+    });
   }
 });
 
@@ -46061,6 +46542,7 @@ const WW_PVP_QUEUE_TIMEOUT = 120000;
 const WW_PVP_ROUND_DELAY = 3600;
 const WW_LOBBY_TTL = 3 * 3600000;        // una sala de lobby sin jugadores se limpia sola
 const WW_LOBBY_BOT_COLORS = 8;
+const WW_PVP_MAX_SPECTATORS = 40;        // transmisiones simultaneas por sala
 
 const wwPvpQueue = [];
 const wwPvpRooms = new Map();
@@ -46076,6 +46558,118 @@ function wwPvpBroadcast(room, payload, except) {
     if (p === except) continue;
     wwPvpSend(p, payload);
   }
+  // Los espectadores reciben el mismo arbitraje (rondas, estado, golpes y bajas)
+  // para poder reconstruir la partida sin ocupar asiento ni mandar estado.
+  wwPvpSendSpectators(room, payload);
+}
+
+/** Envia a las transmisiones de la sala (no a los jugadores). */
+function wwPvpSendSpectators(room, payload, except) {
+  if (!room || !Array.isArray(room.spectators)) return;
+  for (const spec of room.spectators) {
+    if (spec === except) continue;
+    wwPvpSend(spec, payload);
+  }
+}
+
+/** Cierra las transmisiones de una sala y suelta el socket de cada espectador. */
+function wwPvpEndSpectators(room, message, over) {
+  if (!room || !Array.isArray(room.spectators)) return;
+  const payload = {
+    t: 'spectate_end',
+    room: room.key,
+    code: room.key,
+    msg: String(message || ''),
+    over: !!over,
+    round: Math.max(1, room.round | 0),
+    scores: Array.isArray(room.scores) ? room.scores.slice() : [],
+    kills: Array.isArray(room.kills) ? room.kills.slice() : []
+  };
+  for (const spec of room.spectators) {
+    wwPvpSend(spec, payload);
+    if (spec.ws) {
+      spec.ws.wwSpectator = null;
+      if (spec.ws.wwRoom === room) spec.ws.wwRoom = null;
+    }
+  }
+  room.spectators.length = 0;
+}
+
+/** Datos completos para armar la Arena como espectador (misma semilla y plantel). */
+function wwPvpSpectatePayload(room, spec) {
+  return {
+    t: 'spectate_ok',
+    room: room.key,
+    code: room.key,
+    seed: room.seed,
+    round: Math.max(1, room.round | 0),
+    teams: room.teams ? 1 : 0,
+    scores: Array.isArray(room.scores) ? room.scores.slice() : [],
+    kills: Array.isArray(room.kills) ? room.kills.slice() : [],
+    specs: room.spectators.length,
+    players: room.players.map((p) => ({
+      seat: p.seat, name: p.name, color: p.color, team: p.team | 0,
+      control: p.control | 0, bot: !!p.bot, host: !!p.host
+    }))
+  };
+}
+
+/** Alta de un espectador por codigo de sala. */
+function wwPvpHandleSpectate(ws, msg) {
+  const code = wwPvpLobbyCode(msg.room || msg.code);
+  const room = wwPvpRooms.get(code);
+
+  // La Arena vuelve a pedir "spectate" al cargar (para refrescar ronda/marcador):
+  // si el socket ya esta mirando esa sala, solo se reenvia el estado.
+  if (ws.wwSpectator) {
+    if (ws.wwRoom === room && room) {
+      wwPvpSend(ws.wwSpectator, wwPvpSpectatePayload(room, ws.wwSpectator));
+      return;
+    }
+    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'Ya estas mirando otra partida.' });
+    return;
+  }
+
+  if (ws.wwPlayer || ws.wwRoom) {
+    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'Sal de la sala actual antes de mirar otra partida.' });
+    return;
+  }
+
+  if (code.length < 4 || !room) {
+    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'No encontramos esa sala. Fijate el codigo.' });
+    return;
+  }
+  if (room.finished) {
+    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La partida de esa sala ya termino.' });
+    return;
+  }
+  if (room.lobby && !room.started) {
+    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La partida todavia no arranco. Entra como jugador.' });
+    return;
+  }
+  if (!room.lobby && room.round < 1) {
+    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La partida todavia no arranco.' });
+    return;
+  }
+  if (room.players.length < 2) {
+    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La sala no tiene combatientes en este momento.' });
+    return;
+  }
+  if (room.spectators.length >= WW_PVP_MAX_SPECTATORS) {
+    wwPvpSend({ ws }, { t: 'spectate_error', room: code, msg: 'La transmision esta llena. Proba en un rato.' });
+    return;
+  }
+
+  const spec = {
+    ws,
+    name: String((msg && msg.name) || 'ESPECTADOR').trim().slice(0, 24) || 'ESPECTADOR',
+    joinedAt: Date.now()
+  };
+  room.spectators.push(spec);
+  ws.wwSpectator = spec;
+  ws.wwRoom = room;
+  wwPvpSend(spec, wwPvpSpectatePayload(room, spec));
+  console.log(`[WW-PVP] ${spec.name} mira la sala ${room.key} (${room.spectators.length} espectador(es))`);
 }
 
 function wwPvpQueueStatus() {
@@ -46088,6 +46682,8 @@ function wwPvpNewRoom(key) {
     key, players: [], scores: [], round: 0, active: false, seed: 0,
     createdAt: Date.now(), timer: null, host: null,
     lobby: false, started: false, waiters: [],
+    // Transmisiones en vivo: no juegan, no ocupan asiento y solo reciben eventos.
+    spectators: [], finished: false,
     // Equipos activos por defecto: el anfitrion puede apagarlos en la sala
     // (todos contra todos) desde MultiplayerLobbyController.
     teams: true,
@@ -46266,6 +46862,7 @@ function wwPvpLobbyDetach(room, player, reason) {
     if (room.timer) clearTimeout(room.timer);
     for (const w of room.waiters) wwPvpSend(w, { t: 'lobby_closed', room: room.key, msg: 'La sala se cerro' });
     room.waiters.length = 0;
+    wwPvpEndSpectators(room, 'LA SALA SE CERRO', true);
     wwPvpRooms.delete(room.key);
     console.log(`[WW-PVP] Sala ${room.key} eliminada`);
     return;
@@ -46318,6 +46915,7 @@ function wwPvpHandleLobbyMessage(ws, msg) {
 
 function wwPvpPair(room) {
   room.active = true;
+  room.finished = false;
   // La ronda la arranca el "ready" de todos (wwPvpTryStart): queda en 0 hasta entonces.
   room.round = 0;
   room.scores = new Array(room.players.length).fill(0);
@@ -46345,6 +46943,7 @@ function wwPvpStartRound(room, newMatch) {
     room.lastHit = {};
     room.round = 1;
     room.active = true;
+    room.finished = false;
   }
   wwPvpBroadcast(room, {
     t: 'round_start', round: room.round,
@@ -46381,6 +46980,13 @@ function wwPvpHandleDeath(room, player, killerSeat) {
   }
   wwPvpBroadcast(room, { t: 'kills', kills: room.kills.slice() });
 
+  // Baja confirmada solo para las transmisiones: el feed puede nombrar victima y
+  // culpable sin tocar el flujo de los jugadores (que ya lo resolvieron localmente).
+  wwPvpSendSpectators(room, {
+    t: 'ko', target: player.seat, killer,
+    kills: room.kills.slice()
+  });
+
   const remaining = room.players.filter((p) => !p.dead);
   // Con equipos activos, la ronda termina cuando queda un solo EQUIPO (los
   // companeros no se pueden danar entre si). Sin equipos cada asiento es su
@@ -46402,7 +47008,11 @@ function wwPvpHandleDeath(room, player, killerSeat) {
       scores: room.scores.slice(), kills: room.kills.slice()
     });
     console.log(`[WW-PVP] Sala ${room.key}: ronda ${room.round} para ${winner >= 0 ? 'J' + (winner + 1) : 'la IA'}${final ? ' - FIN' : ''}`);
-    if (final) return;
+    if (final) {
+      room.finished = true;
+      wwPvpEndSpectators(room, 'PARTIDA FINALIZADA', true);
+      return;
+    }
     // reset dead flags
     for (const p of room.players) p.dead = false;
     room.timer = setTimeout(() => {
@@ -46423,6 +47033,18 @@ function wwPvpDetach(ws, reason) {
   if (qi >= 0) { wwPvpQueue.splice(qi, 1); wwPvpQueueStatus(); }
 
   for (const room of wwPvpRooms.values()) {
+    // Transmision en vivo: el espectador solo se desengancha.
+    if (Array.isArray(room.spectators)) {
+      const si = room.spectators.findIndex((s) => s.ws === ws);
+      if (si >= 0) {
+        room.spectators.splice(si, 1);
+        ws.wwSpectator = null;
+        ws.wwRoom = null;
+        console.log(`[WW-PVP] Sala ${room.key}: queda(n) ${room.spectators.length} espectador(es)`);
+        break;
+      }
+    }
+
     // Lista de espera de una sala llena: solo se desengancha.
     const wi = room.waiters.findIndex((p) => p.ws === ws);
     if (wi >= 0) {
@@ -46448,6 +47070,7 @@ function wwPvpDetach(ws, reason) {
     room.lastHit = {};
     if (room.players.length === 0) {
       if (room.timer) clearTimeout(room.timer);
+      wwPvpEndSpectators(room, 'LA SALA SE CERRO', true);
       wwPvpRooms.delete(room.key);
       console.log(`[WW-PVP] Sala ${room.key} eliminada`);
       break;
@@ -46466,6 +47089,19 @@ function wwPvpOnMessage(ws, msg) {
 
   // Lobby por codigo: crear sala / entrar con codigo (antes de estar en una sala).
   if (wwPvpHandleLobbyMessage(ws, msg)) return;
+
+  // Transmision en vivo: entrar por codigo a una partida ya arrancada.
+  if (msg.t === 'spectate') {
+    wwPvpHandleSpectate(ws, msg);
+    return;
+  }
+
+  if (msg.t === 'leave' || msg.t === 'lobby_leave') {
+    if (ws.wwSpectator) {
+      wwPvpDetach(ws, 'leave');
+      return;
+    }
+  }
 
   if (msg.t === 'join') {
     if (ws.wwRoom && ws.wwPlayer) return;
@@ -46682,7 +47318,11 @@ setInterval(() => {
   if (changed) wwPvpQueueStatus();
 
   for (const room of wwPvpRooms.values()) {
-    if (room.players.length === 0) { wwPvpRooms.delete(room.key); continue; }
+    if (room.players.length === 0) {
+      wwPvpEndSpectators(room, 'LA SALA SE CERRO', true);
+      wwPvpRooms.delete(room.key);
+      continue;
+    }
     if (room.lobby) {
       // Las salas de lobby viven mientras tengan jugadores (el anfitrion arma el
       // plantel con calma); se limpian solas despues del TTL.
@@ -46690,12 +47330,14 @@ setInterval(() => {
         for (const p of room.players) { if (wwPvpIsHuman(p)) wwPvpSend(p, { t: 'lobby_closed', room: room.key, msg: 'La sala expiro' }); }
         for (const w of room.waiters) wwPvpSend(w, { t: 'lobby_closed', room: room.key, msg: 'La sala expiro' });
         if (room.timer) clearTimeout(room.timer);
+        wwPvpEndSpectators(room, 'LA SALA EXPIRO', true);
         wwPvpRooms.delete(room.key);
       }
       continue;
     }
     if (room.players.length < 2 && now - room.createdAt > 600000) {
       if (room.timer) clearTimeout(room.timer);
+      wwPvpEndSpectators(room, 'LA SALA SE CERRO', true);
       wwPvpRooms.delete(room.key);
     }
   }
@@ -46716,7 +47358,9 @@ app.get('/wildweapon/pvp/info', (req, res) => {
     rooms: [...wwPvpRooms.values()].map((r) => ({
       key: r.key, round: r.round, scores: r.scores, active: r.active,
       lobby: !!r.lobby, started: !!r.started, waiters: r.waiters.length,
-      players: r.players.length, bots: r.players.filter((p) => p.bot).length
+      players: r.players.length, bots: r.players.filter((p) => p.bot).length,
+      spectators: Array.isArray(r.spectators) ? r.spectators.length : 0,
+      finished: !!r.finished
     }))
   });
 });

@@ -26,7 +26,7 @@ let userCards = [];
 let selectedCardIndex = 0;
 let cardDataVisible = false;   // número y CVV ocultos por defecto
 
-let currentBalances = { tides: 0, gambits: 0 };
+let currentBalances = { tides: 0, gambits: 0, usd: 0 };
 
 // Historial completo en memoria
 let allTransactionsList = [];
@@ -70,6 +70,13 @@ let tidesPayPalConfigPromise = null;
 let tidesPayPalSdkPromise = null;
 let tidesPayPalButtonsMounted = false;
 let tidesPayPalPendingPackageId = '';
+
+// Añadir crédito: monto libre en USD, mismas credenciales que Tides.
+let creditConfig = null;
+let creditConfigPromise = null;
+let creditButtonsMounted = false;
+let creditCheckoutBusy = false;
+let creditLimits = { minUsd: 1, maxUsd: 500 };
 
 let currentView = 'overview';
 
@@ -312,6 +319,15 @@ function bindSurfaceEvents() {
 
   // Gestión: topes, equivalencias y controles
   all('[data-mg-tab]', 'click', (e) => setManagementTab(e.currentTarget.getAttribute('data-mg-tab')));
+
+  // Añadir crédito: el monto lo elige el usuario, no hay catálogo.
+  on('#credit-amount', 'input', updateCreditUI);
+  on('#credit-amount', 'blur', normalizeCreditInput);
+  all('[data-credit-amount]', 'click', (e) => {
+    const input = el('credit-amount');
+    if (input) input.value = e.currentTarget.getAttribute('data-credit-amount') || '';
+    updateCreditUI();
+  });
 
   on('#mg-limits-enabled', 'change', handleLimitsEnabledChange);
   on('#btn-mg-change-scope', 'click', () => openLimitScopeModal());
@@ -686,8 +702,10 @@ function handleLogout() {
   pendingTransferPayload = null;
   overviewData = null;
   overviewLoading = false;
+  currentBalances.usd = 0;
   tidesCheckoutBusy = false;
   tidesReturnProcessing = false;
+  creditCheckoutBusy = false;
   mgTab = 'summary';
   mgCardSelectionTouched = false;
   mgWarningDraft = 80;
@@ -699,6 +717,9 @@ function handleLogout() {
   resetTidesPayPalButtons();
   setTidesPayPalStatus('Iniciá sesión para comprar Tides con PayPal.', 'info');
   hideAlert('tides-shop-alert');
+  resetCreditPayPalButtons();
+  setCreditStatus('Iniciá sesión para cargar saldo con PayPal.', 'info');
+  hideAlert('credit-alert');
   updateTidesSummary();
 
   closeConfirmModal();
@@ -748,12 +769,14 @@ async function loadWalletData(opts) {
     const balances = data.balances || {};
     currentBalances.tides   = Number(balances.tides   || 0);
     currentBalances.gambits = Number(balances.gambits || 0);
+    currentBalances.usd     = Number(balances.usd     || 0);
 
     // Verificación directa de saldos (por si /me viene con datos viejos)
     try {
-      const [tidesRes, gambitsRes] = await Promise.allSettled([
+      const [tidesRes, gambitsRes, creditRes] = await Promise.allSettled([
         fetch(API_BASE + '/surface/tides/balance',   { headers: { 'Authorization': 'Bearer ' + token } }),
-        fetch(API_BASE + '/surface/gambits/balance', { headers: { 'Authorization': 'Bearer ' + token } })
+        fetch(API_BASE + '/surface/gambits/balance', { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch(API_BASE + '/surface/credit/balance',  { headers: { 'Authorization': 'Bearer ' + token } })
       ]);
       if (tidesRes.status === 'fulfilled' && tidesRes.value.ok) {
         const tData = await tidesRes.value.json().catch(() => ({}));
@@ -762,6 +785,10 @@ async function loadWalletData(opts) {
       if (gambitsRes.status === 'fulfilled' && gambitsRes.value.ok) {
         const gData = await gambitsRes.value.json().catch(() => ({}));
         if (typeof gData.gambits === 'number') currentBalances.gambits = gData.gambits;
+      }
+      if (creditRes.status === 'fulfilled' && creditRes.value.ok) {
+        const cData = await creditRes.value.json().catch(() => ({}));
+        if (typeof cData.usd === 'number') currentBalances.usd = cData.usd;
       }
     } catch (_) {}
 
@@ -781,6 +808,7 @@ async function loadWalletData(opts) {
     updateFreeQuotaUI();
     updateAccountPanel();
     renderManagement();
+    updateCreditUI();
     mgServerHydrate();
 
     // El historial es la fuente de respaldo del resumen: primero se carga
@@ -1758,6 +1786,400 @@ async function ensureTidesPayPalReady() {
     console.error('[Surface] Error preparando PayPal:', err);
     resetTidesPayPalButtons();
     setTidesPayPalStatus('No se pudo cargar PayPal. Recargá la página e intentá de nuevo.', 'error');
+  }
+}
+
+// =========================================
+// AÑADIR CRÉDITO — PayPal con monto libre
+// =========================================
+
+let creditPendingAmountCents = 0;
+
+function formatCreditUsd(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) return 'US$ 0,00';
+  try {
+    return 'US$ ' + amount.toLocaleString('es-UY', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  } catch (_) {
+    return 'US$ ' + amount.toFixed(2).replace('.', ',');
+  }
+}
+
+function creditLimitsLabel() {
+  return 'Mínimo ' + formatCreditUsd(creditLimits.minUsd) +
+    ' · Máximo ' + formatCreditUsd(creditLimits.maxUsd);
+}
+
+function setCreditStatus(message, tone) {
+  const node = el('credit-paypal-status');
+  if (!node) return;
+  const text = String(message || '').trim();
+  node.textContent = text;
+  node.classList.toggle('hidden', !text);
+  node.classList.remove('is-info', 'is-success', 'is-error');
+  if (text && tone) node.classList.add('is-' + tone);
+}
+
+function resetCreditPayPalButtons() {
+  const container = el('credit-paypal-button-container');
+  if (container) container.innerHTML = '';
+  creditButtonsMounted = false;
+  creditCheckoutBusy = false;
+  creditPendingAmountCents = 0;
+}
+
+function readCreditAmountInput() {
+  const input = el('credit-amount');
+  if (!input) return null;
+  const raw = String(input.value || '').trim().replace(',', '.');
+  if (!raw) return null;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  const cents = Math.round(value * 100);
+  if (Math.abs(value * 100 - cents) > 0.001) return null;
+
+  const minCents = Math.round(Number(creditLimits.minUsd || 1) * 100);
+  const maxCents = Math.round(Number(creditLimits.maxUsd || 500) * 100);
+  if (!Number.isFinite(cents) || cents < minCents || cents > maxCents) return null;
+  return { cents: cents, amount: cents / 100 };
+}
+
+function normalizeCreditInput() {
+  const input = el('credit-amount');
+  if (!input) return;
+  const raw = String(input.value || '').trim().replace(',', '.');
+  if (!raw) return;
+
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    input.value = '';
+    updateCreditUI();
+    return;
+  }
+
+  const min = Number(creditLimits.minUsd || 1);
+  const max = Number(creditLimits.maxUsd || 500);
+  const clamped = Math.min(max, Math.max(min, value));
+  input.value = (Math.round(clamped * 100) / 100).toFixed(2);
+  updateCreditUI();
+}
+
+function updateCreditUI() {
+  const balanceEl = el('credit-current-balance');
+  if (balanceEl) balanceEl.textContent = formatCreditUsd(currentBalances.usd);
+
+  const noteEl = el('credit-limits-note');
+  if (noteEl) noteEl.textContent = creditLimitsLabel();
+
+  const input = el('credit-amount');
+  if (input) {
+    input.min = String(Number(creditLimits.minUsd || 1));
+    input.max = String(Number(creditLimits.maxUsd || 500));
+  }
+
+  const parsed = readCreditAmountInput();
+  const minUsd = Number(creditLimits.minUsd || 1);
+  const maxUsd = Number(creditLimits.maxUsd || 500);
+  document.querySelectorAll('[data-credit-amount]').forEach(function (btn) {
+    const amount = Number(btn.getAttribute('data-credit-amount') || 0);
+    const inRange = amount >= minUsd && amount <= maxUsd;
+    btn.hidden = !inRange;
+    const cents = Math.round(amount * 100);
+    const active = inRange && !!parsed && parsed.cents === cents;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+}
+
+function loadCreditConfig(force) {
+  if (creditConfig && !force) return Promise.resolve(creditConfig);
+  if (creditConfigPromise && !force) return creditConfigPromise;
+
+  creditConfigPromise = (async function () {
+    try {
+      const res = await fetch(API_BASE + '/surface/credit/config');
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(data.error || 'No se pudo consultar la carga de saldo.');
+
+      const minUsd = Number(data.minUsd);
+      const maxUsd = Number(data.maxUsd);
+      if (Number.isFinite(minUsd) && minUsd > 0) creditLimits.minUsd = minUsd;
+      if (Number.isFinite(maxUsd) && maxUsd >= creditLimits.minUsd) creditLimits.maxUsd = maxUsd;
+
+      creditConfig = {
+        enabled: !!data.enabled,
+        configured: !!data.configured,
+        environment: String(data.environment || 'live').toLowerCase() === 'sandbox' ? 'sandbox' : 'live',
+        clientId: String(data.clientId || '').trim(),
+        currency: String(data.currency || 'USD').toUpperCase(),
+        minUsd: creditLimits.minUsd,
+        maxUsd: creditLimits.maxUsd
+      };
+      updateCreditUI();
+      return creditConfig;
+    } catch (err) {
+      creditConfig = null;
+      throw err;
+    } finally {
+      creditConfigPromise = null;
+    }
+  })();
+
+  return creditConfigPromise;
+}
+
+function creditPayPalErrorMessage(data, fallback) {
+  const base = String((data && data.error) || fallback || '').trim();
+  const detail = String((data && data.detail) || '').trim();
+  return detail ? base + ' — ' + detail : base;
+}
+
+async function createCreditPayPalOrder(amount) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    handleLogout();
+    throw new Error('Iniciá sesión para cargar saldo.');
+  }
+
+  const res = await fetch(API_BASE + '/surface/credit/paypal/order', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify({ amount: amount })
+  });
+  const data = await res.json().catch(function () { return {}; });
+  if (res.status === 401) {
+    handleLogout();
+    throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
+  }
+  if (!res.ok) throw new Error(creditPayPalErrorMessage(data, 'No se pudo iniciar la carga de saldo.'));
+
+  const orderId = String(data.orderId || '').trim();
+  if (!orderId) throw new Error('PayPal no devolvió una orden válida.');
+
+  const orderEnv = String(data.environment || '').toLowerCase() === 'sandbox' ? 'sandbox' : 'live';
+  if (creditConfig && creditConfig.environment !== orderEnv) {
+    creditConfig = null;
+    throw new Error('El modo de PayPal cambió. Recargá la página para continuar.');
+  }
+  return orderId;
+}
+
+async function captureCreditPayPalOrder(orderId, cents) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    handleLogout();
+    throw new Error('Iniciá sesión para confirmar la carga.');
+  }
+  if (!orderId) throw new Error('PayPal no devolvió una orden válida.');
+
+  setCreditStatus('Confirmando el pago con PayPal…', 'info');
+
+  const res = await fetch(API_BASE + '/surface/credit/paypal/capture', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify({ orderId: orderId })
+  });
+  const data = await res.json().catch(function () { return {}; });
+  if (res.status === 401) {
+    handleLogout();
+    throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
+  }
+  if (res.status === 409) {
+    const pendingMessage = data.error || 'Tu pago quedó pendiente de confirmación. El saldo se acreditará automáticamente.';
+    setCreditStatus(pendingMessage, 'info');
+    showAlert('credit-alert', pendingMessage, 'info');
+    showToast('Pago pendiente de confirmación.');
+    return null;
+  }
+  if (!res.ok) throw new Error(creditPayPalErrorMessage(data, 'No se pudo confirmar la carga de saldo.'));
+
+  const credited = Number(data.credited || 0);
+  const amountUsd = Number(data.amountUsd || (Number(cents || 0) / 100) || 0);
+
+  if (data.alreadyApplied) {
+    const already = 'Este pago ya estaba acreditado en tu cuenta.';
+    setCreditStatus(already, 'info');
+    showAlert('credit-alert', already, 'info');
+  } else {
+    const message = '¡Listo! Se acreditaron ' + formatCreditUsd(amountUsd || credited) + ' en tu saldo.';
+    setCreditStatus(message, 'success');
+    showAlert('credit-alert', message, 'success');
+    showToast('+' + formatCreditUsd(amountUsd || credited) + ' de saldo.');
+  }
+
+  const newBalance = Number(data.newBalance);
+  if (Number.isFinite(newBalance)) {
+    currentBalances.usd = newBalance;
+    updateCreditUI();
+    updateBalanceDisplay();
+    updatePillsBalances();
+  }
+  await loadWalletData();
+  return data;
+}
+
+function mountCreditPayPalButtons() {
+  const container = el('credit-paypal-button-container');
+  if (!container) return;
+  if (creditButtonsMounted) return;
+  if (!window.paypal || !window.paypal.Buttons) return;
+  if (!localStorage.getItem(TOKEN_KEY)) {
+    setCreditStatus('Iniciá sesión para cargar saldo con PayPal.', 'info');
+    return;
+  }
+
+  container.innerHTML = '';
+  const buttons = window.paypal.Buttons({
+    style: {
+      layout: 'vertical',
+      shape: 'pill',
+      label: 'paypal',
+      height: 46,
+      color: 'gold'
+    },
+    onClick: function (_data, actions) {
+      if (creditCheckoutBusy) return actions.reject();
+      if (!localStorage.getItem(TOKEN_KEY)) {
+        showAlert('credit-alert', 'Iniciá sesión para cargar saldo.', 'error');
+        return actions.reject();
+      }
+      if (!readCreditAmountInput()) {
+        showAlert(
+          'credit-alert',
+          'Elegí un monto entre ' + formatCreditUsd(creditLimits.minUsd) +
+            ' y ' + formatCreditUsd(creditLimits.maxUsd) + '.',
+          'error'
+        );
+        const input = el('credit-amount');
+        if (input) input.focus();
+        return actions.reject();
+      }
+      hideAlert('credit-alert');
+      return actions.resolve();
+    },
+    createOrder: async function () {
+      const parsed = readCreditAmountInput();
+      if (!parsed) {
+        const msg = 'Elegí un monto válido para cargar.';
+        setCreditStatus(msg, 'error');
+        showAlert('credit-alert', msg, 'error');
+        throw new Error(msg);
+      }
+
+      creditCheckoutBusy = true;
+      creditPendingAmountCents = parsed.cents;
+      setCreditStatus('Abriendo PayPal…', 'info');
+
+      try {
+        return await createCreditPayPalOrder(parsed.amount);
+      } catch (err) {
+        creditCheckoutBusy = false;
+        creditPendingAmountCents = 0;
+        setCreditStatus(err.message || 'No se pudo iniciar la carga.', 'error');
+        showAlert('credit-alert', err.message || 'No se pudo iniciar la carga con PayPal.', 'error');
+        throw err;
+      }
+    },
+    onApprove: async function (data) {
+      const cents = creditPendingAmountCents;
+      try {
+        await captureCreditPayPalOrder(String(data && data.orderID || ''), cents);
+      } catch (err) {
+        console.error('[Surface] Error confirmando carga PayPal:', err);
+        setCreditStatus(err.message || 'No se pudo confirmar la carga.', 'error');
+        showAlert(
+          'credit-alert',
+          err.message || 'No se pudo confirmar la carga. Si ya pagaste, esperá unos segundos y recargá Surface.',
+          'error'
+        );
+        showToast('No se pudo confirmar la carga.');
+      } finally {
+        creditCheckoutBusy = false;
+        creditPendingAmountCents = 0;
+      }
+    },
+    onCancel: function () {
+      creditCheckoutBusy = false;
+      creditPendingAmountCents = 0;
+      setCreditStatus('Pago cancelado. No se descontó nada.', 'info');
+    },
+    onError: function (err) {
+      console.error('[Surface] Error de PayPal (saldo):', err);
+      creditCheckoutBusy = false;
+      creditPendingAmountCents = 0;
+      setCreditStatus('PayPal reportó un error. Podés intentar de nuevo.', 'error');
+      showAlert('credit-alert', 'No se pudo completar la carga con PayPal. Intentá de nuevo.', 'error');
+    }
+  });
+
+  creditButtonsMounted = true;
+  const rendered = buttons.render('#credit-paypal-button-container');
+  if (rendered && typeof rendered.catch === 'function') {
+    rendered.catch(function (err) {
+      creditButtonsMounted = false;
+      console.error('[Surface] No se pudieron montar los botones de saldo:', err);
+      setCreditStatus('No se pudo cargar el botón de PayPal.', 'error');
+    });
+  }
+}
+
+async function ensureCreditPayPalReady() {
+  if (!localStorage.getItem(TOKEN_KEY)) {
+    resetCreditPayPalButtons();
+    setCreditStatus('Iniciá sesión para cargar saldo con PayPal.', 'info');
+    return;
+  }
+  if (creditButtonsMounted) {
+    updateCreditUI();
+    return;
+  }
+
+  setCreditStatus('Cargando PayPal…', 'info');
+
+  try {
+    const config = await loadCreditConfig();
+    if (!config || !config.enabled || !config.clientId) {
+      resetCreditPayPalButtons();
+      setCreditStatus(
+        config && config.configured === false
+          ? 'PayPal todavía no está configurado en el servidor.'
+          : 'La carga de saldo con PayPal no está disponible por el momento.',
+        'info'
+      );
+      return;
+    }
+
+    await loadTidesPayPalSdk(config);
+
+    if (!localStorage.getItem(TOKEN_KEY)) {
+      resetCreditPayPalButtons();
+      setCreditStatus('Iniciá sesión para cargar saldo con PayPal.', 'info');
+      return;
+    }
+
+    mountCreditPayPalButtons();
+    if (creditButtonsMounted) {
+      const isSandbox = config.environment === 'sandbox';
+      setCreditStatus(
+        isSandbox ? 'Modo prueba: PayPal Sandbox, no se cobra dinero real.' : '',
+        isSandbox ? 'info' : ''
+      );
+      updateCreditUI();
+    }
+  } catch (err) {
+    console.error('[Surface] Error preparando PayPal para saldo:', err);
+    resetCreditPayPalButtons();
+    setCreditStatus('No se pudo cargar PayPal. Recargá la página e intentá de nuevo.', 'error');
   }
 }
 
@@ -3752,6 +4174,11 @@ function setManagementTab(tab) {
     btn.setAttribute('aria-selected', String(active));
   });
   renderManagement();
+
+  if (mgTab === 'credit') {
+    updateCreditUI();
+    ensureCreditPayPalReady();
+  }
 }
 
 function mgUpdate(mutator, logText, type) {

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Surface — Billetera OWS</title>
   <meta name="description" content="Surface, la billetera del ecosistema OWS: divisas, transferencias entre jugadores y tarjeta virtual." />
-  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=10" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -511,7 +511,7 @@
             <button class="srf-tab is-active" type="button" data-mg-tab="summary" role="tab" aria-selected="true">Resumen</button>
             <button class="srf-tab" type="button" data-mg-tab="limits" role="tab" aria-selected="false">Límite de gasto</button>
             <button class="srf-tab" type="button" data-mg-tab="credit" role="tab" aria-selected="false">
-              Añadir crédito <span class="srf-tab-tag">Pronto</span>
+              Añadir crédito
             </button>
             <button class="srf-tab" type="button" data-mg-tab="rates" role="tab" aria-selected="false">Equivalencias</button>
             <button class="srf-tab" type="button" data-mg-tab="controls" role="tab" aria-selected="false">Controles</button>
@@ -688,56 +688,76 @@
 
           <!-- Sub-sección: Añadir crédito -->
           <div class="srf-set-panel hidden" id="mg-panel-credit" role="tabpanel" aria-label="Añadir crédito">
-            <div class="srf-lock-panel" role="status">
-              <span class="srf-lock-badge" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="4" y="10.4" width="16" height="9.6" rx="2.6"></rect>
-                  <path d="M8 10.4V7.5a4 4 0 0 1 8 0v2.9"></path>
-                  <circle cx="12" cy="15.2" r="1.15" fill="currentColor" stroke="none"></circle>
-                </svg>
-              </span>
-              <p class="srf-lock-text">Indisponible por el momento</p>
-            </div>
-
             <div class="srf-mg-grid">
               <section class="srf-panel">
                 <div class="srf-mg-tagrow">
-                  <span class="srf-pill srf-pill-gold">Próximamente</span>
-                  <span class="srf-pill">Dinero real</span>
+                  <span class="srf-pill srf-pill-gold" id="credit-mode-pill">Dinero real</span>
+                  <span class="srf-pill">PayPal</span>
                 </div>
                 <h3 class="srf-block-title srf-mg-lead">Añadir crédito a tu billetera</h3>
                 <p class="srf-block-sub">
-                  Vas a poder cargar saldo con dinero real y usarlo en cualquier juego de OWS,
-                  sin depender de comprar Tides por separado.
+                  Elegí cuánto querés cargar. Se acredita un dólar por cada dólar pagado,
+                  sin paquetes ni montos fijos.
                 </p>
 
-                <div class="srf-mg-credit-preview" aria-hidden="true">
-                  <span class="srf-mg-credit-chip">Elegís el monto</span>
-                  <span class="srf-mg-credit-chip">Pagás seguro</span>
-                  <span class="srf-mg-credit-chip">Se acredita al instante</span>
+                <div class="srf-credit-balance">
+                  <span class="srf-credit-balance-label">Saldo disponible</span>
+                  <b class="srf-credit-balance-value" id="credit-current-balance">US$ 0,00</b>
                 </div>
 
-                <button class="srf-primary srf-mg-credit-btn" type="button" disabled>Próximamente</button>
-                <p class="srf-block-sub srf-block-note">
-                  Cuando esté activo, el saldo cargado va a reemplazar a las Tides y a cualquier otra divisa interna.
+                <label class="srf-field srf-credit-field" for="credit-amount">
+                  <span class="srf-field-label">Monto a cargar</span>
+                  <span class="srf-credit-input">
+                    <span class="srf-credit-prefix" aria-hidden="true">US$</span>
+                    <input id="credit-amount" type="number" min="1" max="500" step="0.01" inputmode="decimal" placeholder="0,00" autocomplete="off" />
+                  </span>
+                </label>
+
+                <div class="srf-credit-quick" id="credit-quick-amounts" role="group" aria-label="Montos rápidos">
+                  <button type="button" class="srf-credit-quick-btn" data-credit-amount="5">US$ 5</button>
+                  <button type="button" class="srf-credit-quick-btn" data-credit-amount="10">US$ 10</button>
+                  <button type="button" class="srf-credit-quick-btn" data-credit-amount="25">US$ 25</button>
+                  <button type="button" class="srf-credit-quick-btn" data-credit-amount="50">US$ 50</button>
+                  <button type="button" class="srf-credit-quick-btn" data-credit-amount="100">US$ 100</button>
+                </div>
+
+                <p class="srf-block-sub srf-block-note" id="credit-limits-note">
+                  Mínimo US$ 1,00 · Máximo US$ 500,00
                 </p>
+
+                <div id="credit-alert" class="srf-alert hidden" role="status"></div>
+
+                <div id="credit-paypal-button-container" class="srf-paypal-slot" aria-live="polite"></div>
+                <p id="credit-paypal-status" class="srf-paypal-status hidden" role="status"></p>
+                <p class="srf-buy-note">Pago seguro con PayPal en dólares (USD). Surface no guarda los datos de tu tarjeta.</p>
               </section>
 
-              <section class="srf-panel">
-                <div class="srf-block-head">
-                  <h3 class="srf-block-title">Qué vas a poder hacer</h3>
-                  <p class="srf-block-sub">El objetivo de la carga con dinero real.</p>
-                </div>
-                <ul class="srf-hintlist">
-                  <li><span>💳</span> Cargar saldo con tarjeta, débito o billeteras virtuales.</li>
-                  <li><span>🔁</span> Convertir ese saldo a la divisa del juego que elijas.</li>
-                  <li><span>🧮</span> Ver el equivalente en dinero real antes de confirmar.</li>
-                  <li><span>🧾</span> Tener el comprobante de cada carga en el historial.</li>
-                </ul>
-                <p class="srf-block-sub srf-block-note">
-                  Mientras tanto, podés seguir usando Gambits y Tides como hasta ahora.
-                </p>
-              </section>
+              <div class="srf-col">
+                <section class="srf-panel">
+                  <div class="srf-block-head">
+                    <h3 class="srf-block-title">Cómo funciona</h3>
+                    <p class="srf-block-sub">Una carga, un comprobante y saldo disponible al instante.</p>
+                  </div>
+                  <ul class="srf-hintlist">
+                    <li><span>💵</span> Escribí el monto que quieras cargar, dentro de los límites permitidos.</li>
+                    <li><span>🔒</span> Pagá con PayPal usando tu cuenta o una tarjeta.</li>
+                    <li><span>⚡</span> El saldo se acredita solo cuando PayPal confirma el pago.</li>
+                    <li><span>🧾</span> Cada carga queda registrada en tu historial.</li>
+                  </ul>
+                  <p class="srf-block-sub srf-block-note">
+                    El saldo se guarda en dólares (USD) y queda disponible en tu billetera OWS.
+                  </p>
+                </section>
+
+                <section class="srf-panel srf-hintblock">
+                  <h3 class="srf-block-title">Buenas prácticas</h3>
+                  <ul class="srf-hintlist">
+                    <li><span>🛡️</span> Empezá con un monto chico para probar el flujo.</li>
+                    <li><span>↩️</span> Si PayPal rechaza el pago, no se descuenta nada.</li>
+                    <li><span>⏳</span> Si cerraste la pestaña después de pagar, el saldo se acredita igual.</li>
+                  </ul>
+                </section>
+              </div>
             </div>
           </div>
 
@@ -1170,6 +1190,6 @@
   <div id="toast" class="srf-toast hidden" role="status" aria-live="polite"></div>
 
   <script src="../ows-api-failover.js?v=4"></script>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

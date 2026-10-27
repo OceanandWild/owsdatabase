@@ -1864,7 +1864,7 @@ function normalizeCreditInput() {
   const min = Number(creditLimits.minUsd || 1);
   const max = Number(creditLimits.maxUsd || 500);
   const clamped = Math.min(max, Math.max(min, value));
-  input.value = (Math.round(clamped * 100) / 100).toFixed(2);
+  input.value = (Math.round(clamped * 100) / 100).toFixed(2).replace('.', ',');
   updateCreditUI();
 }
 
@@ -1874,12 +1874,6 @@ function updateCreditUI() {
 
   const noteEl = el('credit-limits-note');
   if (noteEl) noteEl.textContent = creditLimitsLabel();
-
-  const input = el('credit-amount');
-  if (input) {
-    input.min = String(Number(creditLimits.minUsd || 1));
-    input.max = String(Number(creditLimits.maxUsd || 500));
-  }
 
   const parsed = readCreditAmountInput();
   const minUsd = Number(creditLimits.minUsd || 1);

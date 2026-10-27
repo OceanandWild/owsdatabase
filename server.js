@@ -42300,26 +42300,40 @@ function paypalWebhookIdList(raw) {
 
 // PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_WEBHOOK_ID siguen siendo
 // los nombres historicos de live para no romper el despliegue actual.
+// Al pegar desde el panel de PayPal es comun arrastrar comillas o saltos de
+// linea; se limpian antes de firmar la peticion.
+function paypalEnvValue(raw) {
+  let value = String(raw || '').trim();
+  if (value.length >= 2) {
+    const first = value.charAt(0);
+    const last = value.charAt(value.length - 1);
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      value = value.slice(1, -1).trim();
+    }
+  }
+  return value;
+}
+
 function readPayPalEnvConfig(env) {
   const environment = String(env || '').toLowerCase() === 'live' ? 'live' : 'sandbox';
   const isLive = environment === 'live';
-  const clientId = String(
-    (isLive
+  const clientId = paypalEnvValue(
+    isLive
       ? process.env.PAYPAL_LIVE_CLIENT_ID || process.env.PAYPAL_CLIENT_ID
-      : process.env.PAYPAL_SANDBOX_CLIENT_ID) || ''
-  ).trim();
-  const clientSecret = String(
-    (isLive
+      : process.env.PAYPAL_SANDBOX_CLIENT_ID
+  );
+  const clientSecret = paypalEnvValue(
+    isLive
       ? process.env.PAYPAL_LIVE_CLIENT_SECRET || process.env.PAYPAL_CLIENT_SECRET
-      : process.env.PAYPAL_SANDBOX_CLIENT_SECRET) || ''
-  ).trim();
+      : process.env.PAYPAL_SANDBOX_CLIENT_SECRET
+  );
   // PayPal permite varios webhooks por app (hasta 10). Aceptamos una lista
   // separada por comas para cubrir principal + espejo con el mismo servicio.
   const webhookIds = paypalWebhookIdList(
     isLive
       ? process.env.PAYPAL_LIVE_WEBHOOK_ID || process.env.PAYPAL_WEBHOOK_ID
       : process.env.PAYPAL_SANDBOX_WEBHOOK_ID
-  );
+  ).map(paypalEnvValue).filter(Boolean);
 
   return {
     environment,
@@ -42330,6 +42344,29 @@ function readPayPalEnvConfig(env) {
     apiBase: isLive ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com',
     configured: !!(clientId && clientSecret)
   };
+}
+
+// Solo para diagnostico: detecta artefactos de copiado sin revelar el valor.
+function paypalEnvQuirks(env) {
+  const isLive = String(env || '').toLowerCase() === 'live';
+  const entries = [
+    ['CLIENT_ID', isLive
+      ? process.env.PAYPAL_LIVE_CLIENT_ID || process.env.PAYPAL_CLIENT_ID
+      : process.env.PAYPAL_SANDBOX_CLIENT_ID],
+    ['CLIENT_SECRET', isLive
+      ? process.env.PAYPAL_LIVE_CLIENT_SECRET || process.env.PAYPAL_CLIENT_SECRET
+      : process.env.PAYPAL_SANDBOX_CLIENT_SECRET]
+  ];
+  const quirks = [];
+  entries.forEach(([label, raw]) => {
+    const value = String(raw || '');
+    if (!value) return;
+    if (value !== value.trim()) quirks.push(label + ' con espacios o saltos de linea');
+    const trimmed = value.trim();
+    if (/^["']/.test(trimmed) || /["']$/.test(trimmed)) quirks.push(label + ' con comillas');
+    if (/\s/.test(trimmed)) quirks.push(label + ' con espacios internos');
+  });
+  return quirks;
 }
 
 // Diagnostico para el panel: nombres exactos que lee el servidor. Nunca se
@@ -43329,7 +43366,8 @@ function paypalIntegrationPayload() {
       configured: settings.configured,
       webhooks: settings.webhookIds.length,
       clientIdTail: settings.clientId ? settings.clientId.slice(-6) : '',
-      vars: paypalEnvVarStatus(env)
+      vars: paypalEnvVarStatus(env),
+      quirks: paypalEnvQuirks(env)
     };
   });
 
@@ -43437,6 +43475,7 @@ app.post('/ows-admin-panel/integrations/paypal/test', async (req, res) => {
       error: `PayPal rechazo las credenciales de ${environment}`,
       code: 'PAYPAL_CREDENTIALS_REJECTED',
       detail: paypalErrorDetail(err),
+      quirks: paypalEnvQuirks(environment),
       environment
     });
   }

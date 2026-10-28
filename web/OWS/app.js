@@ -304,6 +304,26 @@ function bindStaticEvents() {
       }
     });
   }
+
+  // Eventos dentro de la ficha de proyecto: abren su ficha por encima.
+  const releaseBody = document.getElementById('release-modal-body');
+  if (releaseBody && !releaseBody.dataset.evBound) {
+    releaseBody.dataset.evBound = '1';
+    const openFromRelease = (item) => {
+      const ev = releaseModalEvents[Number(item.getAttribute('data-rm-ev-idx'))];
+      if (ev) openEventModal(ev);
+    };
+    releaseBody.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-rm-ev-idx]');
+      if (item) openFromRelease(item);
+    });
+    releaseBody.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-rm-ev-idx]')) {
+        e.preventDefault();
+        openFromRelease(e.target.closest('[data-rm-ev-idx]'));
+      }
+    });
+  }
   // Noticias: delegación en la grilla (sobrevive a re-renders)
   const newsGrid = document.getElementById('news-table-body');
   if (newsGrid && !newsGrid.dataset.bound) {
@@ -2044,6 +2064,9 @@ function openEventModal(ev) {
     ${detailUrl ? `<div class="ev-modal-link"><a class="btn btn-primary btn-block" href="${escapeHtml(detailUrl)}" target="_blank" rel="noopener noreferrer">Ver más detalles ↗</a></div>` : ''}
   `;
   modal.classList.remove('hidden');
+  // Si se abre desde la ficha de un proyecto, se apila por encima de ella.
+  const releaseOpen = !document.getElementById('release-modal')?.classList.contains('hidden');
+  modal.classList.toggle('is-stacked', releaseOpen);
   document.body.style.overflow = 'hidden';
   const card = modal.querySelector('.event-modal-card');
   if (card) card.scrollTop = 0;
@@ -2056,6 +2079,7 @@ function closeEventModal() {
   const modal = document.getElementById('event-modal');
   if (modal) {
     modal.classList.add('hidden');
+    modal.classList.remove('is-stacked');
     // El ticker solo refresca la ficha mientras está abierta: al cerrarla se
     // sueltan sus cuentas (sin estados viejos colgados en segundo plano).
     modal.querySelectorAll('[data-ev-modal-expiry], [data-ev-countdown]').forEach((el) => {
@@ -3949,6 +3973,8 @@ async function enrichReleasesWithItch(projects) {
 }
 
 let rdCloseTimer = 0;
+// Eventos pintados en la ficha del proyecto (se abren por índice).
+let releaseModalEvents = [];
 
 function openReleaseModal(project, originEl) {
   const modal = document.getElementById('release-modal');
@@ -3963,6 +3989,7 @@ function openReleaseModal(project, originEl) {
   const token = slug + '_' + Date.now().toString(36);
   body.dataset.rmSlug = slug;
   body.dataset.rmToken = token;
+  releaseModalEvents = [];
 
   body.innerHTML = `
     <header class="rd-hero">
@@ -4000,6 +4027,13 @@ function openReleaseModal(project, originEl) {
           <h4 class="rd-sec-title">Descarga y versiones</h4>
           <div id="rm-versions" class="rd-versions" aria-live="polite">
             ${releaseVersionsHtml(p, null)}
+          </div>
+        </section>
+
+        <section id="rm-events-section">
+          <h4 class="rd-sec-title">Eventos</h4>
+          <div id="rm-events-list" class="rm-events" aria-live="polite">
+            <div class="rd-loading"><span class="btn-spinner"></span> Buscando eventos del proyecto…</div>
           </div>
         </section>
 
@@ -4050,6 +4084,8 @@ function openReleaseModal(project, originEl) {
   flipReleaseCover(originEl);
   document.body.style.overflow = 'hidden';
   loadReleaseModalVersions(slug, token);
+  // Eventos en curso y próximos del proyecto, dentro de su propia ficha.
+  loadReleaseModalEvents(p, token);
   // Tamaño en disco del juego instalado (solo desktop): va bajo "Desinstalar".
   paintUninstallSize(slug);
   // Peso del archivo a descargar: se calcula solo (dato del server o HEAD).
@@ -4363,6 +4399,132 @@ async function loadReleaseModalVersions(slug, token) {
         bindReleaseModalActions(box);
       }
     } catch (_) {}
+  }
+}
+
+// ── Eventos del proyecto dentro del modal de lanzamiento ──
+// La ficha muestra todos los eventos en curso y próximos del proyecto; los
+// terminados no aportan nada acá. Cada uno abre su ficha completa por encima.
+function releaseEventMatchesProject(ev, project) {
+  if (!ev || !project) return false;
+  // El vínculo oficial manda: un evento de otro proyecto no entra por nombre.
+  const pid = Number(project.id || 0);
+  if (ev.project_id != null && pid > 0) return Number(ev.project_id) === pid;
+  // Eventos viejos sin project_id: se comparan por nombre del proyecto.
+  const norm = (value) => String(value || '').trim().toLowerCase();
+  const evName = norm(ev.project_name || ev.projectName);
+  const projectName = norm(project.name);
+  return !!evName && !!projectName && evName === projectName;
+}
+
+function releaseEventExpected(ev) {
+  return !!(ev
+    && (ev.starts_expected === true || ev.startsExpected === true)
+    && ev.starts_at
+    && ev.phase !== 'active'
+    && ev.phase !== 'ended');
+}
+
+function releaseEventPhaseHtml(ev) {
+  if (ev.phase === 'active') return '<span class="rm-ev-phase is-live">● En curso</span>';
+  if (!ev.starts_at) return '<span class="rm-ev-phase is-soon">Próximamente</span>';
+  if (releaseEventExpected(ev)) return '<span class="rm-ev-phase is-soon">🕰️ Por confirmar</span>';
+  const countdown = eventCountdown(ev.starts_at, ev.phase);
+  return `<span class="rm-ev-phase is-soon">${escapeHtml(countdown || 'Próximamente')}</span>`;
+}
+
+function releaseEventDateHtml(ev) {
+  if (!ev.starts_at) {
+    return '<span class="rm-ev-date is-pending">📅 Fecha aún no definida</span>';
+  }
+  if (releaseEventExpected(ev)) {
+    return `<span class="rm-ev-date is-expected">🕰️ Fecha esperada: ${escapeHtml(formatEventRange(ev.starts_at, ev.ends_at))} <span class="ev-date-note">(por confirmar)</span></span>`;
+  }
+  return `<span class="rm-ev-date">📅 ${escapeHtml(formatEventRange(ev.starts_at, ev.ends_at))}</span>`;
+}
+
+function releaseEventItemHtml(ev, index) {
+  const meta = eventCategoryMeta(ev.category);
+  const img = ev.image_url || ev.cover_url || '';
+  const hasImg = Boolean(img);
+  return `
+    <article class="rm-ev-item" data-rm-ev-idx="${index}" role="button" tabindex="0" aria-label="${escapeHtml(ev.title)} — ver evento">
+      <div class="rm-ev-media${hasImg ? '' : ' is-fallback'}">
+        ${hasImg
+          ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" />`
+          : `<span>${meta.icon}</span>`}
+      </div>
+      <div class="rm-ev-main">
+        <div class="rm-ev-chips">
+          <span class="rm-ev-cat ${meta.cls}">${meta.icon} ${meta.label}</span>
+          ${releaseEventPhaseHtml(ev)}
+        </div>
+        <h5 class="rm-ev-title">${escapeHtml(ev.title)}</h5>
+        ${releaseEventDateHtml(ev)}
+        ${ev.description ? `<p class="rm-ev-desc">${escapeHtml(ev.description)}</p>` : ''}
+      </div>
+    </article>`;
+}
+
+function renderReleaseModalEvents(project, events) {
+  const box = document.getElementById('rm-events-list');
+  if (!box || !project) return;
+  const items = (Array.isArray(events) ? events : [])
+    .filter((ev) => ev && releaseEventMatchesProject(ev, project))
+    .filter((ev) => ev.phase === 'active' || ev.phase === 'upcoming')
+    .sort((a, b) => {
+      // En curso primero, luego los próximos. Dentro de cada grupo manda la
+      // prioridad del admin y, a igual prioridad, lo que empieza antes.
+      const pr = (a.phase === 'active' ? 0 : 1) - (b.phase === 'active' ? 0 : 1);
+      if (pr !== 0) return pr;
+      const prio = Number(b.priority || 0) - Number(a.priority || 0);
+      if (prio !== 0) return prio;
+      return (Date.parse(a.starts_at || '') || Infinity) - (Date.parse(b.starts_at || '') || Infinity);
+    });
+  releaseModalEvents = items;
+  if (!items.length) {
+    box.innerHTML = `
+      <div class="rm-ev-empty">
+        <span aria-hidden="true">📅</span>
+        <p>No hay eventos próximos ni activos de <b>${escapeHtml(project.name || 'este proyecto')}</b>.</p>
+      </div>`;
+    return;
+  }
+  box.innerHTML = items.map((ev, index) => releaseEventItemHtml(ev, index)).join('');
+}
+
+async function loadReleaseModalEvents(project, token) {
+  const body = document.getElementById('release-modal-body');
+  const modal = document.getElementById('release-modal');
+  if (!body || !modal || !project || !token) return;
+  // Lo que ya está en memoria se pinta al instante; el fetch lo confirma.
+  // Así la sección no queda vacía si Render está despertando.
+  if (eventsCache.length) renderReleaseModalEvents(project, eventsCache);
+  const stillOpen = () => {
+    const currentModal = document.getElementById('release-modal');
+    return !!currentModal
+      && !currentModal.classList.contains('hidden')
+      && body.dataset.rmToken === token
+      && String(body.dataset.rmSlug || '') === String(project.slug || '');
+  };
+  if (!stillOpen()) return;
+  try {
+    // El feed público trae hasta 100 eventos vigentes: se filtran acá por
+    // proyecto. La sección muestra todos los activos y próximos.
+    const data = await fetchJsonWithRetry(API_BASE + '/ows-dashboard/events?limit=100', { timeoutsMs: [12000, 25000] });
+    if (!stillOpen()) return;
+    renderReleaseModalEvents(project, (data && data.events) || []);
+  } catch (_) {
+    if (!stillOpen()) return;
+    // Sin red: se conserva lo que ya se pudo pintar desde el caché.
+    const box = document.getElementById('rm-events-list');
+    if (box && !releaseModalEvents.length) {
+      box.innerHTML = `
+        <div class="rm-ev-empty is-error">
+          <span aria-hidden="true">📡</span>
+          <p>No se pudieron cargar los eventos. Revisa tu conexión.</p>
+        </div>`;
+    }
   }
 }
 

@@ -2060,6 +2060,249 @@ body.releases-focus #releases-grid .release-dock-item:not(.is-open) {
 .rel-rail-hint { font-size: 0.72rem; color: var(--text-muted); }
 .rel-retry-slot:empty { display: none; }
 
+/* ── Cuenta atrás del próximo evento · encima del dock ──
+   Ficha ancha con el evento activo/próximo del proyecto. El reloj tiene
+   cuatro bloques (días, horas, minutos, segundos) y el estado sin fecha
+   se anuncia como "Actualización PRONTO". */
+.rel-ev-spot-wrap { margin: 12px 0 2px; container-type: inline-size; }
+.rel-ev-spot-wrap.hidden { display: none; }
+
+.rel-ev-spot {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(112deg, rgba(24, 9, 42, 0.96), rgba(12, 8, 26, 0.92)) padding-box,
+    linear-gradient(120deg, rgba(249, 115, 22, 0.7), rgba(168, 85, 247, 0.58), rgba(245, 158, 11, 0.42)) border-box;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.48), 0 0 28px rgba(249, 115, 22, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  overflow: hidden;
+  cursor: pointer;
+  isolation: isolate;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.rel-ev-spot::before {
+  content: '';
+  position: absolute; inset: -30% -8% auto auto;
+  width: 320px; height: 320px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.2), transparent 66%);
+  pointer-events: none; z-index: 0;
+  animation: relEvAura 6s ease-in-out infinite alternate;
+}
+.rel-ev-spot::after {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.6), transparent);
+  pointer-events: none; z-index: 0;
+}
+.rel-ev-spot > * { position: relative; z-index: 1; }
+.rel-ev-spot:hover,
+.rel-ev-spot:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.56), 0 0 38px rgba(249, 115, 22, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  outline: none;
+}
+.rel-ev-spot:focus-visible { border-color: rgba(251, 191, 36, 0.8); }
+@keyframes relEvAura {
+  from { transform: translate3d(0, 0, 0) scale(1); opacity: 0.7; }
+  to   { transform: translate3d(-16px, 12px, 0) scale(1.08); opacity: 1; }
+}
+
+.rel-ev-spot-media { position: relative; width: 58px; height: 58px; flex-shrink: 0; }
+.rel-ev-spot-icon {
+  width: 58px; height: 58px; border-radius: 18px; object-fit: cover; display: block;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5), 0 0 18px rgba(245, 158, 11, 0.16);
+}
+.rel-ev-spot-fb {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(168, 85, 247, 0.2));
+}
+.rel-ev-spot-pulse {
+  position: absolute; inset: -5px; border-radius: 22px;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  pointer-events: none;
+  animation: relEvPulse 2.8s ease-out infinite;
+}
+.rel-ev-spot.is-live .rel-ev-spot-pulse { border-color: rgba(52, 211, 153, 0.5); }
+@keyframes relEvPulse {
+  0% { opacity: 0.7; transform: scale(0.94); }
+  70%, 100% { opacity: 0; transform: scale(1.12); }
+}
+
+.rel-ev-spot-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rel-ev-spot-kicker {
+  display: flex; align-items: center; gap: 7px; margin: 0;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.13em;
+  text-transform: uppercase; color: #c4a46a;
+}
+.rel-ev-spot-kicker b { color: var(--gold-light); font-weight: 800; }
+.rel-ev-spot-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+  animation: relEvDot 1.8s ease-in-out infinite;
+}
+.rel-ev-spot.is-live .rel-ev-spot-dot {
+  background: #34d399;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.8);
+}
+@keyframes relEvDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.rel-ev-spot-title {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1rem, 1.4vw, 1.24rem);
+  font-weight: 700; line-height: 1.15; color: var(--text-main);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rel-ev-spot-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rel-ev-spot-cat {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.rel-ev-spot-date { font-size: 0.7rem; color: #c9b78a; }
+.rel-ev-spot-date.is-expected { color: #fcd34d; }
+.rel-ev-spot-date.is-pending { color: var(--text-muted); }
+.rel-ev-spot-cta {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 1px; font-size: 0.62rem; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--gold-light); opacity: 0.72;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.rel-ev-spot:hover .rel-ev-spot-cta,
+.rel-ev-spot:focus-visible .rel-ev-spot-cta { opacity: 1; transform: translateX(2px); }
+
+.rel-ev-spot-count {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  padding-left: 16px; border-left: 1px solid rgba(255, 255, 255, 0.08);
+  min-width: 0;
+}
+.rel-ev-spot-count-label {
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #c4a46a; white-space: nowrap;
+}
+.rel-ev-clock { display: flex; align-items: flex-end; gap: 4px; }
+.rel-ev-unit {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 42px; padding: 7px 5px 5px; border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+}
+.rel-ev-unit b {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.22rem; line-height: 1; font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  color: #fde68a; text-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+}
+.rel-ev-unit i {
+  font-style: normal; font-size: 0.48rem; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: #a07840;
+}
+.rel-ev-colon {
+  align-self: center; padding-bottom: 12px;
+  font-family: 'Space Grotesk', sans-serif; font-size: 1rem;
+  font-weight: 700; color: rgba(245, 158, 11, 0.5);
+  animation: relEvBlink 1.2s steps(1) infinite;
+}
+@keyframes relEvBlink { 50% { opacity: 0.25; } }
+.rel-ev-clock.is-final .rel-ev-unit b { color: #fca5a5; text-shadow: 0 0 18px rgba(248, 113, 113, 0.4); }
+.rel-ev-pronto {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1rem, 1.7vw, 1.42rem);
+  font-weight: 800; letter-spacing: 0.04em; line-height: 1.1;
+  background: var(--sunset);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 14px rgba(249, 115, 22, 0.25));
+  white-space: nowrap;
+}
+.rel-ev-live {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.05rem; font-weight: 800; letter-spacing: 0.04em;
+  color: #6ee7b7; white-space: nowrap;
+  text-shadow: 0 0 16px rgba(52, 211, 153, 0.4);
+}
+.rel-ev-live.is-ended { color: #cbd5e1; text-shadow: none; }
+
+/* Insignia del dock: el proyecto tiene un evento activo o próximo. */
+.dock-ev-badge {
+  position: absolute; top: -5px; left: -7px; z-index: 4;
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px 7px; border-radius: 999px;
+  font-size: 0.52rem; font-weight: 900; letter-spacing: 0.04em;
+  color: #fde68a; background: rgba(12, 4, 22, 0.94);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 12px rgba(245, 158, 11, 0.18);
+  pointer-events: none; white-space: nowrap;
+}
+.dock-ev-badge.is-live {
+  color: #6ee7b7; border-color: rgba(52, 211, 153, 0.55);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 12px rgba(52, 211, 153, 0.2);
+}
+.release-dock-item.has-event .release-dock-ring {
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.16);
+}
+
+@media (max-width: 1400px) {
+  .rel-ev-spot { gap: 12px; padding: 13px 15px; }
+  .rel-ev-unit { min-width: 38px; padding: 6px 4px 4px; }
+  .rel-ev-unit b { font-size: 1.08rem; }
+  .rel-ev-spot-count { padding-left: 12px; }
+}
+@media (max-width: 760px) {
+  .rel-ev-spot { grid-template-columns: 52px minmax(0, 1fr); gap: 12px; }
+  .rel-ev-spot-media, .rel-ev-spot-icon { width: 52px; height: 52px; }
+  .rel-ev-spot-icon { border-radius: 16px; }
+  .rel-ev-spot-count {
+    grid-column: 1 / -1;
+    flex-direction: row; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 10px 0 0;
+    border-left: none; border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .rel-ev-spot-title { white-space: normal; }
+  .rel-ev-spot-cta { display: none; }
+}
+@media (max-width: 480px) {
+  .rel-ev-spot { padding: 12px; }
+  .rel-ev-clock { gap: 2px; }
+  .rel-ev-unit { min-width: 34px; padding: 5px 3px 4px; }
+  .rel-ev-unit b { font-size: 0.98rem; }
+  .rel-ev-unit i { font-size: 0.42rem; }
+  .rel-ev-colon { display: none; }
+  .rel-ev-pronto { white-space: normal; }
+}
+/* La ficha también se angosta cuando el póster lateral le quita ancho
+   (Lanzamientos en pantallas medianas): ahí el reloj baja a su propia fila
+   en vez de recortar el título del evento. */
+@container (max-width: 640px) {
+  .rel-ev-spot { grid-template-columns: 52px minmax(0, 1fr); gap: 12px; }
+  .rel-ev-spot-media, .rel-ev-spot-icon { width: 52px; height: 52px; }
+  .rel-ev-spot-icon { border-radius: 16px; }
+  .rel-ev-spot-count {
+    grid-column: 1 / -1;
+    flex-direction: row; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 10px 0 0;
+    border-left: none; border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .rel-ev-spot-title { white-space: normal; }
+  .rel-ev-spot-cta { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rel-ev-spot, .rel-ev-spot::before, .rel-ev-spot-pulse, .rel-ev-spot-dot, .rel-ev-colon,
+  .dock-ev-badge { animation: none !important; transition: none !important; }
+}
+
 /* ── Ficha destacada · póster vertical de la zona derecha ──
    La sección de Lanzamientos se parte en dos zonas: a la izquierda el
    contenido (encabezado, acceso rápido y catálogo) y a la derecha el póster

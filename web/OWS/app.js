@@ -428,6 +428,21 @@ function bindStaticEvents() {
       loadDashboardReleases();
     });
   }
+  // Cuenta atrás del evento en Lanzamientos: abre la ficha completa.
+  const relEvSpot = document.getElementById('rel-event-spotlight');
+  if (relEvSpot && !relEvSpot.dataset.bound) {
+    relEvSpot.dataset.bound = '1';
+    const openSpotEvent = () => {
+      if (!releaseEvSpotlightEvent) return;
+      try { openEventModal(releaseEvSpotlightEvent); } catch (_) {}
+    };
+    relEvSpot.addEventListener('click', openSpotEvent);
+    relEvSpot.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      openSpotEvent();
+    });
+  }
   const releasesGrid = document.getElementById('releases-grid');
   if (releasesGrid) {
     // Dock de iconos: 1 clic = preview abajo del icono + spotlight · 2 clics = modal con banner
@@ -844,13 +859,27 @@ function showOwsSection(viewId, opts) {
     try { history.replaceState(null, '', wantHash); } catch (_) { window.location.hash = wantHash; }
   }
 
-  // Al salir de Lanzamientos se cierra el preview y se quita el spotlight
-  try { if (target !== 'sec-lanzamientos') closeReleasesDock(); } catch (_) {}
+  // Al salir de Lanzamientos se cierra el preview y se frena la cuenta atrás
+  // del evento (solo tiene sentido con la sección a la vista).
+  try {
+    if (target !== 'sec-lanzamientos') {
+      closeReleasesDock();
+      stopReleaseEvSpotlightTimer();
+    }
+  } catch (_) {}
 
   // Si se entra a Lanzamientos sin datos (nunca cargó o falló), reintenta:
   // el servidor en plan gratuito puede tardar y quedarse en blanco.
   if (target === 'sec-lanzamientos' && !releasesLoading && releasesLoadState !== 'ready') {
     try { loadDashboardReleases(); } catch (_) {}
+  }
+  // La cuenta atrás del evento vive acá: si el feed de eventos falló o nunca
+  // se pidió, se reintenta al entrar y se rearma la ficha.
+  if (target === 'sec-lanzamientos') {
+    if (!eventsLoading && eventsLoadState !== 'ready') {
+      try { loadDashboardEvents(); } catch (_) {}
+    }
+    try { renderReleasesEventSpotlight(); } catch (_) {}
   }
 
   // Noticias: mismo criterio que Lanzamientos. Al entrar, si nunca cargó o
@@ -1864,6 +1893,8 @@ function renderEvents(eventsList) {
   let items = Array.isArray(eventsList) ? eventsList.slice() : [];
   if (statEvents) statEvents.textContent = items.length;
   eventsCache = items;
+  // La cuenta atrás de Lanzamientos se alimenta de este mismo cache.
+  try { renderReleasesEventSpotlight(); } catch (_) {}
   renderEventsProjectFilter();
   updateEventsStatusFilter(items);
   const totalCount = items.length;
@@ -1992,7 +2023,9 @@ async function loadDashboardEvents() {
     filterSel.addEventListener('change', () => onEventsProjectFilter(filterSel.value));
   }
   try {
-    const data = await fetchJsonWithRetry(API_BASE + '/ows-dashboard/events?limit=30', { timeoutsMs: [12000, 25000] });
+    // Hasta 100 eventos vigentes: el máximo del feed público. Así la cuenta
+    // atrás de Lanzamientos no se queda sin el evento de un proyecto.
+    const data = await fetchJsonWithRetry(API_BASE + '/ows-dashboard/events?limit=100', { timeoutsMs: [12000, 25000] });
     clearNote();
     eventsLoadState = 'ready';
     renderEvents((data && data.events) || []);
@@ -3279,6 +3312,7 @@ function renderReleases(projects) {
     releasesLoadState = 'ready';
     try { syncReleasesSpotlight(); } catch (_) {}
     renderReleasesChrome(items);
+    try { renderReleasesEventSpotlight(); } catch (_) {}
     return;
   }
   // Conserva el icono expandido si el enrich re-renderiza al llegar la versión de itch.io
@@ -3288,10 +3322,15 @@ function renderReleases(projects) {
     if (prev) openSlug = prev.getAttribute('data-slug') || '';
   } catch (_) {}
   releasesCache = items;
+  // Proyecto → mejor evento activo/próximo, para la insignia del dock.
+  const eventMap = releaseEvMap(items);
   grid.innerHTML = items.map((p) => {
     try {
     const meta = releaseStatusMeta(p.status);
     const icon = p.icon_url || '';
+    const evInfo = eventMap.get(String(p.slug || ''));
+    const evBadge = evInfo ? releaseEvDockBadgeHtml(evInfo.ev) : '';
+    const hasEvent = evInfo ? ' has-event' : '';
     const itchVersion = p.itch_version || p.itchVersion || '';
     const itchUrl = p.itch_url || p.itchUrl || p.link_url || p.linkUrl || '';
     const versionBadge = itchVersion
@@ -3305,10 +3344,11 @@ function renderReleases(projects) {
       ? `<img src="${escapeHtml(icon)}" alt="${escapeHtml(p.name)}" class="release-dock-icon" loading="lazy" draggable="false" />`
       : `<span class="release-dock-icon release-dock-fallback">🎮</span>`;
     return `
-      <div class="release-dock-item${isOpen}" data-slug="${escapeHtml(p.slug)}" role="button" tabindex="0" aria-expanded="${isOpen ? 'true' : 'false'}" aria-label="${escapeHtml(p.name)} — clic para info, doble clic para detalles">
+      <div class="release-dock-item${isOpen}${hasEvent}" data-slug="${escapeHtml(p.slug)}" role="button" tabindex="0" aria-expanded="${isOpen ? 'true' : 'false'}" aria-label="${escapeHtml(p.name)} — clic para info, doble clic para detalles">
         <div class="release-dock-icon-wrap">
           ${iconHtml}
           <span class="release-dock-ring" aria-hidden="true"></span>
+          ${evBadge}
           <span class="release-dock-dot ${meta.cls}" title="${escapeHtml(meta.label)}"></span>
           <span class="dock-tip">${escapeHtml(p.name)}</span>
         </div>
@@ -3338,6 +3378,7 @@ function renderReleases(projects) {
   releasesLoadState = 'ready';
   try { syncReleasesSpotlight(); } catch (_) {}
   renderReleasesChrome(items);
+  try { renderReleasesEventSpotlight(); } catch (_) {}
   // El trailer se apaga solo en su fecha de corte: hay que reprogramar el
   // timer en cada render, no solo en el primero.
   try { scheduleTrailerCutoff(); } catch (_) {}
@@ -3472,6 +3513,310 @@ function releaseCountdownText(target) {
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${mins % 60}m`;
   return `${Math.max(1, mins % 60)}m`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// LANZAMIENTOS · cuenta atrás del próximo evento del proyecto
+// Encima del dock de iconos se muestra el evento activo o próximo más
+// relevante de los proyectos publicados: icono, proyecto, evento y una
+// cuenta atrás con días, horas, minutos y segundos. Si el evento todavía
+// no tiene fecha, se anuncia como "Actualización PRONTO" (sin inventar
+// una fecha). Los proyectos con evento también llevan una insignia en el
+// dock para que se distingan de un vistazo.
+// ══════════════════════════════════════════════════════════════
+
+let releaseEvSpotlightEvent = null;
+let releaseEvSpotlightProject = null;
+let releaseEvSpotlightTimer = 0;
+let releaseEvSpotlightReloadAt = 0;
+
+function releaseEvPad(value, size) {
+  const s = String(Math.max(0, Math.floor(Number(value) || 0)));
+  const width = size || 2;
+  return s.length >= width ? s : '0'.repeat(width - s.length) + s;
+}
+
+function releaseEvParts(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return {
+    days: Math.floor(total / 86400),
+    hours: Math.floor((total % 86400) / 3600),
+    minutes: Math.floor((total % 3600) / 60),
+    seconds: total % 60
+  };
+}
+
+function releaseEvClockHtml(targetIso, mode) {
+  const ms = Date.parse(targetIso) - Date.now();
+  const p = releaseEvParts(ms);
+  const unit = (key, label, size) => `
+    <span class="rel-ev-unit">
+      <b data-rel-ev-unit="${key}">${releaseEvPad(p[key], size)}</b>
+      <i>${label}</i>
+    </span>`;
+  return `
+    <div class="rel-ev-clock" data-rel-ev-countdown="${escapeHtml(targetIso)}" data-rel-ev-mode="${escapeHtml(mode || 'start')}">
+      ${unit('days', 'Días', 2)}
+      <span class="rel-ev-colon" aria-hidden="true">:</span>
+      ${unit('hours', 'Horas', 2)}
+      <span class="rel-ev-colon" aria-hidden="true">:</span>
+      ${unit('minutes', 'Min', 2)}
+      <span class="rel-ev-colon" aria-hidden="true">:</span>
+      ${unit('seconds', 'Seg', 2)}
+    </div>`;
+}
+
+function releaseEvProjectFor(ev, projects) {
+  return (projects || []).find((p) => releaseEventMatchesProject(ev, p)) || null;
+}
+
+// Un evento en curso con fecha de fin permite una cuenta atrás real; sin
+// fin se muestra "EN CURSO". Los próximos con fecha van antes que un evento
+// en curso sin fin para que la ficha nunca pierda la cuenta atrás.
+function releaseEvActiveEnd(ev) {
+  if (!ev || ev.phase !== 'active') return false;
+  const ms = Date.parse(ev.ends_at || '') - Date.now();
+  return Number.isFinite(ms) && ms > 0;
+}
+
+function releaseEvStartFuture(ev) {
+  if (!ev || ev.phase === 'active' || ev.phase === 'ended') return false;
+  const ms = Date.parse(ev.starts_at || '') - Date.now();
+  return Number.isFinite(ms) && ms > 0;
+}
+
+function releaseEvRank(ev) {
+  if (releaseEvActiveEnd(ev)) return 0;
+  if (releaseEvStartFuture(ev)) return 1;
+  if (ev && ev.phase === 'active') return 2;
+  return 3;
+}
+
+function releaseEvWhen(ev) {
+  if (!ev) return Infinity;
+  if (ev.phase === 'active') return Date.parse(ev.ends_at || '') || Infinity;
+  return Date.parse(ev.starts_at || '') || Infinity;
+}
+
+function releaseEvCompare(a, b) {
+  const ra = releaseEvRank(a.ev);
+  const rb = releaseEvRank(b.ev);
+  if (ra !== rb) return ra - rb;
+  // La prioridad del admin manda: permite fijar el evento que se anuncia.
+  const pa = Number(b.ev.priority || 0) - Number(a.ev.priority || 0);
+  if (pa !== 0) return pa;
+  const wa = releaseEvWhen(a.ev);
+  const wb = releaseEvWhen(b.ev);
+  if (wa !== wb) return wa - wb;
+  return String(a.ev.title || '').localeCompare(String(b.ev.title || ''));
+}
+
+function releaseEvCandidates(projects) {
+  const list = Array.isArray(projects) ? projects : [];
+  const out = [];
+  (eventsCache || []).forEach((ev) => {
+    if (!ev || ev.phase === 'ended' || ev.is_active === false) return;
+    if (ev.project_is_admin) return;
+    const project = releaseEvProjectFor(ev, list);
+    if (!project) return;
+    out.push({ ev, project });
+  });
+  return out;
+}
+
+function releaseEvPick(projects) {
+  return releaseEvCandidates(projects).sort(releaseEvCompare)[0] || null;
+}
+
+// Mejor evento de cada proyecto, para la insignia del dock.
+function releaseEvMap(projects) {
+  const map = new Map();
+  (eventsCache || []).forEach((ev) => {
+    if (!ev || ev.phase === 'ended' || ev.is_active === false) return;
+    if (ev.project_is_admin) return;
+    const project = releaseEvProjectFor(ev, projects);
+    if (!project) return;
+    const key = String(project.slug || '');
+    if (!key) return;
+    const candidate = { ev, project };
+    const prev = map.get(key);
+    if (!prev || releaseEvCompare(candidate, prev) < 0) map.set(key, candidate);
+  });
+  return map;
+}
+
+function releaseEvDockBadgeHtml(ev) {
+  if (!ev) return '';
+  const startMs = Date.parse(ev.starts_at || '');
+  const live = ev.phase === 'active' || (ev.phase !== 'ended' && Number.isFinite(startMs) && startMs <= Date.now());
+  let text = 'PRONTO';
+  if (live) {
+    text = '● VIVO';
+  } else if (Number.isFinite(startMs)) {
+    const ms = startMs - Date.now();
+    const mins = Math.floor(ms / 60000);
+    const days = Math.floor(mins / 1440);
+    const hours = Math.floor((mins % 1440) / 60);
+    const short = days > 99 ? '99+d' : days > 0 ? `${days}d` : hours > 0 ? `${hours}h` : `${Math.max(1, mins)}m`;
+    text = `📅 ${short}`;
+  }
+  const when = ev.starts_at ? formatEventRange(ev.starts_at, ev.ends_at) : 'Fecha aún no definida';
+  const label = live
+    ? `Evento en curso: ${ev.title || ''}`
+    : ev.starts_at
+      ? `Próximo evento: ${ev.title || ''} · ${when}`
+      : `Actualización pronto: ${ev.title || ''}`;
+  return `<span class="dock-ev-badge${live ? ' is-live' : ''}" title="${escapeHtml(label)}">${escapeHtml(text)}</span>`;
+}
+
+function releaseEvDateLabel(ev) {
+  if (!ev || !ev.starts_at) return '';
+  const range = formatEventRange(ev.starts_at, ev.ends_at);
+  return releaseEventExpected(ev) ? `${range} · por confirmar` : range;
+}
+
+function releaseEvSpotlightHtml(pick) {
+  const ev = pick.ev;
+  const project = pick.project;
+  const meta = eventCategoryMeta(ev.category);
+  const icon = project.icon_url || project.iconUrl || '';
+  const isActive = ev.phase === 'active';
+  // Si el servidor todavía no cambió la fase pero la fecha ya pasó, se
+  // muestra en curso igual: evita que la ficha vuelva a "PRONTO" justo
+  // cuando la cuenta atrás llega a cero y se refresca el feed.
+  const startMs = Date.parse(ev.starts_at || '');
+  const started = ev.phase !== 'ended' && Number.isFinite(startMs) && startMs <= Date.now();
+  const liveNow = isActive || started;
+  const activeEnd = liveNow && Date.parse(ev.ends_at || '') > Date.now();
+  const startFuture = !liveNow && Number.isFinite(startMs) && startMs > Date.now();
+  const showClock = activeEnd || startFuture;
+  const targetIso = activeEnd ? ev.ends_at : (startFuture ? ev.starts_at : '');
+  const expected = !liveNow && releaseEventExpected(ev);
+  const dateLabel = releaseEvDateLabel(ev);
+  const countLabel = activeEnd
+    ? 'Termina en'
+    : startFuture
+      ? (expected ? 'Llega (estimado) en' : 'Llega en')
+      : (liveNow ? 'Ahora mismo' : '');
+  const countHtml = showClock
+    ? releaseEvClockHtml(targetIso, activeEnd ? 'end' : 'start')
+    : liveNow
+      ? '<strong class="rel-ev-live">● EN CURSO</strong>'
+      : '<strong class="rel-ev-pronto">Actualización PRONTO</strong>';
+  const kicker = liveNow ? 'Evento en curso' : (startFuture ? 'Próximo evento' : 'Próxima actualización');
+  const stateClass = liveNow ? ' is-live' : (showClock ? '' : ' is-pronto');
+  const aria = `${project.name || 'Proyecto'}: ${ev.title || 'Novedad'}. ${showClock ? countLabel : (liveNow ? 'En curso' : 'Actualización pronto')}. Abrir evento.`;
+  return `
+    <article class="rel-ev-spot${stateClass}" data-rel-ev-id="${escapeHtml(String(ev.id || ''))}" role="button" tabindex="0" aria-label="${escapeHtml(aria)}">
+      <div class="rel-ev-spot-media">
+        ${icon
+          ? `<img src="${escapeHtml(icon)}" alt="" class="rel-ev-spot-icon" data-blurup loading="lazy" draggable="false" />`
+          : `<span class="rel-ev-spot-icon rel-ev-spot-fb" aria-hidden="true">🎮</span>`}
+        <span class="rel-ev-spot-pulse" aria-hidden="true"></span>
+      </div>
+      <div class="rel-ev-spot-main">
+        <p class="rel-ev-spot-kicker"><span class="rel-ev-spot-dot" aria-hidden="true"></span>${escapeHtml(kicker)} · <b>${escapeHtml(project.name || 'Proyecto')}</b></p>
+        <h4 class="rel-ev-spot-title">${escapeHtml(ev.title || `Novedad de ${project.name || 'OWS'}`)}</h4>
+        <div class="rel-ev-spot-meta">
+          <span class="rel-ev-spot-cat ${meta.cls}">${meta.icon} ${escapeHtml(meta.label)}</span>
+          ${dateLabel
+            ? `<span class="rel-ev-spot-date${expected ? ' is-expected' : ''}">📅 ${escapeHtml(dateLabel)}</span>`
+            : '<span class="rel-ev-spot-date is-pending">📅 Fecha aún no definida</span>'}
+        </div>
+        <span class="rel-ev-spot-cta">Abrir evento <span aria-hidden="true">↗</span></span>
+      </div>
+      <div class="rel-ev-spot-count${showClock ? '' : ' is-text'}">
+        ${countLabel ? `<span class="rel-ev-spot-count-label">${escapeHtml(countLabel)}</span>` : ''}
+        ${countHtml}
+      </div>
+    </article>`;
+}
+
+function releaseEvSpotlightVisible() {
+  const box = document.getElementById('rel-event-spotlight');
+  if (!box || box.classList.contains('hidden')) return false;
+  return box.offsetParent !== null;
+}
+
+function releaseEvSpotlightReachedZero(el) {
+  const mode = el.getAttribute('data-rel-ev-mode') || 'start';
+  const count = el.closest('.rel-ev-spot-count');
+  if (count && !count.dataset.evDone) {
+    count.dataset.evDone = '1';
+    const label = count.querySelector('.rel-ev-spot-count-label');
+    if (mode === 'end') {
+      if (label) label.textContent = 'Evento finalizado';
+      el.outerHTML = '<strong class="rel-ev-live is-ended">Finalizado</strong>';
+    } else {
+      if (label) label.textContent = 'Ahora mismo';
+      el.outerHTML = '<strong class="rel-ev-live">● EN CURSO</strong>';
+    }
+  }
+  maybeReloadReleaseEvSpotlight();
+}
+
+function syncReleaseEvSpotlightClock() {
+  const box = document.getElementById('rel-event-spotlight');
+  if (!box) return;
+  box.querySelectorAll('[data-rel-ev-countdown]').forEach((el) => {
+    const iso = el.getAttribute('data-rel-ev-countdown') || '';
+    const ms = Date.parse(iso) - Date.now();
+    if (!Number.isFinite(ms)) return;
+    const p = releaseEvParts(ms);
+    el.querySelectorAll('[data-rel-ev-unit]').forEach((b) => {
+      const key = b.getAttribute('data-rel-ev-unit');
+      const val = releaseEvPad(p[key], 2);
+      if (b.textContent !== val) b.textContent = val;
+    });
+    el.classList.toggle('is-final', ms > 0 && ms < 60000);
+    if (ms <= 0) releaseEvSpotlightReachedZero(el);
+  });
+}
+
+function maybeReloadReleaseEvSpotlight() {
+  if (Date.now() - releaseEvSpotlightReloadAt < 60000) return;
+  releaseEvSpotlightReloadAt = Date.now();
+  if (!eventsLoading) {
+    try { loadDashboardEvents(); } catch (_) {}
+  }
+}
+
+function stopReleaseEvSpotlightTimer() {
+  if (releaseEvSpotlightTimer) {
+    clearInterval(releaseEvSpotlightTimer);
+    releaseEvSpotlightTimer = 0;
+  }
+}
+
+function startReleaseEvSpotlightTimer() {
+  stopReleaseEvSpotlightTimer();
+  if (!releaseEvSpotlightVisible()) return;
+  syncReleaseEvSpotlightClock();
+  releaseEvSpotlightTimer = setInterval(() => {
+    if (!releaseEvSpotlightVisible()) { stopReleaseEvSpotlightTimer(); return; }
+    syncReleaseEvSpotlightClock();
+  }, 1000);
+}
+
+function renderReleasesEventSpotlight() {
+  const box = document.getElementById('rel-event-spotlight');
+  if (!box) return;
+  const projects = Array.isArray(releasesCache) ? releasesCache : [];
+  const pick = projects.length ? releaseEvPick(projects) : null;
+  if (!pick) {
+    releaseEvSpotlightEvent = null;
+    releaseEvSpotlightProject = null;
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    stopReleaseEvSpotlightTimer();
+    return;
+  }
+  releaseEvSpotlightEvent = pick.ev;
+  releaseEvSpotlightProject = pick.project;
+  box.innerHTML = releaseEvSpotlightHtml(pick);
+  box.classList.remove('hidden');
+  sweepBlurUp(box);
+  startReleaseEvSpotlightTimer();
 }
 
 // Bloque del trailer. variant: 'hero' (ficha destacada) | 'modal' (detalle).

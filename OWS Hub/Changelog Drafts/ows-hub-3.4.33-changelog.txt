@@ -1,0 +1,25 @@
+OWS Hub 3.4.33 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.4.33
+Plataforma: Windows (NSIS + MSI)
+Fecha: 2026-10-28
+
+Cambios:
+- Lanzamientos — cuenta atrás de eventos: arriba del acceso rápido aparece una ficha con el evento activo o próximo de tus proyectos, con el icono del juego, la categoría, la fecha y un reloj de días, horas, minutos y segundos que avanza en vivo mientras mirás la sección. Cuando la cuenta llega a cero, la ficha pasa a «EN CURSO» y el Hub vuelve a consultar el feed para traer el estado real.
+- Proyectos con eventos a la vista: todo proyecto que tenga un evento activo o próximo queda listado en Lanzamientos y su icono del dock suma una insignia con la fecha corta, «PRONTO» o «● VIVO», para reconocerlo sin abrir nada. Los eventos terminados, vencidos o de proyectos internos no se anuncian.
+- Eventos sin fecha: si el evento todavía no tiene fecha de inicio, la ficha lo dice tal cual y se anuncia como «Actualización PRONTO», sin cuenta atrás ni fechas inventadas. Al completar la fecha desde el panel, la cuenta aparece sola en la próxima carga.
+- Ficha del proyecto — eventos: el detalle de cada lanzamiento suma una sección con sus eventos activos y próximos, ordenados con los que están en curso primero. Cada uno muestra categoría, estado, fecha (o el aviso de que aún no está definida) y descripción, y se abre con un clic para ver el evento completo.
+- La ficha usa primero los eventos que el Hub ya tiene en memoria, así la sección no queda vacía mientras el servidor despierta, y se actualiza al abrirla. La cuenta atrás se detiene al salir de Lanzamientos para no gastar recursos de fondo.
+
+=== ENGLISH ===
+Version: 3.4.33
+Platform: Windows (NSIS + MSI)
+Date: 2026-10-28
+
+Changes:
+- Releases — event countdown: above the quick-access dock, a card now shows the active or upcoming event for your projects, with the game icon, category, date and a live days/hours/minutes/seconds clock that ticks while you are in the section. When the countdown reaches zero, the card switches to "LIVE" and the Hub refreshes the feed to bring the real state.
+- Projects with events in sight: every project with an active or upcoming event is listed in Releases and its dock icon gains a badge with the short date, "SOON" or "● LIVE", so you can spot it without opening anything. Finished, expired or internal-project events are not announced.
+- Undated events: if the event has no start date yet, the card says so and announces "Update SOON", with no countdown and no made-up dates. Once the date is filled in from the panel, the countdown appears on the next load.
+- Project details — events: each release detail now includes a section with its active and upcoming events, with in-progress ones first. Every item shows category, status, date (or a note that it is not set yet) and description, and opens with a click to see the full event.
+- The section first uses the events the Hub already has in memory, so it does not stay empty while the server wakes up, and it refreshes when opened. The countdown stops when you leave Releases to avoid spending resources in the background.

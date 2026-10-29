@@ -21929,6 +21929,11 @@ async function ensureOwsWorkSessionsTable() {
       -- identifican de un vistazo y se sabe si están pausados.
       reworks          JSONB NOT NULL DEFAULT '[]'::jsonb,
       published_devlog_id BIGINT,
+      -- Actualización a la que pertenece la sesión. event_id apunta al evento
+      -- del calendario (ows_dashboard_events); update_name guarda el nombre
+      -- aunque todavía no exista el evento (queda pendiente de vincular).
+      event_id         BIGINT,
+      update_name      TEXT NOT NULL DEFAULT '',
       created_by       TEXT NOT NULL DEFAULT 'OceanandWild',
       created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -21949,12 +21954,15 @@ async function ensureOwsWorkSessionsTable() {
       ADD COLUMN IF NOT EXISTS parts            JSONB NOT NULL DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS changes          JSONB NOT NULL DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS reworks          JSONB NOT NULL DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS published_devlog_id BIGINT
+      ADD COLUMN IF NOT EXISTS published_devlog_id BIGINT,
+      ADD COLUMN IF NOT EXISTS event_id         BIGINT,
+      ADD COLUMN IF NOT EXISTS update_name      TEXT NOT NULL DEFAULT ''
   `).catch((err) => console.log(' Aviso: migración ows_work_sessions:', err.message));
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_started ON ows_work_sessions(started_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_project ON ows_work_sessions(project_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_ended ON ows_work_sessions(ended_at)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_status ON ows_work_sessions(status)').catch(() => {});
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ows_ws_event ON ows_work_sessions(event_id)').catch(() => {});
 
   // El devlog guarda de qué sesiones salió y qué día cubría, para no
   // publicar dos veces lo mismo y para poder auditar el reparto.
@@ -22437,6 +22445,7 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     id: Number(r?.id || 0),
     project_id: r?.project_id != null ? Number(r.project_id) : null,
     project_name: String(r?.project_name || ''),
+    project_slug: String(r?.project_slug || ''),
     project_icon_url: String(r?.project_icon_url || ''),
     admin_only: r?.admin_only === true,
     title: String(r?.title || 'Sesión sin título'),
@@ -22456,6 +22465,11 @@ function sanitizeWorkSessionRow(r, tzOffset) {
     created_at: r?.created_at ? new Date(r.created_at).toISOString() : null,
     updated_at: r?.updated_at ? new Date(r.updated_at).toISOString() : null,
     published_devlog_id: r?.published_devlog_id != null ? Number(r.published_devlog_id) : null,
+    // Actualización a la que pertenece la sesión: evento del calendario o,
+    // mientras no exista, el nombre con el que quedó registrada.
+    event_id: r?.event_id != null ? Number(r.event_id) : null,
+    update_name: String(r?.update_name || ''),
+    is_update: (r?.event_id != null) || String(r?.update_name || '').trim() !== '',
     // La historia: qué tramos se trabajaron, dónde se cortó y dónde se volvió.
     parts: partRows,
     parts_count: partRows.length,
@@ -22598,6 +22612,30 @@ async function applySessionProgress({ projectId, delta, updatedBy, note }) {
   };
 }
 
+// Vínculo de una sesión con una actualización. El evento del calendario
+// (ows_dashboard_events) manda; si todavía no existe, se guarda el nombre y
+// la sesión queda pendiente de vincular. El nombre se copia como instantánea
+// del título del evento para que el grupo sobreviva a un renombre o borrado.
+async function resolveWorkUpdateLink(raw, projectId) {
+  const name = String(raw?.update_name ?? raw?.updateName ?? '').trim().slice(0, 160);
+  const eventId = Number(raw?.event_id ?? raw?.eventId ?? 0) || 0;
+  if (!eventId) return { event_id: null, update_name: name };
+  await ensureOwsDashboardEventsTable();
+  const { rows } = await pool.query(
+    `SELECT id, title, project_id FROM ows_dashboard_events WHERE id = $1`,
+    [eventId]
+  );
+  if (!rows.length) return { error: 'El evento elegido no existe.' };
+  const ev = rows[0];
+  if (projectId != null && ev.project_id != null && Number(ev.project_id) !== Number(projectId)) {
+    return { error: 'Ese evento pertenece a otro proyecto.' };
+  }
+  return {
+    event_id: Number(ev.id),
+    update_name: name || String(ev.title || '').trim().slice(0, 160)
+  };
+}
+
 // Listar sesiones (solo-admin). ?limit, ?project_id, ?since=YYYY-MM-DD y
 // ?tz_offset= (minutos respecto a UTC) para cortar el día donde el admin.
 app.get('/ows-work-sessions', async (req, res) => {
@@ -22624,6 +22662,216 @@ app.get('/ows-work-sessions', async (req, res) => {
   }
 });
 
+// Actualizaciones por proyecto, para la pestaña Actualizaciones del panel.
+// Solo entran sesiones con actualización (evento del calendario o nombre
+// provisional). Se agrupa proyecto → actualización → fecha:
+//   · cada devlog publicado aparece una sola vez, bajo la actualización de
+//     las sesiones que lo componen;
+//   · las sesiones que todavía no están en un devlog se listan como sueltas.
+app.get('/ows-work-updates', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const tzOffset = normalizeTzOffsetMinutes(req.query?.tz_offset);
+  const projectFilter = Number(req.query?.project_id || 0);
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    await ensureOwsDevlogsTable();
+    await ensureOwsDashboardEventsTable();
+    const params = [];
+    const where = ["(w.event_id IS NOT NULL OR COALESCE(w.update_name, '') <> '')"];
+    if (projectFilter > 0) {
+      params.push(projectFilter);
+      where.push(`w.project_id = $${params.length}`);
+    }
+    const { rows } = await pool.query(
+      `SELECT w.*, p.name AS live_project_name, p.slug AS project_slug,
+              p.icon_url AS project_icon_url, p.admin_only
+         FROM ows_work_sessions w
+         LEFT JOIN ows_launch_projects p ON p.id = w.project_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY w.started_at DESC, w.id DESC
+        LIMIT 500`,
+      params
+    );
+    const sessions = rows.map((r) => sanitizeWorkSessionRow({
+      ...r,
+      project_name: String(r.project_name || r.live_project_name || '')
+    }, tzOffset));
+
+    // Eventos vivos: el título actual manda sobre el nombre guardado.
+    const eventIds = [...new Set(sessions.map((s) => Number(s.event_id || 0)).filter(Boolean))];
+    const eventById = new Map();
+    if (eventIds.length) {
+      const { rows: evRows } = await pool.query(
+        `SELECT id, title, project_id, starts_at, ends_at, expires_at, is_active
+           FROM ows_dashboard_events
+          WHERE id = ANY($1::bigint[])`,
+        [eventIds]
+      );
+      evRows.forEach((e) => eventById.set(Number(e.id), e));
+    }
+
+    // Devlogs publicados a los que apuntan esas sesiones.
+    const devlogIds = [...new Set(sessions.map((s) => Number(s.published_devlog_id || 0)).filter(Boolean))];
+    const devlogById = new Map();
+    if (devlogIds.length) {
+      const { rows: dRows } = await pool.query(
+        'SELECT * FROM ows_devlogs WHERE id = ANY($1::bigint[])', [devlogIds]
+      );
+      dRows.forEach((d) => devlogById.set(Number(d.id), sanitizeDevlogRow(d)));
+    }
+
+    const projects = new Map();
+    sessions.forEach((s) => {
+      const pid = s.project_id != null ? Number(s.project_id) : 0;
+      const projectKey = pid ? `p${pid}` : `n:${String(s.project_name || '').toLowerCase()}`;
+      if (!projects.has(projectKey)) {
+        projects.set(projectKey, {
+          project_id: pid || null,
+          project_name: s.project_name || 'Sin proyecto',
+          project_slug: String(s.project_slug || ''),
+          project_icon_url: String(s.project_icon_url || ''),
+          admin_only: s.admin_only === true,
+          updates: []
+        });
+      }
+      const ev = s.event_id ? eventById.get(Number(s.event_id)) : null;
+      const title = String(ev?.title || s.update_name || 'Actualización').trim();
+      const updateKey = s.event_id ? `e${s.event_id}` : `n:${title.toLowerCase()}`;
+      let group = projects.get(projectKey).updates.find((u) => u.key === updateKey);
+      if (!group) {
+        group = {
+          key: updateKey,
+          project_id: pid || null,
+          event_id: s.event_id || null,
+          event_title: title,
+          event_starts_at: ev?.starts_at ? new Date(ev.starts_at).toISOString() : null,
+          event_ends_at: ev?.ends_at ? new Date(ev.ends_at).toISOString() : null,
+          update_name: String(s.update_name || ''),
+          pending_event: !s.event_id,
+          sessions_count: 0,
+          minutes: 0,
+          delta: 0,
+          last_at: null,
+          entries: []
+        };
+        projects.get(projectKey).updates.push(group);
+      }
+      group.sessions_count += 1;
+      group.minutes += Number(s.duration_minutes || 0);
+      group.delta += Number(s.progress_delta || 0);
+      const when = s.ended_at || s.started_at || s.created_at;
+      if (when && (!group.last_at || Date.parse(when) > Date.parse(group.last_at))) group.last_at = when;
+      // Devlog publicado: se suma al grupo; la sesión deja de listarse suelta.
+      // Un devlog del día puede mezclar sesiones de dos actualizaciones: acá
+      // cada grupo muestra solo lo que le corresponde (minutos, avance y
+      // cantidad de sesiones), así no infla el total con trabajo de otro grupo.
+      const devId = s.published_devlog_id ? Number(s.published_devlog_id) : 0;
+      const dev = devId ? devlogById.get(devId) : null;
+      if (dev) {
+        let devEntry = group.entries.find((e) => e.kind === 'devlog' && e.id === dev.id);
+        if (!devEntry) {
+          devEntry = {
+            kind: 'devlog',
+            id: dev.id,
+            title: dev.title,
+            date: dev.work_date || dev.created_at,
+            created_at: dev.created_at,
+            minutes: 0,
+            delta: 0,
+            progress_after: dev.progress_after,
+            session_count: 0,
+            created_by: dev.created_by
+          };
+          group.entries.push(devEntry);
+        }
+        devEntry.minutes += Number(s.duration_minutes || 0);
+        devEntry.delta = roundWorkNum(devEntry.delta + Number(s.progress_delta || 0));
+        devEntry.session_count += 1;
+      }
+      if (dev) return;
+      group.entries.push({
+        kind: 'session',
+        id: s.id,
+        title: s.title,
+        date: when,
+        created_at: s.created_at,
+        minutes: s.duration_minutes,
+        delta: s.progress_delta,
+        status: s.status,
+        changes_count: s.changes_count,
+        created_by: s.created_by
+      });
+    });
+
+    const out = [];
+    projects.forEach((p) => {
+      p.updates.forEach((u) => {
+        u.entries.sort((a, b) => Date.parse(b.date || 0) - Date.parse(a.date || 0));
+        u.minutes = Math.round(u.minutes);
+        u.delta = roundWorkNum(u.delta);
+        if (u.entries.length) u.last_at = u.entries[0].date;
+      });
+      p.updates.sort((a, b) => Date.parse(b.last_at || 0) - Date.parse(a.last_at || 0));
+      p.updates_count = p.updates.length;
+      p.last_at = p.updates.length ? p.updates[0].last_at : null;
+      out.push(p);
+    });
+    out.sort((a, b) => Date.parse(b.last_at || 0) - Date.parse(a.last_at || 0));
+
+    return res.json({
+      success: true,
+      projects: out,
+      totals: {
+        projects: out.length,
+        updates: out.reduce((n, p) => n + p.updates.length, 0),
+        pending: out.reduce((n, p) => n + p.updates.filter((u) => u.pending_event).length, 0),
+        sessions: sessions.length,
+        devlogs: devlogIds.length
+      }
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-work-updates:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Vincular un lote de sesiones pendientes (mismo proyecto + mismo nombre) a un
+// evento del calendario. Es el "crear el evento después": las sesiones ya
+// guardadas se engancha al evento sin editarlas una por una.
+app.post('/ows-work-updates/link', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const projectId = Number(req.body?.project_id || 0);
+  const name = String(req.body?.update_name || '').trim().slice(0, 160);
+  const eventId = Number(req.body?.event_id || 0);
+  if (!projectId || !eventId) return res.status(400).json({ error: 'Faltan el proyecto o el evento.' });
+  if (!name) return res.status(400).json({ error: 'Falta el nombre de la actualización.' });
+  try {
+    await ensureOwsLaunchProjectsTable();
+    await ensureOwsWorkSessionsTable();
+    const link = await resolveWorkUpdateLink({ event_id: eventId, update_name: name }, projectId);
+    if (link.error) return res.status(400).json({ error: link.error });
+    const { rows } = await pool.query(
+      `UPDATE ows_work_sessions
+          SET event_id = $1, update_name = $2, updated_at = NOW()
+        WHERE project_id = $3
+          AND event_id IS NULL
+          AND lower(btrim(update_name)) = lower(btrim($4))
+        RETURNING id`,
+      [link.event_id, link.update_name, projectId, name]
+    );
+    logAdminActivity({
+      action: 'link-work-updates', entityType: 'work_session',
+      entityId: rows.map((r) => r.id).join(',').slice(0, 200), entityName: link.update_name,
+      adminName: String(req.body?.created_by || 'OceanandWild'),
+      meta: { project_id: projectId, event_id: link.event_id, sessions: rows.length }
+    });
+    return res.json({ success: true, updated: rows.length, session_ids: rows.map((r) => Number(r.id)) });
+  } catch (err) {
+    console.error('Error en POST /ows-work-updates/link:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
 // Crear una sesión de trabajo (el "minidevlog del momento").
 // Body: { project_id, title, details?, started_at?, ended_at?, status?,
 //         parts?, progress_delta?, completion?, incomplete_reason?, created_by? }
@@ -22683,6 +22931,10 @@ app.post('/ows-work-sessions', async (req, res) => {
       pid = projRows[0].id;
       projectName = String(projRows[0].name || '');
     }
+    // Actualización vinculada (solo tiene sentido si hay proyecto): el
+    // evento del calendario o el nombre provisional para crearlo después.
+    const updateLink = await resolveWorkUpdateLink(req.body, pid);
+    if (updateLink.error) return res.status(400).json({ error: updateLink.error });
     // El avance solo se aplica al cerrar; una sesión abierta o pausada no
     // toca el %. Si se reanuda y se cierra, se aplica todo junto.
     let applied = null;
@@ -22696,15 +22948,17 @@ app.post('/ows-work-sessions', async (req, res) => {
       `INSERT INTO ows_work_sessions
          (project_id, project_name, title, details, progress_before, progress_after,
           progress_delta, progress_applied, status, realtime, completion,
-          incomplete_reason, started_at, ended_at, parts, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16)
+          incomplete_reason, started_at, ended_at, parts, created_by,
+          event_id, update_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16, $17, $18)
        RETURNING *`,
       [pid, projectName, title, details,
        applied ? applied.before : null, applied ? applied.after : null,
        delta, !!(applied && pid), status, realtime,
        completion.completion, completion.incomplete_reason,
        started.toISOString(), ended ? ended.toISOString() : null,
-       JSON.stringify(parts), createdBy]
+       JSON.stringify(parts), createdBy,
+       updateLink.event_id, updateLink.update_name]
     );
     logAdminActivity({
       action: 'create-work-session', entityType: 'work_session', entityId: String(rows[0]?.id || ''),
@@ -22712,7 +22966,8 @@ app.post('/ows-work-sessions', async (req, res) => {
       meta: {
         project_id: pid, project_name: projectName, delta, status, realtime,
         completion: completion.completion, incomplete_reason: completion.incomplete_reason,
-        parts: parts.length, started_at: started.toISOString()
+        parts: parts.length, started_at: started.toISOString(),
+        event_id: updateLink.event_id, update_name: updateLink.update_name
       }
     });
     return res.json({
@@ -22809,6 +23064,16 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
         note: `Sesión: ${title}`
       });
     }
+    // Actualización vinculada: si el body la manda se recalcula (y se valida
+    // que el evento sea del mismo proyecto); si no, se conserva la que tenía.
+    let updateLink = {
+      event_id: row.event_id != null ? Number(row.event_id) : null,
+      update_name: String(row.update_name || '')
+    };
+    if (req.body?.event_id !== undefined || req.body?.update_name !== undefined) {
+      updateLink = await resolveWorkUpdateLink(req.body, row.project_id);
+      if (updateLink.error) return res.status(400).json({ error: updateLink.error });
+    }
     const { rows: upd } = await pool.query(
       `UPDATE ows_work_sessions
           SET title = $1, details = $2, progress_delta = $3, status = $4,
@@ -22816,21 +23081,23 @@ app.patch('/ows-work-sessions/:id', async (req, res) => {
               completion = $8, incomplete_reason = $9,
               progress_before = COALESCE($10, progress_before),
               progress_after  = COALESCE($11, progress_after),
-              progress_applied = progress_applied OR $12
-        WHERE id = $13
+              progress_applied = progress_applied OR $12,
+              event_id = $13, update_name = $14
+        WHERE id = $15
         RETURNING *`,
       [title, details, delta, status, started.toISOString(),
        ended ? ended.toISOString() : null, JSON.stringify(parts),
        completion.completion, completion.incomplete_reason,
        applied ? applied.before : null, applied ? applied.after : null,
-       !!(applied && row.project_id), id]
+       !!(applied && row.project_id), updateLink.event_id, updateLink.update_name, id]
     );
     logAdminActivity({
       action: 'update-work-session', entityType: 'work_session', entityId: String(id),
       entityName: title, adminName: String(row.created_by || 'OceanandWild'),
       meta: {
         delta, status, just_closed: justClosed, completion: completion.completion,
-        incomplete_reason: completion.incomplete_reason, parts: parts.length
+        incomplete_reason: completion.incomplete_reason, parts: parts.length,
+        event_id: updateLink.event_id, update_name: updateLink.update_name
       }
     });
     return res.json({

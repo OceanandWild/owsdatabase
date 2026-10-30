@@ -1,0 +1,78 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Style src="PauseMenu.uss" />
+    <ui:Style src="WgTheme.uss" />
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         HUD EN PARTIDA — pergamino y metal envejecido.
+         Tablero al centro, todo el chrome alrededor y sin taparlo:
+           · arriba-izq  → reloj (solo con control de tiempo)
+           · izquierda   → habilidades de variante
+           · arriba-der  → historial + deshacer
+           · arriba-der  → pausa
+         ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- RELOJ — se llena solo en los modos con tiempo (Bullet/Blitz/Rapid) -->
+    <ui:VisualElement name="clock-hud" class="clock-hud hidden">
+        <ui:VisualElement class="rivets" picking-mode="Ignore" />
+        <ui:VisualElement name="clock-row-black" class="clock-slot">
+            <ui:Label text="♚" class="clock-glyph" picking-mode="Ignore" />
+            <ui:Label name="clock-black-time" text="—" class="clock-time clock-time-blue" />
+        </ui:VisualElement>
+        <ui:VisualElement name="clock-row-white" class="clock-slot">
+            <ui:Label text="♔" class="clock-glyph" picking-mode="Ignore" />
+            <ui:Label name="clock-white-time" text="—" class="clock-time clock-time-red" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- HABILIDADES — desplegables abajo a la izquierda.
+         Sin ScrollView a propósito: el despliegue sale hacia la derecha y un
+         recorte vertical lo cortaría. Son pocas variantes (máx. ~8 filas). -->
+    <ui:VisualElement name="variant-ability-panel" class="ability-panel hidden">
+        <ui:VisualElement class="ability-panel-header">
+            <ui:VisualElement class="ability-header-left">
+                <ui:Label text="🛡" class="ability-header-icon" />
+                <ui:Label text="HABILIDADES" class="ability-panel-title" />
+            </ui:VisualElement>
+            <ui:Button name="btn-ability-help" text="?" class="ability-help-btn" tooltip="Cómo funcionan" />
+        </ui:VisualElement>
+        <ui:VisualElement name="ability-list" class="ability-list">
+            <!-- Se puebla dinámicamente desde VariantAbilityPanel -->
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- HISTORIAL — columna de notación algebraica + deshacer -->
+    <ui:VisualElement name="move-history-panel" class="history-panel hidden">
+        <ui:VisualElement class="history-header">
+            <ui:Label text="HISTORIAL DE PARTIDA" class="history-title" />
+        </ui:VisualElement>
+        <ui:ScrollView name="move-history-scroll" class="move-history-scroll" mode="Vertical">
+        </ui:ScrollView>
+        <ui:VisualElement class="history-footer">
+            <ui:Button name="btn-undo" text="↩  DESHACER" class="btn-undo-parchment" tooltip="Deshacer (Ctrl+Z)" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- PAUSA -->
+    <ui:VisualElement name="pause-hud" class="pause-hud hidden">
+        <ui:Button name="btn-pause-hud" text="❚❚" class="pause-hud-btn" tooltip="Pausar partida" />
+    </ui:VisualElement>
+
+    <ui:VisualElement name="pause-menu-root" class="pause-menu-root hidden">
+        <ui:VisualElement name="pause-overlay" class="pause-overlay" />
+
+        <ui:VisualElement name="pause-panel" class="pause-panel">
+            <ui:VisualElement class="rivets rivets-panel" picking-mode="Ignore" />
+            <ui:Label text="❚❚  PAUSA" class="pause-title" />
+            <ui:Label text="La partida está en pausa" class="pause-subtitle" />
+
+            <ui:VisualElement name="pause-buttons" class="pause-buttons">
+                <ui:Button name="btn-resume" text="▶  REANUDAR" class="pause-btn pause-btn-primary" />
+                <ui:Button name="btn-restart" text="↻  REINICIAR PARTIDA" class="pause-btn" />
+                <ui:Button name="btn-main-menu" text="⌂  MENÚ PRINCIPAL" class="pause-btn" />
+                <ui:Button name="btn-quit-game" text="✕  SALIR DEL JUEGO" class="pause-btn pause-btn-danger" />
+            </ui:VisualElement>
+
+            <ui:Label text="Consejo: pulsa ESC o toca ❚❚ para abrir / cerrar este panel" class="pause-hint" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

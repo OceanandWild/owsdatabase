@@ -1,0 +1,1187 @@
+/* ============================================================
+   CACERÃA DE DULCES Â· modo temporal de la Velada
+   Pantalla completa construida desde CandyModeView. No toca el
+   tablero 3D: vive en el mismo UIDocument del menÃº.
+   ============================================================ */
+
+/* --- Entrada compacta en el menÃº principal --- */
+.btn-candy {
+    background-color: #3a1c0d;
+    border-color: #c2701c;
+    border-width: 2px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+.btn-candy:hover {
+    background-color: #55280d;
+    border-color: #f6ad3c;
+}
+.btn-candy:active {
+    background-color: #261006;
+}
+.btn-candy-texts {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.btn-candy-sub {
+    font-size: 9px;
+    color: #f6ad3c;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    -unity-text-align: middle-center;
+    margin-top: -2px;
+}
+
+/* --- RaÃ­z y estructura --- */
+.candy-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #0c0713;
+    color: #f6ead8;
+    font-size: 15px;
+}
+
+.candy-game {
+    flex-grow: 1;
+    flex-direction: column;
+    padding: 6px 14px 6px 14px;
+}
+
+/* La barra y el pie se ajustaron al contenido para devolverle altura al
+   tablero: en 1080p el damero está limitado por el alto, no por el ancho. */
+.candy-topbar {
+    height: 68px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px;
+    background-color: rgba(22, 13, 34, 0.97);
+    border-color: #7a4d22;
+    border-width: 1px;
+    border-radius: 14px;
+    flex-shrink: 0;
+}
+
+.candy-brand {
+    flex-direction: column;
+    justify-content: center;
+    min-width: 260px;
+    flex-shrink: 0;
+}
+.candy-brand-title {
+    font-size: 26px;
+    color: #f8b84a;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+}
+.candy-brand-sub {
+    font-size: 11px;
+    color: #c9b2d8;
+    letter-spacing: 1px;
+    margin-top: 1px;
+}
+
+.candy-timer-wrap {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 140px;
+}
+.candy-caption {
+    font-size: 10px;
+    color: #c9b2d8;
+    letter-spacing: 2px;
+}
+.candy-timer {
+    font-size: 40px;
+    color: #fff3d6;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+}
+.candy-timer-low {
+    color: #fb7185;
+}
+
+.candy-topstats {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.candy-chip {
+    flex-direction: row;
+    align-items: center;
+    background-color: #291933;
+    border-color: #5a3a6c;
+    border-width: 1px;
+    border-radius: 11px;
+    padding: 6px 12px;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+.candy-chip-local {
+    border-color: #3eb074;
+    background-color: rgba(30, 80, 55, 0.5);
+}
+.candy-chip-rival {
+    border-color: #b03550;
+    background-color: rgba(80, 20, 35, 0.5);
+}
+.candy-chip-icon {
+    width: 26px;
+    height: 26px;
+    margin-right: 7px;
+    flex-shrink: 0;
+}
+.candy-chip-caption {
+    font-size: 10px;
+    color: #b8a4cc;
+    letter-spacing: 1px;
+    margin-right: 6px;
+    -unity-font-style: bold;
+}
+.candy-chip-value {
+    font-size: 26px;
+    color: #f8b84a;
+    -unity-font-style: bold;
+}
+
+/* --- Cuerpo: reserva Â· tablero Â· rival --- */
+.candy-main {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: center;
+    margin-top: 6px;
+    min-height: 0;
+}
+
+.candy-side {
+    width: 330px;
+    flex-shrink: 0;
+    flex-direction: column;
+    background-color: rgba(24, 14, 34, 0.94);
+    border-color: #6a447c;
+    border-width: 1.5px;
+    border-radius: 16px;
+    /* El marco de 9-slice ocupa ~43 px: el contenido arranca adentro para
+       no cruzarse con las esquinas talladas. */
+    padding: 34px 34px 40px 34px;
+}
+.candy-side-left {
+    margin-right: 14px;
+}
+.candy-side-right {
+    width: 350px;
+    margin-left: 14px;
+}
+
+/* En pantallas anchas las columnas crecen para acompaÃ±ar al tablero.
+   En 21:9 ocupan el espacio que antes quedaba vacÃ­o a los costados. */
+.candy-root.candy-wide .candy-side {
+    width: 430px;
+}
+.candy-root.candy-wide .candy-side-right {
+    width: 450px;
+}
+.candy-root.candy-ultrawide .candy-side {
+    width: 580px;
+}
+.candy-root.candy-ultrawide .candy-side-right {
+    width: 600px;
+}
+
+.candy-section-title {
+    font-size: 13px;
+    color: #f0a43a;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    flex-shrink: 0;
+}
+.candy-player-name {
+    font-size: 20px;
+    color: #fff3d6;
+    -unity-font-style: bold;
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+.candy-player-name-rival {
+    color: #fca5a5;
+}
+
+/* La mano no se encoge: cada carta mide siempre lo mismo y, si no entra
+   en una fila, pasa a la siguiente. Antes el flexbox comprimía las cartas
+   y los iconos quedaban aplastados contra el texto. */
+.candy-hand {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    flex-shrink: 0;
+}
+.candy-hand-card {
+    width: 82px;
+    height: 104px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #271733;
+    border-color: #553765;
+    border-width: 2px;
+    border-radius: 10px;
+    padding: 4px 3px 4px 3px;
+    margin-right: 3px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+}
+.candy-hand-card:hover {
+    border-color: #d3923a;
+    background-color: #382445;
+}
+.candy-hand-selected {
+    border-color: #fbbf24;
+    background-color: #452714;
+}
+.candy-hand-card:disabled {
+    opacity: 0.42;
+}
+.candy-hand-icon {
+    width: 54px;
+    height: 58px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+.candy-hand-name {
+    font-size: 9px;
+    color: #e4d4c0;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+/* Insignia de cantidad: esquina superior derecha de la carta. */
+.candy-hand-count {
+    position: absolute;
+    right: 4px;
+    top: 3px;
+    min-width: 26px;
+    height: 20px;
+    padding: 0 5px;
+    background-color: rgba(14, 8, 20, 0.94);
+    border-color: #8a5a24;
+    border-width: 1px;
+    border-radius: 10px;
+    font-size: 12px;
+    color: #f8b84a;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    flex-shrink: 0;
+}
+.candy-hint {
+    font-size: 13px;
+    color: #b5a3c2;
+    margin-top: 8px;
+    flex-shrink: 0;
+}
+.candy-muted {
+    font-size: 13px;
+    color: #9a87aa;
+    margin-top: 8px;
+}
+
+/* --- Saldo grande de Dulces (columna izquierda) --- */
+.candy-score-card {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 190px;
+    margin-top: 12px;
+    /* El borde inferior de la placa es decorativo: el pie de la leyenda
+       tiene que quedar por encima de las esquinas talladas. */
+    padding: 18px 22px 46px 22px;
+    background-color: #100a16;
+    border-color: #3d2949;
+    border-width: 1px;
+    border-radius: 14px;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+/* El bloque del marcador se centra en el alto sobrante: antes quedaba
+   pegado arriba y dejaba un pozo negro en el medio de la placa. */
+.candy-score-top {
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    flex-shrink: 0;
+}
+.candy-score-art {
+    width: 112px;
+    height: 112px;
+}
+.candy-score-caption {
+    font-size: 11px;
+    color: #d4932a;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    margin-top: 4px;
+}
+.candy-score-big {
+    font-size: 60px;
+    color: #fff3d6;
+    -unity-font-style: bold;
+    margin-top: -2px;
+    margin-bottom: 0;
+}
+.candy-score-sub {
+    font-size: 11px;
+    color: #9a87aa;
+    letter-spacing: 1px;
+}
+.candy-score-spacer {
+    flex-grow: 1;
+    min-height: 8px;
+}
+.candy-legend-title {
+    margin-bottom: 6px;
+}
+.candy-legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    width: 94%;
+    align-self: center;
+}
+.candy-legend-item {
+    width: 50%;
+    height: 24px;
+    flex-direction: row;
+    align-items: center;
+}
+.candy-legend-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+.candy-legend-name {
+    flex-grow: 1;
+    font-size: 12px;
+    color: #e8d8c0;
+    -unity-font-style: bold;
+}
+.candy-legend-value {
+    font-size: 14px;
+    color: #fbbf24;
+    -unity-font-style: bold;
+}
+
+.candy-board-wrap {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+}
+.candy-board {
+    background-color: #0d0712;
+    border-color: #9d5d28;
+    border-width: 3px;
+    border-radius: 12px;
+}
+.candy-cell {
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    border-color: rgba(14, 8, 20, 0.7);
+    border-width: 1px;
+    transition-property: background-color, border-color;
+    transition-duration: 0.12s;
+}
+.candy-cell-light {
+    background-color: #4d3860;
+}
+.candy-cell-dark {
+    background-color: #1f1228;
+}
+.candy-cell:hover {
+    border-color: #d3923a;
+}
+/* La pieza se dibuja con su sombra de contacto dentro de un mismo envoltorio:
+   el tablero de 12×12 deja casillas grandes y las esculturas necesitan
+   despegarse del damero. */
+.candy-piece-wrap {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+.candy-piece {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+.candy-piece-shadow {
+    position: absolute;
+    left: 4%;
+    top: 6%;
+    width: 100%;
+    height: 100%;
+}
+.candy-candy {
+    position: absolute;
+    left: 12%;
+    top: 12%;
+    width: 76%;
+    height: 76%;
+    align-items: center;
+    justify-content: center;
+}
+.candy-candy-icon {
+    width: 100%;
+    height: 100%;
+}
+.candy-candy-fallback {
+    border-radius: 30px;
+    border-color: #fff3d6;
+    border-width: 2px;
+}
+.candy-candy-1 {
+    background-color: #f59e0b;
+}
+.candy-candy-2 {
+    background-color: #fb7185;
+}
+.candy-candy-3 {
+    background-color: #a78bfa;
+}
+.candy-candy-value {
+    position: absolute;
+    right: -4%;
+    bottom: -4%;
+    min-width: 18px;
+    height: 16px;
+    padding: 0 3px;
+    background-color: rgba(16, 9, 24, 0.95);
+    border-color: #f59e0b;
+    border-width: 1.5px;
+    border-radius: 8px;
+    font-size: 10px;
+    color: #ffedd5;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+.candy-candy-value-1 {
+    border-color: #f59e0b;
+    color: #fde68a;
+}
+.candy-candy-value-2 {
+    border-color: #ec4899;
+    color: #fbcfe8;
+}
+.candy-candy-value-3 {
+    border-color: #a855f7;
+    color: #e9d5ff;
+}
+/* Pieza recién invocada: todavía no puede moverse en este turno. Va antes de
+   .candy-selected para que la selección conserve su borde dorado. */
+.candy-fresh {
+    border-color: #7dd3fc;
+    border-width: 2px;
+}
+
+.candy-selected {
+    border-color: #fbbf24;
+    border-width: 3px;
+    background-color: #553512;
+}
+.candy-move-target {
+    border-color: #34d399;
+    border-width: 2px;
+    background-color: rgba(22, 70, 55, 0.7);
+}
+.candy-capture-target {
+    border-color: #f87171;
+    border-width: 2.5px;
+    background-color: #4b1c25;
+}
+.candy-deploy-target {
+    border-color: #4ade80;
+    border-width: 1.5px;
+    background-color: rgba(18, 60, 35, 0.65);
+}
+
+/* --- Estado del turno: píldora en el pie, junto al botón de pasar --- */
+.candy-turn-pill {
+    font-size: 13px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    padding: 9px 18px;
+    border-radius: 16px;
+    border-width: 1.5px;
+    margin-right: 14px;
+    flex-shrink: 0;
+    -unity-text-align: middle-center;
+}
+.candy-turn-mine {
+    color: #6ee7b7;
+    background-color: rgba(18, 72, 54, 0.62);
+    border-color: #2f9e6c;
+}
+.candy-turn-rival {
+    color: #fca5a5;
+    background-color: rgba(80, 20, 35, 0.62);
+    border-color: #b03550;
+}
+.candy-step {
+    font-size: 13px;
+    color: #f0e4d4;
+    flex-shrink: 0;
+}
+
+/* --- Ejército rival en reserva --- */
+.candy-reserve-caption {
+    margin-top: 14px;
+    flex-shrink: 0;
+}
+/* Mismo criterio que la mano local: tres por fila para que el ejército
+   enemigo se lea de un vistazo y la columna no quede desbalanceada. */
+.candy-rival-reserve {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-top: 6px;
+    flex-shrink: 0;
+}
+.candy-rival-item {
+    position: relative;
+    width: 31%;
+    height: 92px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 7px;
+    padding: 6px 4px 5px 4px;
+    background-color: rgba(12, 7, 18, 0.55);
+    border-color: rgba(122, 90, 145, 0.4);
+    border-width: 1px;
+    border-radius: 9px;
+}
+.candy-rival-icon {
+    width: 46px;
+    height: 54px;
+    flex-shrink: 0;
+}
+.candy-rival-count {
+    position: absolute;
+    right: 4px;
+    top: 3px;
+    min-width: 24px;
+    height: 18px;
+    padding: 0 4px;
+    background-color: rgba(14, 8, 20, 0.94);
+    border-color: #8a5a24;
+    border-width: 1px;
+    border-radius: 9px;
+    font-size: 11px;
+    color: #f8b84a;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+.candy-rival-name {
+    font-size: 9px;
+    color: #d8c8e0;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+.candy-rival-empty {
+    opacity: 0.32;
+}
+
+.candy-log-title {
+    margin-top: 14px;
+    flex-shrink: 0;
+}
+.candy-log {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 80px;
+    margin-top: 6px;
+    background-color: rgba(12, 7, 18, 0.85);
+    border-color: #4e305e;
+    border-width: 1.5px;
+    border-radius: 12px;
+    padding: 8px;
+}
+.candy-log-empty {
+    font-size: 12px;
+    color: #8a769b;
+    -unity-font-style: italic;
+}
+.candy-log-line {
+    font-size: 12px;
+    color: #e0d0ea;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.candy-candy-legend {
+    flex-shrink: 0;
+    margin-top: 10px;
+    padding: 8px 10px;
+    background-color: rgba(15, 9, 22, 0.9);
+    border-color: #533364;
+    border-width: 1.5px;
+    border-radius: 12px;
+}
+.candy-candy-legend-row {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+.candy-candy-legend-item {
+    width: 32%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+.candy-candy-legend-icon {
+    width: 46px;
+    height: 46px;
+    margin-right: 5px;
+    flex-shrink: 0;
+}
+.candy-candy-legend-value {
+    font-size: 20px;
+    color: #f8b84a;
+    -unity-font-style: bold;
+}
+
+.candy-footer {
+    height: 48px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    flex-shrink: 0;
+    margin-top: 6px;
+    padding: 0 12px;
+    background-color: rgba(12, 7, 18, 0.55);
+    border-color: rgba(122, 90, 145, 0.3);
+    border-width: 1px;
+    border-radius: 12px;
+}
+.candy-footer-text {
+    flex-grow: 1;
+    flex-direction: column;
+    justify-content: center;
+    margin-right: 14px;
+}
+.candy-status {
+    font-size: 11px;
+    color: #c2b0d0;
+    margin-top: 2px;
+}
+
+/* --- Botones --- */
+.candy-btn {
+    min-height: 44px;
+    padding: 8px 18px;
+    border-radius: 10px;
+    border-color: #7d5a90;
+    border-width: 2px;
+    background-color: #30203b;
+    color: #f6ead8;
+    font-size: 14px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    -unity-text-align: middle-center;
+    transition-property: background-color, border-color, scale;
+    transition-duration: 0.15s;
+}
+.candy-btn:hover {
+    background-color: #3b2547;
+    border-color: #a07ab5;
+}
+.candy-btn:active {
+    scale: 0.97 0.97;
+}
+.candy-btn:disabled {
+    opacity: 0.4;
+}
+.candy-btn-primary {
+    background-color: #b85510;
+    border-color: #f7c055;
+    color: #fff7e6;
+}
+.candy-btn-primary:hover {
+    background-color: #c76512;
+    border-color: #ffd27a;
+}
+.candy-btn-secondary {
+    background-color: #3f1a28;
+    border-color: #be123c;
+    color: #fecdd3;
+    -unity-font-style: bold;
+}
+.candy-btn-secondary:hover {
+    background-color: #5a1e30;
+    border-color: #f43f5e;
+}
+.candy-btn-ghost {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: #5b3b6e;
+    color: #d8c8b0;
+}
+.candy-btn-ghost:hover {
+    background-color: #24152f;
+    border-color: #8b5a9e;
+}
+.candy-btn-small {
+    min-height: 32px;
+    font-size: 10px;
+    padding: 3px 12px;
+    margin-left: 8px;
+}
+
+/* --- Overlays y modales --- */
+.candy-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(5, 3, 9, 0.94);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.candy-modal {
+    background-color: #160e1e;
+    border-color: #8b5a2b;
+    border-width: 2px;
+    border-radius: 20px;
+    /* El marco 9-slice de WgTheme mide ~72 px por lado a la escala de los
+       modales; el padding tiene que dejar el contenido dentro del interior. */
+    padding: 80px 56px 48px 56px;
+    max-width: 94%;
+    max-height: 94%;
+    flex-direction: column;
+    flex-shrink: 1;
+}
+.candy-intro-modal {
+    width: 960px;
+}
+
+/* Cabecera del intro: textos a la izquierda y sello de despedida a la derecha. */
+.candy-intro-head {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+.candy-intro-head-text {
+    flex-direction: column;
+    flex-shrink: 1;
+}
+
+/* Placar del sello: 250x96 respeta la proporción del PNG (502x192) y se
+   monta sobre el marco superior derecho como una estampilla. */
+.candy-intro-seal {
+    width: 250px;
+    height: 96px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin-top: -46px;
+    margin-right: -16px;
+    margin-left: 12px;
+    rotate: -6deg;
+    -unity-background-scale-mode: scale-to-fit;
+    /* Respaldo por si el PNG todavía no está importado: mismo contorno. */
+    background-color: #24102e;
+    border-color: #b58a34;
+    border-width: 2px;
+    border-radius: 10px;
+}
+.candy-intro-seal-art {
+    background-color: transparent;
+    border-color: transparent;
+}
+.candy-intro-seal-text {
+    font-size: 15px;
+    color: #ffd98a;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    -unity-text-align: middle-center;
+}
+.candy-title {
+    font-size: 40px;
+    color: #f8b84a;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+}
+.candy-title-small {
+    font-size: 30px;
+}
+.candy-eyebrow {
+    font-size: 12px;
+    color: #f0a43a;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+}
+.candy-subtitle {
+    font-size: 14px;
+    color: #d8c8e2;
+    margin-top: 6px;
+    margin-bottom: 10px;
+}
+
+.candy-rules {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+.candy-rule {
+    width: 48%;
+    flex-direction: row;
+    align-items: flex-start;
+    background-color: #24162f;
+    border-color: #422a52;
+    border-width: 1px;
+    border-radius: 11px;
+    padding: 10px 12px;
+    margin-right: 9px;
+    margin-bottom: 9px;
+}
+.candy-rule-number {
+    font-size: 24px;
+    color: #f0a43a;
+    -unity-font-style: bold;
+    margin-right: 10px;
+    min-width: 32px;
+}
+.candy-rule-body {
+    flex-direction: column;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+.candy-rule-title {
+    font-size: 13px;
+    color: #fff3d6;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+}
+.candy-rule-text {
+    font-size: 12px;
+    color: #d8c8e2;
+    margin-top: 2px;
+}
+
+.candy-mode-row {
+    flex-direction: row;
+    margin-top: 8px;
+}
+.candy-mode-card {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 150px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #281833;
+    border-color: #7a4a1f;
+    border-width: 2px;
+    border-radius: 15px;
+    padding: 14px;
+    margin-right: 12px;
+}
+.candy-mode-card:hover {
+    border-color: #fbbf24;
+    background-color: #352041;
+}
+.candy-mode-icon {
+    width: 54px;
+    height: 54px;
+}
+.candy-mode-title {
+    font-size: 15px;
+    color: #fff3d6;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    -unity-text-align: middle-center;
+    margin-top: 6px;
+}
+.candy-mode-sub {
+    font-size: 11px;
+    color: #c9b2d8;
+    -unity-text-align: middle-center;
+    margin-top: 4px;
+}
+
+.candy-modal-footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 16px;
+    flex-shrink: 0;
+}
+
+/* --- Draft --- */
+.candy-draft-modal {
+    width: 1100px;
+}
+.candy-draft-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 160px;
+    max-height: 520px;
+    margin-top: 8px;
+    background-color: #0f0a15;
+    border-color: #3a2547;
+    border-width: 1px;
+    border-radius: 11px;
+    padding: 8px;
+}
+.candy-draft-type {
+    font-size: 14px;
+    color: #f0a43a;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    margin-left: 3px;
+    margin-top: 8px;
+    margin-bottom: 5px;
+}
+.candy-variant-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: 3px;
+}
+.candy-variant-card {
+    width: 240px;
+    min-height: 132px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background-color: #251730;
+    border-color: #4a3357;
+    border-width: 2px;
+    border-radius: 11px;
+    padding: 8px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+}
+.candy-variant-card:hover {
+    border-color: #d3923a;
+    background-color: #32203d;
+}
+.candy-variant-selected {
+    border-color: #fbbf24;
+    background-color: #452714;
+}
+.candy-variant-icon {
+    width: 48px;
+    height: 48px;
+}
+.candy-variant-name {
+    font-size: 12px;
+    color: #fff3d6;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-top: 3px;
+}
+.candy-variant-desc {
+    font-size: 10px;
+    color: #c9b2d8;
+    -unity-text-align: middle-center;
+    margin-top: 3px;
+}
+
+/* --- Busqueda online --- */
+.candy-search-modal {
+    width: 600px;
+    align-items: center;
+}
+.candy-search-row {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+    margin-top: 12px;
+    margin-bottom: 10px;
+}
+.candy-search-status {
+    font-size: 17px;
+    color: #fff3d6;
+    -unity-font-style: bold;
+}
+.candy-search-dots {
+    font-size: 28px;
+    color: #f0a43a;
+    -unity-font-style: bold;
+    min-width: 38px;
+    margin-left: 2px;
+}
+
+/* --- Resultado --- */
+.candy-result-modal {
+    width: 680px;
+    align-items: center;
+}
+.candy-result-title {
+    font-size: 58px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    margin-top: 3px;
+}
+.candy-result-win {
+    color: #fbbf24;
+}
+.candy-result-loss {
+    color: #fb7185;
+}
+.candy-result-draw {
+    color: #c4b5d4;
+}
+.candy-result-score {
+    font-size: 26px;
+    color: #fff3d6;
+    -unity-font-style: bold;
+    margin-top: 10px;
+    margin-bottom: 6px;
+}
+.candy-result-reward {
+    font-size: 14px;
+    color: #f0a43a;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-bottom: 6px;
+}
+
+/* --- Toast --- */
+.candy-toast {
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    bottom: 18px;
+    background-color: #2f1e0c;
+    border-color: #c2701c;
+    border-width: 1px;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #ffe4b5;
+    -unity-text-align: middle-center;
+}
+
+/* --- Responsive aproximado --- */
+/* 16:9: la columna mide 430 px y seis cartas de 82 no entran cómodas.
+   Se agrupan de a tres por fila, con cartas más anchas y legibles.
+   21:9 conserva las seis en una sola fila. */
+.candy-root.candy-wide .candy-hand-card {
+    width: 112px;
+    height: 120px;
+}
+.candy-root.candy-wide .candy-hand-icon {
+    width: 68px;
+    height: 72px;
+}
+.candy-root.candy-wide .candy-hand-name {
+    font-size: 10px;
+}
+.candy-root.candy-wide .candy-score-art {
+    width: 108px;
+    height: 108px;
+}
+/* 21:9 vuelve a las cartas compactas para que las seis entren en una fila.
+   Se declara después para que gane sobre la regla de candy-wide. */
+.candy-root.candy-ultrawide .candy-hand-card {
+    width: 80px;
+    height: 106px;
+}
+.candy-root.candy-ultrawide .candy-hand-icon {
+    width: 54px;
+    height: 58px;
+}
+.candy-root.candy-ultrawide .candy-hand-name {
+    font-size: 9px;
+}
+.candy-root.candy-ultrawide .candy-score-art {
+    width: 140px;
+    height: 140px;
+}
+.candy-root.candy-narrow .candy-topbar {
+    height: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px 12px;
+}
+.candy-root.candy-narrow .candy-brand {
+    min-width: 0;
+}
+.candy-root.candy-narrow .candy-topstats {
+    margin-top: 5px;
+}
+.candy-root.candy-narrow .candy-main {
+    flex-direction: column;
+}
+.candy-root.candy-narrow .candy-side-left,
+.candy-root.candy-narrow .candy-side-right {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: 8px;
+}
+.candy-root.candy-narrow .candy-board-wrap {
+    min-height: 320px;
+    flex-grow: 0;
+}
+.candy-root.candy-narrow .candy-rules {
+    flex-direction: column;
+}
+.candy-root.candy-narrow .candy-rule {
+    width: 100%;
+}
+.candy-root.candy-narrow .candy-mode-row {
+    flex-direction: column;
+}
+.candy-root.candy-narrow .candy-mode-card {
+    margin-right: 0;
+    margin-bottom: 8px;
+}
+.candy-root.candy-narrow .candy-hand-card {
+    width: 104px;
+    height: 116px;
+}
+.candy-root.candy-narrow .candy-hand-icon {
+    width: 64px;
+    height: 68px;
+}
+.candy-root.candy-narrow .candy-hand-name {
+    font-size: 10px;
+}
+.candy-root.candy-narrow .candy-score-card {
+    min-height: 160px;
+}
+.candy-root.candy-narrow .candy-score-art {
+    width: 96px;
+    height: 96px;
+}
+/* En pantallas angostas el sello se achica para no comerse el título. */
+.candy-root.candy-narrow .candy-intro-seal {
+    width: 186px;
+    height: 72px;
+    margin-top: -30px;
+    margin-right: -4px;
+    margin-left: 8px;
+}
+.candy-root.candy-narrow .candy-intro-seal-text {
+    font-size: 11px;
+    letter-spacing: 1px;
+}

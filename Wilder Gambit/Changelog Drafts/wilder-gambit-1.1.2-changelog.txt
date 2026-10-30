@@ -1,0 +1,164 @@
+Wilder Gambit 1.1.2 — Cacería de Dulces: reglas y legibilidad
+Fecha: 24/10/2026
+
+Resumen:
+La Cacería de Dulces corrige la regla que más desequilibraba el modo: los
+Dulces ya no son decorativos y bloquean el paso. Una pieza no puede cruzar
+por encima de uno para capturar lo que hay detrás; solo el caballo conserva
+su salto. A la vez, el tablero gana altura en pantalla y las once esculturas
+de la velada se ensanchan y se filtran mejor, para que se lean de un vistazo.
+Fuera del modo, el encabezado del pase de temporada deja de aplastar sus dos
+placas de nivel y XP y el texto vuelve a entrar completo en el plato.
+La botonera del menú cambia sus rectángulos planos por placas de latón, y
+los dos pases ganan un marco ornamental propio. El inventario rehace sus
+tarjetas con una placa de latón, una vitrina para el arte y un filete
+ornamental que ordena nombre, nota y estado.
+El pase de la velada, además, cierra su segunda mitad con cinco esculturas
+nuevas —tres en el pase y dos en la tienda—, dos tableros y dos fondos, y
+su tienda estrena un visor que enseña las caras blanca y negra del arte.
+Eclipse Eterno deja de ser un tinte: el rey estrena arte propio y dos
+animaciones —pulso de vacío al moverse y disolución al recibir jaque mate— y
+se mantiene a la venta como pieza mítica. La Torre Fragua también abandona el
+tinte y estrena su propia escultura de forja en ambos bandos. Las cuatro
+animaciones del Atelier estrenan icono ilustrado propio y el destello y el
+cometa llevan ese mismo arte al tablero cuando se disparan. La tienda y el
+pase dejan de duplicarse: las once skins del Pase de Temporada salen del
+Atelier, el Rey Ígneo remata la Vía libre y la Torre Fragua la Vía real. La
+velada de Halloween suma dos noches y la Cacería de Dulces, un minuto más de
+partida.
+
+Cambios:
+- Los Dulces bloquean el desplazamiento: torre, alfil, dama y el
+  deslizamiento diagonal del caballo fantasma se detienen en la casilla del
+  Dulce. Se puede pisar para recogerlo, pero no atravesarlo para capturar
+  más atrás.
+- El caballo mantiene su salto en L por encima de los Dulces. El peón no
+  cambia porque solo avanza una casilla.
+- La línea de ataque también respeta los Dulces: una pieza detrás de un
+  Dulce ya no cuenta como amenazada, así el bot deja de evaluar capturas
+  que no existen.
+- El tablero gana altura: la barra superior, el pie y los márgenes se
+  ajustan para que el damero pase de 902 a 938 px en 1080p.
+- Las piezas de Halloween se ensanchan de 512 a 717 px (relación 0.57 a
+  0.80) y el rey vampiro va un paso más: llega a 855 px (0.95) para dejar
+  de verse como una figura fina.
+- Las piezas ocupan el 100% de la casilla (antes 97%) y el modo arma sus
+  texturas con mipmaps, filtrado trilineal y anisotropía, en lugar de
+  dibujar la imagen completa con filtrado bilineal. Eso elimina el dentado
+  que aparecía al reducir texturas de 900 px a menos de 80 px en pantalla.
+- La pantalla de la Cacería se ordena: el pie pasa a ser una barra de
+  estado con el turno, la instrucción y Pasar Turno, y la columna derecha
+  reúne al rival, su ejército en reserva, el registro y el valor de los
+  Dulces.
+- El encabezado del pase de temporada recupera la proporción de su arte: las
+  placas de nivel y de XP vuelven al tamaño original de 320×96 y el rótulo de
+  dos líneas queda dentro del plato interior, sin pisar el remate inferior.
+- La botonera de atajos cambia los rectángulos planos por cinco placas de
+  latón pintadas a mano: Cacería de Dulces en cobre, Tienda en bronce,
+  Ajustes en acero, Progreso en oliva y Salir en hierro ennegrecido. Cada
+  placa trae su bisel, su filigrana y su brillo al pasar el cursor, y ninguna
+  etiqueta ni distancia del menú se movió.
+- Los dos pases estrenan marco ornamental: dorado con volutas para el de
+  temporada y de plata gótica para el de Halloween. El marco abraza el botón
+  completo —lámina y rótulo— así que cada tarjeta tiene su propio dibujo con
+  la proporción exacta de su caja, y el rótulo entra en el hueco que dejan
+  los remates inferiores.
+- El pase de Halloween extiende su camino de 20 a 30 niveles, con diez tramos
+  nuevos en la Vía Luna y diez en la Vía Sangre.
+- Los fondos de la tienda dejan de costar Tides: tanto los ambientes del menú
+  como los tableros se compran con Gambits, con precios bajos y sin rareza.
+- La tienda del Atelier reordena su catálogo: las pestañas pasan a seguir
+  el recorrido escenario, ambiente, piezas, aspectos y efectos, con el
+  índice de cada categoría y su contador a la vista.
+- Las pestañas de la tienda y del inventario corrigen su encuadre: la placa
+  conserva el ornamento al ajustarse al alto de la barra, el texto deja de
+  montarse sobre el marco y la pestaña activa se distingue con tinte
+  cálido, contador dorado y un rombo de selección.
+- La tienda del Atelier suma un carrito: reúne tableros, fondos, variantes,
+  skins y animaciones, muestra cada artículo con su miniatura y su precio,
+  permite quitarlos y paga todo junto en un único checkout de Surface. Cada
+  carrito usa una sola divisa (Gambits o Tides) y, al confirmarse el cobro,
+  entrega todos los artículos y descuenta el total del saldo correspondiente.
+- El carrito se conserva al cerrar y reabrir la tienda, y descarta solo los
+  artículos que ya entraron al inventario por otra vía para no cobrarlos dos
+  veces. La compra directa desde la ficha de cada artículo sigue disponible.
+- La Parte 2 de la velada llega con arte propio: cinco esculturas nuevas
+  (Alfil Farol, Caballo Espantapájaros, Torre Relicario, Reina Maleficio y Rey
+  Carmesí) —tres en el pase y dos en la tienda—, cada una con su versión negra,
+  más dos tableros y dos fondos. Las figuras conservan la geometría de la pieza
+  clásica: cambia el material, no la silueta.
+- La Vía Luna reparte el Alfil Farol y el Caballo Espantapájaros, el tablero
+  Cementerio Olvidado y el fondo Noche de la Cosecha; los niveles que quedaron
+  sin escultura se cubren con Dulces. La Vía Sangre reserva al Rey Carmesí, la
+  Cripta de los Cuervos y el Salón del Banquete; sus tramos 21, 22, 23, 26 y 29
+  pagan Dulces para financiar las dos piezas de la Corte que bajan a la tienda.
+- La tienda de la velada incorpora la Torre Relicario y la Reina Maleficio,
+  que se pagan con Dulces como el resto de esculturas del evento.
+- Los fondos del pase entran en la pestaña FONDOS de la tienda en cuanto se
+  cobran, con su vista previa y su botón de equipar. Al equiparlos, el menú
+  cambia de fondo al momento, sin recargar la escena.
+- La pestaña de skins de la tienda estrena un visor de vista previa: al
+  elegir una escultura se ven sus caras blanca y negra —cuando el lado negro
+  ya tiene arte propio— a buen tamaño, con el tipo de pieza, la rareza y el
+  precio, sin comprar ni equipar nada.
+- El inventario separa las esculturas del pase en su propia sección, para que
+  no aparezcan como compras con Gambits, y ni el Atelier ni Tus Piezas listan
+  las que se cobran subiendo de nivel o con Dulces de la velada.
+- Las tarjetas del inventario abandonan el marco recargado por una placa de
+  latón con doble filete, una vitrina hundida para el arte y un filete
+  ornamental entre la pieza y el nombre. El fondo plano se cambia por un halo
+  suave —teñido con el color de la rareza en los aspectos— y una sombra de
+  contacto asienta cada figura en la vitrina.
+- Nombre, nota y píldora de estado quedan en el mismo orden en las tres
+  pestañas —Variantes, Aspectos y Tableros—, con el nombre sobre la nota y el
+  estado anclado al pie, así todas las tarjetas cierran a la misma altura y la
+  placa no pisa el texto. La ventana del inventario se abre casi a pantalla
+  completa y la formación, la rejilla y el pie ganan aire entre sí; el conjunto
+  se reajusta en ventanas estrechas y en orientación vertical.
+- Los dos contadores de saldo de la barra del inventario estrenan placa propia:
+  doble filete de latón para los Gambits y acero para lo que ya es tuyo, con el
+  centro lacado despejado. El icono y los textos respiran dentro de la pieza,
+  que se ajusta al contenido y baja de altura; el título y las pestañas
+  recuperan aire en la barra superior.
+- La skin Eclipse Eterno deja de ser un tinte y estrena arte propio para el
+  Rey: un monarca de obsidiana con anillo de eclipse, estrellas y corona
+  violeta, con su versión negra. El arte entra al tablero tal cual y sustituye
+  al tinte anterior en las dos caras del rey. La skin sigue a la venta en el
+  Atelier como mítica, ahora con el arte full-art de miniatura.
+- El Atelier deja de duplicar las skins del Pase de Temporada: Legión Dorada,
+  Brote Silvestre, Escarcha Eterna, Luz Necrótica, Vórtice Abisal, Centinela
+  Obsidiana, Aura Solar, Espectro Umbrío, Corcel de Tormenta, Bastión Carmesí y
+  Marea Lunar se consiguen solo subiendo de nivel.
+- El Rey Ígneo corona la Vía libre en el nivel 30, en lugar del cierre de
+  Dulces, y la Torre Fragua se mantiene como remate de la Vía real en ese mismo
+  nivel.
+- La Torre Fragua abandona el acabado tintado de la torre clásica y estrena
+  escultura propia en ambos bandos: piedra clara y acero con cadenas, yunque y
+  horno encendido para las blancas; hierro ennegrecido y obsidiana con el núcleo
+  carmesí para las negras. Las skins de torre dejan de teñirla y de montarle
+  aura, así que la variante luce siempre su propio arte.
+- Las cuatro animaciones del Atelier estrenan icono ilustrado propio, dibujado
+  para cada efecto: el tornado de ceniza, los sables cruzados, el destello
+  dorado y el caballo en llamas. El arte sustituye a los recortes de los clips
+  en las tarjetas, la ficha y la vista previa, y se importa con filtrado
+  trilineal y anisotrópico como las piezas.
+- Destello Táctico y Cometa Ígnea llevan ese icono también a la partida: el
+  destello entra con rebote y dos anillos dorados, y el cometa cruza el tablero
+  con estela de brasas, onda de choque y sacudida de cámara. Doble Filo y Ceniza
+  suman su emblema al efecto de anillos y al viento que se lleva las brasas; las
+  brasas de Ceniza recuperan además su tamaño de brasa, que el recorte grande de
+  la textura había inflado hasta tapar media tabla. Si el arte no está
+  disponible, cada animación conserva su clip de frames como respaldo.
+- El Rey Eclipse se mueve con un pulso de vacío de ocho frames y, al recibir
+  jaque mate, se disuelve en una secuencia de doce frames antes de abrir el
+  game-over. Los frames se cargan desde Resources y la animación se apoya en la
+  altura del cuerpo —no del lienzo— para conservar el tamaño del rey y
+  restaurar después su sprite, su escala y su sombra. Si el arte faltara, la
+  partida cae al jaque normal sin bloquearse.
+- La velada de Halloween se extiende dos noches: el pase y sus textos pasan del
+  2/11 al 4/11 como último día jugable, así que la temporada anuncia dieciséis
+  noches en lugar de catorce.
+- La Cacería de Dulces alarga su partida de cinco a seis minutos, tanto en el
+  contador del modo como en el servidor.
+
+Plataforma: Windows

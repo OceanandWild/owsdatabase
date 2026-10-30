@@ -1,0 +1,532 @@
+/* ============================================================================
+   WILDER GAMBIT - CAPA DE TEMA "OBSIDIANA Y LATON"  (wg-theme)
+   ----------------------------------------------------------------------------
+   Se carga DESPUES de MainMenu.uss y CandyMode.uss (ver MainMenu.uxml) y de
+   PauseMenu.uss (ver PauseMenu.uxml). Solo agrega/ajusta pintura: no cambia
+   layout, tamanos ni estructura, para no romper el cableado de los controladores.
+
+   Paleta
+     ink-0  #05070e   fondo profundo        brass-lo #6b5522
+     ink-1  #0b1220   cuerpo de panel       brass    #c9a84a
+     ink-2  #101a2c   superficie elevada    brass-hi #e8c46a
+     ink-3  #16233a   hover                 text     #f3eedf  muted #9fb0c8
+     emerald #37c08a  crimson #c0524f       violet   #8e7be0
+
+   Placas: Resources/UI/Wg (generadas con Google Flow, ver _art-source/UI-Kit y
+   Tools/build-ui-kit.ps1). Los -unity-slice-* van SIEMPRE iguales al borde que
+   declara WgUiArtImport.cs; si se regenera una placa hay que tocar los dos.
+
+   Feedback de hover: las placas no se pueden aclarar por USS (no hay filtros),
+   asi que el reposo va con un tinte al 80 % y el hover al 100 %. Ver .tw-* abajo.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------- 0. FONDO */
+.modal-backdrop {
+    background-color: rgba(3, 6, 14, 0.90);
+}
+.shop2-root {
+    background-color: rgba(2, 4, 10, 0.94);
+}
+
+/* ------------------------------------------------------- 1. VENTANA GRANDE */
+/* Estructura de tienda / inventario / progreso / pases / misiones. */
+.shop2-window {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_window.png");
+    background-color: #08101b;
+    -unity-slice-left: 150;
+    -unity-slice-right: 150;
+    -unity-slice-top: 150;
+    -unity-slice-bottom: 150;
+    -unity-slice-scale: 1px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: rgba(201, 168, 74, 0.45);
+}
+
+/* Barra superior: cinta oscura con filo dorado, sin competir con la placa. */
+.shop2-topbar {
+    background-color: rgba(9, 15, 28, 0.92);
+    border-bottom-color: rgba(201, 168, 74, 0.55);
+    border-bottom-width: 1px;
+}
+
+/* --------------------------------------------------------- 2. DIALOGOS */
+.modal-dialog,
+.settings-modal-dialog {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_panel.png");
+    background-color: #08101b;
+    -unity-slice-left: 130;
+    -unity-slice-right: 130;
+    -unity-slice-top: 130;
+    -unity-slice-bottom: 130;
+    -unity-slice-scale: 1px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+}
+
+/* Cabecera de dialogo: nameplate de laton con remates en punta. Es una sola
+   imagen estirada (no 9-slice): el alto del header es fijo y el arte tolera
+   bien el aplastado horizontal. */
+.modal-title {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_banner.png");
+    background-color: rgba(9, 15, 28, 0.96);
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    color: #f3eedf;
+    letter-spacing: 2px;
+    -unity-font-style: bold;
+    margin-bottom: 6px;
+}
+
+/* ------------------------------------------------------------ 3. MENU */
+/* JUGAR: placa de laton con remates ornamentales. */
+.btn-primary {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_btn.png");
+    background-color: #0b1220;
+    -unity-slice-left: 110;
+    -unity-slice-right: 110;
+    -unity-slice-top: 40;
+    -unity-slice-bottom: 40;
+    -unity-slice-scale: 1px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    -unity-background-image-tint-color: rgb(214, 214, 214);
+}
+.btn-primary:hover {
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+}
+.btn-primary:active {
+    -unity-background-image-tint-color: rgb(184, 176, 156);
+    translate: 0 -1px;
+}
+
+/* TUS PIEZAS: misma familia, tinte esmeralda. */
+.btn-pieces {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_btn_dark.png");
+    background-color: #0b1220;
+    -unity-slice-left: 110;
+    -unity-slice-right: 110;
+    -unity-slice-top: 40;
+    -unity-slice-bottom: 40;
+    -unity-slice-scale: 1px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    -unity-background-image-tint-color: rgb(186, 232, 206);
+}
+.btn-pieces:hover {
+    -unity-background-image-tint-color: rgb(232, 255, 242);
+}
+
+/* Teclas secundarias: vidrio oscuro plano.
+   La placa wg_tile tiene remates de laton de 30px arriba y abajo; en fichas
+   de 80px eso dejaba solo 20px de interior y el texto cruzaba los remates.
+   Por eso las fichas pequenas van sin placa (perimetro fino + fondo de
+   cristal) y el laton se reserva para JUGAR, TUS PIEZAS, INVENTARIO y SALDO. */
+.menu-tile {
+    background-color: rgba(14, 25, 42, 0.94);
+    border-width: 1px;
+    border-color: rgba(201, 168, 74, 0.30);
+    color: #e6dcc4;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+}
+.menu-tile:hover {
+    background-color: rgba(26, 43, 68, 0.96);
+    border-color: rgba(232, 196, 106, 0.62);
+}
+.menu-tile:active {
+    background-color: rgba(9, 16, 28, 0.98);
+}
+
+/* Acentos por ficha. El tema se carga al final, asi que cada variante nombra
+   tambien .menu-tile para ganar especificidad sobre el fondo base. */
+.menu-tile.btn-shop {
+    background-color: rgba(56, 41, 23, 0.92);
+    border-color: rgba(176, 140, 82, 0.55);
+}
+.menu-tile.btn-shop:hover {
+    background-color: rgba(76, 56, 32, 0.96);
+    border-color: #c9a84a;
+}
+.menu-tile.btn-secondary {
+    background-color: rgba(28, 34, 46, 0.92);
+    border-color: rgba(122, 138, 176, 0.48);
+}
+.menu-tile.btn-secondary:hover {
+    background-color: rgba(40, 50, 68, 0.96);
+    border-color: #7a8ab0;
+}
+.menu-tile.btn-progress {
+    background-color: rgba(201, 168, 74, 0.09);
+    border-color: rgba(201, 168, 74, 0.42);
+}
+.menu-tile.btn-progress:hover {
+    background-color: rgba(201, 168, 74, 0.18);
+    border-color: #c9a84a;
+}
+.menu-tile.btn-danger {
+    background-color: rgba(61, 22, 22, 0.90);
+    border-color: rgba(140, 56, 56, 0.62);
+    color: #c08f8f;
+}
+.menu-tile.btn-danger:hover {
+    background-color: rgba(77, 28, 28, 0.95);
+    border-color: #8c3838;
+    color: #e8b8b8;
+}
+.menu-tile.btn-danger:active {
+    background-color: rgba(46, 16, 16, 0.98);
+    border-color: #522222;
+}
+.menu-tile.btn-candy {
+    background-color: rgba(58, 28, 13, 0.94);
+    border-color: #c2701c;
+    color: #ffe0b8;
+}
+.menu-tile.btn-candy:hover {
+    background-color: rgba(85, 40, 13, 0.96);
+    border-color: #f6ad3c;
+}
+.menu-tile.btn-candy:active {
+    background-color: rgba(38, 16, 6, 0.98);
+}
+
+/* Saldo del menu: chip ancho. Sin fondo propio: la placa ya trae su
+   cristal oscuro y asi no asoma un rectangulo detras de las puntas. */
+.menu-wallet {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_chip.png");
+    background-color: transparent;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+}
+
+/* Inventario del rail derecho: placa de carta.
+   La carta mide 480x640 y sus esquinas talladas ocupan 72px; en una vitrina de
+   300x312 eso dejaba apenas 156x168 de interior y el macuto se comia el borde.
+   Se conservan los bordes declarados y se escalan al 60 % (~43px) para que el
+   ornamento siga siendo el mismo, pero con sitio para el arte. */
+.btn-inventory {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_card.png");
+    background-color: #08101b;
+    -unity-slice-left: 72;
+    -unity-slice-right: 72;
+    -unity-slice-top: 72;
+    -unity-slice-bottom: 72;
+    -unity-slice-scale: 0.6px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+}
+.btn-inventory:hover {
+    border-color: rgba(232, 196, 106, 0.75);
+}
+
+/* --------------------------------------------------- 4. DIFICULTAD / TIEMPO */
+.diff-card {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_card.png");
+    background-color: #08101b;
+    -unity-slice-left: 72;
+    -unity-slice-right: 72;
+    -unity-slice-top: 72;
+    -unity-slice-bottom: 72;
+    -unity-slice-scale: 1px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    -unity-background-image-tint-color: rgb(206, 206, 206);
+}
+.diff-card:hover {
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+}
+.diff-card-selected {
+    -unity-background-image-tint-color: rgb(255, 240, 200);
+    border-color: #e8c46a;
+}
+.diff-elo,
+.diff-record {
+    border-color: rgba(201, 168, 74, 0.45);
+    border-width: 1px;
+    color: #f0d58c;
+}
+/* Avatar de dificultad: medallón de latón alrededor de la pieza. */
+.diff-avatar-wrap {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_medal.png");
+    -unity-background-scale-mode: scale-to-fit;
+    border-color: transparent;
+}
+/* CTA de la pantalla de dificultad. */
+.cta-start {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_btn.png");
+    background-color: #0b1220;
+    -unity-slice-left: 110;
+    -unity-slice-right: 110;
+    -unity-slice-top: 34;
+    -unity-slice-bottom: 34;
+    -unity-slice-scale: 1px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    color: #fdf3d6;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 3px rgba(0, 0, 0, 0.75);
+}
+.cta-start:hover {
+    -unity-background-image-tint-color: rgb(255, 248, 214);
+}
+
+/* ------------------------------------------------------------- 5. TIENDA */
+/* Cartas del catalogo (skins, fondos, variantes, inventario). */
+.bg-card,
+.shop2-hero {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_card.png");
+    background-color: #08101b;
+    -unity-slice-left: 72;
+    -unity-slice-right: 72;
+    -unity-slice-top: 72;
+    -unity-slice-bottom: 72;
+    -unity-slice-scale: 1px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    -unity-background-image-tint-color: rgb(204, 204, 204);
+}
+.bg-card:hover {
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+    border-color: rgba(232, 196, 106, 0.55);
+}
+.bg-card-selected,
+.bg-card-active {
+    -unity-background-image-tint-color: rgb(255, 242, 206);
+    border-color: #e8c46a;
+}
+.bg-card-locked {
+    -unity-background-image-tint-color: rgb(150, 150, 150);
+}
+
+/* Pestanas del topbar de la tienda: placa wg_chip con 9-slice real.
+   Sin slice el sprite se estiraba entero y el ornamento se convertia en
+   una linea; ahora los remates laterales conservan su dibujo y la
+   pestaña solo estira el tramo central. */
+.shop2-tab {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_chip.png");
+    background-color: transparent;
+    -unity-slice-left: 26;
+    -unity-slice-right: 26;
+    -unity-slice-top: 18;
+    -unity-slice-bottom: 18;
+    /* 0.5 = alto real de la pestaña (48) / alto nativo del chip (96):
+       el marco conserva su dibujo y solo se estira el tramo central. */
+    -unity-slice-scale: 0.5px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-width: 0;
+    border-radius: 0;
+    -unity-background-image-tint-color: rgb(160, 158, 152);
+}
+.shop2-tab:hover {
+    -unity-background-image-tint-color: rgb(234, 230, 220);
+}
+.shop2-tab.shop-tab-active,
+.shop2-tab.shop2-nav-active {
+    -unity-background-image-tint-color: rgb(255, 245, 214);
+}
+/* En pantallas grandes la pestaña crece: el marco del chip se escala con ella
+   (68 / 96 en portrait) para que el ornamento no se vea como un hilo. */
+.is-portrait .shop2-tab { -unity-slice-scale: 0.71px; }
+.is-small .shop2-tab { -unity-slice-scale: 0.44px; }
+.shop2-chip {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_chip.png");
+    background-color: #0b1220;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+}
+
+/* Cerrar modal: placa oscura con texto laton. */
+.btn-modal-close {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_btn_dark.png");
+    background-color: #0b1220;
+    -unity-slice-left: 110;
+    -unity-slice-right: 110;
+    -unity-slice-top: 40;
+    -unity-slice-bottom: 40;
+    -unity-slice-scale: 1px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    color: #e8c46a;
+    letter-spacing: 1px;
+}
+.btn-modal-close:hover {
+    -unity-background-image-tint-color: rgb(255, 248, 224);
+    color: #fff3d0;
+}
+
+/* ------------------------------------------------------------- 6. CANDY */
+/* Placas del modo Cacería: misma familia, tinte violaceo de la Velada. */
+.candy-modal,
+.candy-intro-modal,
+.candy-draft-modal {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_panel.png");
+    background-color: #140d1e;
+    -unity-slice-left: 130;
+    -unity-slice-right: 130;
+    -unity-slice-top: 130;
+    -unity-slice-bottom: 130;
+    /* Los modales de la Cacería son más chicos que una tienda: el marco
+       a escala completa se comía el contenido. */
+    -unity-slice-scale: 0.55px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+}
+.candy-topbar {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_tile.png");
+    background-color: #140d1e;
+    -unity-slice-left: 30;
+    -unity-slice-right: 30;
+    -unity-slice-top: 30;
+    -unity-slice-bottom: 30;
+    /* 30 px de remate en una barra de 84 dejaban apenas 24 de interior. */
+    -unity-slice-scale: 0.4px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    -unity-background-image-tint-color: rgb(228, 210, 238);
+}
+.candy-side,
+.candy-score-card {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_card.png");
+    background-color: #140d1e;
+    -unity-slice-left: 72;
+    -unity-slice-right: 72;
+    -unity-slice-top: 72;
+    -unity-slice-bottom: 72;
+    -unity-slice-scale: 0.6px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    -unity-background-image-tint-color: rgb(206, 194, 220);
+}
+/* Las placas wg_chip traen su propio cristal oscuro: un background-color
+   solido asoma por las esquinas transparentes y deja "orejas" rectangulares
+   fuera del marco. Se deja transparente, como el chip del menu. */
+.candy-hand-card {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_chip.png");
+    background-color: transparent;
+    /* La carta mide 80 px: a 0.4 el remate lateral (29 px por lado) se comia
+       el icono y el nombre. A 0.22 quedan ~16 px de marco y 48 de interior. */
+    -unity-slice-scale: 0.22px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    -unity-background-image-tint-color: rgb(210, 198, 222);
+}
+.candy-hand-card:hover {
+    background-color: transparent;
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+}
+.candy-hand-card.candy-hand-selected {
+    background-color: transparent;
+    -unity-background-image-tint-color: rgb(255, 240, 200);
+    border-color: #e8c46a;
+}
+.candy-chip {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_chip.png");
+    background-color: transparent;
+    -unity-slice-scale: 0.45px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+}
+.candy-btn {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_chip.png");
+    background-color: transparent;
+    -unity-slice-scale: 0.3px;
+    -unity-background-scale-mode: stretch-to-fill;
+    border-color: transparent;
+    -unity-background-image-tint-color: rgb(224, 212, 236);
+}
+.candy-btn:hover {
+    background-color: transparent;
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+}
+.candy-btn-primary:hover,
+.candy-btn-secondary:hover {
+    background-color: transparent;
+}
+.candy-btn:disabled {
+    -unity-background-image-tint-color: rgb(132, 126, 142);
+}
+.candy-btn-primary {
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_btn_dark.png");
+    background-color: #140d1e;
+    -unity-slice-scale: 0.22px;
+    -unity-background-image-tint-color: rgb(232, 220, 236);
+}
+.candy-btn-primary:hover {
+    -unity-background-image-tint-color: rgb(255, 250, 230);
+}
+.candy-log {
+    border-color: rgba(167, 139, 250, 0.22);
+    border-width: 1px;
+}
+
+/* -------------------------------------------- 7. PERGAMINO (pausa en juego) */
+/* El pause menu usa una paleta de pergamino: se respeta y solo se le da marco. */
+.pause-panel {
+    border-color: rgba(90, 68, 40, 0.55);
+    border-width: 2px;
+}
+.pause-title {
+    letter-spacing: 1.5px;
+    color: #3b2c18;
+}
+.pause-btn {
+    border-color: rgba(58, 42, 24, 0.45);
+    border-width: 1px;
+    -unity-font-style: bold;
+}
+.pause-btn-primary {
+    border-color: rgba(255, 236, 190, 0.55);
+}
+
+/* -------------------------------------------------------- 8. ORNAMENTOS */
+/* Divisor ornamental del menu de dificultad. */
+.section-divider {
+    height: 14px;
+    background-color: transparent;
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_divider.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
+/* Rombo del titulo: marco de medalla en miniatura. */
+.separator-diamond {
+    width: 14px;
+    height: 14px;
+    background-color: transparent;
+    background-image: url("project://database/Assets/Resources/UI/Wg/wg_medal.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* ------------------------------------------------------------ 9. ACABADO */
+/* Scrollbars: mismo riel fino de laton en todas las listas (antes solo lo
+   tenían el panel de enciclopedia y el de piezas). */
+.unity-scroller--vertical {
+    width: 8px;
+}
+.unity-base-slider__tracker {
+    background-color: rgba(8, 14, 26, 0.72);
+    border-width: 0;
+    border-radius: 4px;
+}
+.unity-base-slider__dragger {
+    background-color: rgba(201, 168, 74, 0.34);
+    border-width: 0;
+    border-radius: 4px;
+}
+.unity-base-slider__dragger:hover {
+    background-color: rgba(232, 196, 106, 0.72);
+}
+.unity-scroller__low-button,
+.unity-scroller__high-button {
+    display: none;
+}
+
+.shop2-brand-title,
+.candy-brand-title {
+    letter-spacing: 1.5px;
+    color: #f6e7bd;
+}
+.candy-section-title,
+.shop2-rail-header,
+.history-title,
+.ability-panel-title {
+    color: #d9bd7f;
+}

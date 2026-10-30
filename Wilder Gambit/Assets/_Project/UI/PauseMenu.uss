@@ -1,0 +1,662 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WILDER GAMBIT — HUD EN PARTIDA
+   Lenguaje visual: pergamino envejecido, bronce y cuero curtido.
+   El tablero manda: todo el chrome vive en los bordes y nunca lo tapa.
+
+   Reparto de columnas:
+     · izquierda  → HABILIDADES (columna completa, de arriba abajo)
+     · derecha    → reloj / historial / pausa, apilados
+     · centro     → tablero, siempre libre
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RELOJ — arriba a la derecha (se movió aquí para liberar la columna izquierda)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.clock-hud {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    flex-direction: row;
+    background-color: rgba(38, 29, 22, 0.94);
+    border-width: 2px;
+    border-color: #6B5537;
+    /* Sin degradado: en USS 'background-image' solo admite url(), no linear-gradient
+       (un gradiente lanza una excepción al leer el estilo y Unity pinta el triángulo
+       de advertencia encima del panel). El brillo del cuero va con un filete arriba. */
+    border-top-color: #8A7150;
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+.clock-hud.hidden { display: none; }
+
+/* Remaches de la tapa de cuero */
+.rivets {
+    position: absolute;
+    top: 5px;
+    left: 7px;
+    right: 7px;
+    height: 3px;
+    flex-direction: row;
+    justify-content: space-between;
+}
+.rivets .rivet {
+    width: 4px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: #A98A55;
+}
+
+.clock-slot {
+    flex-direction: row;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-left: 6px;
+}
+.clock-slot:first-child { margin-left: 0; }
+
+/* El bando en turno se marca con un filete dorado a la izquierda */
+.clock-slot-active {
+    background-color: rgba(201, 162, 39, 0.14);
+    border-left-width: 3px;
+    border-left-color: #C9A227;
+}
+
+.clock-glyph {
+    font-size: 17px;
+    margin-right: 8px;
+    -unity-text-align: middle-center;
+}
+
+.clock-time {
+    font-size: 21px;
+    -unity-font-style: bold;
+    color: #F2E8D2;
+    letter-spacing: 1.5px;
+    min-width: 74px;
+    -unity-text-align: middle-center;
+    border-radius: 4px;
+    padding: 2px 6px;
+    border-width: 1.5px;
+}
+
+/* Azul = rival (negras) - Rojo = jugador (blancas) */
+.clock-time-blue {
+    background-color: #2A4A6B;
+    border-color: #5A86AE;
+}
+.clock-time-red {
+    background-color: #7C3232;
+    border-color: #B85C5C;
+}
+
+/* Últimos 60 segundos: el marco se pone rojo */
+.clock-time-low {
+    border-color: #E04A3A;
+    color: #FFD9D0;
+}
+/* Reloj congelado por la pausa */
+.clock-time-paused {
+    background-color: #4A4238;
+    border-color: #6B6558;
+    color: #9C9484;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HABILIDADES — columna completa a la izquierda, de arriba abajo
+   Los desplegables se abren hacia ABAJO en el flujo normal, así que empujan
+   a los de abajo en vez de flotar encima.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ability-panel {
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: 344px;
+    background-color: rgba(38, 29, 22, 0.92);
+    border-width: 2px;
+    border-color: #6B5537;
+    border-radius: 8px;
+    border-top-color: #8A7150;
+    overflow: hidden;
+    flex-direction: column;
+}
+.ability-panel.hidden { display: none; }
+
+/* Cabecera de cuero con el rotulo troquelado */
+.ability-panel-header {
+    height: 40px;
+    background-color: #2E2418;
+    /* Sin degradado: USS solo admite url() en background-image, no linear-gradient */
+    border-top-width: 1px;
+    border-top-color: #6B5537;
+    border-bottom-width: 2px;
+    border-bottom-color: #6B5537;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px 0 11px;
+    flex-shrink: 0;
+}
+.ability-header-left { flex-direction: row; align-items: center; }
+.ability-header-icon {
+    font-size: 15px;
+    color: #C9A227;
+    margin-right: 8px;
+}
+.ability-panel-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #E3D5B8;
+    letter-spacing: 2px;
+}
+.ability-help-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background-color: rgba(201, 162, 39, 0.14);
+    border-width: 1px;
+    border-color: #6B5537;
+    color: #C9A227;
+    font-size: 12px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+.ability-help-btn:hover {
+    background-color: rgba(201, 162, 39, 0.3);
+    color: #F2E8D2;
+}
+
+/* La lista ocupa el resto de la columna */
+.ability-list { flex-grow: 1; flex-direction: column; padding: 7px; }
+.ability-empty {
+    color: #9C8A6E;
+    font-size: 10px;
+    white-space: normal;
+    padding: 10px 4px;
+    -unity-text-align: middle-center;
+}
+
+/* ── Fila colapsada ─────────────────────────────────────────────────────── */
+.ability-entry {
+    flex-direction: column;
+    margin-bottom: 5px;
+}
+.ability-entry:last-child { margin-bottom: 0; }
+
+.ability-entry-head {
+    flex-direction: row;
+    align-items: center;
+    height: 46px;
+    background-color: #5C4A33;
+    border-width: 1px;
+    border-color: #6B5537;
+    border-radius: 5px;
+    padding: 0 7px;
+}
+.ability-entry-head:hover {
+    background-color: #6E5A3E;
+    border-color: #C9A227;
+}
+
+/* Al abrir, la fila se enciende en oro */
+.ability-entry-open > .ability-entry-head {
+    background-color: #8A6A22;
+    border-color: #C9A227;
+}
+
+.ability-entry-icon {
+    width: 30px;
+    height: 30px;
+    margin-right: 9px;
+    flex-shrink: 0;
+    -unity-background-scale-mode: scale-to-fit;
+    background-color: rgba(227, 213, 184, 0.14);
+    border-radius: 3px;
+}
+.ability-entry-black .ability-entry-icon { background-color: rgba(0, 0, 0, 0.28); }
+
+.ability-entry-title {
+    flex-grow: 1;
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #F2E8D2;
+    letter-spacing: 0.5px;
+    -unity-text-align: middle-left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ability-entry-black .ability-entry-title { color: #D6C7AB; }
+
+.ability-entry-chevron {
+    font-size: 10px;
+    color: #C9A227;
+    margin-left: 6px;
+    -unity-text-align: middle-center;
+}
+
+/* ── Tecla: cuadrado negro con marco blanco ──────────────────────────────── */
+.key-badge {
+    width: 32px;
+    height: 32px;
+    margin-left: 8px;
+    flex-shrink: 0;
+    background-color: #0D0A06;
+    border-width: 2px;
+    border-color: #F2E8D2;
+    border-radius: 4px;
+    color: #F2E8D2;
+    font-size: 15px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+.key-badge:hover { border-color: #C9A227; color: #C9A227; }
+
+/* Con la activa lista: la tecla se ilumina (invita a pulsarla) */
+.key-badge-ready {
+    background-color: #C9A227;
+    border-color: #FFF6DE;
+    color: #241B12;
+}
+
+/* ── Ficha desplegada: en el flujo, empuja a las de abajo ───────────────── */
+.ability-entry-body {
+    margin-top: 4px;
+    margin-left: 8px;
+    background-color: #E3D5B8;
+    border-width: 1.5px;
+    border-color: #8A7150;
+    border-radius: 6px;
+    padding: 11px 12px 12px 12px;
+    flex-direction: column;
+}
+/* Con la habilidad lista la ficha se abre en pergamino mas claro */
+.ability-entry-white .ability-entry-body {
+    background-color: #EBDDBE;
+    border-color: #C9A227;
+}
+
+.ability-detail-head {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 7px;
+}
+.ability-detail-icon {
+    width: 54px;
+    height: 54px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    -unity-background-scale-mode: scale-to-fit;
+    background-color: rgba(92, 74, 51, 0.16);
+    border-radius: 4px;
+}
+.ability-detail-names { flex-direction: column; flex-grow: 1; }
+.ability-detail-name-row { flex-direction: row; align-items: center; }
+
+.ability-name {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: #2E2418;
+    letter-spacing: 0.6px;
+}
+.ability-owner {
+    font-size: 10px;
+    color: #7A6244;
+    margin-left: 7px;
+    -unity-font-style: bold;
+    letter-spacing: 0.6px;
+}
+.ability-owner-you   { color: #8A6A22; }
+.ability-owner-rival { color: #7C3232; }
+
+.ability-meta {
+    flex-direction: row;
+    margin-top: 5px;
+    flex-wrap: wrap;
+}
+.ability-chip {
+    font-size: 9px;
+    -unity-font-style: bold;
+    letter-spacing: 0.8px;
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin-right: 5px;
+    margin-bottom: 3px;
+    color: #F2E8D2;
+}
+.ability-chip-type { background-color: #5C4A33; }
+.ability-chip-cd   { background-color: #7C5A2E; }
+
+.ability-badge {
+    align-self: flex-start;
+    font-size: 9px;
+    -unity-font-style: bold;
+    letter-spacing: 0.8px;
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin-top: 5px;
+    color: #6B5B47;
+    background-color: rgba(43, 34, 24, 0.12);
+}
+.ability-badge.ready {
+    background-color: #C9A227;
+    color: #241B12;
+}
+
+.ability-brief {
+    font-size: 11px;
+    color: #4A3B2A;
+    white-space: normal;
+    margin-top: 6px;
+}
+.ability-note {
+    font-size: 10px;
+    color: #7A6244;
+    white-space: normal;
+    margin-top: 4px;
+}
+
+.ability-progress-bar {
+    height: 5px;
+    background-color: rgba(43, 34, 24, 0.18);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+.ability-progress-fill {
+    height: 5px;
+    background-color: #8A7150;
+    border-radius: 3px;
+}
+.ability-progress-fill.almost { background-color: #C9A227; }
+
+/* Botón de activar - solo lo llevan las habilidades ACTIVAS */
+.ability-activate-btn {
+    margin-top: 9px;
+    height: 32px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #F2E8D2;
+    background-color: #5C4A33;
+    border-width: 1px;
+    border-color: #8A7150;
+    border-radius: 4px;
+}
+.ability-activate-btn:hover {
+    background-color: #6E5A3E;
+    border-color: #C9A227;
+    color: #FFF6DE;
+}
+.ability-activate-btn:disabled {
+    background-color: rgba(92, 74, 51, 0.4);
+    border-color: rgba(138, 113, 80, 0.5);
+    color: rgba(242, 232, 210, 0.45);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HISTORIAL — columna de notacion algebraica, bajo el reloj
+   ═══════════════════════════════════════════════════════════════════════════ */
+.history-panel {
+    position: absolute;
+    top: 96px;
+    right: 14px;
+    width: 228px;
+    max-height: 320px;
+    background-color: #E3D5B8;
+    border-width: 2px;
+    border-color: #6B5537;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-direction: column;
+}
+.history-panel.hidden { display: none; }
+
+.history-header {
+    height: 30px;
+    background-color: #2E2418;
+    /* Sin degradado (USS no admite linear-gradient): filete arriba */
+    border-top-width: 1px;
+    border-top-color: #6B5537;
+    border-bottom-width: 2px;
+    border-bottom-color: #6B5537;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+}
+.history-title {
+    font-size: 10px;
+    -unity-font-style: bold;
+    color: #E3D5B8;
+    letter-spacing: 1.6px;
+}
+
+.move-history-scroll { flex-grow: 1; padding: 4px 6px; }
+
+.move-history-row {
+    flex-direction: row;
+    align-items: center;
+    height: 21px;
+    border-radius: 3px;
+    padding: 0 4px;
+}
+.move-history-row.row-odd { background-color: rgba(43, 34, 24, 0.06); }
+
+/* Ultima jugada: banda dorada, se lee de un vistazo */
+.move-history-row.last-move { background-color: #C9A227; }
+
+.move-history-num {
+    width: 26px;
+    font-size: 10px;
+    color: #8A7150;
+    -unity-text-align: middle-right;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+.move-history-row.last-move .move-history-num { color: #3A2E1C; }
+
+.move-history-move {
+    flex-grow: 1;
+    height: 100%;
+    font-size: 11px;
+    color: #2E2418;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+}
+.move-history-move.move-empty { color: #A89878; -unity-font-style: normal; }
+.move-history-row.last-move .move-history-move { color: #241B12; }
+
+.history-footer {
+    height: 38px;
+    background-color: #2E2418;
+    /* Sin degradado (USS no admite linear-gradient): filete arriba */
+    border-top-width: 1px;
+    border-top-color: #6B5537;
+    justify-content: center;
+    align-items: center;
+    padding: 0 6px;
+    flex-shrink: 0;
+}
+.btn-undo-parchment {
+    flex-grow: 1;
+    height: 26px;
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 1.2px;
+    color: #E3D5B8;
+    background-color: #5C4A33;
+    border-width: 1px;
+    border-color: #8A7150;
+    border-radius: 4px;
+}
+.btn-undo-parchment:hover {
+    background-color: #8A6A22;
+    border-color: #C9A227;
+    color: #FFF6DE;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAUSA — boton redondo, bajo el historial
+   ═══════════════════════════════════════════════════════════════════════════ */
+.pause-hud {
+    position: absolute;
+    top: 440px;
+    right: 14px;
+    align-items: center;
+}
+.pause-hud.hidden { display: none; }
+
+.pause-hud-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+    color: #2E2418;
+    background-color: #C9A227;
+    border-width: 2px;
+    border-color: #6B5537;
+    border-radius: 22px;
+    -unity-text-align: middle-center;
+}
+.pause-hud-btn:hover {
+    background-color: #E0BC42;
+    border-color: #C9A227;
+}
+.pause-hud-btn:active { background-color: #A98A55; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PANEL DE PAUSA (ESC) — vitela sobre el tablero
+   ═══════════════════════════════════════════════════════════════════════════ */
+.pause-menu-root {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+.pause-menu-root.hidden { display: none; }
+
+.pause-overlay {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(12, 9, 6, 0.72);
+}
+
+.pause-panel {
+    width: 420px;
+    padding: 30px 34px 24px 34px;
+    border-radius: 10px;
+    border-width: 2px;
+    border-color: #6B5537;
+    background-color: #E3D5B8;
+    align-items: stretch;
+}
+.pause-panel .rivets-panel { top: 8px; left: 12px; right: 12px; }
+
+.pause-title {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: #2E2418;
+    letter-spacing: 3px;
+    -unity-text-align: middle-center;
+    margin-top: 4px;
+}
+.pause-subtitle {
+    font-size: 12px;
+    color: #7A6244;
+    -unity-text-align: middle-center;
+    margin-top: 4px;
+    margin-bottom: 18px;
+}
+
+.pause-buttons { flex-direction: column; }
+
+.pause-btn {
+    height: 44px;
+    font-size: 13px;
+    -unity-font-style: bold;
+    letter-spacing: 1.6px;
+    color: #F2E8D2;
+    background-color: #5C4A33;
+    border-width: 1.5px;
+    border-color: #6B5537;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+.pause-btn:hover {
+    background-color: #6E5A3E;
+    border-color: #C9A227;
+    color: #FFF6DE;
+}
+.pause-btn-primary {
+    background-color: #8A6A22;
+    border-color: #C9A227;
+    color: #FFF6DE;
+}
+.pause-btn-primary:hover { background-color: #A07C28; }
+.pause-btn-danger { background-color: #7C3232; border-color: #B85C5C; }
+.pause-btn-danger:hover { background-color: #963C3C; border-color: #E04A3A; }
+
+.pause-hint {
+    margin-top: 8px;
+    font-size: 10px;
+    color: #8A7150;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   USS no soporta @media: UiResponsive alterna estas clases segun el panel.
+   ═══════════════════════════════════════════════════════════════════════════ */
+  .is-narrow .ability-panel { width: 296px; }
+  .is-narrow .history-panel { width: 196px; max-height: 280px; }
+  .is-narrow .pause-hud { top: 400px; }
+  .is-narrow .clock-time { font-size: 18px; min-width: 66px; }
+  .is-narrow .clock-glyph { font-size: 15px; }
+  .is-narrow .ability-entry-head { height: 42px; }
+  .is-narrow .key-badge { width: 28px; height: 28px; font-size: 13px; }
+
+  .is-tiny .ability-panel { width: 246px; }
+  .is-tiny .history-panel { max-height: 230px; }
+  .is-tiny .clock-time { font-size: 15px; min-width: 56px; padding: 1px 4px; }
+  .is-tiny .history-title { font-size: 9px; letter-spacing: 1px; }
+  .is-tiny .move-history-row { height: 18px; }
+  .is-tiny .move-history-move { font-size: 10px; }
+  .is-tiny .pause-hud { top: 330px; }
+  .is-tiny .pause-hud-btn { width: 38px; height: 38px; font-size: 14px; }
+  .is-tiny .ability-panel-title { font-size: 10px; letter-spacing: 1.2px; }
+  .is-tiny .ability-entry-head { height: 38px; }
+  .is-tiny .ability-entry-title { font-size: 10px; }
+  .is-tiny .ability-entry-icon { width: 24px; height: 24px; margin-right: 7px; }
+  .is-tiny .key-badge { width: 24px; height: 24px; font-size: 11px; margin-left: 6px; }
+  .is-tiny .ability-detail-icon { width: 40px; height: 40px; }
+  .is-tiny .ability-name { font-size: 12px; }
+
+/* Vertical: las columnas se estrechan; el historial se va arriba */
+.is-portrait .ability-panel { top: 8px; bottom: 8px; left: 8px; width: 214px; }
+.is-portrait .ability-panel-header { height: 46px; }
+.is-portrait .ability-panel-title { font-size: 14px; letter-spacing: 1.6px; }
+.is-portrait .ability-header-icon { font-size: 19px; }
+.is-portrait .ability-entry-head { height: 50px; }
+.is-portrait .ability-entry-title { font-size: 14px; }
+.is-portrait .ability-entry-icon { width: 32px; height: 32px; }
+.is-portrait .key-badge { width: 36px; height: 36px; font-size: 17px; }
+.is-portrait .ability-name { font-size: 16px; }
+.is-portrait .ability-brief { font-size: 13px; }
+.is-portrait .ability-note { font-size: 11px; }
+
+.is-portrait .clock-hud { top: 8px; right: 8px; padding: 4px 7px; }
+.is-portrait .clock-time { font-size: 22px; min-width: 92px; }
+.is-portrait .clock-glyph { font-size: 20px; }
+.is-portrait .history-panel {
+    top: 74px; left: auto; right: 8px;
+    width: 214px; max-height: 240px;
+}
+.is-portrait .history-title { font-size: 12px; letter-spacing: 1.6px; }
+.is-portrait .move-history-row { height: 26px; }
+.is-portrait .move-history-move { font-size: 14px; }
+.is-portrait .move-history-num { font-size: 13px; width: 32px; }
+.is-portrait .history-footer { height: 50px; }
+.is-portrait .btn-undo-parchment { height: 36px; font-size: 13px; }
+.is-portrait .pause-hud { top: auto; bottom: 18px; right: 18px; }
+.is-portrait .pause-hud-btn { width: 68px; height: 68px; font-size: 26px; border-radius: 34px; }

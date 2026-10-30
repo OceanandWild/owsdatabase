@@ -70,6 +70,7 @@
                         <ui:VisualElement name="seasonpass-entry" class="menu-seasonpass-entry">
                             <ui:VisualElement name="seasonpass-banner" class="menu-seasonpass-banner" picking-mode="Ignore" />
                             <ui:VisualElement name="seasonpass-label" class="menu-seasonpass-label" picking-mode="Ignore" />
+                            <ui:VisualElement name="seasonpass-frame" class="menu-pass-frame menu-pass-frame-season" picking-mode="Ignore" />
                         </ui:VisualElement>
 
                         <!-- PASE DE HALLOWEEN: misma tarjeta, apilada DEBAJO. El cintillo
@@ -81,6 +82,7 @@
                                 <ui:Label name="halloweenpass-soon" text="PRÓXIMAMENTE" class="menu-halloweenpass-soon" picking-mode="Ignore" />
                             </ui:VisualElement>
                             <ui:VisualElement name="halloweenpass-label" class="menu-halloweenpass-label" picking-mode="Ignore" />
+                            <ui:VisualElement name="halloweenpass-frame" class="menu-pass-frame menu-pass-frame-halloween" picking-mode="Ignore" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 
@@ -101,19 +103,23 @@
                             <ui:Image class="btn-deco btn-deco-king" />
                         </ui:Button>
 
-                        <!-- Fila de atajos: Cacería temporal + Tienda + Ajustes -->
+                        <!-- Fila de atajos: Cacería temporal + Tienda + Ajustes.
+                             Cada ficha lleva su placa pintada a mano (clases `plate`
+                             + `plate-*`): el bisel de latón sustituye al rectángulo
+                             plano de color y le da a la botonera el mismo peso visual
+                             que las placas de JUGAR y TUS PIEZAS. -->
                         <ui:VisualElement class="menu-action-row">
-                            <ui:Button name="btn-candy-mode" class="menu-tile btn-candy">
+                            <ui:Button name="btn-candy-mode" class="menu-tile btn-candy plate plate-candy">
                                 <ui:VisualElement class="btn-candy-texts" picking-mode="Ignore">
                                     <ui:Label text="CACERÍA" class="btn-label-sm" picking-mode="Ignore" />
                                     <ui:Label text="DE DULCES" class="btn-candy-sub" picking-mode="Ignore" />
                                 </ui:VisualElement>
                             </ui:Button>
-                            <ui:Button name="btn-shop" class="menu-tile btn-shop">
+                            <ui:Button name="btn-shop" class="menu-tile btn-shop plate plate-shop">
                                 <ui:Image class="btn-deco-sm btn-deco-rook" />
                                 <ui:Label text="TIENDA" class="btn-label-sm" />
                             </ui:Button>
-                            <ui:Button name="btn-settings" class="menu-tile btn-secondary">
+                            <ui:Button name="btn-settings" class="menu-tile btn-secondary plate plate-settings">
                                 <ui:Image class="btn-deco-sm btn-deco-bishop" />
                                 <ui:Label text="AJUSTES" class="btn-label-sm" />
                             </ui:Button>
@@ -122,14 +128,14 @@
                         <!-- Fila de estado: Progreso + salida -->
                         <ui:VisualElement class="menu-action-row">
                             <!-- PROGRESO: misiones diarias, barra semanal y logros -->
-                            <ui:Button name="btn-progress" class="menu-tile btn-progress">
+                            <ui:Button name="btn-progress" class="menu-tile btn-progress plate plate-progress">
                                 <ui:VisualElement class="btn-progress-icon gambits-icon" picking-mode="Ignore" />
                                 <ui:Label text="PROGRESO" class="btn-progress-label" picking-mode="Ignore" />
                                 <ui:Label name="btn-progress-badge" text="✓" class="btn-progress-badge hidden" picking-mode="Ignore" />
                             </ui:Button>
 
                             <!-- SALIR: Pawn sprite (humilde, se retira) -->
-                            <ui:Button name="btn-quit" class="menu-tile btn-danger">
+                            <ui:Button name="btn-quit" class="menu-tile btn-danger plate plate-quit">
                                 <ui:Image class="btn-deco-sm btn-deco-pawn" />
                                 <ui:Label text="SALIR" class="btn-label-sm" />
                             </ui:Button>
@@ -457,10 +463,17 @@
 
                         <!-- Tabs movidos a la barra scrolleable inferior al topbar -->
 
+                        <!-- CARRITO: reúne varios artículos y paga todo junto en Surface -->
+                        <ui:Button name="btn-shop-cart" class="shop2-cart-btn">
+                            <ui:Label text="🛒" class="shop2-cart-icon" picking-mode="Ignore" />
+                            <ui:Label text="CARRITO" class="shop2-cart-label" picking-mode="Ignore" />
+                            <ui:Label name="shop-cart-count" text="0" class="shop2-cart-count hidden" picking-mode="Ignore" />
+                        </ui:Button>
+
                         <ui:VisualElement class="shop2-rail-vault">
                             <ui:VisualElement class="shop2-vault-head">
                                 <ui:Label text="BÓVEDA" class="shop2-vault-eyebrow" />
-                                <ui:Label text="Saldo Ocean Pay" class="shop2-vault-sub" />
+                                <ui:Label text="Saldo Surface" class="shop2-vault-sub" />
                             </ui:VisualElement>
                             <!-- BÓVEDA V2: rework robusto anti-descentrado (nombres intactos para C#) -->
                             <ui:VisualElement name="shop-wallet" class="shop2-balance-card">
@@ -506,27 +519,39 @@
                     </ui:VisualElement>
 
                     <!-- ── TABS DE CATEGORÍAS (scrolleables horizontalmente) ── -->
+                    <!-- Orden curado: escenario → ambiente → piezas → aspectos → efectos.
+                         Los contadores se refrescan desde ShopModal (fuente real de cada catálogo). -->
                     <ui:ScrollView class="shop2-tabs-bar" mode="Horizontal">
                         <ui:VisualElement class="shop2-tabs">
                             <ui:Button name="tab-boards" class="shop2-tab shop-tab-active shop2-nav-active">
-                                <ui:Label text="TABLEROS" class="shop2-tab-label" />
-                                <ui:Label text="10" class="shop2-tab-count" />
-                            </ui:Button>
-                            <ui:Button name="tab-animations" class="shop2-tab">
-                                <ui:Label text="ANIMACIONES" class="shop2-tab-label" />
-                                <ui:Label text="4" class="shop2-tab-count" />
+                                <ui:Label text="01" class="shop2-tab-index" picking-mode="Ignore" />
+                                <ui:Label text="TABLEROS" class="shop2-tab-label" picking-mode="Ignore" />
+                                <ui:Label name="shop-count-boards" text="10" class="shop2-tab-count" picking-mode="Ignore" />
+                                <ui:VisualElement class="shop2-tab-indicator" picking-mode="Ignore" />
                             </ui:Button>
                             <ui:Button name="tab-fonds" class="shop2-tab">
-                                <ui:Label text="FONDOS" class="shop2-tab-label" />
-                                <ui:Label text="10" class="shop2-tab-count" />
+                                <ui:Label text="02" class="shop2-tab-index" picking-mode="Ignore" />
+                                <ui:Label text="FONDOS" class="shop2-tab-label" picking-mode="Ignore" />
+                                <ui:Label name="shop-count-fonds" text="10" class="shop2-tab-count" picking-mode="Ignore" />
+                                <ui:VisualElement class="shop2-tab-indicator" picking-mode="Ignore" />
                             </ui:Button>
                             <ui:Button name="tab-variants" class="shop2-tab">
-                                <ui:Label text="VARIANTES DE PIEZAS" class="shop2-tab-label" />
-                                <ui:Label text="3" class="shop2-tab-count" />
+                                <ui:Label text="03" class="shop2-tab-index" picking-mode="Ignore" />
+                                <ui:Label text="VARIANTES" class="shop2-tab-label" picking-mode="Ignore" />
+                                <ui:Label name="shop-count-variants" text="3" class="shop2-tab-count" picking-mode="Ignore" />
+                                <ui:VisualElement class="shop2-tab-indicator" picking-mode="Ignore" />
                             </ui:Button>
                             <ui:Button name="tab-skins" class="shop2-tab">
-                                <ui:Label text="SKINS" class="shop2-tab-label" />
-                                <ui:Label text="15" class="shop2-tab-count" />
+                                <ui:Label text="04" class="shop2-tab-index" picking-mode="Ignore" />
+                                <ui:Label text="SKINS" class="shop2-tab-label" picking-mode="Ignore" />
+                                <ui:Label name="shop-count-skins" text="20" class="shop2-tab-count" picking-mode="Ignore" />
+                                <ui:VisualElement class="shop2-tab-indicator" picking-mode="Ignore" />
+                            </ui:Button>
+                            <ui:Button name="tab-animations" class="shop2-tab">
+                                <ui:Label text="05" class="shop2-tab-index" picking-mode="Ignore" />
+                                <ui:Label text="ANIMACIONES" class="shop2-tab-label" picking-mode="Ignore" />
+                                <ui:Label name="shop-count-animations" text="4" class="shop2-tab-count" picking-mode="Ignore" />
+                                <ui:VisualElement class="shop2-tab-indicator" picking-mode="Ignore" />
                             </ui:Button>
                         </ui:VisualElement>
                     </ui:ScrollView>
@@ -567,10 +592,10 @@
                                 </ui:VisualElement>
                                 <ui:Label text="BÓVEDA PRIVADA" class="shop2-login-kicker" />
                                 <ui:Label text="Accede a tu colección" class="shop2-login-title" />
-                                <ui:Label text="Inicia sesión con Ocean Pay para desbloquear tus tableros y saldo." class="shop2-login-desc" />
+                                <ui:Label text="Inicia sesión con Surface para desbloquear tus tableros y saldo." class="shop2-login-desc" />
                                 <ui:VisualElement class="shop2-field">
                                     <ui:Label text="USUARIO" class="shop2-field-label" />
-                                    <ui:TextField name="shop-input-username" class="shop2-input" placeholder-text="tu usuario Ocean Pay" />
+                                    <ui:TextField name="shop-input-username" class="shop2-input" placeholder-text="tu usuario Surface" />
                                 </ui:VisualElement>
                                 <ui:VisualElement class="shop2-field">
                                     <ui:Label text="CONTRASEÑA" class="shop2-field-label" />
@@ -581,7 +606,7 @@
                                     <ui:Button name="btn-shop-login" text="INICIAR SESIÓN" class="shop2-btn-primary" />
                                     <ui:Button name="btn-shop-register" text="CREAR CUENTA" class="shop2-btn-ghost" />
                                 </ui:VisualElement>
-                                <ui:Label text="Al continuar aceptas los términos de Ocean Pay • Cifrado SSL" class="shop2-login-footnote" />
+                                <ui:Label text="Al continuar aceptas los términos de Surface • Cifrado SSL" class="shop2-login-footnote" />
                             </ui:VisualElement>
                         </ui:VisualElement>
 
@@ -645,12 +670,53 @@
 
                         <ui:VisualElement class="shop2-detail-actions">
                             <ui:Button name="btn-detail-action" text="EQUIPAR" class="shop2-btn-primary shop2-detail-cta" />
+                            <ui:Button name="btn-detail-cart" text="+  AÑADIR AL CARRITO" class="shop2-btn-ghost shop2-detail-cart" />
                         </ui:VisualElement>
                         <ui:Button name="btn-detail-close" text="CERRAR" class="shop2-detail-close" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
+
+            <!-- ── CARRITO DEL ATELIER (overlay del modal) ── -->
+            <ui:VisualElement name="shop-cart-overlay" class="shop-cart-overlay hidden">
+                <ui:VisualElement class="shop-cart-window">
+                    <ui:VisualElement class="shop-cart-head">
+                        <ui:VisualElement class="shop-cart-head-texts">
+                            <ui:Label text="CARRITO DEL ATELIER" class="shop-cart-kicker" />
+                            <ui:Label text="Revisá tu selección. El cobro se hace una sola vez en Surface." class="shop-cart-subtitle" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-cart-close" text="✕" class="shop-cart-close" />
+                    </ui:VisualElement>
+
+                    <ui:ScrollView name="shop-cart-scroll" class="shop-cart-scroll" mode="Vertical">
+                        <ui:VisualElement name="shop-cart-list" class="shop-cart-list" />
+                    </ui:ScrollView>
+
+                    <ui:VisualElement name="shop-cart-empty" class="shop-cart-empty">
+                        <ui:Label text="◈" class="shop-cart-empty-icon" />
+                        <ui:Label text="TU CARRITO ESTÁ VACÍO" class="shop-cart-empty-title" />
+                        <ui:Label text="Añadí tableros, skins, variantes, animaciones o fondos desde su ficha." class="shop-cart-empty-desc" />
+                        <ui:Button name="btn-cart-browse" text="SEGUIR EXPLORANDO" class="shop2-btn-ghost shop-cart-browse" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="shop-cart-status" class="shop-cart-status hidden">
+                        <ui:Label name="shop-cart-status-label" text="" class="shop-cart-status-label" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="shop-cart-foot">
+                        <ui:VisualElement class="shop-cart-total-wrap">
+                            <ui:Label text="TOTAL" class="shop-cart-total-kicker" />
+                            <ui:VisualElement name="shop-cart-total" class="shop-cart-total" />
+                        </ui:VisualElement>
+                        <ui:Button name="btn-cart-clear" text="VACIAR" class="shop2-btn-ghost shop-cart-clear" />
+                        <ui:Button name="btn-cart-pay" text="PAGAR CON SURFACE" class="shop2-btn-primary shop-cart-pay" />
+                    </ui:VisualElement>
+                    <ui:Label text="El cobro se realiza en Surface y se descuenta de tu saldo." class="shop-cart-footnote" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:Label name="shop-toast" text="" class="shop-toast hidden" picking-mode="Ignore" />
         </ui:VisualElement>
 
         <!-- ═══════════════════════════════════════════════════ -->
@@ -1066,7 +1132,7 @@
 
                     <!-- Footer fijo -->
                     <ui:VisualElement class="prog-footer">
-                        <ui:Label name="prog-footer-note" text="Los Gambits se abonan al instante y también viajan a tu cuenta de Ocean Pay." class="prog-footer-note" />
+                        <ui:Label name="prog-footer-note" text="Los Gambits se abonan al instante y también viajan a tu cuenta de Surface." class="prog-footer-note" />
                         <ui:Button name="btn-close-progress-foot" text="VOLVER" class="shop2-back-btn prog-footer-btn" />
                     </ui:VisualElement>
 
@@ -1096,7 +1162,7 @@
                             <ui:VisualElement class="shop2-brand">
                                 <ui:Label text="INVENTARIO" class="shop2-brand-title" />
                                 <ui:VisualElement class="shop2-brand-line" />
-                                <ui:Label text="Tu colección. Aquí es donde se equipa todo lo que ya es tuyo." class="shop2-brand-subtitle" />
+                                <ui:Label text="Tu colección: aquí se equipa todo lo que ya es tuyo." class="shop2-brand-subtitle" />
                             </ui:VisualElement>
                         </ui:VisualElement>
 
@@ -1127,18 +1193,24 @@
                     <!-- ── PESTAÑAS ── -->
                     <ui:VisualElement class="inv-tabs">
                         <ui:Button name="inv-tab-variants" class="shop2-tab shop2-nav-active">
-                            <ui:Label text="VARIANTES" class="shop2-tab-label" />
-                            <ui:Label name="inv-count-variants" text="0" class="shop2-tab-count" />
+                            <ui:Label text="01" class="shop2-tab-index" picking-mode="Ignore" />
+                            <ui:Label text="VARIANTES" class="shop2-tab-label" picking-mode="Ignore" />
+                            <ui:Label name="inv-count-variants" text="0" class="shop2-tab-count" picking-mode="Ignore" />
+                            <ui:VisualElement class="shop2-tab-indicator" picking-mode="Ignore" />
                         </ui:Button>
                         <ui:Button name="inv-tab-skins" class="shop2-tab">
-                            <ui:Label text="SKINS" class="shop2-tab-label" />
-                            <ui:Label name="inv-count-skins" text="0" class="shop2-tab-count" />
+                            <ui:Label text="02" class="shop2-tab-index" picking-mode="Ignore" />
+                            <ui:Label text="SKINS" class="shop2-tab-label" picking-mode="Ignore" />
+                            <ui:Label name="inv-count-skins" text="0" class="shop2-tab-count" picking-mode="Ignore" />
+                            <ui:VisualElement class="shop2-tab-indicator" picking-mode="Ignore" />
                         </ui:Button>
                         <ui:Button name="inv-tab-boards" class="shop2-tab">
-                            <ui:Label text="TABLEROS" class="shop2-tab-label" />
-                            <ui:Label name="inv-count-boards" text="0" class="shop2-tab-count" />
+                            <ui:Label text="03" class="shop2-tab-index" picking-mode="Ignore" />
+                            <ui:Label text="TABLEROS" class="shop2-tab-label" picking-mode="Ignore" />
+                            <ui:Label name="inv-count-boards" text="0" class="shop2-tab-count" picking-mode="Ignore" />
+                            <ui:VisualElement class="shop2-tab-indicator" picking-mode="Ignore" />
                         </ui:Button>
-                        <ui:Label name="inv-tab-hint" text="Pulsa una carta para equiparla." class="inv-tab-hint" picking-mode="Ignore" />
+                        <ui:Label name="inv-tab-hint" text="Pulsa una carta para equiparla en el tablero." class="inv-tab-hint" picking-mode="Ignore" />
                     </ui:VisualElement>
 
                     <!-- ── FILTRO (solo pestaña de skins) ── -->
@@ -1147,7 +1219,7 @@
                         <ui:Button name="inv-filter-all" text="TODAS" class="skin-filter-btn skin-filter-active" />
                         <ui:Button name="inv-filter-knight" text="CABALLO" class="skin-filter-btn" />
                         <ui:Button name="inv-filter-bishop" text="ALFIL" class="skin-filter-btn" />
-                        <ui:Button name="inv-filter-queen" text="DAMA Y REY" class="skin-filter-btn" />
+                        <ui:Button name="inv-filter-queen" text="DAMA · REY · TORRE" class="skin-filter-btn" />
                         <ui:Button name="inv-filter-pawn" text="PEÓN" class="skin-filter-btn" />
                     </ui:VisualElement>
 
@@ -1158,7 +1230,7 @@
 
                     <!-- ── PIE ── -->
                     <ui:VisualElement class="prog-footer">
-                        <ui:Label name="inv-footer-note" text="Lo que compres en la tienda llega aquí para equiparse." class="prog-footer-note" />
+                        <ui:Label name="inv-footer-note" text="Las cartas con candado indican dónde se consiguen; aquí se equipa lo que ya es tuyo." class="prog-footer-note" />
                         <ui:Button name="btn-close-inventory-foot" text="VOLVER" class="shop2-back-btn prog-footer-btn" />
                     </ui:VisualElement>
 
@@ -1198,7 +1270,7 @@
                                         <ui:Label name="season-count-label" text="0/30 niveles" class="shop2-chip-label" />
                                     </ui:VisualElement>
                                 </ui:VisualElement>
-                                <ui:VisualElement class="shop2-chip chip-owned">
+                                <ui:VisualElement class="shop2-chip chip-owned season-chip-end">
                                     <ui:VisualElement class="shop2-chip-icon-wrap shop2-chip-icon-wrap-owned">
                                         <ui:Label text="✦" class="shop2-chip-icon" />
                                     </ui:VisualElement>
@@ -1318,15 +1390,15 @@
 
                     </ui:VisualElement>
 
-                    <!-- ── PIE: cuenta Ocean Pay, saldo y acceso ── -->
+                    <!-- ── PIE: cuenta Surface, saldo y acceso ── -->
                     <ui:VisualElement class="season-buy-foot">
                         <ui:VisualElement class="season-buy-account">
                             <ui:Label text="🌊" class="season-buy-account-dot" picking-mode="Ignore" />
-                            <ui:Label name="season-buy-account-label" text="Inicia sesión con Ocean Pay para comprar el Gambito Real con Tides." class="season-buy-account-text" />
+                            <ui:Label name="season-buy-account-label" text="Inicia sesión con Surface para comprar el Gambito Real con Tides." class="season-buy-account-text" />
                             <ui:Label name="season-buy-balance" text="" class="season-buy-balance" />
                         </ui:VisualElement>
                         <ui:VisualElement name="season-buy-login" class="season-buy-login">
-                            <ui:TextField name="season-buy-username" class="season-buy-input" placeholder-text="usuario Ocean Pay" />
+                            <ui:TextField name="season-buy-username" class="season-buy-input" placeholder-text="usuario Surface" />
                             <ui:TextField name="season-buy-password" class="season-buy-input" placeholder-text="contraseña" />
                             <ui:Button name="btn-season-buy-login" text="ENTRAR" class="season-buy-login-btn" />
                         </ui:VisualElement>
@@ -1341,7 +1413,7 @@
         <!-- ═══════════════════════════════════════════════════ -->
         <!-- VIEW 9: PASE DE HALLOWEEN — la velada en vivo        -->
         <!-- Mini-pase paralelo a la temporada (20/10 → 2/11):    -->
-        <!-- 20 niveles de 60 XP, dos vías (Luna gratis / Sangre  -->
+        <!-- 30 niveles de 60 XP, dos vías (Luna gratis / Sangre  -->
         <!-- con Dulces), misiones diarias del evento y cobro a    -->
         <!-- mano. Estados: PRÓXIMAMENTE → ACTIVO → TERMINADO.     -->
         <!--                                                       -->
@@ -1375,7 +1447,7 @@
                                     </ui:VisualElement>
                                     <ui:VisualElement class="shop2-chip-texts">
                                         <ui:Label name="hw-level-label" text="NIVEL 0" class="shop2-chip-amount" />
-                                        <ui:Label name="hw-count-label" text="0/20 niveles" class="shop2-chip-label" />
+                                        <ui:Label name="hw-count-label" text="0/30 niveles" class="shop2-chip-label" />
                                     </ui:VisualElement>
                                 </ui:VisualElement>
                                 <ui:VisualElement class="hw-sep" picking-mode="Ignore" />
@@ -1384,7 +1456,7 @@
                                         <ui:Label text="✦" class="shop2-chip-icon" />
                                     </ui:VisualElement>
                                     <ui:VisualElement class="shop2-chip-texts">
-                                        <ui:Label name="hw-xp-label" text="0 / 1.200 XP" class="shop2-chip-amount" />
+                                        <ui:Label name="hw-xp-label" text="0 / 1.800 XP" class="shop2-chip-amount" />
                                         <ui:Label text="XP DE LA VELADA" class="shop2-chip-label" />
                                     </ui:VisualElement>
                                 </ui:VisualElement>
@@ -1442,7 +1514,7 @@
                         <ui:VisualElement class="hw-lane-banner hw-lane-banner-free">
                             <ui:Label text="🌙" class="hw-lane-icon" picking-mode="Ignore" />
                             <ui:Label text="VÍA LUNA" class="hw-lane-title hw-lane-title-free" picking-mode="Ignore" />
-                            <ui:Label text="20 NIVELES · 60 XP CADA UNO · EL XP VIENE DE JUGAR" class="hw-lane-hint" picking-mode="Ignore" />
+                            <ui:Label text="30 NIVELES · 60 XP CADA UNO · EL XP VIENE DE JUGAR" class="hw-lane-hint" picking-mode="Ignore" />
                         </ui:VisualElement>
 
                         <!-- ── PISTA DE NIVELES: solo scroll horizontal ── -->
@@ -1464,7 +1536,7 @@
 
                     <!-- ── CUERPO MÓVIL (vertical): misiones + lista de niveles
                          con scroll. Medallón + carta Luna + carta Sangre por
-                         fila (20 filas). ── -->
+                         fila (30 filas). ── -->
                     <ui:ScrollView name="hw-body-scroll" class="halloween-body-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto">
                         <ui:VisualElement class="halloween-body">
 
@@ -1476,7 +1548,7 @@
                             <ui:VisualElement name="hw-missions-mob" class="hw-missions" />
                             <ui:Label name="hw-missions-note-mob" text="" class="hw-mission-note" picking-mode="Ignore" />
 
-                            <!-- ── PISTA: 20 niveles, dos vías (Luna / Sangre) ── -->
+                            <!-- ── PISTA: 30 niveles, dos vías (Luna / Sangre) ── -->
                             <ui:VisualElement class="hw-section-row">
                                 <ui:Label text="CAMINO DE NIVELES" class="hw-section-title" picking-mode="Ignore" />
                                 <ui:VisualElement class="hw-section-line" picking-mode="Ignore" />
@@ -1526,7 +1598,7 @@
                         <ui:VisualElement class="hwm-chips">
                             <ui:VisualElement class="hwm-chip hwm-chip-xp">
                                 <ui:Label text="✦" class="hwm-chip-icon" picking-mode="Ignore" />
-                                <ui:Label name="hwm-xp-label" text="0 / 1.200 XP" class="hwm-chip-text" picking-mode="Ignore" />
+                                <ui:Label name="hwm-xp-label" text="0 / 1.800 XP" class="hwm-chip-text" picking-mode="Ignore" />
                             </ui:VisualElement>
                             <ui:VisualElement class="hwm-chip hwm-chip-dulces">
                                 <ui:Label text="🍬" class="hwm-chip-icon" picking-mode="Ignore" />

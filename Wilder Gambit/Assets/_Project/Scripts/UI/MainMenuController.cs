@@ -84,7 +84,7 @@ namespace WilderGambit.UI
         private VisualElement _seasonPassModalView;
 
         /// <summary>
-        /// Pase de Halloween: mini-pase de la velada (20/10 → 2/11) con XP,
+        /// Pase de Halloween: mini-pase de la velada (20/10 → 4/11) con XP,
         /// misiones, Dulces y dos vías de cobro, cada uno con claves propias.
         /// El modal tiene su propio script; aquí se guardan ambos para
         /// abrir/cerrar y refrescar el cintillo de la tarjeta del menú.
@@ -161,7 +161,7 @@ namespace WilderGambit.UI
 
         private void EnsureEventSystem()
         {
-            var es = FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+            var es = FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>();
             if (es == null)
             {
                 var esObj = new GameObject("EventSystem");
@@ -191,6 +191,7 @@ namespace WilderGambit.UI
 
             InitializeUI();
             ApplyMainMenuBackground();
+            BackdropManager.Changed += ApplyMainMenuBackground;
 
             // Economía: misiones, barra semanal y logros escuchando los eventos de juego
             // (idempotente: si GameManager ya lo hizo, no vuelve a suscribirse)
@@ -201,6 +202,7 @@ namespace WilderGambit.UI
         private void OnDestroy()
         {
             DisplaySettings.Changed -= UpdateFullscreenUI;
+            BackdropManager.Changed -= ApplyMainMenuBackground;
 
             if (!_progressEventsHooked) return;
             GambitProgress.OnChanged -= RefreshProgressionUI;
@@ -1505,11 +1507,11 @@ namespace WilderGambit.UI
             _seasonPassModal?.OnClosed();
         }
 
-        // ── Pase de Halloween (la velada: 20/10 → 2/11) ─────────────────
+        // ── Pase de Halloween (la velada: 20/10 → 4/11) ─────────────────
 
         /// <summary>
         /// Abre el pase de la velada: XP del evento, misiones diarias, Dulces
-        /// y la pista de 20 niveles con dos vías (Luna y Sangre).
+        /// y la pista de 30 niveles con dos vías (Luna y Sangre).
         /// </summary>
         public void OpenHalloweenPassModal()
         {
@@ -1624,7 +1626,7 @@ namespace WilderGambit.UI
         /// <summary>
         /// La Cacería de Dulces es temporal: sólo se puede abrir mientras la
         /// Velada está activa. Antes del 20/10 se muestra apagada; después del
-        /// 2/11 desaparece del menú.
+        /// 4/11 desaparece del menú.
         /// </summary>
         private void UpdateCandyModeEntryUI()
         {

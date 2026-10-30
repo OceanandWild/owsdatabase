@@ -4298,7 +4298,10 @@ async function enrichReleasesWithItch(projects) {
         releasesCache[idx] = {
           ...releasesCache[idx],
           itch_url: v.itch_url || releasesCache[idx].itch_url || releasesCache[idx].link_url || '',
-          itch_version: releasesCache[idx].itch_version || v.version || '',
+          // /version es la fuente fresca: si el resumen traía una versión
+          // vieja, gana la más alta de las dos (nunca se retrocede).
+          itch_version: releaseNewerVersion(releasesCache[idx].itch_version || releasesCache[idx].itchVersion, v.version),
+          itchVersion: releaseNewerVersion(releasesCache[idx].itchVersion || releasesCache[idx].itch_version, v.version),
           itch_file: v.file || releasesCache[idx].itch_file || '',
           itch_size: v.size || releasesCache[idx].itch_size || '',
           // Qué se descarga de verdad: ZIP con el juego (el .exe va dentro)
@@ -4479,6 +4482,25 @@ function releaseEffectiveVersion(p) {
   const rel = releaseLatestOf(p);
   if (rel && rel.version) return String(rel.version).trim();
   return String(p.itch_version || p.itchVersion || '').trim();
+}
+
+// Compara dos versiones tipo 1.2.3 y devuelve la más nueva. El Hub cachea el
+// resumen del backend y la respuesta /version por separado: si una quedó
+// vieja (p. ej. 0.1.0 del primer upload de itch), no debe pisar la actual.
+function releaseNewerVersion(a, b) {
+  const norm = (v) => String(v || '').trim().replace(/^v/i, '');
+  const va = norm(a);
+  const vb = norm(b);
+  if (!va) return vb;
+  if (!vb) return va;
+  const pa = va.split(/[.\-+_]/).map((n) => parseInt(n, 10) || 0);
+  const pb = vb.split(/[.\-+_]/).map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const da = pa[i] || 0;
+    const db = pb[i] || 0;
+    if (da !== db) return da > db ? va : vb;
+  }
+  return va;
 }
 
 function releaseHasBuild(p) {
@@ -4716,9 +4738,10 @@ async function loadReleaseModalVersions(slug, token) {
         hasRelease: !!latest,
         latest_release: latest,
         latestRelease: latest,
-        // La release oficial manda como versión visible si itch no trae nada
-        itch_version: releasesCache[idx].itch_version || releasesCache[idx].itchVersion || (latest ? latest.version : ''),
-        itchVersion: releasesCache[idx].itchVersion || releasesCache[idx].itch_version || (latest ? latest.version : '')
+        // La release oficial manda como versión visible si itch no trae nada,
+        // pero si el caché quedó en una versión vieja gana la más nueva.
+        itch_version: releaseNewerVersion(releasesCache[idx].itch_version || releasesCache[idx].itchVersion, latest ? latest.version : ''),
+        itchVersion: releaseNewerVersion(releasesCache[idx].itchVersion || releasesCache[idx].itch_version, latest ? latest.version : '')
       };
     }
     const p = (idx >= 0 ? releasesCache[idx] : getDownloadProject(slug));

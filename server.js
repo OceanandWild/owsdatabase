@@ -16863,6 +16863,38 @@ function isItchCacheFresh(itch) {
   return (Date.now() - ts) < ITCH_CACHE_TTL_MS;
 }
 
+// La página de itch lista TODOS los uploads (builds viejos incluidos). El
+// primer archivo del HTML no es el vigente: hay que leer cada bloque
+// `<div class="upload">` y quedarse con el de versión más alta. Sin esto,
+// el scrape agarraba "Wilder-Gambit-v0.1.0-Windows.zip" y la versión 0.1.0,
+// y el Hub nunca veía el build recién publicado.
+function parseItchUploadBlocks(text) {
+  const blocks = [];
+  const parts = String(text || '').split(/<div class="upload">/i).slice(1);
+  for (const part of parts) {
+    const chunk = part.split(/<div class="upload">/i)[0];
+    const nameMatch = chunk.match(/<strong[^>]+title="([^"]+)"[^>]*class="name"/i)
+      || chunk.match(/<strong[^>]+class="name"[^>]*title="([^"]+)"/i)
+      || chunk.match(/<strong[^>]*>([^<]+)<\/strong>/i);
+    const name = nameMatch ? String(nameMatch[1] || '').trim() : '';
+    if (!name) continue;
+    const sizeMatch = chunk.match(/class="file_size"[^>]*>[\s\S]*?<span>([^<]+)<\/span>/i)
+      || chunk.match(/class="file_size"[^>]*>([^<]*)</i);
+    const versionMatch = chunk.match(/class="version_name"[^>]*>\s*(?:version|versi[oó]n|v)?\s*[:#]?\s*([0-9][0-9A-Za-z._+-]*)/i);
+    const platform = /icon-windows8/i.test(chunk) ? 'windows'
+      : (/icon-android/i.test(chunk) ? 'android'
+        : (/icon-linux/i.test(chunk) ? 'linux'
+          : (/icon-(?:apple|osx|mac)/i.test(chunk) ? 'mac' : '')));
+    blocks.push({
+      name,
+      size: sizeMatch ? String(sizeMatch[1] || '').trim() : '',
+      version: versionMatch ? String(versionMatch[1] || '').trim() : '',
+      platform
+    });
+  }
+  return blocks;
+}
+
 function parseItchPublicHtml(html, url) {
   const text = String(html || '');
   const pick = (re) => {
@@ -16872,16 +16904,29 @@ function parseItchPublicHtml(html, url) {
   const title = pick(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
     || pick(/<title>([^<]+)<\/title>/i);
   const cover = pick(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
-  // Archivo subido: "Wilder Gambit.exe  652 kB" (como en tu captura)
+  // El upload vigente: el de versión más alta (Windows gana en empate porque
+  // el Hub de escritorio es Windows primero). Si ninguno declara versión,
+  // se conserva el primero, como antes.
+  const uploads = parseItchUploadBlocks(text);
+  const versioned = uploads.filter((u) => u.version);
+  let current = null;
+  for (const u of versioned) {
+    if (!current || versionIsNewerThan(u.version, current.version)) current = u;
+    else if (normalizeVersionTag(u.version) === normalizeVersionTag(current.version)
+      && u.platform === 'windows' && current.platform !== 'windows') current = u;
+  }
+  if (!current && uploads.length) current = uploads[0];
+  // Fallback para páginas sin bloques de upload (o si cambia el HTML).
   const fileMatch = text.match(/([A-Za-z0-9 _.-]+\.(?:exe|zip|apk|aab|x86_64|msi))\s*([\d.,]+\s*(?:B|KB|MB|GB))?/i);
-  const versionMatch = text.match(/(?:version|vers[ií]on|v)\s*[:#]?\s*(\d+\.\d+(?:\.\d+)?)/i);
+  const versionMatch = text.match(/class="version_name"[^>]*>\s*(?:version|versi[oó]n|v)?\s*[:#]?\s*([0-9][0-9A-Za-z._+-]*)/i)
+    || text.match(/(?:version|versi[oó]n)\s*[:#]?\s*(\d+\.\d+(?:\.\d+)?)/i);
   return {
     url,
     title,
     cover,
-    version: versionMatch ? versionMatch[1] : '',
-    file: fileMatch ? fileMatch[1].trim() : '',
-    size: fileMatch && fileMatch[2] ? fileMatch[2].trim() : '',
+    version: current?.version || (versionMatch ? versionMatch[1] : ''),
+    file: current?.name || (fileMatch ? fileMatch[1].trim() : ''),
+    size: current?.size || (fileMatch && fileMatch[2] ? fileMatch[2].trim() : ''),
     restricted: false,
     source: 'scrape'
   };
@@ -16989,7 +17034,9 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
       auto = await fetchItchPublicInfo(targetUrl);
       if (!auto.restricted && process.env.ITCH_API_KEY) {
         const viaApi = await fetchItchApiInfo({ apiKey: apiKey || process.env.ITCH_API_KEY, matchUrl: targetUrl, matchSlug: row.slug });
-        if (viaApi?.version && !auto.version) auto.version = viaApi.version;
+        // La API declara el user_version real del último build. Si es más
+        // nuevo que lo scrapeado, manda: la página puede listar builds viejos.
+        if (viaApi?.version && (!auto.version || versionIsNewerThan(viaApi.version, auto.version))) auto.version = viaApi.version;
         if (viaApi?.cover && !auto.cover) auto.cover = viaApi.cover;
         if (viaApi?.title && !auto.title) auto.title = viaApi.title;
       }
@@ -17229,13 +17276,27 @@ function humanizeBytes(bytes) {
   return `${(i === 0 || v >= 100) ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
 }
 
+// El nombre scrapeado puede ser de un build viejo
+// ("Wilder-Gambit-v0.1.0-Windows.zip"). Si trae una versión distinta a la
+// release oficial, no sirve como match exacto: se resuelve por user_version.
+function itchFileMatchesVersion(fileName, version) {
+  const v = normalizeVersionTag(version);
+  if (!v) return true;
+  const m = String(fileName || '').match(/(\d+\.\d+(?:\.\d+)?(?:[-+._][0-9A-Za-z]+)?)/);
+  if (!m) return true;
+  return normalizeVersionTag(m[1]) === v;
+}
+
 // Resuelve (con cache 6h en memoria) el archivo + tamaño que el endpoint
 // /download realmente sirve para este slug. Best-effort: si itch no
 // responde devuelve null y la UI usa los datos cacheados de metadata.itch.
 async function getDownloadArtifact(mapped, preferVersion = '') {
   const slug = String(mapped?.slug || '').trim();
   if (!slug) return null;
-  const hit = downloadArtifactCache.get(slug);
+  // La cache incluye la versión: un build nuevo no puede quedar pegado 6 h
+  // con el artefacto del build anterior.
+  const cacheKey = `${slug}@${normalizeVersionTag(preferVersion)}`;
+  const hit = downloadArtifactCache.get(cacheKey);
   if (hit && (Date.now() - hit.at) < DOWNLOAD_ARTIFACT_CACHE_MS) return hit.artifact;
 
   let artifact = null;
@@ -17257,7 +17318,11 @@ async function getDownloadArtifact(mapped, preferVersion = '') {
       if (apiKey && itchUrl) {
         const viaApi = await fetchItchApiInfo({ apiKey, matchUrl: itchUrl, matchSlug: slug });
         if (viaApi?.raw_id) {
-          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: itchFile, apiKey, preferVersion, platform: 'windows', pinned: itchPinnedUpload(slug, 'windows', preferVersion) });
+          // Solo pedimos match exacto por nombre si ese nombre pertenece a la
+          // versión oficial. Un nombre viejo haría que itch devuelva el ZIP
+          // viejo aunque la release ya sea más nueva.
+          const wantFile = itchFileMatchesVersion(itchFile, preferVersion) ? itchFile : '';
+          const dl = await resolveItchUploadDownload({ gameId: viaApi.raw_id, fileName: wantFile, apiKey, preferVersion, platform: 'windows', pinned: itchPinnedUpload(slug, 'windows', preferVersion) });
           if (dl?.uploadId) {
             const sizeBytes = Number(dl.size || 0) || 0;
             artifact = {
@@ -17275,11 +17340,12 @@ async function getDownloadArtifact(mapped, preferVersion = '') {
     }
   } catch (_) { artifact = null; }
 
-  // Fallback sin red: metadata.itch (el scrape pilla lo primero que ve).
+  // Fallback sin red: metadata.itch. No ofrecer un archivo con versión vieja:
+  // es preferible no mostrar descarga a servir el build equivocado.
   if (!artifact) {
     const itchFile = String(mapped?.itch_file || '').trim();
     const itchSize = String(mapped?.itch_size || '').trim();
-    if (itchFile) {
+    if (itchFile && itchFileMatchesVersion(itchFile, preferVersion)) {
       const isZip = /\.zip$/i.test(itchFile);
       artifact = {
         type: isZip ? 'zip' : (/\.exe$/i.test(itchFile) ? 'exe' : 'file'),
@@ -17291,7 +17357,7 @@ async function getDownloadArtifact(mapped, preferVersion = '') {
       };
     }
   }
-  if (artifact) downloadArtifactCache.set(slug, { at: Date.now(), artifact });
+  if (artifact) downloadArtifactCache.set(cacheKey, { at: Date.now(), artifact });
   return artifact;
 }
 
@@ -17373,7 +17439,13 @@ app.get('/ows-launch-projects/:slug/version', async (req, res) => {
     // Este endpoint alimenta al Hub de escritorio: solo versiones de Windows
     // (o 'all'). Una release Android jamás puede ser "la última" acá.
     try { latestRelease = await getLatestReleaseBySlug(slug, 'windows'); } catch (_) { latestRelease = null; }
-    const fresh = isItchCacheFresh((rows[0].metadata || {}).itch);
+    const cachedItch = (rows[0].metadata || {}).itch || {};
+    // Si la release oficial ya es más nueva que la versión cacheada de itch,
+    // el cache quedó viejo (p. ej. scrapeó un build anterior): forzar sync.
+    const cachedVersion = String(cachedItch.version || '').trim();
+    const releaseVersion = (latestRelease && latestRelease.version) || '';
+    const cacheBehindRelease = !!(releaseVersion && (!cachedVersion || versionIsNewerThan(releaseVersion, cachedVersion)));
+    const fresh = isItchCacheFresh(cachedItch) && !cacheBehindRelease;
     if (!fresh) {
       // Background refresh: no bloquea la respuesta
       syncItchForProject({ slug }).catch((e) => console.error('[itch] background sync falló:', e?.message || e));

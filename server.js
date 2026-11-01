@@ -17108,7 +17108,7 @@ async function syncItchForProject({ id = null, slug = '', itchUrl = '', manual =
 const ITCH_PINNED_UPLOADS = {
   'wilder-gambit': {
     windows: { id: 19612126, version: '1.0.1', file: 'Wilder-Gambit-v1.0.1-Windows.zip', size: 472621971, kind: 'zip' },
-    android: { id: 19612049, version: '1.0.0', file: 'wilder-gambit-v1.0.0-android.apk', size: 662547989, kind: 'apk' }
+    android: { id: 19612049, version: '1.1.2', file: 'wildergambit.apk', size: 658937715, kind: 'apk' }
   }
 };
 
@@ -18398,7 +18398,10 @@ async function upsertReleaseFromItch(projectRow, itch) {
   const file = String(itch?.file || '').trim();
   const installerUrl = String(itch?.installer_url || '').trim();
   if (!file && !installerUrl) return null;
-  const platform = /\.apk$/i.test(file) ? 'android' : 'windows';
+  // itch puede publicar el APK envuelto en el ZIP del canal
+  // ("wilder-gambit-android.zip"): la extensión sola no alcanza, el nombre
+  // también marca la plataforma.
+  const platform = (/\.apk$/i.test(file) || /android/i.test(file)) ? 'android' : 'windows';
   await ensureOwsProjectReleasesTable();
 
   const { rows: same } = await pool.query(

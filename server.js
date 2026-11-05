@@ -44095,6 +44095,18 @@ app.post(['/surface/tides/paypal/webhook', '/ocean-pay/tides/paypal/webhook'], a
     console.error('[PayPal Saldo webhook] Error leyendo la orden:', err);
   }
 
+  // Pase de Guardados Ilimitados: mismo criterio, se resuelve por tabla de
+  // ordenes. Es respaldo del capture-on-return: si el jugador cierra la
+  // pestaña despues de pagar, el pase igual queda otorgado.
+  let passRecord = null;
+  if (!creditRecord) {
+    try {
+      passRecord = await findSurfacePassOrder({ orderId: relatedOrderId, reference: webhookReference });
+    } catch (err) {
+      console.error('[PayPal Pase webhook] Error leyendo la orden:', err);
+    }
+  }
+
   if (eventType !== 'PAYMENT.CAPTURE.COMPLETED') {
     // Denegados, reembolsados y revertidos se registran para revision manual:
     // nunca acreditaron saldo ni Tides automaticamente.
@@ -44108,6 +44120,18 @@ app.post(['/surface/tides/paypal/webhook', '/ocean-pay/tides/paypal/webhook'], a
           [creditRecord.order_id, creditStatus]
         ).catch(() => {});
       }
+      if (passRecord) {
+        const passStatus = eventType === 'PAYMENT.CAPTURE.DENIED'
+          ? 'denied'
+          : (eventType === 'PAYMENT.CAPTURE.REFUNDED' ? 'refunded' : 'reversed');
+        await pool.query(
+          `UPDATE surface_pass_orders SET status = $2, updated_at = NOW() WHERE order_id = $1`,
+          [passRecord.order_id, passStatus]
+        ).catch(() => {});
+        // El pase es permanente: un reembolso no lo revoca solo. Queda marcado
+        // para revision manual, igual que una carga de saldo revertida.
+        console.warn('[PayPal Pase webhook] Evento para revisar:', eventType, passRecord.order_id, passRecord.user_id);
+      }
       console.warn('[PayPal webhook] Evento para revisar:', eventType, resource?.id || '', webhookReference || '');
     }
     return res.status(200).json({ success: true, ignored: true, eventType });
@@ -44120,6 +44144,16 @@ app.post(['/surface/tides/paypal/webhook', '/ocean-pay/tides/paypal/webhook'], a
     } catch (err) {
       console.error('Error en POST /surface/tides/paypal/webhook (saldo):', err);
       return res.status(500).json({ error: 'No se pudo acreditar el saldo de Surface' });
+    }
+  }
+
+  if (passRecord) {
+    try {
+      const outcome = await settleSurfacePassWebhook({ record: passRecord, resource, verifiedEnv });
+      return res.status(200).json({ success: true, scope: 'surface-pass', ...outcome });
+    } catch (err) {
+      console.error('Error en POST /surface/tides/paypal/webhook (pase):', err);
+      return res.status(500).json({ error: 'No se pudo otorgar el Pase de Guardados' });
     }
   }
 
@@ -44646,6 +44680,568 @@ app.post(['/surface/credit/paypal/capture', '/ocean-pay/credit/paypal/capture'],
       error: 'No se pudo capturar la carga de saldo',
       code: 'SURFACE_CREDIT_CAPTURE_FAILED',
       detail: paypalErrorDetail(err)
+    });
+  }
+});
+
+// =========================================
+// SURFACE PASS — Pase de Guardados Ilimitados
+// Pago único: 329 Tides o US$ 3.29 por PayPal.
+// =========================================
+
+const SURFACE_PASS_PRICE_CENTS = 329;
+const SURFACE_PASS_TIDES_PRICE = 329;
+const SURFACE_PASS_PROVIDER_PAYPAL = 'paypal';
+const SURFACE_PASS_PROVIDER_TIDES = 'tides';
+
+let surfacePassTablesReady = false;
+async function ensureSurfacePassTables() {
+  if (surfacePassTablesReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS surface_passes (
+      user_id BIGINT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      receipt TEXT NOT NULL UNIQUE,
+      environment TEXT NOT NULL DEFAULT 'live',
+      amount_usd NUMERIC(10,2),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS surface_pass_orders (
+      order_id TEXT PRIMARY KEY,
+      reference TEXT NOT NULL UNIQUE,
+      user_id BIGINT NOT NULL,
+      environment TEXT NOT NULL DEFAULT 'live',
+      status TEXT NOT NULL DEFAULT 'created',
+      capture_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_surface_pass_orders_user
+      ON surface_pass_orders(user_id)
+  `).catch(() => {});
+  surfacePassTablesReady = true;
+}
+
+function surfacePassPrice() {
+  return {
+    tides: SURFACE_PASS_TIDES_PRICE,
+    usd: SURFACE_PASS_PRICE_CENTS / 100
+  };
+}
+
+// custom_id: surface-pass:<userId>:<stamp>:<environment>
+function buildSurfacePassReference(userId, env) {
+  const environment = String(env || '').toLowerCase() === 'live' ? 'live' : 'sandbox';
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `surface-pass:${userId}:${stamp}:${environment}`;
+}
+
+function parseSurfacePassReference(raw) {
+  const reference = String(raw || '').trim();
+  if (!reference) return null;
+  const parts = reference.split(':');
+  if (parts.length < 4) return null;
+  if (String(parts[0] || '').toLowerCase() !== 'surface-pass') return null;
+  const userId = Number(parts[1] || 0);
+  if (!Number.isFinite(userId) || userId <= 0) return null;
+  const envRaw = String(parts[3] || '').trim().toLowerCase();
+  const environment = envRaw === 'live' || envRaw === 'sandbox' ? envRaw : null;
+  return { prefix: 'surface-pass', userId, environment, reference };
+}
+
+function serializeSurfacePass(row) {
+  if (!row) return null;
+  const amount = row.amount_usd === null || row.amount_usd === undefined
+    ? null
+    : Number(row.amount_usd);
+  return {
+    provider: row.provider,
+    environment: row.environment,
+    amountUsd: Number.isFinite(amount) ? amount : null,
+    createdAt: row.created_at
+  };
+}
+
+async function getSurfacePass(client, userId) {
+  await ensureSurfacePassTables();
+  const runner = client || pool;
+  const { rows } = await runner.query(
+    `SELECT user_id, provider, receipt, environment, amount_usd, created_at
+       FROM surface_passes
+      WHERE user_id = $1
+      LIMIT 1`,
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+// Idempotente: el mismo pago no puede otorgar el pase dos veces.
+async function grantSurfacePass({ userId, provider, receipt, env, amountUsd }) {
+  await ensureSurfacePassTables();
+  const environment = String(env || '').toLowerCase() === 'live' ? 'live' : 'sandbox';
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`surface-pass-user:${userId}`]);
+
+    const existing = await getSurfacePass(client, userId);
+    if (existing) {
+      await client.query('COMMIT');
+      return { alreadyOwned: true, pass: serializeSurfacePass(existing) };
+    }
+
+    const { rows } = await client.query(
+      `INSERT INTO surface_passes (user_id, provider, receipt, environment, amount_usd)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id) DO NOTHING
+       RETURNING user_id, provider, receipt, environment, amount_usd, created_at`,
+      [userId, provider, receipt, environment, amountUsd]
+    );
+
+    if (!rows.length) {
+      const raced = await getSurfacePass(client, userId);
+      await client.query('COMMIT');
+      return { alreadyOwned: true, pass: serializeSurfacePass(raced) };
+    }
+
+    await client.query('COMMIT');
+    return { alreadyOwned: false, pass: serializeSurfacePass(rows[0]) };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function createPayPalSurfacePassOrder({ userId, env }) {
+  const environment = env === 'live' || env === 'sandbox' ? env : activePayPalEnvironment();
+  const amount = paypalUsdAmount(SURFACE_PASS_PRICE_CENTS / 100);
+  if (!amount) throw new Error('Precio del pase invalido');
+  const reference = buildSurfacePassReference(userId, environment);
+
+  const order = await paypalApiRequest('/v2/checkout/orders', {
+    method: 'POST',
+    headers: {
+      'PayPal-Request-Id': `surface-pass-${environment}-${userId}-${Date.now()}`
+    },
+    body: JSON.stringify({
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          reference_id: 'surface-pass',
+          custom_id: reference,
+          invoice_id: `ows-pass-${userId}-${Date.now()}`,
+          description: 'OWS Surface - Pase de Guardados Ilimitados',
+          amount: {
+            currency_code: PAYPAL_TIDES_CURRENCY,
+            value: amount,
+            breakdown: {
+              item_total: { currency_code: PAYPAL_TIDES_CURRENCY, value: amount }
+            }
+          },
+          items: [
+            {
+              name: 'Pase de Guardados Ilimitados',
+              description: 'Slots de guardado ilimitados en Surface',
+              sku: 'surface-pass',
+              quantity: '1',
+              category: 'DIGITAL_GOODS',
+              unit_amount: { currency_code: PAYPAL_TIDES_CURRENCY, value: amount }
+            }
+          ]
+        }
+      ],
+      application_context: {
+        brand_name: 'OWS Surface',
+        shipping_preference: 'NO_SHIPPING',
+        user_action: 'PAY_NOW'
+      }
+    })
+  }, environment);
+
+  const orderId = String(order?.id || '').trim();
+  if (!orderId) throw new Error('PayPal no devolvio el identificador de la orden');
+
+  await ensureSurfacePassTables();
+  await pool.query(
+    `INSERT INTO surface_pass_orders (order_id, reference, user_id, environment)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (order_id) DO NOTHING`,
+    [orderId, reference, userId, environment]
+  );
+
+  return {
+    order,
+    orderId,
+    reference,
+    environment,
+    amountUsd: SURFACE_PASS_PRICE_CENTS / 100
+  };
+}
+
+async function findSurfacePassOrder({ orderId, reference }) {
+  await ensureSurfacePassTables();
+  if (orderId) {
+    const byOrder = await pool.query(
+      'SELECT * FROM surface_pass_orders WHERE order_id = $1 LIMIT 1',
+      [orderId]
+    );
+    if (byOrder.rows.length) return byOrder.rows[0];
+  }
+  if (reference) {
+    const byRef = await pool.query(
+      'SELECT * FROM surface_pass_orders WHERE reference = $1 LIMIT 1',
+      [reference]
+    );
+    if (byRef.rows.length) return byRef.rows[0];
+  }
+  return null;
+}
+
+function readPayPalPassOrderUnit(order) {
+  const unit = Array.isArray(order?.purchase_units) ? order.purchase_units[0] : null;
+  const captures = Array.isArray(unit?.payments?.captures) ? unit.payments.captures : [];
+  const capture = captures[0] || null;
+  const customId = String(unit?.custom_id || capture?.custom_id || '').trim();
+  return { unit, capture, customId, parsed: parseSurfacePassReference(customId) };
+}
+
+async function purchaseSurfacePassWithTides({ userId, env }) {
+  await ensureSurfacePassTables();
+  const environment = String(env || '').toLowerCase() === 'live' ? 'live' : 'sandbox';
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`surface-pass-user:${userId}`]);
+
+    const existing = await getSurfacePass(client, userId);
+    if (existing) {
+      const balance = await getUnifiedBalance(client, userId, 'tides');
+      await client.query('COMMIT');
+      return {
+        alreadyOwned: true,
+        balance,
+        pass: serializeSurfacePass(existing)
+      };
+    }
+
+    const balance = await getUnifiedBalance(client, userId, 'tides');
+    if (balance < SURFACE_PASS_TIDES_PRICE) {
+      await client.query('COMMIT');
+      return {
+        insufficient: true,
+        balance,
+        required: SURFACE_PASS_TIDES_PRICE
+      };
+    }
+
+    const newBalance = balance - SURFACE_PASS_TIDES_PRICE;
+    await setUnifiedBalance(client, userId, 'tides', newBalance);
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, 'tides')`,
+      [userId, 'Pase de Guardados Ilimitados', -SURFACE_PASS_TIDES_PRICE, 'Surface Pass']
+    );
+
+    const receipt = `tides-pass:${userId}:${Date.now()}`;
+    const { rows } = await client.query(
+      `INSERT INTO surface_passes (user_id, provider, receipt, environment, amount_usd)
+       VALUES ($1, $2, $3, $4, NULL)
+       RETURNING user_id, provider, receipt, environment, amount_usd, created_at`,
+      [userId, SURFACE_PASS_PROVIDER_TIDES, receipt, environment]
+    );
+
+    await client.query('COMMIT');
+    return {
+      alreadyOwned: false,
+      balance: newBalance,
+      pass: serializeSurfacePass(rows[0])
+    };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// Respaldo del webhook: otorga el pase si PayPal confirma la captura y el
+// cliente nunca volvio a la app. El monto y el dueno de la orden ya estan
+// fijados en surface_pass_orders, asi que no se confia en el body del evento.
+async function settleSurfacePassWebhook({ record, resource, verifiedEnv }) {
+  const status = String(resource?.status || '').toUpperCase();
+  if (status !== 'COMPLETED') {
+    return { ignored: true, reason: 'captura no completada', status };
+  }
+  if (!paypalAmountMatchesUsdCents(resource?.amount, SURFACE_PASS_PRICE_CENTS)) {
+    return { ignored: true, reason: 'monto no coincide' };
+  }
+  const captureId = String(resource?.id || '').trim();
+  if (!captureId) return { ignored: true, reason: 'sin captureId' };
+
+  const result = await grantSurfacePass({
+    userId: Number(record.user_id),
+    provider: SURFACE_PASS_PROVIDER_PAYPAL,
+    receipt: captureId,
+    env: verifiedEnv || record.environment,
+    amountUsd: SURFACE_PASS_PRICE_CENTS / 100
+  });
+
+  await pool.query(
+    `UPDATE surface_pass_orders
+        SET status = 'granted',
+            capture_id = $2,
+            updated_at = NOW()
+      WHERE order_id = $1`,
+    [record.order_id, captureId]
+  ).catch(() => {});
+
+  return {
+    granted: !result.alreadyOwned,
+    alreadyOwned: result.alreadyOwned,
+    userId: Number(record.user_id)
+  };
+}
+
+// OJO: /ocean-pay/pass/* ya lo usa la suscripcion Ocean Pass. El pase de
+// guardados vive solo bajo /surface/pass/* para no pisar esas rutas.
+app.get('/surface/pass/status', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  try {
+    const pass = await getSurfacePass(null, userId);
+    return res.json({
+      success: true,
+      owned: Boolean(pass),
+      pass: serializeSurfacePass(pass),
+      price: surfacePassPrice()
+    });
+  } catch (err) {
+    console.error('Error en GET /surface/pass/status:', err);
+    return res.status(500).json({ error: 'No se pudo leer el estado del pase' });
+  }
+});
+
+app.post('/surface/pass/paypal/order', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  await refreshPayPalRuntimeEnv();
+  const paypalSettings = activePayPalConfig();
+  if (!paypalSettings.configured) {
+    return res.status(503).json({
+      error: `PayPal (${paypalSettings.environment}) no esta configurado.`,
+      code: 'PAYPAL_NOT_CONFIGURED'
+    });
+  }
+
+  try {
+    const owned = await getSurfacePass(null, userId);
+    if (owned) {
+      return res.json({
+        success: true,
+        owned: true,
+        alreadyOwned: true,
+        pass: serializeSurfacePass(owned),
+        price: surfacePassPrice()
+      });
+    }
+
+    const { orderId, reference, environment, amountUsd } = await createPayPalSurfacePassOrder({
+      userId,
+      env: paypalSettings.environment
+    });
+
+    return res.json({
+      success: true,
+      owned: false,
+      orderId,
+      reference,
+      environment,
+      amountUsd
+    });
+  } catch (err) {
+    console.error('Error en POST /surface/pass/paypal/order:', err?.details || err);
+    return res.status(500).json({
+      error: 'No se pudo crear la orden del pase',
+      code: 'SURFACE_PASS_ORDER_FAILED',
+      detail: paypalErrorDetail(err),
+      environment: paypalSettings.environment
+    });
+  }
+});
+
+app.post('/surface/pass/paypal/capture', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const orderId = String(req.body?.orderId || '').trim();
+  if (!orderId) return res.status(400).json({ error: 'orderId es requerido' });
+
+  await refreshPayPalRuntimeEnv();
+
+  let record = null;
+  try {
+    record = await findSurfacePassOrder({ orderId });
+  } catch (err) {
+    console.error('Error leyendo la orden del pase:', err);
+    return res.status(500).json({ error: 'No se pudo leer la orden del pase' });
+  }
+
+  if (!record) {
+    return res.status(404).json({
+      error: 'Orden del pase no encontrada',
+      code: 'SURFACE_PASS_ORDER_NOT_FOUND'
+    });
+  }
+  if (Number(record.user_id) !== userId) {
+    return res.status(403).json({ error: 'La orden pertenece a otra cuenta' });
+  }
+
+  const owned = await getSurfacePass(null, userId);
+  if (owned) {
+    return res.json({
+      success: true,
+      owned: true,
+      alreadyOwned: true,
+      pass: serializeSurfacePass(owned)
+    });
+  }
+
+  const activeEnv = activePayPalEnvironment();
+  const otherEnv = activeEnv === 'live' ? 'sandbox' : 'live';
+  const preferred = String(record.environment || activeEnv);
+  const candidateEnvs = [preferred];
+  if (isPayPalConfigured(otherEnv) && otherEnv !== preferred) candidateEnvs.push(otherEnv);
+
+  try {
+    let order = null;
+    let usedEnv = null;
+    let lastError = null;
+
+    for (const env of candidateEnvs) {
+      if (!isPayPalConfigured(env)) continue;
+      try {
+        order = await capturePayPalOrder(orderId, env, 'surface-pass');
+        usedEnv = env;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (paypalOrderMissingInEnv(err)) continue;
+        throw err;
+      }
+    }
+
+    if (!order) throw lastError || new Error('No se pudo capturar la orden del pase');
+
+    const context = readPayPalPassOrderUnit(order);
+    const capture = context.capture;
+    if (!paypalCaptureCompleted(order, capture)) {
+      return res.status(409).json({
+        error: 'PayPal aun no confirmo el pago',
+        status: String(capture?.status || order?.status || 'unknown')
+      });
+    }
+    if (!paypalAmountMatchesUsdCents(capture?.amount || context.unit?.amount, SURFACE_PASS_PRICE_CENTS)) {
+      return res.status(400).json({ error: 'El monto de la orden no coincide con el pase' });
+    }
+    if (context.parsed && context.parsed.userId !== userId) {
+      return res.status(400).json({ error: 'La orden no corresponde al pase de esta cuenta' });
+    }
+
+    const captureId = String(capture?.id || '').trim();
+    if (!captureId) {
+      return res.status(500).json({ error: 'PayPal no devolvio el identificador de la captura' });
+    }
+
+    const result = await grantSurfacePass({
+      userId,
+      provider: SURFACE_PASS_PROVIDER_PAYPAL,
+      receipt: captureId,
+      env: usedEnv,
+      amountUsd: SURFACE_PASS_PRICE_CENTS / 100
+    });
+
+    await pool.query(
+      `UPDATE surface_pass_orders
+          SET status = 'granted',
+              capture_id = $2,
+              updated_at = NOW()
+        WHERE order_id = $1`,
+      [orderId, captureId]
+    ).catch(() => {});
+
+    return res.json({
+      success: true,
+      owned: true,
+      alreadyOwned: result.alreadyOwned,
+      pass: result.pass,
+      orderId,
+      captureId,
+      environment: usedEnv
+    });
+  } catch (err) {
+    console.error('Error en POST /surface/pass/paypal/capture:', err?.details || err);
+    if (paypalErrorIssues(err).includes('ORDER_NOT_APPROVED')) {
+      return res.status(409).json({ error: 'La orden de PayPal todavia no esta aprobada' });
+    }
+    return res.status(500).json({
+      error: 'No se pudo capturar el pase',
+      code: 'SURFACE_PASS_CAPTURE_FAILED',
+      detail: paypalErrorDetail(err)
+    });
+  }
+});
+
+app.post('/surface/pass/tides', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  await refreshPayPalRuntimeEnv();
+
+  try {
+    const result = await purchaseSurfacePassWithTides({
+      userId,
+      env: activePayPalEnvironment()
+    });
+
+    if (result.alreadyOwned) {
+      return res.json({
+        success: true,
+        owned: true,
+        alreadyOwned: true,
+        balance: result.balance,
+        pass: result.pass
+      });
+    }
+    if (result.insufficient) {
+      return res.status(400).json({
+        success: false,
+        error: 'Saldo de Tides insuficiente',
+        code: 'INSUFFICIENT_TIDES',
+        balance: result.balance,
+        required: result.required
+      });
+    }
+
+    return res.json({
+      success: true,
+      owned: true,
+      alreadyOwned: false,
+      balance: result.balance,
+      pass: result.pass
+    });
+  } catch (err) {
+    console.error('Error en POST /surface/pass/tides:', err);
+    return res.status(500).json({
+      error: 'No se pudo comprar el pase con Tides',
+      code: 'SURFACE_PASS_TIDES_FAILED'
     });
   }
 });

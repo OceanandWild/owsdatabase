@@ -27060,6 +27060,7 @@ function getOceanPassPriceForCurrency(currency) {
 }
 
 const AUREX_PACKAGES = Object.freeze([
+  { id: 'tides-329', title: 'Tides 329', tidesAmount: 329, priceUyu: 129, priceUsd: 3.29, bonus: 0 },
   { id: 'tides-200', title: 'Tides 200', tidesAmount: 200, priceUyu: 99, priceUsd: 2.49, bonus: 0 },
   { id: 'tides-600', title: 'Tides 600', tidesAmount: 600, priceUyu: 249, priceUsd: 6.49, bonus: 20 },
   { id: 'tides-1500', title: 'Tides 1500', tidesAmount: 1500, priceUyu: 499, priceUsd: 12.49, bonus: 80 },

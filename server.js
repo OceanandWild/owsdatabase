@@ -48423,7 +48423,8 @@ function wwPvpOnMessage(ws, msg) {
     case 'atk':
     case 'cast':
     case 'swap':
-    case 'harp': {
+    case 'harp':
+    case 'star': {
       // Cada pawn habla por su asiento: el anfitrion ademas conduce a sus bots.
       const seat = Number(msg.seat);
       if (Number.isFinite(seat) && (seat | 0) !== me.seat) {

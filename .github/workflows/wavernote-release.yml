@@ -183,7 +183,11 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS=$(ls "$ANDROID_SDK_ROOT/build-tools" | sort -V | tail -1)
-          APK_PATH=$(find app/build/outputs/apk -name "*release*.apk" ! -name "*unsigned*" | head -1)
+          # Tauri genera un APK universal y uno por ABI. La app publica es la universal.
+          APK_PATH=$(find app/build/outputs/apk -name "*universal*release*.apk" ! -name "*unsigned*" | head -1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find app/build/outputs/apk -name "*release*.apk" ! -name "*unsigned*" | head -1)
+          fi
           if [ -z "$APK_PATH" ]; then
             APK_PATH=$(find app/build/outputs/apk -name "*.apk" ! -name "*unsigned*" | head -1)
           fi

@@ -55,6 +55,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           cache: true
+          # El crate vive en web/WaverNote/src-tauri, no en la raíz del repo.
+          cache-workspaces: ${{ env.PROJECT_DIR }}/src-tauri
 
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
@@ -63,8 +65,7 @@ jobs:
       - name: Set version
         working-directory: ${{ env.PROJECT_DIR }}
         shell: pwsh
-        run: |
-          node -e "const fs=require('fs');const v=process.env.VERSION;const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');const t='src-tauri/tauri.conf.json';const c=JSON.parse(fs.readFileSync(t,'utf8'));c.version=v;fs.writeFileSync(t,JSON.stringify(c,null,2)+'\n');const cargo='src-tauri/Cargo.toml';let s=fs.readFileSync(cargo,'utf8');s=s.replace(/^version = \"[^\"]+\"/m,'version = \"'+v+'\"');fs.writeFileSync(cargo,s);"
+        run: node scripts/set-version.mjs "$env:VERSION"
 
       - name: Build NSIS
         working-directory: ${{ env.PROJECT_DIR }}
@@ -130,6 +131,8 @@ jobs:
         with:
           target: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
           cache: true
+          # El crate vive en web/WaverNote/src-tauri, no en la raíz del repo.
+          cache-workspaces: ${{ env.PROJECT_DIR }}/src-tauri
 
       - name: Install NDK and SDK packages
         run: |
@@ -145,8 +148,7 @@ jobs:
 
       - name: Set version
         working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          node -e "const fs=require('fs');const v=process.env.VERSION;const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');const t='src-tauri/tauri.conf.json';const c=JSON.parse(fs.readFileSync(t,'utf8'));c.version=v;fs.writeFileSync(t,JSON.stringify(c,null,2)+'\n');const cargo='src-tauri/Cargo.toml';let s=fs.readFileSync(cargo,'utf8');s=s.replace(/^version = \"[^\"]+\"/m,'version = \"'+v+'\"');fs.writeFileSync(cargo,s);"
+        run: node scripts/set-version.mjs "$VERSION"
 
       - name: Prepare universal Android keystore
         working-directory: ${{ env.PROJECT_DIR }}

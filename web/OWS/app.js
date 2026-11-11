@@ -9339,6 +9339,25 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.5.0': [
+    'Nueva sección OWS Hub Apps en el menú lateral: un lugar para descubrir y descargar las aplicaciones oficiales del estudio, con la versión para Windows y la de Android de cada una. Debuta con WaverNote, tu biblioteca musical, ya disponible para las dos plataformas.',
+    'Centro de Actualizaciones completamente nuevo: un panel de estado con un anillo que muestra qué porcentaje de tu biblioteca ya está al día, y un botón "Actualizar todo" que aplica todo en segundo plano sin abrir ningún juego.',
+    'Cola en segundo plano: los juegos se actualizan uno a uno sin abrirlos y sin interrumpir lo que estás haciendo. Podés cambiar de sección, seguir jugando o navegando, y el progreso se ve en el panel de la cola y en un dock flotante que aparece al salir del Centro.',
+    'Fichas de juego en grilla: cada proyecto muestra su estado (novedad, al día, sin instalar, sin versión), su flujo de versiones (instalada → disponible), peso, fecha y canal, con acceso directo a jugar y a ver más.',
+    'Ficha lateral con detalle e historial: al tocar "Más" se abre un panel con la ficha completa, las versiones instalada y disponible, y el historial de releases con sus notas.',
+    'Ordená y filtrá como quieras: filtros por estado (Todas, Con novedades, Al día, Sin versión) y orden por Prioridad, Nombre, Más reciente o Peso. Tu elección se guarda.',
+    'Segundo plano opcional: si lo activás, el Hub aplica las actualizaciones pendientes solo al abrir (apagado por defecto, solo en la app de escritorio).',
+    'Las notificaciones del sistema ahora avisan una sola vez al empezar la cola y otra al terminarla, en vez de una por cada descarga.',
+    'Rediseño integral del Hub: nueva identidad visual de base fría con acentos cálidos, menú lateral reconstruido desde cero, barra de contexto con la sección activa, reloj y accesos directos, y una escala tipográfica más clara en toda la app.',
+    'Menú lateral con una línea más silenciosa: superficie plana, sin tarjetas ni brillos, iconos de línea sueltos, separadores finos y un único acento dorado para la sección activa. Queda más angosto y ordenado, con la misma navegación de siempre: buscador, grupos, contadores, bloque de descargas y perfil, y el mismo comportamiento al colapsar o al abrirse como cajón en pantallas chicas.',
+    'Inicio renovado: portada con constelación orbital, resumen de tu biblioteca en fichas y accesos rápidos rediseñados para entrar a cada sección en un toque.',
+    'Encabezados de sección con numeración editorial y línea de acento propia de cada área; tarjetas, chips, botones, campos y modales comparten ahora el mismo lenguaje visual.',
+    'Noticias en dos columnas cuando hay Noticias Rápidas: el feed principal y la columna corta se acomodan sin dejar espacios vacíos.',
+    'Diseño puesto a punto en Lanzamientos, Changelogs, Eventos, Descargas y Actualizaciones: superficies más limpias, estados vacíos consistentes y mejor jerarquía de la información.',
+    'Pantallas de entrada renovadas (intro, configuración inicial e inicio de sesión) para acompañar el nuevo estilo del Hub.',
+    'Diseño adaptable: en pantallas chicas el menú se abre como cajón lateral, la portada se apila y los accesos rápidos se reorganizan.',
+    'Los módulos Surface y Admin Panel conservan su funcionamiento y su diseño: el rework es del armazón y de las secciones del Hub.'
+  ],
   '3.4.32': [
     'Notificaciones — mejora completa: el Hub ahora te avisa lo que pasa en OWS sin que tengas que estar mirando la pantalla. Avisa cuando se publica un evento, cuando empieza y cuando termina, cuando aparece una noticia y cuando un juego pasa a «Lanzado» y queda público. Los avisos llegan al sistema y, con la ventana abierta, se muestran también como toast del Hub; se revisan cada pocos minutos y al volver a la ventana, y el primer arranque solo registra lo que ya existía, sin avisar.',
     'Descargas y actualizaciones: solo dos avisos, al empezar y al terminar. Se quitaron los avisos de 25 %, 50 % y 75 % que en Windows se apilaban cuando la descarga era rápida (sobre todo al actualizar OWS Hub), y se evita el «listo» duplicado al cerrar la actualización del Hub. Si la actualización del Hub falla, ahora también se avisa.',

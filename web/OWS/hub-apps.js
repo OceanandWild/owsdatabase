@@ -29,16 +29,16 @@
             detail: "Instalador NSIS · x64",
             file: "WaverNote_1.0.0_x64-setup.exe",
             url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.0/WaverNote_1.0.0_x64-setup.exe",
-            size: "Por confirmar",
-            size_bytes: 0
+            size: "2,14 MB",
+            size_bytes: 2244861
           },
           android: {
             label: "Android 7.0+",
             detail: "APK universal firmado",
             file: "WaverNote_1.0.0_universal.apk",
             url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.0/WaverNote_1.0.0_universal.apk",
-            size: "Por confirmar",
-            size_bytes: 0
+            size: "35,38 MB",
+            size_bytes: 37102207
           }
         }
       }

@@ -1,0 +1,23 @@
+[package]
+name = "wavernote"
+version = "1.0.0"
+description = "WaverNote — biblioteca musical personal"
+authors = ["Ocean & Wild Studios"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "wavernote_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

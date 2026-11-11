@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#04121e"/>
+      <stop offset="0.55" stop-color="#08283a"/>
+      <stop offset="1" stop-color="#0d3b4d"/>
+    </linearGradient>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.5" stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#5eead4"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="32" y="32" width="960" height="960" rx="208" fill="url(#bg)"/>
+  <rect x="33.5" y="33.5" width="957" height="957" rx="206.5" fill="none" stroke="#1f4b5e" stroke-width="3"/>
+
+  <!-- Onda sonora -->
+  <g filter="url(#glow)" fill="none" stroke="url(#wave)" stroke-linecap="round">
+    <path d="M172 512c64-150 128-224 192-224s128 74 192 224 128 224 192 224" stroke-width="44" opacity="0.95"/>
+    <path d="M212 512c52-104 104-156 156-156s104 52 156 156 104 156 156 156" stroke-width="24" opacity="0.55"/>
+  </g>
+
+  <!-- Nota musical -->
+  <g fill="#f0fdfa">
+    <ellipse cx="628" cy="640" rx="92" ry="70" transform="rotate(-16 628 640)"/>
+    <rect x="700" y="292" width="34" height="352" rx="17"/>
+    <path d="M700 292c92 24 156 74 156 142 0 42-24 74-52 92 12-30 14-64-8-96-20-30-56-48-96-58Z"/>
+  </g>
+  <circle cx="628" cy="640" r="24" fill="#0b3444" opacity="0.55"/>
+
+  <!-- Puntitos de estrellas -->
+  <g fill="#a7f3f0">
+    <circle cx="262" cy="250" r="8" opacity="0.8"/>
+    <circle cx="790" cy="206" r="6" opacity="0.55"/>
+    <circle cx="852" cy="744" r="7" opacity="0.6"/>
+    <circle cx="212" cy="780" r="5" opacity="0.45"/>
+  </g>
+</svg>

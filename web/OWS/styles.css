@@ -2452,6 +2452,71 @@ body.releases-focus #releases-grid .release-dock-item:not(.is-open) {
 /* El tráiler del póster no se estira a todo el ancho: quedaría altísimo. */
 .rel-hero-body .rel-trailer { width: 100%; max-width: 300px; margin: 12px auto 0; }
 
+/* ── Contraer el póster destacado ──
+   El botón flota arriba a la derecha del póster. Al contraerlo, la zona derecha
+   pasa a un riel angosto (icono + nombre en vertical) y el contenido recupera
+   ese ancho. Solo aplica en el layout de dos zonas: debajo de 1180px el póster
+   se apila al final y se muestra entero, sin botón. */
+.rel-hero-toggle {
+  position: absolute; top: 14px; right: 14px; z-index: 6;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  font-family: inherit; font-size: 0.64rem; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: #f6e3bd; background: rgba(10, 8, 16, 0.68);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.rel-hero-toggle:hover,
+.rel-hero-toggle:focus-visible {
+  color: var(--gold-light); background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(251, 191, 36, 0.8); outline: none;
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.28);
+}
+.rel-hero-toggle svg {
+  width: 12px; height: 12px;
+  transition: transform 0.28s cubic-bezier(0.22, 0.8, 0.32, 1);
+}
+.rel-hero.is-collapsed .rel-hero-toggle svg { transform: rotate(180deg); }
+
+@media (min-width: 1181px) {
+  .rel-body { transition: grid-template-columns 0.34s cubic-bezier(0.22, 0.8, 0.32, 1); }
+  .rel-body.is-hero-collapsed { grid-template-columns: minmax(0, 1fr) 76px; }
+  .rel-body.is-hero-collapsed .rel-hero { border-radius: 20px; }
+  .rel-body.is-hero-collapsed .rel-hero-inner {
+    padding: 62px 10px 18px; gap: 12px; overflow: hidden;
+  }
+  .rel-body.is-hero-collapsed .rel-hero-media { width: 46px; height: 46px; }
+  .rel-body.is-hero-collapsed .rel-hero-icon { border-radius: 13px; }
+  .rel-body.is-hero-collapsed .rel-hero-rule,
+  .rel-body.is-hero-collapsed .rel-hero-chips,
+  .rel-body.is-hero-collapsed .rel-hero-body { display: none; }
+  .rel-body.is-hero-collapsed .rel-hero-titles { margin-top: 0; }
+  .rel-body.is-hero-collapsed .rel-hero-name {
+    writing-mode: vertical-rl; text-orientation: mixed;
+    font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase;
+    line-height: 1.15; color: #f3e6cc;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+    max-height: 300px; overflow: hidden;
+  }
+  .rel-body.is-hero-collapsed .rel-hero-toggle {
+    left: 50%; right: auto; transform: translateX(-50%);
+    width: 34px; height: 34px; padding: 0; justify-content: center;
+  }
+  .rel-body.is-hero-collapsed .rel-hero-toggle-txt {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+}
+@media (max-width: 1180px) {
+  .rel-hero-toggle { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rel-body, .rel-hero-toggle, .rel-hero-toggle svg { transition: none !important; }
+}
+
 /* ── Tráiler destacado ──
    Thumbnail + botón de play: el iframe solo se monta al hacer click (ver
    bindTrailerPlayers en app.js). El bloque desaparece solo en su fecha de corte. */
@@ -2673,6 +2738,9 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 .ev-cat-announcement { background: rgba(249, 115, 22, 0.2);  color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.4); }
 .ev-cat-maintenance  { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.4); }
 .ev-badge-live, .ev-badge-ended, .ev-badge-soon { bottom: 10px; right: 10px; }
+/* Los badges de "fecha por confirmar" y "desaparece" también van abajo a la
+   derecha: sin posición caían arriba a la izquierda, encima del de categoría. */
+.ev-badge-expected, .ev-badge-expiry { bottom: 10px; right: 10px; }
 .ev-badge-live {
   background: rgba(16, 185, 129, 0.24); color: #6ee7b7;
   border: 1px solid rgba(16, 185, 129, 0.5);
@@ -2748,6 +2816,82 @@ img[data-blurup].is-loaded { opacity: 1; filter: none; transform: none; }
 /* Modal de noticia: la imagen no tiene chips propios, va centrada y visible */
 .nm-media .img-watermark { font-size: 0.68rem; padding: 5px 14px; }
 .nm-banner .img-watermark { font-size: 0.68rem; padding: 5px 14px; }
+
+/* ── Marca de agua del proyecto en la tarjeta del evento ──────────
+   La marca de agua ya no se superpone sobre la portada: vive en una
+   columna propia al costado derecho de la tarjeta. El HR va justo
+   antes, como divisor vertical entre el contenido del evento y el sello.
+   El sello de texto trae su propio diseño (gota + nombre) y, si el
+   proyecto tiene una imagen propia, el sello la muestra en lugar del
+   texto. */
+.event-wm {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 0;
+  user-select: none; pointer-events: none;
+}
+.event-wm-hr {
+  width: 1px; align-self: stretch;
+  margin: 0 14px; padding: 0; border: 0;
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(240, 166, 60, 0.55) 24%,
+    rgba(240, 166, 60, 0.55) 76%,
+    rgba(255, 255, 255, 0.02) 100%);
+  box-shadow: 0 0 10px rgba(240, 166, 60, 0.25);
+}
+.event-wm-panel {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  align-self: center;
+  gap: 7px; min-width: 0; max-width: 138px; padding: 12px 12px 11px;
+  text-align: center;
+  border: 1px solid rgba(240, 166, 60, 0.28);
+  border-radius: var(--radius-sm, 11px);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(240, 166, 60, 0.14), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.014));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 26px -18px rgba(0, 0, 0, 0.9);
+}
+.event-wm-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 26%, rgba(240, 166, 60, 0.32), rgba(240, 166, 60, 0.06));
+  border: 1px solid rgba(240, 166, 60, 0.45);
+  box-shadow: 0 0 18px rgba(240, 166, 60, 0.22), inset 0 0 12px rgba(240, 166, 60, 0.16);
+  opacity: var(--event-wm-o, 1);
+}
+.event-wm-drop { width: 16px; height: 16px; display: block; }
+.event-wm-drop-body { fill: #ffd080; }
+.event-wm-drop-shine {
+  fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.event-wm-text {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  line-height: 1.3; color: var(--gold-light, #ffd080);
+  overflow-wrap: anywhere;
+  /* Los nombres muy largos no estiran la tarjeta: se cortan en 3 líneas. */
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  opacity: var(--event-wm-o, 1);
+}
+.event-wm-rule {
+  width: 26px; height: 1px; flex: 0 0 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-border, rgba(240, 166, 60, 0.26)), transparent);
+}
+/* Variante con imagen propia del proyecto: el sello muestra el artwork */
+.event-wm-frame {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 64px; height: 64px; flex: 0 0 64px; padding: 5px;
+  border-radius: 13px;
+  border: 1px solid var(--gold-border, rgba(240, 166, 60, 0.26));
+  background: rgba(4, 6, 14, 0.55);
+  box-shadow: 0 0 22px rgba(240, 166, 60, 0.16), inset 0 0 14px rgba(240, 166, 60, 0.08);
+  opacity: var(--event-wm-o, 1);
+}
+.event-wm-img {
+  max-width: 100%; max-height: 100%; width: auto; height: auto;
+  object-fit: contain; border-radius: 7px;
+}
 
 /* ── Modals ────────────────────────────────── */
 .modal-overlay {

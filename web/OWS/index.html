@@ -4,7 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Hub — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="styles.css?v=15" />
+  <link rel="stylesheet" href="styles.css?v=21" />
+  <link rel="stylesheet" href="theme-3.5.css?v=1" />
+  <link rel="stylesheet" href="theme-3.5-sections.css?v=1" />
+  <link rel="stylesheet" href="theme-3.5-responsive.css?v=1" />
+  <link rel="stylesheet" href="theme-3.5-layout.css?v=2" />
+  <link rel="stylesheet" href="theme-3.5-sidebar.css?v=1" />
+  <link rel="stylesheet" href="hub-apps.css?v=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -223,6 +229,7 @@
           <div class="nav-logo-mark" aria-hidden="true"><span>OWS</span></div>
           <div class="nav-titles">
             <span class="nav-ecosystem">OWS Hub</span>
+            <span class="nav-brand-sub"><i class="pulse-dot green"></i> Ocean &amp; Wild</span>
           </div>
           <button id="btn-collapse" class="nav-collapse" type="button" aria-label="Contraer / expandir menú" title="Contraer menú">‹</button>
         </div>
@@ -250,6 +257,11 @@
 
         <p class="nav-group-label">Explorar</p>
         <nav class="nav-links" aria-label="Explorar">
+          <a href="#/apps" class="nav-link" data-view="sec-apps" data-keys="apps tienda aplicaciones ows hub apps wavernote descargar instalar">
+            <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16l-1.2 11.2a2 2 0 0 1-2 1.8H7.2a2 2 0 0 1-2-1.8Z"/><path d="M9 7V5.5A2.5 2.5 0 0 1 11.5 3h1A2.5 2.5 0 0 1 15 5.5V7"/></svg></span>
+            <span class="nav-txt">OWS Hub Apps</span>
+            <span class="nav-tag-new" id="nav-apps-new">Nuevo</span>
+          </a>
           <a href="#/noticias" class="nav-link" data-view="sec-noticias" data-keys="noticias novedades prensa">
             <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h13v12H4z"/><path d="M17 8h3v11H6"/><path d="M7 10h8M7 13h6"/></svg></span>
             <span class="nav-txt">Noticias</span>
@@ -262,7 +274,7 @@
           <a href="#/changelogs" class="nav-link" data-view="sec-changelogs" data-keys="changelogs notas versiones parches cambios novedades proyectos">
             <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 17h4"/></svg></span>
             <span class="nav-txt">Changelogs</span>
-            <span class="nav-tag-new hidden" id="nav-cl-new">✨ Nuevo</span>
+            <span class="nav-tag-new hidden" id="nav-cl-new">Nuevo</span>
           </a>
           <a href="#/eventos" class="nav-link" data-view="sec-eventos" data-keys="eventos calendario fechas torneos">
             <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
@@ -357,6 +369,24 @@
     </div>
 
     <div class="main-col" id="top">
+    <!-- Barra de contexto del Hub: sección activa + estado + accesos -->
+    <header class="hub-topbar">
+      <div class="hub-crumb">
+        <span class="hub-crumb-root">OWS Hub</span>
+        <span class="hub-crumb-sep" aria-hidden="true">/</span>
+        <strong id="hub-view-title">Inicio</strong>
+      </div>
+      <div class="hub-topbar-actions">
+        <span class="hub-online"><i class="pulse-dot green" aria-hidden="true"></i> En línea</span>
+        <span class="hub-clock" id="hub-clock">--:--</span>
+        <button type="button" class="hub-quick" data-goto-view="sec-descargas" aria-label="Ir a Descargas" title="Descargas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg>
+        </button>
+        <button type="button" class="hub-quick" data-goto-view="sec-actualizaciones" aria-label="Ir a Actualizaciones" title="Actualizaciones">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>
+        </button>
+      </div>
+    </header>
     <!-- Banner público de lanzamientos (lo arma app.js) -->
     <div id="hub-release-banner" class="hub-banner-slot hidden" role="status" aria-live="polite"></div>
     <div class="page-container">
@@ -364,17 +394,42 @@
       <!-- Vista: Inicio -->
       <div id="view-inicio" class="ows-view is-active" aria-label="Inicio">
         <div class="hero">
-          <p class="hero-kicker">Panel principal</p>
-          <h2 class="hero-title">Bienvenido a OWS Hub, <span id="welcome-name" class="highlight-name">Jugador</span></h2>
-          <p class="hero-sub">Elige una sección del menú — cada una tiene su propio espacio</p>
-          <div class="hero-stats">
-            <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-modulos">🧩 <b id="stat-modules">1</b>&nbsp;módulos</button>
-            <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-noticias">📰 <b id="stat-news">0</b>&nbsp;noticias</button>
-            <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-eventos">🗓️ <b id="stat-events">0</b>&nbsp;eventos</button>
-            <button class="hero-chip hero-chip-dl hero-chip-btn" type="button" data-goto-view="sec-descargas">⬇ <b id="stat-downloads">0</b>&nbsp;descargas</button>
+          <div class="hero-copy">
+            <p class="hero-kicker">Panel principal</p>
+            <h2 class="hero-title">Bienvenido a OWS&nbsp;Hub, <span id="welcome-name" class="highlight-name">Jugador</span></h2>
+            <p class="hero-sub">Tu centro de control: juegos, noticias, eventos y Surface en un solo lugar.</p>
+            <div class="hero-stats">
+              <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-modulos">
+                <span class="hero-chip-ico" aria-hidden="true">🧩</span>
+                <span class="hero-chip-txt"><b id="stat-modules">1</b><i>módulos</i></span>
+              </button>
+              <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-noticias">
+                <span class="hero-chip-ico" aria-hidden="true">📰</span>
+                <span class="hero-chip-txt"><b id="stat-news">0</b><i>noticias</i></span>
+              </button>
+              <button class="hero-chip hero-chip-btn" type="button" data-goto-view="sec-eventos">
+                <span class="hero-chip-ico" aria-hidden="true">🗓️</span>
+                <span class="hero-chip-txt"><b id="stat-events">0</b><i>eventos</i></span>
+              </button>
+              <button class="hero-chip hero-chip-dl hero-chip-btn" type="button" data-goto-view="sec-descargas">
+                <span class="hero-chip-ico" aria-hidden="true">⬇</span>
+                <span class="hero-chip-txt"><b id="stat-downloads">0</b><i>descargas</i></span>
+              </button>
+            </div>
+          </div>
+          <div class="hero-orbit" aria-hidden="true">
+            <div class="hero-orbit-glow"></div>
+            <span class="hero-orbit-ring ring-a"></span>
+            <span class="hero-orbit-ring ring-b"></span>
+            <span class="hero-orbit-ring ring-c"></span>
+            <span class="hero-orbit-core">OWS</span>
+            <span class="hero-orbit-chip chip-a">Juegos</span>
+            <span class="hero-orbit-chip chip-b">Eventos</span>
+            <span class="hero-orbit-chip chip-c">Surface</span>
           </div>
         </div>
 
+        <div class="home-section-label"><span>Accesos rápidos</span><i aria-hidden="true"></i></div>
         <div class="quick-grid">
           <button class="quick-card glass-card" type="button" data-goto-view="sec-modulos">
             <span class="quick-ico">🧩</span>
@@ -442,17 +497,49 @@
         </div>
       </section>
 
-      <!-- 02 · Noticias -->
+      <!-- 02 · OWS Hub Apps -->
+      <section id="sec-apps" class="page-section ows-view" aria-label="OWS Hub Apps">
+        <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ OWS Hub Apps</span></div>
+        <div class="section-head">
+          <span class="section-index">02</span>
+          <div class="section-titles">
+            <h3 class="section-title">OWS Hub Apps</h3>
+            <p class="section-sub">Apps oficiales del ecosistema, listas para tu PC y tu teléfono</p>
+          </div>
+          <div class="section-actions">
+            <span class="section-meta" id="hub-apps-count">—</span>
+          </div>
+        </div>
+
+        <div class="hub-apps-intro glass-card">
+          <span class="hub-apps-intro-ico" aria-hidden="true">🛍️</span>
+          <div class="hub-apps-intro-copy">
+            <p class="hub-apps-intro-title">La tienda del ecosistema OWS</p>
+            <p class="hub-apps-intro-sub">Acá viven las apps de Ocean &amp; Wild Studios: bajá el instalador de Windows o el APK de Android, siempre firmado y desde la release oficial.</p>
+          </div>
+          <span class="hub-apps-intro-chip">Verificado</span>
+        </div>
+
+        <div id="hub-apps-grid" class="hub-apps-grid">
+          <div class="hub-apps-empty">Cargando apps…</div>
+        </div>
+        <div id="hub-apps-empty" class="hub-apps-empty hidden">
+          Todavía no hay apps publicadas en OWS Hub Apps.
+        </div>
+      </section>
+
+      <!-- 03 · Noticias -->
       <section id="sec-noticias" class="page-section ows-view" aria-label="Últimas Noticias">
         <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Noticias</span></div>
         <div class="section-head news-section-head">
-          <span class="section-index">02</span>
+          <span class="section-index">03</span>
           <div class="section-titles">
             <h3 class="section-title">Últimas Noticias</h3>
             <p class="section-sub">Un vistazo compacto: tocá una noticia para leerla completa</p>
           </div>
           <span class="section-meta news-live-pill" id="news-count">Sin noticias</span>
         </div>
+        <div class="news-layout">
         <div class="news-panel glass-card">
           <div id="news-table-body" class="news-feed"></div>
           <div id="news-empty" class="news-empty">
@@ -482,9 +569,10 @@
             <p class="qnews-empty-sub">Cuando haya algo corto para contar, aparece acá.</p>
           </div>
         </div>
+        </div>
       </section>
 
-      <!-- 03 · Lanzamientos -->
+      <!-- 04 · Lanzamientos -->
       <section id="sec-lanzamientos" class="page-section ows-view" aria-label="Lanzamientos">
         <!-- Dos zonas: a la izquierda todo el contenido de la sección; a la
              derecha el póster vertical del proyecto destacado, que ocupa la
@@ -493,7 +581,7 @@
           <div class="rel-main">
             <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Lanzamientos</span></div>
             <div class="section-head">
-              <span class="section-index">03</span>
+              <span class="section-index">04</span>
               <div class="section-titles">
                 <h3 class="section-title">Lanzamientos</h3>
                 <p class="section-sub">Nuestros juegos: estado, versión y acceso rápido a la descarga.</p>
@@ -531,11 +619,11 @@
         </div>
       </section>
 
-      <!-- 04 · Changelogs de Proyectos -->
+      <!-- 05 · Changelogs de Proyectos -->
       <section id="sec-changelogs" class="page-section ows-view" aria-label="Changelogs de Proyectos">
         <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Changelogs</span></div>
         <div class="section-head">
-          <span class="section-index">04</span>
+          <span class="section-index">05</span>
           <div class="section-titles">
             <h3 class="section-title">Changelogs de Proyectos <span class="cl-new hidden" id="cl-new-tag" title="Sección recién estrenada">✨ Nuevo</span></h3>
             <p class="section-sub">Las notas de cada versión publicada del launcher y de nuestros juegos: desplegá una ficha y tocá una versión.</p>
@@ -549,14 +637,15 @@
           <span class="events-empty-icon">📜</span>
           <p class="events-empty-title">Todavía no hay changelogs</p>
           <p class="events-empty-sub">Cuando un proyecto lanzado publique las notas de su versión, van a aparecer acá.</p>
+          <button class="btn btn-ghost btn-sm" type="button" data-goto-view="sec-lanzamientos">Ver lanzamientos 🚀</button>
         </div>
       </section>
 
-      <!-- 05 · Eventos -->
+      <!-- 06 · Eventos -->
       <section id="sec-eventos" class="page-section ows-view" aria-label="Eventos">
         <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Eventos</span></div>
         <div class="section-head">
-          <span class="section-index">05</span>
+          <span class="section-index">06</span>
           <div class="section-titles">
             <h3 class="section-title">Eventos</h3>
             <p class="section-sub">Actualizaciones, lanzamientos y novedades con fecha</p>
@@ -580,14 +669,15 @@
           <span class="events-empty-icon">🗓️</span>
           <p class="events-empty-title">No hay eventos programados</p>
           <p class="events-empty-sub">Cuando haya actualizaciones, lanzamientos o eventos, aparecerán aquí.</p>
+          <button class="btn btn-ghost btn-sm" type="button" data-goto-view="sec-lanzamientos">Explorar lanzamientos 🚀</button>
         </div>
       </section>
 
-      <!-- 06 · Gestor de Descargas -->
+      <!-- 07 · Gestor de Descargas -->
       <section id="sec-descargas" class="page-section ows-view" aria-label="Gestor de Descargas">
         <div class="view-crumb"><button type="button" data-goto-view="view-inicio">‹ Inicio</button><span>/ Descargas</span></div>
         <div class="section-head">
-          <span class="section-index">06</span>
+          <span class="section-index">07</span>
           <div class="section-titles">
             <h3 class="section-title">Gestor de Descargas</h3>
             <p class="section-sub">Tus juegos descargándose y listos para jugar</p>
@@ -661,7 +751,7 @@
            ═══════════════════════════════════════════ -->
       <section id="sec-actualizaciones" class="page-section ows-view" aria-label="Gestor de Actualizaciones">
         <div class="section-head">
-          <span class="section-index">07</span>
+          <span class="section-index">08</span>
           <div class="section-titles">
             <h3 class="section-title">Gestor de Actualizaciones</h3>
             <p class="section-sub">OWS Hub y tus juegos, siempre en la última versión</p>
@@ -738,7 +828,15 @@
     </div>
 
     <footer class="dashboard-footer">
-      <span>OWS Hub © <span id="ows-year">2026</span> — Ocean &amp; Wild Studios</span>
+      <div class="footer-brand">
+        <span class="footer-mark" aria-hidden="true">OWS</span>
+        <span class="footer-brand-txt"><b>OWS Hub</b><small>Launcher oficial</small></span>
+      </div>
+      <div class="footer-meta">
+        <span>© <span id="ows-year">2026</span> Ocean &amp; Wild Studios</span>
+        <span class="footer-sep" aria-hidden="true">·</span>
+        <span>Todos los derechos reservados</span>
+      </div>
     </footer>
     </div>
     <!-- Spotlight Lanzamientos: dentro del wrap para compartir stacking context con el side-nav (z 60). Fuera del wrap tapaba hasta el menú y el item activo. -->
@@ -889,7 +987,8 @@
   <!-- Failover de API: si owsdatabase (principal) no responde, se usa solo el
        espejo owsdatabase2 (ver ows-api-failover.js). -->
   <script src="ows-api-failover.js?v=3"></script>
-  <script src="library.js?v=4"></script>
-  <script src="app.js?v=17"></script>
+  <script src="library.js?v=5"></script>
+  <script src="app.js?v=20"></script>
+<script src="hub-apps.js?v=1"></script>
 </body>
 </html>

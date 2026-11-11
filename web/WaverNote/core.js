@@ -1,6 +1,6 @@
 /* ============================================================
    WaverNote · núcleo
-   Utilidades, catálogo derivado, estado y navegación.
+   Utilidades, sesión Surface, API, estado y navegación.
    ============================================================ */
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -25,7 +25,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const escapeHTML = (value) =>
-  String(value).replace(/[&<>"']/g, (char) => {
+  String(value ?? "").replace(/[&<>"']/g, (char) => {
     const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
     return map[char];
   });
@@ -63,65 +63,35 @@ const todayLabel = () => {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 };
 
-/* ------------------------------------------------------------
-   Catálogo derivado
-   ------------------------------------------------------------ */
-
-const ALBUM_BY_ID = new Map(WN_ALBUMS.map((album) => [album.id, album]));
-const TRACK_BY_ID = new Map(WN_TRACKS.map((track) => [track.id, track]));
-const PLAYLIST_BY_ID = new Map(WN_PLAYLISTS.map((playlist) => [playlist.id, playlist]));
-
-const albumOf = (track) => ALBUM_BY_ID.get(track.albumId);
-
-const albumTracks = (albumId) => WN_TRACKS.filter((track) => track.albumId === albumId);
-
-const albumDuration = (albumId) =>
-  albumTracks(albumId).reduce((total, track) => total + track.duration, 0);
-
-const playlistTracks = (playlist) =>
-  playlist.tracks.map((id) => TRACK_BY_ID.get(id)).filter(Boolean);
-
-const playlistDuration = (playlist) =>
-  playlistTracks(playlist).reduce((total, track) => total + track.duration, 0);
-
-const searchCatalog = (rawQuery) => {
-  const query = normalize(rawQuery);
-  if (!query) return { tracks: [], albums: [], playlists: [], total: 0 };
-
-  const matches = (item, fields) => {
-    if (fields.some((field) => normalize(item[field]).includes(query))) return true;
-    return (item.tags || []).some((tag) => normalize(tag).includes(query));
-  };
-
-  const albums = WN_ALBUMS.filter((album) =>
-    matches(album, ["title", "artist", "genre", "description"])
-  );
-  const albumIds = new Set(albums.map((album) => album.id));
-
-  const tracks = WN_TRACKS.filter((track) => {
-    if (normalize(track.title).includes(query)) return true;
-    const album = albumOf(track);
-    return albumIds.has(album.id) || matches(album, ["title", "artist", "genre"]);
-  });
-
-  const playlists = WN_PLAYLISTS.filter((playlist) =>
-    matches(playlist, ["name", "description"])
-  );
-
-  return { tracks, albums, playlists, total: tracks.length + albums.length + playlists.length };
+const dateLabel = (value) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es", { day: "numeric", month: "short", year: "numeric" }).format(date);
 };
 
 /* ------------------------------------------------------------
-   Persistencia local
+   API + sesión Surface
    ------------------------------------------------------------ */
 
-const STORAGE = {
-  liked: "wavernote.liked.v1",
-  recent: "wavernote.recent.v1",
-  volume: "wavernote.volume.v1",
+const WAVERNOTE_DEFAULT_API = "https://owsdatabase.onrender.com";
+
+const resolveApiBase = () => {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const override = (params.get("api") || localStorage.getItem("wavernote_api_base") || "").trim();
+    if (override && /^https?:\/\//i.test(override)) return override.replace(/\/+$/, "");
+  } catch (err) {
+    /* noop */
+  }
+  return WAVERNOTE_DEFAULT_API;
 };
 
-const readStore = (key, fallback) => {
+const API_BASE = resolveApiBase();
+
+const TOKEN_KEY = "ocean_pay_token";
+const USER_KEY = "ocean_pay_user";
+
+const readJSON = (key, fallback) => {
   try {
     const raw = localStorage.getItem(key);
     return raw === null ? fallback : JSON.parse(raw);
@@ -130,34 +100,154 @@ const readStore = (key, fallback) => {
   }
 };
 
-const writeStore = (key, value) => {
+const writeJSON = (key, value) => {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
-    /* modo privado o almacenamiento lleno: la demo sigue funcionando */
+    /* modo privado o almacenamiento lleno */
   }
 };
 
-const hadLikedStore = (() => {
+const getToken = () => {
   try {
-    return localStorage.getItem(STORAGE.liked) !== null;
+    return localStorage.getItem(TOKEN_KEY) || "";
   } catch (err) {
-    return false;
+    return "";
   }
-})();
+};
 
-const savedVolume = readStore(STORAGE.volume, 0.72);
+const getStoredUser = () => readJSON(USER_KEY, null);
+
+const saveSession = (token, user) => {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+  } catch (err) {
+    /* noop */
+  }
+  const safeUser = { id: Number(user?.id) || 0, username: user?.username || "" };
+  writeJSON(USER_KEY, safeUser);
+  return safeUser;
+};
+
+const clearSession = () => {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  } catch (err) {
+    /* noop */
+  }
+};
+
+const apiErrorMessage = (status, text, fallback) => {
+  const raw = String(text || "").trim();
+  if (!raw) return fallback || `Error ${status}`;
+  if (/^<!doctype html|^<html[\s>]/i.test(raw)) {
+    if (status === 404) {
+      return "La API todavía no tiene esta función. Puede que el servidor esté desplegándose: probá de nuevo en unos minutos.";
+    }
+    if (status >= 500) {
+      return "El servidor está iniciando o no está disponible. Probá de nuevo en unos instantes.";
+    }
+    return `El servidor rechazó la solicitud (${status}).`;
+  }
+  const clean = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (!clean) return fallback || `Error ${status}`;
+  return clean.length > 280 ? `${clean.slice(0, 280)}…` : clean;
+};
+
+const api = async (path, options = {}) => {
+  const { method = "GET", body, auth = true, signal } = options;
+  const headers = {};
+
+  if (auth) {
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  let payload = body;
+  if (body !== undefined && body !== null) {
+    headers["Content-Type"] = "application/json";
+    payload = JSON.stringify(body);
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, { method, headers, body: payload, signal });
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (err) {
+    data = { error: apiErrorMessage(response.status, text, `Error ${response.status}`) };
+  }
+
+  if (!response.ok) {
+    const error = new Error((data?.error && apiErrorMessage(response.status, data.error, `Error ${response.status}`)) || `Error ${response.status}`);
+    error.status = response.status;
+    error.code = data?.code || "";
+    throw error;
+  }
+  return data;
+};
+
+const loginWithSurface = async (username, password) => {
+  const data = await api("/surface/login", {
+    method: "POST",
+    auth: false,
+    body: { username, password }
+  });
+  if (!data?.token) throw new Error("Surface no devolvió una sesión válida.");
+  return { token: data.token, user: data.user || { username } };
+};
+
+const registerInSurface = async (username, password) => {
+  const data = await api("/surface/register", {
+    method: "POST",
+    auth: false,
+    body: { username, password }
+  });
+  if (!data?.token) throw new Error("No se pudo crear la cuenta.");
+  return { token: data.token, user: data.user || { username } };
+};
+
+const validateSurfaceSession = async () => {
+  const data = await api("/surface/me");
+  return {
+    token: data?.token || getToken(),
+    user: { id: Number(data?.id) || 0, username: data?.username || "" }
+  };
+};
+
+/* ------------------------------------------------------------
+   Estado y catálogo derivado
+   ------------------------------------------------------------ */
+
+const STORAGE = {
+  volume: "wavernote.volume.v2",
+  recentPrefix: "wavernote.recent.v2.",
+  playsPrefix: "wavernote.plays.v2."
+};
+
+const savedVolume = readJSON(STORAGE.volume, 0.72);
 
 const state = {
+  ready: false,
+  user: null,
+  tracks: [],
+  playlists: [],
+  trackById: new Map(),
+  playlistById: new Map(),
+  liked: new Set(),
+  recent: [],
+  plays: {},
+  recommendations: null,
   route: { view: "home" },
   history: [{ view: "home" }],
   historyIndex: 0,
   search: "",
   libraryTab: "songs",
-  queue: WN_HOME_SESSION.slice(),
-  queueIndex: Math.max(0, WN_HOME_SESSION.indexOf(WN_FEATURED_TRACK)),
-  currentTrackId: WN_FEATURED_TRACK,
-  duration: TRACK_BY_ID.get(WN_FEATURED_TRACK).duration,
+  queue: [],
+  queueIndex: -1,
+  currentTrackId: null,
+  duration: 0,
   currentTime: 0,
   isPlaying: false,
   seeking: false,
@@ -166,97 +256,339 @@ const state = {
   repeat: "off",
   volume: Number.isFinite(Number(savedVolume)) ? clamp(Number(savedVolume), 0, 1) : 0.72,
   muted: false,
-  liked: new Set(hadLikedStore ? readStore(STORAGE.liked, []) : WN_DEFAULT_LIKED),
-  recent: readStore(STORAGE.recent, []).filter((id) => TRACK_BY_ID.has(id)),
   baseQueue: null,
   baseIndex: 0,
   panelOpen: false,
-  warnedNoAudio: false,
+  uploading: false
 };
 
-const saveLiked = () => writeStore(STORAGE.liked, Array.from(state.liked));
-const saveVolume = () => writeStore(STORAGE.volume, state.volume);
-
-const rememberTrack = (id) => {
-  state.recent = [id, ...state.recent.filter((item) => item !== id)].slice(0, 12);
-  writeStore(STORAGE.recent, state.recent);
+const rebuildIndexes = () => {
+  state.trackById = new Map(state.tracks.map((track) => [Number(track.id), track]));
+  state.playlistById = new Map(state.playlists.map((playlist) => [Number(playlist.id), playlist]));
 };
 
-const isLiked = (id) => state.liked.has(id);
+const trackById = (id) => state.trackById.get(Number(id)) || null;
+const playlistById = (id) => state.playlistById.get(Number(id)) || null;
+const isLiked = (id) => state.liked.has(Number(id));
 
-/* ------------------------------------------------------------
-   Portadas generativas (CSS + SVG, sin imágenes externas)
-   ------------------------------------------------------------ */
-
-const coverArtwork = (art) => {
-  switch (art) {
-    case "rings":
-      return `<span class="cover-orb cover-orb--sun"></span>
-        <span class="cover-ring cover-ring--1"></span>
-        <span class="cover-ring cover-ring--2"></span>
-        <span class="cover-ring cover-ring--3"></span>
-        <span class="cover-horizon"></span>`;
-    case "orb":
-      return `<span class="cover-orb"></span>
-        <span class="cover-glow"></span>
-        <span class="cover-horizon"></span>`;
-    case "dunes":
-      return `<svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0 88 C 22 62 44 92 66 74 S 98 58 120 76 V120 H0Z" fill="var(--c2)" opacity=".72"/>
-        <path d="M0 98 C 26 78 52 104 78 88 S 106 74 120 88 V120 H0Z" fill="var(--c1)" opacity=".8"/>
-        <path d="M0 74 C 22 52 44 78 66 62 S 98 48 120 64" fill="none" stroke="var(--c3)" stroke-width=".8" opacity=".45"/>
-        <path d="M0 84 C 26 66 48 92 72 76 S 104 62 120 74" fill="none" stroke="var(--c3)" stroke-width=".4" opacity=".25"/>
-      </svg>`;
-    case "grid":
-      return `<span class="cover-orb cover-orb--sun"></span>
-        <svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
-          <g stroke="var(--c3)" stroke-width=".5" opacity=".32">
-            <path d="M0 86 H120 M0 94 H120 M0 104 H120 M0 116 H120"/>
-            <path d="M10 120 L28 80 M34 120 L44 80 M58 120 L60 80 M84 120 L76 80 M110 120 L92 80"/>
-          </g>
-          <path d="M12 78 H108" stroke="var(--c3)" stroke-width="1" opacity=".55"/>
-        </svg>`;
-    case "bloom":
-      return `<span class="cover-orb cover-orb--soft"></span>
-        <span class="cover-bloom"></span>
-        <span class="cover-horizon"></span>`;
-    default:
-      return `<span class="cover-orb cover-orb--soft"></span>
-        <svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M0 72 C 18 58 32 84 48 72 S 82 54 120 68 V120 H0Z" fill="var(--c1)" opacity=".72"/>
-          <path d="M0 84 C 22 70 36 94 58 82 S 90 66 120 80 V120 H0Z" fill="var(--c2)" opacity=".8"/>
-          <path d="M0 96 C 24 84 40 104 64 94 S 96 82 120 92 V120 H0Z" fill="#03060c" opacity=".6"/>
-          <path d="M0 72 C 18 58 32 84 48 72 S 82 54 120 68" fill="none" stroke="var(--c3)" stroke-width=".7" opacity=".5"/>
-        </svg>`;
+const albumNameOf = (track) => (track?.album || "").trim() || "Sin álbum";
+const albumIdOf = (name) => encodeURIComponent(name || "Sin álbum");
+const albumNameFromId = (id) => {
+  try {
+    return decodeURIComponent(id || "");
+  } catch (err) {
+    return id || "";
   }
 };
 
+const albumNameOfId = (id) => albumNameOf({ album: albumNameFromId(id) });
+
+const albumTracks = (albumId) => {
+  const name = albumNameFromId(albumId);
+  return state.tracks
+    .filter((track) => albumNameOf(track) === name)
+    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0) || a.id - b.id);
+};
+
+const allAlbums = () => {
+  const groups = new Map();
+
+  state.tracks.forEach((track) => {
+    const name = albumNameOf(track);
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(track);
+  });
+
+  return Array.from(groups.entries())
+    .map(([name, tracks]) => {
+      const sorted = tracks
+        .slice()
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0) || b.id - a.id);
+      const artists = new Map();
+      tracks.forEach((track) => {
+        const artist = (track.artist || "").trim();
+        if (artist) artists.set(artist, (artists.get(artist) || 0) + 1);
+      });
+      const artist = Array.from(artists.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "Artista desconocido";
+
+      return {
+        id: albumIdOf(name),
+        title: name,
+        artist,
+        genre: tracks.find((track) => track.genre)?.genre || "",
+        coverUrl: tracks.find((track) => track.coverUrl)?.coverUrl || null,
+        tracks,
+        duration: tracks.reduce((total, track) => total + (Number(track.duration) || 0), 0),
+        year: new Date(sorted[0]?.createdAt || Date.now()).getFullYear(),
+        createdAt: sorted[0]?.createdAt || null
+      };
+    })
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+};
+
+const albumByTrack = (track) => {
+  if (!track) return null;
+  return (
+    allAlbums().find((album) => album.id === albumIdOf(albumNameOf(track))) || {
+      id: albumIdOf(albumNameOf(track)),
+      title: albumNameOf(track),
+      artist: track.artist || "Artista desconocido",
+      coverUrl: track.coverUrl || null,
+      tracks: [track],
+      duration: Number(track.duration) || 0
+    }
+  );
+};
+
+const playlistTracks = (playlist) =>
+  (playlist?.trackIds || []).map((id) => trackById(id)).filter(Boolean);
+
+const playlistDuration = (playlist) =>
+  playlistTracks(playlist).reduce((total, track) => total + (Number(track.duration) || 0), 0);
+
+const likedTracks = () => state.tracks.filter((track) => isLiked(track.id));
+
+const recentTracks = () => state.recent.map((id) => trackById(id)).filter(Boolean);
+
+const searchLibrary = (rawQuery) => {
+  const query = normalize(rawQuery);
+  if (!query) return { tracks: [], albums: [], playlists: [], total: 0 };
+
+  const matches = (values) => values.some((value) => normalize(value).includes(query));
+
+  const albums = allAlbums().filter((album) => matches([album.title, album.artist, album.genre]));
+  const albumIds = new Set(albums.map((album) => album.title));
+  const tracks = state.tracks.filter(
+    (track) =>
+      matches([track.title, track.artist, track.album, track.genre]) || albumIds.has(albumNameOf(track))
+  );
+  const playlists = state.playlists.filter((playlist) => matches([playlist.name, playlist.description]));
+
+  return { tracks, albums, playlists, total: tracks.length + albums.length + playlists.length };
+};
+
+const loadRecent = () => {
+  const userId = Number(state.user?.id) || 0;
+  if (!userId) {
+    state.recent = [];
+    return;
+  }
+  const saved = readJSON(`${STORAGE.recentPrefix}${userId}`, []);
+  state.recent = Array.isArray(saved) ? saved.map(Number).filter((id) => state.trackById.has(id)) : [];
+};
+
+const rememberTrack = (id) => {
+  const trackId = Number(id);
+  if (!state.trackById.has(trackId)) return;
+  state.recent = [trackId, ...state.recent.filter((item) => item !== trackId)].slice(0, 12);
+  const userId = Number(state.user?.id) || 0;
+  if (userId) writeJSON(`${STORAGE.recentPrefix}${userId}`, state.recent);
+};
+
+const playsStorageKey = () => {
+  const userId = Number(state.user?.id) || 0;
+  return userId ? `${STORAGE.playsPrefix}${userId}` : "";
+};
+
+const PLAY_EVENTS_LIMIT = 80;
+
+const cleanPlayEvent = (value) => {
+  const time = typeof value === "number" ? value : new Date(value).getTime();
+  return Number.isFinite(time) && time > 0 ? time : 0;
+};
+
+const loadPlays = () => {
+  const key = playsStorageKey();
+  const saved = key ? readJSON(key, {}) : {};
+  const clean = {};
+
+  if (saved && typeof saved === "object" && !Array.isArray(saved)) {
+    Object.entries(saved).forEach(([id, value]) => {
+      const trackId = Number(id);
+      const count = Math.max(0, Number(value?.count) || 0);
+      if (!state.trackById.has(trackId) || !count) return;
+      const events = Array.isArray(value?.events)
+        ? value.events.map(cleanPlayEvent).filter(Boolean).slice(-PLAY_EVENTS_LIMIT)
+        : [];
+      clean[String(trackId)] = {
+        count,
+        firstPlayedAt: value?.firstPlayedAt || null,
+        lastPlayedAt: value?.lastPlayedAt || null,
+        events
+      };
+    });
+  }
+
+  state.plays = clean;
+};
+
+const recordPlay = (id) => {
+  const trackId = Number(id);
+  if (!state.trackById.has(trackId)) return;
+
+  const now = Date.now();
+  const current = state.plays[String(trackId)] || null;
+  const events = Array.isArray(current?.events) ? current.events.slice(-(PLAY_EVENTS_LIMIT - 1)) : [];
+  events.push(now);
+
+  state.plays[String(trackId)] = {
+    count: (current?.count || 0) + 1,
+    firstPlayedAt: current?.firstPlayedAt || new Date(now).toISOString(),
+    lastPlayedAt: new Date(now).toISOString(),
+    events
+  };
+
+  const key = playsStorageKey();
+  if (key) writeJSON(key, state.plays);
+};
+
+const saveVolume = () => writeJSON(STORAGE.volume, state.volume);
+
+const refreshLibrary = async () => {
+  const data = await api("/wavernote/library");
+  state.tracks = Array.isArray(data?.tracks) ? data.tracks : [];
+  state.playlists = Array.isArray(data?.playlists) ? data.playlists : [];
+  state.liked = new Set((data?.likes || []).map(Number));
+  rebuildIndexes();
+  loadPlays();
+  loadRecent();
+  return data;
+};
+
+/* ------------------------------------------------------------
+   Portadas: imagen subida o degradado estable por título
+   ------------------------------------------------------------ */
+
+const COVER_PALETTES = [
+  ["#0f6b78", "#06121f", "#6be8d2"],
+  ["#1c3f8f", "#080f21", "#8fb7ff"],
+  ["#7a3d2e", "#160b0a", "#ffb08a"],
+  ["#2c6350", "#07130f", "#9af0c9"],
+  ["#5b3b7a", "#100a1a", "#d6b4ff"],
+  ["#2f5f7a", "#08131a", "#a4dcff"],
+  ["#7a5a24", "#171006", "#ffe1a1"],
+  ["#6b2f55", "#170812", "#ffa8d5"]
+];
+
+const hashString = (value) => {
+  let hash = 2166136261;
+  const text = String(value || "WaverNote");
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const paletteFor = (value) => COVER_PALETTES[hashString(value) % COVER_PALETTES.length];
+
 const coverHTML = (item, className = "") => {
-  const palette = item.palette || ["#0f6b78", "#06121f", "#6be8d2"];
-  return `<div class="cover ${className}" style="--c1:${palette[0]};--c2:${palette[1]};--c3:${palette[2]}" aria-hidden="true">
+  const title = item?.title || item?.name || "WaverNote";
+
+  if (item?.coverUrl) {
+    return `<img class="cover cover--photo ${className}" src="${escapeHTML(item.coverUrl)}" alt="" loading="lazy" />`;
+  }
+
+  const [c1, c2, c3] = paletteFor(title);
+  return `<div class="cover ${className}" style="--c1:${c1};--c2:${c2};--c3:${c3}" aria-hidden="true">
     <span class="cover__wash"></span>
-    ${coverArtwork(item.art || "ridge")}
+    <svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 78 C 20 60 34 88 52 74 S 86 56 120 70 V120 H0Z" fill="var(--c1)" opacity=".7"/>
+      <path d="M0 92 C 24 76 40 100 64 88 S 98 72 120 84 V120 H0Z" fill="var(--c2)" opacity=".85"/>
+      <path d="M0 74 C 20 56 34 84 52 70 S 86 52 120 66" fill="none" stroke="var(--c3)" stroke-width=".8" opacity=".5"/>
+      <path d="M0 88 C 24 72 40 96 64 84 S 98 68 120 80" fill="none" stroke="var(--c3)" stroke-width=".4" opacity=".28"/>
+    </svg>
     <span class="cover__grain"></span>
   </div>`;
 };
 
 /* ------------------------------------------------------------
+   Carga de archivos
+   ------------------------------------------------------------ */
+
+const readAudioDuration = (file) =>
+  new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+
+    const finish = (value) => {
+      URL.revokeObjectURL(url);
+      audio.removeAttribute("src");
+      resolve(Number.isFinite(value) ? value : 0);
+    };
+
+    audio.addEventListener("loadedmetadata", () => finish(audio.duration), { once: true });
+    audio.addEventListener("error", () => finish(0), { once: true });
+    window.setTimeout(() => finish(audio.duration || 0), 12000);
+    audio.src = url;
+  });
+
+const uploadTrackFile = ({ file, fields, cover, onProgress }) =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/wavernote/tracks`);
+
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    if (xhr.upload && typeof onProgress === "function") {
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total);
+      });
+    }
+
+    xhr.addEventListener("load", () => {
+      let data = null;
+      try {
+        data = JSON.parse(xhr.responseText || "null");
+      } catch (err) {
+        data = { error: apiErrorMessage(xhr.status, xhr.responseText, `No se pudo subir el archivo (${xhr.status}).`) };
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300 && data?.track) {
+        resolve(data.track);
+        return;
+      }
+
+      const error = new Error(data?.error || `No se pudo subir el archivo (${xhr.status}).`);
+      error.status = xhr.status;
+      reject(error);
+    });
+
+    xhr.addEventListener("error", () => reject(new Error("No se pudo conectar con el servidor.")));
+    xhr.addEventListener("abort", () => reject(new Error("Subida cancelada.")));
+
+    const form = new FormData();
+    form.append("audio", file, file.name);
+    Object.entries(fields || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        form.append(key, String(value));
+      }
+    });
+    if (cover) form.append("cover", cover, cover.name);
+
+    xhr.send(form);
+  });
+
+/* ------------------------------------------------------------
    Toasts
    ------------------------------------------------------------ */
 
-const toast = (message) => {
+const toast = (message, kind = "ok") => {
   const stack = $("#toasts");
   if (!stack) return;
   while (stack.children.length >= 3) stack.firstElementChild.remove();
+
   const node = document.createElement("div");
-  node.className = "toast";
-  node.innerHTML = `${icon("check")}<span>${escapeHTML(message)}</span>`;
+  node.className = `toast toast--${kind}`;
+  node.innerHTML = `${icon(kind === "error" ? "x" : "check")}<span>${escapeHTML(message)}</span>`;
   stack.appendChild(node);
   requestAnimationFrame(() => node.classList.add("is-in"));
-  setTimeout(() => {
+  window.setTimeout(() => {
     node.classList.remove("is-in");
-    setTimeout(() => node.remove(), 220);
-  }, 2600);
+    window.setTimeout(() => node.remove(), 220);
+  }, 3200);
 };
 
 /* ------------------------------------------------------------
@@ -265,20 +597,15 @@ const toast = (message) => {
 
 const resolveListContext = (context) => {
   if (!context) return null;
-  if (context === "home-session") return WN_HOME_SESSION.slice();
-  if (context === "liked") {
-    return WN_TRACKS.filter((track) => state.liked.has(track.id)).map((track) => track.id);
-  }
-  if (context === "recent") return state.recent.filter((id) => TRACK_BY_ID.has(id));
-  if (context === "search") {
-    return searchCatalog(state.search).tracks.map((track) => track.id);
-  }
-  if (context.startsWith("album:")) {
-    return albumTracks(context.slice(6)).map((track) => track.id);
-  }
+  if (context === "all") return state.tracks.map((track) => track.id);
+  if (context === "liked") return likedTracks().map((track) => track.id);
+  if (context === "recent") return recentTracks().map((track) => track.id);
+  if (context === "search") return searchLibrary(state.search).tracks.map((track) => track.id);
+  if (context.startsWith("rec:")) return recommendationTrackIds(context.slice(4));
+  if (context.startsWith("album:")) return albumTracks(context.slice(6)).map((track) => track.id);
   if (context.startsWith("playlist:")) {
-    const playlist = PLAYLIST_BY_ID.get(context.slice(9));
-    return playlist ? playlist.tracks.slice() : null;
+    const playlist = playlistById(context.slice(9));
+    return playlist ? playlist.trackIds.slice() : null;
   }
   return null;
 };
@@ -359,4 +686,15 @@ const updateHistoryButtons = () => {
   const forward = $("#forwardBtn");
   if (back) back.disabled = state.historyIndex <= 0;
   if (forward) forward.disabled = state.historyIndex >= state.history.length - 1;
+};
+
+const resetNavigation = () => {
+  state.route = { view: "home" };
+  state.history = [{ view: "home" }];
+  state.historyIndex = 0;
+  state.search = "";
+  state.libraryTab = "songs";
+  const input = $("#searchInput");
+  if (input) input.value = "";
+  updateSearchChrome();
 };

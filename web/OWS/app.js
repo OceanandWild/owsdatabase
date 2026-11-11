@@ -239,6 +239,7 @@ function bindStaticEvents() {
 
   // ── Menú lateral v2: colapsar / drawer / buscador / scrollspy ──
   initSideNav();
+  initHubChrome();
 
   // Tarjetas de módulos (click + Enter/Espacio)
   document.querySelectorAll('[data-module]').forEach((card) => {
@@ -548,6 +549,14 @@ function bindStaticEvents() {
     const fromDock = (target) => !!(target && target.closest && target.closest('#releases-grid'));
     relBody.addEventListener('click', (e) => {
       if (fromDock(e.target)) return;
+      // Contraer / expandir el póster destacado: no debe abrir el detalle.
+      const heroToggle = e.target.closest('[data-rel-hero-toggle]');
+      if (heroToggle) {
+        e.preventDefault();
+        e.stopPropagation();
+        setReleasesHeroCollapsed(!releasesHeroCollapsed);
+        return;
+      }
       // Un enlace real (itch.io) se abre solo: no debe disparar también el modal.
       if (e.target.closest('a[href]')) return;
       const filter = e.target.closest('[data-rel-filter]');
@@ -600,6 +609,10 @@ function bindStaticEvents() {
       t.style.display = 'none';
       const media = t.closest('.event-card-media');
       if (media) media.classList.add('ev-img-fallback');
+    } else if (t.classList.contains('event-wm-img')) {
+      // La imagen propia del sello no cargó: se cae el marco y queda el nombre.
+      const frame = t.closest('.event-wm-frame');
+      if (frame) frame.remove();
     } else if (t.classList.contains('release-banner')) {
       const media = t.closest('.release-media');
       if (media) media.classList.add('release-media-empty');
@@ -713,6 +726,19 @@ function initSideNav() {
   initOwsRouter();
 }
 
+// Barra de contexto del Hub: reloj vivo y saludo temporal (solo UI).
+function initHubChrome() {
+  const clock = document.getElementById('hub-clock');
+  if (!clock) return;
+  const tick = () => {
+    try {
+      clock.textContent = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    } catch (_) {}
+  };
+  tick();
+  setInterval(tick, 30000);
+}
+
 function syncCollapseBtn() {
   const nav = document.getElementById('side-nav');
   const btn = document.getElementById('btn-collapse');
@@ -784,10 +810,11 @@ function filterSideNav(q) {
 }
 
 // ── Router de vistas: una sección visible a la vez ──
-const OWS_VIEWS = ['view-inicio', 'sec-modulos', 'sec-noticias', 'sec-lanzamientos', 'sec-changelogs', 'sec-eventos', 'sec-descargas', 'sec-actualizaciones'];
+const OWS_VIEWS = ['view-inicio', 'sec-modulos', 'sec-apps', 'sec-noticias', 'sec-lanzamientos', 'sec-changelogs', 'sec-eventos', 'sec-descargas', 'sec-actualizaciones'];
 const OWS_VIEW_ROUTES = {
   'inicio': 'view-inicio',
   'modulos': 'sec-modulos',
+  'apps': 'sec-apps',
   'noticias': 'sec-noticias',
   'lanzamientos': 'sec-lanzamientos',
   'changelogs': 'sec-changelogs',
@@ -797,6 +824,7 @@ const OWS_VIEW_ROUTES = {
   // compat con hashes viejos (#sec-modulos, #top, ...)
   'view-inicio': 'view-inicio',
   'sec-modulos': 'sec-modulos',
+  'sec-apps': 'sec-apps',
   'sec-noticias': 'sec-noticias',
   'sec-lanzamientos': 'sec-lanzamientos',
   'sec-changelogs': 'sec-changelogs',
@@ -809,6 +837,7 @@ const OWS_VIEW_ROUTES = {
 const OWS_VIEW_TITLES = {
   'view-inicio': 'Inicio',
   'sec-modulos': 'Módulos',
+  'sec-apps': 'OWS Hub Apps',
   'sec-noticias': 'Noticias',
   'sec-lanzamientos': 'Lanzamientos',
   'sec-changelogs': 'Changelogs',
@@ -847,9 +876,16 @@ function showOwsSection(viewId, opts) {
   const link = document.querySelector('#side-nav .nav-link[data-view="' + target + '"]');
   setActiveNavLink(link || null);
 
-  // Título en topbar móvil
+  // Título en topbar móvil y en la barra de contexto del Hub
   const mt = document.getElementById('mobile-view-title');
   if (mt) mt.textContent = OWS_VIEW_TITLES[target] || 'Inicio';
+  const ht = document.getElementById('hub-view-title');
+  if (ht) ht.textContent = OWS_VIEW_TITLES[target] || 'Inicio';
+
+  // Acento visual por sección (solo presentación).
+  try {
+    document.body.dataset.owsView = String(target || '').replace(/^(view|sec)-/, '');
+  } catch (_) {}
 
   // Persiste + refleja en el hash (sin disparar scroll del navegador)
   try { localStorage.setItem(OWS_VIEW_KEY, target); } catch (_) {}
@@ -897,6 +933,26 @@ function showOwsSection(viewId, opts) {
   // Changelogs de Proyectos: mismo criterio (el servidor puede estar despertando).
   if (target === 'sec-changelogs' && !pclLoading && pclLoadState !== 'ready') {
     try { loadProjectChangelogs(); } catch (_) {}
+  }
+
+  // OWS Hub Apps: catálogo estático (hub-apps.json) con fallback embebido.
+  // Se recarga al entrar para que una app recién publicada aparezca sin reiniciar.
+  if (target === 'sec-apps') {
+    try {
+      // El tag "Nuevo" del menú se apaga la primera vez que se abre la tienda.
+      const newTag = document.getElementById('nav-apps-new');
+      if (newTag) newTag.classList.add('hidden');
+      localStorage.setItem('ows_apps_seen_v1', '1');
+      if (typeof window.loadHubApps === 'function') {
+        window.loadHubApps().then((apps) => {
+          const meta = document.getElementById('hub-apps-count');
+          if (meta) {
+            const n = Array.isArray(apps) ? apps.length : 0;
+            meta.textContent = n === 1 ? '1 app' : `${n} apps`;
+          }
+        }).catch(() => {});
+      }
+    } catch (_) {}
   }
 
   // El Gestor de Actualizaciones es la única vista que necesita saber qué hay
@@ -994,6 +1050,11 @@ document.addEventListener('DOMContentLoaded', function () {
   bindTrailerPlayers();
   initDownloadsManager();
   initOwsSettings();
+  // Tag "Nuevo" de OWS Hub Apps: si la tienda ya se visitó, no se repite.
+  try {
+    const appsNew = document.getElementById('nav-apps-new');
+    if (appsNew && localStorage.getItem('ows_apps_seen_v1') === '1') appsNew.classList.add('hidden');
+  } catch (_) {}
   initOwsHubPanel();
   bindSetupWizard();
   bindIntroButtons();
@@ -1613,8 +1674,9 @@ function eventShowsExpectedDate(ev) {
 
 // ── Marca de agua del proyecto (eventos y noticias) ────────────
 // El backend adjunta `project_watermark` cuando el proyecto la tiene
-// activada en el Admin. Se dibuja como chip sobre la portada del evento o
-// de la noticia; es solo decorativa (no captura el click de la tarjeta).
+// activada en el Admin. En las noticias y en el modal del evento se dibuja
+// como chip sobre la portada; en la tarjeta del evento vive en una barra
+// lateral a la derecha (ver `eventWatermarkRail`).
 const WATERMARK_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'];
 
 function watermarkPosition(value) {
@@ -1632,6 +1694,59 @@ function watermarkChip(item, opts) {
   opacity = Math.max(5, Math.min(100, Math.round(opacity)));
   const big = opts && opts.big ? ' wm-big' : '';
   return `<span class="img-watermark wm-${watermarkPosition(wm.position)}${big}" style="opacity:${(opacity / 100).toFixed(2)}" aria-hidden="true">${escapeHtml(text)}</span>`;
+}
+
+// Datos de la marca de agua de un item (evento o noticia), ya normalizados.
+function watermarkData(item) {
+  const wm = (item && (item.project_watermark || item.projectWatermark)) || null;
+  if (!wm || wm.enabled === false) return null;
+  const text = String(wm.text || '').trim();
+  const image = String(wm.image || wm.image_url || wm.imageUrl || '').trim();
+  if (!text && !image) return null;
+  let opacity = Number(wm.opacity);
+  if (!Number.isFinite(opacity)) opacity = 35;
+  opacity = Math.max(5, Math.min(100, Math.round(opacity)));
+  return { text, image, opacity };
+}
+
+// ── Marca de agua en la tarjeta del evento ─────────────────────
+// Ya no se superpone sobre la portada: vive en una columna propia al
+// derecho de la tarjeta. El HR va justo antes, como divisor vertical entre
+// el contenido del evento y el sello. El sello de texto tiene su diseño
+// (gota + nombre) y, si el proyecto sube una imagen propia, el sello
+// cambia: muestra esa imagen en vez del texto.
+// La gota va en SVG para que pegue con la paleta del Hub (un emoji se veía
+// fuera de lugar).
+const WATERMARK_DROP_SVG = `<svg class="event-wm-drop" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path class="event-wm-drop-body" d="M12 2.2c3.6 4.5 6.6 8.1 6.6 11.7A6.6 6.6 0 0 1 12 20.5a6.6 6.6 0 0 1-6.6-6.6C5.4 10.3 8.4 6.7 12 2.2Z"></path>
+      <path class="event-wm-drop-shine" d="M9.3 11.1c-.7 1.1-1.1 2-1.1 2.8a3.8 3.8 0 0 0 1.4 3"></path>
+    </svg>`;
+
+function eventWatermarkRail(ev) {
+  const wm = watermarkData(ev);
+  if (!wm) return '';
+  // La opacidad configurada es la intensidad del sello. En la barra lateral
+  // tiene un piso: el diseño siempre se lee (sobre la imagen sí se apagaba).
+  const strength = Math.max(0.55, wm.opacity / 100).toFixed(2);
+  if (wm.image) {
+    return `
+      <hr class="event-wm-hr" />
+      <div class="event-wm is-image" style="--event-wm-o:${strength}" aria-hidden="true">
+        <div class="event-wm-panel">
+          <span class="event-wm-frame"><img class="event-wm-img" src="${escapeHtml(wm.image)}" alt="" /></span>
+          ${wm.text ? `<span class="event-wm-text">${escapeHtml(wm.text)}</span>` : ''}
+        </div>
+      </div>`;
+  }
+  return `
+    <hr class="event-wm-hr" />
+    <div class="event-wm is-text" style="--event-wm-o:${strength}" aria-hidden="true">
+      <div class="event-wm-panel">
+        <span class="event-wm-badge">${WATERMARK_DROP_SVG}</span>
+        <span class="event-wm-text">${escapeHtml(wm.text)}</span>
+        <span class="event-wm-rule"></span>
+      </div>
+    </div>`;
 }
 
 // ── Chips de estado de la sección Eventos ──────────────────────
@@ -1983,14 +2098,16 @@ function renderEvents(eventsList) {
       : expected
         ? `<span class="event-card-date is-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada: ${dateRange} <span class="ev-date-note">(por confirmar)</span></span>`
         : `<span class="event-card-date">📅 ${dateRange}</span>`;
+    // La marca de agua del proyecto vive en una columna propia a la derecha
+    // de la tarjeta (no tapa la portada).
+    const wmRail = eventWatermarkRail(ev);
     return `
-      <article class="event-card glass-card ${phaseClass} ${hasImg ? '' : 'ev-noimg'}" data-ev-idx="${evIdx}" role="button" tabindex="0">
+      <article class="event-card glass-card ${phaseClass} ${hasImg ? '' : 'ev-noimg'} ${wmRail ? 'has-wm' : ''}" data-ev-idx="${evIdx}" role="button" tabindex="0">
         <div class="event-card-media">
           ${hasImg
             ? `<img src="${img}" alt="${escapeHtml(ev.title)}" class="event-card-img" loading="lazy" />`
             : `<div class="event-card-img-fallback"><span>${meta.icon}</span></div>`}
           <div class="event-card-gradient"></div>
-          ${hasImg ? watermarkChip(ev) : ''}
           <span class="ev-badge ev-badge-cat ${meta.cls}">${meta.icon} ${meta.label}</span>
           ${phaseBadge}
         </div>
@@ -2002,6 +2119,7 @@ function renderEvents(eventsList) {
           ${expiryNote}
           ${expiryMarker}
         </div>
+        ${wmRail}
       </article>
     `;
   }).join('');
@@ -3394,6 +3512,14 @@ function renderReleases(projects) {
 let releasesFilter = 'all';
 try { releasesFilter = localStorage.getItem('ows_releases_filter') || 'all'; } catch (_) {}
 
+// El póster destacado de la zona derecha se puede contraer a un riel angosto
+// para devolverle ancho al catálogo. La preferencia se recuerda entre sesiones.
+let releasesHeroCollapsed = false;
+try { releasesHeroCollapsed = localStorage.getItem('ows_rel_hero_collapsed') === '1'; } catch (_) {}
+// El script carga al final del body: la grilla ya existe y se evita el salto
+// de layout en la primera pintada.
+try { applyReleasesHeroCollapsed(); } catch (_) {}
+
 const RELEASE_FILTERS = [
   { key: 'all', label: 'Todos' },
   { key: 'launched', label: '¡Disponible ya!' },
@@ -3920,11 +4046,16 @@ function featuredReleaseHtml(p) {
   const icon = p.icon_url || p.iconUrl || '';
   const version = releaseEffectiveVersion(p);
   const itchUrl = p.itch_url || p.itchUrl || p.link_url || p.linkUrl || '';
+  const toggleLabel = releasesHeroCollapsed ? 'Expandir ficha destacada' : 'Contraer ficha destacada';
   return `
-  <article class="rel-hero${banner ? '' : ' rel-hero-fallback'}" data-slug="${escapeHtml(p.slug)}">
+  <article class="rel-hero${banner ? '' : ' rel-hero-fallback'}${releasesHeroCollapsed ? ' is-collapsed' : ''}" data-slug="${escapeHtml(p.slug)}">
     ${banner
       ? `<div class="rel-hero-banner" aria-hidden="true"><div class="rel-hero-banner-layer" data-parallax="1.6"><img src="${escapeHtml(banner)}" alt="" loading="lazy" data-blurup /></div></div>`
       : ''}
+    <button type="button" class="rel-hero-toggle" data-rel-hero-toggle aria-expanded="${releasesHeroCollapsed ? 'false' : 'true'}" aria-label="${toggleLabel}" title="${toggleLabel}">
+      <span class="rel-hero-toggle-txt">${releasesHeroCollapsed ? 'Expandir' : 'Contraer'}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </button>
     <div class="rel-hero-inner">
       <div class="rel-hero-media">
         ${icon
@@ -3952,6 +4083,30 @@ function featuredReleaseHtml(p) {
       </div>
     </div>
   </article>`;
+}
+
+// Refleja el estado plegado del póster en la grilla y en el botón. Se llama
+// al cambiar y después de cada render, porque la ficha se regenera entera.
+function applyReleasesHeroCollapsed() {
+  const body = document.getElementById('rel-body');
+  if (body) body.classList.toggle('is-hero-collapsed', releasesHeroCollapsed);
+  const card = document.querySelector('#rel-hero .rel-hero');
+  if (!card) return;
+  card.classList.toggle('is-collapsed', releasesHeroCollapsed);
+  const btn = card.querySelector('[data-rel-hero-toggle]');
+  if (!btn) return;
+  const label = releasesHeroCollapsed ? 'Expandir ficha destacada' : 'Contraer ficha destacada';
+  btn.setAttribute('aria-expanded', releasesHeroCollapsed ? 'false' : 'true');
+  btn.setAttribute('aria-label', label);
+  btn.setAttribute('title', label);
+  const txt = btn.querySelector('.rel-hero-toggle-txt');
+  if (txt) txt.textContent = releasesHeroCollapsed ? 'Expandir' : 'Contraer';
+}
+
+function setReleasesHeroCollapsed(next) {
+  releasesHeroCollapsed = !!next;
+  try { localStorage.setItem('ows_rel_hero_collapsed', releasesHeroCollapsed ? '1' : '0'); } catch (_) {}
+  applyReleasesHeroCollapsed();
 }
 
 function releaseCardItemHtml(p, index) {
@@ -3995,6 +4150,7 @@ function renderReleasesChrome(items) {
     if (featured) {
       sweepBlurUp(heroBox);
       bindHeroParallax(heroBox.querySelector('.rel-hero'));
+      applyReleasesHeroCollapsed();
     }
   }
 
@@ -5154,11 +5310,11 @@ function openApkInBrowser(url) {
 
 // Descarga el APK a la caché de la app (con % en el Gestor) y abre el
 // instalador del sistema. Toda la transferencia ocurre dentro de la app.
-async function startAndroidApkInstall(slug, displayName) {
+async function startAndroidApkInstall(slug, displayName, relOverride) {
   const s = String(slug || '').trim();
   const proj = getDownloadProject(s);
   const name = displayName || (proj && proj.name) || s;
-  const rel = androidReleaseCache[s] || await fetchAndroidRelease(s);
+  const rel = relOverride || androidReleaseCache[s] || await fetchAndroidRelease(s);
   if (!rel || !rel.apk_url) {
     showToast('Este proyecto todavía no tiene APK para Android');
     return null;

@@ -1,0 +1,360 @@
+/* ── OWS Hub Apps · tienda de aplicaciones oficiales ─────────────── */
+
+.hub-apps-intro {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 22px;
+  margin-bottom: 22px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(45, 212, 191, 0.16), transparent 55%),
+    radial-gradient(120% 160% at 100% 100%, rgba(245, 158, 11, 0.12), transparent 55%),
+    var(--bg-card);
+}
+
+.hub-apps-intro::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.06) 48%, transparent 62%);
+  transform: translateX(-120%);
+  animation: hubAppsSheen 9s ease-in-out infinite;
+}
+
+@keyframes hubAppsSheen {
+  0%, 62% { transform: translateX(-120%); }
+  82%, 100% { transform: translateX(120%); }
+}
+
+.hub-apps-intro-ico {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.22), rgba(245, 158, 11, 0.18));
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.hub-apps-intro-copy { flex: 1; min-width: 0; }
+
+.hub-apps-intro-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 3px;
+}
+
+.hub-apps-intro-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.hub-apps-intro-chip {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9df5e4;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  background: rgba(45, 212, 191, 0.1);
+  border-radius: 999px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+
+.hub-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+
+.hub-app-card {
+  --app-accent: #2dd4bf;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(140% 110% at 0% 0%, color-mix(in srgb, var(--app-accent) 16%, transparent), transparent 58%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015)),
+    var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hub-app-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--app-accent), transparent 70%);
+  opacity: 0.85;
+}
+
+.hub-app-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--app-accent) 45%, transparent);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55), 0 0 32px color-mix(in srgb, var(--app-accent) 18%, transparent);
+}
+
+.hub-app-top {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.hub-app-icon-wrap {
+  width: 74px;
+  height: 74px;
+  border-radius: 20px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: #04121e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+}
+
+.hub-app-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hub-app-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.hub-app-kicker {
+  display: inline-block;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-accent);
+  margin-bottom: 2px;
+}
+
+.hub-app-name {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.1;
+}
+
+.hub-app-tagline {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.hub-app-version {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.hub-app-desc {
+  margin: 0;
+  font-size: 0.87rem;
+  line-height: 1.55;
+  color: rgba(254, 243, 199, 0.78);
+}
+
+.hub-app-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.hub-app-features li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 0.79rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.hub-app-features li::before {
+  content: "✦";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--app-accent);
+  font-size: 0.7rem;
+}
+
+.hub-app-platforms {
+  display: grid;
+  gap: 9px;
+  margin-top: auto;
+}
+
+.hub-app-dl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.hub-app-dl:hover {
+  background: rgba(255, 255, 255, 0.085);
+  border-color: color-mix(in srgb, var(--app-accent) 55%, transparent);
+  transform: translateY(-1px);
+}
+
+.hub-app-dl:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 3px;
+}
+
+.hub-app-dl-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hub-app-dl-copy { flex: 1; min-width: 0; }
+
+.hub-app-dl-title {
+  display: block;
+  font-size: 0.83rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.hub-app-dl-sub {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.hub-app-dl-cta {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--app-accent);
+  white-space: nowrap;
+}
+
+.hub-app-dl.is-primary {
+  background: color-mix(in srgb, var(--app-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--app-accent) 45%, transparent);
+}
+
+.hub-app-dl.is-primary .hub-app-dl-ico {
+  background: color-mix(in srgb, var(--app-accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--app-accent) 35%, transparent);
+}
+
+.hub-app-dl.is-busy {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.hub-app-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #04121e;
+  background: var(--app-accent);
+  border-radius: 999px;
+  padding: 4px 9px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--app-accent) 35%, transparent);
+}
+
+.hub-app-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 2px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.hub-app-foot a {
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(160, 120, 64, 0.45);
+}
+
+.hub-app-foot a:hover { color: var(--text-main); }
+
+.hub-apps-empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+@media (max-width: 640px) {
+  .hub-apps-intro {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+  }
+  .hub-apps-intro-chip { display: none; }
+  .hub-apps-grid { grid-template-columns: 1fr; }
+  .hub-app-card { padding: 20px; }
+  .hub-app-icon-wrap { width: 64px; height: 64px; border-radius: 18px; }
+  .hub-app-name { font-size: 1.2rem; }
+  .hub-app-dl { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-apps-intro::after { animation: none; }
+  .hub-app-card, .hub-app-dl { transition: none; }
+}

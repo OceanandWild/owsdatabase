@@ -1,0 +1,125 @@
+/* ══════════════════════════════════════════════════════════════════════
+   OWS HUB 3.5 — RESPONSIVE
+   La capa de tema se carga después de styles.css, así que aquí se
+   restablecen los comportamientos móviles que el rediseño redefine.
+   ══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1240px) {
+  .quick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hero { grid-template-columns: minmax(0, 1.5fr) minmax(190px, 0.5fr); }
+  .hero-orbit { max-width: 250px; }
+}
+
+@media (max-width: 1080px) {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .hero-orbit { display: none; }
+  .hero-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* ── Drawer móvil + topbar compacta ──────────────────────────────── */
+@media (max-width: 900px) {
+  .dashboard-wrap {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+
+  .mobile-topbar {
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 58;
+    margin: 0; padding: 10px 14px;
+    background: rgba(5, 7, 14, 0.86);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .mobile-topbar .icon-btn, #btn-menu-mobile {
+    width: 38px; height: 38px; border-radius: 11px;
+  }
+  .mobile-brand { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; }
+  .mobile-logo {
+    font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em;
+    font-size: 0.9rem; color: #1c1003;
+    -webkit-text-fill-color: #1c1003;
+    background: var(--gold-grad);
+    background-clip: border-box;
+    -webkit-background-clip: border-box;
+    padding: 4px 8px; border-radius: 8px;
+    box-shadow: 0 6px 14px -8px rgba(240, 166, 60, 0.9);
+  }
+  .mobile-sub {
+    font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mobile-dl-wrap { min-width: 28px; display: flex; justify-content: flex-end; }
+
+  .hub-topbar { display: none; }
+  .hub-banner-slot { top: 59px; padding: 8px 14px 0; }
+
+  .side-nav {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: min(322px, 88vw); height: 100dvh;
+    margin: 0; border-radius: 0 26px 26px 0;
+    transform: translateX(-104%);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0.35, 1);
+    z-index: 70;
+  }
+  .side-nav.open { transform: translateX(0); box-shadow: 34px 0 90px rgba(0, 0, 0, 0.65); }
+  .side-nav.collapsed { width: min(322px, 88vw); }
+  .side-nav.collapsed .nav-collapse { display: none; }
+  .side-nav .nav-link { min-height: 44px; }
+  /* En el cajón móvil el aviso largo del panel se omite: el CTA de
+     descarga tiene que quedar a la vista sin tener que hacer scroll.
+     El detalle completo vive en el aviso del Gestor de Descargas. */
+  .nav-hub-note { display: none; }
+
+  .main-col { width: 100%; }
+  .page-container { padding: 12px 18px 34px; }
+  .dashboard-footer { padding: 20px 18px 24px; }
+
+  .auth-layout { grid-template-columns: 1fr; }
+  .auth-brand { border-right: none; border-bottom: 1px solid var(--line); padding: 34px 28px; }
+  .auth-forms { padding: 32px 28px; }
+
+  .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .news-layout { grid-template-columns: 1fr; }
+  .section-index { font-size: 2.1rem; }
+  .module-card { padding: 20px; }
+  .rel-rail { padding: 14px; border-radius: 20px; }
+}
+
+@media (max-width: 760px) {
+  .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero { padding: 24px 20px; border-radius: 24px; }
+  .hero-title { font-size: clamp(1.5rem, 6vw, 2rem); }
+  .hero-sub { font-size: 0.9rem; margin-bottom: 20px; }
+  .hub-online, .hub-clock { display: none; }
+  .news-row { grid-template-columns: auto minmax(0, 1fr); }
+  .news-row-cta { display: none; }
+  .events-grid { grid-template-columns: 1fr; }
+  .dl-card { padding: 14px; }
+  .section-head { gap: 12px; }
+  .section-index { font-size: 1.8rem; }
+}
+
+@media (max-width: 600px) {
+  .page-container { padding: 10px 14px 30px; }
+  .hero-stats { grid-template-columns: 1fr 1fr; }
+  .quick-grid { grid-template-columns: 1fr; }
+  .quick-card { flex-direction: row; align-items: center; gap: 12px; padding: 14px; }
+  .quick-txt { flex: 1; }
+  .quick-arrow { position: static; margin-left: auto; }
+  .section-title { font-size: 1.32rem; }
+  .section-sub { font-size: 0.8rem; }
+  .view-crumb { margin-bottom: 10px; }
+  .auth-brand, .auth-forms { padding: 28px 22px; }
+  .modal-card { border-radius: 20px; }
+  .news-row-thumb { width: 82px; height: 64px; }
+  .news-row-title { font-size: 0.94rem; }
+  .dashboard-footer { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orbit-ring, .quick-card, .news-row, .module-active { animation: none !important; transition: none !important; }
+}

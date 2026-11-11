@@ -1,6 +1,6 @@
 /* ============================================================
    WaverNote · reproductor
-   Cola, transporte, sincronización de interfaz y visualizador.
+   Cola, transporte real, sincronización de interfaz y visualizador.
    ============================================================ */
 
 const engine = new WaveEngine();
@@ -25,24 +25,35 @@ const els = {
   npTitle: $("#npTitle"),
   npArtist: $("#npArtist"),
   npAlbum: $("#npAlbum"),
+  npEmpty: $("#npEmpty"),
   npFacts: $("#npFacts"),
   npLike: $("#npLike"),
   npQueue: $("#npQueue"),
-  npQueueCount: $("#npQueueCount"),
+  npQueueCount: $("#npQueueCount")
 };
 
-const playableOf = (id) => {
-  const track = TRACK_BY_ID.get(id);
-  if (!track) return null;
-  const album = albumOf(track);
-  return {
-    id: track.id,
-    title: track.title,
-    duration: track.duration,
-    sonic: album.sonic,
-    artist: album.artist,
-    album: album.title,
-  };
+const currentTrack = () => trackById(state.currentTrackId);
+
+let pendingPlayId = null;
+
+const flushPendingPlay = () => {
+  if (!pendingPlayId) return;
+  const trackId = pendingPlayId;
+  pendingPlayId = null;
+  recordPlay(trackId);
+};
+
+engine.onEnded = () => handleTrackEnd();
+engine.onMetadata = (duration) => {
+  if (Number.isFinite(duration) && duration > 0) {
+    state.duration = duration;
+    updateProgressUI();
+    syncMediaSessionState();
+  }
+};
+engine.onError = () => {
+  if (!currentTrack()) return;
+  toast("No se pudo reproducir este archivo. Revisá que el formato siga disponible.", "error");
 };
 
 /* ------------------------------------------------------------
@@ -103,22 +114,25 @@ const updateVolumeUI = () => {
 };
 
 const updatePlayerLike = () => {
-  const liked = isLiked(state.currentTrackId);
+  const track = currentTrack();
+  const liked = track ? isLiked(track.id) : false;
+
   [els.playerLike, els.npLike].forEach((button) => {
     if (!button) return;
+    button.disabled = !track;
     button.classList.toggle("is-liked", liked);
     button.setAttribute("aria-pressed", String(liked));
     button.setAttribute("aria-label", liked ? "Quitar de me gusta" : "Agregar a me gusta");
   });
 };
 
-const updateFacts = (album, track) => {
+const updateFacts = (track) => {
   if (!els.npFacts) return;
   const facts = [
-    ["Tempo", `${album.sonic.bpm} BPM`],
-    ["Tonalidad", album.sonic.key],
-    ["Ambiente", album.sonic.mood],
-    ["Duración", formatTime(track.duration)],
+    ["Artista", track.artist || "Desconocido"],
+    ["Álbum", albumNameOf(track)],
+    ["Género", track.genre || "—"],
+    ["Duración", formatTime(track.duration)]
   ];
   els.npFacts.innerHTML = facts
     .map(([label, value]) => `<div class="fact"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong></div>`)
@@ -127,8 +141,8 @@ const updateFacts = (album, track) => {
 
 const updateHighlights = () => {
   $$("[data-track-row]").forEach((row) => {
-    const id = row.dataset.trackRow;
-    const current = id === state.currentTrackId;
+    const id = Number(row.dataset.trackRow);
+    const current = id === Number(state.currentTrackId);
     const playing = current && state.isPlaying;
     row.classList.toggle("is-current", current);
     row.classList.toggle("is-playing", playing);
@@ -159,16 +173,15 @@ const renderQueue = () => {
 
   els.npQueue.innerHTML = indexes
     .map((queueIndex) => {
-      const track = TRACK_BY_ID.get(state.queue[queueIndex]);
+      const track = trackById(state.queue[queueIndex]);
       if (!track) return "";
-      const album = albumOf(track);
       const current = queueIndex === state.queueIndex;
       return `<li class="queue-item ${current ? "is-current" : ""}">
         <button class="queue-item__button" data-action="play-queue" data-index="${queueIndex}" aria-label="Reproducir ${escapeHTML(track.title)}">
-          <span class="queue-item__art">${coverHTML(album)}</span>
+          <span class="queue-item__art">${coverHTML({ title: track.title, coverUrl: track.coverUrl })}</span>
           <span class="queue-item__info">
             <strong>${escapeHTML(track.title)}</strong>
-            <small>${escapeHTML(album.artist)}</small>
+            <small>${escapeHTML(track.artist || "Artista desconocido")}</small>
           </span>
           ${current
             ? `<span class="queue-item__now"><span class="eq eq--tiny ${state.isPlaying ? "is-running" : ""}" aria-hidden="true"><i></i><i></i><i></i></span>${state.isPlaying ? "Sonando" : "En pausa"}</span>`
@@ -185,26 +198,63 @@ const renderQueue = () => {
 };
 
 const updateNowPlaying = () => {
-  const track = TRACK_BY_ID.get(state.currentTrackId);
-  if (!track) return;
-  const album = albumOf(track);
+  const track = currentTrack();
 
-  if (els.playerCover) els.playerCover.innerHTML = coverHTML(album);
+  if (!track) {
+    if (els.playerCover) {
+      els.playerCover.innerHTML = `<span class="player__cover-empty">${icon("music")}</span>`;
+    }
+    if (els.playerTitle) {
+      els.playerTitle.textContent = "Sin reproducción";
+      els.playerTitle.removeAttribute("data-id");
+    }
+    if (els.playerArtist) els.playerArtist.textContent = "Subí tu primera canción";
+
+    if (els.npCover) els.npCover.innerHTML = `<span class="np__cover-empty">${icon("music")}</span>`;
+    if (els.npTitle) els.npTitle.textContent = "Nada sonando";
+    if (els.npArtist) els.npArtist.textContent = "Subí tu primera canción";
+    if (els.npAlbum) {
+      els.npAlbum.hidden = true;
+      els.npAlbum.textContent = "";
+      els.npAlbum.removeAttribute("data-id");
+    }
+    if (els.npEmpty) els.npEmpty.hidden = !state.ready || Boolean(state.tracks.length);
+    if (els.npFacts) els.npFacts.innerHTML = "";
+    if (els.npQueue) els.npQueue.innerHTML = `<li class="queue-empty">La cola está vacía. Elegí una canción para empezar.</li>`;
+    if (els.npQueueCount) els.npQueueCount.textContent = "";
+    document.title = "WaverNote — Tu música";
+    updatePlayerLike();
+    updateHighlights();
+    updateProgressUI();
+    updatePlayButton();
+    updateShuffleUI();
+    updateRepeatUI();
+    syncMediaSessionState();
+    return;
+  }
+
+  const album = albumByTrack(track);
+
+  if (els.npEmpty) els.npEmpty.hidden = true;
+  if (els.playerCover) els.playerCover.innerHTML = coverHTML(track);
   if (els.playerTitle) {
     els.playerTitle.textContent = track.title;
     els.playerTitle.dataset.id = album.id;
   }
-  if (els.playerArtist) els.playerArtist.textContent = `${album.artist} · ${album.title}`;
+  if (els.playerArtist) {
+    els.playerArtist.textContent = `${track.artist || "Artista desconocido"} · ${albumNameOf(track)}`;
+  }
 
-  if (els.npCover) els.npCover.innerHTML = coverHTML(album);
+  if (els.npCover) els.npCover.innerHTML = coverHTML(track);
   if (els.npTitle) els.npTitle.textContent = track.title;
-  if (els.npArtist) els.npArtist.textContent = album.artist;
+  if (els.npArtist) els.npArtist.textContent = track.artist || "Artista desconocido";
   if (els.npAlbum) {
-    els.npAlbum.textContent = album.title;
+    els.npAlbum.hidden = false;
+    els.npAlbum.textContent = albumNameOf(track);
     els.npAlbum.dataset.id = album.id;
   }
 
-  updateFacts(album, track);
+  updateFacts(track);
   updatePlayerLike();
   updateHighlights();
   renderQueue();
@@ -213,13 +263,16 @@ const updateNowPlaying = () => {
   updateShuffleUI();
   updateRepeatUI();
 
-  document.title = `${track.title} · ${album.artist} — WaverNote`;
+  document.title = `${track.title} · ${track.artist || "WaverNote"}`;
   syncMediaSession();
 };
 
 const startQueue = (ids, options = {}) => {
-  let queue = (ids || []).filter((id) => TRACK_BY_ID.has(id));
-  if (!queue.length) return;
+  let queue = (ids || []).map(Number).filter((id) => state.trackById.has(id));
+  if (!queue.length) {
+    toast("Tu biblioteca está vacía. Subí una canción para empezar.", "error");
+    return;
+  }
 
   let index = clamp(Number(options.startIndex) || 0, 0, queue.length - 1);
   if (options.randomStart) index = Math.floor(Math.random() * queue.length);
@@ -242,42 +295,54 @@ const startQueue = (ids, options = {}) => {
 
 const playCurrent = () => {
   const id = state.queue[state.queueIndex];
-  const track = TRACK_BY_ID.get(id);
+  const track = trackById(id);
   if (!track) return;
 
   engine.stop();
-  state.currentTrackId = id;
-  state.duration = track.duration;
+  state.currentTrackId = track.id;
+  pendingPlayId = track.id;
+  state.duration = Number(track.duration) || 0;
   state.currentTime = 0;
   state.isPlaying = true;
   state.ending = false;
 
-  rememberTrack(id);
+  rememberTrack(track.id);
   updateNowPlaying();
   updateShuffleUI();
   syncMediaSessionState();
 
-  const playable = playableOf(id);
   engine
-    .start(playable, 0)
-    .then((audioOk) => {
-      if (!audioOk && !state.warnedNoAudio) {
-        state.warnedNoAudio = true;
-        toast("Tu navegador no dio salida de audio. La reproducción sigue en modo visual.");
+    .start(track, 0)
+    .then((ok) => {
+      if (ok) {
+        flushPendingPlay();
+      } else {
+        state.isPlaying = false;
+        updatePlayButton();
+        updateHighlights();
+        renderQueue();
+        toast("El navegador no pudo iniciar el audio. Probá de nuevo con un clic.", "error");
       }
       syncMediaSessionState();
     })
     .catch(() => {
-      if (!state.warnedNoAudio) {
-        state.warnedNoAudio = true;
-        toast("El audio no pudo iniciarse. Podés seguir navegando el prototipo.");
-      }
+      state.isPlaying = false;
+      updatePlayButton();
+      updateHighlights();
     });
 };
 
 const togglePlay = () => {
-  const track = TRACK_BY_ID.get(state.currentTrackId);
-  if (!track) return;
+  const track = currentTrack();
+
+  if (!track) {
+    if (state.tracks.length) {
+      startQueue(state.tracks.map((item) => item.id), { startIndex: 0 });
+    } else {
+      toast("Subí tu primera canción para reproducir algo.");
+    }
+    return;
+  }
 
   if (state.isPlaying) {
     state.currentTime = clamp(engine.getTime(), 0, state.duration);
@@ -291,20 +356,24 @@ const togglePlay = () => {
     return;
   }
 
-  if (state.currentTime >= state.duration - 0.35) state.currentTime = 0;
+  if (state.duration && state.currentTime >= state.duration - 0.35) state.currentTime = 0;
   state.isPlaying = true;
   updatePlayButton();
   updateHighlights();
   renderQueue();
   syncMediaSessionState();
 
-  const playable = playableOf(state.currentTrackId);
   engine
-    .start(playable, state.currentTime)
-    .then((audioOk) => {
-      if (!audioOk && !state.warnedNoAudio) {
-        state.warnedNoAudio = true;
-        toast("Tu navegador no dio salida de audio. La reproducción sigue en modo visual.");
+    .start(track, state.currentTime)
+    .then((ok) => {
+      if (ok) {
+        flushPendingPlay();
+      } else {
+        state.isPlaying = false;
+        updatePlayButton();
+        updateHighlights();
+        renderQueue();
+        toast("No se pudo reanudar el audio. Probá de nuevo.", "error");
       }
       syncMediaSessionState();
     })
@@ -312,6 +381,7 @@ const togglePlay = () => {
 };
 
 const seekTo = (seconds) => {
+  if (!currentTrack()) return;
   state.currentTime = clamp(Number(seconds) || 0, 0, state.duration);
   engine.seek(state.currentTime);
   updateProgressUI();
@@ -341,13 +411,16 @@ const handleTrackEnd = () => {
     syncMediaSessionState();
   }
 
-  setTimeout(() => {
+  window.setTimeout(() => {
     state.ending = false;
   }, 320);
 };
 
 const nextTrack = () => {
-  if (!state.queue.length) return;
+  if (!state.queue.length) {
+    toast("La cola está vacía.");
+    return;
+  }
   if (state.queueIndex < state.queue.length - 1) {
     state.queueIndex += 1;
     playCurrent();
@@ -412,30 +485,37 @@ const cycleRepeat = () => {
   const labels = {
     off: "Repetición desactivada",
     all: "Se repite toda la cola",
-    one: "Se repite esta canción",
+    one: "Se repite esta canción"
   };
   updateRepeatUI();
   toast(labels[state.repeat]);
 };
 
-const toggleLike = (id) => {
-  const trackId = id || state.currentTrackId;
-  if (!TRACK_BY_ID.has(trackId)) return;
-
-  if (state.liked.has(trackId)) {
-    state.liked.delete(trackId);
-    toast("Quitado de Me gusta");
-  } else {
-    state.liked.add(trackId);
-    toast("Guardado en Me gusta");
+const toggleLike = async (id) => {
+  const track = trackById(id ?? state.currentTrackId);
+  if (!track) {
+    toast("Elegí una canción primero.");
+    return;
   }
 
-  saveLiked();
+  const wasLiked = isLiked(track.id);
+  if (wasLiked) state.liked.delete(track.id);
+  else state.liked.add(track.id);
+
   updateHighlights();
   updatePlayerLike();
+  if (state.route.view === "library" && state.libraryTab === "songs") renderView({ resetScroll: false });
 
-  if (state.route.view === "library" && state.libraryTab === "songs") {
-    renderView({ resetScroll: false });
+  try {
+    await api(`/wavernote/tracks/${track.id}/like`, { method: wasLiked ? "DELETE" : "POST" });
+    toast(wasLiked ? "Quitado de Me gusta" : "Guardado en Me gusta");
+  } catch (err) {
+    if (wasLiked) state.liked.add(track.id);
+    else state.liked.delete(track.id);
+    updateHighlights();
+    updatePlayerLike();
+    if (state.route.view === "library" && state.libraryTab === "songs") renderView({ resetScroll: false });
+    toast(err.message || "No se pudo guardar el favorito.", "error");
   }
 };
 
@@ -455,14 +535,14 @@ const toggleMute = () => {
 };
 
 const addToQueue = (id) => {
-  const track = TRACK_BY_ID.get(id);
+  const track = trackById(id);
   if (!track) return;
 
   if (!state.queue.length) {
-    state.queue = [id];
+    state.queue = [track.id];
     state.queueIndex = 0;
-    state.currentTrackId = id;
-    state.duration = track.duration;
+    state.currentTrackId = track.id;
+    state.duration = Number(track.duration) || 0;
     state.currentTime = 0;
     state.isPlaying = false;
     updateNowPlaying();
@@ -470,18 +550,18 @@ const addToQueue = (id) => {
     return;
   }
 
-  if (state.queue.includes(id)) {
+  if (state.queue.includes(track.id)) {
     toast("Esa canción ya está en la cola");
     return;
   }
 
-  state.queue.push(id);
+  state.queue.push(track.id);
   renderQueue();
   toast(`«${track.title}» se sumó a la cola`);
 };
 
 const queueCollection = (ids, label) => {
-  const fresh = ids.filter((id) => TRACK_BY_ID.has(id) && !state.queue.includes(id));
+  const fresh = (ids || []).map(Number).filter((id) => state.trackById.has(id) && !state.queue.includes(id));
   if (!fresh.length) {
     toast("Ya estaba todo en la cola");
     return;
@@ -497,15 +577,17 @@ const queueCollection = (ids, label) => {
 
 const syncMediaSession = () => {
   if (!("mediaSession" in navigator)) return;
-  const track = TRACK_BY_ID.get(state.currentTrackId);
+  const track = currentTrack();
   if (!track) return;
-  const album = albumOf(track);
+
   try {
     if (typeof MediaMetadata === "function") {
+      const artwork = track.coverUrl ? [{ src: track.coverUrl }] : [];
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
-        artist: album.artist,
-        album: album.title,
+        artist: track.artist || "WaverNote",
+        album: albumNameOf(track),
+        artwork
       });
     }
   } catch (err) {
@@ -522,7 +604,7 @@ const syncMediaSessionState = () => {
       navigator.mediaSession.setPositionState({
         duration: state.duration,
         playbackRate: 1,
-        position: clamp(state.currentTime, 0, state.duration),
+        position: clamp(state.currentTime, 0, state.duration)
       });
     }
   } catch (err) {
@@ -545,7 +627,7 @@ const setupMediaSession = () => {
     seekforward: (details) => seekTo(state.currentTime + (details?.seekOffset || 5)),
     seekto: (details) => {
       if (typeof details?.seekTime === "number") seekTo(details.seekTime);
-    },
+    }
   };
   Object.entries(handlers).forEach(([action, handler]) => {
     try {
@@ -649,7 +731,7 @@ const startUiLoop = () => {
   uiLoopStarted = true;
 
   const frame = (now) => {
-    if (state.isPlaying && !state.seeking) {
+    if (state.isPlaying && !state.seeking && state.duration > 0) {
       const time = engine.getTime();
       if (time >= state.duration - 0.12) {
         handleTrackEnd();

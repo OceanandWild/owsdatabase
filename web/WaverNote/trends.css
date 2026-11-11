@@ -1,0 +1,594 @@
+/* ============================================================
+   WaverNote · tendencias
+   Una canción por categoría, con el fuego en la portada y el
+   motivo real por el que está sonando tanto.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Encabezado y hero
+   ------------------------------------------------------------ */
+
+.trends-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(220px, 0.9fr);
+  align-items: center;
+  gap: 30px;
+  padding: 32px 36px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 141, 122, 0.18);
+  border-radius: 28px;
+  background:
+    radial-gradient(110% 130% at 0% 0%, rgba(255, 141, 122, 0.16), transparent 58%),
+    radial-gradient(90% 110% at 100% 100%, rgba(255, 190, 92, 0.1), transparent 55%),
+    linear-gradient(130deg, rgba(20, 12, 12, 0.98), rgba(8, 12, 21, 0.94));
+  box-shadow: 0 30px 80px -50px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.trends-hero__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.trends-hero h2 {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(32px, 3.6vw, 46px);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+
+.trends-hero__lead {
+  max-width: 54ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.trends-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  gap: 18px;
+  margin: 6px 0 2px;
+}
+
+.trends-hero__stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-right: 18px;
+  border-right: 1px solid var(--line);
+}
+
+.trends-hero__stats div:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.trends-hero__stats strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.trends-hero__stats span {
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.trends-hero__art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 210px;
+}
+
+.trends-hero__ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 141, 122, 0.28);
+}
+
+.trends-hero__ring--one {
+  width: 210px;
+  height: 210px;
+  animation: trend-spin 26s linear infinite;
+}
+
+.trends-hero__ring--two {
+  width: 150px;
+  height: 150px;
+  border-style: solid;
+  border-color: rgba(255, 190, 92, 0.18);
+}
+
+.trends-hero__flame {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  color: #1c0b06;
+  background: radial-gradient(circle at 35% 25%, #ffd39a, #ff8d7a 46%, #ff5f3c 78%);
+  box-shadow: 0 0 0 1px rgba(255, 190, 92, 0.35), 0 24px 60px -20px rgba(255, 95, 60, 0.7);
+  animation: trend-pulse 3.2s ease-in-out infinite;
+}
+
+.trends-hero__flame .icon {
+  width: 52px;
+  height: 52px;
+}
+
+.trends-hero__badge {
+  position: absolute;
+  right: 4px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 141, 122, 0.28);
+  border-radius: 999px;
+  color: #ffc7b9;
+  background: rgba(12, 8, 10, 0.72);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+}
+
+.trends-hero__badge .icon {
+  width: 13px;
+  height: 13px;
+}
+
+@keyframes trend-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes trend-pulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.02);
+  }
+}
+
+/* ------------------------------------------------------------
+   Grilla de categorías
+   ------------------------------------------------------------ */
+
+.trends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 16px;
+}
+
+.trend-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: linear-gradient(165deg, rgba(16, 22, 35, 0.96), rgba(9, 13, 22, 0.9));
+  box-shadow: 0 20px 50px -36px rgba(0, 0, 0, 0.9);
+  transition: transform 0.22s var(--ease), border-color 0.22s var(--ease), box-shadow 0.22s var(--ease);
+}
+
+.trend-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 141, 122, 0.3);
+  box-shadow: 0 30px 60px -34px rgba(255, 95, 60, 0.45);
+}
+
+.trend-card--compact {
+  width: 196px;
+  flex: 0 0 auto;
+  padding: 11px;
+  border-radius: 18px;
+}
+
+.trend-card__art {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.trend-card__open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 15px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.trend-card__open .cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 15px;
+}
+
+.trend-card__open .cover__art {
+  border-radius: 15px;
+}
+
+.trend-card__open .cover__title,
+.trend-card__open .cover__artist {
+  font-size: 11px;
+}
+
+/* Fuego sobre la portada */
+
+.trend-flame {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px 5px 7px;
+  border-radius: 999px;
+  color: #2a1108;
+  background: linear-gradient(135deg, #ffd39a, #ff8d7a 60%, #ff6a45);
+  box-shadow: 0 8px 20px -8px rgba(255, 106, 69, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.trend-flame .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.trend-card__play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #061018;
+  background: var(--mint);
+  box-shadow: 0 10px 24px -10px rgba(99, 230, 200, 0.8);
+  opacity: 0;
+  transform: translateY(6px);
+  cursor: pointer;
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.trend-card:hover .trend-card__play,
+.trend-card__play:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.trend-card__play .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.trend-card__meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.trend-card__label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: #ffad97;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.trend-card__label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trend-card__label .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.trend-card__title {
+  overflow: hidden;
+  margin-top: 1px;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trend-card__artist {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trend-card__reason {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--text-soft);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.trend-card__count {
+  margin-top: auto;
+  padding-top: 9px;
+  color: var(--faint);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------
+   Franja compacta para el inicio
+   ------------------------------------------------------------ */
+
+.trend-strip {
+  display: flex;
+  gap: 12px;
+  margin: 0 -2px;
+  padding: 2px 2px 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 141, 122, 0.3) transparent;
+}
+
+.trend-strip::-webkit-scrollbar {
+  height: 6px;
+}
+
+.trend-strip::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 141, 122, 0.28);
+}
+
+.trend-strip .trend-card {
+  scroll-snap-align: start;
+}
+
+.trend-strip .trend-card__reason {
+  display: none;
+}
+
+.trend-strip .trend-card__count {
+  padding-top: 6px;
+}
+
+/* ------------------------------------------------------------
+   Estado vacío y pie
+   ------------------------------------------------------------ */
+
+.trends-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 18px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.trends-note .icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: #ffad97;
+}
+
+.trends-note strong {
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+.trends-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+  color: var(--faint);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.trends-foot .icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: #ffad97;
+}
+
+/* ------------------------------------------------------------
+   Adaptación
+   ------------------------------------------------------------ */
+
+@media (max-width: 1100px) {
+  .trends-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(190px, 0.7fr);
+    gap: 22px;
+    padding: 26px;
+  }
+}
+
+@media (max-width: 920px) {
+  .trends-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trends-hero__art {
+    min-height: 160px;
+    justify-content: flex-start;
+  }
+
+  .trends-hero__ring--one {
+    width: 160px;
+    height: 160px;
+    margin-left: 20px;
+  }
+
+  .trends-hero__ring--two {
+    width: 116px;
+    height: 116px;
+    margin-left: 42px;
+  }
+
+  .trends-hero__flame {
+    width: 82px;
+    height: 82px;
+    margin-left: 38px;
+  }
+
+  .trends-hero__flame .icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .trends-hero__badge {
+    position: static;
+    margin-left: 22px;
+  }
+}
+
+@media (max-width: 767px) {
+  .trends-hero {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .trends-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+  }
+
+  .trend-card {
+    padding: 10px;
+    border-radius: 18px;
+  }
+
+  .trend-card__title {
+    font-size: 12px;
+  }
+
+  .trend-card__reason {
+    display: none;
+  }
+
+  .trend-card__play {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* La barra móvil ahora tiene siete accesos */
+  .mobile-nav {
+    grid-template-columns: repeat(7, 1fr);
+  }
+
+  .mobile-nav__item {
+    gap: 3px;
+    font-size: 8px;
+  }
+
+  .mobile-nav__item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 430px) {
+  .trends-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trend-card {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 11px;
+    align-items: center;
+  }
+
+  .trend-card__art {
+    margin-bottom: 0;
+  }
+
+  .trend-card__reason {
+    display: block;
+  }
+
+  .trend-card__count {
+    padding-top: 4px;
+  }
+
+  .trend-strip .trend-card {
+    display: flex;
+  }
+
+  .trend-strip .trend-card__art {
+    margin-bottom: 12px;
+  }
+
+  .trend-strip .trend-card__reason {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .mobile-nav__item {
+    font-size: 7.5px;
+  }
+
+  .mobile-nav__item .icon {
+    width: 17px;
+    height: 17px;
+  }
+}

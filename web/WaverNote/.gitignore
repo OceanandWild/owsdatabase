@@ -1,0 +1,12 @@
+# Dependencias y artefactos del frontend empaquetado
+node_modules/
+dist/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Firma Android: NUNCA se versiona
+src-tauri/gen/android/keystore.properties
+src-tauri/gen/android/*.jks
+src-tauri/gen/android/*.keystore

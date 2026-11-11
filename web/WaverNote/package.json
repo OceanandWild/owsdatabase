@@ -1,0 +1,19 @@
+{
+  "name": "wavernote",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WaverNote — biblioteca musical personal de Ocean & Wild Studios (Tauri v2)",
+  "scripts": {
+    "sync:web": "node scripts/sync-web.mjs",
+    "tauri": "tauri",
+    "dev": "npm run sync:web && tauri dev",
+    "build": "npm run sync:web && tauri build",
+    "android:init": "tauri android init",
+    "android:dev": "npm run sync:web && tauri android dev",
+    "android:build": "npm run sync:web && tauri android build --apk",
+    "icons": "tauri icon assets/icon-source.png"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

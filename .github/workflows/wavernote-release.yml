@@ -138,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" "ndk;${NDK_VERSION}" "platforms;android-37" "build-tools;35.0.0"
+          "$SDKMANAGER" "ndk;${NDK_VERSION}" "platforms;android-36" "build-tools;36.0.0"
           echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
           echo "NDK_PATH=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 

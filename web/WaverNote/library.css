@@ -1,0 +1,612 @@
+/* ============================================================
+   WaverNote · listas, detalles y biblioteca
+   ============================================================ */
+
+mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: rgba(99, 230, 200, 0.16);
+  color: var(--mint);
+}
+
+/* ------------------------------------------------------------
+   Lista de canciones
+   ------------------------------------------------------------ */
+
+.tracklist {
+  --cols: 40px minmax(160px, 1.7fr) minmax(90px, 0.9fr) 104px 56px 34px 34px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tracklist--no-album {
+  --cols: 40px minmax(160px, 1.8fr) 104px 56px 34px 34px;
+}
+
+.tracklist__head,
+.track-row {
+  display: grid;
+  grid-template-columns: var(--cols);
+  align-items: center;
+  gap: 10px;
+}
+
+.tracklist__head {
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.tracklist__right {
+  padding-right: 6px;
+  text-align: right;
+}
+
+.tracklist__rows {
+  display: flex;
+  flex-direction: column;
+  padding-top: 4px;
+}
+
+.track-row {
+  position: relative;
+  height: 58px;
+  padding: 0 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.track-row:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.track-row.is-current {
+  background: linear-gradient(90deg, rgba(99, 230, 200, 0.08), rgba(99, 230, 200, 0.015));
+}
+
+.track-row__index {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+}
+
+.track-row__num {
+  color: var(--faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.track-row__play {
+  display: none;
+  place-items: center;
+  color: var(--text);
+}
+
+.track-row__play .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.track-row:hover .track-row__num {
+  display: none;
+}
+
+.track-row:hover .track-row__play {
+  display: grid;
+}
+
+.track-row.is-current .track-row__num,
+.track-row.is-current .track-row__play {
+  display: none;
+}
+
+.track-row.is-current:not(.is-playing) .track-row__play {
+  display: grid;
+  color: var(--mint);
+}
+
+.track-row.is-current:hover .track-row__play {
+  display: grid;
+}
+
+.track-row__eq {
+  display: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.track-row.is-playing .track-row__eq {
+  display: flex;
+}
+
+.track-row.is-playing .track-row__play {
+  display: none;
+}
+
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.eq i {
+  width: 2.5px;
+  height: 40%;
+  border-radius: 2px;
+  background: var(--mint);
+  transform-origin: bottom;
+  animation: eqPulse 0.9s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.eq i:nth-child(2) {
+  animation-delay: -0.35s;
+}
+
+.eq i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+.track-row.is-playing .eq i,
+.eq.is-running i {
+  animation-play-state: running;
+}
+
+.track-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.track-row__title {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.track-row:hover .track-row__title {
+  color: #fff;
+}
+
+.track-row.is-current .track-row__title {
+  color: var(--mint);
+}
+
+.track-row__artist {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-row__album {
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.track-row__album:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.track-row__plays {
+  color: var(--faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.track-row__duration {
+  padding-right: 6px;
+  color: var(--faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.row-like,
+.row-add {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--faint);
+  opacity: 0.5;
+  transition: opacity 0.2s, color 0.2s, background 0.2s;
+}
+
+.row-like .icon,
+.row-add .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.track-row:hover .row-like,
+.track-row:hover .row-add,
+.row-like.is-liked,
+.row-like:focus-visible,
+.row-add:focus-visible {
+  opacity: 1;
+}
+
+.row-like:hover,
+.row-add:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.row-like.is-liked {
+  color: var(--coral);
+}
+
+.row-like.is-liked .icon {
+  fill: currentColor;
+}
+
+.row-add {
+  opacity: 0;
+}
+
+.track-row:hover .row-add {
+  opacity: 0.75;
+}
+
+/* ------------------------------------------------------------
+   Detalle de álbum / playlist
+   ------------------------------------------------------------ */
+
+.detail {
+  position: relative;
+  padding-top: 6px;
+}
+
+.detail__aura {
+  position: absolute;
+  top: -80px;
+  left: -50px;
+  width: 540px;
+  height: 430px;
+  border-radius: 50%;
+  background: var(--p1);
+  opacity: 0.13;
+  filter: blur(100px);
+  pointer-events: none;
+}
+
+.back-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  margin-bottom: 18px;
+  padding: 0 10px 0 4px;
+  border-radius: 999px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+}
+
+.back-link:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.back-link .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.detail__head {
+  position: relative;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  align-items: end;
+  gap: 34px;
+  margin-bottom: 36px;
+}
+
+.detail__cover {
+  position: relative;
+  width: 210px;
+  aspect-ratio: 1;
+}
+
+.detail__cover .cover {
+  height: 100%;
+  border-radius: 20px;
+  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.88);
+}
+
+.detail__cover--stack .cover {
+  position: relative;
+  z-index: 2;
+}
+
+.detail__sheet {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.detail__sheet--one {
+  z-index: 1;
+  transform: rotate(-3deg) translate(-6px, 4px);
+}
+
+.detail__sheet--two {
+  z-index: 0;
+  opacity: 0.6;
+  transform: rotate(3deg) translate(6px, 2px);
+}
+
+.detail__info {
+  min-width: 0;
+  padding-bottom: 2px;
+}
+
+.detail__info .eyebrow {
+  margin-bottom: 10px;
+}
+
+.detail__info h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 4.4vw, 58px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 0.96;
+  text-wrap: balance;
+}
+
+.detail__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.detail__line span:first-child {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.detail__sep {
+  color: var(--faint);
+}
+
+.detail__desc {
+  max-width: 58ch;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.detail__sonic {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 16px 0 0;
+  color: var(--faint);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.detail__sonic .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--mint);
+}
+
+.detail__foot {
+  margin: 26px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------
+   Biblioteca / buscar
+   ------------------------------------------------------------ */
+
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tab {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: var(--faint);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.is-active {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.library-stats {
+  display: flex;
+  flex: none;
+  gap: 26px;
+  padding-bottom: 4px;
+}
+
+.library-stats div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.library-stats strong {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.library-stats span {
+  color: var(--faint);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mood-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-soft);
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s var(--ease);
+}
+
+.chip .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--mint);
+}
+
+.chip:hover {
+  border-color: rgba(99, 230, 200, 0.25);
+  background: rgba(99, 230, 200, 0.08);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 56px 30px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.018);
+  text-align: center;
+}
+
+.empty__icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  background: rgba(99, 230, 200, 0.08);
+  color: var(--mint);
+}
+
+.empty__icon .icon {
+  width: 26px;
+  height: 26px;
+}
+
+.empty h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.empty p {
+  max-width: 400px;
+  margin: 0;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* ------------------------------------------------------------
+   Animaciones específicas
+   ------------------------------------------------------------ */
+
+@keyframes eqPulse {
+  0%,
+  100% {
+    height: 25%;
+  }
+  50% {
+    height: 100%;
+  }
+}

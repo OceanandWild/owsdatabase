@@ -53693,3 +53693,633 @@ app.post('/wildmind/api/wilders/:id/start-session', async (req, res) => {
     return res.status(500).json({ error: 'Error al crear la sala' });
   }
 });
+
+// =====================================================================
+// WAVERNOTE · biblioteca musical personal
+// ---------------------------------------------------------------------
+// Cada usuario sube sus propios archivos. El audio se guarda en Cloudinary
+// (resource_type "video", que incluye audio) y la fila queda asociada a
+// ocean_pay_users: la misma cuenta que usan Surface y Ocean Pay.
+// =====================================================================
+
+let wavernoteTablesReady = false;
+
+async function ensureWaverNoteTables() {
+  if (wavernoteTablesReady) return;
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wavernote_tracks (
+      id              BIGSERIAL PRIMARY KEY,
+      user_id         INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      title           TEXT NOT NULL,
+      artist          TEXT NOT NULL DEFAULT '',
+      album           TEXT NOT NULL DEFAULT '',
+      genre           TEXT NOT NULL DEFAULT '',
+      duration        DOUBLE PRECISION NOT NULL DEFAULT 0,
+      audio_url       TEXT NOT NULL,
+      audio_public_id TEXT,
+      cover_url       TEXT,
+      cover_public_id TEXT,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wavernote_tracks_user
+      ON wavernote_tracks(user_id, created_at DESC)
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wavernote_playlists (
+      id          BIGSERIAL PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wavernote_playlists_user
+      ON wavernote_playlists(user_id, created_at DESC)
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wavernote_playlist_tracks (
+      playlist_id BIGINT NOT NULL REFERENCES wavernote_playlists(id) ON DELETE CASCADE,
+      track_id    BIGINT NOT NULL REFERENCES wavernote_tracks(id) ON DELETE CASCADE,
+      position    INTEGER NOT NULL DEFAULT 0,
+      added_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (playlist_id, track_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wavernote_playlist_tracks_order
+      ON wavernote_playlist_tracks(playlist_id, position, added_at)
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wavernote_likes (
+      user_id    INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      track_id   BIGINT NOT NULL REFERENCES wavernote_tracks(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, track_id)
+    )
+  `);
+
+  wavernoteTablesReady = true;
+}
+
+function wavernoteText(value, maxLength) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function wavernoteGuessFromFilename(originalName) {
+  const fileName = path.basename(String(originalName || ''));
+  const base = fileName
+    .slice(0, fileName.length - path.extname(fileName).length)
+    .replace(/[_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+
+  if (!base) return { title: 'Sin título', artist: '' };
+
+  const split = base.match(/^(.{1,90}?)\s+-\s+(.{1,150})$/);
+  if (split) {
+    return { artist: wavernoteText(split[1], 120), title: wavernoteText(split[2], 160) };
+  }
+  return { title: wavernoteText(base, 160) || 'Sin título', artist: '' };
+}
+
+function mapWaverNoteTrack(row) {
+  return {
+    id: Number(row.id),
+    title: row.title,
+    artist: row.artist || '',
+    album: row.album || '',
+    genre: row.genre || '',
+    duration: Number(row.duration) || 0,
+    audioUrl: row.audio_url,
+    coverUrl: row.cover_url || null,
+    createdAt: row.created_at
+  };
+}
+
+function mapWaverNotePlaylist(row) {
+  return {
+    id: Number(row.id),
+    name: row.name,
+    description: row.description || '',
+    trackIds: Array.isArray(row.track_ids) ? row.track_ids.map(Number).filter(Boolean) : [],
+    createdAt: row.created_at
+  };
+}
+
+async function getWaverNoteAuthedUser(req) {
+  const token = parseStudioAuthToken(req);
+  const decoded = decodeStudioTokenOrNull(token);
+  if (!decoded) return null;
+
+  const userId = Number(decoded.id || decoded.uid || decoded.sub || 0);
+  if (!Number.isInteger(userId) || userId <= 0) return null;
+
+  const { rows } = await pool.query(
+    'SELECT id, username FROM ocean_pay_users WHERE id = $1 LIMIT 1',
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+async function wavernoteAuth(req, res, next) {
+  try {
+    const user = await getWaverNoteAuthedUser(req);
+    if (!user) {
+      return res.status(401).json({
+        error: 'Iniciá sesión con tu cuenta Surface para usar tu biblioteca.',
+        code: 'WAVERNOTE_AUTH'
+      });
+    }
+    req.wavernoteUser = user;
+    return next();
+  } catch (err) {
+    console.error('[WAVERNOTE] auth:', err);
+    return res.status(500).json({ error: 'No se pudo validar la sesión.' });
+  }
+}
+
+const WAVERNOTE_AUDIO_FORMATS = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'opus', 'webm'];
+const WAVERNOTE_AUDIO_EXTENSIONS = new Set(WAVERNOTE_AUDIO_FORMATS.map((ext) => `.${ext}`));
+const WAVERNOTE_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+
+function wavernoteIsAudioFile(file) {
+  const ext = path.extname(String(file.originalname || '')).toLowerCase();
+  return WAVERNOTE_AUDIO_EXTENSIONS.has(ext) || /^audio\//i.test(String(file.mimetype || ''));
+}
+
+function wavernoteIsCoverFile(file) {
+  const ext = path.extname(String(file.originalname || '')).toLowerCase();
+  return WAVERNOTE_IMAGE_EXTENSIONS.has(ext) && /^image\//i.test(String(file.mimetype || ''));
+}
+
+const wavernoteCloudStorage = new CloudinaryStorage({
+  cloudinary,
+  params: (req, file) => {
+    const userId = Number(req.wavernoteUser?.id) || 0;
+
+    if (file.fieldname === 'cover') {
+      return {
+        folder: `wavernote/covers/${userId}`,
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        transformation: [{ width: 1000, height: 1000, crop: 'limit', quality: 'auto' }]
+      };
+    }
+
+    return {
+      folder: `wavernote/audio/${userId}`,
+      resource_type: 'video',
+      allowed_formats: WAVERNOTE_AUDIO_FORMATS
+    };
+  }
+});
+
+const wavernoteMulter = multer({
+  storage: wavernoteCloudStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+    files: 2,
+    fields: 12
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'cover') {
+      if (wavernoteIsCoverFile(file)) return cb(null, true);
+      return cb(new Error('La portada debe ser una imagen JPG, PNG o WEBP.'));
+    }
+    if (wavernoteIsAudioFile(file)) return cb(null, true);
+    return cb(new Error('Formato de audio no soportado. Usá MP3, WAV, OGG, M4A, AAC, FLAC u OPUS.'));
+  }
+}).fields([
+  { name: 'audio', maxCount: 1 },
+  { name: 'cover', maxCount: 1 }
+]);
+
+function wavernoteUpload(req, res, next) {
+  wavernoteMulter(req, res, (err) => {
+    if (!err) return next();
+
+    console.error('[WAVERNOTE] upload:', err.message || err);
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'El archivo supera el límite de 50 MB.' });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({ error: 'Se envió un archivo que no corresponde.' });
+    }
+    return res.status(400).json({ error: err.message || 'No se pudo subir el archivo.' });
+  });
+}
+
+async function wavernoteDestroyAsset(publicId, resourceType = 'image') {
+  if (!publicId) return;
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType, invalidate: true });
+  } catch (err) {
+    console.error('[WAVERNOTE] cleanup:', publicId, err.message || err);
+  }
+}
+
+async function getWaverNotePlaylist(userId, playlistId) {
+  const { rows } = await pool.query(
+    `SELECT p.*,
+            COALESCE(
+              array_agg(pt.track_id ORDER BY pt.position, pt.added_at)
+                FILTER (WHERE pt.track_id IS NOT NULL),
+              '{}'
+            ) AS track_ids
+       FROM wavernote_playlists p
+       LEFT JOIN wavernote_playlist_tracks pt ON pt.playlist_id = p.id
+      WHERE p.id = $1 AND p.user_id = $2
+      GROUP BY p.id
+      LIMIT 1`,
+    [playlistId, userId]
+  );
+  return rows[0] ? mapWaverNotePlaylist(rows[0]) : null;
+}
+
+app.get('/wavernote/health', (_req, res) => {
+  res.json({ ok: true, service: 'wavernote' });
+});
+
+app.get('/wavernote/library', wavernoteAuth, async (req, res) => {
+  try {
+    await ensureWaverNoteTables();
+    const userId = req.wavernoteUser.id;
+
+    const [tracksResult, playlistsResult, likesResult] = await Promise.all([
+      pool.query(
+        'SELECT * FROM wavernote_tracks WHERE user_id = $1 ORDER BY created_at DESC, id DESC',
+        [userId]
+      ),
+      pool.query(
+        `SELECT p.*,
+                COALESCE(
+                  array_agg(pt.track_id ORDER BY pt.position, pt.added_at)
+                    FILTER (WHERE pt.track_id IS NOT NULL),
+                  '{}'
+                ) AS track_ids
+           FROM wavernote_playlists p
+           LEFT JOIN wavernote_playlist_tracks pt ON pt.playlist_id = p.id
+          WHERE p.user_id = $1
+          GROUP BY p.id
+          ORDER BY p.created_at DESC, p.id DESC`,
+        [userId]
+      ),
+      pool.query('SELECT track_id FROM wavernote_likes WHERE user_id = $1', [userId])
+    ]);
+
+    return res.json({
+      success: true,
+      user: { id: req.wavernoteUser.id, username: req.wavernoteUser.username },
+      tracks: tracksResult.rows.map(mapWaverNoteTrack),
+      playlists: playlistsResult.rows.map(mapWaverNotePlaylist),
+      likes: likesResult.rows.map((row) => Number(row.track_id))
+    });
+  } catch (err) {
+    console.error('[WAVERNOTE] library:', err);
+    return res.status(500).json({ error: 'No se pudo cargar tu biblioteca.' });
+  }
+});
+
+app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) => {
+  const audioFile = req.files?.audio?.[0] || null;
+  const coverFile = req.files?.cover?.[0] || null;
+
+  if (!audioFile) {
+    return res.status(400).json({ error: 'Elegí un archivo de audio para subir.' });
+  }
+
+  const audioUrl = audioFile.path || audioFile.secure_url || audioFile.url || '';
+  const audioPublicId = audioFile.filename || audioFile.public_id || '';
+  const coverUrl = coverFile ? (coverFile.path || coverFile.secure_url || coverFile.url || '') : '';
+  const coverPublicId = coverFile ? (coverFile.filename || coverFile.public_id || '') : '';
+
+  if (!audioUrl) {
+    await wavernoteDestroyAsset(coverPublicId, 'image');
+    return res.status(500).json({ error: 'Cloudinary no devolvió la URL del audio.' });
+  }
+
+  const body = req.body || {};
+  const guess = wavernoteGuessFromFilename(audioFile.originalname);
+  const title = wavernoteText(body.title, 160) || guess.title;
+  const artist = wavernoteText(body.artist, 120) || guess.artist;
+  const album = wavernoteText(body.album, 120);
+  const genre = wavernoteText(body.genre, 60);
+  const duration = Math.min(Math.max(Number(body.duration) || 0, 0), 6 * 60 * 60);
+
+  if (!title) {
+    await Promise.all([
+      wavernoteDestroyAsset(audioPublicId, 'video'),
+      wavernoteDestroyAsset(coverPublicId, 'image')
+    ]);
+    return res.status(400).json({ error: 'La canción necesita un título.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const { rows } = await pool.query(
+      `INSERT INTO wavernote_tracks
+         (user_id, title, artist, album, genre, duration, audio_url, audio_public_id, cover_url, cover_public_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [
+        req.wavernoteUser.id,
+        title,
+        artist,
+        album,
+        genre,
+        duration,
+        audioUrl,
+        audioPublicId,
+        coverUrl || null,
+        coverPublicId || null
+      ]
+    );
+
+    return res.status(201).json({ success: true, track: mapWaverNoteTrack(rows[0]) });
+  } catch (err) {
+    console.error('[WAVERNOTE] create track:', err);
+    await Promise.all([
+      wavernoteDestroyAsset(audioPublicId, 'video'),
+      wavernoteDestroyAsset(coverPublicId, 'image')
+    ]);
+    return res.status(500).json({ error: 'No se pudo guardar la canción en tu biblioteca.' });
+  }
+});
+
+app.patch('/wavernote/tracks/:id', wavernoteAuth, async (req, res) => {
+  const trackId = Number(req.params.id);
+  if (!Number.isInteger(trackId) || trackId <= 0) {
+    return res.status(400).json({ error: 'Canción inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const current = await pool.query(
+      'SELECT * FROM wavernote_tracks WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [trackId, req.wavernoteUser.id]
+    );
+    if (!current.rows.length) {
+      return res.status(404).json({ error: 'La canción no existe en tu biblioteca.' });
+    }
+
+    const row = current.rows[0];
+    const body = req.body || {};
+    const title = body.title === undefined ? row.title : wavernoteText(body.title, 160);
+    if (!title) return res.status(400).json({ error: 'La canción necesita un título.' });
+
+    const artist = body.artist === undefined ? row.artist : wavernoteText(body.artist, 120);
+    const album = body.album === undefined ? row.album : wavernoteText(body.album, 120);
+    const genre = body.genre === undefined ? row.genre : wavernoteText(body.genre, 60);
+
+    const { rows } = await pool.query(
+      `UPDATE wavernote_tracks
+          SET title = $1, artist = $2, album = $3, genre = $4
+        WHERE id = $5 AND user_id = $6
+        RETURNING *`,
+      [title, artist, album, genre, trackId, req.wavernoteUser.id]
+    );
+
+    return res.json({ success: true, track: mapWaverNoteTrack(rows[0]) });
+  } catch (err) {
+    console.error('[WAVERNOTE] update track:', err);
+    return res.status(500).json({ error: 'No se pudo actualizar la canción.' });
+  }
+});
+
+app.delete('/wavernote/tracks/:id', wavernoteAuth, async (req, res) => {
+  const trackId = Number(req.params.id);
+  if (!Number.isInteger(trackId) || trackId <= 0) {
+    return res.status(400).json({ error: 'Canción inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const { rows } = await pool.query(
+      `DELETE FROM wavernote_tracks
+        WHERE id = $1 AND user_id = $2
+        RETURNING audio_public_id, cover_public_id`,
+      [trackId, req.wavernoteUser.id]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ error: 'La canción no existe en tu biblioteca.' });
+    }
+
+    await Promise.all([
+      wavernoteDestroyAsset(rows[0].audio_public_id, 'video'),
+      wavernoteDestroyAsset(rows[0].cover_public_id, 'image')
+    ]);
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[WAVERNOTE] delete track:', err);
+    return res.status(500).json({ error: 'No se pudo eliminar la canción.' });
+  }
+});
+
+app.post('/wavernote/tracks/:id/like', wavernoteAuth, async (req, res) => {
+  const trackId = Number(req.params.id);
+  if (!Number.isInteger(trackId) || trackId <= 0) {
+    return res.status(400).json({ error: 'Canción inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const owns = await pool.query(
+      'SELECT 1 FROM wavernote_tracks WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [trackId, req.wavernoteUser.id]
+    );
+    if (!owns.rows.length) {
+      return res.status(404).json({ error: 'La canción no existe en tu biblioteca.' });
+    }
+
+    await pool.query(
+      `INSERT INTO wavernote_likes (user_id, track_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, track_id) DO NOTHING`,
+      [req.wavernoteUser.id, trackId]
+    );
+    return res.json({ success: true, liked: true });
+  } catch (err) {
+    console.error('[WAVERNOTE] like:', err);
+    return res.status(500).json({ error: 'No se pudo guardar el favorito.' });
+  }
+});
+
+app.delete('/wavernote/tracks/:id/like', wavernoteAuth, async (req, res) => {
+  const trackId = Number(req.params.id);
+  if (!Number.isInteger(trackId) || trackId <= 0) {
+    return res.status(400).json({ error: 'Canción inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    await pool.query(
+      'DELETE FROM wavernote_likes WHERE user_id = $1 AND track_id = $2',
+      [req.wavernoteUser.id, trackId]
+    );
+    return res.json({ success: true, liked: false });
+  } catch (err) {
+    console.error('[WAVERNOTE] unlike:', err);
+    return res.status(500).json({ error: 'No se pudo quitar el favorito.' });
+  }
+});
+
+app.post('/wavernote/playlists', wavernoteAuth, async (req, res) => {
+  const body = req.body || {};
+  const name = wavernoteText(body.name, 80);
+  const description = wavernoteText(body.description, 300);
+
+  if (!name) return res.status(400).json({ error: 'La playlist necesita un nombre.' });
+
+  try {
+    await ensureWaverNoteTables();
+    const { rows } = await pool.query(
+      `INSERT INTO wavernote_playlists (user_id, name, description)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [req.wavernoteUser.id, name, description]
+    );
+
+    return res.status(201).json({
+      success: true,
+      playlist: mapWaverNotePlaylist({ ...rows[0], track_ids: [] })
+    });
+  } catch (err) {
+    console.error('[WAVERNOTE] create playlist:', err);
+    return res.status(500).json({ error: 'No se pudo crear la playlist.' });
+  }
+});
+
+app.patch('/wavernote/playlists/:id', wavernoteAuth, async (req, res) => {
+  const playlistId = Number(req.params.id);
+  if (!Number.isInteger(playlistId) || playlistId <= 0) {
+    return res.status(400).json({ error: 'Playlist inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const current = await pool.query(
+      'SELECT * FROM wavernote_playlists WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [playlistId, req.wavernoteUser.id]
+    );
+    if (!current.rows.length) return res.status(404).json({ error: 'La playlist no existe.' });
+
+    const row = current.rows[0];
+    const body = req.body || {};
+    const name = body.name === undefined ? row.name : wavernoteText(body.name, 80);
+    const description =
+      body.description === undefined ? row.description : wavernoteText(body.description, 300);
+    if (!name) return res.status(400).json({ error: 'La playlist necesita un nombre.' });
+
+    await pool.query(
+      `UPDATE wavernote_playlists SET name = $1, description = $2
+        WHERE id = $3 AND user_id = $4`,
+      [name, description, playlistId, req.wavernoteUser.id]
+    );
+
+    const playlist = await getWaverNotePlaylist(req.wavernoteUser.id, playlistId);
+    return res.json({ success: true, playlist });
+  } catch (err) {
+    console.error('[WAVERNOTE] update playlist:', err);
+    return res.status(500).json({ error: 'No se pudo actualizar la playlist.' });
+  }
+});
+
+app.delete('/wavernote/playlists/:id', wavernoteAuth, async (req, res) => {
+  const playlistId = Number(req.params.id);
+  if (!Number.isInteger(playlistId) || playlistId <= 0) {
+    return res.status(400).json({ error: 'Playlist inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const { rowCount } = await pool.query(
+      'DELETE FROM wavernote_playlists WHERE id = $1 AND user_id = $2',
+      [playlistId, req.wavernoteUser.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'La playlist no existe.' });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[WAVERNOTE] delete playlist:', err);
+    return res.status(500).json({ error: 'No se pudo eliminar la playlist.' });
+  }
+});
+
+app.post('/wavernote/playlists/:id/tracks', wavernoteAuth, async (req, res) => {
+  const playlistId = Number(req.params.id);
+  const trackId = Number(req.body?.trackId);
+  if (!Number.isInteger(playlistId) || playlistId <= 0 || !Number.isInteger(trackId) || trackId <= 0) {
+    return res.status(400).json({ error: 'Playlist o canción inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const userId = req.wavernoteUser.id;
+
+    const [playlist, track] = await Promise.all([
+      pool.query('SELECT 1 FROM wavernote_playlists WHERE id = $1 AND user_id = $2', [playlistId, userId]),
+      pool.query('SELECT 1 FROM wavernote_tracks WHERE id = $1 AND user_id = $2', [trackId, userId])
+    ]);
+    if (!playlist.rows.length) return res.status(404).json({ error: 'La playlist no existe.' });
+    if (!track.rows.length) return res.status(404).json({ error: 'La canción no existe en tu biblioteca.' });
+
+    await pool.query(
+      `INSERT INTO wavernote_playlist_tracks (playlist_id, track_id, position)
+       VALUES (
+         $1,
+         $2,
+         COALESCE((SELECT MAX(position) FROM wavernote_playlist_tracks WHERE playlist_id = $1), 0) + 1
+       )
+       ON CONFLICT (playlist_id, track_id) DO NOTHING`,
+      [playlistId, trackId]
+    );
+
+    const updated = await getWaverNotePlaylist(userId, playlistId);
+    return res.json({ success: true, playlist: updated });
+  } catch (err) {
+    console.error('[WAVERNOTE] add track to playlist:', err);
+    return res.status(500).json({ error: 'No se pudo agregar la canción a la playlist.' });
+  }
+});
+
+app.delete('/wavernote/playlists/:id/tracks/:trackId', wavernoteAuth, async (req, res) => {
+  const playlistId = Number(req.params.id);
+  const trackId = Number(req.params.trackId);
+  if (!Number.isInteger(playlistId) || playlistId <= 0 || !Number.isInteger(trackId) || trackId <= 0) {
+    return res.status(400).json({ error: 'Playlist o canción inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const userId = req.wavernoteUser.id;
+
+    const playlist = await pool.query(
+      'SELECT 1 FROM wavernote_playlists WHERE id = $1 AND user_id = $2',
+      [playlistId, userId]
+    );
+    if (!playlist.rows.length) return res.status(404).json({ error: 'La playlist no existe.' });
+
+    await pool.query(
+      'DELETE FROM wavernote_playlist_tracks WHERE playlist_id = $1 AND track_id = $2',
+      [playlistId, trackId]
+    );
+
+    const updated = await getWaverNotePlaylist(userId, playlistId);
+    return res.json({ success: true, playlist: updated });
+  } catch (err) {
+    console.error('[WAVERNOTE] remove track from playlist:', err);
+    return res.status(500).json({ error: 'No se pudo quitar la canción de la playlist.' });
+  }
+});

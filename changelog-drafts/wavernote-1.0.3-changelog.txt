@@ -1,0 +1,27 @@
+WaverNote 1.0.3-beta - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.0.3-beta
+Plataformas: Windows y Android
+Fecha: 2026-11-12
+
+Cambios:
+- Barra lateral más compacta: menos separación entre bloques y navegación más ajustada, para que entre todo en ventanas chicas.
+- La barra lateral ahora hace scroll propio cuando la ventana es baja; antes los bloques se comprimían y el texto se superponía.
+- En ventanas de poca altura se oculta primero la tarjeta informativa, así el acceso a Actualizaciones y la cuenta quedan visibles sin scrollear.
+- Cuando ya hay playlists cargadas, la tarjeta informativa cede su espacio a la lista y deja de ocupar lugar.
+- Vista angosta: se ocultan también el chip de versión y el texto del botón de subida, y el botón queda centrado.
+- Ajustes menores de altura en la zona de subida y en las filas de navegación.
+
+=== ENGLISH ===
+Version: 1.0.3-beta
+Platforms: Windows and Android
+Date: 2026-11-12
+
+Changes:
+- More compact sidebar: tighter spacing between blocks and a trimmer navigation, so everything fits in short windows.
+- The sidebar now scrolls on its own when the window is short; previously the blocks shrank below their content and text overlapped.
+- On short windows the info card hides first, keeping the Updates entry and the account visible without scrolling.
+- When playlists exist, the info card gives its space to the list instead of taking room.
+- Narrow view: the version chip and the upload button label are hidden too, and the button stays centered.
+- Minor height adjustments in the upload area and navigation rows.

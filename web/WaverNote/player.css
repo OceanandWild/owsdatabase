@@ -702,11 +702,19 @@
   .brand__text,
   .side-section,
   .side-note,
+  .side-version,
   .side-user__meta,
   .status-dot,
   .nav__item span,
+  .side-upload span,
   .nav__kbd {
     display: none;
+  }
+
+  .sidebar .side-upload {
+    justify-content: center;
+    width: 100%;
+    padding: 0;
   }
 
   .brand__mark {

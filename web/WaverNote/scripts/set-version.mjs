@@ -39,12 +39,15 @@ async function patchIndexMeta() {
   const file = path.join(root, rel);
   const text = await readFile(file, "utf8");
   const pattern = /<meta name="wavernote-version" content="[^"]*" \/>/;
-  if (!pattern.test(text)) {
-    throw new Error(`No se encontró el meta wavernote-version en ${rel}`);
+  const fallback = /(<strong data-wavernote-version>)v[^<]*(<\/strong>)/;
+  if (!pattern.test(text) || !fallback.test(text)) {
+    throw new Error(`No se encontró la versión de WaverNote en ${rel}`);
   }
   await writeFile(
     file,
-    text.replace(pattern, `<meta name="wavernote-version" content="${version}" />`)
+    text
+      .replace(pattern, `<meta name="wavernote-version" content="${version}" />`)
+      .replace(fallback, `$1v${version}$2`)
   );
   console.log(`  ${rel}: ${version}`);
 }

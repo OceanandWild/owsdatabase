@@ -6,6 +6,6 @@
   "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.2-beta/WaverNote_1.0.2-beta_universal.apk",
   "sha256": "4833dcdac966b9ee90042dd691a99d161fe46554d7104038afdc87917e2061b9",
   "size_bytes": 55188411,
-  "release_notes": "WaverNote 1.0.2-beta: actualizaciones integradas y icono nuevo.\n\n- Actualizador dentro de la app: en Windows descarga el instalador firmado y reinicia; en Android baja el APK, verifica el SHA-256 y abre el instalador.\n- Nuevo icono de la app para Windows y Android.\n- Biblioteca con pestana Mas",
+  "release_notes": "Actualizaciones integradas, icono nuevo y ranking de Mas escuchadas. Windows instala el NSIS firmado; Android verifica el SHA-256 del APK antes de instalarlo.",
   "published_at": "2026-11-12T03:28:53Z"
 }

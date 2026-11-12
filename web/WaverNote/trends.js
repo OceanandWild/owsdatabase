@@ -148,7 +148,7 @@ const trendItems = () => {
   const events = trendEvents();
   const items = [];
 
-  const add = (id, label, reason, track, count, at = now) => {
+  const add = (id, label, reason, track, count, at = now, extra = {}) => {
     if (!track) return;
     items.push({
       id,
@@ -156,7 +156,8 @@ const trendItems = () => {
       reason,
       track,
       count: Math.max(1, Number(count) || 1),
-      at
+      at,
+      ...extra
     });
   };
 
@@ -172,7 +173,7 @@ const trendItems = () => {
     );
   }
 
-  const artist = trendTopGroup(trendGroupBy(entries, (track) => track.artist));
+  const artist = trendTopGroup(trendGroupBy(entries, (track) => (track.artist || "").trim()));
   if (artist && artist.total >= 2) {
     const best = trendTopEntry(artist.tracks);
     add(
@@ -181,7 +182,13 @@ const trendItems = () => {
       `${plural(artist.total, "reproducción", "reproducciones")} de ${artist.key}.`,
       best?.track,
       artist.total,
-      artist.lastAt
+      artist.lastAt,
+      {
+        kind: "artist",
+        subject: artist.key,
+        subtitle: catalogGroupSubtitle("artist", artist.key),
+        art: catalogArtHTML("artist", artist.key)
+      }
     );
   }
 
@@ -207,7 +214,13 @@ const trendItems = () => {
       `${plural(genre.total, "reproducción", "reproducciones")} de ${genre.key}.`,
       best?.track,
       genre.total,
-      genre.lastAt
+      genre.lastAt,
+      {
+        kind: "genre",
+        subject: genre.key,
+        subtitle: catalogGroupSubtitle("genre", genre.key),
+        art: catalogArtHTML("genre", genre.key)
+      }
     );
   }
 

@@ -1,0 +1,197 @@
+/* ============================================================
+   WaverNote · artistas y géneros
+   Tarjetas del catálogo, mosaicos de carátulas y editor.
+   ============================================================ */
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 18px;
+}
+
+.catalog-card {
+  min-width: 0;
+}
+
+.catalog-card__art {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 16px;
+}
+
+.catalog-card__open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  transition: transform 0.45s var(--ease), box-shadow 0.45s var(--ease);
+}
+
+.catalog-card__open .cover,
+.catalog-card__open .mosaic {
+  height: 100%;
+  border-radius: 16px;
+  box-shadow: 0 16px 32px -20px rgba(0, 0, 0, 0.85);
+}
+
+.catalog-card:hover .catalog-card__open,
+.catalog-card__open:focus-visible {
+  transform: translateY(-5px);
+  box-shadow: 0 28px 44px -26px rgba(0, 0, 0, 0.95);
+}
+
+.catalog-card:hover .card-play,
+.catalog-card .card-play:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ------------------------------------------------------------
+   Mosaico de carátulas
+   Es lo que se ve cuando el artista o el género todavía no tiene
+   una imagen propia: un collage de las portadas de sus canciones.
+   ------------------------------------------------------------ */
+
+.mosaic {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mosaic__cell {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mosaic__cell .cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mosaic--1 .mosaic__cell {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+}
+
+.mosaic--2 .mosaic__cell:first-child {
+  grid-row: 1 / -1;
+}
+
+/* ------------------------------------------------------------
+   Tendencias con imagen de artista o género
+   ------------------------------------------------------------ */
+
+.trend-card__open .mosaic {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 15px;
+}
+
+.trend-card__open .catalog-art {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 15px;
+}
+
+.trend-card--group .trend-card__title {
+  font-size: 14.5px;
+}
+
+.trend-card--group .trend-card__artist {
+  color: var(--faint);
+}
+
+/* ------------------------------------------------------------
+   Editor de artista o género
+   ------------------------------------------------------------ */
+
+.catalog-edit {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.catalog-edit__art {
+  position: relative;
+  width: 116px;
+  flex: none;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.catalog-edit__art .cover,
+.catalog-edit__art .mosaic {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+}
+
+.catalog-edit__fields {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.catalog-edit__hint {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.catalog-edit__note {
+  margin: 0;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.catalog-edit__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.catalog-edit__pick {
+  position: relative;
+  overflow: hidden;
+}
+
+.catalog-edit__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 620px) {
+  .catalog-edit {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .catalog-edit__art {
+    width: 100%;
+    max-width: 180px;
+    align-self: center;
+  }
+}

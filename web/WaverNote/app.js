@@ -1861,6 +1861,24 @@ const handleAction = async (actionEl) => {
       closePanel();
       navigate({ view: "trends" });
       break;
+    case "nav-catalog":
+      closePanel();
+      navigate({ view: "catalog" });
+      break;
+    case "catalog-tab":
+      state.catalogTab = actionEl.dataset.tab === "genre" ? "genre" : "artist";
+      renderView({ resetScroll: false });
+      break;
+    case "catalog-edit":
+      openCatalogEditor(actionEl.dataset.kind, actionEl.dataset.name);
+      break;
+    case "catalog-play":
+      closeModal(true);
+      catalogPlayGroup(actionEl.dataset.kind, actionEl.dataset.name);
+      break;
+    case "catalog-image-clear":
+      catalogClearImage();
+      break;
     case "nav-library":
       closePanel();
       navigate({ view: "library" });

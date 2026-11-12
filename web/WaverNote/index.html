@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="recommend.css" />
     <link rel="stylesheet" href="trends.css" />
+    <link rel="stylesheet" href="catalog.css" />
   </head>
   <body>
     <!-- Sprite de iconos -->
@@ -292,6 +293,10 @@
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-fire"></use></svg>
             <span>Tendencias</span>
           </button>
+          <button class="nav__item" data-action="nav-catalog" data-nav="catalog">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-disc"></use></svg>
+            <span>Artistas</span>
+          </button>
           <button class="nav__item" data-action="nav-recommendations" data-nav="recommendations">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>Recomendaciones</span>
@@ -522,6 +527,10 @@
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-fire"></use></svg>
           <span>Tendencias</span>
         </button>
+        <button class="mobile-nav__item" data-action="nav-catalog" data-mobile-nav="catalog">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-disc"></use></svg>
+          <span>Artistas</span>
+        </button>
         <button class="mobile-nav__item" data-action="nav-recommendations" data-mobile-nav="recommendations">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           <span>Recom.</span>
@@ -567,6 +576,7 @@
     <script src="updater.js"></script>
     <script src="metadata.js"></script>
     <script src="recommend.js"></script>
+    <script src="catalog.js"></script>
     <script src="trends.js"></script>
     <script src="views.js"></script>
     <script src="player.js"></script>

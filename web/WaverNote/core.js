@@ -240,6 +240,7 @@ const state = {
   plays: {},
   recommendations: null,
   route: { view: "home" },
+  catalogTab: "artist",
   history: [{ view: "home" }],
   historyIndex: 0,
   search: "",

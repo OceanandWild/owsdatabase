@@ -6,6 +6,9 @@ Plataformas: Windows y Android
 Fecha: 2026-11-12
 
 Novedades:
+- Nueva sección «Artistas» para administrar los artistas y los géneros de la música que ya subiste: renombrarlos, unificar duplicados (por ejemplo «adele» y «Adele» terminan siendo el mismo) y ponerles nombre a las canciones que subiste sin autor o sin género.
+- Cada artista y cada género tiene su propia imagen: si no le ponés ninguna, la app arma un mosaico con las carátulas de sus canciones para que se reconozcan de un vistazo.
+- En Tendencias, las categorías de artista y de género ahora usan esa imagen en vez de mostrar la carátula de una sola canción: el título es el nombre del artista o del género y debajo están cuántas canciones tiene y cuánto duran.
 - Al agregar varias canciones de golpe, la app abre un modal con las portadas de las primeras: hasta 3 con la carátula real y, si sobran, una miniatura en silueta con el total («+7») de las que quedan.
 - Abajo del modal está la pregunta «¿Querés reproducirlas ahora mismo o más tarde?», con las opciones de reproducirlas ya o dejarlas para después. Si elegís reproducirlas, la cola arranca con todas las canciones que agregaste, no solo con las que se ven.
 - El buscador de actualizaciones ahora muestra el changelog completo de la versión disponible, ordenado en Novedades, Mejoras, Arreglos, Rendimiento y Otros.
@@ -14,6 +17,7 @@ Novedades:
 
 Mejoras:
 - La canción ahora se bufferiza por adelantado y la siguiente se descarga en segundo plano: arranca al toque en vez de quedarse preparando, y no se frena a mitad de tema cuando la conexión flaquea.
+- La sección de artistas muestra una grilla con mosaicos de carátulas en lugar de listas largas: de un vistazo se ven cuántos artistas y géneros tenés y cuánto dura cada uno.
 - Barra lateral más compacta: menos separación entre bloques y navegación más ajustada, para que entre todo en ventanas chicas.
 - La barra lateral ahora hace scroll propio cuando la ventana es baja; antes los bloques se comprimían por debajo de su contenido y el texto se superponía.
 - En ventanas de poca altura se oculta primero la tarjeta informativa, así el acceso a Actualizaciones y la cuenta quedan visibles sin scrollear.
@@ -34,6 +38,7 @@ Rendimiento:
 
 Otros:
 - La versión de la app queda en 1.1.0 y ahora se fija también en los archivos de bloqueo (package-lock y Cargo.lock), así el build usa siempre la misma versión que muestra la app.
+- Las imágenes de artistas y géneros se guardan en este navegador, reducidas para no llenar el almacenamiento; los nombres, en cambio, se guardan en tu cuenta y quedan iguales en todos tus dispositivos.
 - Incluye el actualizador integrado: en Windows descarga el instalador firmado y reinicia; en Android baja el APK, verifica su SHA-256 y abre el instalador.
 
 === ENGLISH ===
@@ -42,6 +47,9 @@ Platforms: Windows and Android
 Date: 2026-11-12
 
 New:
+- New «Artists» section to manage the artists and genres of the music you already uploaded: rename them, merge duplicates (so «adele» and «Adele» end up being the same one) and give a name to the songs you uploaded without an artist or a genre.
+- Every artist and genre gets its own image: if you don't set one, the app builds a mosaic out of the cover art of their songs so they are easy to recognize at a glance.
+- In Trends, the artist and genre categories now use that image instead of showing the cover of a single song: the title is the name of the artist or genre and underneath it says how many songs they have and how long they run.
 - When you add several songs at once, the app opens a modal with the cover art of the first ones: up to 3 with the real artwork and, if there are more, a silhouette thumbnail with the total («+7») of the ones left.
 - Below the modal there is the question «Do you want to play them right now or later?», with the options to play them right away or leave them for later. If you choose to play them, the queue starts with every song you added, not only the ones shown.
 - The update checker now shows the full changelog of the available version, split into New, Improvements, Fixes, Performance and Others.
@@ -50,6 +58,7 @@ New:
 
 Improvements:
 - The song is now buffered ahead of time and the next one downloads in the background: it starts right away instead of taking a while, and it no longer stops halfway through when the connection gets weak.
+- The artists section shows a grid with cover mosaics instead of long lists: at a glance you can see how many artists and genres you have and how long each one runs.
 - More compact sidebar: tighter spacing between blocks and a trimmer navigation, so everything fits in short windows.
 - The sidebar now scrolls on its own when the window is short; previously the blocks shrank below their content and text overlapped.
 - On short windows the info card hides first, keeping the Updates entry and the account visible without scrolling.
@@ -70,4 +79,5 @@ Performance:
 
 Others:
 - The app version is now 1.1.0 and it is also set in the lock files (package-lock and Cargo.lock), so the build always uses the same version the app shows.
+- The artist and genre images are stored in this browser, shrunk so they don't fill up the storage; the names, on the other hand, are saved to your account and stay the same on all your devices.
 - Includes the built-in updater: on Windows it downloads the signed installer and restarts; on Android it downloads the APK, verifies its SHA-256 and opens the installer.

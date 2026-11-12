@@ -753,25 +753,37 @@ const viewPlaylist = (id) => {
    Tendencias
    ------------------------------------------------------------ */
 
-const trendCard = (item, { compact = false } = {}) => `
-  <article class="trend-card${compact ? " trend-card--compact" : ""}">
+const trendCard = (item, { compact = false } = {}) => {
+  // Las tendencias de artista y género muestran su propia imagen (o el
+  // mosaico de sus canciones) en vez de la carátula de un tema suelto.
+  const isGroup = Boolean(item.subject);
+  const playAttrs = isGroup
+    ? `data-action="catalog-play" data-kind="${escapeHTML(item.kind || "artist")}" data-name="${escapeHTML(item.subject)}"`
+    : `data-action="play-trend" data-id="${item.track.id}"`;
+  const playLabel = escapeHTML(isGroup ? item.subject : item.track.title);
+
+  return `
+  <article class="trend-card${compact ? " trend-card--compact" : ""}${isGroup ? " trend-card--group" : ""}">
     <div class="trend-card__art">
-      <button class="trend-card__open" data-action="play-trend" data-id="${item.track.id}" aria-label="Reproducir ${escapeHTML(item.track.title)}">
-        ${coverHTML(item.track)}
+      <button class="trend-card__open" ${playAttrs} aria-label="Reproducir ${playLabel}">
+        ${item.art || coverHTML(item.track)}
       </button>
       <span class="trend-flame">${icon("fire", "icon--fill")} En llamas</span>
-      <button class="trend-card__play" data-action="play-trend" data-id="${item.track.id}" aria-label="Reproducir ${escapeHTML(item.track.title)}" tabindex="-1">
+      <button class="trend-card__play" ${playAttrs} aria-label="Reproducir ${playLabel}" tabindex="-1">
         ${icon("play", "icon--fill")}
       </button>
     </div>
     <div class="trend-card__meta">
       <span class="trend-card__label">${icon("fire", "icon--fill")} <span>${escapeHTML(item.label)}</span></span>
-      <strong class="trend-card__title">${escapeHTML(item.track.title)}</strong>
-      <span class="trend-card__artist">${escapeHTML(item.track.artist || "Artista desconocido")}</span>
+      <strong class="trend-card__title">${escapeHTML(item.subject || item.track.title)}</strong>
+      <span class="trend-card__artist">${escapeHTML(
+        isGroup ? item.subtitle || "" : item.track.artist || "Artista desconocido"
+      )}</span>
       <p class="trend-card__reason">${escapeHTML(item.reason)}</p>
       <span class="trend-card__count">${plural(item.count, "reproducción", "reproducciones")}</span>
     </div>
   </article>`;
+};
 
 const viewTrends = () => {
   if (!state.tracks.length) {
@@ -795,7 +807,7 @@ const viewTrends = () => {
   const items = trendItems();
   const summary = trendSummary();
   const lead = items.length
-    ? `${plural(items.length, "categoría encendida", "categorías encendidas")} con ${plural(summary.total, "reproducción", "reproducciones")} registradas en ${plural(summary.days, "día", "días")}. Cada una tiene una sola canción: la que manda en ese patrón.`
+    ? `${plural(items.length, "categoría encendida", "categorías encendidas")} con ${plural(summary.total, "reproducción", "reproducciones")} registradas en ${plural(summary.days, "día", "días")}. Cada una muestra lo que manda en ese patrón: la canción, o la imagen del artista o del género.`
     : "Todavía no hay suficientes reproducciones para encender una categoría. Dale play a lo que más te guste y volvé en un rato.";
 
   return `
@@ -833,8 +845,8 @@ const viewTrends = () => {
       ? `<section class="section">
           <div class="section__head">
             <div>
-              <h2>Una canción por categoría</h2>
-              <p class="section__sub">Nada de listas largas: el tema que mejor representa cada tendencia.</p>
+              <h2>Lo que está mandando en cada categoría</h2>
+              <p class="section__sub">Los artistas y los géneros usan su propia imagen; el resto muestra el tema que mejor representa la tendencia.</p>
             </div>
             <span class="count-label">${plural(items.length, "tendencia", "tendencias")}</span>
           </div>
@@ -848,6 +860,73 @@ const viewTrends = () => {
       ${icon("fire", "icon--fill")}
       <p>Las tendencias son tuyas: se calculan con tus reproducciones guardadas en este navegador y se renuevan con cada play.</p>
     </footer>`;
+};
+
+/* ------------------------------------------------------------
+   Artistas y géneros
+   ------------------------------------------------------------ */
+
+const catalogCard = (group) => `
+  <article class="catalog-card">
+    <div class="catalog-card__art">
+      <button class="catalog-card__open" data-action="catalog-edit" data-kind="${group.kind}" data-name="${escapeHTML(group.name)}" aria-label="Editar ${escapeHTML(group.name)}">
+        ${catalogArt(group)}
+      </button>
+      <button class="card-play" data-action="catalog-play" data-kind="${group.kind}" data-name="${escapeHTML(group.name)}" aria-label="Reproducir ${escapeHTML(group.name)}">
+        ${icon("play", "icon--fill")}
+      </button>
+    </div>
+    <div class="album-card__info">
+      <button class="album-card__title" data-action="catalog-edit" data-kind="${group.kind}" data-name="${escapeHTML(group.name)}">${escapeHTML(group.name)}</button>
+      <p>${plural(group.count, "canción", "canciones")}${group.duration ? ` · ${formatTotal(group.duration)}` : ""}</p>
+    </div>
+  </article>`;
+
+const viewCatalog = () => {
+  const kind = state.catalogTab === "genre" ? "genre" : "artist";
+  const groups = catalogGroups(kind);
+  const artists = catalogGroups("artist").length;
+  const genres = catalogGroups("genre").length;
+
+  return `
+    <section class="page-head page-head--compact">
+      <div>
+        <p class="eyebrow">Tu música</p>
+        <h1>Artistas y géneros<span class="dot-accent">.</span></h1>
+        <p class="page-head__sub">Renombrá, unificá y poné una imagen a los artistas y los géneros de tu biblioteca.</p>
+      </div>
+      <div class="library-stats">
+        <div><strong>${artists}</strong><span>artistas</span></div>
+        <div><strong>${genres}</strong><span>géneros</span></div>
+      </div>
+    </section>
+
+    <div class="tabs" role="tablist" aria-label="Artistas o géneros">
+      <button class="tab ${kind === "artist" ? "is-active" : ""}" role="tab" aria-selected="${kind === "artist"}" data-action="catalog-tab" data-tab="artist">Artistas</button>
+      <button class="tab ${kind === "genre" ? "is-active" : ""}" role="tab" aria-selected="${kind === "genre"}" data-action="catalog-tab" data-tab="genre">Géneros</button>
+    </div>
+
+    ${
+      groups.length
+        ? `<section class="section section--tight">
+            <div class="section__head">
+              <div>
+                <h2>${kind === "artist" ? "Tus artistas" : "Tus géneros"}</h2>
+                <p class="section__sub">Tocá cualquiera para renombrarlo, unificarlo con otro o ponerle una imagen propia.</p>
+              </div>
+              <span class="count-label">${plural(groups.length, kind === "artist" ? "artista" : "género", kind === "artist" ? "artistas" : "géneros")}</span>
+            </div>
+            <div class="catalog-grid">${groups.map(catalogCard).join("")}</div>
+          </section>`
+        : `<section class="section section--tight">
+            ${emptyState(
+              "Todavía no hay música",
+              "Subí canciones y acá vas a ver a tus artistas y a tus géneros, listos para renombrar y para ponerle imagen.",
+              `<div class="empty__actions">${uploadAction()}</div>`,
+              "music"
+            )}
+          </section>`
+    }`;
 };
 
 /* ------------------------------------------------------------
@@ -1057,6 +1136,9 @@ const renderView = ({ resetScroll = true } = {}) => {
     case "trends":
       content = viewTrends();
       break;
+    case "catalog":
+      content = viewCatalog();
+      break;
     case "library":
       content = viewLibrary();
       break;
@@ -1089,11 +1171,13 @@ const updateNavUI = () => {
         ? "recommendations"
         : route.view === "trends"
           ? "trends"
-          : route.view === "library"
-            ? "library"
-            : route.view === "home"
-              ? "home"
-              : "";
+          : route.view === "catalog"
+            ? "catalog"
+            : route.view === "library"
+              ? "library"
+              : route.view === "home"
+                ? "home"
+                : "";
 
   $$(".nav__item").forEach((item) => {
     item.classList.toggle("is-active", item.dataset.nav === active);

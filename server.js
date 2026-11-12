@@ -54138,28 +54138,23 @@ app.put('/wavernote/state', wavernoteAuth, async (req, res) => {
   try {
     await ensureWaverNoteTables();
     const userId = req.wavernoteUser.id;
-    const { rows } = await pool.query(
-      'SELECT data FROM wavernote_user_state WHERE user_id = $1 LIMIT 1',
-      [userId]
-    );
-    const current =
-      rows[0]?.data && typeof rows[0].data === 'object' && !Array.isArray(rows[0].data)
-        ? rows[0].data
-        : {};
-    const data = { ...current, ...incoming };
 
+    // `||` fusiona solo las secciones enviadas sobre lo que ya había, sin
+    // leer y reescribir todo: dos dispositivos pueden guardar a la vez sin
+    // pisarse una sección ajena.
     const saved = await pool.query(
       `INSERT INTO wavernote_user_state (user_id, data, updated_at)
        VALUES ($1, $2::jsonb, NOW())
        ON CONFLICT (user_id) DO UPDATE
-         SET data = EXCLUDED.data, updated_at = NOW()
+         SET data = wavernote_user_state.data || EXCLUDED.data,
+             updated_at = NOW()
        RETURNING data`,
-      [userId, JSON.stringify(data)]
+      [userId, JSON.stringify(incoming)]
     );
 
     return res.json({
       success: true,
-      state: saved.rows[0]?.data || data
+      state: saved.rows[0]?.data || incoming
     });
   } catch (err) {
     console.error('[WAVERNOTE] save state:', err);

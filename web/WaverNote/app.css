@@ -1750,11 +1750,6 @@ body.modal-open {
 
 /* Silueta: la portada de las que quedan apenas se insinúa y encima va el
    total de las que no se muestran. */
-.added__art--more {
-  display: grid;
-  place-items: center;
-}
-
 .added__ghost {
   display: block;
   width: 100%;

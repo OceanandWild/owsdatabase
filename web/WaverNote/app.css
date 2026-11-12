@@ -1017,6 +1017,22 @@ body.modal-open {
   align-self: flex-start;
 }
 
+/* Android: el input real ocupa el botón, así el selector del sistema se abre
+   con un toque directo (sin click() programático). */
+.scan-gate__btn--picker {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-gate__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .scan-gate__note {
   margin: 0;
   color: var(--faint);

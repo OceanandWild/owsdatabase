@@ -1,6 +1,6 @@
 [package]
 name = "wavernote"
-version = "1.0.0"
+version = "1.0.1-beta"
 description = "WaverNote — biblioteca musical personal"
 authors = ["Ocean & Wild Studios"]
 edition = "2021"

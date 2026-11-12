@@ -26,6 +26,15 @@ on:
         required: false
         default: ''
         type: string
+      platform:
+        description: 'Qué compilar y publicar'
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - windows
+          - android
 
 permissions:
   contents: write
@@ -39,6 +48,7 @@ env:
 jobs:
   windows:
     name: Windows · NSIS x64
+    if: ${{ inputs.platform != 'android' }}
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -91,6 +101,7 @@ jobs:
 
   android:
     name: Android · APK universal firmado
+    if: ${{ inputs.platform != 'windows' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -211,6 +222,12 @@ jobs:
   publish:
     name: Publicar release
     needs: [windows, android]
+    # Solo publica si las plataformas pedidas compilaron: con platform=android
+    # el job de Windows queda "skipped" y no debe bloquear la release.
+    if: >
+      ${{ !cancelled() &&
+          (inputs.platform == 'windows' || needs.android.result == 'success') &&
+          (inputs.platform == 'android' || needs.windows.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
@@ -228,7 +245,11 @@ jobs:
           TITLE="WaverNote ${VERSION}"
           NOTES="${{ inputs.release_notes }}"
           if [ -z "$NOTES" ]; then
-            NOTES="WaverNote ${VERSION} — disponible para Windows y Android."
+            if [ "${{ inputs.platform }}" = "android" ]; then
+              NOTES="WaverNote ${VERSION} — APK para Android."
+            else
+              NOTES="WaverNote ${VERSION} — disponible para Windows y Android."
+            fi
           fi
           if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
             gh release create "$TAG" --repo "$REPO" --title "$TITLE" --notes "$NOTES"

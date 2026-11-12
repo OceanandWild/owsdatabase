@@ -19,6 +19,12 @@ let pendingFiles = [];
 
 const SCAN_CONSENT_KEY = "wavernote.scanConsent.v1";
 const SCAN_FILE_LIMIT = 400;
+// En Android el WebView no entiende `webkitdirectory` ni tiene File System
+// Access: el selector se abría y no devolvía nada. Ahí se eligen canciones
+// con el selector del sistema (SAF), que no pide permisos y presta solo los
+// archivos elegidos.
+const IS_ANDROID = /Android/i.test(navigator.userAgent || "");
+const AUDIO_ACCEPT = "audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.webm";
 
 let uploadMode = "manual";
 let scanItems = [];
@@ -296,30 +302,62 @@ const scanConsentNote = () => {
   return "Te lo pedimos siempre, incluso si el sistema dice que no hace falta. Si el dispositivo muestra su propio aviso de Permitir, respondelo una vez y no vuelve a aparecer.";
 };
 
-const autoPaneHTML = () => `
+const autoPaneHTML = () => {
+  const gate = IS_ANDROID
+    ? {
+        title: "Elegir canciones para escanear",
+        lead:
+          "En Android elegís los archivos con el selector del sistema y WaverNote lee sus etiquetas sola: " +
+          "título, artista, álbum, portada y duración. No modificamos ni borramos nada.",
+        items: [
+          "Tocá <strong>Elegir canciones</strong> y marcá todo lo que quieras agregar.",
+          "No hace falta dar permiso de almacenamiento: el selector presta solo los archivos que elegís.",
+          "Después te mostramos lo encontrado y elegís qué canciones subir."
+        ],
+        action: `
+          <label class="btn btn--primary scan-gate__btn scan-gate__btn--picker">
+            <input type="file" id="androidScanInput" class="scan-gate__input" accept="audio/*" multiple />
+            ${icon("search")} <span>Elegir canciones</span>
+          </label>`,
+        note:
+          "Android no permite leer la carpeta Música completa desde la app. Si tenés muchas canciones, " +
+          "elegilas todas de una vez en el selector."
+      }
+    : {
+        title: "Permiso para escanear tu música",
+        lead:
+          "Para armar la biblioteca sola necesitamos leer los archivos de audio de tu carpeta <strong>Música</strong>. " +
+          "Solo miramos títulos, artistas, portadas y duración: no modificamos ni borramos nada.",
+        items: [
+          "Elegís la carpeta <strong>Música</strong> del dispositivo.",
+          "Si el sistema muestra su propio aviso de <strong>Permitir</strong>, respondelo una vez.",
+          "Después te mostramos lo encontrado y elegís qué canciones subir."
+        ],
+        action: `
+          <button type="button" class="btn btn--primary scan-gate__btn" data-scan-action="grant">
+            ${icon("search")} <span>Permitir y escanear</span>
+          </button>`,
+        note: scanConsentNote()
+      };
+
+  const secondaryLabel = IS_ANDROID ? "Elegir otras canciones" : "Elegir otra carpeta";
+
+  return `
   <div class="scan-gate" id="scanGate">
     <div class="scan-gate__head">
       <span class="scan-gate__icon">${icon("lock")}</span>
       <div>
-        <h3>Permiso para escanear tu música</h3>
-        <p>
-          Para armar la biblioteca sola necesitamos leer los archivos de audio de tu carpeta
-          <strong>Música</strong>. Solo miramos títulos, artistas, portadas y duración: no modificamos
-          ni borramos nada.
-        </p>
+        <h3>${gate.title}</h3>
+        <p>${gate.lead}</p>
       </div>
     </div>
 
     <ul class="scan-gate__list">
-      <li>Elegís la carpeta <strong>Música</strong> del dispositivo.</li>
-      <li>Si el sistema muestra su propio aviso de <strong>Permitir</strong>, respondelo una vez.</li>
-      <li>Después te mostramos lo encontrado y elegís qué canciones subir.</li>
+      ${gate.items.map((item) => `<li>${item}</li>`).join("")}
     </ul>
 
-    <button type="button" class="btn btn--primary scan-gate__btn" data-scan-action="grant">
-      ${icon("search")} <span>Permitir y escanear</span>
-    </button>
-    <p class="scan-gate__note" id="scanGateNote">${scanConsentNote()}</p>
+    ${gate.action}
+    <p class="scan-gate__note" id="scanGateNote">${gate.note}</p>
   </div>
 
   <div class="scan-loading" id="scanLoading" hidden>
@@ -355,22 +393,27 @@ const autoPaneHTML = () => `
     </div>
     <div class="scan-list" id="scanList"></div>
     <p class="scan-limit" id="scanLimitNote" hidden>
-      Mostramos las primeras 400 canciones. Si falta alguna, elegí una carpeta más específica.
+      Mostramos las primeras 400 canciones. Si falta alguna, elegí menos archivos por vez.
     </p>
     <button type="button" class="btn btn--ghost btn--small scan-rescan" data-scan-action="rescan">
-      ${icon("folder")} <span>Escanear otra carpeta</span>
+      ${icon("folder")} <span>${secondaryLabel}</span>
     </button>
   </div>
 
   <div class="scan-empty" id="scanEmpty" hidden>
     <span class="scan-empty__icon">${icon("music")}</span>
-    <strong>No encontramos audio en esa carpeta</strong>
-    <p>Probá con la carpeta Música o con otra que tenga tus archivos. Formatos: MP3, WAV, OGG, M4A, AAC, FLAC, OPUS o WEBM.</p>
+    <strong>${IS_ANDROID ? "No encontramos audio en lo que elegiste" : "No encontramos audio en esa carpeta"}</strong>
+    <p>${
+      IS_ANDROID
+        ? "Probá de nuevo eligiendo canciones con el selector. Formatos: MP3, WAV, OGG, M4A, AAC, FLAC, OPUS o WEBM."
+        : "Probá con la carpeta Música o con otra que tenga tus archivos. Formatos: MP3, WAV, OGG, M4A, AAC, FLAC, OPUS o WEBM."
+    }</p>
     <button type="button" class="btn btn--soft btn--small" data-scan-action="rescan">
-      ${icon("folder")} <span>Elegir otra carpeta</span>
+      ${icon("folder")} <span>${secondaryLabel}</span>
     </button>
   </div>
 `;
+};
 
 const uploadModalHTML = () => `
   <form class="form upload-form" id="uploadForm" novalidate>
@@ -696,7 +739,8 @@ const updateScanSummary = () => {
   const duplicates = scanItems.filter((item) => item.duplicate).length;
 
   if (title) {
-    title.textContent = `${plural(total, "canción encontrada", "canciones encontradas")} en ${scanFolder || "Música"}`;
+    const found = plural(total, "canción encontrada", "canciones encontradas");
+    title.textContent = scanFolder ? `${found} en ${scanFolder}` : found;
   }
   if (meta) {
     const parts = [plural(selected, "seleccionada", "seleccionadas")];
@@ -744,9 +788,14 @@ const pickFolderWithInput = () =>
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = "audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.webm";
-    input.setAttribute("webkitdirectory", "");
-    input.setAttribute("directory", "");
+    // Android ignora `webkitdirectory` y con el atributo puesto el selector
+    // no devolvía nada. Ahí se usa el picker normal (SAF) con varias
+    // canciones; en escritorio se mantiene la carpeta completa.
+    input.accept = IS_ANDROID ? "audio/*" : AUDIO_ACCEPT;
+    if (!IS_ANDROID) {
+      input.setAttribute("webkitdirectory", "");
+      input.setAttribute("directory", "");
+    }
     input.tabIndex = -1;
     input.style.position = "fixed";
     input.style.left = "-9999px";
@@ -805,7 +854,8 @@ const openDirectoryHandle = async () => {
 };
 
 const chooseMusicFolder = async () => {
-  const supportsPicker = typeof window.showDirectoryPicker === "function" && window.isSecureContext;
+  const supportsPicker =
+    !IS_ANDROID && typeof window.showDirectoryPicker === "function" && window.isSecureContext;
 
   if (supportsPicker) {
     try {
@@ -822,7 +872,7 @@ const chooseMusicFolder = async () => {
   return pickFolderWithInput();
 };
 
-const startScan = async () => {
+const startScan = async (preselectedFiles = null) => {
   if (state.uploading) return;
 
   const runId = ++scanRunId;
@@ -830,19 +880,30 @@ const startScan = async () => {
   releaseScanArtwork();
   scanItems = [];
   setAutoPhase("scanning");
-  updateScanProgress(0, "Abriendo la carpeta Música…");
+  updateScanProgress(0, IS_ANDROID ? "Leyendo tus canciones…" : "Abriendo la carpeta Música…");
 
   let picked;
-  try {
-    picked = await chooseMusicFolder();
-  } catch (err) {
-    if (runId !== scanRunId) return;
-    if (err?.name === "AbortError") {
-      setAutoPhase("gate");
+
+  if (Array.isArray(preselectedFiles)) {
+    // Android: los archivos llegan directo del selector del sistema.
+    picked = {
+      files: preselectedFiles,
+      folderName: "",
+      canceled: preselectedFiles.length === 0,
+      truncated: preselectedFiles.length > SCAN_FILE_LIMIT
+    };
+  } else {
+    try {
+      picked = await chooseMusicFolder();
+    } catch (err) {
+      if (runId !== scanRunId) return;
+      if (err?.name === "AbortError") {
+        setAutoPhase("gate");
+        return;
+      }
+      setScanError(friendlyError(err));
       return;
     }
-    setScanError(friendlyError(err));
-    return;
   }
 
   if (runId !== scanRunId) return;
@@ -853,7 +914,7 @@ const startScan = async () => {
   }
 
   const files = (picked.files || []).slice(0, SCAN_FILE_LIMIT);
-  scanFolder = picked.folderName || "Música";
+  scanFolder = picked.folderName || "";
   scanTruncated = Boolean(picked.truncated);
 
   scanConsent = { grantedAt: scanConsent?.grantedAt || new Date().toISOString(), folder: scanFolder };
@@ -973,6 +1034,19 @@ const openUpload = () => {
   const list = $("#uploadList");
 
   input?.addEventListener("change", () => setPendingFiles(input.files));
+
+  // Android: el selector del sistema entrega las canciones elegidas y el
+  // escaneo sigue igual que con una carpeta.
+  const androidScanInput = $("#androidScanInput");
+  androidScanInput?.addEventListener("change", () => {
+    const files = Array.from(androidScanInput.files || []);
+    androidScanInput.value = "";
+    if (!files.length) return;
+    startScan(files).catch((err) => {
+      console.error(err);
+      setScanError(friendlyError(err));
+    });
+  });
 
   ["dragenter", "dragover"].forEach((eventName) => {
     dropzone?.addEventListener(eventName, (event) => {

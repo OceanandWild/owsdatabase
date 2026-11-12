@@ -6,6 +6,6 @@
   "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.3-beta/WaverNote_1.0.3-beta_universal.apk",
   "sha256": "73d2abaffc15d18b0d76474e1ec33ecab4d3fe4e3da957e01559aa1e094dee43",
   "size_bytes": 55204467,
-  "release_notes": "WaverNote 1.0.3-beta: barra lateral adaptable, sin superposiciones en ventanas bajas, y actualizaciones integradas en la app.",
+  "release_notes": "Barra lateral adaptable y accesos siempre visibles. Incluye el actualizador integrado: Windows instala el NSIS firmado y Android verifica el SHA-256 del APK.",
   "published_at": "2026-11-12T04:08:27Z"
 }

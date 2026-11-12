@@ -1,6 +1,6 @@
 {
   "version": "1.0.2-beta",
-  "notes": "WaverNote 1.0.2-beta: actualizaciones integradas y icono nuevo.\n\n- Actualizador dentro de la app: en Windows descarga el instalador firmado y reinicia; en Android baja el APK, verifica el SHA-256 y abre el instalador.\n- Nuevo icono de la app para Windows y Android.\n- Biblioteca con pestana Mas",
+  "notes": "Actualizaciones integradas, icono nuevo y ranking de Mas escuchadas. Windows instala el NSIS firmado; Android verifica el SHA-256 del APK antes de instalarlo.",
   "pub_date": "2026-11-12T03:28:53Z",
   "platforms": {
     "windows-x86_64": {

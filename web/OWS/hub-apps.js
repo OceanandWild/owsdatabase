@@ -48,11 +48,46 @@
     ]
   };
 
+  // El catálogo autoritativo vive en el servidor. La app de escritorio empaqueta
+  // una copia en app/hub-apps.json, así que un fetch relativo se queda con la
+  // versión del build: por eso siempre se intenta primero el remoto.
+  const CATALOG_REMOTE = "https://owsdatabase.onrender.com/ows/hub-apps.json";
+  const CATALOG_LOCAL = "hub-apps.json";
+  const CACHE_KEY = "ows.hubApps.catalog.v1";
+
   let appsCache = FALLBACK.apps.slice();
   let loaded = false;
 
   function safeText(value) {
     return typeof escapeHtml === "function" ? escapeHtml(String(value == null ? "" : value)) : String(value == null ? "" : value);
+  }
+
+  // Último catálogo bueno: si la app arranca sin red sigue mostrando versiones
+  // reales en vez de volver al fallback empaquetado en el build.
+  function readCatalogCache() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      return data && Array.isArray(data.apps) && data.apps.length ? data : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeCatalogCache(data) {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ updated_at: data.updated_at || "", apps: data.apps }));
+    } catch (_) {}
+  }
+
+  async function fetchCatalog(url) {
+    const sep = url.indexOf("?") === -1 ? "?" : "&";
+    const res = await fetch(url + sep + "v=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.apps) || !data.apps.length) throw new Error("catálogo vacío");
+    return data;
   }
 
   function isAndroidNative() {
@@ -336,16 +371,26 @@
       renderApps(appsCache);
       return appsCache;
     }
-    try {
-      const res = await fetch("hub-apps.json?v=1", { cache: "no-store" });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      if (data && Array.isArray(data.apps) && data.apps.length) {
-        appsCache = data.apps;
-      }
-    } catch (_) {
-      appsCache = FALLBACK.apps.slice();
+    const cached = readCatalogCache();
+    if (cached) {
+      appsCache = cached.apps;
+      renderApps(appsCache);
     }
+    // Remoto primero; si falla (sin red, Render dormido) se usa la copia
+    // empaquetada y, como último recurso, el fallback del código.
+    for (const url of [CATALOG_REMOTE, CATALOG_LOCAL]) {
+      try {
+        const data = await fetchCatalog(url);
+        appsCache = data.apps;
+        writeCatalogCache(data);
+        loaded = true;
+        renderApps(appsCache);
+        return appsCache;
+      } catch (_) {
+        /* se intenta la siguiente fuente */
+      }
+    }
+    if (!cached) appsCache = FALLBACK.apps.slice();
     loaded = true;
     renderApps(appsCache);
     return appsCache;

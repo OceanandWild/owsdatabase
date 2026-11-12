@@ -1,11 +1,11 @@
 {
-  "version": "1.0.2-beta",
-  "notes": "Actualizaciones integradas, icono nuevo y ranking de Mas escuchadas. Windows instala el NSIS firmado; Android verifica el SHA-256 del APK antes de instalarlo.",
-  "pub_date": "2026-11-12T03:28:53Z",
+  "version": "1.0.3-beta",
+  "notes": "WaverNote 1.0.3-beta: barra lateral adaptable, sin superposiciones en ventanas bajas, y actualizaciones integradas en la app.",
+  "pub_date": "2026-11-12T04:08:27Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.2-beta/WaverNote_1.0.2-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaXFwSjJSVzVBQXRFa2xyRW5LQUhFTmw5eTJ5YmthRS9ZeHFFTnVGUDdDYmdxVDFCNnhER0dLdGtndzNEYVMxNkRud0RmWEFqMVVhakEyR1k5ajBrMkhRVFpKTU5NbmdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NDUzNjIyCWZpbGU6V2F2ZXJOb3RlXzEuMC4yLWJldGFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMC4yLWJldGEKREZEbVZCUlJlSXJKdkVpNXVobTNpY0xZb0c1NkRNVERBWFRlTVZ5dTRiTTU3VGpYTTdKWjBVODRqSmFVVFlDYUhNSHpKUTE0MWFNK1pkRXc3SjdOQnc9PQo="
+      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.3-beta/WaverNote_1.0.3-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaXFwSjJSVzVBQWlLdkp1a0t0cnQ2YXRUT0Zxb0FET0t4SFRSQ1ordmZveVphOGJnSStER2MzcDhPdVJKM1FLTThHd2lRcU81d0Y0NFNvRHdEK1lxRmdzMm9SWG5wcXdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NDU2MjUwCWZpbGU6V2F2ZXJOb3RlXzEuMC4zLWJldGFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMC4zLWJldGEKTEowd3A1LzNrWWkxb1Rwb2FYTmNtcmUzTitsZ0ZlVU1HMVYyMVhBZ1lpSE9SUFdqMHZqbm9RS2dxaUtXdExUM2ZDaE9NSmxWSE5ZY2FMWVIrY0wyQVE9PQo="
     }
   }
 }

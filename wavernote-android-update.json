@@ -1,11 +1,11 @@
 {
   "project_slug": "wavernote",
   "package_id": "com.oceanwildstudios.wavernote",
-  "version_name": "1.0.2-beta",
-  "version_code": 1000002,
-  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.2-beta/WaverNote_1.0.2-beta_universal.apk",
-  "sha256": "4833dcdac966b9ee90042dd691a99d161fe46554d7104038afdc87917e2061b9",
-  "size_bytes": 55188411,
-  "release_notes": "Actualizaciones integradas, icono nuevo y ranking de Mas escuchadas. Windows instala el NSIS firmado; Android verifica el SHA-256 del APK antes de instalarlo.",
-  "published_at": "2026-11-12T03:28:53Z"
+  "version_name": "1.0.3-beta",
+  "version_code": 1000003,
+  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.3-beta/WaverNote_1.0.3-beta_universal.apk",
+  "sha256": "73d2abaffc15d18b0d76474e1ec33ecab4d3fe4e3da957e01559aa1e094dee43",
+  "size_bytes": 55204467,
+  "release_notes": "WaverNote 1.0.3-beta: barra lateral adaptable, sin superposiciones en ventanas bajas, y actualizaciones integradas en la app.",
+  "published_at": "2026-11-12T04:08:27Z"
 }

@@ -1,0 +1,21 @@
+OWS Hub 3.5.2 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.5.2
+Plataforma: Windows (NSIS + MSI) + Android (APK universal)
+Fecha: 2026-11-12
+
+Cambios:
+- OWS Hub Apps instala las apps de Windows sin pasar por el navegador: el instalador se descarga dentro del Hub con el porcentaje en el botón y, al terminar, se abre solo.
+- Con eso se termina el bloqueo de Windows que impedía abrir el instalador («La configuración de seguridad de Internet impidió la apertura de uno o varios archivos»): el archivo ya no queda marcado como descargado de Internet. Tampoco aparece el aviso de SmartScreen por el archivo descargado.
+- Si la descarga nativa falla, el Hub abre el enlace en el navegador como antes y avisa que lo hizo.
+
+=== ENGLISH ===
+Version: 3.5.2
+Platform: Windows (NSIS + MSI) + Android (universal APK)
+Date: 2026-11-12
+
+Changes:
+- OWS Hub Apps installs Windows apps without going through the browser: the installer is downloaded inside the Hub with the percentage on the button, and it opens automatically when it finishes.
+- That ends the Windows block that prevented opening the installer ("Internet security settings prevented one or more files from opening"): the file is no longer marked as downloaded from the Internet. The SmartScreen warning for the downloaded file is gone too.
+- If the native download fails, the Hub opens the link in the browser as before and tells you.

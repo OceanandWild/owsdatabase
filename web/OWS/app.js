@@ -9339,6 +9339,11 @@ function bindHubFullscreenKeys() {
 // la tarjeta de actualización): el lanzamiento multi-plataforma de Wilder Gambit.
 const HUB_CHANGELOG_HIGHLIGHT = '3.4.0';
 const HUB_CHANGELOGS = {
+  '3.5.2': [
+    'OWS Hub Apps instala las apps de Windows sin pasar por el navegador: el instalador se descarga dentro del Hub, el botón muestra el porcentaje y al terminar se abre solo.',
+    'Eso evita el bloqueo de Windows que impedía abrir el instalador («La configuración de seguridad de Internet impidió la apertura de uno o varios archivos»): el archivo ya no queda marcado como descargado de Internet, así que tampoco aparece el aviso de SmartScreen.',
+    'Si la descarga nativa falla por lo que sea, el Hub abre el enlace en el navegador como antes y te avisa.'
+  ],
   '3.5.1': [
     'OWS Hub Apps muestra la versión de cada descarga: cuando una plataforma va por delante de la otra, la fila lo dice (por ejemplo, la versión de Android junto a la de Windows) y la instalación usa esa versión para la ficha de la app.',
     'WaverNote para Android pasa a la 1.0.1-beta con la importación automática arreglada: el modo Automático abre el selector del sistema para elegir canciones y lee título, artista, álbum, portada y duración sin pedir permiso de almacenamiento. Windows sigue en 1.0.0.'

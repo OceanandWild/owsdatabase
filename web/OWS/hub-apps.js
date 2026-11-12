@@ -62,6 +62,53 @@
     }
   }
 
+  function tauriCore() {
+    try {
+      const t = window.__TAURI__;
+      if (t && t.core && typeof t.core.invoke === "function") return t.core;
+    } catch (_) {}
+    return null;
+  }
+
+  // En Android el Hub corre sobre Capacitor (no Tauri): ahí no hay comandos
+  // nativos y la instalación sigue siendo el APK.
+  function isDesktopApp() {
+    return !!tauriCore() && !isAndroidNative();
+  }
+
+  // Descarga y abre el instalador desde la propia app. Así el archivo no
+  // queda con Mark-of-the-Web y Windows no lo bloquea con "La configuración
+  // de seguridad de Internet impidió la apertura de uno o varios archivos".
+  async function installWindowsNatively(btn, app, p) {
+    const core = tauriCore();
+    if (!core) throw new Error("Tauri no disponible");
+    const cta = btn ? btn.querySelector(".hub-app-dl-cta") : null;
+    let unlisten = null;
+    try {
+      const ev = window.__TAURI__ && window.__TAURI__.event;
+      if (ev && typeof ev.listen === "function") {
+        unlisten = await ev.listen("ows-hub-app-progress", (e) => {
+          const d = e && e.payload;
+          if (!cta || !d || String(d.slug) !== String(app.slug)) return;
+          cta.textContent = d.total
+            ? Math.min(100, Math.round((d.downloaded / d.total) * 100)) + "%"
+            : "Descargando…";
+        });
+      }
+      const path = await core.invoke("download_hub_app", { slug: app.slug, url: p.url });
+      await core.invoke("run_hub_app_installer", { path });
+      if (typeof showToast === "function") {
+        showToast("Abrimos el instalador de " + app.name + ". Seguí los pasos en pantalla.");
+      }
+    } finally {
+      if (unlisten) {
+        try {
+          unlisten();
+        } catch (_) {}
+      }
+    }
+  }
+
   function platformOrder() {
     return isAndroidNative() ? ["android", "windows"] : ["windows", "android"];
   }
@@ -247,6 +294,21 @@
         showToast("El instalador de Windows se abre desde tu PC. En este teléfono usá la versión Android.");
       }
       return;
+    }
+
+    // Escritorio: descarga nativa (sin aviso de zona ni SmartScreen).
+    if (platform === "windows" && isDesktopApp()) {
+      setBusy(btn, true);
+      try {
+        await installWindowsNatively(btn, app, p);
+        return;
+      } catch (err) {
+        if (typeof showToast === "function") {
+          showToast("No se pudo descargar desde el Hub; abrimos el navegador.");
+        }
+      } finally {
+        setBusy(btn, false);
+      }
     }
 
     openExternal(p.url);

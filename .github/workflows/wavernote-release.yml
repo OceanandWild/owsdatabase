@@ -8,9 +8,15 @@ name: WaverNote Release
 # ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD). Este workflow NO genera ni
 # rota llaves: si faltan los secrets, falla en vez de firmar con otra cosa.
 #
+# La firma Windows usa una llave propia de WaverNote (secrets
+# WAVERNOTE_TAURI_SIGNING_KEY / WAVERNOTE_TAURI_SIGNING_KEY_PASSWORD). El
+# build genera el .sig y, al publicar, se actualizan los manifiestos
+# wavernote-update.json (Windows) y wavernote-android-update.json (Android)
+# en la rama main, que es de donde los lee la app instalada.
+#
 # Tag de release: wavernote-v<version>  (ej. wavernote-v1.0.0)
 # Assets:
-#   WaverNote_<version>_x64-setup.exe
+#   WaverNote_<version>_x64-setup.exe (+ .sig)
 #   WaverNote_<version>_universal.apk
 
 on:
@@ -79,6 +85,9 @@ jobs:
 
       - name: Build NSIS
         working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.WAVERNOTE_TAURI_SIGNING_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.WAVERNOTE_TAURI_SIGNING_KEY_PASSWORD }}
         run: npm run build
 
       - name: Collect installer
@@ -87,16 +96,23 @@ jobs:
           $nsis = Join-Path "${{ env.PROJECT_DIR }}" "src-tauri\target\release\bundle\nsis"
           $exe = Get-ChildItem -Path $nsis -Filter *.exe -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $exe) { throw "No se encontró el instalador NSIS en $nsis" }
+          $sig = "$($exe.FullName).sig"
+          if (-not (Test-Path $sig)) {
+            throw "No se generó la firma .sig del instalador. Revisá WAVERNOTE_TAURI_SIGNING_KEY."
+          }
           New-Item -ItemType Directory -Force -Path dist-win | Out-Null
           $dest = "dist-win\WaverNote_${{ env.VERSION }}_x64-setup.exe"
           Copy-Item -LiteralPath $exe.FullName -Destination $dest -Force
-          Write-Host "Instalador listo: $dest ($($exe.Length) bytes)"
+          Copy-Item -LiteralPath $sig -Destination "$dest.sig" -Force
+          Write-Host "Instalador firmado listo: $dest ($($exe.Length) bytes)"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: wavernote-windows
-          path: dist-win/WaverNote_*_x64-setup.exe
+          path: |
+            dist-win/WaverNote_*_x64-setup.exe
+            dist-win/WaverNote_*_x64-setup.exe.sig
           if-no-files-found: error
 
   android:
@@ -230,6 +246,12 @@ jobs:
           (inputs.platform == 'android' || needs.windows.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GH_PAT }}
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -238,12 +260,13 @@ jobs:
       - name: Create/update GitHub release
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           set -euo pipefail
           REPO="OceanandWild/owsdatabase"
           TAG="${TAG}"
           TITLE="WaverNote ${VERSION}"
-          NOTES="${{ inputs.release_notes }}"
+          NOTES="${RELEASE_NOTES:-}"
           if [ -z "$NOTES" ]; then
             if [ "${{ inputs.platform }}" = "android" ]; then
               NOTES="WaverNote ${VERSION} — APK para Android."
@@ -264,3 +287,100 @@ jobs:
           find artifacts -type f
           gh release upload "$TAG" --repo "$REPO" --clobber $(find artifacts -type f)
           echo "Release lista: https://github.com/$REPO/releases/tag/$TAG"
+
+      - name: Generate update manifests
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          version = os.environ["VERSION"].strip()
+          tag = os.environ["TAG"].strip()
+          notes = (os.environ.get("RELEASE_NOTES") or "").strip()
+          repo = "OceanandWild/owsdatabase"
+          release_base = f"https://github.com/{repo}/releases/download/{tag}"
+          now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+          def find(pattern):
+              result = sorted(Path("artifacts").rglob(pattern))
+              return str(result[0]) if result else ""
+
+          win_exe = find("*_x64-setup.exe")
+          win_sig = find("*_x64-setup.exe.sig")
+          apk = find("*_universal.apk")
+
+          if win_exe and win_sig:
+              with open(win_sig, "r", encoding="utf-8") as handle:
+                  signature = handle.read().strip()
+              if not signature:
+                  raise SystemExit("La firma .sig del instalador de Windows está vacía.")
+              manifest = {
+                  "version": version,
+                  "notes": notes or f"WaverNote {version} para Windows.",
+                  "pub_date": now,
+                  "platforms": {
+                      "windows-x86_64": {
+                          "url": f"{release_base}/{os.path.basename(win_exe)}",
+                          "signature": signature,
+                      }
+                  },
+              }
+              with open("wavernote-update.json", "w", encoding="utf-8") as handle:
+                  json.dump(manifest, handle, ensure_ascii=False, indent=2)
+                  handle.write("\n")
+              print("wavernote-update.json listo")
+          else:
+              print("Sin instalador firmado de Windows: no se toca wavernote-update.json")
+
+          if apk:
+              with open(apk, "rb") as handle:
+                  apk_bytes = handle.read()
+              numeric = [int(part) for part in re.findall(r"\d+", version.split("-")[0])[:3]]
+              while len(numeric) < 3:
+                  numeric.append(0)
+              # Misma fórmula que Tauri para el versionCode del APK:
+              # major * 1_000_000 + minor * 1_000 + patch.
+              version_code = numeric[0] * 1_000_000 + numeric[1] * 1_000 + numeric[2]
+              manifest = {
+                  "project_slug": "wavernote",
+                  "package_id": "com.oceanwildstudios.wavernote",
+                  "version_name": version,
+                  "version_code": version_code,
+                  "apk_url": f"{release_base}/{os.path.basename(apk)}",
+                  "sha256": hashlib.sha256(apk_bytes).hexdigest(),
+                  "size_bytes": len(apk_bytes),
+                  "release_notes": notes or f"WaverNote {version} para Android.",
+                  "published_at": now,
+              }
+              with open("wavernote-android-update.json", "w", encoding="utf-8") as handle:
+                  json.dump(manifest, handle, ensure_ascii=False, indent=2)
+                  handle.write("\n")
+              print("wavernote-android-update.json listo")
+          else:
+              print("Sin APK: no se toca wavernote-android-update.json")
+          PY
+
+      - name: Commit manifests to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for file in wavernote-update.json wavernote-android-update.json; do
+            if [ -f "$file" ]; then
+              git add "$file"
+            fi
+          done
+          if git diff --cached --quiet; then
+            echo "Manifiestos sin cambios."
+            exit 0
+          fi
+          git commit -m "chore(wavernote): manifiestos de actualización ${VERSION}"
+          git pull --rebase origin main
+          git push origin HEAD:main

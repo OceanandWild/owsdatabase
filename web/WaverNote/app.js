@@ -80,7 +80,7 @@ const renderSidebarPlaylists = () => {
   nav.innerHTML = state.playlists
     .map(
       (playlist) => `<button class="side-playlist" data-action="open-playlist" data-id="${playlist.id}" title="${escapeHTML(playlist.name)}">
-        <span class="side-playlist__art">${coverHTML({ title: playlist.name })}</span>
+        <span class="side-playlist__art">${coverHTML(playlistCover(playlist))}</span>
         <span class="side-playlist__name">${escapeHTML(playlist.name)}</span>
       </button>`
     )
@@ -1618,6 +1618,7 @@ const openAccount = () => {
         <div><strong>${state.playlists.length}</strong><span>playlists</span></div>
         <div><strong>${likedTracks().length}</strong><span>favoritos</span></div>
       </div>
+      ${window.WaverNoteUpdater?.accountSectionHTML() || ""}
       <div class="modal__actions">
         <button class="btn btn--ghost" data-action="close-modal">Cerrar</button>
         <button class="btn btn--danger" data-action="logout">${icon("logout")} Cerrar sesión</button>
@@ -1873,6 +1874,14 @@ const handleAction = async (actionEl) => {
     case "play-all":
       startQueue(state.tracks.map((track) => track.id), { startIndex: 0 });
       break;
+    case "play-most": {
+      const ids = mostPlayedTracks().map((entry) => entry.track.id);
+      if (!ids.length) return;
+      const target = Number(actionEl.dataset.id);
+      const index = ids.indexOf(target);
+      startQueue(ids, { startIndex: index < 0 ? 0 : index });
+      break;
+    }
     case "play-queue":
       playQueueIndex(actionEl.dataset.index);
       break;
@@ -1923,6 +1932,15 @@ const handleAction = async (actionEl) => {
       break;
     case "open-account":
       openAccount();
+      break;
+    case "open-updates":
+      window.WaverNoteUpdater?.openPanel();
+      break;
+    case "updates-check":
+      await window.WaverNoteUpdater?.checkNow();
+      break;
+    case "updates-install":
+      await window.WaverNoteUpdater?.applyNow();
       break;
     case "logout":
       doLogout();
@@ -2249,6 +2267,7 @@ const init = () => {
   renderView({ resetScroll: true });
 
   document.documentElement.classList.add("is-ready");
+  window.WaverNoteUpdater?.init();
   bootAuth();
 };
 

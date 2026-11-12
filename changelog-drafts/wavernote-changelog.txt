@@ -1,0 +1,33 @@
+WaverNote 1.0.2-beta - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.0.2-beta
+Plataformas: Windows y Android
+Fecha: 2026-11-12
+
+Cambios:
+- Nuevo icono de la app: una onda que remata en una nota musical, con esquinas transparentes y proporciones pensadas para que se lea en la barra de tareas y en el launcher de Android.
+- Actualizaciones integradas en la app. En Windows descarga el instalador firmado y reinicia sola; en Android baja el APK, verifica su SHA-256 y abre el instalador del sistema.
+- El chequeo corre solo al abrir la app y muestra un aviso cuando hay una versión nueva, con progreso de descarga visible.
+- Nuevo acceso a Actualizaciones desde la barra lateral (versión instalada) y desde la ventana de cuenta.
+- Biblioteca: pestaña "Más escuchadas" con ranking completo, podio de las tres primeras, porcentaje sobre el total y reproducción de todo el ranking.
+- Inicio: "Recién agregadas" ahora abarca solamente los últimos 7 días y, si no hay novedades, invita a subir música en lugar de quedar vacía.
+- Las playlists muestran como portada la de su primera canción con arte, también en la barra lateral.
+- Las filas de canciones de las listas incorporan la miniatura del álbum.
+- Android: se declara el permiso de instalación de paquetes para poder aplicar la actualización del APK.
+
+=== ENGLISH ===
+Version: 1.0.2-beta
+Platforms: Windows and Android
+Date: 2026-11-12
+
+Changes:
+- New app icon: a wave that ends in a musical note, with transparent corners and proportions tuned to stay readable in the Windows taskbar and the Android launcher.
+- Updates built into the app. On Windows it downloads the signed installer and restarts on its own; on Android it fetches the APK, verifies its SHA-256 and opens the system installer.
+- The update check runs automatically on launch and surfaces a notice when a new version is available, with visible download progress.
+- New Updates entry point from the sidebar (installed version) and from the account modal.
+- Library: a new "Most played" tab with the full ranking, a top-three podium, share of total plays and a button to play the whole ranking.
+- Home: "Recently added" now covers only the last 7 days and, when there is nothing new, invites you to upload music instead of showing an empty block.
+- Playlists use the artwork of their first track that has one, including in the sidebar.
+- Song rows in lists now include the album thumbnail.
+- Android: declares the package install permission so the APK update can be applied.

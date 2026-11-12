@@ -41,6 +41,10 @@ const flushPendingPlay = () => {
   const trackId = pendingPlayId;
   pendingPlayId = null;
   recordPlay(trackId);
+  // Si el usuario está mirando el ranking, reflejamos el nuevo conteo al instante.
+  if (state.route.view === "library" && state.libraryTab === "most-played") {
+    renderView({ resetScroll: false });
+  }
 };
 
 engine.onEnded = () => handleTrackEnd();

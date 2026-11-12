@@ -17,6 +17,7 @@ const FILES = [
   "trends.css",
   "audio-engine.js",
   "core.js",
+  "updater.js",
   "metadata.js",
   "recommend.js",
   "trends.js",

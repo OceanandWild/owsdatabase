@@ -38,7 +38,7 @@ const playlistCard = (playlist) => {
   <article class="playlist-card">
     <div class="playlist-card__art">
       <button class="playlist-card__open" data-action="open-playlist" data-id="${playlist.id}" aria-label="Abrir ${escapeHTML(playlist.name)}">
-        ${coverHTML({ title: playlist.name, coverUrl: playlistTracks(playlist).find((track) => track.coverUrl)?.coverUrl })}
+        ${coverHTML(playlistCover(playlist))}
       </button>
       <button class="card-play" data-action="play-playlist" data-id="${playlist.id}" aria-label="Reproducir ${escapeHTML(playlist.name)}">
         ${icon("play", "icon--fill")}
@@ -53,7 +53,7 @@ const playlistCard = (playlist) => {
 
 const playlistStrip = (playlist) => `
   <div class="playlist-row" role="button" tabindex="0" data-action="open-playlist" data-id="${playlist.id}" aria-label="Abrir playlist ${escapeHTML(playlist.name)}">
-    <span class="playlist-row__art">${coverHTML({ title: playlist.name })}</span>
+    <span class="playlist-row__art">${coverHTML(playlistCover(playlist))}</span>
     <span class="playlist-row__info">
       <strong>${escapeHTML(playlist.name)}</strong>
       <span>${plural(playlist.trackIds.length, "pista", "pistas")} · ${formatTotal(playlistDuration(playlist))}</span>
@@ -61,7 +61,7 @@ const playlistStrip = (playlist) => `
     <span class="playlist-row__chev">${icon("chevron-right")}</span>
   </div>`;
 
-const trackRows = (ids, { showAlbum = true, context = "", playlistId = null, reasons = null } = {}) => {
+const trackRows = (ids, { showAlbum = true, context = "", playlistId = null, reasons = null, showCover = true } = {}) => {
   const tracks = (ids || []).map((id) => trackById(id)).filter(Boolean);
 
   return `<div class="tracklist ${showAlbum ? "" : "tracklist--no-album"}" data-list-context="${escapeHTML(context)}">
@@ -88,11 +88,14 @@ const trackRows = (ids, { showAlbum = true, context = "", playlistId = null, rea
               <span class="track-row__play">${icon("play", "icon--fill")}</span>
               <span class="track-row__eq" aria-hidden="true"><i></i><i></i><i></i></span>
             </span>
-            <span class="track-row__main">
-              <span class="track-row__title">${highlight(track.title)}</span>
-              <span class="track-row__sub">
-                <span class="track-row__artist">${escapeHTML(track.artist || "Artista desconocido")}</span>
-                ${why ? `<span class="track-row__why">${icon("sparkles")}${escapeHTML(why)}</span>` : ""}
+            <span class="track-row__main${showCover ? " track-row__main--cover" : ""}">
+              ${showCover ? `<span class="track-row__art">${coverHTML(track)}</span>` : ""}
+              <span class="track-row__copy">
+                <span class="track-row__title">${highlight(track.title)}</span>
+                <span class="track-row__sub">
+                  <span class="track-row__artist">${escapeHTML(track.artist || "Artista desconocido")}</span>
+                  ${why ? `<span class="track-row__why">${icon("sparkles")}${escapeHTML(why)}</span>` : ""}
+                </span>
               </span>
             </span>
             ${showAlbum ? `<button class="track-row__album" data-action="open-album" data-id="${escapeHTML(album.id)}" title="Abrir ${escapeHTML(album.title)}">${escapeHTML(album.title)}</button>` : ""}
@@ -195,6 +198,7 @@ const viewHome = () => {
   const palette = paletteFor(latest.title);
   const total = tracks.reduce((sum, track) => sum + (Number(track.duration) || 0), 0);
   const trends = trendItems();
+  const recentAdditions = recentlyAddedTracks();
 
   return `
     <section class="page-head">
@@ -254,12 +258,21 @@ const viewHome = () => {
     <section class="section">
       <div class="section__head">
         <div>
-          <h2>Recién agregadas</h2>
-          <p class="section__sub">Lo último que subiste a tu biblioteca.</p>
+          <div class="section__title">
+            <h2>Recién agregadas</h2>
+            <span class="section__range" title="Rango: últimos 7 días">7D</span>
+          </div>
+          <p class="section__sub">Recién agregadas en los últimos 7 días.</p>
         </div>
         <button class="link-btn" data-action="open-library" data-tab="songs">Ver todo ${icon("arrow-right")}</button>
       </div>
-      ${trackRows(tracks.slice(0, 6).map((track) => track.id), { context: "recent" })}
+      ${recentAdditions.length
+        ? trackRows(recentAdditions.slice(0, 6).map((track) => track.id), { context: "recent-additions" })
+        : `<div class="section-empty">
+            ${icon("sparkles")}
+            <p>No agregaste canciones en los últimos 7 días.</p>
+            ${uploadAction("Subir música", "btn--small")}
+          </div>`}
     </section>
 
     <section class="section">
@@ -407,9 +420,124 @@ const viewSearch = () => {
 
 const libraryTabs = [
   ["songs", "Canciones"],
+  ["most-played", "Más escuchadas"],
   ["albums", "Álbumes"],
   ["playlists", "Playlists"]
 ];
+
+const mostPlayedIndicator = ({ iconName = "wave", title, text, action = "" }) => `
+  <div class="plays-indicator" role="status">
+    <span class="plays-indicator__beacon" aria-hidden="true">${icon(iconName)}<i></i></span>
+    <div class="plays-indicator__copy">
+      <strong>${escapeHTML(title)}</strong>
+      <p>${escapeHTML(text)}</p>
+    </div>
+    <span class="plays-indicator__zero" aria-label="0 reproducciones">
+      <strong>0</strong>
+      <span>reproducciones</span>
+    </span>
+    ${action}
+  </div>`;
+
+const mostPlayedCard = (entry, index, topCount) => {
+  const { track, count } = entry;
+  const rank = index + 1;
+  const podium = count > 0 && rank <= 3 ? ` plays-card--podium plays-card--${rank}` : "";
+  const share = topCount > 0 ? Math.round((count / topCount) * 100) : 0;
+  const playsLabel = plural(count, "reproducción", "reproducciones");
+  const rankLabel = count > 0 ? String(rank).padStart(2, "0") : "—";
+  const addedAt = track.createdAt ? `Agregada el ${dateLabel(track.createdAt)}` : "";
+  const current = Number(state.currentTrackId) === Number(track.id);
+  const playing = current && state.isPlaying;
+
+  return `<article class="plays-card${podium}${count ? "" : " is-unplayed"}${current ? " is-current" : ""}" data-plays-card="${track.id}">
+    <div class="plays-card__art">
+      <button class="plays-card__open" data-action="play-most" data-id="${track.id}" aria-label="Reproducir ${escapeHTML(track.title)}">
+        ${coverHTML(track)}
+        <span class="plays-card__rank" aria-hidden="true">${rankLabel}</span>
+      </button>
+      ${
+        current
+          ? `<span class="plays-card__now">
+              <span class="eq ${playing ? "is-running" : ""}" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>${playing ? "Sonando" : "En pausa"}</span>
+            </span>`
+          : ""
+      }
+      <button class="plays-card__play" data-action="play-most" data-id="${track.id}" tabindex="-1" aria-label="Reproducir ${escapeHTML(track.title)}">
+        ${icon("play", "icon--fill")}
+      </button>
+    </div>
+    <div class="plays-card__meta">
+      <strong class="plays-card__title" title="${escapeHTML(track.title)}">${escapeHTML(track.title)}</strong>
+      <span class="plays-card__artist" title="${escapeHTML(track.artist || "Artista desconocido")}">${escapeHTML(track.artist || "Artista desconocido")}</span>
+      <span class="plays-card__row">
+        <span class="plays-card__count">${count ? playsLabel : "Sin reproducciones"}</span>
+        <span class="plays-card__share">${count ? `${share}%` : "—"}</span>
+      </span>
+      <span class="plays-card__meter" aria-hidden="true"><span style="width:${count ? Math.max(share, 4) : 0}%"></span></span>
+      <span class="plays-card__since">${count ? addedAt || "En tu ranking" : "Todavía no la escuchaste"}</span>
+    </div>
+  </article>`;
+};
+
+const mostPlayedSection = () => {
+  const entries = mostPlayedTracks();
+  const played = entries.filter((entry) => entry.count > 0);
+  const topCount = played[0]?.count || 0;
+  const total = totalPlayCount();
+  const hasPlays = played.length > 0;
+
+  const head = `<div class="section__head">
+    <div>
+      <p class="eyebrow">Ranking personal</p>
+      <h2>Las que más escuchás</h2>
+      <p class="section__sub">${
+        hasPlays
+          ? `${plural(entries.length, "canción", "canciones")} ordenadas por reproducciones desde que las agregaste.`
+          : "El ranking arranca con la primera reproducción y se ordena solo."
+      }</p>
+    </div>
+    ${
+      hasPlays
+        ? `<div class="plays-head-actions">
+            <div class="plays-summary">
+              <div><strong>${total}</strong><span>reproducciones</span></div>
+              <div><strong>${played.length}</strong><span>en el ranking</span></div>
+            </div>
+            <button class="btn btn--small btn--soft" data-action="play-most">${icon("play", "icon--fill")} Reproducir ranking</button>
+          </div>`
+        : ""
+    }
+  </div>`;
+
+  let body = "";
+  if (!state.tracks.length) {
+    body = mostPlayedIndicator({
+      iconName: "music",
+      title: "Todavía no hay canciones",
+      text: "Subí tu primera canción y las reproducciones van a empezar a contar desde ese momento.",
+      action: `<button class="btn btn--primary btn--small" data-action="open-upload">${icon("upload")} Subir música</button>`
+    });
+  } else if (!hasPlays) {
+    body = mostPlayedIndicator({
+      iconName: "wave",
+      title: "El ranking está en silencio",
+      text: "Todavía no hay reproducciones en tu biblioteca. Dale play a cualquier canción y el grid aparece acá, ordenado por lo que más escuchás.",
+      action: `<button class="btn btn--soft btn--small" data-action="play-all">${icon("play", "icon--fill")} Reproducir todo</button>`
+    });
+  } else {
+    body = `<div class="plays-grid">${entries
+      .map((entry, index) => mostPlayedCard(entry, index, topCount))
+      .join("")}</div>
+      <p class="plays-foot">${icon("wave")} Reproducciones contadas desde que agregaste cada canción · ${plural(total, "reproducción", "reproducciones")} en total</p>`;
+  }
+
+  return `<section class="section section--tight plays-section">
+    ${head}
+    ${body}
+  </section>`;
+};
 
 const viewLibrary = () => {
   const albums = allAlbums();
@@ -419,7 +547,9 @@ const viewLibrary = () => {
 
   let content = "";
 
-  if (!state.tracks.length) {
+  if (state.libraryTab === "most-played") {
+    content = mostPlayedSection();
+  } else if (!state.tracks.length) {
     content = `<section class="section section--tight">
       ${emptyState(
         "Tu biblioteca está vacía",
@@ -502,7 +632,7 @@ const viewLibrary = () => {
         <div><strong>${state.playlists.length}</strong><span>playlists</span></div>
       </div>
     </section>
-    <div class="tabs" role="tablist" aria-label="Secciones de la biblioteca">
+    <div class="tabs tabs--library" role="tablist" aria-label="Secciones de la biblioteca">
       ${libraryTabs
         .map(
           ([id, label]) =>
@@ -577,7 +707,7 @@ const viewPlaylist = (id) => {
         <div class="detail__cover detail__cover--stack">
           <span class="detail__sheet detail__sheet--two"></span>
           <span class="detail__sheet detail__sheet--one"></span>
-          ${coverHTML({ title: playlist.name, coverUrl: tracks.find((track) => track.coverUrl)?.coverUrl }, "cover--detail")}
+          ${coverHTML(playlistCover(playlist), "cover--detail")}
         </div>
         <div class="detail__info">
           <p class="eyebrow">Playlist</p>

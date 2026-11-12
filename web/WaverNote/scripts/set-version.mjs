@@ -34,8 +34,24 @@ async function patchCargo() {
   console.log(`  ${rel}: ${version}`);
 }
 
+async function patchIndexMeta() {
+  const rel = "index.html";
+  const file = path.join(root, rel);
+  const text = await readFile(file, "utf8");
+  const pattern = /<meta name="wavernote-version" content="[^"]*" \/>/;
+  if (!pattern.test(text)) {
+    throw new Error(`No se encontró el meta wavernote-version en ${rel}`);
+  }
+  await writeFile(
+    file,
+    text.replace(pattern, `<meta name="wavernote-version" content="${version}" />`)
+  );
+  console.log(`  ${rel}: ${version}`);
+}
+
 await patchJson("package.json");
 await patchJson("src-tauri/tauri.conf.json");
 await patchCargo();
+await patchIndexMeta();
 
 console.log(`WaverNote: versión fijada en ${version}`);

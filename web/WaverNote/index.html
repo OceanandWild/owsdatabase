@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#05080f" />
+    <meta name="wavernote-version" content="1.0.2-beta" />
     <meta
       name="description"
       content="WaverNote: tu biblioteca musical personal. Subí tus propios archivos y escuchalos desde tu cuenta Surface."
@@ -326,6 +327,14 @@
           </p>
         </div>
 
+        <button class="side-version" type="button" data-action="open-updates" data-wavernote-update title="Buscar actualizaciones">
+          <span class="side-version__dot" aria-hidden="true"></span>
+          <span class="side-version__meta">
+            <strong data-wavernote-version>v1.0.1-beta</strong>
+            <small>Actualizaciones</small>
+          </span>
+        </button>
+
         <div class="side-user">
           <span class="avatar" id="sideAvatar">W</span>
           <span class="side-user__meta">
@@ -555,6 +564,7 @@
 
     <script src="audio-engine.js"></script>
     <script src="core.js"></script>
+    <script src="updater.js"></script>
     <script src="metadata.js"></script>
     <script src="recommend.js"></script>
     <script src="trends.js"></script>

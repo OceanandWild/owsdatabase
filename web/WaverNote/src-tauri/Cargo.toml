@@ -1,6 +1,6 @@
 [package]
 name = "wavernote"
-version = "1.0.1-beta"
+version = "1.0.2-beta"
 description = "WaverNote — biblioteca musical personal"
 authors = ["Ocean & Wild Studios"]
 edition = "2021"
@@ -17,7 +17,29 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+futures-util = "0.3"
+reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+webpki-roots = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["fs", "io-util"] }
+
+# El plugin updater de Tauri no soporta Android: en móvil la app usa el canal
+# APK propio. Se compila solo en escritorio para no arrastrarlo al build móvil.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+tauri-plugin-updater = "2"
 
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+# En algunos equipos con MSVC 14.44 el compilador falla con /Z7 al construir
+# ring en perfil debug (D8050). La dependencia criptográfica no necesita
+# información de depuración, así que se desactiva solo para ella.
+[profile.dev.package.ring]
+debug = false
+
+# Los build scripts tampoco necesitan debug info y en este MSVC el mismo /Z7
+# rompe la compilación de utilidades C++ del host (vswhom-sys).
+[profile.dev.build-override]
+debug = false

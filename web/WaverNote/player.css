@@ -1052,6 +1052,21 @@
     width: 28px;
   }
 
+  .track-row__art {
+    width: 36px;
+    height: 36px;
+  }
+
+  .section-empty {
+    flex-wrap: wrap;
+    padding: 14px 15px;
+  }
+
+  .section-empty .btn {
+    width: 100%;
+    margin-left: 0;
+  }
+
   .player {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: var(--player);

@@ -346,9 +346,27 @@ const playlistTracks = (playlist) =>
 const playlistDuration = (playlist) =>
   playlistTracks(playlist).reduce((total, track) => total + (Number(track.duration) || 0), 0);
 
+const playlistCover = (playlist) => ({
+  title: playlist?.name || "Playlist",
+  coverUrl: playlistTracks(playlist).find((track) => track.coverUrl)?.coverUrl || null
+});
+
 const likedTracks = () => state.tracks.filter((track) => isLiked(track.id));
 
 const recentTracks = () => state.recent.map((id) => trackById(id)).filter(Boolean);
+
+const RECENT_ADDITIONS_DAYS = 7;
+const RECENT_ADDITIONS_DAY_MS = 86400000;
+
+const recentlyAddedTracks = (days = RECENT_ADDITIONS_DAYS) => {
+  const since = Date.now() - days * RECENT_ADDITIONS_DAY_MS;
+  return state.tracks
+    .filter((track) => {
+      const time = new Date(track.createdAt || 0).getTime();
+      return Number.isFinite(time) && time >= since;
+    })
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0) || b.id - a.id);
+};
 
 const searchLibrary = (rawQuery) => {
   const query = normalize(rawQuery);
@@ -441,6 +459,29 @@ const recordPlay = (id) => {
   const key = playsStorageKey();
   if (key) writeJSON(key, state.plays);
 };
+
+const playStatsOf = (trackOrId) => {
+  const id = Number(typeof trackOrId === "object" ? trackOrId?.id : trackOrId);
+  const saved = state.plays?.[String(id)] || null;
+  return {
+    count: Math.max(0, Number(saved?.count) || 0),
+    firstPlayedAt: saved?.firstPlayedAt || null,
+    lastPlayedAt: saved?.lastPlayedAt || null
+  };
+};
+
+const totalPlayCount = () =>
+  state.tracks.reduce((sum, track) => sum + playStatsOf(track).count, 0);
+
+const mostPlayedTracks = () =>
+  state.tracks
+    .map((track) => ({ track, ...playStatsOf(track) }))
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        new Date(b.lastPlayedAt || 0).getTime() - new Date(a.lastPlayedAt || 0).getTime() ||
+        String(a.track.title).localeCompare(String(b.track.title), "es")
+    );
 
 const saveVolume = () => writeJSON(STORAGE.volume, state.volume);
 
@@ -600,6 +641,7 @@ const resolveListContext = (context) => {
   if (context === "all") return state.tracks.map((track) => track.id);
   if (context === "liked") return likedTracks().map((track) => track.id);
   if (context === "recent") return recentTracks().map((track) => track.id);
+  if (context === "recent-additions") return recentlyAddedTracks().map((track) => track.id);
   if (context === "search") return searchLibrary(state.search).tracks.map((track) => track.id);
   if (context.startsWith("rec:")) return recommendationTrackIds(context.slice(4));
   if (context.startsWith("album:")) return albumTracks(context.slice(6)).map((track) => track.id);

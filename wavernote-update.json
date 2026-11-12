@@ -1,0 +1,11 @@
+{
+  "version": "1.0.2-beta",
+  "notes": "WaverNote 1.0.2-beta: actualizaciones integradas y icono nuevo.\n\n- Actualizador dentro de la app: en Windows descarga el instalador firmado y reinicia; en Android baja el APK, verifica el SHA-256 y abre el instalador.\n- Nuevo icono de la app para Windows y Android.\n- Biblioteca con pestana Mas",
+  "pub_date": "2026-11-12T03:28:53Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.2-beta/WaverNote_1.0.2-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaXFwSjJSVzVBQXRFa2xyRW5LQUhFTmw5eTJ5YmthRS9ZeHFFTnVGUDdDYmdxVDFCNnhER0dLdGtndzNEYVMxNkRud0RmWEFqMVVhakEyR1k5ajBrMkhRVFpKTU5NbmdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NDUzNjIyCWZpbGU6V2F2ZXJOb3RlXzEuMC4yLWJldGFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMC4yLWJldGEKREZEbVZCUlJlSXJKdkVpNXVobTNpY0xZb0c1NkRNVERBWFRlTVZ5dTRiTTU3VGpYTTdKWjBVODRqSmFVVFlDYUhNSHpKUTE0MWFNK1pkRXc3SjdOQnc9PQo="
+    }
+  }
+}

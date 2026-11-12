@@ -13,13 +13,14 @@
         tagline: "Tu biblioteca musical, en Windows y Android.",
         description:
           "Subí tus propias canciones, ordená tu biblioteca y escuchá todo desde la app. WaverNote guarda el audio en la nube y sincroniza tu cuenta de Surface entre dispositivos.",
-        version: "1.0.3-beta",
+        version: "1.1.0",
         icon_url: "img/wavernote-icon.png",
         accent: "#2dd4bf",
-        release_url: "https://github.com/OceanandWild/owsdatabase/releases/tag/wavernote-v1.0.3-beta",
+        release_url: "https://github.com/OceanandWild/owsdatabase/releases/tag/wavernote-v1.1.0",
         features: [
           "Biblioteca propia sin catálogos de ejemplo",
           "Tendencias y recomendaciones personales",
+          "Administrá tus artistas y géneros con imagen propia",
           "Cola, favoritos, playlists y reproducción persistente",
           "Subida manual o escaneo automático de tu carpeta Música",
           "Actualizaciones dentro de la app"
@@ -28,20 +29,20 @@
           windows: {
             label: "Windows 10 / 11",
             detail: "Instalador NSIS · x64",
-            version: "1.0.3-beta",
-            file: "WaverNote_1.0.3-beta_x64-setup.exe",
-            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.3-beta/WaverNote_1.0.3-beta_x64-setup.exe",
-            size: "3,88 MB",
-            size_bytes: 4072718
+            version: "1.1.0",
+            file: "WaverNote_1.1.0_x64-setup.exe",
+            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.1.0/WaverNote_1.1.0_x64-setup.exe",
+            size: "3,90 MB",
+            size_bytes: 4085984
           },
           android: {
             label: "Android 7.0+",
             detail: "APK universal firmado",
-            version: "1.0.3-beta",
-            file: "WaverNote_1.0.3-beta_universal.apk",
-            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.0.3-beta/WaverNote_1.0.3-beta_universal.apk",
-            size: "52,65 MB",
-            size_bytes: 55204467
+            version: "1.1.0",
+            file: "WaverNote_1.1.0_universal.apk",
+            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.1.0/WaverNote_1.1.0_universal.apk",
+            size: "52,69 MB",
+            size_bytes: 55249011
           }
         }
       }

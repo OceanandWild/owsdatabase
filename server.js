@@ -53765,6 +53765,35 @@ async function ensureWaverNoteTables() {
     )
   `);
 
+  // Estado de la cuenta: cola, posición, volumen, preferencias y demás
+  // ajustes que antes vivían solo en el navegador de cada dispositivo.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wavernote_user_state (
+      user_id    INTEGER PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      data       JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Reproducciones por canción. Se guardan los últimos eventos para que las
+  // tendencias y el historial viajen completos entre dispositivos.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wavernote_plays (
+      user_id         INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      track_id        BIGINT NOT NULL REFERENCES wavernote_tracks(id) ON DELETE CASCADE,
+      play_count      INTEGER NOT NULL DEFAULT 0,
+      first_played_at TIMESTAMPTZ,
+      last_played_at  TIMESTAMPTZ,
+      events          JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, track_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wavernote_plays_user
+      ON wavernote_plays(user_id, last_played_at DESC)
+  `);
+
   wavernoteTablesReady = true;
 }
 
@@ -53947,6 +53976,95 @@ async function getWaverNotePlaylist(userId, playlistId) {
   return rows[0] ? mapWaverNotePlaylist(rows[0]) : null;
 }
 
+// ---------------------------------------------------------------------
+// Estado de la cuenta y reproducciones
+// ---------------------------------------------------------------------
+
+const WAVERNOTE_STATE_KEYS = ['settings', 'playback', 'recent'];
+const WAVERNOTE_STATE_MAX_BYTES = 512 * 1024;
+const WAVERNOTE_PLAY_EVENTS_LIMIT = 80;
+const WAVERNOTE_PLAY_BATCH_LIMIT = 80;
+const WAVERNOTE_PLAY_COUNT_LIMIT = 1000000000;
+
+function wavernoteStatePayload(raw) {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const picked = {};
+
+  WAVERNOTE_STATE_KEYS.forEach((key) => {
+    if (source[key] !== undefined) picked[key] = source[key];
+  });
+
+  if (!Object.keys(picked).length) return null;
+  if (Buffer.byteLength(JSON.stringify(picked), 'utf8') > WAVERNOTE_STATE_MAX_BYTES) return null;
+  return picked;
+}
+
+function wavernotePlayEventTime(value) {
+  const time = typeof value === 'number' ? value : new Date(value).getTime();
+  return Number.isFinite(time) && time > 0 ? Math.round(time) : 0;
+}
+
+function wavernotePlayEvents(value) {
+  if (!Array.isArray(value)) return [];
+
+  const times = value
+    .map(wavernotePlayEventTime)
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+
+  const unique = Array.from(new Set(times));
+  return unique.slice(-WAVERNOTE_PLAY_EVENTS_LIMIT);
+}
+
+function mapWaverNotePlay(row) {
+  return {
+    count: Math.max(0, Number(row?.play_count) || 0),
+    firstPlayedAt: row?.first_played_at || null,
+    lastPlayedAt: row?.last_played_at || null,
+    events: wavernotePlayEvents(row?.events)
+  };
+}
+
+// Une dos historiales sin duplicar eventos: sirve tanto para el estado que
+// llega de otro dispositivo como para migrar lo que quedó en localStorage.
+function wavernoteMergePlay(existing, incoming) {
+  const base = existing || {};
+  const next = incoming || {};
+  const events = Array.from(
+    new Set([...wavernotePlayEvents(base.events), ...wavernotePlayEvents(next.events)])
+  )
+    .sort((a, b) => a - b)
+    .slice(-WAVERNOTE_PLAY_EVENTS_LIMIT);
+
+  const count = Math.min(
+    Math.max(
+      Number(base.count) || 0,
+      Number(next.count) || 0,
+      events.length
+    ),
+    WAVERNOTE_PLAY_COUNT_LIMIT
+  );
+
+  const firstCandidates = [
+    wavernotePlayEventTime(base.firstPlayedAt),
+    wavernotePlayEventTime(next.firstPlayedAt),
+    events[0] || 0
+  ].filter(Boolean);
+
+  const lastCandidates = [
+    wavernotePlayEventTime(base.lastPlayedAt),
+    wavernotePlayEventTime(next.lastPlayedAt),
+    events[events.length - 1] || 0
+  ].filter(Boolean);
+
+  return {
+    count,
+    firstPlayedAt: firstCandidates.length ? new Date(Math.min(...firstCandidates)).toISOString() : null,
+    lastPlayedAt: lastCandidates.length ? new Date(Math.max(...lastCandidates)).toISOString() : null,
+    events
+  };
+}
+
 app.get('/wavernote/health', (_req, res) => {
   res.json({ ok: true, service: 'wavernote' });
 });
@@ -53988,6 +54106,187 @@ app.get('/wavernote/library', wavernoteAuth, async (req, res) => {
   } catch (err) {
     console.error('[WAVERNOTE] library:', err);
     return res.status(500).json({ error: 'No se pudo cargar tu biblioteca.' });
+  }
+});
+
+// GET /wavernote/state  -  cola, posición, volumen y preferencias de la cuenta
+app.get('/wavernote/state', wavernoteAuth, async (req, res) => {
+  try {
+    await ensureWaverNoteTables();
+    const { rows } = await pool.query(
+      'SELECT data FROM wavernote_user_state WHERE user_id = $1 LIMIT 1',
+      [req.wavernoteUser.id]
+    );
+    const data = rows[0]?.data;
+    return res.json({
+      success: true,
+      state: data && typeof data === 'object' && !Array.isArray(data) ? data : null
+    });
+  } catch (err) {
+    console.error('[WAVERNOTE] state:', err);
+    return res.status(500).json({ error: 'No se pudo cargar el estado de tu cuenta.' });
+  }
+});
+
+// PUT /wavernote/state  -  guarda solamente las secciones que cambiaron
+app.put('/wavernote/state', wavernoteAuth, async (req, res) => {
+  const incoming = wavernoteStatePayload(req.body?.state !== undefined ? req.body.state : req.body);
+  if (!incoming) {
+    return res.status(400).json({ error: 'No hay estado para guardar.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const userId = req.wavernoteUser.id;
+    const { rows } = await pool.query(
+      'SELECT data FROM wavernote_user_state WHERE user_id = $1 LIMIT 1',
+      [userId]
+    );
+    const current =
+      rows[0]?.data && typeof rows[0].data === 'object' && !Array.isArray(rows[0].data)
+        ? rows[0].data
+        : {};
+    const data = { ...current, ...incoming };
+
+    const saved = await pool.query(
+      `INSERT INTO wavernote_user_state (user_id, data, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET data = EXCLUDED.data, updated_at = NOW()
+       RETURNING data`,
+      [userId, JSON.stringify(data)]
+    );
+
+    return res.json({
+      success: true,
+      state: saved.rows[0]?.data || data
+    });
+  } catch (err) {
+    console.error('[WAVERNOTE] save state:', err);
+    return res.status(500).json({ error: 'No se pudo guardar el estado de tu cuenta.' });
+  }
+});
+
+// GET /wavernote/plays  -  historial de reproducciones completo de la cuenta
+app.get('/wavernote/plays', wavernoteAuth, async (req, res) => {
+  try {
+    await ensureWaverNoteTables();
+    const { rows } = await pool.query(
+      'SELECT * FROM wavernote_plays WHERE user_id = $1',
+      [req.wavernoteUser.id]
+    );
+
+    const plays = {};
+    rows.forEach((row) => {
+      plays[String(row.track_id)] = mapWaverNotePlay(row);
+    });
+
+    return res.json({ success: true, plays });
+  } catch (err) {
+    console.error('[WAVERNOTE] plays:', err);
+    return res.status(500).json({ error: 'No se pudo cargar tu historial de reproducciones.' });
+  }
+});
+
+// PUT /wavernote/plays  -  fusiona reproducciones sin duplicar eventos
+app.put('/wavernote/plays', wavernoteAuth, async (req, res) => {
+  const raw = req.body?.plays !== undefined ? req.body.plays : req.body;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return res.status(400).json({ error: 'No hay reproducciones para guardar.' });
+  }
+
+  const entries = Object.entries(raw).slice(0, WAVERNOTE_PLAY_BATCH_LIMIT);
+  const trackIds = entries
+    .map(([key]) => Number(key))
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  if (!trackIds.length) {
+    return res.status(400).json({ error: 'Las canciones enviadas no son válidas.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const userId = req.wavernoteUser.id;
+
+    const [ownedResult, existingResult] = await Promise.all([
+      pool.query(
+        'SELECT id FROM wavernote_tracks WHERE user_id = $1 AND id = ANY($2::bigint[])',
+        [userId, trackIds]
+      ),
+      pool.query(
+        'SELECT * FROM wavernote_plays WHERE user_id = $1 AND track_id = ANY($2::bigint[])',
+        [userId, trackIds]
+      )
+    ]);
+
+    const owned = new Set(ownedResult.rows.map((row) => Number(row.id)));
+    const existing = new Map(
+      existingResult.rows.map((row) => [Number(row.track_id), mapWaverNotePlay(row)])
+    );
+
+    const merged = [];
+    entries.forEach(([key, value]) => {
+      const trackId = Number(key);
+      if (!owned.has(trackId) || !value || typeof value !== 'object' || Array.isArray(value)) return;
+      const stats = wavernoteMergePlay(existing.get(trackId) || null, value);
+      if (!stats.count && !stats.events.length) return;
+      merged.push({ trackId, ...stats });
+    });
+
+    if (!merged.length) {
+      return res.json({ success: true, plays: {} });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const item of merged) {
+        await client.query(
+          `INSERT INTO wavernote_plays
+             (user_id, track_id, play_count, first_played_at, last_played_at, events, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())
+           ON CONFLICT (user_id, track_id) DO UPDATE
+             SET play_count = EXCLUDED.play_count,
+                 first_played_at = EXCLUDED.first_played_at,
+                 last_played_at = EXCLUDED.last_played_at,
+                 events = EXCLUDED.events,
+                 updated_at = NOW()`,
+          [
+            userId,
+            item.trackId,
+            item.count,
+            item.firstPlayedAt,
+            item.lastPlayedAt,
+            JSON.stringify(item.events)
+          ]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_rollbackErr) {
+        /* noop */
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const plays = {};
+    merged.forEach((item) => {
+      plays[String(item.trackId)] = {
+        count: item.count,
+        firstPlayedAt: item.firstPlayedAt,
+        lastPlayedAt: item.lastPlayedAt,
+        events: item.events
+      };
+    });
+
+    return res.json({ success: true, plays });
+  } catch (err) {
+    console.error('[WAVERNOTE] save plays:', err);
+    return res.status(500).json({ error: 'No se pudo guardar tu historial de reproducciones.' });
   }
 });
 

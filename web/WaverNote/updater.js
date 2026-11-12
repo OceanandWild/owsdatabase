@@ -12,11 +12,18 @@
   const CHECK_TIMEOUT_MS = 20000;
   const AUTO_CHECK_DELAY_MS = 4000;
   const NOTIFIED_KEY = "wavernote.updateNotified.v1";
+  // Changelog estructurado de la versión disponible: vive en el servidor,
+  // junto al resto de los datos de WaverNote.
+  const CHANGELOG_PROJECT = "wavernote";
+  const CHANGELOG_LIMIT = 12;
+  const CHANGELOG_TIMEOUT_MS = 10000;
 
   const state = {
     platform: "web", // windows | android | web | other
     localVersion: "",
     update: null, // { version, notes, date, url?, sha256?, sizeBytes?, fileName? }
+    changelog: null, // changelog estructurado de state.update.version
+    changelogShown: false, // el modal del changelog se muestra una vez por arranque
     status: "idle", // idle | checking | current | available | downloading | ready | error
     message: "",
     progress: 0,
@@ -132,11 +139,11 @@
      Consulta de actualizaciones
      ------------------------------------------------------------ */
 
-  const fetchJson = async (paths) => {
+  const fetchJson = async (paths, timeoutMs = CHECK_TIMEOUT_MS) => {
     let lastError = null;
     for (const path of paths) {
       const controller = new AbortController();
-      const timer = window.setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
       try {
         const response = await fetch(path, { cache: "no-store", signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -149,6 +156,33 @@
       }
     }
     throw lastError || new Error("sin conexión");
+  };
+
+  // El changelog vive en el backend de WaverNote, el mismo que usa la
+  // biblioteca. API_BASE lo define core.js; el fallback cubre el caso de que
+  // el script se cargue aislado.
+  const apiBase = () => {
+    try {
+      if (typeof API_BASE === "string" && API_BASE) return API_BASE;
+    } catch (err) {
+      /* noop */
+    }
+    return "https://owsdatabase.onrender.com";
+  };
+
+  // Changelog estructurado de una versión concreta. Si la versión no está
+  // publicada todavía, devuelve null y se usan las notas de la release.
+  const fetchChangelog = async (version) => {
+    const wanted = String(version || "").trim().replace(/^[vV]/, "");
+    if (!wanted) return null;
+
+    const url = `${apiBase()}/ows-store/projects/${CHANGELOG_PROJECT}/changelogs?limit=${CHANGELOG_LIMIT}`;
+    const data = await fetchJson([url], CHANGELOG_TIMEOUT_MS);
+    const list = Array.isArray(data?.changelogs) ? data.changelogs : [];
+    const match = list.find(
+      (entry) => String(entry?.version || "").trim().replace(/^[vV]/, "") === wanted
+    );
+    return match || null;
   };
 
   const checkWindows = async (localVersion) => {
@@ -236,8 +270,19 @@
         state.status = "available";
         state.message = `Hay una versión nueva disponible: v${update.version}.`;
         if (shouldNotify(update.version)) notifyAvailable(update);
+
+        // Changelog de esa versión: va en el panel de actualizaciones y, si
+        // todavía no se mostró en este arranque, se abre solo en un modal.
+        state.changelog = null;
+        try {
+          state.changelog = await fetchChangelog(update.version);
+        } catch (err) {
+          state.changelog = null;
+        }
+        maybeShowChangelogModal();
       } else {
         state.update = null;
+        state.changelog = null;
         state.status = "current";
         state.message = "Estás usando la última versión.";
         if (options.silent) state.message = "";
@@ -513,6 +558,15 @@
       notes.hidden = !state.update?.notes;
     }
 
+    // Changelog estructurado de la versión disponible. Si la versión no tiene
+    // changelog publicado, se queda solo con las notas de la release.
+    const changelog = document.getElementById("updChangelog");
+    if (changelog) {
+      const html = state.changelog ? changelogHTML(state.changelog) : "";
+      changelog.innerHTML = html;
+      changelog.hidden = !html;
+    }
+
     const version = document.getElementById("updVersion");
     if (version) version.textContent = state.localVersion ? `v${state.localVersion}` : "v—";
 
@@ -524,6 +578,91 @@
       installBtn.hidden = !state.update || state.busy;
       installBtn.disabled = state.busy || state.checking;
     }
+  };
+
+  /* ------------------------------------------------------------
+     Changelog de la actualización
+     ------------------------------------------------------------ */
+
+  const CHANGELOG_SECTIONS = [
+    { key: "adiciones", label: "Novedades", icon: "sparkles" },
+    { key: "mejoras", label: "Mejoras", icon: "arrow-right" },
+    { key: "arreglos", label: "Arreglos", icon: "check" },
+    { key: "rendimiento", label: "Rendimiento", icon: "wave" },
+    { key: "otros", label: "Otros", icon: "plus" },
+  ];
+
+  const changelogLines = (value) =>
+    (Array.isArray(value) ? value : [])
+      .map((line) => String(line || "").trim())
+      .filter(Boolean);
+
+  // Renderiza el changelog estructurado. Si la versión todavía no tiene
+  // changelog publicado, se muestra el texto de notas de la release.
+  const changelogHTML = (entry) => {
+    const sections = CHANGELOG_SECTIONS.map((section) => {
+      const lines = changelogLines(entry?.[section.key]);
+      if (!lines.length) return "";
+      return `
+        <section class="changelog__section">
+          <h4 class="changelog__title">${icon(section.icon)}<span>${escapeHTML(
+            section.label
+          )}</span></h4>
+          <ul class="changelog__list">
+            ${lines.map((line) => `<li>${escapeHTML(line)}</li>`).join("")}
+          </ul>
+        </section>`;
+    }).join("");
+
+    if (sections) return sections;
+
+    const notes = String(state.update?.notes || "").trim();
+    if (!notes) return "";
+    return `<p class="changelog__plain">${escapeHTML(notes)}</p>`;
+  };
+
+  const openChangelogModal = () => {
+    const update = state.update;
+    if (!update || !state.changelog) return;
+    if (typeof openModal !== "function") return;
+
+    openModal({
+      title: `WaverNote v${update.version}`,
+      eyebrow: "Actualización disponible",
+      body: `
+        <div class="changelog">
+          <p class="changelog__intro">Estos son los cambios de la versión ${escapeHTML(
+            update.version
+          )}. Podés instalarla cuando quieras desde Actualizaciones.</p>
+          ${changelogHTML(state.changelog)}
+        </div>
+        <div class="modal__actions">
+          <button class="btn btn--ghost" data-action="close-modal">Ahora no</button>
+          <button class="btn btn--primary" data-action="open-updates">Ver actualización</button>
+        </div>`,
+    });
+  };
+
+  // El changelog se muestra solo una vez por arranque de la app: al reiniciar
+  // vuelve a aparecer si la actualización sigue pendiente.
+  const maybeShowChangelogModal = () => {
+    if (state.changelogShown) return;
+    if (!state.update || !state.changelog) return;
+    if (!isAppReady()) return;
+
+    state.changelogShown = true;
+    // Si ya hay otro modal abierto (por ejemplo, el panel de actualizaciones),
+    // el changelog queda a la vista ahí y no se encima otro.
+    if (document.getElementById("modal")?.classList.contains("is-open")) return;
+    openChangelogModal();
+  };
+
+  // Mientras la pantalla de acceso esté tapando la app no tiene sentido abrir
+  // el modal: se reintenta cuando el usuario entra.
+  const isAppReady = () => {
+    const gate = document.getElementById("authGate");
+    if (!gate) return true;
+    return gate.hidden === true;
   };
 
   const openPanel = () => {
@@ -548,6 +687,7 @@
             <span id="updBarFill" style="width:${clampPercent(state.progress)}%"></span>
           </div>
           <div class="updater__notes" id="updNotes" hidden></div>
+          <div class="updater__changelog" id="updChangelog" hidden></div>
           <div class="modal__actions">
             <button class="btn btn--ghost" data-action="close-modal">Cerrar</button>
             ${
@@ -613,6 +753,7 @@
     accountSectionHTML,
     checkNow: () => checkForUpdate(),
     applyNow: applyUpdate,
+    maybeShowChangelogModal,
     refresh: paint,
   };
 })();

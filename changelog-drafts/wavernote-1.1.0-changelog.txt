@@ -1,0 +1,61 @@
+WaverNote 1.1.0 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.1.0
+Plataformas: Windows y Android
+Fecha: 2026-11-12
+
+Novedades:
+- Al agregar varias canciones de golpe, la app abre un modal con las portadas de las primeras: hasta 3 con la carátula real y, si sobran, una miniatura en silueta con el total («+7») de las que quedan.
+- Abajo del modal está la pregunta «¿Querés reproducirlas ahora mismo o más tarde?», con las opciones de reproducirlas ya o dejarlas para después. Si elegís reproducirlas, la cola arranca con todas las canciones que agregaste, no solo con las que se ven.
+- El buscador de actualizaciones ahora muestra el changelog completo de la versión disponible, ordenado en Novedades, Mejoras, Arreglos, Rendimiento y Otros.
+- Ese mismo changelog se abre solo en un modal una sola vez por arranque de la app: si reiniciás WaverNote y la actualización sigue pendiente, vuelve a aparecer. Desde ahí se pasa directo a la pantalla de actualización.
+
+Mejoras:
+- Barra lateral más compacta: menos separación entre bloques y navegación más ajustada, para que entre todo en ventanas chicas.
+- La barra lateral ahora hace scroll propio cuando la ventana es baja; antes los bloques se comprimían por debajo de su contenido y el texto se superponía.
+- En ventanas de poca altura se oculta primero la tarjeta informativa, así el acceso a Actualizaciones y la cuenta quedan visibles sin scrollear.
+- Cuando ya hay playlists cargadas, la tarjeta informativa cede su espacio a la lista y deja de ocupar lugar.
+- Vista angosta: se ocultan también el chip de versión y el texto del botón de subida, y el botón queda centrado.
+- Ajustes menores de altura en la zona de subida y en las filas de navegación.
+
+Arreglos:
+- Corregida la superposición de texto en la barra lateral cuando la ventana tenía poca altura.
+- El changelog de una actualización deja de depender de que la release tenga notas escritas: si la versión no tiene changelog publicado, se muestran las notas de la release.
+
+Rendimiento:
+- La lista de canciones nuevas se calcula comparando la biblioteca antes y después de la subida: no hace falta volver a pedir los datos de cada canción.
+
+Otros:
+- La versión de la app queda en 1.1.0 y ahora se fija también en los archivos de bloqueo (package-lock y Cargo.lock), así el build usa siempre la misma versión que muestra la app.
+- Incluye el actualizador integrado: en Windows descarga el instalador firmado y reinicia; en Android baja el APK, verifica su SHA-256 y abre el instalador.
+
+=== ENGLISH ===
+Version: 1.1.0
+Platforms: Windows and Android
+Date: 2026-11-12
+
+New:
+- When you add several songs at once, the app opens a modal with the cover art of the first ones: up to 3 with the real artwork and, if there are more, a silhouette thumbnail with the total («+7») of the ones left.
+- Below the modal there is the question «Do you want to play them right now or later?», with the options to play them right away or leave them for later. If you choose to play them, the queue starts with every song you added, not only the ones shown.
+- The update checker now shows the full changelog of the available version, split into New, Improvements, Fixes, Performance and Others.
+- That same changelog opens on its own in a modal once per app launch: if you restart WaverNote and the update is still pending, it shows up again. From there you go straight to the update screen.
+
+Improvements:
+- More compact sidebar: tighter spacing between blocks and a trimmer navigation, so everything fits in short windows.
+- The sidebar now scrolls on its own when the window is short; previously the blocks shrank below their content and text overlapped.
+- On short windows the info card hides first, keeping the Updates entry and the account visible without scrolling.
+- When playlists exist, the info card gives its space to the list instead of taking room.
+- Narrow view: the version chip and the upload button label are hidden too, and the button stays centered.
+- Minor height adjustments in the upload area and navigation rows.
+
+Fixes:
+- Fixed the overlapping text in the sidebar when the window was short.
+- A version's changelog no longer depends on the release having written notes: when a version has no published changelog, the release notes are shown instead.
+
+Performance:
+- The list of new songs is worked out by comparing the library before and after the upload: the details of each song don't have to be requested again.
+
+Others:
+- The app version is now 1.1.0 and it is also set in the lock files (package-lock and Cargo.lock), so the build always uses the same version the app shows.
+- Includes the built-in updater: on Windows it downloads the signed installer and restarts; on Android it downloads the APK, verifies its SHA-256 and opens the installer.

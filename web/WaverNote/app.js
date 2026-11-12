@@ -36,6 +36,16 @@ let scanCoverUrls = [];
 let pendingCoverPreviewUrl = "";
 let scanConsent = readJSON(SCAN_CONSENT_KEY, null);
 
+// Canciones que había en la biblioteca antes de la última subida: sirve para
+// saber cuáles son las nuevas al refrescar la biblioteca.
+let uploadBaselineIds = new Set();
+// Canciones agregadas en la última subida, para el modal de "¿las reproduzco?".
+let addedTrackIds = [];
+
+// Cuántas portadas se muestran en el modal de canciones agregadas. Si hay
+// más, se agrega una miniatura en silueta con el resto.
+const ADDED_PREVIEW_LIMIT = 3;
+
 const isOverlay = () => window.matchMedia("(max-width: 1279px)").matches;
 
 const friendlyError = (err) => {
@@ -170,6 +180,10 @@ const enterApp = async (user) => {
   updateNavUI();
   setupMediaSession();
   startUiLoop();
+
+  // Si hay una actualización pendiente, su changelog se muestra solo una vez
+  // por arranque: al entrar puede ser el momento de verlo.
+  window.WaverNoteUpdater?.maybeShowChangelogModal();
 };
 
 const bootAuth = async () => {
@@ -1201,10 +1215,17 @@ const finishUpload = async ({ uploaded, failures }) => {
   setUploadModeLocked(false);
   setUploadProgress(1, "Actualizando tu biblioteca…");
 
+  let addedTracks = [];
+
   try {
     await refreshLibrary();
     renderSidebarPlaylists();
     renderView({ resetScroll: false });
+
+    // Lo que no estaba antes de la subida es lo nuevo que entró.
+    addedTracks = state.tracks
+      .filter((track) => !uploadBaselineIds.has(Number(track.id)))
+      .sort((a, b) => Number(a.id) - Number(b.id));
 
     if (!state.currentTrackId && state.tracks.length) {
       const first = state.tracks[state.tracks.length - 1];
@@ -1222,13 +1243,78 @@ const finishUpload = async ({ uploaded, failures }) => {
 
   closeModal(true);
 
+  // Con varias canciones de golpe se pregunta si se reproducen ahora.
+  if (addedTracks.length >= 2) {
+    openAddedTracksModal(addedTracks);
+  }
+
   if (uploaded && !failures.length) {
-    toast(`${plural(uploaded, "canción agregada", "canciones agregadas")} a tu biblioteca.`);
+    if (addedTracks.length < 2) {
+      toast(`${plural(uploaded, "canción agregada", "canciones agregadas")} a tu biblioteca.`);
+    }
   } else if (uploaded && failures.length) {
     toast(`${uploaded} subieron; ${failures.length} fallaron. ${failures[0].name}: ${failures[0].message}`, "error");
   } else {
     toast(failures[0]?.message || "No se pudo subir ningún archivo.", "error");
   }
+};
+
+/* ------------------------------------------------------------
+   Canciones agregadas
+   ------------------------------------------------------------ */
+
+// Al agregar varias canciones de golpe se muestra un modal con las
+// portadas de las primeras y, si sobran, una silueta con el total de las
+// que quedan. Abajo se pregunta si se reproducen ahora o más tarde.
+const openAddedTracksModal = (tracks) => {
+  const list = Array.isArray(tracks) ? tracks.filter(Boolean) : [];
+  if (!list.length) return;
+
+  const preview = list.slice(0, ADDED_PREVIEW_LIMIT);
+  const extra = list.length - preview.length;
+  addedTrackIds = list.map((track) => Number(track.id)).filter((id) => Number.isFinite(id));
+
+  const tiles = preview
+    .map(
+      (track) => `
+      <span class="added__art" title="${escapeHTML(track.title || "Canción")}">
+        ${coverHTML({ title: track.title, coverUrl: track.coverUrl })}
+      </span>`
+    )
+    .join("");
+
+  // Silueta de las que quedan: la portada de la siguiente canción, apenas
+  // insinuada, con el total de las que no se muestran.
+  const more =
+    extra > 0
+      ? `
+      <span class="added__art added__art--more" title="${extra} canciones más">
+        <span class="added__ghost" aria-hidden="true">${coverHTML(
+          { title: list[preview.length]?.title, coverUrl: list[preview.length]?.coverUrl },
+          "cover--ghost"
+        )}</span>
+        <span class="added__count">+${extra}</span>
+      </span>`
+      : "";
+
+  openModal({
+    title: list.length === 1 ? "Canción agregada" : "Canciones agregadas",
+    eyebrow: "Tu biblioteca",
+    body: `
+      <div class="added">
+        <div class="added__covers">
+          ${tiles}${more}
+        </div>
+        <p class="added__text">${escapeHTML(
+          `${plural(list.length, "canción nueva", "canciones nuevas")} en tu biblioteca.`
+        )}</p>
+        <p class="added__question">¿Querés reproducirlas ahora mismo o más tarde?</p>
+        <div class="modal__actions">
+          <button class="btn btn--ghost" data-action="added-later">Más tarde</button>
+          <button class="btn btn--primary" data-action="added-play-now">Reproducir ahora</button>
+        </div>
+      </div>`,
+  });
 };
 
 const runAutoUpload = async () => {
@@ -1243,6 +1329,9 @@ const runAutoUpload = async () => {
   setUploadModeLocked(true);
   updateUploadSubmitState();
   setUploadProgress(0, "Preparando tus canciones…");
+
+  // Se guarda qué había en la biblioteca para detectar las nuevas al terminar.
+  uploadBaselineIds = new Set(state.trackById.keys());
 
   const submit = $("#uploadSubmit");
   const label = submit?.querySelector("span");
@@ -1319,6 +1408,9 @@ const runUpload = async () => {
     const span = submit.querySelector("span");
     if (span) span.textContent = "Subiendo…";
   }
+
+  // Se guarda qué había en la biblioteca para detectar las nuevas al terminar.
+  uploadBaselineIds = new Set(state.trackById.keys());
 
   let uploaded = 0;
   const failures = [];
@@ -1926,6 +2018,17 @@ const handleAction = async (actionEl) => {
       break;
     case "open-upload":
       openUpload();
+      break;
+    case "added-play-now": {
+      const ids = addedTrackIds.slice();
+      closeModal(true);
+      addedTrackIds = [];
+      if (ids.length) startQueue(ids, { startIndex: 0 });
+      break;
+    }
+    case "added-later":
+      closeModal(true);
+      addedTrackIds = [];
       break;
     case "close-modal":
       closeModal();

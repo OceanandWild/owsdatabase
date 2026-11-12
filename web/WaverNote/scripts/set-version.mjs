@@ -1,4 +1,5 @@
-// Fija la versión de WaverNote en package.json, tauri.conf.json y Cargo.toml.
+// Fija la versión de WaverNote en package.json, package-lock.json,
+// tauri.conf.json, Cargo.toml, Cargo.lock e index.html.
 // Uso: node scripts/set-version.mjs 1.0.0   (o VERSION=1.0.0)
 // Se usa desde CI en Windows y Linux: evita el infierno de comillas de `node -e`.
 import { readFile, writeFile } from "node:fs/promises";
@@ -34,6 +35,31 @@ async function patchCargo() {
   console.log(`  ${rel}: ${version}`);
 }
 
+// Los locks van siempre junto con los manifiestos: si se quedan atrás, cargo y
+// npm se quejan (o el build usa una versión distinta a la que dice la app).
+async function patchPackageLock() {
+  const rel = "package-lock.json";
+  const file = path.join(root, rel);
+  const data = JSON.parse(await readFile(file, "utf8"));
+  data.version = version;
+  if (data.packages && data.packages[""]) data.packages[""].version = version;
+  await writeFile(file, `${JSON.stringify(data, null, 2)}\n`);
+  console.log(`  ${rel}: ${version}`);
+}
+
+async function patchCargoLock() {
+  const rel = "src-tauri/Cargo.lock";
+  const file = path.join(root, rel);
+  const text = await readFile(file, "utf8");
+  // Solo el paquete propio: el lock tiene muchas versiones de crates.
+  const updated = text.replace(/(name = "wavernote"\r?\nversion = )"[^"]*"/, `$1"${version}"`);
+  if (updated === text && !new RegExp(`name = "wavernote"\\r?\\nversion = "${version}"`).test(text)) {
+    throw new Error(`No se encontró el paquete wavernote en ${rel}`);
+  }
+  await writeFile(file, updated);
+  console.log(`  ${rel}: ${version}`);
+}
+
 async function patchIndexMeta() {
   const rel = "index.html";
   const file = path.join(root, rel);
@@ -53,8 +79,10 @@ async function patchIndexMeta() {
 }
 
 await patchJson("package.json");
+await patchPackageLock();
 await patchJson("src-tauri/tauri.conf.json");
 await patchCargo();
+await patchCargoLock();
 await patchIndexMeta();
 
 console.log(`WaverNote: versión fijada en ${version}`);

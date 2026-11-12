@@ -310,9 +310,9 @@ const autoPaneHTML = () => {
           "En Android elegís los archivos con el selector del sistema y WaverNote lee sus etiquetas sola: " +
           "título, artista, álbum, portada y duración. No modificamos ni borramos nada.",
         items: [
-          "Tocá <strong>Elegir canciones</strong> y marcá todo lo que quieras agregar.",
+          "Tocá <strong>Elegir canciones</strong> y marcá todo lo que quieras agregar. Para elegir varias, mantené presionada una canción y sumá el resto.",
           "No hace falta dar permiso de almacenamiento: el selector presta solo los archivos que elegís.",
-          "Después te mostramos lo encontrado y elegís qué canciones subir."
+          "Las canciones se acumulan: podés repetir la selección y al final subir todo de una sola vez."
         ],
         action: `
           <label class="btn btn--primary scan-gate__btn scan-gate__btn--picker">
@@ -320,8 +320,8 @@ const autoPaneHTML = () => {
             ${icon("search")} <span>Elegir canciones</span>
           </label>`,
         note:
-          "Android no permite leer la carpeta Música completa desde la app. Si tenés muchas canciones, " +
-          "elegilas todas de una vez en el selector."
+          "Android no permite leer la carpeta Música completa desde la app. Elegí una tanda y después sumá " +
+          "las que falten con <strong>Agregar más canciones</strong>."
       }
     : {
         title: "Permiso para escanear tu música",
@@ -393,11 +393,24 @@ const autoPaneHTML = () => {
     </div>
     <div class="scan-list" id="scanList"></div>
     <p class="scan-limit" id="scanLimitNote" hidden>
-      Mostramos las primeras 400 canciones. Si falta alguna, elegí menos archivos por vez.
+      ${IS_ANDROID
+        ? "Llegaste al límite de 400 canciones por carga: subí estas y después agregá el resto."
+        : "Mostramos las primeras 400 canciones. Si falta alguna, elegí una carpeta más específica."}
     </p>
-    <button type="button" class="btn btn--ghost btn--small scan-rescan" data-scan-action="rescan">
-      ${icon("folder")} <span>${secondaryLabel}</span>
-    </button>
+    ${IS_ANDROID
+      ? `<div class="scan-results__actions">
+          <label class="btn btn--primary btn--small scan-gate__btn--picker">
+            <input type="file" id="androidScanMoreInput" class="scan-gate__input" accept="audio/*" multiple />
+            ${icon("plus")} <span>Agregar más canciones</span>
+          </label>
+          <button type="button" class="btn btn--ghost btn--small" data-scan-action="reset">
+            ${icon("folder")} <span>Empezar de nuevo</span>
+          </button>
+        </div>
+        <p class="scan-gate__note">Las que ya elegiste quedan marcadas: sumá todas las tandas que quieras y subilas juntas.</p>`
+      : `<button type="button" class="btn btn--ghost btn--small scan-rescan" data-scan-action="rescan">
+          ${icon("folder")} <span>${secondaryLabel}</span>
+        </button>`}
   </div>
 
   <div class="scan-empty" id="scanEmpty" hidden>
@@ -872,15 +885,21 @@ const chooseMusicFolder = async () => {
   return pickFolderWithInput();
 };
 
-const startScan = async (preselectedFiles = null) => {
+const scanFileKey = (file) => `${file.name}|${file.size}|${file.lastModified}`;
+
+const startScan = async (preselectedFiles = null, options = {}) => {
   if (state.uploading) return;
 
+  // En Android las canciones se acumulan: si ya hay resultados, elegir otra
+  // tanda las suma en vez de reemplazarlas (permite subir todo de una vez).
+  const append = Boolean(options.append) && IS_ANDROID && scanItems.length > 0;
   const runId = ++scanRunId;
 
-  releaseScanArtwork();
-  scanItems = [];
   setAutoPhase("scanning");
-  updateScanProgress(0, IS_ANDROID ? "Leyendo tus canciones…" : "Abriendo la carpeta Música…");
+  updateScanProgress(
+    0,
+    append ? "Sumando canciones…" : IS_ANDROID ? "Leyendo tus canciones…" : "Abriendo la carpeta Música…"
+  );
 
   let picked;
 
@@ -898,7 +917,7 @@ const startScan = async (preselectedFiles = null) => {
     } catch (err) {
       if (runId !== scanRunId) return;
       if (err?.name === "AbortError") {
-        setAutoPhase("gate");
+        setAutoPhase(append ? "results" : "gate");
         return;
       }
       setScanError(friendlyError(err));
@@ -909,31 +928,65 @@ const startScan = async (preselectedFiles = null) => {
   if (runId !== scanRunId) return;
 
   if (picked.canceled) {
-    setAutoPhase("gate");
+    // Si estaba sumando, cancelar no debe borrar lo que ya había.
+    setAutoPhase(append ? "results" : "gate");
     return;
   }
 
-  const files = (picked.files || []).slice(0, SCAN_FILE_LIMIT);
-  scanFolder = picked.folderName || "";
-  scanTruncated = Boolean(picked.truncated);
+  const previous = append ? scanItems.slice() : [];
+  const seen = new Set(previous.map((item) => scanFileKey(item.file)));
+  const incoming = (picked.files || []).filter((file) => WNMetadata.isAudioFile(file));
+  const fresh = [];
+  let repeated = 0;
+  let overflow = false;
+
+  for (const file of incoming) {
+    const key = scanFileKey(file);
+    if (seen.has(key)) {
+      repeated += 1;
+      continue;
+    }
+    if (previous.length + fresh.length >= SCAN_FILE_LIMIT) {
+      overflow = true;
+      break;
+    }
+    seen.add(key);
+    fresh.push(file);
+  }
+
+  if (!append) {
+    releaseScanArtwork();
+    scanItems = [];
+    scanFolder = picked.folderName || "";
+    scanTruncated = Boolean(picked.truncated) || overflow;
+  } else if (overflow) {
+    scanTruncated = true;
+  }
 
   scanConsent = { grantedAt: scanConsent?.grantedAt || new Date().toISOString(), folder: scanFolder };
   writeJSON(SCAN_CONSENT_KEY, scanConsent);
   const consentNote = $("#scanGateNote");
   if (consentNote) consentNote.textContent = scanConsentNote();
 
-  if (!files.length) {
-    setAutoPhase("empty");
+  if (!fresh.length) {
+    if (append) {
+      setAutoPhase("results");
+      if (repeated) toast("Esas canciones ya estaban en la lista.");
+      if (overflow) toast("Llegaste al límite de 400 canciones por carga.");
+    } else {
+      setAutoPhase("empty");
+    }
     return;
   }
 
   const items = [];
 
-  for (let index = 0; index < files.length; index += 1) {
+  for (let index = 0; index < fresh.length; index += 1) {
     if (runId !== scanRunId) return;
 
-    const file = files[index];
-    updateScanProgress(index / files.length, `Leyendo ${index + 1} de ${files.length}: ${file.name}`);
+    const file = fresh[index];
+    const label = append ? "Sumando" : "Leyendo";
+    updateScanProgress(index / fresh.length, `${label} ${index + 1} de ${fresh.length}: ${file.name}`);
 
     let metadata;
     try {
@@ -945,7 +998,7 @@ const startScan = async (preselectedFiles = null) => {
     if (runId !== scanRunId) return;
 
     const item = {
-      id: `scan-${index}-${Date.now()}`,
+      id: `scan-${Date.now()}-${index}`,
       file,
       title: metadata.title,
       artist: metadata.artist,
@@ -973,9 +1026,14 @@ const startScan = async (preselectedFiles = null) => {
 
   if (runId !== scanRunId) return;
 
-  scanItems = items;
+  scanItems = previous.concat(items);
   renderScanResults();
   setAutoPhase("results");
+
+  if (append) {
+    toast(`${plural(items.length, "canción sumada", "canciones sumadas")}.`);
+    if (repeated) toast("Las repetidas no se agregaron otra vez.");
+  }
 };
 
 const handleScanAction = (action) => {
@@ -984,6 +1042,16 @@ const handleScanAction = (action) => {
       console.error(err);
       setScanError(friendlyError(err));
     });
+    return;
+  }
+
+  if (action === "reset") {
+    // Vuelve al inicio sin abrir el selector ni perder el modal abierto.
+    scanRunId += 1;
+    releaseScanArtwork();
+    scanItems = [];
+    scanTruncated = false;
+    setAutoPhase("gate");
     return;
   }
 
@@ -1043,6 +1111,21 @@ const openUpload = () => {
     androidScanInput.value = "";
     if (!files.length) return;
     startScan(files).catch((err) => {
+      console.error(err);
+      setScanError(friendlyError(err));
+    });
+  });
+
+  // Sumar otra tanda desde los resultados sin perder lo ya elegido.
+  const androidScanMoreInput = $("#androidScanMoreInput");
+  androidScanMoreInput?.addEventListener("change", () => {
+    const files = Array.from(androidScanMoreInput.files || []);
+    androidScanMoreInput.value = "";
+    if (!files.length) {
+      setAutoPhase("results");
+      return;
+    }
+    startScan(files, { append: true }).catch((err) => {
       console.error(err);
       setScanError(friendlyError(err));
     });

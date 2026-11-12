@@ -1312,6 +1312,14 @@ body.modal-open {
   align-self: flex-start;
 }
 
+/* Android: sumar tandas de canciones sin perder las ya elegidas. */
+.scan-results__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
 .scan-limit {
   margin: 0;
   padding: 8px 10px;

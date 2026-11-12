@@ -7,6 +7,7 @@ const engine = new WaveEngine();
 
 const els = {
   app: $("#app"),
+  player: document.querySelector("footer.player"),
   play: $("#playBtn"),
   prev: $("#prevBtn"),
   next: $("#nextBtn"),
@@ -35,6 +36,26 @@ const els = {
 const currentTrack = () => trackById(state.currentTrackId);
 
 let pendingPlayId = null;
+let libraryRefreshScheduled = false;
+
+// Recontar la biblioteca entera en el instante en que arranca la canción
+// trababa la app (se rehacía la vista de la lista en medio del play). Ahora
+// el re-render se corre para cuando el hilo principal está libre.
+const scheduleLibraryRefresh = () => {
+  if (libraryRefreshScheduled) return;
+  libraryRefreshScheduled = true;
+  const run = () => {
+    libraryRefreshScheduled = false;
+    if (state.route.view === "library" && state.libraryTab === "most-played") {
+      renderView({ resetScroll: false });
+    }
+  };
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(run, { timeout: 1500 });
+  } else {
+    window.setTimeout(run, 400);
+  }
+};
 
 const flushPendingPlay = () => {
   if (!pendingPlayId) return;
@@ -43,8 +64,23 @@ const flushPendingPlay = () => {
   recordPlay(trackId);
   // Si el usuario está mirando el ranking, reflejamos el nuevo conteo al instante.
   if (state.route.view === "library" && state.libraryTab === "most-played") {
-    renderView({ resetScroll: false });
+    scheduleLibraryRefresh();
   }
+};
+
+// La siguiente canción se va descargando en segundo plano: cuando llega el
+// turno arranca al toque en vez de quedarse cargando.
+const prefetchNext = () => {
+  if (!state.queue.length) {
+    engine.prefetch("");
+    return;
+  }
+  let nextIndex = state.queueIndex + 1;
+  if (nextIndex >= state.queue.length) {
+    nextIndex = state.repeat === "all" ? 0 : -1;
+  }
+  const next = nextIndex >= 0 ? trackById(state.queue[nextIndex]) : null;
+  engine.prefetch(next?.audioUrl || "");
 };
 
 engine.onEnded = () => handleTrackEnd();
@@ -59,6 +95,21 @@ engine.onError = () => {
   if (!currentTrack()) return;
   toast("No se pudo reproducir este archivo. Revisá que el formato siga disponible.", "error");
 };
+engine.onBuffering = (buffering) => {
+  state.isBuffering = Boolean(buffering);
+  updateBufferingUI();
+};
+
+// La barra de progreso y el reloj no necesitan 60 cuadros por segundo:
+// refrescarlos en cada cuadro pesa el hilo principal y la app se traba
+// justo cuando está sonando la canción.
+const PROGRESS_INTERVAL_MS = 100;
+// Recalcular el tamaño del canvas obliga al navegador a recalcular el
+// layout: una vez por segundo alcanza y evita el jank de cada cuadro.
+const VIZ_MEASURE_INTERVAL_MS = 1000;
+let lastProgressPaint = 0;
+let vizRect = null;
+let vizMeasuredAt = 0;
 
 /* ------------------------------------------------------------
    Transporte
@@ -78,6 +129,33 @@ const updateProgressUI = () => {
   document.documentElement.style.setProperty("--mobile-progress", `${ratio * 100}%`);
   if (els.current) els.current.textContent = formatTime(state.currentTime);
   if (els.duration) els.duration.textContent = formatTime(state.duration);
+};
+
+// Mientras el archivo se está descargando la app lo avisa en vez de quedar
+// muda: sin esto parecía que la canción se trababa.
+const updateBufferingUI = () => {
+  const buffering = Boolean(state.isBuffering);
+  els.player?.classList.toggle("is-buffering", buffering);
+
+  const play = els.play;
+  if (play) {
+    play.classList.toggle("is-loading", buffering);
+    play.setAttribute("aria-busy", buffering ? "true" : "false");
+  }
+
+  const artist = els.playerArtist;
+  if (!artist) return;
+  if (buffering) {
+    artist.dataset.buffering = "1";
+    artist.textContent = "Cargando…";
+    return;
+  }
+  if (artist.dataset.buffering !== "1") return;
+  delete artist.dataset.buffering;
+  const track = currentTrack();
+  artist.textContent = track
+    ? `${track.artist || "Artista desconocido"} · ${albumNameOf(track)}`
+    : "Subí tu primera canción";
 };
 
 const updatePlayButton = () => {
@@ -233,6 +311,7 @@ const updateNowPlaying = () => {
     updatePlayButton();
     updateShuffleUI();
     updateRepeatUI();
+    updateBufferingUI();
     syncMediaSessionState();
     return;
   }
@@ -266,6 +345,7 @@ const updateNowPlaying = () => {
   updatePlayButton();
   updateShuffleUI();
   updateRepeatUI();
+  updateBufferingUI();
 
   document.title = `${track.title} · ${track.artist || "WaverNote"}`;
   syncMediaSession();
@@ -320,6 +400,7 @@ const playCurrent = () => {
     .then((ok) => {
       if (ok) {
         flushPendingPlay();
+        prefetchNext();
       } else {
         state.isPlaying = false;
         updatePlayButton();
@@ -372,6 +453,7 @@ const togglePlay = () => {
     .then((ok) => {
       if (ok) {
         flushPendingPlay();
+        prefetchNext();
       } else {
         state.isPlaying = false;
         updatePlayButton();
@@ -650,6 +732,12 @@ let vizCanvas = null;
 let vizContext = null;
 let vizBars = new Array(36).fill(0);
 
+// Al cambiar el tamaño de la ventana el canvas hay que remedirlo: si no,
+// el visualizador queda con la medida anterior.
+window.addEventListener("resize", () => {
+  vizRect = null;
+});
+
 const roundedBar = (ctx, x, y, width, height, radius) => {
   const r = Math.min(radius, width / 2, height / 2);
   ctx.beginPath();
@@ -668,10 +756,17 @@ const drawVisualizer = (now) => {
     vizCanvas = canvas;
     vizContext = canvas.getContext("2d");
     vizBars = new Array(36).fill(0);
+    vizRect = null;
   }
   if (!vizContext) return;
 
-  const rect = canvas.getBoundingClientRect();
+  // getBoundingClientRect obliga al navegador a recalcular el layout: pedirlo
+  // en cada cuadro trava la app mientras suena. Se mide una vez por segundo.
+  if (!vizRect || now - vizMeasuredAt >= VIZ_MEASURE_INTERVAL_MS) {
+    vizRect = canvas.getBoundingClientRect();
+    vizMeasuredAt = now;
+  }
+  const rect = vizRect;
   if (rect.width < 2 || rect.height < 2) return;
 
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -741,7 +836,12 @@ const startUiLoop = () => {
         handleTrackEnd();
       } else {
         state.currentTime = clamp(time, 0, state.duration);
-        updateProgressUI();
+        // Refrescar la barra y el reloj 60 veces por segundo pesa el hilo
+        // principal y se nota como tirones durante la canción.
+        if (now - lastProgressPaint >= PROGRESS_INTERVAL_MS) {
+          lastProgressPaint = now;
+          updateProgressUI();
+        }
       }
     }
     drawVisualizer(now);

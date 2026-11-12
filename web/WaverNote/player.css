@@ -117,6 +117,35 @@
   transition: transform 0.2s var(--ease), filter 0.2s;
 }
 
+/* Mientras el archivo se descarga el reproductor lo avisa en vez de quedar
+   mudo: sin esto parecía que la app se trababa. */
+.player.is-buffering .play-btn {
+  animation: player-buffering 1.15s ease-in-out infinite;
+}
+
+.player.is-buffering .player__artist {
+  color: var(--mint);
+}
+
+@keyframes player-buffering {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player.is-buffering .play-btn {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
 .play-btn:hover {
   filter: brightness(1.05);
   transform: scale(1.06);

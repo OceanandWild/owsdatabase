@@ -10,8 +10,10 @@ Novedades:
 - Abajo del modal está la pregunta «¿Querés reproducirlas ahora mismo o más tarde?», con las opciones de reproducirlas ya o dejarlas para después. Si elegís reproducirlas, la cola arranca con todas las canciones que agregaste, no solo con las que se ven.
 - El buscador de actualizaciones ahora muestra el changelog completo de la versión disponible, ordenado en Novedades, Mejoras, Arreglos, Rendimiento y Otros.
 - Ese mismo changelog se abre solo en un modal una sola vez por arranque de la app: si reiniciás WaverNote y la actualización sigue pendiente, vuelve a aparecer. Desde ahí se pasa directo a la pantalla de actualización.
+- Mientras el archivo de una canción se está descargando, el reproductor lo avisa («Cargando…») en lugar de quedar mudo: se sabe que la app está trabajando y no trabada.
 
 Mejoras:
+- La canción ahora se bufferiza por adelantado y la siguiente se descarga en segundo plano: arranca al toque en vez de quedarse preparando, y no se frena a mitad de tema cuando la conexión flaquea.
 - Barra lateral más compacta: menos separación entre bloques y navegación más ajustada, para que entre todo en ventanas chicas.
 - La barra lateral ahora hace scroll propio cuando la ventana es baja; antes los bloques se comprimían por debajo de su contenido y el texto se superponía.
 - En ventanas de poca altura se oculta primero la tarjeta informativa, así el acceso a Actualizaciones y la cuenta quedan visibles sin scrollear.
@@ -22,9 +24,13 @@ Mejoras:
 Arreglos:
 - Corregida la superposición de texto en la barra lateral cuando la ventana tenía poca altura.
 - El changelog de una actualización deja de depender de que la release tenga notas escritas: si la versión no tiene changelog publicado, se muestran las notas de la release.
+- La app ya no se traba mientras suena la canción: el reproductor refrescaba la barra de progreso y recalculaba el layout 60 veces por segundo, y el contador de reproducciones rehacía la biblioteca entera en el instante en que empezaba el tema. Ahora todo eso se hace cuando el hilo principal está libre.
+- Al apretar play la canción ya no tarda en arrancar: el archivo se pedía en ese momento y sin datos de sobra, así que la espera se notaba y, si la conexión flojeaba, el audio se cortaba en mitad del tema.
 
 Rendimiento:
 - La lista de canciones nuevas se calcula comparando la biblioteca antes y después de la subida: no hace falta volver a pedir los datos de cada canción.
+- La barra de progreso y el reloj se refrescan 10 veces por segundo en vez de 60, y el tamaño del visualizador se mide una vez por segundo: es lo que provocaba los tirones durante la reproducción.
+- El contador de «más escuchadas» se actualiza cuando el navegador está libre, sin frenar el arranque de la canción.
 
 Otros:
 - La versión de la app queda en 1.1.0 y ahora se fija también en los archivos de bloqueo (package-lock y Cargo.lock), así el build usa siempre la misma versión que muestra la app.
@@ -40,8 +46,10 @@ New:
 - Below the modal there is the question «Do you want to play them right now or later?», with the options to play them right away or leave them for later. If you choose to play them, the queue starts with every song you added, not only the ones shown.
 - The update checker now shows the full changelog of the available version, split into New, Improvements, Fixes, Performance and Others.
 - That same changelog opens on its own in a modal once per app launch: if you restart WaverNote and the update is still pending, it shows up again. From there you go straight to the update screen.
+- While a song file is downloading, the player says so («Loading…») instead of staying silent: you can tell the app is working and not frozen.
 
 Improvements:
+- The song is now buffered ahead of time and the next one downloads in the background: it starts right away instead of taking a while, and it no longer stops halfway through when the connection gets weak.
 - More compact sidebar: tighter spacing between blocks and a trimmer navigation, so everything fits in short windows.
 - The sidebar now scrolls on its own when the window is short; previously the blocks shrank below their content and text overlapped.
 - On short windows the info card hides first, keeping the Updates entry and the account visible without scrolling.
@@ -52,9 +60,13 @@ Improvements:
 Fixes:
 - Fixed the overlapping text in the sidebar when the window was short.
 - A version's changelog no longer depends on the release having written notes: when a version has no published changelog, the release notes are shown instead.
+- The app no longer freezes while a song is playing: the player was refreshing the progress bar and recalculating the layout 60 times per second, and the play counter was rebuilding the whole library the moment the track started. Now all of that happens when the main thread is free.
+- Pressing play no longer makes the song take a while to start: the file was requested at that moment with no data to spare, so the wait was noticeable and, if the connection got weak, the audio cut out in the middle of the track.
 
 Performance:
 - The list of new songs is worked out by comparing the library before and after the upload: the details of each song don't have to be requested again.
+- The progress bar and the clock are refreshed 10 times per second instead of 60, and the visualizer size is measured once per second: that was what caused the stutter during playback.
+- The «most played» counter is updated when the browser is idle, without slowing down the start of the song.
 
 Others:
 - The app version is now 1.1.0 and it is also set in the lock files (package-lock and Cargo.lock), so the build always uses the same version the app shows.

@@ -259,7 +259,8 @@ const state = {
   baseQueue: null,
   baseIndex: 0,
   panelOpen: false,
-  uploading: false
+  uploading: false,
+  isBuffering: false
 };
 
 const rebuildIndexes = () => {

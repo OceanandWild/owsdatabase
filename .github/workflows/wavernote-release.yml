@@ -251,8 +251,15 @@ jobs:
               NOTES="WaverNote ${VERSION} — disponible para Windows y Android."
             fi
           fi
+          # Las betas/RC se publican como pre-release: así no quedan como
+          # "Latest" del repo (owsdatabase aloja releases de varios proyectos)
+          # y siguen descargables por URL directa.
+          PRERELEASE=()
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE=(--prerelease --latest=false)
+          fi
           if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-            gh release create "$TAG" --repo "$REPO" --title "$TITLE" --notes "$NOTES"
+            gh release create "$TAG" --repo "$REPO" --title "$TITLE" --notes "$NOTES" "${PRERELEASE[@]}"
           fi
           find artifacts -type f
           gh release upload "$TAG" --repo "$REPO" --clobber $(find artifacts -type f)

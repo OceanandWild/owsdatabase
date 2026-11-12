@@ -1,0 +1,19 @@
+OWS Hub 3.5.1 - Changelog
+
+=== ESPAÑOL ===
+Versión: 3.5.1
+Plataforma: Windows (NSIS + MSI) + Android (APK universal)
+Fecha: 2026-11-12
+
+Cambios:
+- OWS Hub Apps ahora muestra la versión de cada descarga: si una plataforma va por delante de la otra, se ve en la propia fila (por ejemplo, la versión de Android junto a la de Windows). La instalación en Android toma esa versión para identificar la app instalada.
+- WaverNote para Android pasa a la 1.0.1-beta: el modo Automático abre el selector del sistema para elegir canciones y lee título, artista, álbum, portada y duración sin pedir permiso de almacenamiento. Windows continúa en 1.0.0.
+
+=== ENGLISH ===
+Version: 3.5.1
+Platform: Windows (NSIS + MSI) + Android (universal APK)
+Date: 2026-11-12
+
+Changes:
+- OWS Hub Apps now shows the version of each download: if one platform is ahead of the other, the row says so (for example, the Android version next to the Windows one). The Android install uses that version to identify the installed app.
+- WaverNote for Android moves to 1.0.1-beta: Automatic mode opens the system picker to choose songs and reads title, artist, album, artwork and duration without asking for storage permission. Windows stays on 1.0.0.

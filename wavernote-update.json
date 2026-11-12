@@ -1,6 +1,6 @@
 {
   "version": "1.0.3-beta",
-  "notes": "WaverNote 1.0.3-beta: barra lateral adaptable, sin superposiciones en ventanas bajas, y actualizaciones integradas en la app.",
+  "notes": "Barra lateral adaptable y accesos siempre visibles. Incluye el actualizador integrado: Windows instala el NSIS firmado y Android verifica el SHA-256 del APK.",
   "pub_date": "2026-11-12T04:08:27Z",
   "platforms": {
     "windows-x86_64": {

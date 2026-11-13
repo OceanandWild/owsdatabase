@@ -186,6 +186,58 @@
   cursor: pointer;
 }
 
+/* ------------------------------------------------------------
+   Aviso de artistas sin canciones nuevas
+   ------------------------------------------------------------ */
+
+.artist-reminder__lead {
+  margin: 0 0 12px;
+  color: var(--text-soft);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.artist-reminder__list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: min(46vh, 330px);
+  margin: 0;
+  padding: 0 4px 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.artist-reminder__list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.artist-reminder__list strong {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artist-reminder__list span {
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.artist-reminder__note {
+  margin: 12px 0 0;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
 @media (max-width: 620px) {
   .catalog-edit {
     flex-direction: column;

@@ -569,8 +569,11 @@
     padding-top: 4px;
   }
 
+  /* La franja del inicio vuelve a la tarjeta vertical: sin estirar, la
+     portada (o el mosaico cuando no hay imagen) se encoge a nada. */
   .trend-strip .trend-card {
     display: flex;
+    align-items: stretch;
   }
 
   .trend-strip .trend-card__art {

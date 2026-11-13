@@ -198,6 +198,8 @@ const enterApp = async (user) => {
   // Si hay una actualización pendiente, su changelog se muestra solo una vez
   // por arranque: al entrar puede ser el momento de verlo.
   window.WaverNoteUpdater?.maybeShowChangelogModal();
+  // Aviso semanal de artistas: se abre una sola vez y solo si hay vencidos.
+  window.WaverNoteArtistReminder?.maybeShow();
 };
 
 const bootAuth = async () => {
@@ -276,6 +278,10 @@ const closeModal = (force = false) => {
   document.body.classList.remove("modal-open");
   modalBody.innerHTML = "";
   modal.querySelector(".modal__panel")?.classList.remove("modal__panel--upload");
+
+  // Si el aviso de artistas quedó esperando detrás de otro modal, este es
+  // el momento de mostrarlo.
+  window.WaverNoteArtistReminder?.maybeShow();
 };
 
 const openModal = ({ title, eyebrow = "WaverNote", body }) => {
@@ -2422,6 +2428,10 @@ const handleAction = async (actionEl) => {
       openMoreMenu();
       break;
     case "open-upload":
+      openUpload();
+      break;
+    case "artist-reminder-upload":
+      closeModal(true);
       openUpload();
       break;
     case "added-play-now": {

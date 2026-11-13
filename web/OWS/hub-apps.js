@@ -13,10 +13,10 @@
         tagline: "Tu biblioteca musical, en Windows y Android.",
         description:
           "Subí tus propias canciones, ordená tu biblioteca y escuchá todo desde la app. WaverNote guarda el audio en la nube y sincroniza tu cuenta de Surface entre dispositivos.",
-        version: "1.2.0",
+        version: "1.2.1",
         icon_url: "img/wavernote-icon.png",
         accent: "#2dd4bf",
-        release_url: "https://github.com/OceanandWild/owsdatabase/releases/tag/wavernote-v1.2.0",
+        release_url: "https://github.com/OceanandWild/owsdatabase/releases/tag/wavernote-v1.2.1",
         features: [
           "Interfaz móvil propia con navegación inferior y reproductor a pantalla completa",
           "Cola completa con reordenamiento, panel rápido y controles sincronizados",
@@ -38,11 +38,11 @@
           android: {
             label: "Android 7.0+",
             detail: "APK universal firmado",
-            version: "1.2.0",
-            file: "WaverNote_1.2.0_universal.apk",
-            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.0/WaverNote_1.2.0_universal.apk",
-            size: "52,79 MB",
-            size_bytes: 55352427
+            version: "1.2.1",
+            file: "WaverNote_1.2.1_universal.apk",
+            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.1/WaverNote_1.2.1_universal.apk",
+            size: "—",
+            size_bytes: 0
           }
         }
       }

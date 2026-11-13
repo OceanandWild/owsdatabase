@@ -56,18 +56,29 @@ const trendGroupBy = (entries, keyOf) => {
   const groups = new Map();
 
   entries.forEach((entry) => {
-    const key = String(keyOf(entry.track) || "").trim();
-    if (!key) return;
+    // Un tema puede tener varios artistas: la reproducción suma para cada
+    // uno sin contar dos veces al mismo colaborador.
+    const raw = keyOf(entry.track);
+    const keys = (Array.isArray(raw) ? raw : [raw])
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+    const seen = new Set();
 
-    let group = groups.get(key);
-    if (!group) {
-      group = { key, total: 0, tracks: [], lastAt: 0 };
-      groups.set(key, group);
-    }
+    keys.forEach((key) => {
+      const keyId = normalize(key);
+      if (!keyId || seen.has(keyId)) return;
+      seen.add(keyId);
 
-    group.total += entry.count;
-    group.tracks.push(entry);
-    group.lastAt = Math.max(group.lastAt, trendLatestOf(entry.info));
+      let group = groups.get(key);
+      if (!group) {
+        group = { key, total: 0, tracks: [], lastAt: 0 };
+        groups.set(key, group);
+      }
+
+      group.total += entry.count;
+      group.tracks.push(entry);
+      group.lastAt = Math.max(group.lastAt, trendLatestOf(entry.info));
+    });
   });
 
   return Array.from(groups.values());
@@ -173,7 +184,7 @@ const trendItems = () => {
     );
   }
 
-  const artist = trendTopGroup(trendGroupBy(entries, (track) => (track.artist || "").trim()));
+  const artist = trendTopGroup(trendGroupBy(entries, (track) => trackArtists(track)));
   if (artist && artist.total >= 2) {
     const best = trendTopEntry(artist.tracks);
     add(

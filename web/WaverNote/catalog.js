@@ -26,6 +26,39 @@ const CATALOG_KINDS = {
 };
 
 /* ------------------------------------------------------------
+   Créditos: una canción puede tener varios artistas
+   "A feat. B", "A & B" y "A, B" cuentan para cada uno. Así el
+   detector de artistas y las tendencias no pierden colaboradores.
+   ------------------------------------------------------------ */
+
+const ARTIST_SEPARATOR = /\s*(?:,|&|\bfeat\b\.?|\bft\b\.?|\bfeaturing\b)\s*/gi;
+
+const cleanArtistName = (value) =>
+  String(value || "")
+    .replace(/^[\s([{]+/, "")
+    .replace(/[\s)\]},;.-]+$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+const trackArtists = (track) => {
+  const raw = String(track?.artist || "").trim();
+  if (!raw) return [];
+
+  const names = [];
+  const seen = new Set();
+
+  raw.split(ARTIST_SEPARATOR).forEach((part) => {
+    const name = cleanArtistName(part);
+    const key = normalize(name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    names.push(name);
+  });
+
+  return names;
+};
+
+/* ------------------------------------------------------------
    Agrupación de la biblioteca
    ------------------------------------------------------------ */
 
@@ -36,10 +69,16 @@ const catalogGroups = (kind) => {
   const groups = new Map();
 
   state.tracks.forEach((track) => {
-    const raw = String(track?.[config.field] || "").trim();
-    const name = raw || config.empty;
-    if (!groups.has(name)) groups.set(name, []);
-    groups.get(name).push(track);
+    const values =
+      kind === "artist"
+        ? trackArtists(track)
+        : [String(track?.[config.field] || "").trim()];
+    const names = values.length ? values : [config.empty];
+
+    names.forEach((name) => {
+      if (!groups.has(name)) groups.set(name, []);
+      groups.get(name).push(track);
+    });
   });
 
   return Array.from(groups.entries())
@@ -60,6 +99,24 @@ const catalogGroups = (kind) => {
 
 const catalogGroup = (kind, name) =>
   catalogGroups(kind).find((group) => group.name === String(name || "")) || null;
+
+// Al renombrar un artista se respetan los colaboradores del tema:
+// "A feat. B" pasa a "Nuevo feat. B" sin perder a B.
+const renameTrackArtist = (track, from, to) => {
+  const names = trackArtists(track);
+  if (!names.length) return to;
+
+  const key = normalize(from);
+  const next = [];
+
+  names.forEach((name) => {
+    const value = normalize(name) === key ? to : name;
+    if (!value) return;
+    if (!next.some((item) => normalize(item) === normalize(value))) next.push(value);
+  });
+
+  return next.length ? next.join(", ") : to;
+};
 
 /* ------------------------------------------------------------
    Imágenes propias
@@ -289,7 +346,12 @@ const openCatalogEditor = (kind, name) => {
           const track = tracks[index];
           await api(`/wavernote/tracks/${track.id}`, {
             method: "PATCH",
-            body: { [config.field]: nextName }
+            body: {
+              [config.field]:
+                kind === "artist"
+                  ? renameTrackArtist(track, catalogPendingName, nextName)
+                  : nextName
+            }
           });
           if (submit) {
             submit.innerHTML = `${icon("check")} ${index + 1} de ${tracks.length}`;
@@ -349,3 +411,152 @@ const catalogPlayGroup = (kind, name) => {
   );
   startQueue(ids, { startIndex: index });
 };
+
+/* ------------------------------------------------------------
+   Aviso de artistas sin canciones nuevas
+   Se toma la canción más reciente de cada artista y se cuentan
+   siete días desde ahí. Los vencimientos cercanos se agrupan en
+   un solo aviso para no preguntar varias veces por semana.
+   ------------------------------------------------------------ */
+
+const ARTIST_REMINDER_KEY = "wavernote.artistReminders.v1";
+const ARTIST_REMINDER_DAYS = 7;
+const ARTIST_REMINDER_DAY_MS = 86400000;
+// Si otro artista vence dentro de este margen, conviene esperarlo para
+// mostrarlo junto al resto en un único aviso.
+const ARTIST_REMINDER_BATCH_MS = ARTIST_REMINDER_DAY_MS;
+
+const artistReminderStore = () => {
+  const raw = readJSON(ARTIST_REMINDER_KEY, {});
+  return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+};
+
+const artistReminderSave = (store) => {
+  try {
+    localStorage.setItem(ARTIST_REMINDER_KEY, JSON.stringify(store));
+    return true;
+  } catch (err) {
+    return false;
+  }
+};
+
+const artistLastAdditions = () => {
+  const map = new Map();
+
+  state.tracks.forEach((track) => {
+    const at = new Date(track.createdAt || 0).getTime();
+    if (!Number.isFinite(at) || at <= 0) return;
+
+    trackArtists(track).forEach((name) => {
+      const key = normalize(name);
+      if (!key) return;
+
+      const current = map.get(key);
+      if (!current) {
+        map.set(key, { key, name, lastAddedAt: at });
+        return;
+      }
+
+      current.name = name;
+      if (at > current.lastAddedAt) current.lastAddedAt = at;
+    });
+  });
+
+  return map;
+};
+
+const artistReminderDue = (item) => item.lastAddedAt + ARTIST_REMINDER_DAYS * ARTIST_REMINDER_DAY_MS;
+
+const artistReminderPending = (now = Date.now()) => {
+  const store = artistReminderStore();
+  const all = Array.from(artistLastAdditions().values());
+
+  const isPending = (item) => {
+    if (now < artistReminderDue(item)) return false;
+    const entry = store[item.key];
+    return !entry || Number(entry.lastAddedAt) !== item.lastAddedAt;
+  };
+
+  const pending = all.filter(isPending).sort((a, b) => a.lastAddedAt - b.lastAddedAt);
+  if (!pending.length) return [];
+
+  // Espera a que venza el artista que está por cumplir la semana: así el
+  // aviso los enumera a todos juntos en lugar de repetirse día por día.
+  const wait = all.some((item) => {
+    const due = artistReminderDue(item);
+    if (due <= now || due - now > ARTIST_REMINDER_BATCH_MS) return false;
+    const entry = store[item.key];
+    return !entry || Number(entry.lastAddedAt) !== item.lastAddedAt;
+  });
+
+  return wait ? [] : pending;
+};
+
+const artistReminderAcknowledge = (items) => {
+  const store = artistReminderStore();
+  const live = artistLastAdditions();
+  const now = Date.now();
+
+  items.forEach((item) => {
+    store[item.key] = { name: item.name, lastAddedAt: item.lastAddedAt, notifiedAt: now };
+  });
+
+  Object.keys(store).forEach((key) => {
+    if (!live.has(key)) delete store[key];
+  });
+
+  artistReminderSave(store);
+};
+
+const openArtistReminder = (items) => {
+  const now = Date.now();
+  const daysSince = (time) =>
+    Math.max(ARTIST_REMINDER_DAYS, Math.floor((now - time) / ARTIST_REMINDER_DAY_MS));
+
+  openModal({
+    title: "¿Sumamos música nueva?",
+    eyebrow: "Tu biblioteca",
+    body: `
+      <div class="artist-reminder">
+        <p class="artist-reminder__lead">Hace más de una semana que no agregás canciones de ${
+          items.length === 1 ? "este artista" : "estos artistas"
+        }:</p>
+        <ul class="artist-reminder__list">
+          ${items
+            .map(
+              (item) => `<li>
+                <strong>${escapeHTML(item.name)}</strong>
+                <span>Última canción: ${escapeHTML(dateLabel(item.lastAddedAt))} · hace ${plural(
+                  daysSince(item.lastAddedAt),
+                  "día",
+                  "días"
+                )}</span>
+              </li>`
+            )
+            .join("")}
+        </ul>
+        <p class="artist-reminder__note">El aviso solo te informa que no subiste canciones nuevas en más de una semana. Podés cerrarlo cuando quieras.</p>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" data-action="close-modal">Cerrar</button>
+        <button class="btn btn--primary" data-action="artist-reminder-upload">${icon("upload")} Subir música</button>
+      </div>`
+  });
+};
+
+let artistReminderShown = false;
+
+const maybeShowArtistReminder = () => {
+  if (artistReminderShown) return;
+  if (!state.ready || !state.tracks.length) return;
+  if (document.getElementById("modal")?.classList.contains("is-open")) return;
+
+  const items = artistReminderPending();
+  if (!items.length) return;
+
+  artistReminderShown = true;
+  artistReminderAcknowledge(items);
+  openArtistReminder(items);
+};
+
+window.WaverNoteArtistReminder = { maybeShow: maybeShowArtistReminder };

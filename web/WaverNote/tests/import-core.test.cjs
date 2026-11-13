@@ -127,6 +127,119 @@ test("clave de coincidencia tolera acentos, feat. y remaster", () => {
   assert.notEqual(core.matchKey("Tema (Live)", "Banda"), core.matchKey("Tema", "Banda"));
 });
 
+test("artistas con / & ; + y feat comparten tokens", () => {
+  assert.equal(
+    core.sameSong(
+      { title: "MONTAGEM ASSOMBRADA", artist: "CHAXZER/DJ FKU" },
+      { title: "MONTAGEM ASSOMBRADA", artist: "CHAXZER" }
+    ),
+    true
+  );
+  assert.equal(
+    core.sameSong(
+      { title: "MONTAGEM GLORIA", artist: "Rushex/Avenxir/MONTAGEM" },
+      { title: "MONTAGEM GLORIA", artist: "Avenxir" }
+    ),
+    true
+  );
+  assert.equal(
+    core.sameSong(
+      { title: "SPOOKY 2", artist: "fennecxx/DJ ALEX/Dj Samir" },
+      { title: "SPOOKY 2", artist: "DJ ALEX & Dj Samir" }
+    ),
+    true
+  );
+  assert.equal(
+    core.sameSong(
+      { title: "Tema", artist: "Artista A" },
+      { title: "Tema", artist: "Artista B" }
+    ),
+    false
+  );
+});
+
+test("slowed, sped up y reverb no crean una canción distinta", () => {
+  assert.equal(
+    core.matchKey("MONTAGEM ECLIPSE - Slowed", "DJ FKU"),
+    core.matchKey("MONTAGEM ECLIPSE", "DJ FKU")
+  );
+  assert.equal(
+    core.matchKey("MONTAGEM EMPIRE - slowed", "NUEKI"),
+    core.matchKey("MONTAGEM EMPIRE", "NUEKI")
+  );
+  assert.equal(
+    core.matchKey("MTG DIABÓLICA (Slowed + Reverb)", "DJ SXD/notdjfake"),
+    core.matchKey("MTG DIABÓLICA", "DJ SXD")
+  );
+  assert.equal(
+    core.matchKey("Nerves [Sped Up]", "Eternxlkz"),
+    core.matchKey("Nerves", "Eternxlkz")
+  );
+  assert.equal(
+    core.matchKey("Tema - Ultra Slowed + Reverb", "Banda"),
+    core.matchKey("Tema", "Banda")
+  );
+  assert.equal(
+    core.matchKey("Tema (Official Audio)", "Banda"),
+    core.matchKey("Tema", "Banda")
+  );
+});
+
+test("live, remix e instrumental siguen siendo versiones distintas", () => {
+  assert.notEqual(core.matchKey("Tema (Live)", "Banda"), core.matchKey("Tema", "Banda"));
+  assert.notEqual(core.matchKey("Tema - Live", "Banda"), core.matchKey("Tema", "Banda"));
+  assert.notEqual(core.matchKey("Tema (Remix)", "Banda"), core.matchKey("Tema", "Banda"));
+  assert.notEqual(core.matchKey("Tema (Acústico)", "Banda"), core.matchKey("Tema", "Banda"));
+  assert.notEqual(core.matchKey("Tema (Instrumental)", "Banda"), core.matchKey("Tema", "Banda"));
+});
+
+test("la vista previa reconoce biblioteca aunque el crédito cambie", () => {
+  const library = [
+    { title: "MONTAGEM ASSOMBRADA", artist: "CHAXZER/DJ FKU" },
+    { title: "MONTAGEM ECLIPSE - Slowed", artist: "DJ FKU" },
+    { title: "MONTAGEM EMPIRE - slowed", artist: "NUEKI" },
+    { title: "MONTAGEM GLORIA - Slowed", artist: "Rushex/Avenxir/MONTAGEM" },
+    { title: "MTG DIABÓLICA - Slowed", artist: "DJ SXD/notdjfake" },
+    { title: "Nerves - Slowed", artist: "Eternxlkz" },
+    { title: "SPOOKY 2", artist: "fennecxx/DJ ALEX/Dj Samir" }
+  ];
+  const rows = [
+    { title: "MONTAGEM ASSOMBRADA", artist: "CHAXZER" },
+    { title: "MONTAGEM ECLIPSE", artist: "DJ FKU" },
+    { title: "MONTAGEM EMPIRE", artist: "NUEKI" },
+    { title: "MONTAGEM GLORIA", artist: "Rushex" },
+    { title: "MTG DIABÓLICA (Slowed + Reverb)", artist: "DJ SXD" },
+    { title: "Nerves (Sped Up)", artist: "Eternxlkz" },
+    { title: "SPOOKY 2", artist: "fennecxx" }
+  ];
+  const preview = core.buildPreview(rows, library, []);
+
+  assert.equal(preview.fresh, 0);
+  assert.equal(preview.inLibrary, rows.length);
+  assert.deepEqual(
+    preview.rows.map((row) => row.status),
+    rows.map(() => "library")
+  );
+});
+
+test("la vista previa detecta pendientes y repetidas con metadatos distintos", () => {
+  const rows = [
+    { title: "MONTAGEM ECLIPSE", artist: "DJ FKU" },
+    { title: "MONTAGEM ECLIPSE - Slowed", artist: "DJ FKU" },
+    { title: "Tema", artist: "CHAXZER" },
+    { title: "Tema - Sped Up", artist: "CHAXZER/DJ FKU" }
+  ];
+  const preview = core.buildPreview(
+    rows,
+    [],
+    [{ title: "MONTAGEM ECLIPSE - Slowed", artist: "DJ FKU" }]
+  );
+
+  assert.equal(preview.alreadyPending, 1);
+  assert.equal(preview.duplicates, 2);
+  assert.equal(preview.fresh, 1);
+});
+
 test("vista previa separa nuevas, ya en biblioteca, pendientes y repetidas", () => {
   const rows = [
     { title: "Nueva", artist: "A", matchKey: core.matchKey("Nueva", "A") },

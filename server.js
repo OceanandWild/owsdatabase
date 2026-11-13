@@ -53912,22 +53912,98 @@ function wavernoteNormalizeText(value) {
     .trim();
 }
 
+const WAVERNOTE_ARTIST_SEPARATORS =
+  /\s*(?:,|&|\/|\\|;|\+|\||×|\bfeat\b\.?|\bft\b\.?|\bfeaturing\b|\bvs\b\.?)\s*/i;
+
+function wavernoteArtistTokens(value) {
+  const tokens = new Set();
+  String(value ?? '')
+    .split(WAVERNOTE_ARTIST_SEPARATORS)
+    .forEach((part) => {
+      const token = wavernoteNormalizeText(part);
+      if (token) tokens.add(token);
+    });
+  return tokens;
+}
+
 function wavernotePrimaryArtist(value) {
-  return String(value ?? '')
-    .split(/\s*(?:,|&|\bfeat\b\.?|\bft\b\.?|\bfeaturing\b)\s*/i)[0]
-    .trim();
+  return String(value ?? '').split(WAVERNOTE_ARTIST_SEPARATORS)[0].trim();
+}
+
+const WAVERNOTE_VERSION_WORDS = new Set([
+  'slowed',
+  'super',
+  'ultra',
+  'reverb',
+  'sped',
+  'speed',
+  'up',
+  'nightcore',
+  'bass',
+  'boost',
+  'boosted',
+  '8d',
+  'extended',
+  'mix',
+  'version',
+  'edit',
+  'radio',
+  'official',
+  'audio',
+  'video',
+  'music',
+  'lyric',
+  'lyrics',
+  'visualizer',
+  'remaster',
+  'remastered',
+  'deluxe',
+  'edition',
+  'bonus',
+  'track',
+  'tiktok'
+]);
+const WAVERNOTE_VERSION_FILLER = new Set(['and', 'y', 'e', 'with', 'the', 'plus']);
+
+function wavernoteIsVersionSegment(segment) {
+  const words = wavernoteNormalizeText(segment).split(' ').filter(Boolean);
+  if (!words.length) return false;
+
+  let hasTag = false;
+  for (const word of words) {
+    if (WAVERNOTE_VERSION_WORDS.has(word)) {
+      hasTag = true;
+      continue;
+    }
+    if (WAVERNOTE_VERSION_FILLER.has(word) || /^\d{4}$/.test(word)) continue;
+    return false;
+  }
+  return hasTag;
+}
+
+function wavernoteStripVersionSegments(value) {
+  let output = value.replace(/\s*[\(\[]([^)\]]*)[\)\]]/g, (match, inner) =>
+    wavernoteIsVersionSegment(inner) ? ' ' : match
+  );
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    const next = output.replace(/\s*[-–—]\s*([^-–—]+)$/, (match, tail) =>
+      wavernoteIsVersionSegment(tail) ? ' ' : match
+    );
+    if (next === output) break;
+    output = next;
+  }
+
+  return output;
 }
 
 function wavernoteNormalizeTitle(value) {
-  return wavernoteStripDiacritics(value)
-    .toLowerCase()
-    .replace(/\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring)\s+[^)\]]*[\)\]]/g, ' ')
-    .replace(/\s*-\s*(?:feat\.?|ft\.?|featuring)\s+.*$/g, ' ')
-    .replace(
-      /\s*[\(\[]\s*(?:remaster(?:ed)?|deluxe(?: edition)?|bonus track)(?:\s+\d{4})?\s*[\)\]]\s*$/g,
-      ' '
-    )
-    .replace(/\s*-\s*(?:remaster(?:ed)?|deluxe(?: edition)?|bonus track)(?:\s+\d{4})?\s*$/g, ' ')
+  return wavernoteStripVersionSegments(
+    wavernoteStripDiacritics(value)
+      .toLowerCase()
+      .replace(/\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring)\s+[^)\]]*[\)\]]/g, ' ')
+      .replace(/\s*-\s*(?:feat\.?|ft\.?|featuring)\s+.*$/g, ' ')
+  )
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
@@ -53936,6 +54012,54 @@ function wavernotePendingKey(title, artist) {
   return `${wavernoteNormalizeTitle(title)}|${wavernoteNormalizeText(
     wavernotePrimaryArtist(artist)
   )}`;
+}
+
+// Índice por título normalizado -> artistas. Permite reconocer la misma
+// canción aunque cambien colaboradores o aparezca "- Slowed" en el título.
+function wavernoteCreateTitleIndex() {
+  return new Map();
+}
+
+function wavernoteAddToTitleIndex(index, title, artist) {
+  const key = wavernoteNormalizeTitle(title);
+  if (!key) return;
+  const tokens = wavernoteArtistTokens(artist);
+  const bucket = index.get(key);
+  if (bucket) bucket.push(tokens);
+  else index.set(key, [tokens]);
+}
+
+function wavernoteBuildTitleIndex(rows) {
+  const index = wavernoteCreateTitleIndex();
+  (Array.isArray(rows) ? rows : []).forEach((row) =>
+    wavernoteAddToTitleIndex(index, row?.title, row?.artist)
+  );
+  return index;
+}
+
+function wavernoteTitleIndexHas(index, title, artist) {
+  const bucket = index.get(wavernoteNormalizeTitle(title));
+  if (!bucket || !bucket.length) return false;
+
+  const tokens = wavernoteArtistTokens(artist);
+  return bucket.some((other) => {
+    if (!tokens.size || !other.size) return true;
+    for (const token of tokens) {
+      if (other.has(token)) return true;
+    }
+    return false;
+  });
+}
+
+function wavernoteSameSong(aTitle, aArtist, bTitle, bArtist) {
+  if (wavernoteNormalizeTitle(aTitle) !== wavernoteNormalizeTitle(bTitle)) return false;
+  const left = wavernoteArtistTokens(aArtist);
+  const right = wavernoteArtistTokens(bArtist);
+  if (!left.size || !right.size) return true;
+  for (const token of left) {
+    if (right.has(token)) return true;
+  }
+  return false;
 }
 
 function wavernotePendingCover(value) {
@@ -54281,21 +54405,28 @@ app.post('/wavernote/pending/import', wavernoteAuth, async (req, res) => {
 
     const [libraryResult, pendingResult] = await Promise.all([
       pool.query('SELECT title, artist FROM wavernote_tracks WHERE user_id = $1', [userId]),
-      pool.query('SELECT match_key FROM wavernote_pending_tracks WHERE user_id = $1', [userId])
+      pool.query('SELECT title, artist FROM wavernote_pending_tracks WHERE user_id = $1', [userId])
     ]);
 
-    const libraryKeys = new Set(
-      libraryResult.rows.map((row) => wavernotePendingKey(row.title, row.artist))
-    );
-    const pendingKeys = new Set(pendingResult.rows.map((row) => row.match_key));
+    const libraryIndex = wavernoteBuildTitleIndex(libraryResult.rows);
+    const pendingIndex = wavernoteBuildTitleIndex(pendingResult.rows);
+    const seenIndex = wavernoteCreateTitleIndex();
 
     const fresh = [];
     let inLibrary = 0;
     let alreadyPending = 0;
     rows.forEach((row) => {
-      if (libraryKeys.has(row.matchKey)) {
+      // Variantes del mismo tema dentro del archivo (feat./slowed) cuentan
+      // como repetidas aunque el crédito de artista cambie.
+      if (wavernoteTitleIndexHas(seenIndex, row.title, row.artist)) {
+        duplicated += 1;
+        return;
+      }
+      wavernoteAddToTitleIndex(seenIndex, row.title, row.artist);
+
+      if (wavernoteTitleIndexHas(libraryIndex, row.title, row.artist)) {
         inLibrary += 1;
-      } else if (pendingKeys.has(row.matchKey)) {
+      } else if (wavernoteTitleIndexHas(pendingIndex, row.title, row.artist)) {
         alreadyPending += 1;
       } else {
         fresh.push(row);
@@ -54625,16 +54756,27 @@ app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) =
     );
 
     // Si la canción estaba importada como pendiente, al subir el archivo
-    // deja de estar pendiente sola. Un fallo acá no invalida la subida.
+    // deja de estar pendiente sola. Se comparan título/artista normalizados
+    // (no la clave guardada) para limpiar también filas antiguas. Un fallo
+    // acá no invalida la subida.
     let matchedPending = false;
     try {
-      const matched = await pool.query(
-        `DELETE FROM wavernote_pending_tracks
-          WHERE user_id = $1 AND match_key = $2
-          RETURNING id`,
-        [req.wavernoteUser.id, wavernotePendingKey(title, artist)]
+      const pendingRows = await pool.query(
+        'SELECT id, title, artist FROM wavernote_pending_tracks WHERE user_id = $1',
+        [req.wavernoteUser.id]
       );
-      matchedPending = matched.rows.length > 0;
+      const matchedIds = pendingRows.rows
+        .filter((row) => wavernoteSameSong(row.title, row.artist, title, artist))
+        .map((row) => Number(row.id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+
+      if (matchedIds.length) {
+        await pool.query(
+          'DELETE FROM wavernote_pending_tracks WHERE user_id = $1 AND id = ANY($2::bigint[])',
+          [req.wavernoteUser.id, matchedIds]
+        );
+        matchedPending = true;
+      }
     } catch (matchErr) {
       console.error('[WAVERNOTE] pending auto-match:', matchErr);
     }

@@ -84,26 +84,153 @@
   const normalizeText = (value) =>
     stripDiacritics(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-  const primaryArtist = (value) =>
-    String(value || "")
-      .split(/\s*(?:,|&|\bfeat\b\.?|\bft\b\.?|\bfeaturing\b)\s*/i)[0]
-      .trim();
+  // Los créditos de artista varían mucho entre plataformas: "A, B",
+  // "A/B", "A & B", "A feat. B"... Guardamos cada nombre por separado para
+  // que dos canciones coincidan si comparten al menos un artista.
+  const ARTIST_SEPARATORS =
+    /\s*(?:,|&|\/|\\|;|\+|\||×|\bfeat\b\.?|\bft\b\.?|\bfeaturing\b|\bvs\b\.?)\s*/i;
 
-  // Quita colaboraciones y sufijos de reedición para que la misma canción
-  // coincida aunque el archivo y Spotify la nombren distinto. No quita
-  // "(Live)", "(Acústico)" ni remixes: esos son otra versión.
+  const artistTokens = (value) => {
+    const tokens = new Set();
+    String(value || "")
+      .split(ARTIST_SEPARATORS)
+      .forEach((part) => {
+        const token = normalizeText(part);
+        if (token) tokens.add(token);
+      });
+    return tokens;
+  };
+
+  const primaryArtist = (value) => String(value || "").split(ARTIST_SEPARATORS)[0].trim();
+
+  // Etiquetas que no cambian la canción: slowed/sped up/nightcore/remaster,
+  // etc. "(Live)", "(Acústico)", "(Remix)" e "(Instrumental)" sí son otra
+  // versión y se conservan.
+  const VERSION_WORDS = new Set([
+    "slowed",
+    "super",
+    "ultra",
+    "reverb",
+    "sped",
+    "speed",
+    "up",
+    "nightcore",
+    "bass",
+    "boost",
+    "boosted",
+    "8d",
+    "extended",
+    "mix",
+    "version",
+    "edit",
+    "radio",
+    "official",
+    "audio",
+    "video",
+    "music",
+    "lyric",
+    "lyrics",
+    "visualizer",
+    "remaster",
+    "remastered",
+    "deluxe",
+    "edition",
+    "bonus",
+    "track",
+    "tiktok"
+  ]);
+  const VERSION_FILLER = new Set(["and", "y", "e", "with", "the", "plus"]);
+
+  const isVersionSegment = (segment) => {
+    const words = normalizeText(segment).split(" ").filter(Boolean);
+    if (!words.length) return false;
+
+    let hasTag = false;
+    for (const word of words) {
+      if (VERSION_WORDS.has(word)) {
+        hasTag = true;
+        continue;
+      }
+      if (VERSION_FILLER.has(word) || /^\d{4}$/.test(word)) continue;
+      return false;
+    }
+    return hasTag;
+  };
+
+  // Quita "(Slowed + Reverb)", "[Official Audio]" y sufijos "- Sped Up"
+  // solamente cuando el segmento entero es una etiqueta de versión.
+  const stripVersionSegments = (value) => {
+    let output = value.replace(/\s*[\(\[]([^)\]]*)[\)\]]/g, (match, inner) =>
+      isVersionSegment(inner) ? " " : match
+    );
+
+    for (let pass = 0; pass < 3; pass += 1) {
+      const next = output.replace(/\s*[-–—]\s*([^-–—]+)$/, (match, tail) =>
+        isVersionSegment(tail) ? " " : match
+      );
+      if (next === output) break;
+      output = next;
+    }
+
+    return output;
+  };
+
   const normalizeTitle = (value) =>
-    stripDiacritics(value)
-      .toLowerCase()
-      .replace(/\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring)\s+[^)\]]*[\)\]]/g, " ")
-      .replace(/\s*-\s*(?:feat\.?|ft\.?|featuring)\s+.*$/g, " ")
-      .replace(/\s*[\(\[]\s*(?:remaster(?:ed)?|deluxe(?: edition)?|bonus track)(?:\s+\d{4})?\s*[\)\]]\s*$/g, " ")
-      .replace(/\s*-\s*(?:remaster(?:ed)?|deluxe(?: edition)?|bonus track)(?:\s+\d{4})?\s*$/g, " ")
+    stripVersionSegments(
+      stripDiacritics(value)
+        .toLowerCase()
+        .replace(/\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring)\s+[^)\]]*[\)\]]/g, " ")
+        .replace(/\s*-\s*(?:feat\.?|ft\.?|featuring)\s+.*$/g, " ")
+    )
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
 
   const matchKey = (title, artist) =>
     `${normalizeTitle(title)}|${normalizeText(primaryArtist(artist))}`;
+
+  const createTitleIndex = () => new Map();
+
+  const addToTitleIndex = (index, title, artist) => {
+    const key = normalizeTitle(title);
+    if (!key) return;
+    const tokens = artistTokens(artist);
+    const bucket = index.get(key);
+    if (bucket) bucket.push(tokens);
+    else index.set(key, [tokens]);
+  };
+
+  const buildTitleIndex = (items) => {
+    const index = createTitleIndex();
+    (Array.isArray(items) ? items : []).forEach((item) =>
+      addToTitleIndex(index, item?.title, item?.artist)
+    );
+    return index;
+  };
+
+  const titleIndexHas = (index, title, artist) => {
+    const bucket = index.get(normalizeTitle(title));
+    if (!bucket || !bucket.length) return false;
+
+    const tokens = artistTokens(artist);
+    return bucket.some((other) => {
+      if (!tokens.size || !other.size) return true;
+      for (const token of tokens) {
+        if (other.has(token)) return true;
+      }
+      return false;
+    });
+  };
+
+  const sameSong = (a, b) => {
+    if (normalizeTitle(a?.title) !== normalizeTitle(b?.title)) return false;
+    const left = artistTokens(a?.artist);
+    const right = artistTokens(b?.artist);
+    if (!left.size || !right.size) return true;
+    for (const token of left) {
+      if (right.has(token)) return true;
+    }
+    return false;
+  };
 
   /* ------------------------------------------------------------
      Valores
@@ -443,13 +570,10 @@
    */
   const buildPreview = (rows, tracks, pending = []) => {
     const list = Array.isArray(rows) ? rows : [];
-    const libraryKeys = new Set(
-      (Array.isArray(tracks) ? tracks : []).map((track) => matchKey(track?.title, track?.artist))
-    );
-    const pendingKeys = new Set(
-      (Array.isArray(pending) ? pending : []).map((item) => matchKey(item?.title, item?.artist))
-    );
+    const libraryIndex = buildTitleIndex(tracks);
+    const pendingIndex = buildTitleIndex(pending);
     const seen = new Set();
+    const seenIndex = createTitleIndex();
     let fresh = 0;
     let inLibrary = 0;
     let alreadyPending = 0;
@@ -459,13 +583,13 @@
       const key = row.matchKey || matchKey(row.title, row.artist);
       let status = "new";
 
-      if (seen.has(key)) {
+      if (seen.has(key) || titleIndexHas(seenIndex, row.title, row.artist)) {
         status = "duplicate";
         duplicates += 1;
-      } else if (libraryKeys.has(key)) {
+      } else if (titleIndexHas(libraryIndex, row.title, row.artist)) {
         status = "library";
         inLibrary += 1;
-      } else if (pendingKeys.has(key)) {
+      } else if (titleIndexHas(pendingIndex, row.title, row.artist)) {
         status = "pending";
         alreadyPending += 1;
       } else {
@@ -473,6 +597,7 @@
       }
 
       seen.add(key);
+      addToTitleIndex(seenIndex, row.title, row.artist);
       return { ...row, matchKey: key, status };
     });
 
@@ -492,6 +617,8 @@
     parseJSON,
     buildPreview,
     matchKey,
+    sameSong,
+    artistTokens,
     normalizeTitle,
     normalizeText,
     primaryArtist,

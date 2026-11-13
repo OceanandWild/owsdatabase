@@ -30,13 +30,40 @@ const els = {
   npFacts: $("#npFacts"),
   npLike: $("#npLike"),
   npQueue: $("#npQueue"),
-  npQueueCount: $("#npQueueCount")
+  npQueueCount: $("#npQueueCount"),
+  npQueueHint: $("#npQueueHint"),
+  npTabCount: $("#npTabCount"),
+  npPlay: $("#npPlayBtn"),
+  npShuffle: $("#npShuffleBtn"),
+  npRepeat: $("#npRepeatBtn"),
+  npSeek: $("#npSeek"),
+  npCurrent: $("#npCurTime"),
+  npDuration: $("#npDurTime"),
+  quickPlayer: $("#quickPlayer"),
+  quickCover: $("#quickCover"),
+  quickTitle: $("#quickTitle"),
+  quickArtist: $("#quickArtist"),
+  quickSeek: $("#quickSeek"),
+  quickCurrent: $("#quickCurTime"),
+  quickDuration: $("#quickDurTime")
 };
 
 const currentTrack = () => trackById(state.currentTrackId);
 
 let pendingPlayId = null;
 let libraryRefreshScheduled = false;
+
+// La cola, la posición y las preferencias se guardan en la cuenta: desde
+// cualquier otro dispositivo la sesión se retoma donde quedó.
+const syncPlaybackState = () => {
+  if (typeof persistPlaybackLocal === "function") persistPlaybackLocal();
+  if (typeof persistPlaybackPosition === "function") persistPlaybackPosition();
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("playback");
+};
+
+const syncSettingsState = () => {
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+};
 
 // Recontar la biblioteca entera en el instante en que arranca la canción
 // trababa la app (se rehacía la vista de la lista en medio del play). Ahora
@@ -57,15 +84,87 @@ const scheduleLibraryRefresh = () => {
   }
 };
 
+const mostPlayedTotals = () => {
+  let top = 0;
+  let total = 0;
+  let played = 0;
+  state.tracks.forEach((item) => {
+    const count = playStatsOf(item).count;
+    total += count;
+    if (count > 0) played += 1;
+    if (count > top) top = count;
+  });
+  return { top, total, played };
+};
+
+// En el ranking alcanza con actualizar la tarjeta de la canción que arrancó:
+// reordenar las 700 tarjetas en cada cambio era otro de los bloqueos.
+const refreshMostPlayedCard = (trackId) => {
+  if (state.route.view !== "library" || state.libraryTab !== "most-played") return;
+
+  const card = document.querySelector(`[data-plays-card="${Number(trackId)}"]`);
+  if (!card) {
+    // El ranking todavía no tenía tarjetas (primer play de la biblioteca).
+    scheduleLibraryRefresh();
+    return;
+  }
+
+  const track = trackById(trackId);
+  if (!track) return;
+
+  const stats = playStatsOf(track);
+  const totals = mostPlayedTotals();
+  const share = totals.top > 0 ? Math.round((stats.count / totals.top) * 100) : 0;
+
+  const previousCurrent = document.querySelector("[data-plays-card].is-current");
+  if (previousCurrent && previousCurrent !== card) {
+    previousCurrent.classList.remove("is-current");
+    previousCurrent.querySelector(".plays-card__now")?.remove();
+  }
+  card.classList.add("is-current");
+  card.classList.remove("is-unplayed");
+
+  // La etiqueta «Sonando» viaja con la canción actual sin rehacer la grilla.
+  let nowBadge = card.querySelector(".plays-card__now");
+  if (!nowBadge) {
+    const art = card.querySelector(".plays-card__art");
+    if (art) {
+      nowBadge = document.createElement("span");
+      nowBadge.className = "plays-card__now";
+      nowBadge.innerHTML = `<span class="eq is-running" aria-hidden="true"><i></i><i></i><i></i></span><span>Sonando</span>`;
+      art.appendChild(nowBadge);
+    }
+  } else {
+    nowBadge.querySelector(".eq")?.classList.toggle("is-running", state.isPlaying);
+    const label = nowBadge.lastElementChild;
+    if (label) label.textContent = state.isPlaying ? "Sonando" : "En pausa";
+  }
+  const countEl = card.querySelector(".plays-card__count");
+  if (countEl) countEl.textContent = plural(stats.count, "reproducción", "reproducciones");
+  const shareEl = card.querySelector(".plays-card__share");
+  if (shareEl) shareEl.textContent = `${share}%`;
+  const meterEl = card.querySelector(".plays-card__meter > span");
+  if (meterEl) meterEl.style.width = `${Math.max(share, 4)}%`;
+  const sinceEl = card.querySelector(".plays-card__since");
+  if (sinceEl) {
+    sinceEl.textContent = track.createdAt ? `Agregada el ${dateLabel(track.createdAt)}` : "En tu ranking";
+  }
+
+  const totalEl = document.querySelector("[data-plays-total]");
+  if (totalEl) totalEl.textContent = totals.total;
+  const rankedEl = document.querySelector("[data-plays-ranked]");
+  if (rankedEl) rankedEl.textContent = totals.played;
+  const footEl = document.querySelector("[data-plays-foot-total]");
+  if (footEl) footEl.textContent = plural(totals.total, "reproducción", "reproducciones");
+};
+
 const flushPendingPlay = () => {
   if (!pendingPlayId) return;
   const trackId = pendingPlayId;
   pendingPlayId = null;
   recordPlay(trackId);
   // Si el usuario está mirando el ranking, reflejamos el nuevo conteo al instante.
-  if (state.route.view === "library" && state.libraryTab === "most-played") {
-    scheduleLibraryRefresh();
-  }
+  refreshMostPlayedCard(trackId);
 };
 
 // La siguiente canción se va descargando en segundo plano: cuando llega el
@@ -104,6 +203,10 @@ engine.onBuffering = (buffering) => {
 // refrescarlos en cada cuadro pesa el hilo principal y la app se traba
 // justo cuando está sonando la canción.
 const PROGRESS_INTERVAL_MS = 100;
+// La posición también se guarda en el teléfono cada segundo, en una clave
+// chica aparte. Así un cierre forzado de Android no depende de que llegue a
+// ejecutarse pagehide y solo puede perder menos de un segundo.
+const PLAYBACK_POSITION_SAVE_MS = 1000;
 // Recalcular el tamaño del canvas obliga al navegador a recalcular el
 // layout: una vez por segundo alcanza y evita el jank de cada cuadro.
 const VIZ_MEASURE_INTERVAL_MS = 1000;
@@ -122,13 +225,27 @@ const paintRange = (input, percent) => {
 };
 
 const updateProgressUI = () => {
-  if (!els.seek || state.seeking) return;
+  if (state.seeking) return;
   const ratio = state.duration ? clamp(state.currentTime / state.duration, 0, 1) : 0;
-  els.seek.value = String(Math.round(ratio * 1000));
-  paintRange(els.seek, ratio * 100);
+  if (els.seek) {
+    els.seek.value = String(Math.round(ratio * 1000));
+    paintRange(els.seek, ratio * 100);
+  }
+  if (els.npSeek) {
+    els.npSeek.value = String(Math.round(ratio * 1000));
+    paintRange(els.npSeek, ratio * 100);
+  }
+  if (els.quickSeek) {
+    els.quickSeek.value = String(Math.round(ratio * 1000));
+    paintRange(els.quickSeek, ratio * 100);
+  }
   document.documentElement.style.setProperty("--mobile-progress", `${ratio * 100}%`);
   if (els.current) els.current.textContent = formatTime(state.currentTime);
   if (els.duration) els.duration.textContent = formatTime(state.duration);
+  if (els.npCurrent) els.npCurrent.textContent = formatTime(state.currentTime);
+  if (els.npDuration) els.npDuration.textContent = formatTime(state.duration);
+  if (els.quickCurrent) els.quickCurrent.textContent = formatTime(state.currentTime);
+  if (els.quickDuration) els.quickDuration.textContent = formatTime(state.duration);
 };
 
 // Mientras el archivo se está descargando la app lo avisa en vez de quedar
@@ -137,11 +254,11 @@ const updateBufferingUI = () => {
   const buffering = Boolean(state.isBuffering);
   els.player?.classList.toggle("is-buffering", buffering);
 
-  const play = els.play;
-  if (play) {
+  [els.play, els.npPlay].forEach((play) => {
+    if (!play) return;
     play.classList.toggle("is-loading", buffering);
     play.setAttribute("aria-busy", buffering ? "true" : "false");
-  }
+  });
 
   const artist = els.playerArtist;
   if (!artist) return;
@@ -159,27 +276,33 @@ const updateBufferingUI = () => {
 };
 
 const updatePlayButton = () => {
-  if (!els.play) return;
-  els.play.innerHTML = state.isPlaying ? icon("pause", "icon--fill") : icon("play", "icon--fill");
-  els.play.setAttribute("aria-label", state.isPlaying ? "Pausar" : "Reproducir");
+  [els.play, els.npPlay].forEach((button) => {
+    if (!button) return;
+    button.innerHTML = state.isPlaying ? icon("pause", "icon--fill") : icon("play", "icon--fill");
+    button.setAttribute("aria-label", state.isPlaying ? "Pausar" : "Reproducir");
+  });
   els.app?.classList.toggle("is-playing", state.isPlaying);
 };
 
 const updateShuffleUI = () => {
-  if (!els.shuffle) return;
-  els.shuffle.classList.toggle("is-active", state.shuffle);
-  els.shuffle.setAttribute("aria-pressed", String(state.shuffle));
-  els.shuffle.setAttribute("aria-label", state.shuffle ? "Desactivar aleatorio" : "Activar aleatorio");
+  [els.shuffle, els.npShuffle].forEach((button) => {
+    if (!button) return;
+    button.classList.toggle("is-active", state.shuffle);
+    button.setAttribute("aria-pressed", String(state.shuffle));
+    button.setAttribute("aria-label", state.shuffle ? "Desactivar aleatorio" : "Activar aleatorio");
+  });
 };
 
 const updateRepeatUI = () => {
-  if (!els.repeat) return;
-  els.repeat.classList.toggle("is-active", state.repeat !== "off");
-  els.repeat.innerHTML = state.repeat === "one" ? icon("repeat-one") : icon("repeat");
   const labels = { off: "Activar repetición", all: "Repetir toda la cola", one: "Repetir esta canción" };
-  els.repeat.setAttribute("aria-label", labels[state.repeat]);
-  els.repeat.setAttribute("aria-pressed", String(state.repeat !== "off"));
-  els.repeat.dataset.repeat = state.repeat;
+  [els.repeat, els.npRepeat].forEach((button) => {
+    if (!button) return;
+    button.classList.toggle("is-active", state.repeat !== "off");
+    button.innerHTML = state.repeat === "one" ? icon("repeat-one") : icon("repeat");
+    button.setAttribute("aria-label", labels[state.repeat]);
+    button.setAttribute("aria-pressed", String(state.repeat !== "off"));
+    button.dataset.repeat = state.repeat;
+  });
 };
 
 const updateVolumeUI = () => {
@@ -240,49 +363,467 @@ const updateHighlights = () => {
   });
 };
 
-const renderQueue = () => {
-  if (!els.npQueue) return;
+/* ------------------------------------------------------------
+   Cola: lista de espera reordenable
+   ------------------------------------------------------------ */
 
-  if (!state.queue.length) {
-    els.npQueue.innerHTML = `<li class="queue-empty">La cola está vacía. Elegí una canción para empezar.</li>`;
-    if (els.npQueueCount) els.npQueueCount.textContent = "";
+let queueDrag = null;
+
+// Una cola de cientos de canciones no se puede volcar entera en el DOM cada
+// vez que cambia el tema: eso es lo que trababa la app justo en el autoavance.
+// Se dibuja un primer tramo y el resto se suma cuando la lista se acerca al
+// final, o cuando se toca «Ver más».
+const QUEUE_INITIAL_ITEMS = 36;
+const QUEUE_CHUNK_ITEMS = 60;
+
+let queueRendered = 0;
+let queueRenderIndex = -1;
+let queueRenderLength = 0;
+let queueObserver = null;
+let queueAdvanceFrom = -1;
+
+const queueUpcomingEntries = () => {
+  const entries = [];
+  for (let index = Math.max(0, state.queueIndex + 1); index < state.queue.length; index += 1) {
+    const track = trackById(state.queue[index]);
+    if (track) entries.push({ track, index });
+  }
+  return entries;
+};
+
+const queueCurrentHTML = (track) => `<li class="queue-item queue-item--current is-current" data-queue-current>
+    <span class="queue-item__art">${coverHTML({ title: track.title, coverUrl: track.coverUrl })}</span>
+    <span class="queue-item__info">
+      <strong>${escapeHTML(track.title)}</strong>
+      <small>${escapeHTML(track.artist || "Artista desconocido")}</small>
+    </span>
+    <span class="queue-item__now">
+      <span class="eq eq--tiny ${state.isPlaying ? "is-running" : ""}" aria-hidden="true"><i></i><i></i><i></i></span>
+      ${state.isPlaying ? "Sonando" : "En pausa"}
+    </span>
+  </li>`;
+
+const queueItemHTML = ({ track: item }) => `<li class="queue-item" data-queue-id="${item.id}">
+    <button class="queue-item__button" data-action="play-queue" data-id="${item.id}" aria-label="Reproducir ${escapeHTML(item.title)}">
+      <span class="queue-item__art">${coverHTML({ title: item.title, coverUrl: item.coverUrl })}</span>
+      <span class="queue-item__info">
+        <strong>${escapeHTML(item.title)}</strong>
+        <small>${escapeHTML(item.artist || "Artista desconocido")}</small>
+      </span>
+      <span class="queue-item__time">${formatTime(item.duration)}</span>
+    </button>
+    <span class="queue-item__actions">
+      <button class="queue-item__action" type="button" data-action="queue-move-top" data-id="${item.id}" aria-label="Mover «${escapeHTML(item.title)}» al inicio de la cola" title="Que suene primero">
+        ${icon("chevron-up")}
+      </button>
+      <button class="queue-item__action queue-item__action--remove" type="button" data-action="queue-remove" data-id="${item.id}" aria-label="Quitar «${escapeHTML(item.title)}» de la cola" title="Quitar de la cola">
+        ${icon("x")}
+      </button>
+      <button class="queue-item__drag" type="button" data-queue-drag aria-label="Arrastrar «${escapeHTML(item.title)}» para reordenar la cola" title="Arrastrar para reordenar">
+        ${icon("grip")}
+      </button>
+    </span>
+  </li>`;
+
+const queueMoreHTML = (shown, total) => `<li class="queue-more" data-queue-more>
+    <span data-queue-more-label>${shown} de ${total} en la cola</span>
+    <button class="btn btn--small btn--soft" type="button" data-action="queue-more">Ver más</button>
+  </li>`;
+
+const queueEmptyHTML = (track) => `<li class="queue-empty">${
+  track
+    ? "No hay más canciones en espera. Elegí otra desde tu biblioteca."
+    : "La cola está vacía. Elegí una canción para empezar."
+}</li>`;
+
+const updateQueueSummary = (remaining) => {
+  if (els.npQueueCount) {
+    els.npQueueCount.textContent = remaining
+      ? `${plural(remaining, "pista", "pistas")} en espera`
+      : "Sin canciones en espera";
+  }
+  if (els.npTabCount) {
+    els.npTabCount.textContent = remaining ? String(remaining) : "";
+    els.npTabCount.hidden = !remaining;
+  }
+  if (els.npQueueHint) els.npQueueHint.hidden = remaining < 2;
+};
+
+const disconnectQueueObserver = () => {
+  if (!queueObserver) return;
+  queueObserver.disconnect();
+  queueObserver = null;
+};
+
+const refreshQueueMoreLabel = (remaining) => {
+  const sentinel = els.npQueue?.querySelector("[data-queue-more]");
+  if (!sentinel || !remaining) return;
+  const label = sentinel.querySelector("[data-queue-more-label]");
+  if (label) label.textContent = `${queueRendered} de ${remaining} en la cola`;
+};
+
+const appendQueueChunk = () => {
+  const list = els.npQueue;
+  if (!list) return;
+  const sentinel = list.querySelector("[data-queue-more]");
+  if (!sentinel) return;
+
+  const entries = queueUpcomingEntries();
+  if (queueRendered >= entries.length) {
+    sentinel.remove();
+    disconnectQueueObserver();
     return;
   }
 
-  const start = Math.max(0, state.queueIndex);
-  const indexes = [];
-  for (let i = start; i < Math.min(state.queue.length, start + 6); i += 1) indexes.push(i);
+  const chunk = entries.slice(queueRendered, queueRendered + QUEUE_CHUNK_ITEMS);
+  const template = document.createElement("template");
+  template.innerHTML = chunk.map(queueItemHTML).join("");
+  list.insertBefore(template.content, sentinel);
+  queueRendered += chunk.length;
 
-  els.npQueue.innerHTML = indexes
-    .map((queueIndex) => {
-      const track = trackById(state.queue[queueIndex]);
-      if (!track) return "";
-      const current = queueIndex === state.queueIndex;
-      return `<li class="queue-item ${current ? "is-current" : ""}">
-        <button class="queue-item__button" data-action="play-queue" data-index="${queueIndex}" aria-label="Reproducir ${escapeHTML(track.title)}">
-          <span class="queue-item__art">${coverHTML({ title: track.title, coverUrl: track.coverUrl })}</span>
-          <span class="queue-item__info">
-            <strong>${escapeHTML(track.title)}</strong>
-            <small>${escapeHTML(track.artist || "Artista desconocido")}</small>
-          </span>
-          ${current
-            ? `<span class="queue-item__now"><span class="eq eq--tiny ${state.isPlaying ? "is-running" : ""}" aria-hidden="true"><i></i><i></i><i></i></span>${state.isPlaying ? "Sonando" : "En pausa"}</span>`
-            : `<span class="queue-item__time">${formatTime(track.duration)}</span>`}
-        </button>
-      </li>`;
-    })
-    .join("");
-
-  if (els.npQueueCount) {
-    const remaining = state.queue.length - state.queueIndex;
-    els.npQueueCount.textContent = `${plural(remaining, "pista", "pistas")} en cola`;
+  if (queueRendered >= entries.length) {
+    sentinel.remove();
+    disconnectQueueObserver();
+    return;
   }
+  refreshQueueMoreLabel(entries.length);
+};
+
+const observeQueueMore = () => {
+  disconnectQueueObserver();
+  if (!("IntersectionObserver" in window) || !els.npQueue) return;
+  const sentinel = els.npQueue.querySelector("[data-queue-more]");
+  if (!sentinel) return;
+  queueObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) appendQueueChunk();
+    },
+    { rootMargin: "700px 0px" }
+  );
+  queueObserver.observe(sentinel);
+};
+
+// El autoavance es el caso más frecuente: en vez de rehacer la cola entera,
+// se convierte la primera tarjeta en la canción actual y se descarta la
+// anterior. O(1) en lugar de recorrer cientos de nodos.
+const tryPatchQueueAdvance = (fromIndex) => {
+  const list = els.npQueue;
+  if (!list || queueDrag) return false;
+  if (queueRenderIndex !== fromIndex || state.queueIndex !== fromIndex + 1) return false;
+  if (queueRenderLength !== state.queue.length) return false;
+
+  const track = currentTrack();
+  if (!track) return false;
+  const currentEl = list.querySelector("[data-queue-current]");
+  const firstUpcoming = list.querySelector("[data-queue-id]");
+  if (!currentEl || !firstUpcoming) return false;
+  if (Number(firstUpcoming.dataset.queueId) !== Number(track.id)) return false;
+
+  const template = document.createElement("template");
+  template.innerHTML = queueCurrentHTML(track);
+  const nextCurrent = template.content.firstElementChild;
+  if (!nextCurrent) return false;
+
+  firstUpcoming.replaceWith(nextCurrent);
+  currentEl.remove();
+
+  queueRendered = Math.max(0, queueRendered - 1);
+  queueRenderIndex = state.queueIndex;
+  updateQueueSummary(state.queue.length - state.queueIndex - 1);
+  refreshQueueMoreLabel(state.queue.length - state.queueIndex - 1);
+  return true;
+};
+
+const renderQueue = () => {
+  if (!els.npQueue) return;
+  // Mientras se arrastra una tarjeta el DOM es la fuente del orden: no lo
+  // pisamos con un re-render que cortaría el gesto a mitad de camino.
+  if (queueDrag) return;
+
+  if (queueAdvanceFrom >= 0) {
+    const from = queueAdvanceFrom;
+    queueAdvanceFrom = -1;
+    if (tryPatchQueueAdvance(from)) return;
+  }
+
+  disconnectQueueObserver();
+
+  const track = currentTrack();
+  const upcoming = queueUpcomingEntries();
+  queueRenderIndex = state.queueIndex;
+  queueRenderLength = state.queue.length;
+  queueRendered = 0;
+
+  let html = track ? queueCurrentHTML(track) : "";
+  if (!upcoming.length) {
+    els.npQueue.innerHTML = html + queueEmptyHTML(track);
+    updateQueueSummary(0);
+    return;
+  }
+
+  const chunk = upcoming.slice(0, QUEUE_INITIAL_ITEMS);
+  html += chunk.map(queueItemHTML).join("");
+  queueRendered = chunk.length;
+  if (upcoming.length > chunk.length) html += queueMoreHTML(chunk.length, upcoming.length);
+  els.npQueue.innerHTML = html;
+
+  updateQueueSummary(upcoming.length);
+  if (upcoming.length > queueRendered) observeQueueMore();
+};
+
+const applyQueueOrder = (upcomingIds, consumedCount) => {
+  const ids = (upcomingIds || []).map(Number).filter((id) => state.trackById.has(id));
+  const headEnd = Math.max(0, state.queueIndex + 1);
+  const head = state.queue.slice(0, headEnd);
+  // Solo se reordena el tramo que está dibujado: el resto de la cola (todavía
+  // sin renderizar) se conserva tal cual detrás.
+  const consumed = clamp(
+    Number.isFinite(consumedCount) ? consumedCount : ids.length,
+    0,
+    Math.max(0, state.queue.length - headEnd)
+  );
+  const tail = state.queue.slice(headEnd + consumed);
+  state.queue = [...head, ...ids, ...tail];
+
+  if (state.shuffle) {
+    state.shuffle = false;
+    state.baseQueue = null;
+    updateShuffleUI();
+  }
+
+  prefetchNext();
+  renderQueue();
+  syncPlaybackState();
+};
+
+const removeQueueItem = (id) => {
+  const trackId = Number(id);
+  const index = state.queue.indexOf(trackId);
+  if (index < 0) {
+    toast("Esa canción ya no está en la cola.");
+    return;
+  }
+  if (index <= state.queueIndex) {
+    toast("La canción que está sonando no se puede quitar desde la cola.", "error");
+    return;
+  }
+
+  const track = trackById(trackId);
+  state.queue.splice(index, 1);
+  if (state.baseQueue) state.baseQueue = state.baseQueue.filter((item) => Number(item) !== trackId);
+
+  prefetchNext();
+  renderQueue();
+  syncPlaybackState();
+  toast(track ? `«${track.title}» salió de la cola` : "Canción quitada de la cola");
+};
+
+const moveQueueItemToTop = (id) => {
+  const trackId = Number(id);
+  const index = state.queue.indexOf(trackId);
+  if (index < 0 || index <= state.queueIndex) return;
+
+  if (index === state.queueIndex + 1) {
+    toast("Esa canción ya suena a continuación.");
+    return;
+  }
+
+  const track = trackById(trackId);
+  state.queue.splice(index, 1);
+  state.queue.splice(state.queueIndex + 1, 0, trackId);
+
+  if (state.shuffle) {
+    state.shuffle = false;
+    state.baseQueue = null;
+    updateShuffleUI();
+  }
+
+  prefetchNext();
+  renderQueue();
+  syncPlaybackState();
+  toast(track ? `«${track.title}» suena a continuación` : "Cola actualizada");
+};
+
+const findQueueScrollBox = (node) => {
+  let current = node;
+  while (current && current !== document.body) {
+    // La propia lista puede ser el contenedor con scroll (p. ej. en móvil).
+    const style = window.getComputedStyle(current);
+    if (/(auto|scroll)/.test(style.overflowY) && current.scrollHeight > current.clientHeight + 1) return current;
+    current = current.parentElement;
+  }
+  return null;
+};
+
+const updateQueueDragTarget = (clientX, clientY) => {
+  if (!queueDrag) return;
+  const { item, list } = queueDrag;
+  const under = document.elementFromPoint(clientX, clientY);
+  const target = under?.closest?.("[data-queue-id]");
+  if (target && target !== item && list.contains(target)) {
+    const rect = target.getBoundingClientRect();
+    const insertBefore = clientY < rect.top + rect.height / 2;
+    list.insertBefore(item, insertBefore ? target : target.nextSibling);
+  }
+};
+
+// El auto-scroll sigue activo aunque el dedo quede quieto en el borde,
+// para poder llevar una canción al inicio de una cola larga sin soltar.
+const autoScrollQueue = () => {
+  if (!queueDrag) return;
+  const { scrollBox, edge, lastX, lastY } = queueDrag;
+  if (scrollBox && edge) {
+    const before = scrollBox.scrollTop;
+    scrollBox.scrollTop += edge * 10;
+    if (scrollBox.scrollTop !== before) updateQueueDragTarget(lastX, lastY);
+  }
+  queueDrag.raf = window.requestAnimationFrame(autoScrollQueue);
+};
+
+const onQueueDragMove = (event) => {
+  if (!queueDrag || event.pointerId !== queueDrag.pointerId) return;
+  event.preventDefault();
+
+  const { ghost, startY, offsetY } = queueDrag;
+  const delta = event.clientY - startY;
+  if (Math.abs(delta) > 3) queueDrag.moved = true;
+  ghost.style.top = `${event.clientY - offsetY}px`;
+  queueDrag.lastX = event.clientX;
+  queueDrag.lastY = event.clientY;
+
+  updateQueueDragTarget(event.clientX, event.clientY);
+
+  queueDrag.edge = 0;
+  if (queueDrag.scrollBox) {
+    const box = queueDrag.scrollBox.getBoundingClientRect();
+    if (event.clientY < box.top + 56) queueDrag.edge = -1;
+    else if (event.clientY > box.bottom - 56) queueDrag.edge = 1;
+  }
+};
+
+const onQueueDragEnd = (event) => {
+  if (!queueDrag) return;
+  if (event && event.pointerId !== queueDrag.pointerId) return;
+
+  const { ghost, item, list, moved, trackId } = queueDrag;
+  if (queueDrag.raf) window.cancelAnimationFrame(queueDrag.raf);
+  ghost.remove();
+  item.classList.remove("queue-item--dragging");
+  window.removeEventListener("pointermove", onQueueDragMove);
+  window.removeEventListener("pointerup", onQueueDragEnd);
+  window.removeEventListener("pointercancel", onQueueDragEnd);
+  queueDrag = null;
+
+  const rendered = Array.from(list.querySelectorAll("[data-queue-id]"))
+    .map((node) => Number(node.dataset.queueId))
+    .filter((id) => state.trackById.has(id));
+  const headEnd = Math.max(0, state.queueIndex + 1);
+  const previous = state.queue.slice(headEnd, headEnd + rendered.length);
+  const changed = rendered.join(",") !== previous.join(",");
+
+  if (!changed) {
+    renderQueue();
+    return;
+  }
+
+  applyQueueOrder(rendered, rendered.length);
+
+  if (!moved) return;
+  if (rendered[0] === trackId) {
+    const track = trackById(trackId);
+    toast(track ? `«${track.title}» suena a continuación` : "La canción suena a continuación");
+  } else {
+    toast("Cola actualizada");
+  }
+};
+
+const startQueueDrag = (event) => {
+  if (event.button !== undefined && event.button > 0) return;
+  if (queueDrag) return;
+
+  const handle = event.target.closest?.("[data-queue-drag]");
+  if (!handle) return;
+
+  const item = handle.closest("[data-queue-id]");
+  const list = els.npQueue;
+  if (!item || !list || !list.contains(item)) return;
+
+  const trackId = Number(item.dataset.queueId);
+  const index = state.queue.indexOf(trackId);
+  if (index <= state.queueIndex) return;
+
+  event.preventDefault();
+  const rect = item.getBoundingClientRect();
+  const ghost = item.cloneNode(true);
+  ghost.classList.add("queue-item--ghost");
+  ghost.removeAttribute("data-queue-id");
+  ghost.removeAttribute("data-queue-index");
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.querySelectorAll("[data-action], [data-queue-drag]").forEach((node) => {
+    node.removeAttribute("data-action");
+    node.removeAttribute("data-queue-drag");
+  });
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  ghost.style.left = `${rect.left}px`;
+  ghost.style.top = `${rect.top}px`;
+  document.body.appendChild(ghost);
+
+  item.classList.add("queue-item--dragging");
+  queueDrag = {
+    item,
+    ghost,
+    list,
+    trackId,
+    pointerId: event.pointerId,
+    startY: event.clientY,
+    offsetY: event.clientY - rect.top,
+    moved: false,
+    edge: 0,
+    lastX: event.clientX,
+    lastY: event.clientY,
+    raf: 0,
+    scrollBox: findQueueScrollBox(list)
+  };
+
+  try {
+    handle.setPointerCapture(event.pointerId);
+  } catch (err) {
+    /* captura opcional */
+  }
+
+  window.addEventListener("pointermove", onQueueDragMove, { passive: false });
+  window.addEventListener("pointerup", onQueueDragEnd);
+  window.addEventListener("pointercancel", onQueueDragEnd);
+  queueDrag.raf = window.requestAnimationFrame(autoScrollQueue);
+};
+
+els.npQueue?.addEventListener("pointerdown", startQueueDrag);
+
+const updateQuickPlayer = (track) => {
+  if (!els.quickPlayer) return;
+
+  if (!track) {
+    if (els.quickCover) els.quickCover.innerHTML = `<span class="player__cover-empty">${icon("music")}</span>`;
+    if (els.quickTitle) els.quickTitle.textContent = "Sin reproducción";
+    if (els.quickArtist) els.quickArtist.textContent = "Subí tu primera canción";
+    return;
+  }
+
+  if (els.quickCover) els.quickCover.innerHTML = coverHTML(track);
+  if (els.quickTitle) els.quickTitle.textContent = track.title;
+  if (els.quickArtist) els.quickArtist.textContent = track.artist || "Artista desconocido";
 };
 
 const updateNowPlaying = () => {
   const track = currentTrack();
+  updateQuickPlayer(track);
 
   if (!track) {
+    // Sin canción no hay nada que mostrar arriba del pie: cerramos el panel
+    // rápido para que no quede abierto con datos viejos.
+    els.player?.classList.remove("is-quick-open");
+    els.quickPlayer?.setAttribute("aria-hidden", "true");
     if (els.playerCover) {
       els.playerCover.innerHTML = `<span class="player__cover-empty">${icon("music")}</span>`;
     }
@@ -302,7 +843,14 @@ const updateNowPlaying = () => {
     }
     if (els.npEmpty) els.npEmpty.hidden = !state.ready || Boolean(state.tracks.length);
     if (els.npFacts) els.npFacts.innerHTML = "";
-    if (els.npQueue) els.npQueue.innerHTML = `<li class="queue-empty">La cola está vacía. Elegí una canción para empezar.</li>`;
+    queueAdvanceFrom = -1;
+    queueRendered = 0;
+    queueRenderIndex = -1;
+    queueRenderLength = 0;
+    disconnectQueueObserver();
+    if (els.npQueue) {
+      els.npQueue.innerHTML = `<li class="queue-empty">La cola está vacía. Elegí una canción para empezar.</li>`;
+    }
     if (els.npQueueCount) els.npQueueCount.textContent = "";
     document.title = "WaverNote — Tu música";
     updatePlayerLike();
@@ -380,7 +928,10 @@ const startQueue = (ids, options = {}) => {
 const playCurrent = () => {
   const id = state.queue[state.queueIndex];
   const track = trackById(id);
-  if (!track) return;
+  if (!track) {
+    queueAdvanceFrom = -1;
+    return;
+  }
 
   engine.stop();
   state.currentTrackId = track.id;
@@ -394,6 +945,7 @@ const playCurrent = () => {
   updateNowPlaying();
   updateShuffleUI();
   syncMediaSessionState();
+  syncPlaybackState();
 
   engine
     .start(track, 0)
@@ -438,6 +990,7 @@ const togglePlay = () => {
     updateProgressUI();
     renderQueue();
     syncMediaSessionState();
+    syncPlaybackState();
     return;
   }
 
@@ -447,6 +1000,7 @@ const togglePlay = () => {
   updateHighlights();
   renderQueue();
   syncMediaSessionState();
+  syncPlaybackState();
 
   engine
     .start(track, state.currentTime)
@@ -472,6 +1026,7 @@ const seekTo = (seconds) => {
   engine.seek(state.currentTime);
   updateProgressUI();
   syncMediaSessionState();
+  syncPlaybackState();
 };
 
 const handleTrackEnd = () => {
@@ -481,6 +1036,7 @@ const handleTrackEnd = () => {
   if (state.repeat === "one") {
     playCurrent();
   } else if (state.queueIndex < state.queue.length - 1) {
+    queueAdvanceFrom = state.queueIndex;
     state.queueIndex += 1;
     playCurrent();
   } else if (state.repeat === "all") {
@@ -495,6 +1051,7 @@ const handleTrackEnd = () => {
     updateProgressUI();
     renderQueue();
     syncMediaSessionState();
+    syncPlaybackState();
   }
 
   window.setTimeout(() => {
@@ -508,6 +1065,7 @@ const nextTrack = () => {
     return;
   }
   if (state.queueIndex < state.queue.length - 1) {
+    queueAdvanceFrom = state.queueIndex;
     state.queueIndex += 1;
     playCurrent();
   } else if (state.repeat === "all") {
@@ -522,6 +1080,7 @@ const nextTrack = () => {
     updateProgressUI();
     renderQueue();
     syncMediaSessionState();
+    syncPlaybackState();
   }
 };
 
@@ -563,6 +1122,8 @@ const toggleShuffle = () => {
   }
   updateShuffleUI();
   renderQueue();
+  syncSettingsState();
+  syncPlaybackState();
 };
 
 const cycleRepeat = () => {
@@ -574,6 +1135,7 @@ const cycleRepeat = () => {
     one: "Se repite esta canción"
   };
   updateRepeatUI();
+  syncSettingsState();
   toast(labels[state.repeat]);
 };
 
@@ -618,6 +1180,7 @@ const toggleMute = () => {
   state.muted = !state.muted;
   engine.setMuted(state.muted);
   updateVolumeUI();
+  syncSettingsState();
 };
 
 const addToQueue = (id) => {
@@ -632,6 +1195,7 @@ const addToQueue = (id) => {
     state.currentTime = 0;
     state.isPlaying = false;
     updateNowPlaying();
+    syncPlaybackState();
     toast(`«${track.title}» quedó lista en la cola`);
     return;
   }
@@ -643,17 +1207,36 @@ const addToQueue = (id) => {
 
   state.queue.push(track.id);
   renderQueue();
+  syncPlaybackState();
   toast(`«${track.title}» se sumó a la cola`);
 };
 
 const queueCollection = (ids, label) => {
   const fresh = (ids || []).map(Number).filter((id) => state.trackById.has(id) && !state.queue.includes(id));
   if (!fresh.length) {
-    toast("Ya estaba todo en la cola");
+    toast(state.queue.length ? "Ya estaba todo en la cola" : "No hay canciones para agregar.");
     return;
   }
+
+  // Con la cola vacía la primera pista queda lista (en pausa), igual que
+  // cuando se agrega una canción suelta: así el pie ya muestra qué va a sonar.
+  if (!state.queue.length) {
+    const first = trackById(fresh[0]);
+    state.queue = fresh;
+    state.queueIndex = 0;
+    state.currentTrackId = fresh[0];
+    state.duration = Number(first?.duration) || 0;
+    state.currentTime = 0;
+    state.isPlaying = false;
+    updateNowPlaying();
+    syncPlaybackState();
+    toast(`${label}: ${plural(fresh.length, "pista lista", "pistas listas")} en la cola`);
+    return;
+  }
+
   state.queue.push(...fresh);
   renderQueue();
+  syncPlaybackState();
   toast(`${label}: ${plural(fresh.length, "pista agregada", "pistas agregadas")} a la cola`);
 };
 
@@ -730,7 +1313,22 @@ const setupMediaSession = () => {
 
 let vizCanvas = null;
 let vizContext = null;
-let vizBars = new Array(36).fill(0);
+let vizBars = [];
+let vizPeaks = [];
+let vizBinKey = "";
+let vizFrequencyEdges = [];
+let vizLastFrame = 0;
+let vizGradient = null;
+let vizGradientHeight = 0;
+let vizGradientContext = null;
+let vizHalo = null;
+let vizHaloHeight = 0;
+let vizHaloContext = null;
+let vizObserver = null;
+let vizVisible = true;
+
+const VIZ_MIN_BARS = 24;
+const VIZ_MAX_BARS = 60;
 
 // Al cambiar el tamaño de la ventana el canvas hay que remedirlo: si no,
 // el visualizador queda con la medida anterior.
@@ -749,16 +1347,57 @@ const roundedBar = (ctx, x, y, width, height, radius) => {
   ctx.closePath();
 };
 
+// Cada barra toma un tramo del espectro. Los tramos crecen de forma
+// logarítmica, como el oído: muchas barras para graves/medios y las justas
+// para agudos, en vez de repetir el mismo dato en varias barras.
+const vizEdgesFor = (count, bins, sampleRate) => {
+  const binHz = Math.max(1, sampleRate / 2 / Math.max(1, bins));
+  const minBin = Math.max(1, Math.floor(40 / binHz));
+  const maxBin = Math.min(bins - 1, Math.max(minBin + 1, Math.round(16000 / binHz)));
+  const edges = new Array(count + 1);
+
+  for (let i = 0; i <= count; i += 1) {
+    const value = Math.round(minBin * Math.pow(maxBin / minBin, i / count));
+    edges[i] = Math.min(maxBin, Math.max(minBin, value));
+  }
+
+  for (let i = 1; i <= count; i += 1) {
+    if (edges[i] <= edges[i - 1]) edges[i] = Math.min(maxBin, edges[i - 1] + 1);
+  }
+
+  return edges;
+};
+
 const drawVisualizer = (now) => {
-  const canvas = $("#viz");
+  let canvas = vizCanvas;
+  if (!canvas || !canvas.isConnected) canvas = $("#viz");
   if (!canvas) return;
   if (canvas !== vizCanvas) {
     vizCanvas = canvas;
     vizContext = canvas.getContext("2d");
-    vizBars = new Array(36).fill(0);
+    vizBars = [];
+    vizPeaks = [];
+    vizBinKey = "";
+    vizFrequencyEdges = [];
+    vizGradient = null;
+    vizHalo = null;
     vizRect = null;
+    if ("IntersectionObserver" in window) {
+      vizObserver?.disconnect();
+      vizObserver = new IntersectionObserver(
+        (entries) => {
+          vizVisible = entries.some((entry) => entry.isIntersecting);
+        },
+        { rootMargin: "120px" }
+      );
+      vizObserver.observe(canvas);
+    }
   }
   if (!vizContext) return;
+
+  // Con la pestaña en segundo plano o el panel fuera de pantalla no hay nada
+  // que mirar: seguir dibujando solo consume CPU y traba el resto de la app.
+  if (document.hidden || !vizVisible) return;
 
   // getBoundingClientRect obliga al navegador a recalcular el layout: pedirlo
   // en cada cuadro trava la app mientras suena. Se mide una vez por segundo.
@@ -781,49 +1420,146 @@ const drawVisualizer = (now) => {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
-  const levels = engine.getLevels();
-  const count = vizBars.length;
-  const gap = 3;
-  const barWidth = Math.max(1, (rect.width - gap * (count - 1)) / count);
-  const time = now / 1000;
-  const activeBins = 15;
-  let energy = 0;
-  if (levels) {
-    const bins = Math.min(activeBins, levels.length);
-    for (let j = 0; j < bins; j += 1) energy += levels[j] / 255;
-    energy /= bins;
+  const count = clamp(Math.round(rect.width / 8), VIZ_MIN_BARS, VIZ_MAX_BARS);
+  if (count !== vizBars.length) {
+    vizBars = new Array(count).fill(0);
+    vizPeaks = new Array(count).fill(0);
+    vizFrequencyEdges = [];
+    vizBinKey = "";
   }
 
-  const gradient = ctx.createLinearGradient(0, rect.height, 0, 0);
-  gradient.addColorStop(0, "rgba(99, 230, 200, 0.32)");
-  gradient.addColorStop(0.55, "rgba(99, 230, 200, 0.85)");
-  gradient.addColorStop(1, "rgba(122, 167, 255, 0.95)");
+  // Solo se pide el espectro cuando suena algo: en pausa las barras bajan
+  // solas y no se simula movimiento que no existe.
+  const stats = state.isPlaying ? engine.getSpectrum() : null;
+  const binKey = stats ? `${stats.bins}:${stats.sampleRate}` : "";
+  if (binKey !== vizBinKey) {
+    vizBinKey = binKey;
+    vizFrequencyEdges = stats ? vizEdgesFor(count, stats.bins, stats.sampleRate) : [];
+  }
+
+  const levels = stats?.frequency || null;
+  // El volumen real (RMS) manda en la altura general. Un tema con graves
+  // potentes pero volumen bajo se ve bajo; uno fuerte se ve lleno.
+  const loudness = stats
+    ? clamp(Math.pow(Math.max(0, stats.rms) * 3.2, 0.65), 0.14, 1.3)
+    : 0;
+  const punch = stats ? clamp(stats.peak * 0.22, 0, 0.18) : 0;
+
+  const dt = vizLastFrame ? clamp((now - vizLastFrame) / 1000, 0.001, 0.05) : 1 / 60;
+  vizLastFrame = now;
+  const attack = 1 - Math.exp(-dt / 0.038);
+  const release = 1 - Math.exp(-dt / 0.18);
+
+  const gap = count > 44 ? 2 : 3;
+  const barWidth = Math.max(1.2, (rect.width - gap * (count - 1)) / count);
+  const usableHeight = rect.height - 6;
+
+  // Los degradados se recrean solo cuando cambia la altura del canvas: crear
+  // uno por cuadro es caro y se nota en el hilo principal.
+  if (!vizGradient || vizGradientHeight !== rect.height || vizGradientContext !== ctx) {
+    vizGradient = ctx.createLinearGradient(0, rect.height, 0, 0);
+    vizGradient.addColorStop(0, "rgba(72, 210, 184, 0.25)");
+    vizGradient.addColorStop(0.35, "rgba(99, 230, 200, 0.75)");
+    vizGradient.addColorStop(0.72, "rgba(112, 196, 236, 0.92)");
+    vizGradient.addColorStop(1, "rgba(150, 172, 255, 0.98)");
+    vizGradientHeight = rect.height;
+    vizGradientContext = ctx;
+  }
+  const gradient = vizGradient;
+
+  // Halo inferior que respira con el volumen real, detrás de las barras. La
+  // intensidad se ajusta con globalAlpha para no crear otro degradado por
+  // cuadro.
+  if (stats) {
+    if (!vizHalo || vizHaloHeight !== rect.height || vizHaloContext !== ctx) {
+      vizHalo = ctx.createLinearGradient(0, rect.height, 0, rect.height * 0.28);
+      vizHalo.addColorStop(0, "rgba(99, 230, 200, 1)");
+      vizHalo.addColorStop(1, "rgba(99, 230, 200, 0)");
+      vizHaloHeight = rect.height;
+      vizHaloContext = ctx;
+    }
+    ctx.globalAlpha = clamp(0.05 + loudness * 0.08, 0, 1);
+    ctx.fillStyle = vizHalo;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.globalAlpha = 1;
+  }
+
   ctx.fillStyle = gradient;
 
   for (let i = 0; i < count; i += 1) {
-    let target;
-    if (state.isPlaying && levels) {
-      const bin = Math.min(levels.length - 1, Math.floor((i / (count - 1)) * (activeBins - 1)));
-      const spec = Math.pow((levels[bin] || 0) / 255, 1.2);
-      const sway = 0.72 + 0.28 * Math.abs(Math.sin(time * 1.6 + i * 0.5));
-      const shimmer = Math.abs(Math.sin(time * 1.4 + i * 0.45)) * 0.06;
-      target = Math.min(1, 0.06 + energy * 0.3 + spec * sway * 1.7 + shimmer);
-    } else if (state.isPlaying) {
-      target = 0.12 + Math.abs(Math.sin(time * 1.5 + i * 0.55)) * 0.16;
-    } else {
-      target = 0.025 + Math.abs(Math.sin(time * 0.8 + i * 0.42)) * 0.03;
+    let target = 0;
+
+    if (levels && vizFrequencyEdges.length) {
+      const from = vizFrequencyEdges[i];
+      const to = Math.max(from + 1, vizFrequencyEdges[i + 1]);
+      let max = 0;
+      let sum = 0;
+      let bins = 0;
+
+      for (let bin = from; bin < to && bin < levels.length; bin += 1) {
+        const value = levels[bin] / 255;
+        sum += value;
+        if (value > max) max = value;
+        bins += 1;
+      }
+
+      if (bins) {
+        const mean = sum / bins;
+        // Mezcla de pico y promedio: el pico marca el golpe rítmico y el
+        // promedio le da cuerpo al nivel sostenido.
+        const spectral = Math.max(0, max * 0.62 + mean * 0.38 - 0.02);
+        const tilt = 1 + 1.5 * Math.pow(i / Math.max(1, count - 1), 1.2);
+        target = clamp(Math.pow(spectral, 1.15) * tilt * loudness + punch, 0, 1);
+      }
     }
 
-    vizBars[i] += (target - vizBars[i]) * 0.16;
-    const barHeight = Math.max(2, vizBars[i] * (rect.height - 5));
+    const current = vizBars[i] || 0;
+    const factor = target > current ? attack : release;
+    const next = current + (target - current) * factor;
+    vizBars[i] = next;
+
+    // El pico queda colgado un instante y baja lento, como en un ecualizador
+    // real: marca el techo de cada golpe sin temblar cuadro a cuadro.
+    let peak = vizPeaks[i] || 0;
+    if (next >= peak) peak = next;
+    else peak = Math.max(next, peak - dt * 0.5);
+    vizPeaks[i] = peak;
+
+    const barHeight = Math.max(2, next * usableHeight);
     const x = i * (barWidth + gap);
     const y = rect.height - barHeight;
     roundedBar(ctx, x, y, barWidth, barHeight, barWidth / 2);
     ctx.fill();
+
+    // Reflejo superior tenue: le da el aspecto de vidrio del resto de la app.
+    if (barHeight > 4) {
+      ctx.fillStyle = "rgba(220, 255, 248, 0.32)";
+      roundedBar(ctx, x, y, barWidth, Math.min(1.6, barHeight * 0.22), barWidth / 2);
+      ctx.fill();
+      ctx.fillStyle = gradient;
+    }
   }
+
+  // Tapas de pico, apenas por encima de cada barra.
+  ctx.fillStyle = "rgba(178, 250, 238, 0.75)";
+  for (let i = 0; i < count; i += 1) {
+    const peak = vizPeaks[i] || 0;
+    if (peak <= 0.03 || peak * usableHeight < 4) continue;
+    const x = i * (barWidth + gap);
+    const y = rect.height - peak * usableHeight - 2.5;
+    roundedBar(ctx, x, y, barWidth, 1.6, barWidth / 2);
+    ctx.fill();
+  }
+
+  // Línea de reposo: cuando no suena nada queda una base serena, sin fingir
+  // que hay música.
+  ctx.fillStyle = "rgba(99, 230, 200, 0.09)";
+  ctx.fillRect(0, rect.height - 1, rect.width, 1);
 };
 
 let uiLoopStarted = false;
+let lastPlaybackSync = 0;
+let lastPlaybackPositionSave = 0;
 
 const startUiLoop = () => {
   if (uiLoopStarted) return;
@@ -841,6 +1577,16 @@ const startUiLoop = () => {
         if (now - lastProgressPaint >= PROGRESS_INTERVAL_MS) {
           lastProgressPaint = now;
           updateProgressUI();
+        }
+        // La posición también viaja con la cuenta: cada 10 segundos alcanza
+        // para retomar la canción casi donde iba en otro dispositivo.
+        if (now - lastPlaybackSync >= 10000) {
+          lastPlaybackSync = now;
+          syncPlaybackState();
+        }
+        if (now - lastPlaybackPositionSave >= PLAYBACK_POSITION_SAVE_MS) {
+          lastPlaybackPositionSave = now;
+          if (typeof persistPlaybackPosition === "function") persistPlaybackPosition();
         }
       }
     }

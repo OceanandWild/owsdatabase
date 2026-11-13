@@ -59,6 +59,10 @@ mark {
   border-radius: 10px;
   cursor: pointer;
   transition: background 0.18s;
+  /* Igual que el ranking: las filas fuera de pantalla no necesitan layout ni
+     pintura hasta que el usuario se acerca a ellas. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 58px;
 }
 
 .track-row:hover {
@@ -681,6 +685,10 @@ mark {
   background: linear-gradient(165deg, rgba(15, 21, 33, 0.97), rgba(8, 12, 20, 0.93));
   box-shadow: 0 22px 48px -40px rgba(0, 0, 0, 0.95);
   transition: transform 0.24s var(--ease), border-color 0.24s var(--ease), box-shadow 0.24s var(--ease);
+  /* Con cientos de tarjetas, dejar que el navegador saltee las que están
+     fuera de pantalla evita repintar todo el ranking en cada cuadro. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 286px;
 }
 
 .plays-card::before {
@@ -1117,6 +1125,7 @@ mark {
   .plays-card {
     padding: 10px;
     border-radius: 18px;
+    contain-intrinsic-size: auto 240px;
   }
 
   .plays-card__title {
@@ -1154,6 +1163,7 @@ mark {
     grid-template-columns: 88px minmax(0, 1fr);
     gap: 11px;
     align-items: center;
+    contain-intrinsic-size: auto 112px;
   }
 
   .plays-card__now {

@@ -1479,6 +1479,59 @@ svg {
   height: 17px;
 }
 
+/* Agregar a continuación: acción rápida junto al play de cada tarjeta. */
+.card-queue {
+  position: absolute;
+  right: 62px;
+  bottom: 16px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(6, 12, 20, 0.72);
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s, transform 0.25s var(--ease), background 0.2s, color 0.2s, border-color 0.2s;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 26px -14px rgba(0, 0, 0, 0.9);
+}
+
+.card-queue:hover {
+  border-color: rgba(99, 230, 200, 0.5);
+  background: rgba(99, 230, 200, 0.14);
+  color: var(--mint);
+}
+
+.card-queue .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.album-card:hover .card-queue,
+.playlist-card:hover .card-queue,
+.album-card:focus-within .card-queue,
+.playlist-card:focus-within .card-queue,
+.card-queue:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.playlist-card .card-queue {
+  right: 44px;
+  bottom: 10px;
+  width: 24px;
+  height: 24px;
+}
+
+.playlist-card .card-queue .icon {
+  width: 12px;
+  height: 12px;
+}
+
 .album-card__info {
   padding: 12px 2px 0;
 }

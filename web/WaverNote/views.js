@@ -15,10 +15,13 @@ const highlight = (text) => {
 };
 
 const albumCard = (album) => `
-  <article class="album-card">
+  <article class="album-card" data-card="album" data-id="${escapeHTML(album.id)}">
     <div class="album-card__art">
       <button class="album-card__open" data-action="open-album" data-id="${escapeHTML(album.id)}" aria-label="Abrir ${escapeHTML(album.title)}">
         ${coverHTML(album)}
+      </button>
+      <button class="card-queue" data-action="queue-album" data-id="${escapeHTML(album.id)}" title="Agregar a continuación" aria-label="Agregar ${escapeHTML(album.title)} a continuación">
+        ${icon("queue-add")}
       </button>
       <button class="card-play" data-action="play-album" data-id="${escapeHTML(album.id)}" aria-label="Reproducir ${escapeHTML(album.title)}">
         ${icon("play", "icon--fill")}
@@ -35,10 +38,13 @@ const albumGrid = (albums) => `<div class="album-grid">${albums.map(albumCard).j
 const playlistCard = (playlist) => {
   const total = playlistDuration(playlist);
   return `
-  <article class="playlist-card">
+  <article class="playlist-card" data-card="playlist" data-id="${playlist.id}">
     <div class="playlist-card__art">
       <button class="playlist-card__open" data-action="open-playlist" data-id="${playlist.id}" aria-label="Abrir ${escapeHTML(playlist.name)}">
         ${coverHTML(playlistCover(playlist))}
+      </button>
+      <button class="card-queue" data-action="queue-playlist" data-id="${playlist.id}" title="Agregar a continuación" aria-label="Agregar ${escapeHTML(playlist.name)} a continuación">
+        ${icon("queue-add")}
       </button>
       <button class="card-play" data-action="play-playlist" data-id="${playlist.id}" aria-label="Reproducir ${escapeHTML(playlist.name)}">
         ${icon("play", "icon--fill")}
@@ -502,8 +508,8 @@ const mostPlayedSection = () => {
       hasPlays
         ? `<div class="plays-head-actions">
             <div class="plays-summary">
-              <div><strong>${total}</strong><span>reproducciones</span></div>
-              <div><strong>${played.length}</strong><span>en el ranking</span></div>
+              <div><strong data-plays-total>${total}</strong><span>reproducciones</span></div>
+              <div><strong data-plays-ranked>${played.length}</strong><span>en el ranking</span></div>
             </div>
             <button class="btn btn--small btn--soft" data-action="play-most">${icon("play", "icon--fill")} Reproducir ranking</button>
           </div>`
@@ -530,7 +536,7 @@ const mostPlayedSection = () => {
     body = `<div class="plays-grid">${entries
       .map((entry, index) => mostPlayedCard(entry, index, topCount))
       .join("")}</div>
-      <p class="plays-foot">${icon("wave")} Reproducciones contadas desde que agregaste cada canción · ${plural(total, "reproducción", "reproducciones")} en total</p>`;
+      <p class="plays-foot">${icon("wave")} Reproducciones contadas desde que agregaste cada canción · <span data-plays-foot-total>${plural(total, "reproducción", "reproducciones")}</span> en total</p>`;
   }
 
   return `<section class="section section--tight plays-section">
@@ -867,10 +873,13 @@ const viewTrends = () => {
    ------------------------------------------------------------ */
 
 const catalogCard = (group) => `
-  <article class="catalog-card">
+  <article class="catalog-card" data-card="catalog" data-kind="${group.kind}" data-name="${escapeHTML(group.name)}">
     <div class="catalog-card__art">
       <button class="catalog-card__open" data-action="catalog-edit" data-kind="${group.kind}" data-name="${escapeHTML(group.name)}" aria-label="Editar ${escapeHTML(group.name)}">
         ${catalogArt(group)}
+      </button>
+      <button class="card-queue" data-action="queue-catalog" data-kind="${group.kind}" data-name="${escapeHTML(group.name)}" title="Agregar a continuación" aria-label="Agregar ${escapeHTML(group.name)} a continuación">
+        ${icon("queue-add")}
       </button>
       <button class="card-play" data-action="catalog-play" data-kind="${group.kind}" data-name="${escapeHTML(group.name)}" aria-label="Reproducir ${escapeHTML(group.name)}">
         ${icon("play", "icon--fill")}
@@ -1186,7 +1195,8 @@ const updateNavUI = () => {
   $$(".mobile-nav__item").forEach((item) => {
     const nav = item.dataset.mobileNav;
     if (!nav) return;
-    item.classList.toggle("is-active", nav === active);
+    const moreActive = nav === "more" && (active === "catalog" || active === "recommendations");
+    item.classList.toggle("is-active", nav === active || moreActive);
   });
 
   $$(".side-playlist").forEach((item) => {

@@ -2,9 +2,11 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#05080f" />
-    <meta name="wavernote-version" content="1.1.0" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="wavernote-version" content="1.2.0" />
     <meta
       name="description"
       content="WaverNote: tu biblioteca musical personal. Subí tus propios archivos y escuchalos desde tu cuenta Surface."
@@ -27,6 +29,7 @@
     <link rel="stylesheet" href="recommend.css" />
     <link rel="stylesheet" href="trends.css" />
     <link rel="stylesheet" href="catalog.css" />
+    <link rel="stylesheet" href="android.css" />
   </head>
   <body>
     <!-- Sprite de iconos -->
@@ -73,6 +76,10 @@
         <symbol id="i-plus" viewBox="0 0 24 24">
           <path d="M12 5v14M5 12h14" />
         </symbol>
+        <symbol id="i-queue-add" viewBox="0 0 24 24">
+          <path d="M4 6.5h9M4 12h7M4 17.5h5" />
+          <path d="M16.5 13v6M13.5 16h6" />
+        </symbol>
         <symbol id="i-search" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="6.6" />
           <path d="m16 16 4.4 4.4" />
@@ -112,6 +119,25 @@
         </symbol>
         <symbol id="i-chevron-right" viewBox="0 0 24 24">
           <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />
+        </symbol>
+        <symbol id="i-chevron-up" viewBox="0 0 24 24">
+          <path d="m5.5 14.5 6.5-6.5 6.5 6.5" />
+        </symbol>
+        <symbol id="i-chevron-down" viewBox="0 0 24 24">
+          <path d="m5.5 9.5 6.5 6.5 6.5-6.5" />
+        </symbol>
+        <symbol id="i-grip" viewBox="0 0 24 24">
+          <circle cx="9" cy="6" r="1.35" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="6" r="1.35" fill="currentColor" stroke="none" />
+          <circle cx="9" cy="12" r="1.35" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="12" r="1.35" fill="currentColor" stroke="none" />
+          <circle cx="9" cy="18" r="1.35" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="18" r="1.35" fill="currentColor" stroke="none" />
+        </symbol>
+        <symbol id="i-more" viewBox="0 0 24 24">
+          <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+          <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
         </symbol>
         <symbol id="i-arrow-right" viewBox="0 0 24 24">
           <path d="M4.5 12h15" />
@@ -217,7 +243,7 @@
 
           <ul class="auth__list">
             <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"></use></svg><span>MP3, WAV, OGG, M4A, AAC, FLAC u OPUS.</span></li>
-            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cloud"></use></svg><span>El audio queda guardado y asociado a tu cuenta.</span></li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cloud"></use></svg><span>El audio, tu cola y tus preferencias quedan guardados en tu cuenta.</span></li>
             <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-lock"></use></svg><span>La misma sesión que usás en Surface y el resto de OWS.</span></li>
           </ul>
 
@@ -328,14 +354,14 @@
           </span>
           <p>
             <strong>Tu música</strong>
-            <span>Los archivos que subís quedan ligados a tu cuenta Surface.</span>
+            <span>Los archivos y todo lo que hacés quedan ligados a tu cuenta Surface.</span>
           </p>
         </div>
 
         <button class="side-version" type="button" data-action="open-updates" data-wavernote-update title="Buscar actualizaciones">
           <span class="side-version__dot" aria-hidden="true"></span>
           <span class="side-version__meta">
-            <strong data-wavernote-version>v1.1.0</strong>
+            <strong data-wavernote-version>v1.2.0</strong>
             <small>Actualizaciones</small>
           </span>
         </button>
@@ -409,67 +435,137 @@
 
       <!-- ================= Ahora suena ================= -->
       <aside class="now-playing" id="nowPlaying" aria-label="Ahora suena">
+        <span class="np__grab" aria-hidden="true"></span>
+
         <div class="np__head">
           <div>
             <p class="eyebrow">Reproducción</p>
             <h2>Ahora suena</h2>
           </div>
-          <button class="icon-btn np__close" id="npClose" data-action="close-panel" aria-label="Cerrar panel">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"></use></svg>
-          </button>
-        </div>
-
-        <div class="np__art" id="npCover"></div>
-
-        <div class="np__titles">
-          <div class="np__title-row">
-            <div class="np__title-main">
-              <h3 id="npTitle">Nada sonando</h3>
-              <p id="npArtist" class="np__artist">Subí tu primera canción</p>
-            </div>
-            <button class="icon-btn like-btn" id="npLike" data-action="like-current" aria-label="Agregar a me gusta" disabled>
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-heart"></use></svg>
+          <div class="np__head-actions">
+            <button class="icon-btn np__queue-shortcut" data-action="np-tab" data-tab="queue" aria-label="Ver cola de reproducción" title="Ver cola">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"></use></svg>
+            </button>
+            <button class="icon-btn np__close" id="npClose" data-action="close-panel" aria-label="Cerrar panel">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
             </button>
           </div>
-          <button class="np__album-link" id="npAlbum" data-action="open-album" hidden></button>
         </div>
 
-        <div class="np__empty" id="npEmpty">
-          <p>Tu biblioteca todavía está vacía.</p>
-          <button class="btn btn--soft btn--small" data-action="open-upload">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"></use></svg>
-            Subir música
+        <div class="np__tabs" role="tablist" aria-label="Secciones del reproductor">
+          <button class="np__tab is-active" type="button" role="tab" aria-selected="true" data-action="np-tab" data-tab="now">
+            Ahora
+          </button>
+          <button class="np__tab" type="button" role="tab" aria-selected="false" data-action="np-tab" data-tab="queue">
+            Cola <span class="np__tab-count" id="npTabCount"></span>
           </button>
         </div>
 
-        <div class="visualizer" aria-hidden="true">
-          <canvas id="viz" class="viz"></canvas>
+        <div class="np__panes">
+          <section class="np__pane np__pane--now is-active" data-np-pane="now" aria-label="Canción actual">
+            <div class="np__art" id="npCover"></div>
+
+            <div class="np__titles">
+              <div class="np__title-row">
+                <div class="np__title-main">
+                  <h3 id="npTitle">Nada sonando</h3>
+                  <p id="npArtist" class="np__artist">Subí tu primera canción</p>
+                </div>
+                <button class="icon-btn like-btn" id="npLike" data-action="like-current" aria-label="Agregar a me gusta" disabled>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-heart"></use></svg>
+                </button>
+              </div>
+              <button class="np__album-link" id="npAlbum" data-action="open-album" hidden></button>
+            </div>
+
+            <div class="np__empty" id="npEmpty">
+              <p>Tu biblioteca todavía está vacía.</p>
+              <button class="btn btn--soft btn--small" data-action="open-upload">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"></use></svg>
+                Subir música
+              </button>
+            </div>
+
+            <div class="visualizer" aria-hidden="true">
+              <canvas id="viz" class="viz"></canvas>
+            </div>
+
+            <div class="np__timeline">
+              <span class="time" id="npCurTime">0:00</span>
+              <input id="npSeek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" />
+              <span class="time" id="npDurTime">0:00</span>
+            </div>
+
+            <div class="np__controls">
+              <button class="icon-btn" id="npShuffleBtn" data-action="shuffle" aria-label="Activar aleatorio" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-shuffle"></use></svg>
+              </button>
+              <button class="icon-btn" data-action="prev-track" aria-label="Anterior">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-prev"></use></svg>
+              </button>
+              <button class="play-btn np__play" id="npPlayBtn" data-action="toggle-play" aria-label="Reproducir">
+                <svg class="icon icon--fill" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"></use></svg>
+              </button>
+              <button class="icon-btn" data-action="next-track" aria-label="Siguiente">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next"></use></svg>
+              </button>
+              <button class="icon-btn" id="npRepeatBtn" data-action="repeat" aria-label="Activar repetición" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-repeat"></use></svg>
+              </button>
+            </div>
+
+            <div class="np__facts" id="npFacts"></div>
+
+            <p class="np__note">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cloud"></use></svg>
+              <span><strong>Tu música.</strong> Archivos, cola, historial y preferencias se guardan en tu cuenta Surface y te siguen a cualquier dispositivo.</span>
+            </p>
+          </section>
+
+          <section class="np__pane np__pane--queue" data-np-pane="queue" aria-label="Cola de reproducción">
+            <div class="np__queue">
+              <div class="np__queue-head">
+                <h3>A continuación</h3>
+                <span id="npQueueCount"></span>
+              </div>
+              <p class="np__queue-hint" id="npQueueHint">
+                Arrastrá una canción al inicio de la lista para que suene primero.
+              </p>
+              <ol class="queue" id="npQueue"></ol>
+            </div>
+          </section>
         </div>
-
-        <div class="np__facts" id="npFacts"></div>
-
-        <div class="np__queue">
-          <div class="np__queue-head">
-            <h3>A continuación</h3>
-            <span id="npQueueCount"></span>
-          </div>
-          <ol class="queue" id="npQueue"></ol>
-        </div>
-
-        <p class="np__note">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cloud"></use></svg>
-          <span><strong>Tu música.</strong> Los archivos se guardan en tu cuenta Surface y se reproducen desde ahí.</span>
-        </p>
       </aside>
 
       <!-- ================= Reproductor ================= -->
       <footer class="player" aria-label="Reproductor">
+        <div class="quick-player" id="quickPlayer" aria-hidden="true">
+          <div class="quick-player__head">
+            <span class="quick-player__art" id="quickCover"></span>
+            <span class="quick-player__meta">
+              <strong id="quickTitle">Sin reproducción</strong>
+              <small id="quickArtist">Subí tu primera canción</small>
+            </span>
+            <button class="icon-btn quick-player__open" data-action="open-now" aria-label="Abrir reproductor completo">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-up"></use></svg>
+            </button>
+          </div>
+          <div class="quick-player__timeline">
+            <span class="time" id="quickCurTime">0:00</span>
+            <input id="quickSeek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" />
+            <span class="time" id="quickDurTime">0:00</span>
+          </div>
+        </div>
+
         <div class="player__track">
-          <div class="player__cover" id="playerCover" aria-hidden="true"></div>
+          <div class="player__cover" id="playerCover" data-action="toggle-panel" aria-hidden="true"></div>
           <div class="player__meta">
             <button class="player__title" id="playerTitle" data-action="open-album" aria-live="polite">Sin reproducción</button>
             <span class="player__artist" id="playerArtist">Subí tu primera canción</span>
           </div>
+          <button class="icon-btn player__expand" data-action="toggle-panel" aria-label="Abrir reproductor">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-up"></use></svg>
+          </button>
           <button class="icon-btn like-btn player__like" id="playerLike" data-action="like-current" aria-label="Agregar a me gusta" disabled>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-heart"></use></svg>
           </button>
@@ -501,7 +597,7 @@
         </div>
 
         <div class="player__tools">
-          <button class="icon-btn" id="queueBtn" data-action="toggle-panel" aria-label="Ver cola" aria-expanded="false">
+          <button class="icon-btn" id="queueBtn" data-action="toggle-panel" data-tab="queue" aria-label="Ver cola" aria-expanded="false">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"></use></svg>
           </button>
           <div class="volume">
@@ -523,29 +619,17 @@
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"></use></svg>
           <span>Buscar</span>
         </button>
-        <button class="mobile-nav__item" data-action="nav-trends" data-mobile-nav="trends">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-fire"></use></svg>
-          <span>Tendencias</span>
-        </button>
-        <button class="mobile-nav__item" data-action="nav-catalog" data-mobile-nav="catalog">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-disc"></use></svg>
-          <span>Artistas</span>
-        </button>
-        <button class="mobile-nav__item" data-action="nav-recommendations" data-mobile-nav="recommendations">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-          <span>Recom.</span>
-        </button>
         <button class="mobile-nav__item" data-action="nav-library" data-mobile-nav="library">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-library"></use></svg>
           <span>Biblioteca</span>
         </button>
-        <button class="mobile-nav__item" data-action="open-upload">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"></use></svg>
-          <span>Subir</span>
+        <button class="mobile-nav__item" data-action="nav-trends" data-mobile-nav="trends">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-fire"></use></svg>
+          <span>Tendencias</span>
         </button>
-        <button class="mobile-nav__item" data-action="toggle-panel" data-mobile-nav="panel">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"></use></svg>
-          <span>Cola</span>
+        <button class="mobile-nav__item" data-action="open-more" data-mobile-nav="more">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-more"></use></svg>
+          <span>Más</span>
         </button>
       </nav>
 
@@ -573,6 +657,7 @@
 
     <script src="audio-engine.js"></script>
     <script src="core.js"></script>
+    <script src="cloud.js"></script>
     <script src="updater.js"></script>
     <script src="metadata.js"></script>
     <script src="recommend.js"></script>

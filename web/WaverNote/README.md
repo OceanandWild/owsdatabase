@@ -29,6 +29,10 @@ El acceso usa la misma cuenta que Surface / Ocean Pay:
 
 El token queda en `ocean_pay_token` y el usuario en `ocean_pay_user`, así que la sesión se comparte con el resto del ecosistema OWS en el mismo navegador.
 
+Todo lo que hacés en WaverNote queda en tu cuenta y te sigue a cualquier dispositivo: favoritos, playlists, cola, canción y posición actuales, historial reciente, conteos de reproducción, volumen, silencio, aleatorio, repetición y preferencias de la interfaz (última pestaña y última pantalla). La app guarda una copia local para arrancar al instante y sincroniza en segundo plano; si el servidor no responde, sigue funcionando con esa copia y reintenta después.
+
+La cola y la posición se restauran en pausa: al entrar desde otro dispositivo ves dónde quedaste, pero el audio no arranca solo.
+
 ## Qué incluye
 
 - **Inicio:** saludo, última subida y un estado inicial que invita a cargar música.
@@ -37,10 +41,10 @@ El token queda en `ocean_pay_token` y el usuario en `ocean_pay_user`, así que l
 - **Recomendaciones:** mezcla diaria con motivos, secciones por artista, novedades, canciones sin escuchar y “Vuelve a escuchar”.
 - **Biblioteca:** canciones, álbumes, playlists y favoritos.
 - **Detalle de álbum y playlist:** listado de pistas, reproducción, aleatorio y cola.
-- **Reproductor persistente:** play/pausa, anterior/siguiente, progreso, volumen, aleatorio y repetición.
-- **Cola:** panel de “Ahora suena” con visualizador sobre el audio real.
+- **Reproductor persistente:** play/pausa, anterior/siguiente, progreso, volumen, aleatorio y repetición. En móvil el mini-reproductor abre una vista completa con pestañas **Ahora** y **Cola**.
+- **Cola:** panel de “Ahora suena” con visualizador sobre el audio real. Las canciones en espera se pueden arrastrar para reordenar, mandar al inicio con un toque o quitar para que no suenen.
 - **Subida:** modo manual con archivo, metadatos y miniatura; modo automático que escanea tu carpeta Música, lee etiquetas y portadas, y te muestra qué quiere agregar.
-- **Responsive:** barra lateral en escritorio, navegación inferior en móvil y paneles deslizables.
+- **Responsive:** barra lateral en escritorio y una capa Android/móvil propia (`android.css`) con barra inferior de cinco accesos, panel “Más”, hojas modales, objetivos táctiles grandes y áreas seguras para pantallas con notch.
 
 ## Tendencias
 
@@ -91,7 +95,7 @@ Secciones fijas:
 
 ### Dónde se guardan las reproducciones
 
-El conteo se guarda por usuario en `localStorage`, bajo `wavernote.plays.v2.<userId>`, con `{ count, firstPlayedAt, lastPlayedAt, events }`. `events` es una lista de marcas de tiempo (epoch en milisegundos) con las últimas 80 reproducciones de esa canción: permite calcular tendencias por semana, horario, día y racha sin tocar el historial agregado. Se suma una reproducción cuando el audio arranca de verdad, no al pausar o reanudar. Al cargar la biblioteca se descartan los registros de canciones que ya no existen. No requiere backend: viaja con el navegador, igual que el historial reciente.
+El conteo vive en la cuenta (`wavernote_plays` en PostgreSQL) y se replica en `localStorage` bajo `wavernote.plays.v2.<userId>` como caché, con `{ count, firstPlayedAt, lastPlayedAt, events }`. `events` es una lista de marcas de tiempo (epoch en milisegundos) con las últimas 80 reproducciones de esa canción: permite calcular tendencias por semana, horario, día y racha sin tocar el historial agregado. Se suma una reproducción cuando el audio arranca de verdad, no al pausar o reanudar. Al entrar, la app fusiona el historial local con el del servidor sin duplicar eventos, así que migrar desde la versión anterior no pierde reproducciones. Al cargar la biblioteca se descartan los registros de canciones que ya no existen.
 
 ## Subir música
 
@@ -124,6 +128,10 @@ El permiso se pide siempre al entrar en modo automático, aunque el sistema indi
 | `DELETE` | `/wavernote/playlists/:id` | Eliminar playlist |
 | `POST` | `/wavernote/playlists/:id/tracks` | Agregar canción (`trackId`) |
 | `DELETE` | `/wavernote/playlists/:id/tracks/:trackId` | Quitar canción |
+| `GET` | `/wavernote/state` | Cola, posición y preferencias de la cuenta |
+| `PUT` | `/wavernote/state` | Guardar secciones (`settings`, `playback`, `recent`) |
+| `GET` | `/wavernote/plays` | Historial de reproducciones completo |
+| `PUT` | `/wavernote/plays` | Fusionar reproducciones sin duplicar eventos |
 
 Todas las rutas de `/wavernote` salvo `health` requieren `Authorization: Bearer <token>`.
 
@@ -149,8 +157,10 @@ player.css        Reproductor, panel lateral y responsive
 recommend.css     Mezcla del día, tarjetas y “Vuelve a escuchar”
 trends.css        Tendencias, tarjetas con fuego y franja del inicio
 app.css           Acceso, formularios, modales y subidas
+android.css       Capa móvil/Android cargada al final (barra inferior, panel y cola)
 audio-engine.js   Motor de audio real con <audio> + Web Audio
 core.js           Sesión Surface, API, estado y navegación
+cloud.js          Sincronización de la cuenta (estado y reproducciones)
 metadata.js       Lectura de etiquetas y portadas de archivos locales
 recommend.js      Motor de recomendaciones diario
 trends.js         Motor de tendencias por categoría
@@ -159,4 +169,4 @@ player.js         Transporte, cola, Media Session y visualizador
 app.js            Eventos, subidas, playlists y arranque
 ```
 
-El volumen, el historial reciente y las reproducciones de cada usuario se guardan en `localStorage`; la biblioteca real vive en el servidor.
+El volumen, el historial reciente y las reproducciones se sincronizan con la cuenta y se cachean en `localStorage`; la biblioteca real vive en el servidor.

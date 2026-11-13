@@ -79,6 +79,11 @@
   margin-left: 2px;
 }
 
+.player__expand {
+  display: none;
+  flex: none;
+}
+
 .player__center {
   display: flex;
   flex-direction: column;
@@ -167,6 +172,11 @@
   width: 100%;
 }
 
+/* El panel rápido vive dentro del pie y solo se muestra en móvil. */
+.quick-player {
+  display: none;
+}
+
 .time {
   min-width: 29px;
   color: var(--faint);
@@ -190,6 +200,7 @@
   height: 18px;
   background: transparent;
   cursor: pointer;
+  touch-action: none;
   --fill: 0%;
 }
 
@@ -310,6 +321,41 @@
   flex: none;
 }
 
+.np__grab {
+  display: none;
+}
+
+.np__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.np__queue-shortcut {
+  display: none;
+}
+
+.np__tabs {
+  display: none;
+}
+
+/* En escritorio el panel muestra canción y cola en una sola columna.
+   `display: contents` deja que las secciones se comporten como hijos
+   directos del flex del panel, sin cambiar el HTML compartido con móvil. */
+.np__panes,
+.np__pane {
+  display: contents;
+}
+
+.np__pane--queue {
+  order: 5;
+}
+
+.np__note {
+  order: 9;
+}
+
 .np__art {
   width: 100%;
   max-width: 276px;
@@ -378,6 +424,49 @@
   color: var(--mint);
 }
 
+.np__timeline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.np__timeline .time:first-child {
+  text-align: right;
+}
+
+.np__timeline .time:last-child {
+  text-align: left;
+}
+
+.np__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: none;
+}
+
+.np__controls .icon-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.np__controls .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.np__play {
+  width: 48px;
+  height: 48px;
+}
+
+.np__play .icon {
+  width: 20px;
+  height: 20px;
+}
+
 .like-btn {
   flex: none;
   color: var(--faint);
@@ -393,15 +482,31 @@
 
 .visualizer {
   position: relative;
-  height: 56px;
+  height: 58px;
   flex: none;
   margin: -5px 0 -3px;
+  isolation: isolate;
+}
+
+.visualizer::before {
+  position: absolute;
+  inset: 26% -4% -14%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(99, 230, 200, 0.13), transparent 72%);
+  content: "";
+  filter: blur(10px);
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 .viz {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
 }
 
 .np__facts {
@@ -445,6 +550,7 @@
   flex-direction: column;
   gap: 6px;
   min-height: 0;
+  order: 5;
 }
 
 .np__queue-head {
@@ -467,6 +573,21 @@
   font-size: 9px;
 }
 
+.np__queue-hint {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(99, 230, 200, 0.1);
+  border-radius: 9px;
+  background: rgba(99, 230, 200, 0.045);
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.45;
+}
+
+.np__queue-hint[hidden] {
+  display: none;
+}
+
 .queue {
   display: flex;
   flex-direction: column;
@@ -477,8 +598,13 @@
 }
 
 .queue-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
   border-radius: 10px;
-  transition: background 0.2s;
+  list-style: none;
+  transition: background 0.2s, opacity 0.2s;
 }
 
 .queue-item:hover {
@@ -489,14 +615,86 @@
   background: rgba(99, 230, 200, 0.07);
 }
 
+.queue-item--current {
+  position: relative;
+  margin-bottom: 2px;
+  padding-right: 6px;
+  border: 1px solid rgba(99, 230, 200, 0.16);
+  background: rgba(10, 20, 24, 0.96);
+  backdrop-filter: blur(12px);
+}
+
 .queue-item__button {
   display: flex;
   align-items: center;
   gap: 9px;
-  width: 100%;
+  width: auto;
+  flex: 1;
+  min-width: 0;
   padding: 6px;
   border-radius: 10px;
   text-align: left;
+}
+
+.queue-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+}
+
+.queue-item__action,
+.queue-item__drag {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--faint);
+  transition: background 0.18s, color 0.18s;
+}
+
+.queue-item__action .icon,
+.queue-item__drag .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.queue-item__action:hover,
+.queue-item__drag:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+.queue-item__action--remove:hover {
+  background: rgba(255, 141, 122, 0.12);
+  color: var(--coral);
+}
+
+.queue-item__drag {
+  cursor: grab;
+  touch-action: none;
+}
+
+.queue-item__drag:active {
+  cursor: grabbing;
+}
+
+.queue-item--dragging {
+  opacity: 0.28;
+  background: rgba(99, 230, 200, 0.05);
+}
+
+.queue-item--ghost {
+  position: fixed;
+  z-index: 200;
+  margin: 0;
+  pointer-events: none;
+  border: 1px solid rgba(99, 230, 200, 0.24);
+  background: rgba(13, 23, 36, 0.98);
+  box-shadow: 0 24px 48px -18px rgba(0, 0, 0, 0.9);
+  opacity: 0.96;
+  transform: scale(1.02);
 }
 
 .queue-item__art {
@@ -572,6 +770,24 @@
   color: var(--faint);
   font-size: 10.5px;
   text-align: center;
+}
+
+.queue-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 6px 0 2px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+
+.queue-more .btn {
+  flex: none;
 }
 
 .np__note {
@@ -1236,6 +1452,32 @@
   .card-play .icon {
     width: 14px;
     height: 14px;
+  }
+
+  .card-queue {
+    right: 54px;
+    bottom: 14px;
+    width: 30px;
+    height: 30px;
+    opacity: 1;
+    transform: none;
+  }
+
+  .card-queue .icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .playlist-card .card-queue {
+    right: 44px;
+    bottom: 10px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .playlist-card .card-queue .icon {
+    width: 11px;
+    height: 11px;
   }
 
   .now-playing .np__head {

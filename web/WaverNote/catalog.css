@@ -41,7 +41,10 @@
 }
 
 .catalog-card:hover .card-play,
-.catalog-card .card-play:focus-visible {
+.catalog-card:hover .card-queue,
+.catalog-card:focus-within .card-queue,
+.catalog-card .card-play:focus-visible,
+.catalog-card .card-queue:focus-visible {
   opacity: 1;
   transform: translateY(0);
 }

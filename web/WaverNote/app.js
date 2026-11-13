@@ -169,11 +169,25 @@ const enterApp = async (user) => {
     toast(friendlyError(err), "error");
   }
 
+  // Cola, posición, historial, volumen y preferencias de la cuenta. Si el
+  // servidor no responde se usa el caché local y la app sigue funcionando.
+  try {
+    await loadCloudData();
+  } catch (err) {
+    /* el caché local ya está aplicado */
+  }
+
   state.ready = true;
   hideAuth();
   renderUserUI();
   renderSidebarPlaylists();
   resetNavigation();
+  applyCloudRestore();
+
+  engine.setVolume(state.volume);
+  engine.setMuted(state.muted);
+
+  pushCloudFallbacks();
   renderView();
   updateNowPlaying();
   updateVolumeUI();
@@ -209,6 +223,8 @@ const bootAuth = async () => {
 
 const doLogout = () => {
   engine.stop();
+  flushCloudNow();
+  resetCloudSync();
   closeModal(true);
   closePanel();
   clearSession();
@@ -1236,6 +1252,7 @@ const finishUpload = async ({ uploaded, failures }) => {
       state.currentTime = 0;
       state.isPlaying = false;
       updateNowPlaying();
+      if (typeof scheduleCloudSync === "function") scheduleCloudSync("playback");
     }
   } catch (err) {
     toast(`Las canciones se subieron, pero no se pudo refrescar la biblioteca: ${friendlyError(err)}`, "error");
@@ -1480,6 +1497,194 @@ const openTrackMenu = (trackId, playlistId = "") => {
   });
 };
 
+/* ------------------------------------------------------------
+   Menú contextual de tarjetas
+   ------------------------------------------------------------ */
+
+let cardMenuEl = null;
+let cardMenuOpenedAt = 0;
+
+const cardMenuItem = ({ action, iconName, label, danger = false, data = {} }) => {
+  const attrs = Object.entries(data)
+    .map(([key, value]) => `data-${key}="${escapeHTML(value)}"`)
+    .join(" ");
+  return `<button type="button" class="menu-item${danger ? " menu-item--danger" : ""}" role="menuitem" data-action="${action}" ${attrs}>
+    ${icon(iconName)} <span>${escapeHTML(label)}</span>
+  </button>`;
+};
+
+const cardMenuData = (card) => {
+  const type = card.dataset.card;
+
+  if (type === "album") {
+    const album = allAlbums().find((item) => item.id === card.dataset.id);
+    if (!album) return null;
+    return {
+      art: coverHTML(album),
+      title: album.title,
+      eyebrow: `Álbum · ${plural(album.tracks.length, "pista", "pistas")}`,
+      items: [
+        cardMenuItem({ action: "play-album", iconName: "play", label: "Reproducir", data: { id: album.id } }),
+        cardMenuItem({
+          action: "shuffle-album",
+          iconName: "shuffle",
+          label: "Reproducir aleatorio",
+          data: { id: album.id }
+        }),
+        cardMenuItem({
+          action: "queue-album",
+          iconName: "queue-add",
+          label: "Agregar a continuación",
+          data: { id: album.id }
+        }),
+        cardMenuItem({ action: "open-album", iconName: "disc", label: "Abrir álbum", data: { id: album.id } })
+      ]
+    };
+  }
+
+  if (type === "playlist") {
+    const playlist = playlistById(card.dataset.id);
+    if (!playlist) return null;
+    return {
+      art: coverHTML(playlistCover(playlist)),
+      title: playlist.name,
+      eyebrow: `Playlist · ${plural(playlist.trackIds.length, "pista", "pistas")}`,
+      items: [
+        cardMenuItem({
+          action: "play-playlist",
+          iconName: "play",
+          label: "Reproducir",
+          data: { id: playlist.id }
+        }),
+        cardMenuItem({
+          action: "shuffle-playlist",
+          iconName: "shuffle",
+          label: "Reproducir aleatorio",
+          data: { id: playlist.id }
+        }),
+        cardMenuItem({
+          action: "queue-playlist",
+          iconName: "queue-add",
+          label: "Agregar a continuación",
+          data: { id: playlist.id }
+        }),
+        cardMenuItem({
+          action: "open-playlist",
+          iconName: "list",
+          label: "Abrir playlist",
+          data: { id: playlist.id }
+        }),
+        cardMenuItem({ action: "playlist-edit", iconName: "edit", label: "Editar playlist", data: { id: playlist.id } }),
+        cardMenuItem({
+          action: "playlist-delete",
+          iconName: "trash",
+          label: "Eliminar playlist",
+          danger: true,
+          data: { id: playlist.id }
+        })
+      ]
+    };
+  }
+
+  if (type === "catalog") {
+    const kind = card.dataset.kind === "genre" ? "genre" : "artist";
+    const group = catalogGroup(kind, card.dataset.name);
+    if (!group) return null;
+    const kindLabel = kind === "genre" ? "Género" : "Artista";
+    return {
+      art: catalogArt(group),
+      title: group.name,
+      eyebrow: `${kindLabel} · ${plural(group.count, "canción", "canciones")}`,
+      items: [
+        cardMenuItem({
+          action: "catalog-play",
+          iconName: "play",
+          label: "Reproducir",
+          data: { kind, name: group.name }
+        }),
+        cardMenuItem({
+          action: "shuffle-catalog",
+          iconName: "shuffle",
+          label: "Reproducir aleatorio",
+          data: { kind, name: group.name }
+        }),
+        cardMenuItem({
+          action: "queue-catalog",
+          iconName: "queue-add",
+          label: "Agregar a continuación",
+          data: { kind, name: group.name }
+        }),
+        cardMenuItem({
+          action: "catalog-edit",
+          iconName: "edit",
+          label: kind === "genre" ? "Editar género" : "Editar artista",
+          data: { kind, name: group.name }
+        })
+      ]
+    };
+  }
+
+  return null;
+};
+
+const closeCardMenu = () => {
+  if (!cardMenuEl) return false;
+  cardMenuEl.remove();
+  cardMenuEl = null;
+  return true;
+};
+
+// El navegador puede emitir un scroll justo después de abrir el menú (por
+// ejemplo, al llevar la tarjeta a la vista). Ese primer impulso no lo cierra.
+const closeCardMenuOnScroll = () => {
+  if (!cardMenuEl) return;
+  if (performance.now() - cardMenuOpenedAt < 320) return;
+  closeCardMenu();
+};
+
+const openCardMenu = (card, x, y) => {
+  closeCardMenu();
+  const data = cardMenuData(card);
+  if (!data) return;
+
+  const menu = document.createElement("div");
+  menu.className = "context-menu";
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("aria-label", `Acciones para ${data.title}`);
+  menu.tabIndex = -1;
+  menu.innerHTML = `
+    <div class="context-menu__head">
+      <span class="context-menu__art">${data.art}</span>
+      <span class="context-menu__meta">
+        <strong>${escapeHTML(data.title)}</strong>
+        <small>${data.eyebrow}</small>
+      </span>
+    </div>
+    <div class="context-menu__list">${data.items.join("")}</div>`;
+  menu.addEventListener("click", closeCardMenu);
+
+  document.body.appendChild(menu);
+  cardMenuEl = menu;
+  cardMenuOpenedAt = performance.now();
+
+  const margin = 10;
+  const rect = menu.getBoundingClientRect();
+  let left = x;
+  let top = y;
+  if (left + rect.width + margin > window.innerWidth) {
+    left = Math.max(margin, window.innerWidth - rect.width - margin);
+  }
+  if (top + rect.height + margin > window.innerHeight) {
+    top = Math.max(margin, y - rect.height);
+  }
+  top = Math.max(margin, Math.min(top, window.innerHeight - rect.height - margin));
+  left = Math.max(margin, left);
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.top = `${Math.round(top)}px`;
+  menu.classList.add("is-open");
+  menu.focus({ preventScroll: true });
+};
+
 const openTrackEdit = (trackId) => {
   const track = trackById(trackId);
   if (!track) return;
@@ -1710,6 +1915,13 @@ const openAccount = () => {
         <div><strong>${state.playlists.length}</strong><span>playlists</span></div>
         <div><strong>${likedTracks().length}</strong><span>favoritos</span></div>
       </div>
+      <div class="account-sync">
+        <span class="account-sync__icon">${icon("cloud")}</span>
+        <div>
+          <strong>Sincronizado con tu cuenta</strong>
+          <p>Favoritos, playlists, cola, historial, volumen y preferencias te siguen a cualquier dispositivo.</p>
+        </div>
+      </div>
       ${window.WaverNoteUpdater?.accountSectionHTML() || ""}
       <div class="modal__actions">
         <button class="btn btn--ghost" data-action="close-modal">Cerrar</button>
@@ -1725,20 +1937,73 @@ const openAccount = () => {
 const updatePanelButtons = () => {
   const queueButton = $("#queueBtn");
   if (queueButton) queueButton.setAttribute("aria-expanded", String(state.panelOpen));
-  $$('.mobile-nav__item[data-mobile-nav="panel"]').forEach((button) => {
-    button.classList.toggle("is-active", state.panelOpen);
+};
+
+const mobilePlayerQuery = window.matchMedia("(max-width: 767px)");
+
+const isMobilePlayer = () => mobilePlayerQuery.matches;
+
+const isQuickPlayerOpen = () => Boolean(els.player?.classList.contains("is-quick-open"));
+
+const openQuickPlayer = () => {
+  if (!isMobilePlayer() || state.panelOpen || !currentTrack()) return;
+  els.player?.classList.add("is-quick-open");
+  els.quickPlayer?.setAttribute("aria-hidden", "false");
+  updateProgressUI();
+};
+
+const closeQuickPlayer = () => {
+  els.player?.classList.remove("is-quick-open");
+  els.quickPlayer?.setAttribute("aria-hidden", "true");
+};
+
+const toggleQuickPlayer = () => {
+  if (isQuickPlayerOpen()) closeQuickPlayer();
+  else openQuickPlayer();
+};
+
+const handleMobilePlayerChange = (event) => {
+  if (!event.matches) closeQuickPlayer();
+};
+
+if (typeof mobilePlayerQuery.addEventListener === "function") {
+  mobilePlayerQuery.addEventListener("change", handleMobilePlayerChange);
+} else if (typeof mobilePlayerQuery.addListener === "function") {
+  mobilePlayerQuery.addListener(handleMobilePlayerChange);
+}
+
+const setNpTab = (tab = "now") => {
+  const next = tab === "queue" ? "queue" : "now";
+  state.npTab = next;
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+
+  $$(".np__tab").forEach((button) => {
+    const active = button.dataset.tab === next;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+
+  $$(".np__pane").forEach((pane) => {
+    pane.classList.toggle("is-active", pane.dataset.npPane === next);
   });
 };
 
-const openPanel = () => {
+const openPanel = (tab = "now") => {
+  closeQuickPlayer();
+  setNpTab(tab);
+
   if (!isOverlay()) {
-    const queue = $(".np__queue");
     const panel = $("#nowPlaying");
+    if (tab === "queue") {
+      $(".np__queue")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else {
+      panel?.scrollTo({ top: 0, behavior: "smooth" });
+    }
     panel?.classList.add("is-focused");
-    queue?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     window.setTimeout(() => panel?.classList.remove("is-focused"), 1000);
     return;
   }
+
   state.panelOpen = true;
   els.app?.classList.add("np-open");
   updatePanelButtons();
@@ -1746,18 +2011,86 @@ const openPanel = () => {
 };
 
 const closePanel = () => {
+  closeQuickPlayer();
   state.panelOpen = false;
   els.app?.classList.remove("np-open");
   updatePanelButtons();
 };
 
-const togglePanel = () => {
+const togglePanel = (tab = "now") => {
   if (!isOverlay()) {
-    openPanel();
+    openPanel(tab);
     return;
   }
-  if (state.panelOpen) closePanel();
-  else openPanel();
+  if (state.panelOpen && state.npTab === tab) closePanel();
+  else openPanel(tab);
+};
+
+const openMoreMenu = () => {
+  const username = state.user?.username || "tu cuenta";
+  openModal({
+    title: "Más",
+    eyebrow: "WaverNote",
+    body: `
+      <div class="more-menu">
+        <button class="more-menu__item" type="button" data-action="open-now">
+          <span class="more-menu__icon">${icon("music")}</span>
+          <span class="more-menu__copy">
+            <strong>Reproductor</strong>
+            <small>Canción actual, seek y controles</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
+        <button class="more-menu__item" type="button" data-action="open-queue">
+          <span class="more-menu__icon">${icon("list")}</span>
+          <span class="more-menu__copy">
+            <strong>Cola</strong>
+            <small>Qué suena después y en qué orden</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
+        <button class="more-menu__item" type="button" data-action="nav-catalog">
+          <span class="more-menu__icon">${icon("disc")}</span>
+          <span class="more-menu__copy">
+            <strong>Artistas</strong>
+            <small>Tu música agrupada por artista</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
+        <button class="more-menu__item" type="button" data-action="nav-recommendations">
+          <span class="more-menu__icon">${icon("sparkles")}</span>
+          <span class="more-menu__copy">
+            <strong>Recomendaciones</strong>
+            <small>Mezclas armadas con lo que escuchás</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
+        <button class="more-menu__item" type="button" data-action="open-upload">
+          <span class="more-menu__icon">${icon("upload")}</span>
+          <span class="more-menu__copy">
+            <strong>Subir música</strong>
+            <small>Agregá archivos a tu cuenta Surface</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
+        <button class="more-menu__item" type="button" data-action="open-account">
+          <span class="more-menu__icon">${icon("user")}</span>
+          <span class="more-menu__copy">
+            <strong>Tu cuenta</strong>
+            <small>@${escapeHTML(username)} · Surface</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
+        <button class="more-menu__item" type="button" data-action="open-updates">
+          <span class="more-menu__icon">${icon("cloud")}</span>
+          <span class="more-menu__copy">
+            <strong>Actualizaciones</strong>
+            <small>Versión de WaverNote y novedades</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
+      </div>`
+  });
 };
 
 const focusSearch = () => {
@@ -1824,9 +2157,10 @@ const playRow = (row) => {
   startQueue(ids, { startIndex: index });
 };
 
-const playQueueIndex = (index) => {
-  const target = Number(index);
-  if (!Number.isInteger(target) || target < 0 || target >= state.queue.length) return;
+const playQueueItem = (id) => {
+  const trackId = Number(id);
+  const target = state.queue.indexOf(trackId);
+  if (target < 0) return;
   if (target === state.queueIndex) {
     togglePlay();
     return;
@@ -1846,27 +2180,33 @@ const handleAction = async (actionEl) => {
 
   switch (action) {
     case "nav-home":
+      closeModal(true);
       closePanel();
       navigate({ view: "home" });
       break;
     case "nav-search":
+      closeModal(true);
       closePanel();
       goSearch();
       break;
     case "nav-recommendations":
+      closeModal(true);
       closePanel();
       navigate({ view: "recommendations" });
       break;
     case "nav-trends":
+      closeModal(true);
       closePanel();
       navigate({ view: "trends" });
       break;
     case "nav-catalog":
+      closeModal(true);
       closePanel();
       navigate({ view: "catalog" });
       break;
     case "catalog-tab":
       state.catalogTab = actionEl.dataset.tab === "genre" ? "genre" : "artist";
+      if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
       renderView({ resetScroll: false });
       break;
     case "catalog-edit":
@@ -1880,14 +2220,16 @@ const handleAction = async (actionEl) => {
       catalogClearImage();
       break;
     case "nav-library":
+      closeModal(true);
       closePanel();
       navigate({ view: "library" });
       break;
     case "open-library": {
+      closeModal(true);
       closePanel();
-      closeModal();
       const tab = actionEl.dataset.tab;
       if (tab) state.libraryTab = tab;
+      if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
       navigate({ view: "library" });
       break;
     }
@@ -1900,6 +2242,12 @@ const handleAction = async (actionEl) => {
       goHistory(1);
       break;
     case "open-album":
+      // En móvil, tocar el título del mini-reproductor abre el reproductor
+      // completo en vez de saltar directo al álbum.
+      if (actionEl.id === "playerTitle" && isOverlay()) {
+        openPanel("now");
+        break;
+      }
       closeModal();
       closePanel();
       navigate({ view: "album", id: String(actionEl.dataset.id || "") });
@@ -1978,6 +2326,21 @@ const handleAction = async (actionEl) => {
       if (playlist) queueCollection(playlist.trackIds, playlist.name);
       break;
     }
+    case "shuffle-catalog": {
+      const group = catalogGroup(actionEl.dataset.kind, actionEl.dataset.name);
+      if (group?.tracks.length) {
+        startQueue(
+          group.tracks.map((track) => track.id),
+          { shuffle: true, randomStart: true }
+        );
+      }
+      break;
+    }
+    case "queue-catalog": {
+      const group = catalogGroup(actionEl.dataset.kind, actionEl.dataset.name);
+      if (group?.tracks.length) queueCollection(group.tracks.map((track) => track.id), group.name);
+      break;
+    }
     case "play-liked":
       startQueue(likedTracks().map((track) => track.id), { startIndex: 0 });
       break;
@@ -1993,7 +2356,10 @@ const handleAction = async (actionEl) => {
       break;
     }
     case "play-queue":
-      playQueueIndex(actionEl.dataset.index);
+      playQueueItem(actionEl.dataset.id);
+      break;
+    case "queue-more":
+      appendQueueChunk();
       break;
     case "toggle-play":
       togglePlay();
@@ -2021,6 +2387,7 @@ const handleAction = async (actionEl) => {
       break;
     case "library-tab":
       state.libraryTab = actionEl.dataset.tab || "songs";
+      if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
       if (state.route.view !== "library") navigate({ view: "library" });
       else renderView({ resetScroll: true });
       updateNavUI();
@@ -2029,10 +2396,30 @@ const handleAction = async (actionEl) => {
       clearSearch();
       break;
     case "toggle-panel":
-      togglePanel();
+      togglePanel(actionEl.dataset.tab || "now");
       break;
     case "close-panel":
       closePanel();
+      break;
+    case "np-tab":
+      setNpTab(actionEl.dataset.tab || "now");
+      break;
+    case "open-now":
+      closeModal(true);
+      openPanel("now");
+      break;
+    case "open-queue":
+      closeModal(true);
+      openPanel("queue");
+      break;
+    case "queue-move-top":
+      moveQueueItemToTop(actionEl.dataset.id);
+      break;
+    case "queue-remove":
+      removeQueueItem(actionEl.dataset.id);
+      break;
+    case "open-more":
+      openMoreMenu();
       break;
     case "open-upload":
       openUpload();
@@ -2115,6 +2502,7 @@ const handleAction = async (actionEl) => {
       renderSidebarPlaylists();
       renderView({ resetScroll: false });
       updateNowPlaying();
+      if (typeof scheduleCloudSync === "function") scheduleCloudSync("playback");
       closeModal(true);
       toast("Canción eliminada de tu biblioteca.");
       break;
@@ -2163,6 +2551,40 @@ const handleAction = async (actionEl) => {
    Eventos
    ------------------------------------------------------------ */
 
+// En móvil, tocar la canción del pie abre un panel rápido con portada,
+// información y el deslizador de duración. La portada y la flecha siguen
+// abriendo el reproductor completo.
+els.player?.addEventListener("click", (event) => {
+  if (!isMobilePlayer()) return;
+
+  const actionEl = event.target.closest("[data-action]");
+  if (actionEl && (actionEl.dataset.action === "toggle-panel" || actionEl.dataset.action === "like-current")) {
+    closeQuickPlayer();
+    return;
+  }
+
+  if (!event.target.closest(".player__track")) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  toggleQuickPlayer();
+});
+
+// Un toque fuera del panel rápido lo cierra, salvo que sea en el propio pie
+// (ahí el click decide si se abre o se cierra).
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (!isQuickPlayerOpen()) return;
+    if (event.target.closest("#quickPlayer")) return;
+    if (event.target.closest("footer.player")) return;
+    closeQuickPlayer();
+  },
+  true
+);
+
+window.addEventListener("wavernote:route-change", closeQuickPlayer);
+
 document.addEventListener("click", (event) => {
   const actionEl = event.target.closest("[data-action]");
   if (!actionEl) return;
@@ -2173,6 +2595,38 @@ document.addEventListener("click", (event) => {
     toast(friendlyError(err), "error");
   });
 });
+
+/* Clic derecho: menú de acciones para tarjetas y filas de canciones. */
+document.addEventListener("contextmenu", (event) => {
+  if (event.target.closest(".modal, .now-playing, #quickPlayer, input, textarea, select")) return;
+
+  const row = event.target.closest("[data-track-row]");
+  if (row) {
+    event.preventDefault();
+    closeCardMenu();
+    openTrackMenu(row.dataset.trackRow, row.dataset.playlist || "");
+    return;
+  }
+
+  const card = event.target.closest("[data-card]");
+  if (!card) return;
+  event.preventDefault();
+  openCardMenu(card, event.clientX, event.clientY);
+});
+
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (!cardMenuEl) return;
+    if (event.target.closest(".context-menu")) return;
+    closeCardMenu();
+  },
+  true
+);
+
+window.addEventListener("scroll", closeCardMenuOnScroll, true);
+window.addEventListener("resize", closeCardMenu);
+window.addEventListener("wavernote:route-change", closeCardMenu);
 
 /* Soporte de teclado para elementos clickeables no nativos */
 document.addEventListener("keydown", (event) => {
@@ -2248,6 +2702,54 @@ if (els.seek) {
   });
 }
 
+if (els.npSeek) {
+  els.npSeek.addEventListener("input", () => {
+    state.seeking = true;
+    const seconds = (Number(els.npSeek.value) / 1000) * state.duration;
+    if (els.npCurrent) els.npCurrent.textContent = formatTime(seconds);
+    paintRange(els.npSeek, Number(els.npSeek.value) / 10);
+  });
+
+  els.npSeek.addEventListener("change", () => {
+    const seconds = (Number(els.npSeek.value) / 1000) * state.duration;
+    state.seeking = false;
+    seekTo(seconds);
+  });
+
+  els.npSeek.addEventListener("pointerdown", () => {
+    state.seeking = true;
+  });
+
+  els.npSeek.addEventListener("pointercancel", () => {
+    state.seeking = false;
+    updateProgressUI();
+  });
+}
+
+if (els.quickSeek) {
+  els.quickSeek.addEventListener("input", () => {
+    state.seeking = true;
+    const seconds = (Number(els.quickSeek.value) / 1000) * state.duration;
+    if (els.quickCurrent) els.quickCurrent.textContent = formatTime(seconds);
+    paintRange(els.quickSeek, Number(els.quickSeek.value) / 10);
+  });
+
+  els.quickSeek.addEventListener("change", () => {
+    const seconds = (Number(els.quickSeek.value) / 1000) * state.duration;
+    state.seeking = false;
+    seekTo(seconds);
+  });
+
+  els.quickSeek.addEventListener("pointerdown", () => {
+    state.seeking = true;
+  });
+
+  els.quickSeek.addEventListener("pointercancel", () => {
+    state.seeking = false;
+    updateProgressUI();
+  });
+}
+
 if (els.volume) {
   els.volume.addEventListener("input", () => {
     setVolume(Number(els.volume.value) / 100);
@@ -2274,6 +2776,7 @@ if (searchInput) {
 scrim?.addEventListener("click", closePanel);
 
 window.addEventListener("resize", () => {
+  if (!isMobilePlayer()) closeQuickPlayer();
   if (!isOverlay() && state.panelOpen) closePanel();
 });
 
@@ -2296,6 +2799,14 @@ document.addEventListener("keydown", (event) => {
   const modalOpen = modal.classList.contains("is-open");
 
   if (key === "Escape") {
+    if (closeCardMenu()) {
+      event.preventDefault();
+      return;
+    }
+    if (isQuickPlayerOpen()) {
+      closeQuickPlayer();
+      return;
+    }
     if (modalOpen) {
       closeModal();
       return;
@@ -2370,6 +2881,13 @@ document.addEventListener("keydown", (event) => {
    ------------------------------------------------------------ */
 
 const init = () => {
+  const root = document.documentElement;
+  const android = IS_ANDROID || /Android/i.test(navigator.platform || "");
+  const touch = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  root.classList.toggle("is-android", android);
+  root.classList.toggle("is-touch", touch);
+  root.classList.toggle("is-standalone", window.matchMedia("(display-mode: standalone)").matches);
+
   engine.setVolume(state.volume);
   engine.setMuted(state.muted);
 

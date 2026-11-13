@@ -1423,6 +1423,106 @@ body.modal-open {
   color: #ffe0da;
 }
 
+/* Menú flotante al hacer clic derecho en una tarjeta */
+.context-menu {
+  position: fixed;
+  z-index: 260;
+  width: min(262px, calc(100vw - 16px));
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: linear-gradient(150deg, rgba(14, 21, 35, 0.99), rgba(7, 12, 21, 0.99));
+  box-shadow: 0 34px 90px -34px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  opacity: 0;
+  outline: none;
+  transform: translateY(6px) scale(0.98);
+  transform-origin: top left;
+  transition: opacity 0.16s var(--ease), transform 0.16s var(--ease);
+  backdrop-filter: blur(18px);
+}
+
+.context-menu.is-open {
+  opacity: 1;
+  transform: none;
+}
+
+.context-menu__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.context-menu__art {
+  display: block;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 9px;
+}
+
+.context-menu__art .cover,
+.context-menu__art .mosaic {
+  border-radius: 9px;
+}
+
+.context-menu__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.context-menu__meta strong {
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu__meta small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.context-menu .menu-item {
+  min-height: 38px;
+  padding: 6px 9px;
+  border-radius: 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.context-menu .menu-item > .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* En pantallas táctiles el menú se ancla al centro y no al puntero. */
+@media (max-width: 767px) {
+  .context-menu {
+    width: min(300px, calc(100vw - 24px));
+  }
+}
+
 .menu-item--playlist {
   min-height: 56px;
 }
@@ -1549,6 +1649,47 @@ body.modal-open {
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.account-sync {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(99, 230, 200, 0.04);
+}
+
+.account-sync__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  background: rgba(99, 230, 200, 0.1);
+  color: var(--mint);
+}
+
+.account-sync__icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.account-sync strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.account-sync p {
+  margin: 3px 0 0;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.5;
 }
 
 .account-update {

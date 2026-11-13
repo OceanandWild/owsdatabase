@@ -156,7 +156,7 @@ const apiErrorMessage = (status, text, fallback) => {
 };
 
 const api = async (path, options = {}) => {
-  const { method = "GET", body, auth = true, signal } = options;
+  const { method = "GET", body, auth = true, signal, keepalive = false } = options;
   const headers = {};
 
   if (auth) {
@@ -170,7 +170,7 @@ const api = async (path, options = {}) => {
     payload = JSON.stringify(body);
   }
 
-  const response = await fetch(`${API_BASE}${path}`, { method, headers, body: payload, signal });
+  const response = await fetch(`${API_BASE}${path}`, { method, headers, body: payload, signal, keepalive });
   const text = await response.text();
   let data = null;
   try {
@@ -223,7 +223,9 @@ const validateSurfaceSession = async () => {
 const STORAGE = {
   volume: "wavernote.volume.v2",
   recentPrefix: "wavernote.recent.v2.",
-  playsPrefix: "wavernote.plays.v2."
+  playsPrefix: "wavernote.plays.v2.",
+  cloudPrefix: "wavernote.cloud.v3.",
+  positionPrefix: "wavernote.position.v1."
 };
 
 const savedVolume = readJSON(STORAGE.volume, 0.72);
@@ -260,13 +262,26 @@ const state = {
   baseQueue: null,
   baseIndex: 0,
   panelOpen: false,
+  npTab: "now",
   uploading: false,
   isBuffering: false
+};
+
+// Agrupar la biblioteca por álbum recorre y ordena todas las canciones: si se
+// hace una vez por fila, abrir la lista completa se vuelve cuadrático. El
+// resultado se guarda hasta que cambie la biblioteca.
+let albumListCache = null;
+let albumByNameCache = new Map();
+
+const invalidateAlbumCache = () => {
+  albumListCache = null;
+  albumByNameCache = new Map();
 };
 
 const rebuildIndexes = () => {
   state.trackById = new Map(state.tracks.map((track) => [Number(track.id), track]));
   state.playlistById = new Map(state.playlists.map((playlist) => [Number(playlist.id), playlist]));
+  invalidateAlbumCache();
 };
 
 const trackById = (id) => state.trackById.get(Number(id)) || null;
@@ -292,7 +307,7 @@ const albumTracks = (albumId) => {
     .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0) || a.id - b.id);
 };
 
-const allAlbums = () => {
+const buildAlbumList = () => {
   const groups = new Map();
 
   state.tracks.forEach((track) => {
@@ -328,12 +343,25 @@ const allAlbums = () => {
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 };
 
+const allAlbums = () => {
+  if (albumListCache) return albumListCache;
+  albumListCache = buildAlbumList();
+  albumByNameCache = new Map(albumListCache.map((album) => [album.title, album]));
+  return albumListCache;
+};
+
 const albumByTrack = (track) => {
   if (!track) return null;
+  const name = albumNameOf(track);
+  let album = albumByNameCache.get(name);
+  if (!album) {
+    allAlbums();
+    album = albumByNameCache.get(name);
+  }
   return (
-    allAlbums().find((album) => album.id === albumIdOf(albumNameOf(track))) || {
-      id: albumIdOf(albumNameOf(track)),
-      title: albumNameOf(track),
+    album || {
+      id: albumIdOf(name),
+      title: name,
       artist: track.artist || "Artista desconocido",
       coverUrl: track.coverUrl || null,
       tracks: [track],
@@ -403,6 +431,7 @@ const rememberTrack = (id) => {
   state.recent = [trackId, ...state.recent.filter((item) => item !== trackId)].slice(0, 12);
   const userId = Number(state.user?.id) || 0;
   if (userId) writeJSON(`${STORAGE.recentPrefix}${userId}`, state.recent);
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("recent");
 };
 
 const playsStorageKey = () => {
@@ -460,6 +489,7 @@ const recordPlay = (id) => {
 
   const key = playsStorageKey();
   if (key) writeJSON(key, state.plays);
+  if (typeof queuePlaySync === "function") queuePlaySync(trackId);
 };
 
 const playStatsOf = (trackOrId) => {
@@ -485,7 +515,10 @@ const mostPlayedTracks = () =>
         String(a.track.title).localeCompare(String(b.track.title), "es")
     );
 
-const saveVolume = () => writeJSON(STORAGE.volume, state.volume);
+const saveVolume = () => {
+  writeJSON(STORAGE.volume, state.volume);
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+};
 
 const refreshLibrary = async () => {
   const data = await api("/wavernote/library");
@@ -685,6 +718,13 @@ const afterRouteChange = ({ focusSearch = false, resetScroll = true } = {}) => {
       }
     });
   }
+
+  // La última pantalla también viaja con la cuenta: al entrar desde otro
+  // dispositivo se retoma donde quedó la sesión.
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+
+  // El panel rápido del reproductor se cierra al cambiar de pantalla.
+  window.dispatchEvent(new CustomEvent("wavernote:route-change"));
 };
 
 const navigate = (route, options = {}) => {

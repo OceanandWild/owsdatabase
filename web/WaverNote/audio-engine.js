@@ -28,6 +28,7 @@ class WaveEngine {
     this.source = null;
     this.analyser = null;
     this.levels = null;
+    this.waveform = null;
     this.currentUrl = "";
     this.graphFailed = false;
     this.buffering = false;
@@ -107,9 +108,12 @@ class WaveEngine {
       this.context = new AudioContextClass();
       this.source = this.context.createMediaElementSource(this.audio);
       this.analyser = this.context.createAnalyser();
-      this.analyser.fftSize = 256;
-      this.analyser.smoothingTimeConstant = 0.78;
+      // 1024 muestras dan 512 bandas: suficiente para separar graves, medios
+      // y agudos sin que el visualizador se vea repetitivo.
+      this.analyser.fftSize = 1024;
+      this.analyser.smoothingTimeConstant = 0.72;
       this.levels = new Uint8Array(this.analyser.frequencyBinCount);
+      this.waveform = new Uint8Array(this.analyser.fftSize);
       this.source.connect(this.analyser);
       this.analyser.connect(this.context.destination);
       return true;
@@ -214,5 +218,36 @@ class WaveEngine {
     if (!this.analyser || !this.levels) return null;
     this.analyser.getByteFrequencyData(this.levels);
     return this.levels;
+  }
+
+  // Espectro + volumen real (RMS) de la onda que está sonando. El RMS es el
+  // que manda en la altura general del visualizador: los graves fuertes de un
+  // tema no inflan las barras si el volumen real es bajo.
+  getSpectrum() {
+    if (!this.analyser || !this.levels) return null;
+
+    this.analyser.getByteFrequencyData(this.levels);
+
+    if (!this.waveform || this.waveform.length !== this.analyser.fftSize) {
+      this.waveform = new Uint8Array(this.analyser.fftSize);
+    }
+    this.analyser.getByteTimeDomainData(this.waveform);
+
+    let squares = 0;
+    let peak = 0;
+    for (let i = 0; i < this.waveform.length; i += 1) {
+      const sample = (this.waveform[i] - 128) / 128;
+      squares += sample * sample;
+      const abs = Math.abs(sample);
+      if (abs > peak) peak = abs;
+    }
+
+    return {
+      frequency: this.levels,
+      bins: this.analyser.frequencyBinCount,
+      rms: Math.sqrt(squares / this.waveform.length),
+      peak,
+      sampleRate: Number(this.context?.sampleRate) || 44100
+    };
   }
 }

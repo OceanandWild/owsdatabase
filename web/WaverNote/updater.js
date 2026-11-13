@@ -457,6 +457,7 @@
     const path = await invoke("apk_download", {
       url: update.url,
       sha256: update.sha256 || "",
+      sizeBytes: update.sizeBytes || 0,
       fileName: update.fileName || "",
       onEvent: channel,
     });

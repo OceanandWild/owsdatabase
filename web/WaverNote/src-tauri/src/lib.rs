@@ -62,6 +62,92 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .collect()
 }
 
+/// Intentos de descarga antes de rendirse. Una conexión móvil puede cortar el
+/// stream a mitad de camino y dejar el APK incompleto; reintentar evita que el
+/// usuario tenga que volver a empezar desde cero.
+const APK_DOWNLOAD_ATTEMPTS: u32 = 3;
+const APK_DOWNLOAD_RETRY_DELAY_SECS: u64 = 2;
+
+/// Una pasada de descarga: escribe el APK y valida tamaño y SHA-256.
+async fn download_apk_once(
+    client: &reqwest::Client,
+    url: &str,
+    dest: &std::path::Path,
+    expected: &str,
+    expected_size: Option<u64>,
+    on_event: &tauri::ipc::Channel<ApkDownloadEvent>,
+) -> Result<(), String> {
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|err| format!("No se pudo conectar con el servidor: {err}"))?;
+    if !response.status().is_success() {
+        return Err(format!("El servidor respondió {}.", response.status()));
+    }
+
+    // El tamaño del manifiesto manda; el Content-Length es el respaldo cuando
+    // el manifiesto no lo trae.
+    let expected_length = expected_size.or_else(|| response.content_length());
+
+    use futures_util::StreamExt;
+    use sha2::Digest;
+    use tokio::io::AsyncWriteExt;
+
+    let mut file = tokio::fs::File::create(dest)
+        .await
+        .map_err(|err| format!("No se pudo crear el archivo del APK: {err}"))?;
+    let mut stream = response.bytes_stream();
+    let mut hasher = sha2::Sha256::new();
+    let mut received: u64 = 0;
+    let mut started = false;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|err| format!("La descarga se cortó: {err}"))?;
+        if !started {
+            started = true;
+            let _ = on_event.send(ApkDownloadEvent::Started {
+                content_length: expected_length,
+            });
+        }
+        hasher.update(&chunk);
+        file.write_all(&chunk)
+            .await
+            .map_err(|err| format!("No se pudo escribir el APK: {err}"))?;
+        received += chunk.len() as u64;
+        let _ = on_event.send(ApkDownloadEvent::Progress {
+            chunk_length: chunk.len(),
+        });
+    }
+
+    file.flush()
+        .await
+        .map_err(|err| format!("No se pudo guardar el APK: {err}"))?;
+    drop(file);
+
+    if received == 0 {
+        return Err("La descarga llegó vacía.".to_string());
+    }
+
+    // Un stream puede terminar sin error aunque el servidor haya cortado la
+    // respuesta; comparar el tamaño detecta ese caso antes del hash.
+    if let Some(length) = expected_length {
+        if received != length {
+            return Err(format!(
+                "La descarga llegó incompleta ({received} de {length} bytes)."
+            ));
+        }
+    }
+
+    let digest = hasher.finalize();
+    let actual = sha256_hex(digest.as_slice());
+    if actual != expected {
+        return Err("El APK descargado no coincide con el SHA-256 del manifiesto.".to_string());
+    }
+
+    Ok(())
+}
+
 /// Descarga el APK de una actualización a la caché de la app y devuelve la ruta
 /// lista para que el instalador de Android la abra.
 #[tauri::command]
@@ -69,6 +155,7 @@ async fn apk_download(
     app: tauri::AppHandle,
     url: String,
     sha256: Option<String>,
+    size_bytes: Option<u64>,
     file_name: Option<String>,
     on_event: tauri::ipc::Channel<ApkDownloadEvent>,
 ) -> Result<String, String> {
@@ -116,66 +203,38 @@ async fn apk_download(
         .build()
         .map_err(|err| format!("No se pudo iniciar la descarga: {err}"))?;
 
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|err| format!("No se pudo conectar con el servidor: {err}"))?;
-    if !response.status().is_success() {
-        return Err(format!("El servidor respondió {}.", response.status()));
-    }
+    let expected_size = size_bytes.filter(|value| *value > 0);
 
-    let content_length = response.content_length();
+    let mut last_error = String::from("La descarga no se completó.");
+    for attempt in 1..=APK_DOWNLOAD_ATTEMPTS {
+        let _ = tokio::fs::remove_file(&dest).await;
 
-    use futures_util::StreamExt;
-    use sha2::Digest;
-    use tokio::io::AsyncWriteExt;
-
-    let mut file = tokio::fs::File::create(&dest)
-        .await
-        .map_err(|err| format!("No se pudo crear el archivo del APK: {err}"))?;
-    let mut stream = response.bytes_stream();
-    let mut hasher = sha2::Sha256::new();
-    let mut received: u64 = 0;
-    let mut started = false;
-
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|err| format!("La descarga se cortó: {err}"))?;
-        if !started {
-            started = true;
-            let _ = on_event.send(ApkDownloadEvent::Started { content_length });
+        match download_apk_once(&client, &url, &dest, &expected, expected_size, &on_event).await {
+            Ok(()) => {
+                let _ = on_event.send(ApkDownloadEvent::Finished);
+                return Ok(dest.to_string_lossy().to_string());
+            }
+            Err(err) => {
+                last_error = err;
+                let _ = tokio::fs::remove_file(&dest).await;
+                if attempt < APK_DOWNLOAD_ATTEMPTS {
+                    // Reinicia el progreso en la UI y deja pasar un momento
+                    // antes de pedir el APK otra vez.
+                    let _ = on_event.send(ApkDownloadEvent::Started {
+                        content_length: expected_size,
+                    });
+                    tokio::time::sleep(std::time::Duration::from_secs(
+                        APK_DOWNLOAD_RETRY_DELAY_SECS,
+                    ))
+                    .await;
+                }
+            }
         }
-        hasher.update(&chunk);
-        file.write_all(&chunk)
-            .await
-            .map_err(|err| format!("No se pudo escribir el APK: {err}"))?;
-        received += chunk.len() as u64;
-        let _ = on_event.send(ApkDownloadEvent::Progress {
-            chunk_length: chunk.len(),
-        });
     }
 
-    file.flush()
-        .await
-        .map_err(|err| format!("No se pudo guardar el APK: {err}"))?;
-    drop(file);
-
-    if received == 0 {
-        let _ = tokio::fs::remove_file(&dest).await;
-        return Err("La descarga llegó vacía.".to_string());
-    }
-
-    let digest = hasher.finalize();
-    let actual = sha256_hex(digest.as_slice());
-    if actual != expected {
-        let _ = tokio::fs::remove_file(&dest).await;
-        return Err(
-            "El APK descargado no coincide con la firma esperada. No se instalará.".to_string(),
-        );
-    }
-
-    let _ = on_event.send(ApkDownloadEvent::Finished);
-    Ok(dest.to_string_lossy().to_string())
+    Err(format!(
+        "{last_error} Se intentó {APK_DOWNLOAD_ATTEMPTS} veces; revisá la conexión y volvé a probar."
+    ))
 }
 
 /// Abre el instalador de Android para el APK ya descargado.

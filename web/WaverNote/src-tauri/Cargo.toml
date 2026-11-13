@@ -22,7 +22,7 @@ reqwest = { version = "0.13", default-features = false, features = ["stream", "r
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 webpki-roots = "1"
 sha2 = "0.10"
-tokio = { version = "1", features = ["fs", "io-util"] }
+tokio = { version = "1", features = ["fs", "io-util", "time"] }
 
 # El plugin updater de Tauri no soporta Android: en móvil la app usa el canal
 # APK propio. Se compila solo en escritorio para no arrastrarlo al build móvil.

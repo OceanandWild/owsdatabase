@@ -428,7 +428,8 @@ const libraryTabs = [
   ["songs", "Canciones"],
   ["most-played", "Más escuchadas"],
   ["albums", "Álbumes"],
-  ["playlists", "Playlists"]
+  ["playlists", "Playlists"],
+  ["pending", "Pendientes"]
 ];
 
 const mostPlayedIndicator = ({ iconName = "wave", title, text, action = "" }) => `
@@ -545,16 +546,68 @@ const mostPlayedSection = () => {
   </section>`;
 };
 
+/* ------------------------------------------------------------
+   Pendientes de importación
+   ------------------------------------------------------------ */
+
+const pendingRow = (item) => `
+  <div class="pending-row">
+    <span class="pending-row__art">${coverHTML({ title: item.title, coverUrl: item.coverUrl })}</span>
+    <span class="pending-row__main">
+      <strong title="${escapeHTML(item.title)}">${escapeHTML(item.title)}</strong>
+      <small>${escapeHTML(item.artist || "Artista desconocido")}</small>
+    </span>
+    <span class="pending-row__album">${escapeHTML(item.album || "—")}</span>
+    <span class="pending-row__meta">
+      ${item.source ? `<span class="pending-row__source">${escapeHTML(item.source)}</span>` : ""}
+      <span class="pending-row__time">${item.duration ? formatTime(item.duration) : "—"}</span>
+    </span>
+    <button class="icon-btn icon-btn--tiny" data-action="pending-remove" data-id="${item.id}" title="Quitar de pendientes" aria-label="Quitar ${escapeHTML(item.title)} de pendientes">${icon("x")}</button>
+  </div>`;
+
 const viewLibrary = () => {
   const albums = allAlbums();
   const favorites = likedTracks();
   const favoritesTotal = favorites.reduce((total, track) => total + (Number(track.duration) || 0), 0);
   const recent = recentTracks().slice(0, 8);
+  const pending = state.pending || [];
 
   let content = "";
 
   if (state.libraryTab === "most-played") {
     content = mostPlayedSection();
+  } else if (state.libraryTab === "pending") {
+    content = `<section class="section section--tight">
+      <div class="section__head section__head--pending">
+        <div>
+          <h2>Pendientes</h2>
+          <p class="section__sub">${
+            pending.length
+              ? `${plural(pending.length, "canción importada", "canciones importadas")} esperando su archivo.`
+              : "Importá una lista y completá los archivos cuando quieras."
+          }</p>
+        </div>
+        <div class="pending-actions">
+          ${
+            pending.length
+              ? `<button class="btn btn--small btn--ghost" data-action="pending-clear">${icon("trash")} Vaciar</button>`
+              : ""
+          }
+          <button class="btn btn--small btn--primary" data-action="open-import">${icon("plus")} Importar lista</button>
+        </div>
+      </div>
+      ${
+        pending.length
+          ? `<p class="pending-hint">${icon("cloud")} Cuando subas un archivo con el mismo título y artista, la canción sale de pendientes sola.</p>
+             <div class="pending-list">${pending.map(pendingRow).join("")}</div>`
+          : emptyState(
+              "No hay canciones pendientes",
+              "Importá tu biblioteca de Spotify o cualquier lista en CSV/JSON. Quedan acá hasta que subas el audio.",
+              `<div class="empty__actions"><button class="btn btn--primary" data-action="open-import">${icon("plus")} Importar lista</button><button class="btn btn--ghost" data-action="open-upload">${icon("upload")} Subir música</button></div>`,
+              "cloud"
+            )
+      }
+    </section>`;
   } else if (!state.tracks.length) {
     content = `<section class="section section--tight">
       ${emptyState(
@@ -636,13 +689,16 @@ const viewLibrary = () => {
         <div><strong>${favorites.length}</strong><span>favoritos</span></div>
         <div><strong>${albums.length}</strong><span>álbumes</span></div>
         <div><strong>${state.playlists.length}</strong><span>playlists</span></div>
+        ${pending.length ? `<div><strong>${pending.length}</strong><span>pendientes</span></div>` : ""}
       </div>
     </section>
     <div class="tabs tabs--library" role="tablist" aria-label="Secciones de la biblioteca">
       ${libraryTabs
         .map(
           ([id, label]) =>
-            `<button class="tab ${state.libraryTab === id ? "is-active" : ""}" role="tab" aria-selected="${state.libraryTab === id}" data-action="library-tab" data-tab="${id}">${label}</button>`
+            `<button class="tab ${state.libraryTab === id ? "is-active" : ""}" role="tab" aria-selected="${state.libraryTab === id}" data-action="library-tab" data-tab="${id}">${
+              id === "pending" && pending.length ? `${label} · ${pending.length}` : label
+            }</button>`
         )
         .join("")}
     </div>
@@ -1166,6 +1222,17 @@ const renderView = ({ resetScroll = true } = {}) => {
   const scrollTop = view.scrollTop;
   view.innerHTML = `<div class="view-inner">${content}</div>`;
   view.scrollTop = resetScroll ? 0 : scrollTop;
+
+  // En pantallas chicas la tira de pestañas se desplaza en horizontal:
+  // dejamos centrada la pestaña activa para que no quede cortada.
+  const activeTab = view.querySelector(".tabs--library .tab.is-active");
+  const tabStrip = activeTab?.closest(".tabs--library");
+  if (tabStrip && tabStrip.scrollWidth > tabStrip.clientWidth + 1) {
+    const stripRect = tabStrip.getBoundingClientRect();
+    const tabRect = activeTab.getBoundingClientRect();
+    tabStrip.scrollLeft +=
+      tabRect.left - stripRect.left - (stripRect.width - tabRect.width) / 2;
+  }
 
   if (typeof updateHighlights === "function") updateHighlights();
   updateHistoryButtons();

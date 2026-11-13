@@ -1716,3 +1716,21 @@
     width: min(68vw, 270px);
   }
 }
+
+/* En móvil los encabezados de sección esconden los botones chicos. En
+   pendientes hacen falta, así que esta sección los vuelve a mostrar. */
+@media (max-width: 767px) {
+  .section__head--pending {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .section__head--pending .pending-actions {
+    justify-content: flex-start;
+  }
+
+  .section__head--pending .btn--small {
+    display: inline-flex;
+  }
+}

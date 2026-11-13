@@ -2079,6 +2079,14 @@ const openMoreMenu = () => {
           </span>
           ${icon("chevron-right")}
         </button>
+        <button class="more-menu__item" type="button" data-action="open-import">
+          <span class="more-menu__icon">${icon("plus")}</span>
+          <span class="more-menu__copy">
+            <strong>Importar lista</strong>
+            <small>Traé canciones de Spotify en CSV o JSON</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
         <button class="more-menu__item" type="button" data-action="open-account">
           <span class="more-menu__icon">${icon("user")}</span>
           <span class="more-menu__copy">
@@ -2429,6 +2437,30 @@ const handleAction = async (actionEl) => {
       break;
     case "open-upload":
       openUpload();
+      break;
+    case "open-import":
+      window.WaverNoteImport?.open();
+      break;
+    case "import-analyze":
+      window.WaverNoteImport?.analyze();
+      break;
+    case "import-submit":
+      await window.WaverNoteImport?.submit();
+      break;
+    case "import-reset":
+      window.WaverNoteImport?.reset();
+      break;
+    case "import-file-clear":
+      window.WaverNoteImport?.clearFile();
+      break;
+    case "pending-remove":
+      await window.WaverNoteImport?.removePending(id);
+      break;
+    case "pending-clear":
+      window.WaverNoteImport?.openClearPending();
+      break;
+    case "pending-clear-confirm":
+      await window.WaverNoteImport?.clearPending();
       break;
     case "artist-reminder-upload":
       closeModal(true);

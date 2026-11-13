@@ -19,6 +19,7 @@ const FILES = [
   "android.css",
   "audio-engine.js",
   "core.js",
+  "import-core.js",
   "cloud.js",
   "updater.js",
   "metadata.js",
@@ -26,6 +27,7 @@ const FILES = [
   "catalog.js",
   "trends.js",
   "views.js",
+  "import.js",
   "player.js",
   "app.js"
 ];

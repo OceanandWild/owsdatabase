@@ -40,7 +40,9 @@ const cloudSettingsSnapshot = () => ({
   muted: Boolean(state.muted),
   shuffle: Boolean(state.shuffle),
   repeat: ["off", "all", "one"].includes(state.repeat) ? state.repeat : "off",
-  libraryTab: ["songs", "most-played", "albums", "playlists"].includes(state.libraryTab)
+  libraryTab: ["songs", "most-played", "albums", "playlists", "pending"].includes(
+    state.libraryTab
+  )
     ? state.libraryTab
     : "songs",
   catalogTab: state.catalogTab === "genre" ? "genre" : "artist",
@@ -460,7 +462,7 @@ const applyCloudRestore = () => {
   if (typeof settings.muted === "boolean") state.muted = settings.muted;
   if (typeof settings.shuffle === "boolean") state.shuffle = settings.shuffle;
   if (["off", "all", "one"].includes(settings.repeat)) state.repeat = settings.repeat;
-  if (["songs", "most-played", "albums", "playlists"].includes(settings.libraryTab)) {
+  if (["songs", "most-played", "albums", "playlists", "pending"].includes(settings.libraryTab)) {
     state.libraryTab = settings.libraryTab;
   }
   if (["artist", "genre"].includes(settings.catalogTab)) state.catalogTab = settings.catalogTab;

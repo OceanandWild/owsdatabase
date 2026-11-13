@@ -234,6 +234,7 @@ const state = {
   ready: false,
   user: null,
   tracks: [],
+  pending: [],
   playlists: [],
   trackById: new Map(),
   playlistById: new Map(),
@@ -523,6 +524,7 @@ const saveVolume = () => {
 const refreshLibrary = async () => {
   const data = await api("/wavernote/library");
   state.tracks = Array.isArray(data?.tracks) ? data.tracks : [];
+  state.pending = Array.isArray(data?.pending) ? data.pending : [];
   state.playlists = Array.isArray(data?.playlists) ? data.playlists : [];
   state.liked = new Set((data?.likes || []).map(Number));
   rebuildIndexes();

@@ -15439,7 +15439,8 @@ app.get('/ows-dashboard/events', async (req, res) => {
               e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.expires_at, e.is_active, e.priority,
               e.created_by, e.created_at, e.updated_at,
               p.name AS linked_project_name, p.admin_only AS linked_admin_only,
-              p.watermark_enabled, p.watermark_text, p.watermark_position, p.watermark_opacity
+              p.watermark_enabled, p.watermark_text, p.watermark_position, p.watermark_opacity,
+              p.watermark_image_url
          FROM ows_dashboard_events e
          LEFT JOIN ows_launch_projects p ON p.id = e.project_id
         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
@@ -16566,6 +16567,11 @@ async function ensureOwsLaunchProjectsTable() {
     ALTER TABLE ows_launch_projects
     ADD COLUMN IF NOT EXISTS watermark_opacity INTEGER NOT NULL DEFAULT 35
   `).catch((err) => console.log(' Aviso: migración watermark (opacity):', err.message));
+  // Marca de agua con imagen propia: reemplaza el sello de texto del proyecto.
+  await pool.query(`
+    ALTER TABLE ows_launch_projects
+    ADD COLUMN IF NOT EXISTS watermark_image_url TEXT NOT NULL DEFAULT ''
+  `).catch((err) => console.log(' Aviso: migración watermark (image):', err.message));
   // Seed del unico proyecto OWS confirmado hasta ahora (icono y banner
   // subidos a Cloudinary para que sirvan publicos en cualquier cliente).
   await pool.query(`
@@ -16631,6 +16637,7 @@ async function ensureOwsLaunchProjectsTable() {
 /* ── Marca de agua por proyecto (eventos y noticias) ──
    Cada proyecto puede tener su propia marca de agua: texto (por defecto, el
    nombre del proyecto), posición (esquinas o centro) y opacidad (5-100 %).
+   Si el proyecto sube una imagen propia, esa imagen reemplaza al texto.
    El backend la adjunta como `project_watermark` en los eventos y noticias
    del feed público; OWS Hub la dibuja encima de la imagen. */
 const OWS_WATERMARK_POSITIONS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center']);
@@ -16656,6 +16663,9 @@ function buildProjectWatermark(row) {
   return {
     enabled: true,
     text: String(row?.watermark_text || '').trim(),
+    // Imagen propia del proyecto (opcional): si está, el Hub la usa en vez
+    // del sello de texto.
+    image: sanitizePublicHttpUrl(row?.watermark_image_url || ''),
     position: normalizeWatermarkPosition(row?.watermark_position),
     opacity: normalizeWatermarkOpacity(row?.watermark_opacity)
   };
@@ -16668,7 +16678,7 @@ async function getProjectWatermarksByName() {
   try {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
-      `SELECT name, watermark_enabled, watermark_text, watermark_position, watermark_opacity
+      `SELECT name, watermark_enabled, watermark_text, watermark_position, watermark_opacity, watermark_image_url
          FROM ows_launch_projects
         WHERE watermark_enabled = TRUE`
     );
@@ -16771,7 +16781,9 @@ function mapOwsLaunchProjectRow(row, latestRelease, opts = {}) {
     watermarkPosition: normalizeWatermarkPosition(row.watermark_position),
     watermark_opacity: normalizeWatermarkOpacity(row.watermark_opacity),
     watermarkOpacity: normalizeWatermarkOpacity(row.watermark_opacity),
-    watermark: buildProjectWatermark(row) || { enabled: false, text: '', position: 'bottom-right', opacity: 35 },
+    watermark_image_url: sanitizePublicHttpUrl(row.watermark_image_url || ''),
+    watermarkImageUrl: sanitizePublicHttpUrl(row.watermark_image_url || ''),
+    watermark: buildProjectWatermark(row) || { enabled: false, text: '', image: '', position: 'bottom-right', opacity: 35 },
     priority: Number(row.priority || 0),
     is_active: row.is_active !== false,
     status_feedback: String(row.status_feedback || ''),
@@ -17405,7 +17417,7 @@ app.get('/ows-launch-projects', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id, slug, name, description, status, icon_url, genre, platforms,
               expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
-              watermark_enabled, watermark_text, watermark_position, watermark_opacity,
+              watermark_enabled, watermark_text, watermark_position, watermark_opacity, watermark_image_url,
               created_at, updated_at
          FROM ows_launch_projects
         ${includeHidden ? '' : 'WHERE is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE'}
@@ -17689,7 +17701,7 @@ app.get('/ows-hub/summary', async (req, res) => {
       pool.query(
         `SELECT id, slug, name, description, status, icon_url, genre, platforms,
                 expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
-                watermark_enabled, watermark_text, watermark_position, watermark_opacity,
+                watermark_enabled, watermark_text, watermark_position, watermark_opacity, watermark_image_url,
                 created_at, updated_at
            FROM ows_launch_projects
           WHERE is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE
@@ -17788,7 +17800,7 @@ app.get('/ows-hub/project-changelogs', async (req, res) => {
     const { rows: projRows } = await pool.query(
       `SELECT id, slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date,
               link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
-              watermark_enabled, watermark_text, watermark_position, watermark_opacity, created_at, updated_at
+              watermark_enabled, watermark_text, watermark_position, watermark_opacity, watermark_image_url, created_at, updated_at
          FROM ows_launch_projects
         WHERE LOWER(status) = 'launched' AND is_active = TRUE AND COALESCE(admin_only, FALSE) = FALSE
         ORDER BY priority DESC, name ASC`
@@ -17984,21 +17996,24 @@ app.post('/ows-launch-projects', async (req, res) => {
   const watermarkText = String(req.body?.watermark_text ?? req.body?.watermarkText ?? req.body?.watermark?.text ?? '').trim().slice(0, 60);
   const watermarkPosition = normalizeWatermarkPosition(req.body?.watermark_position ?? req.body?.watermarkPosition ?? req.body?.watermark?.position);
   const watermarkOpacity = normalizeWatermarkOpacity(req.body?.watermark_opacity ?? req.body?.watermarkOpacity ?? req.body?.watermark?.opacity);
+  // Imagen propia de la marca de agua (opcional): si viene, el Hub la usa en
+  // lugar del sello de texto.
+  const watermarkImageUrl = sanitizePublicHttpUrl(req.body?.watermark_image_url ?? req.body?.watermarkImageUrl ?? req.body?.watermark?.image ?? '');
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
   try {
     await ensureOwsLaunchProjectsTable();
     const { rows } = await pool.query(
       `INSERT INTO ows_launch_projects
          (slug, name, description, status, icon_url, genre, platforms, expected_date, confirmed_date, link_url, priority, admin_only, status_feedback, status_permanent, metadata,
-          watermark_enabled, watermark_text, watermark_position, watermark_opacity, created_at)
+          watermark_enabled, watermark_text, watermark_position, watermark_opacity, watermark_image_url, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb,
-               $16, $17, $18, $19, COALESCE($20::timestamptz, NOW()))
+               $16, $17, $18, $19, $20, COALESCE($21::timestamptz, NOW()))
        RETURNING id, slug, name, description, status, icon_url, genre, platforms,
                  expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
-                 watermark_enabled, watermark_text, watermark_position, watermark_opacity, created_at, updated_at`,
+                 watermark_enabled, watermark_text, watermark_position, watermark_opacity, watermark_image_url, created_at, updated_at`,
       [slug, name, description, status, iconUrl, genre, platforms, expectedDate, confirmedDate, linkUrl, priority, adminOnly, statusFeedback, statusPermanent,
        (req.body?.metadata && typeof req.body.metadata === 'object') ? req.body.metadata : {},
-       watermarkEnabled, watermarkText, watermarkPosition, watermarkOpacity, createdAt]
+       watermarkEnabled, watermarkText, watermarkPosition, watermarkOpacity, watermarkImageUrl, createdAt]
     );
     logAdminActivity({
       action: 'create', entityType: 'launch_project', entityId: slug,
@@ -18105,6 +18120,9 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
     if (req.body?.watermark_opacity !== undefined || req.body?.watermarkOpacity !== undefined || wmRaw?.opacity !== undefined) {
       updates.watermark_opacity = normalizeWatermarkOpacity(req.body.watermark_opacity ?? req.body.watermarkOpacity ?? wmRaw.opacity);
     }
+    if (req.body?.watermark_image_url !== undefined || req.body?.watermarkImageUrl !== undefined || wmRaw?.image !== undefined) {
+      updates.watermark_image_url = sanitizePublicHttpUrl(req.body.watermark_image_url ?? req.body.watermarkImageUrl ?? wmRaw.image ?? '');
+    }
     // Corrección de la fecha real de creación (vacío = no se toca).
     if (req.body?.created_at !== undefined || req.body?.createdAt !== undefined) {
       const norm = normalizeProjectCreatedAt(req.body.created_at ?? req.body.createdAt ?? '');
@@ -18127,7 +18145,7 @@ app.patch('/ows-launch-projects/:id', async (req, res) => {
         WHERE id = $1
         RETURNING id, slug, name, description, status, icon_url, genre, platforms,
                   expected_date, confirmed_date, link_url, priority, is_active, admin_only, status_feedback, status_permanent, metadata,
-                  watermark_enabled, watermark_text, watermark_position, watermark_opacity, created_at, updated_at`,
+                  watermark_enabled, watermark_text, watermark_position, watermark_opacity, watermark_image_url, created_at, updated_at`,
       [id, ...keys.map((k) => updates[k])]
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
@@ -53794,6 +53812,33 @@ async function ensureWaverNoteTables() {
       ON wavernote_plays(user_id, last_played_at DESC)
   `);
 
+  // Canciones importadas de Spotify u otras listas que todavía no tienen
+  // archivo. No son reproducibles: se muestran aparte y se completan solas
+  // cuando el usuario sube el audio correspondiente.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wavernote_pending_tracks (
+      id         BIGSERIAL PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      title      TEXT NOT NULL,
+      artist     TEXT NOT NULL DEFAULT '',
+      album      TEXT NOT NULL DEFAULT '',
+      duration   DOUBLE PRECISION NOT NULL DEFAULT 0,
+      cover_url  TEXT,
+      isrc       TEXT NOT NULL DEFAULT '',
+      source     TEXT NOT NULL DEFAULT '',
+      match_key  TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wavernote_pending_user
+      ON wavernote_pending_tracks(user_id, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_wavernote_pending_user_key
+      ON wavernote_pending_tracks(user_id, match_key)
+  `);
+
   wavernoteTablesReady = true;
 }
 
@@ -53843,6 +53888,72 @@ function mapWaverNotePlaylist(row) {
     name: row.name,
     description: row.description || '',
     trackIds: Array.isArray(row.track_ids) ? row.track_ids.map(Number).filter(Boolean) : [],
+    createdAt: row.created_at
+  };
+}
+
+// ---------------------------------------------------------------------
+// Canciones pendientes (importadas de Spotify u otras listas)
+// ---------------------------------------------------------------------
+
+// La clave de coincidencia tiene que dar exactamente igual en el cliente
+// (import-core.js) y en el servidor: así el archivo que sube el usuario
+// limpia solo la entrada pendiente que corresponde.
+function wavernoteStripDiacritics(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function wavernoteNormalizeText(value) {
+  return wavernoteStripDiacritics(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function wavernotePrimaryArtist(value) {
+  return String(value ?? '')
+    .split(/\s*(?:,|&|\bfeat\b\.?|\bft\b\.?|\bfeaturing\b)\s*/i)[0]
+    .trim();
+}
+
+function wavernoteNormalizeTitle(value) {
+  return wavernoteStripDiacritics(value)
+    .toLowerCase()
+    .replace(/\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring)\s+[^)\]]*[\)\]]/g, ' ')
+    .replace(/\s*-\s*(?:feat\.?|ft\.?|featuring)\s+.*$/g, ' ')
+    .replace(
+      /\s*[\(\[]\s*(?:remaster(?:ed)?|deluxe(?: edition)?|bonus track)(?:\s+\d{4})?\s*[\)\]]\s*$/g,
+      ' '
+    )
+    .replace(/\s*-\s*(?:remaster(?:ed)?|deluxe(?: edition)?|bonus track)(?:\s+\d{4})?\s*$/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function wavernotePendingKey(title, artist) {
+  return `${wavernoteNormalizeTitle(title)}|${wavernoteNormalizeText(
+    wavernotePrimaryArtist(artist)
+  )}`;
+}
+
+function wavernotePendingCover(value) {
+  const raw = wavernoteText(value, 500);
+  return /^https?:\/\//i.test(raw) ? raw : null;
+}
+
+function mapWaverNotePendingTrack(row) {
+  return {
+    id: Number(row.id),
+    title: row.title,
+    artist: row.artist || '',
+    album: row.album || '',
+    duration: Number(row.duration) || 0,
+    coverUrl: row.cover_url || null,
+    isrc: row.isrc || '',
+    source: row.source || '',
+    matchKey: row.match_key || '',
     createdAt: row.created_at
   };
 }
@@ -54074,7 +54185,7 @@ app.get('/wavernote/library', wavernoteAuth, async (req, res) => {
     await ensureWaverNoteTables();
     const userId = req.wavernoteUser.id;
 
-    const [tracksResult, playlistsResult, likesResult] = await Promise.all([
+    const [tracksResult, playlistsResult, likesResult, pendingResult] = await Promise.all([
       pool.query(
         'SELECT * FROM wavernote_tracks WHERE user_id = $1 ORDER BY created_at DESC, id DESC',
         [userId]
@@ -54093,7 +54204,11 @@ app.get('/wavernote/library', wavernoteAuth, async (req, res) => {
           ORDER BY p.created_at DESC, p.id DESC`,
         [userId]
       ),
-      pool.query('SELECT track_id FROM wavernote_likes WHERE user_id = $1', [userId])
+      pool.query('SELECT track_id FROM wavernote_likes WHERE user_id = $1', [userId]),
+      pool.query(
+        'SELECT * FROM wavernote_pending_tracks WHERE user_id = $1 ORDER BY created_at DESC, id DESC',
+        [userId]
+      )
     ]);
 
     return res.json({
@@ -54101,11 +54216,180 @@ app.get('/wavernote/library', wavernoteAuth, async (req, res) => {
       user: { id: req.wavernoteUser.id, username: req.wavernoteUser.username },
       tracks: tracksResult.rows.map(mapWaverNoteTrack),
       playlists: playlistsResult.rows.map(mapWaverNotePlaylist),
-      likes: likesResult.rows.map((row) => Number(row.track_id))
+      likes: likesResult.rows.map((row) => Number(row.track_id)),
+      pending: pendingResult.rows.map(mapWaverNotePendingTrack)
     });
   } catch (err) {
     console.error('[WAVERNOTE] library:', err);
     return res.status(500).json({ error: 'No se pudo cargar tu biblioteca.' });
+  }
+});
+
+const WAVERNOTE_PENDING_IMPORT_LIMIT = 3000;
+const WAVERNOTE_PENDING_INSERT_CHUNK = 400;
+
+// POST /wavernote/pending/import  -  guarda las canciones de una lista
+// importada. No sube audio: quedan como "pendientes" hasta que el usuario
+// suba el archivo correspondiente.
+app.post('/wavernote/pending/import', wavernoteAuth, async (req, res) => {
+  const incoming = Array.isArray(req.body?.tracks) ? req.body.tracks : null;
+  if (!incoming) {
+    return res.status(400).json({ error: 'El archivo no tiene canciones para importar.' });
+  }
+  if (incoming.length > WAVERNOTE_PENDING_IMPORT_LIMIT) {
+    return res.status(400).json({
+      error: `Podés importar hasta ${WAVERNOTE_PENDING_IMPORT_LIMIT} canciones por archivo.`
+    });
+  }
+
+  const source = wavernoteText(req.body?.source, 60);
+  const rows = [];
+  const seen = new Set();
+  let invalid = 0;
+  let duplicated = 0;
+
+  incoming.forEach((item) => {
+    const title = wavernoteText(item?.title, 160);
+    if (!title) {
+      invalid += 1;
+      return;
+    }
+
+    const artist = wavernoteText(item?.artist, 120);
+    const matchKey = wavernotePendingKey(title, artist);
+    if (seen.has(matchKey)) {
+      duplicated += 1;
+      return;
+    }
+    seen.add(matchKey);
+
+    rows.push({
+      title,
+      artist,
+      album: wavernoteText(item?.album, 120),
+      duration: Math.min(Math.max(Number(item?.duration) || 0, 0), 6 * 60 * 60),
+      coverUrl: wavernotePendingCover(item?.coverUrl),
+      isrc: wavernoteText(item?.isrc, 32).toUpperCase(),
+      source: wavernoteText(item?.source, 60) || source,
+      matchKey
+    });
+  });
+
+  try {
+    await ensureWaverNoteTables();
+    const userId = req.wavernoteUser.id;
+
+    const [libraryResult, pendingResult] = await Promise.all([
+      pool.query('SELECT title, artist FROM wavernote_tracks WHERE user_id = $1', [userId]),
+      pool.query('SELECT match_key FROM wavernote_pending_tracks WHERE user_id = $1', [userId])
+    ]);
+
+    const libraryKeys = new Set(
+      libraryResult.rows.map((row) => wavernotePendingKey(row.title, row.artist))
+    );
+    const pendingKeys = new Set(pendingResult.rows.map((row) => row.match_key));
+
+    const fresh = [];
+    let inLibrary = 0;
+    let alreadyPending = 0;
+    rows.forEach((row) => {
+      if (libraryKeys.has(row.matchKey)) {
+        inLibrary += 1;
+      } else if (pendingKeys.has(row.matchKey)) {
+        alreadyPending += 1;
+      } else {
+        fresh.push(row);
+      }
+    });
+
+    const imported = [];
+    for (let index = 0; index < fresh.length; index += WAVERNOTE_PENDING_INSERT_CHUNK) {
+      const chunk = fresh.slice(index, index + WAVERNOTE_PENDING_INSERT_CHUNK);
+      const values = [];
+      const params = [userId];
+
+      chunk.forEach((row) => {
+        const base = params.length;
+        values.push(
+          `($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, ` +
+            `$${base + 6}, $${base + 7}, $${base + 8})`
+        );
+        params.push(
+          row.title,
+          row.artist,
+          row.album,
+          row.duration,
+          row.coverUrl,
+          row.isrc,
+          row.source,
+          row.matchKey
+        );
+      });
+
+      const { rows: inserted } = await pool.query(
+        `INSERT INTO wavernote_pending_tracks
+           (user_id, title, artist, album, duration, cover_url, isrc, source, match_key)
+         VALUES ${values.join(', ')}
+         ON CONFLICT (user_id, match_key) DO NOTHING
+         RETURNING *`,
+        params
+      );
+      imported.push(...inserted.map(mapWaverNotePendingTrack));
+    }
+
+    return res.status(201).json({
+      success: true,
+      imported: imported.length,
+      pending: imported,
+      skipped: {
+        total: incoming.length,
+        invalid,
+        duplicated,
+        inLibrary,
+        alreadyPending
+      }
+    });
+  } catch (err) {
+    console.error('[WAVERNOTE] import pending:', err);
+    return res.status(500).json({ error: 'No se pudieron guardar las canciones importadas.' });
+  }
+});
+
+// DELETE /wavernote/pending  -  vacía la lista de pendientes del usuario
+app.delete('/wavernote/pending', wavernoteAuth, async (req, res) => {
+  try {
+    await ensureWaverNoteTables();
+    const { rowCount } = await pool.query(
+      'DELETE FROM wavernote_pending_tracks WHERE user_id = $1',
+      [req.wavernoteUser.id]
+    );
+    return res.json({ success: true, removed: Number(rowCount) || 0 });
+  } catch (err) {
+    console.error('[WAVERNOTE] clear pending:', err);
+    return res.status(500).json({ error: 'No se pudo vaciar la lista de pendientes.' });
+  }
+});
+
+// DELETE /wavernote/pending/:id  -  quita una canción pendiente
+app.delete('/wavernote/pending/:id', wavernoteAuth, async (req, res) => {
+  const pendingId = Number(req.params.id);
+  if (!Number.isInteger(pendingId) || pendingId <= 0) {
+    return res.status(400).json({ error: 'Canción pendiente inválida.' });
+  }
+
+  try {
+    await ensureWaverNoteTables();
+    const { rowCount } = await pool.query(
+      'DELETE FROM wavernote_pending_tracks WHERE id = $1 AND user_id = $2',
+      [pendingId, req.wavernoteUser.id]
+    );
+    if (!rowCount) {
+      return res.status(404).json({ error: 'Esa canción ya no está en pendientes.' });
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[WAVERNOTE] delete pending:', err);
+    return res.status(500).json({ error: 'No se pudo quitar la canción pendiente.' });
   }
 });
 
@@ -54340,7 +54624,26 @@ app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) =
       ]
     );
 
-    return res.status(201).json({ success: true, track: mapWaverNoteTrack(rows[0]) });
+    // Si la canción estaba importada como pendiente, al subir el archivo
+    // deja de estar pendiente sola. Un fallo acá no invalida la subida.
+    let matchedPending = false;
+    try {
+      const matched = await pool.query(
+        `DELETE FROM wavernote_pending_tracks
+          WHERE user_id = $1 AND match_key = $2
+          RETURNING id`,
+        [req.wavernoteUser.id, wavernotePendingKey(title, artist)]
+      );
+      matchedPending = matched.rows.length > 0;
+    } catch (matchErr) {
+      console.error('[WAVERNOTE] pending auto-match:', matchErr);
+    }
+
+    return res.status(201).json({
+      success: true,
+      track: mapWaverNoteTrack(rows[0]),
+      matchedPending
+    });
   } catch (err) {
     console.error('[WAVERNOTE] create track:', err);
     await Promise.all([

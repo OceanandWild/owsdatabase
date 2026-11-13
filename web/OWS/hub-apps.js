@@ -41,8 +41,8 @@
             version: "1.2.1",
             file: "WaverNote_1.2.1_universal.apk",
             url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.1/WaverNote_1.2.1_universal.apk",
-            size: "—",
-            size_bytes: 0
+            size: "52,79 MB",
+            size_bytes: 55353167
           }
         }
       }

@@ -12,12 +12,13 @@
         category: "Música",
         tagline: "Tu biblioteca musical, en Windows y Android.",
         description:
-          "Subí tus propias canciones, ordená tu biblioteca y escuchá todo desde la app. WaverNote guarda el audio en la nube y sincroniza tu cuenta de Surface entre dispositivos.",
-        version: "1.2.1",
+          "Subí tus propias canciones, importá tus listas de Spotify y escuchá todo desde la app. WaverNote guarda el audio en la nube y sincroniza tu cuenta de Surface entre dispositivos.",
+        version: "1.2.2",
         icon_url: "img/wavernote-icon.png",
         accent: "#2dd4bf",
-        release_url: "https://github.com/OceanandWild/owsdatabase/releases/tag/wavernote-v1.2.1",
+        release_url: "https://github.com/OceanandWild/owsdatabase/releases/tag/wavernote-v1.2.2",
         features: [
+          "Importá listas de Spotify en CSV o JSON y completá los archivos cuando quieras",
           "Interfaz móvil propia con navegación inferior y reproductor a pantalla completa",
           "Cola completa con reordenamiento, panel rápido y controles sincronizados",
           "La cuenta guarda favoritos, playlists, cola, posición e historial",
@@ -29,20 +30,20 @@
           windows: {
             label: "Windows 10 / 11",
             detail: "Instalador NSIS · x64",
-            version: "1.2.0",
-            file: "WaverNote_1.2.0_x64-setup.exe",
-            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.0/WaverNote_1.2.0_x64-setup.exe",
-            size: "3,92 MB",
-            size_bytes: 4107759
+            version: "1.2.2",
+            file: "WaverNote_1.2.2_x64-setup.exe",
+            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.2/WaverNote_1.2.2_x64-setup.exe",
+            size: "3,93 MB",
+            size_bytes: 4119293
           },
           android: {
             label: "Android 7.0+",
             detail: "APK universal firmado",
-            version: "1.2.1",
-            file: "WaverNote_1.2.1_universal.apk",
-            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.1/WaverNote_1.2.1_universal.apk",
-            size: "52,79 MB",
-            size_bytes: 55353167
+            version: "1.2.2",
+            file: "WaverNote_1.2.2_universal.apk",
+            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.2/WaverNote_1.2.2_universal.apk",
+            size: "52,74 MB",
+            size_bytes: 55299275
           }
         }
       }

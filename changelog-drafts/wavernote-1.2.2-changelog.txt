@@ -1,0 +1,33 @@
+WaverNote 1.2.2 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.2.2
+Plataformas: Windows y Android
+Fecha: 2026-11-13
+
+Novedades:
+- Importá listas de Spotify a WaverNote sin conectar tu cuenta. Acepta el CSV de Exportify, el JSON de la API de Spotify, el export de playlists y cualquier archivo CSV, TSV o JSON con título y artista. No hay límite de usuarios ni de canciones por cuenta: el archivo se procesa en tu equipo y solo viajan los datos de las canciones.
+- Antes de importar ves una vista previa clara: cuántas canciones son nuevas, cuántas ya están en tu biblioteca, cuántas ya esperaban su archivo y cuáles se repiten dentro del mismo archivo. Podés elegir un nombre para la lista y revisar todo antes de confirmar.
+- Las canciones importadas quedan en la pestaña "Pendientes" esperando su audio. WaverNote no descarga música de Spotify: cuando subís el archivo correspondiente, la canción sale de pendientes automáticamente.
+- La coincidencia al subir es tolerante a los datos reales de las listas: ignora acentos, mayúsculas, "feat.", "ft." y "featuring", y también las marcas de remaster, deluxe o bonus track. Las versiones en vivo y los remixes se mantienen como canciones distintas.
+- Desde Pendientes podés quitar una canción o vaciar la lista completa sin tocar los archivos que ya subiste.
+
+Arreglos:
+- En el teléfono, la tira de pestañas de la biblioteca ahora se desplaza en horizontal y deja centrada la pestaña activa, así "Pendientes" queda siempre a la vista.
+- Los botones de importar y vaciar pendientes vuelven a mostrarse en móvil, donde antes quedaban ocultos por el estilo compacto de los encabezados.
+
+=== ENGLISH ===
+Version: 1.2.2
+Platforms: Windows and Android
+Date: 2026-11-13
+
+New:
+- Import Spotify playlists into WaverNote without connecting your account. It accepts Exportify CSV, Spotify API JSON, playlist exports, and any CSV, TSV or JSON file with a title and artist column. There is no user or per-account song limit: the file is processed on your device and only the song data is sent.
+- Before importing you get a clear preview: how many songs are new, how many are already in your library, how many were already waiting for their file, and which ones repeat inside the same file. You can name the list and review everything before confirming.
+- Imported songs wait in the "Pending" tab until you add their audio. WaverNote does not download music from Spotify: when you upload the matching file, the song leaves the pending list on its own.
+- Matching tolerates the way real playlists are written: it ignores accents, capitalization, "feat.", "ft." and "featuring", plus remaster, deluxe and bonus track tags. Live versions and remixes stay as separate songs.
+- From Pending you can remove a single song or clear the whole list without touching the files you already uploaded.
+
+Fixes:
+- On phones, the library tab strip now scrolls horizontally and keeps the active tab centered, so "Pending" is always within reach.
+- The import and clear-pending buttons are visible again on mobile, where the compact section header styles used to hide them.

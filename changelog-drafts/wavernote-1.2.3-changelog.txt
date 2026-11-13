@@ -1,0 +1,23 @@
+WaverNote 1.2.3 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.2.3
+Plataformas: Windows y Android
+Fecha: 2026-11-13
+
+Arreglos:
+- La vista previa de importación ahora reconoce las canciones que ya están en tu biblioteca aunque los créditos de artista estén escritos distinto: por ejemplo "CHAXZER" coincide con "CHAXZER/DJ FKU", y también se toleran separadores como coma, "&", "/", ";" o "feat.".
+- Los sufijos de versión que no cambian la canción ya no cuentan como un tema nuevo: "- Slowed", "(Slowed + Reverb)", "Super Slowed", "- Sped Up", "Nightcore", "Reverb", "Bass Boosted", "8D Audio", "Extended", "Radio Edit", "Official Audio/Video" y "Lyrics", entre otros.
+- La misma comparación se usa al subir un archivo, así una canción pendiente se completa sola aunque el título o el artista hayan cambiado entre la lista y la biblioteca.
+- Las versiones en vivo, remixes, instrumentales y acústicas se siguen tratando como canciones distintas.
+
+=== ENGLISH ===
+Version: 1.2.3
+Platforms: Windows and Android
+Date: 2026-11-13
+
+Fixes:
+- The import preview now recognizes songs that are already in your library even when artist credits are written differently: for example "CHAXZER" matches "CHAXZER/DJ FKU", and separators such as commas, "&", "/", ";" or "feat." are tolerated.
+- Version suffixes that do not change the song no longer count as a new track: "- Slowed", "(Slowed + Reverb)", "Super Slowed", "- Sped Up", "Nightcore", "Reverb", "Bass Boosted", "8D Audio", "Extended", "Radio Edit", "Official Audio/Video" and "Lyrics", among others.
+- The same comparison is used when uploading a file, so a pending song completes itself even if the title or artist changed between the list and the library.
+- Live versions, remixes, instrumentals and acoustic versions are still treated as separate songs.

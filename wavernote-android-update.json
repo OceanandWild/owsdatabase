@@ -1,11 +1,11 @@
 {
   "project_slug": "wavernote",
   "package_id": "com.oceanwildstudios.wavernote",
-  "version_name": "1.2.2",
-  "version_code": 1002002,
-  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.2/WaverNote_1.2.2_universal.apk",
-  "sha256": "636ed480b75c477d86847ad90106fc1304047fafe39640669865583bd8337719",
-  "size_bytes": 55299275,
-  "release_notes": "Importa tus listas de Spotify en CSV o JSON, revisalas en una vista previa y completá los archivos cuando quieras. Las canciones quedan en la pestaña Pendientes y se van solas al subir su audio.",
-  "published_at": "2026-11-13T14:26:30Z"
+  "version_name": "1.2.3",
+  "version_code": 1002003,
+  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.3/WaverNote_1.2.3_universal.apk",
+  "sha256": "1067d128bbe13b44638f70b94436a65aa5c8cf8e933fcb3d8a443f0ebd214964",
+  "size_bytes": 55298455,
+  "release_notes": "Corrige la deteccion de canciones ya importadas: reconoce artistas con colaboradores (CHAXZER/DJ FKU) y sufijos como Slowed, Sped Up o Nightcore. Esas canciones ya no aparecen como nuevas ni se duplican en Pendientes.",
+  "published_at": "2026-11-13T15:24:23Z"
 }

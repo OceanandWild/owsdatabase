@@ -1,11 +1,11 @@
 {
-  "version": "1.2.2",
-  "notes": "Importa tus listas de Spotify en CSV o JSON, revisalas en una vista previa y completá los archivos cuando quieras. Las canciones quedan en la pestaña Pendientes y se van solas al subir su audio.",
-  "pub_date": "2026-11-13T14:26:30Z",
+  "version": "1.2.3",
+  "notes": "Corrige la deteccion de canciones ya importadas: reconoce artistas con colaboradores (CHAXZER/DJ FKU) y sufijos como Slowed, Sped Up o Nightcore. Esas canciones ya no aparecen como nuevas ni se duplican en Pendientes.",
+  "pub_date": "2026-11-13T15:24:23Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.2/WaverNote_1.2.2_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaXFwSjJSVzVBQXBCNXp5MC9qci8yY2Q1YlFlNk9vRVg2Sm1LYjRDRTN2VEFBVTBCMXoraGY3d2hYTXkveC9USWZUbjVoSDRXWDJ2cDY3QTJxbnNSb1lzK0FwczFxTUEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NTc5NzAyCWZpbGU6V2F2ZXJOb3RlXzEuMi4yX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjIuMgp6dVN6azdPZkZ2ZVpZb1RKd0ZoZU1RNlRlRWFYc3NiUld5NVVsdmZzc25VdTNSVGNsbk1zdXdpSlp1Smx2ZXBnR3pKSGZNbUZ1dXh4dkl1cTFCSHFBQT09Cg=="
+      "url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.3/WaverNote_1.2.3_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaXFwSjJSVzVBQXR5cGZYd3BxNnVxaFRtc1hLV0VIY0xLdllrdEY2SWl6QlpTUGw3V1d5QmtXeXR1dUdrWEFSam1uUjgxRzV0cUFwSU1La0NacTdCQURFTWl3YXUwYmdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NTgzMjUxCWZpbGU6V2F2ZXJOb3RlXzEuMi4zX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjIuMwpBSDlSMXRYNlF3OWFweU5PdlVzQytRY0F4OHM4dDFPWEpqMXNlTzQyTGtCczQ2WVk0bzlYTXB6OC9aNk9PRGJQSE4wL1c0dmJyV2l0RCtxc25HNU1EUT09Cg=="
     }
   }
 }

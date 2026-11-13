@@ -13,10 +13,10 @@
         tagline: "Tu biblioteca musical, en Windows y Android.",
         description:
           "Subí tus propias canciones, importá tus listas de Spotify y escuchá todo desde la app. WaverNote guarda el audio en la nube y sincroniza tu cuenta de Surface entre dispositivos.",
-        version: "1.2.2",
+        version: "1.2.3",
         icon_url: "img/wavernote-icon.png",
         accent: "#2dd4bf",
-        release_url: "https://github.com/OceanandWild/owsdatabase/releases/tag/wavernote-v1.2.2",
+        release_url: "https://github.com/OceanandWild/owsdatabase/releases/tag/wavernote-v1.2.3",
         features: [
           "Importá listas de Spotify en CSV o JSON y completá los archivos cuando quieras",
           "Interfaz móvil propia con navegación inferior y reproductor a pantalla completa",
@@ -30,20 +30,20 @@
           windows: {
             label: "Windows 10 / 11",
             detail: "Instalador NSIS · x64",
-            version: "1.2.2",
-            file: "WaverNote_1.2.2_x64-setup.exe",
-            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.2/WaverNote_1.2.2_x64-setup.exe",
+            version: "1.2.3",
+            file: "WaverNote_1.2.3_x64-setup.exe",
+            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.3/WaverNote_1.2.3_x64-setup.exe",
             size: "3,93 MB",
-            size_bytes: 4119293
+            size_bytes: 4121082
           },
           android: {
             label: "Android 7.0+",
             detail: "APK universal firmado",
-            version: "1.2.2",
-            file: "WaverNote_1.2.2_universal.apk",
-            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.2/WaverNote_1.2.2_universal.apk",
+            version: "1.2.3",
+            file: "WaverNote_1.2.3_universal.apk",
+            url: "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.3/WaverNote_1.2.3_universal.apk",
             size: "52,74 MB",
-            size_bytes: 55299275
+            size_bytes: 55298455
           }
         }
       }

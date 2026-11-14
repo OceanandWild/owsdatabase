@@ -59,6 +59,10 @@
 
   let appsCache = FALLBACK.apps.slice();
   let loaded = false;
+  let loadedAt = 0;
+  // Al volver a la tienda se refresca el catálogo aunque ya esté cargado: así
+  // una versión recién publicada aparece sin recargar toda la app.
+  const REFRESH_MS = 60 * 1000;
 
   function safeText(value) {
     return typeof escapeHtml === "function" ? escapeHtml(String(value == null ? "" : value)) : String(value == null ? "" : value);
@@ -367,9 +371,10 @@
     });
   }
 
-  async function loadHubApps() {
+  async function loadHubApps(opts) {
+    const force = !!(opts && opts.force);
     bindEvents();
-    if (loaded) {
+    if (loaded && !force && Date.now() - loadedAt < REFRESH_MS) {
       renderApps(appsCache);
       return appsCache;
     }
@@ -384,8 +389,9 @@
       try {
         const data = await fetchCatalog(url);
         appsCache = data.apps;
-        writeCatalogCache(data);
         loaded = true;
+        loadedAt = Date.now();
+        writeCatalogCache(data);
         renderApps(appsCache);
         return appsCache;
       } catch (_) {
@@ -394,6 +400,7 @@
     }
     if (!cached) appsCache = FALLBACK.apps.slice();
     loaded = true;
+    loadedAt = Date.now();
     renderApps(appsCache);
     return appsCache;
   }

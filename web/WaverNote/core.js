@@ -266,13 +266,46 @@ const validateSurfaceSession = async () => {
 
 const STORAGE = {
   volume: "wavernote.volume.v2",
+  nextCard: "wavernote.next-card.v1",
   recentPrefix: "wavernote.recent.v2.",
   playsPrefix: "wavernote.plays.v2.",
   cloudPrefix: "wavernote.cloud.v3.",
   positionPrefix: "wavernote.position.v1."
 };
 
+// El aviso «A continuación» se puede anticipar con distintos tiempos. Se
+// guardan como texto para que la preferencia viaje tal cual a la cuenta y se
+// pueda sumar una opción nueva sin romper lo ya guardado.
+const DEFAULT_NEXT_CARD_TIMING = "20";
+const NEXT_CARD_OPTIONS = [
+  { value: "off", label: "Nunca", hint: "El aviso queda oculto" },
+  { value: "always", label: "Desde el inicio", hint: "Visible durante toda la canción" },
+  { value: "5", label: "5 segundos antes" },
+  { value: "10", label: "10 segundos antes" },
+  { value: "15", label: "15 segundos antes" },
+  { value: "20", label: "20 segundos antes", hint: "Predeterminado" },
+  { value: "25", label: "25 segundos antes" },
+  { value: "30", label: "30 segundos antes" },
+  { value: "45", label: "45 segundos antes" },
+  { value: "60", label: "1 minuto antes" },
+  { value: "90", label: "1 minuto y medio antes" },
+  { value: "120", label: "2 minutos antes" },
+  { value: "p10", label: "Último 10%", hint: "Según la duración de cada canción" },
+  { value: "p25", label: "Último 25%", hint: "Según la duración de cada canción" }
+];
+const NEXT_CARD_TIMINGS = new Set(NEXT_CARD_OPTIONS.map((option) => option.value));
+
+const normalizeNextCardTiming = (value) => {
+  const key = String(value ?? "");
+  return NEXT_CARD_TIMINGS.has(key) ? key : DEFAULT_NEXT_CARD_TIMING;
+};
+
+const nextCardTimingLabel = (value) =>
+  NEXT_CARD_OPTIONS.find((option) => option.value === normalizeNextCardTiming(value))?.label ||
+  "20 segundos antes";
+
 const savedVolume = readJSON(STORAGE.volume, 0.72);
+const savedNextCardTiming = readJSON(STORAGE.nextCard, DEFAULT_NEXT_CARD_TIMING);
 
 const state = {
   ready: false,
@@ -304,6 +337,7 @@ const state = {
   repeat: "off",
   volume: Number.isFinite(Number(savedVolume)) ? clamp(Number(savedVolume), 0, 1) : 0.72,
   muted: false,
+  nextCardTiming: normalizeNextCardTiming(savedNextCardTiming),
   baseQueue: null,
   baseIndex: 0,
   panelOpen: false,
@@ -563,6 +597,12 @@ const mostPlayedTracks = () =>
 
 const saveVolume = () => {
   writeJSON(STORAGE.volume, state.volume);
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+};
+
+const saveNextCardTiming = () => {
+  state.nextCardTiming = normalizeNextCardTiming(state.nextCardTiming);
+  writeJSON(STORAGE.nextCard, state.nextCardTiming);
   if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
 };
 

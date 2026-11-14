@@ -47,6 +47,7 @@ const cloudSettingsSnapshot = () => ({
     : "songs",
   catalogTab: state.catalogTab === "genre" ? "genre" : "artist",
   npTab: state.npTab === "queue" ? "queue" : "now",
+  nextCardTiming: normalizeNextCardTiming(state.nextCardTiming),
   route: { ...state.route }
 });
 
@@ -467,6 +468,10 @@ const applyCloudRestore = () => {
   }
   if (["artist", "genre"].includes(settings.catalogTab)) state.catalogTab = settings.catalogTab;
   if (["now", "queue"].includes(settings.npTab)) state.npTab = settings.npTab;
+  if (typeof settings.nextCardTiming === "string") {
+    state.nextCardTiming = normalizeNextCardTiming(settings.nextCardTiming);
+    writeJSON(STORAGE.nextCard, state.nextCardTiming);
+  }
 
   const playback =
     restore.playback && typeof restore.playback === "object" && !Array.isArray(restore.playback)

@@ -39,13 +39,23 @@ const els = {
   npSeek: $("#npSeek"),
   npCurrent: $("#npCurTime"),
   npDuration: $("#npDurTime"),
+  npNextCard: $("#npNextCard"),
+  npNextArt: $("#npNextArt"),
+  npNextTitle: $("#npNextTitle"),
+  npNextArtist: $("#npNextArtist"),
+  npNextCount: $("#npNextCount"),
   quickPlayer: $("#quickPlayer"),
   quickCover: $("#quickCover"),
   quickTitle: $("#quickTitle"),
   quickArtist: $("#quickArtist"),
   quickSeek: $("#quickSeek"),
   quickCurrent: $("#quickCurTime"),
-  quickDuration: $("#quickDurTime")
+  quickDuration: $("#quickDurTime"),
+  quickNextCard: $("#quickNextCard"),
+  quickNextArt: $("#quickNextArt"),
+  quickNextTitle: $("#quickNextTitle"),
+  quickNextArtist: $("#quickNextArtist"),
+  quickNextCount: $("#quickNextCount")
 };
 
 const currentTrack = () => trackById(state.currentTrackId);
@@ -258,6 +268,7 @@ const updateProgressUI = () => {
   if (els.npDuration) els.npDuration.textContent = formatTime(state.duration);
   if (els.quickCurrent) els.quickCurrent.textContent = formatTime(state.currentTime);
   if (els.quickDuration) els.quickDuration.textContent = formatTime(state.duration);
+  updateNextCard();
 };
 
 // Mientras el archivo se está descargando la app lo avisa en vez de quedar
@@ -633,6 +644,7 @@ const renderQueue = () => {
   if (!upcoming.length) {
     els.npQueue.innerHTML = html + queueEmptyHTML(track);
     updateQueueSummary(0);
+    updateNextCard();
     return;
   }
 
@@ -644,6 +656,7 @@ const renderQueue = () => {
 
   updateQueueSummary(upcoming.length);
   if (upcoming.length > queueRendered) observeQueueMore();
+  updateNextCard();
 };
 
 const applyQueueOrder = (upcomingIds, consumedCount) => {
@@ -890,6 +903,108 @@ const updateQuickPlayer = (track) => {
   if (els.quickArtist) els.quickArtist.textContent = track.artist || "Artista desconocido";
 };
 
+/* ------------------------------------------------------------
+   Aviso «A continuación»
+   ------------------------------------------------------------ */
+
+let nextCardTrackKey = -1;
+
+const nextUpTrack = () => queueUpcomingEntries()[0]?.track || null;
+
+const nextCardLeadFor = (duration) => {
+  const timing = normalizeNextCardTiming(state.nextCardTiming);
+  if (timing === "off") return -1;
+  if (timing === "always") return Number.POSITIVE_INFINITY;
+  if (timing.startsWith("p")) {
+    return Math.max(0, Number(duration) || 0) * (Number(timing.slice(1)) / 100);
+  }
+  return Number(timing) || Number(DEFAULT_NEXT_CARD_TIMING);
+};
+
+const fillNextCard = (track) => {
+  const key = Number(track.id);
+  if (key === nextCardTrackKey) return;
+  nextCardTrackKey = key;
+
+  const art = coverHTML({ id: track.id, title: track.title, coverUrl: track.coverUrl });
+  [els.npNextArt, els.quickNextArt].forEach((node) => {
+    if (node) node.innerHTML = art;
+  });
+  [els.npNextTitle, els.quickNextTitle].forEach((node) => {
+    if (node) node.textContent = track.title;
+  });
+  [els.npNextArtist, els.quickNextArtist].forEach((node) => {
+    if (node) node.textContent = track.artist || "Artista desconocido";
+  });
+};
+
+const setCardHidden = (node, hidden) => {
+  if (node && node.hidden !== hidden) node.hidden = hidden;
+};
+
+const updateNextCard = () => {
+  const track = currentTrack();
+  const next = track ? nextUpTrack() : null;
+  const timing = normalizeNextCardTiming(state.nextCardTiming);
+  const duration = Math.max(0, Number(state.duration) || 0);
+  const currentTime = clamp(Number(state.currentTime) || 0, 0, duration);
+
+  // Con «repetir una» la canción vuelve a empezar: no hay nada «a continuación».
+  let show = Boolean(track && next && timing !== "off" && state.repeat !== "one");
+  if (show && timing !== "always") {
+    if (duration <= 0) {
+      show = false;
+    } else {
+      const remaining = Math.max(0, duration - currentTime);
+      show = remaining <= nextCardLeadFor(duration);
+    }
+  }
+
+  setCardHidden(els.npNextCard, !show);
+  setCardHidden(els.quickNextCard, !show);
+  if (!show) return;
+
+  fillNextCard(next);
+
+  const remaining = Math.max(0, duration - currentTime);
+  const countdown = duration > 0 ? `en ${formatTime(Math.ceil(remaining))}` : "";
+  [els.npNextCount, els.quickNextCount].forEach((node) => {
+    if (node && node.textContent !== countdown) node.textContent = countdown;
+  });
+};
+
+// Mueve una canción al primer lugar de la cola sin tocar la que está sonando.
+const setNextTrack = (id) => {
+  const trackId = Number(id);
+  const track = trackById(trackId);
+  if (!track) return false;
+  if (Number(state.currentTrackId) === trackId) {
+    toast("Esa canción ya está sonando.");
+    return false;
+  }
+  if (!state.queue.length) {
+    startQueue([trackId]);
+    return true;
+  }
+
+  const headEnd = Math.max(0, state.queueIndex + 1);
+  const head = state.queue.slice(0, headEnd);
+  const rest = state.queue.slice(headEnd).filter((item) => Number(item) !== trackId);
+  state.queue = [...head, trackId, ...rest];
+
+  if (state.shuffle) {
+    state.shuffle = false;
+    state.baseQueue = null;
+    updateShuffleUI();
+  }
+
+  prefetchNext();
+  renderQueue();
+  syncPlaybackState();
+  updateNextCard();
+  return true;
+};
+
 const updateNowPlaying = () => {
   const track = currentTrack();
   updateQuickPlayer(track);
@@ -922,6 +1037,7 @@ const updateNowPlaying = () => {
     queueRendered = 0;
     queueRenderIndex = -1;
     queueRenderLength = 0;
+    nextCardTrackKey = -1;
     disconnectQueueObserver();
     if (els.npQueue) {
       els.npQueue.innerHTML = `<li class="queue-empty">La cola está vacía. Elegí una canción para empezar.</li>`;

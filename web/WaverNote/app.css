@@ -1658,6 +1658,132 @@ body.modal-open {
 }
 
 /* ------------------------------------------------------------
+   Ajustes de reproducción
+   ------------------------------------------------------------ */
+
+.settings-block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-block__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.settings-block__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(99, 230, 200, 0.2);
+  border-radius: 12px;
+  background: rgba(99, 230, 200, 0.1);
+  color: var(--mint);
+}
+
+.settings-block__icon .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-block__head strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-block__head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.settings-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-soft);
+  text-align: left;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+}
+
+.settings-option:hover {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+}
+
+.settings-option.is-active {
+  border-color: rgba(99, 230, 200, 0.45);
+  background: rgba(99, 230, 200, 0.1);
+  color: var(--text);
+}
+
+.settings-option__copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-option__copy strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-option__copy small {
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.settings-option__check {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--mint);
+}
+
+.settings-option__check .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.settings-hint {
+  margin: 0;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+@media (max-width: 767px) {
+  .settings-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ------------------------------------------------------------
    Menús de acciones
    ------------------------------------------------------------ */
 

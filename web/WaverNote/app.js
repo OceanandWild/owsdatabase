@@ -1642,6 +1642,9 @@ const QUEUE_PICK_FILTERS = [
 
 let queueAddQuery = "";
 let queueAddFilter = "recent";
+let queuePickIntent = "add";
+
+const queuePickIsNextMode = () => queuePickIntent === "next";
 
 const queuePickOption = (value, label) => {
   const active = value === queueAddFilter;
@@ -1695,10 +1698,34 @@ const queuePickPool = () => {
   });
 };
 
-const queuePickStateHTML = (queued) => `${queued ? icon("check") : icon("plus")}<span>${queued ? "En la cola" : "Agregar"}</span>`;
+const queuePickStateHTML = (queued, isNext = false) => {
+  if (queuePickIsNextMode()) {
+    return `${isNext ? icon("check") : icon("next")}<span>${isNext ? "Próxima" : "Elegir"}</span>`;
+  }
+  return `${queued ? icon("check") : icon("plus")}<span>${queued ? "En la cola" : "Agregar"}</span>`;
+};
 
 const queuePickRow = (track) => {
   const queued = isQueuedTrack(track.id);
+  const isNext = Number(state.queue[state.queueIndex + 1]) === Number(track.id);
+  const isCurrent = Number(state.currentTrackId) === Number(track.id);
+
+  if (queuePickIsNextMode()) {
+    return `<li class="queue-pick${isNext ? " is-queued" : ""}" data-queue-pick="${track.id}">
+      <button class="queue-pick__row" type="button" data-action="next-pick-set" data-id="${track.id}" ${isCurrent ? "disabled" : ""} aria-label="${isCurrent ? `«${escapeHTML(track.title)}» ya está sonando` : `Elegir «${escapeHTML(track.title)}» como próxima canción`}">
+        <span class="queue-pick__art">${coverHTML(track)}</span>
+        <span class="queue-pick__info">
+          <strong>${escapeHTML(track.title)}</strong>
+          <small>${escapeHTML(track.artist || "Artista desconocido")} · ${formatTime(track.duration)}</small>
+        </span>
+        <span class="queue-pick__state">${isCurrent ? `${icon("wave")}<span>Sonando</span>` : queuePickStateHTML(false, isNext)}</span>
+      </button>
+      <button class="queue-pick__play" type="button" data-action="queue-pick-play" data-id="${track.id}" aria-label="Reproducir «${escapeHTML(track.title)}» ahora" title="Reproducir ahora">
+        ${icon("play", "icon--fill")}
+      </button>
+    </li>`;
+  }
+
   return `<li class="queue-pick${queued ? " is-queued" : ""}" data-queue-pick="${track.id}">
     <button class="queue-pick__row" type="button" data-action="queue-pick-add" data-id="${track.id}" ${queued ? "disabled" : ""} aria-label="${queued ? `«${escapeHTML(track.title)}» ya está en la cola` : `Agregar «${escapeHTML(track.title)}» a la cola`}">
       <span class="queue-pick__art">${coverHTML(track)}</span>
@@ -1717,6 +1744,12 @@ const queuePickRow = (track) => {
 const queuePickerSummary = () => {
   const summary = $("#queuePickerSummary");
   if (!summary) return;
+  if (queuePickIsNextMode()) {
+    summary.textContent = nextUpTrack()
+      ? `Ahora sigue «${nextUpTrack().title}»`
+      : "Elegí la canción que suene después";
+    return;
+  }
   const pending = queueUpcomingCount();
   summary.textContent = !state.queue.length
     ? "La cola está vacía"
@@ -1782,10 +1815,13 @@ const addQueuePick = (trackId) => {
   return result;
 };
 
-const openQueueAdd = () => {
+const openQueueAdd = (intent = "add") => {
+  queuePickIntent = intent === "next" ? "next" : "add";
+  const pickingNext = queuePickIsNextMode();
+
   if (!state.tracks.length) {
     openModal({
-      title: "Agregar a la cola",
+      title: pickingNext ? "Elegir la próxima" : "Agregar a la cola",
       eyebrow: "Tu música",
       body: `
         <p class="modal__text">Todavía no hay canciones en tu biblioteca. Subí tu música y después armá la cola desde acá.</p>
@@ -1801,14 +1837,14 @@ const openQueueAdd = () => {
   queueAddFilter = "recent";
 
   openModal({
-    title: "Agregar a la cola",
-    eyebrow: "Cola de reproducción",
+    title: pickingNext ? "Elegir la próxima" : "Agregar a la cola",
+    eyebrow: pickingNext ? "A continuación" : "Cola de reproducción",
     focus: !isMobilePlayer(),
     body: `
       <div class="queue-picker">
         <label class="queue-picker__search">
           ${icon("search")}
-          <input id="queuePickerSearch" type="search" placeholder="Buscar canción, artista o álbum…" autocomplete="off" spellcheck="false" aria-label="Buscar canciones para agregar a la cola" />
+          <input id="queuePickerSearch" type="search" placeholder="Buscar canción, artista o álbum…" autocomplete="off" spellcheck="false" aria-label="${pickingNext ? "Buscar la próxima canción" : "Buscar canciones para agregar a la cola"}" />
           <button class="queue-picker__clear" type="button" data-action="queue-pick-clear" aria-label="Limpiar búsqueda">${icon("x")}</button>
         </label>
         <div class="queue-picker__filters" role="tablist" aria-label="Filtrar canciones">
@@ -1820,7 +1856,11 @@ const openQueueAdd = () => {
           <span class="queue-picker__summary" id="queuePickerSummary" aria-live="polite"></span>
           <div class="queue-picker__foot-actions">
             <button class="btn btn--ghost btn--small" data-action="close-modal">Listo</button>
-            <button class="btn btn--soft btn--small" data-action="queue-pick-add-all">${icon("queue-add")} Agregar todas</button>
+            ${
+              pickingNext
+                ? ""
+                : `<button class="btn btn--soft btn--small" data-action="queue-pick-add-all">${icon("queue-add")} Agregar todas</button>`
+            }
           </div>
         </div>
       </div>`
@@ -1834,6 +1874,16 @@ const openQueueAdd = () => {
   input?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
+    if (pickingNext) {
+      const first = queuePickPool().find((track) => Number(track.id) !== Number(state.currentTrackId));
+      if (first && setNextTrack(first.id)) {
+        closeModal(true);
+        haptic([8, 20, 8]);
+        toast(`«${first.title}» suena a continuación`);
+        highlightNextInQueue({ silent: true });
+      }
+      return;
+    }
     const first = queuePickPool().find((track) => !isQueuedTrack(track.id));
     if (first) addQueuePick(first.id);
   });
@@ -2286,6 +2336,82 @@ const openAccount = () => {
 };
 
 /* ------------------------------------------------------------
+   Ajustes de reproducción
+   ------------------------------------------------------------ */
+
+const nextCardOptionHTML = (option, activeTiming) => {
+  const active = option.value === activeTiming;
+  return `<button class="settings-option${active ? " is-active" : ""}" type="button" role="radio" aria-checked="${active}" data-action="next-card-timing" data-value="${option.value}">
+    <span class="settings-option__copy">
+      <strong>${escapeHTML(option.label)}</strong>
+      ${option.hint ? `<small>${escapeHTML(option.hint)}</small>` : ""}
+    </span>
+    <span class="settings-option__check" aria-hidden="true">${active ? icon("check") : ""}</span>
+  </button>`;
+};
+
+const openPlaybackSettings = () => {
+  const activeTiming = normalizeNextCardTiming(state.nextCardTiming);
+  const next = nextUpTrack();
+
+  openModal({
+    title: "Ajustes de reproducción",
+    eyebrow: "WaverNote",
+    body: `
+      <div class="settings-block">
+        <div class="settings-block__head">
+          <span class="settings-block__icon">${icon("sliders")}</span>
+          <div>
+            <strong>Aviso «A continuación»</strong>
+            <p>La tarjeta aparece arriba del progreso con la tapa y el título de la próxima canción. Tocarla te lleva a la cola para verla o cambiarla.</p>
+          </div>
+        </div>
+        <div class="settings-options" role="radiogroup" aria-label="Cuándo mostrar el aviso de próxima canción">
+          ${NEXT_CARD_OPTIONS.map((option) => nextCardOptionHTML(option, activeTiming)).join("")}
+        </div>
+        <p class="settings-hint">${
+          next
+            ? `Ahora sigue «${escapeHTML(next.title)}».`
+            : "No hay otra canción en la cola: agregá una para ver el aviso."
+        } La preferencia se guarda en tu cuenta Surface y se aplica al instante.</p>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" data-action="close-modal">Cerrar</button>
+        <button class="btn btn--soft" data-action="next-card-open">${icon("list")} Ver en la cola</button>
+      </div>`
+  });
+};
+
+const highlightNextInQueue = ({ silent = false } = {}) => {
+  if (!currentTrack()) return false;
+  if (!queueUpcomingCount()) {
+    toast("No hay más canciones en la cola.", "error");
+    return false;
+  }
+
+  openPanel("queue");
+
+  const reveal = () => {
+    const item = $("#npQueue")?.querySelector("[data-queue-id]");
+    if (!item) return;
+    item.classList.remove("is-next-highlight");
+    void item.offsetWidth;
+    item.classList.add("is-next-highlight");
+    item.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => item.classList.remove("is-next-highlight"), 2600);
+  };
+
+  if (isOverlay()) window.setTimeout(reveal, 220);
+  else reveal();
+
+  if (!silent) {
+    haptic(5);
+    toast("Esa es la próxima canción en la cola");
+  }
+  return true;
+};
+
+/* ------------------------------------------------------------
    Acciones de reproducción
    ------------------------------------------------------------ */
 
@@ -2401,6 +2527,14 @@ const openMoreMenu = () => {
           <span class="more-menu__copy">
             <strong>Cola</strong>
             <small>Qué suena después y en qué orden</small>
+          </span>
+          ${icon("chevron-right")}
+        </button>
+        <button class="more-menu__item" type="button" data-action="open-playback-settings">
+          <span class="more-menu__icon">${icon("sliders")}</span>
+          <span class="more-menu__copy">
+            <strong>Ajustes de reproducción</strong>
+            <small>Aviso «A continuación»: ${escapeHTML(nextCardTimingLabel(state.nextCardTiming))}</small>
           </span>
           ${icon("chevron-right")}
         </button>
@@ -2817,6 +2951,32 @@ const handleAction = async (actionEl) => {
     case "np-tab":
       setNpTab(actionEl.dataset.tab || "now");
       break;
+    case "next-card-open":
+      closeModal(true);
+      highlightNextInQueue();
+      break;
+    case "next-card-change":
+      openQueueAdd("next");
+      break;
+    case "open-playback-settings":
+      openPlaybackSettings();
+      break;
+    case "next-card-timing": {
+      const value = normalizeNextCardTiming(actionEl.dataset.value);
+      state.nextCardTiming = value;
+      saveNextCardTiming();
+      updateNextCard();
+      $$(".settings-option", modalBody).forEach((option) => {
+        const active = option.dataset.value === value;
+        option.classList.toggle("is-active", active);
+        option.setAttribute("aria-checked", String(active));
+        const check = option.querySelector(".settings-option__check");
+        if (check) check.innerHTML = active ? icon("check") : "";
+      });
+      haptic(6);
+      toast(`Aviso «A continuación»: ${nextCardTimingLabel(value)}`);
+      break;
+    }
     case "open-now":
       closeModal(true);
       openPanel("now");
@@ -2850,6 +3010,16 @@ const handleAction = async (actionEl) => {
       closeModal(true);
       playTrackNow(actionEl.dataset.id);
       break;
+    case "next-pick-set": {
+      const track = trackById(actionEl.dataset.id);
+      if (setNextTrack(actionEl.dataset.id)) {
+        closeModal(true);
+        haptic([8, 20, 8]);
+        toast(track ? `«${track.title}» suena a continuación` : "Próxima canción actualizada");
+        highlightNextInQueue({ silent: true });
+      }
+      break;
+    }
     case "queue-pick-add-all": {
       const ids = queuePickPool().map((track) => track.id);
       const added = queueCollection(ids, "Tu selección", { silent: true });

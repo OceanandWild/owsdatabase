@@ -5,6 +5,10 @@ Versión: 1.2.5
 Plataformas: Windows y Android
 Fecha: 2026-11-14
 
+Novedades:
+- Nueva tarjeta «A continuación» sobre la barra de progreso: muestra la tapa y el título de la próxima canción 20 segundos antes de que termine la actual. Al tocarla, la canción queda resaltada en la cola para verla o cambiarla.
+- Ajustes de reproducción: elegí con cuánta anticipación aparece el aviso, desde 5 segundos hasta 2 minutos, en el último 10% o 25% de la canción, durante toda la pista o desactivado. La preferencia se guarda en tu cuenta Surface.
+
 Arreglos:
 - Las canciones descargadas ya no aparecen como "no descargadas" al abrir la app sin internet. Cada descarga guarda ahora su propia ficha junto con el audio: si la app se cerró durante la descarga o una escritura no llegó a completarse, al volver a abrir la canción se reconoce y se repara sola.
 - Las descargas se reproducen correctamente en Android en formatos como M4A, AAC o FLAC, incluso cuando el servidor entrega el archivo sin tipo o como "octet-stream". El audio se guarda con el tipo correcto sin recodificarlo ni gastar más espacio.
@@ -16,6 +20,10 @@ Arreglos:
 Version: 1.2.5
 Platforms: Windows and Android
 Date: 2026-11-14
+
+What's new:
+- New "Up next" card above the progress bar: it shows the next song's artwork and title 20 seconds before the current track ends. Tap it to highlight the song in the queue so you can see or change it.
+- Playback settings: choose how early the notice appears, from 5 seconds up to 2 minutes, during the last 10% or 25% of the song, for the whole track, or turn it off. The preference is saved to your Surface account.
 
 Fixes:
 - Downloaded songs no longer show up as "not downloaded" when the app opens without internet. Each download now keeps its own record alongside the audio: if the app closed during a download or a write did not finish, the song is recognized and repaired on the next launch.

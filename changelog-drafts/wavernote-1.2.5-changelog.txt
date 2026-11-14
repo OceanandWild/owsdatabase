@@ -1,0 +1,25 @@
+WaverNote 1.2.5 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.2.5
+Plataformas: Windows y Android
+Fecha: 2026-11-14
+
+Arreglos:
+- Las canciones descargadas ya no aparecen como "no descargadas" al abrir la app sin internet. Cada descarga guarda ahora su propia ficha junto con el audio: si la app se cerró durante la descarga o una escritura no llegó a completarse, al volver a abrir la canción se reconoce y se repara sola.
+- Las descargas se reproducen correctamente en Android en formatos como M4A, AAC o FLAC, incluso cuando el servidor entrega el archivo sin tipo o como "octet-stream". El audio se guarda con el tipo correcto sin recodificarlo ni gastar más espacio.
+- Al entrar sin conexión, WaverNote reconoce tu cuenta también desde la sesión guardada cuando el perfil no incluye el id. Así las canciones descargadas y la biblioteca guardada siguen asociadas al usuario correcto.
+- La copia de la app para usar sin conexión se guarda archivo por archivo: si uno no está disponible en ese momento, el resto igual queda en caché y la app puede abrir sin red.
+- Quitar una descarga ahora borra tanto el audio como su ficha, sin dejar registros que vuelvan a aparecer en la lista.
+
+=== ENGLISH ===
+Version: 1.2.5
+Platforms: Windows and Android
+Date: 2026-11-14
+
+Fixes:
+- Downloaded songs no longer show up as "not downloaded" when the app opens without internet. Each download now keeps its own record alongside the audio: if the app closed during a download or a write did not finish, the song is recognized and repaired on the next launch.
+- Downloads play correctly on Android in formats such as M4A, AAC or FLAC, even when the server delivers the file with no type or as "octet-stream". Audio is stored with the right type without re-encoding it or using extra space.
+- When signing in offline, WaverNote also recognizes your account from the saved session if the profile has no id, so downloaded songs and the saved library stay tied to the right user.
+- The offline copy of the app is now cached file by file: if one file is unavailable at that moment, the rest is still stored and the app can open without a network.
+- Removing a download now deletes both the audio and its record, leaving no entries that could reappear in the list.

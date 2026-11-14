@@ -88,10 +88,205 @@ const offlineDelete = async (store, key) => {
   });
 };
 
+// Las descargas se guardan de a una ficha. Antes toda la lista vivía en un
+// único registro: si esa escritura fallaba o la app se cerraba a mitad, las
+// canciones quedaban con su audio pero sin ficha, y al abrir sin conexión
+// aparecían como "no descargadas". Estos helpers permiten leer y reparar las
+// fichas en una sola transacción.
+const offlineGetMany = async (store, keys) => {
+  const unique = Array.from(new Set((keys || []).map((key) => String(key)).filter(Boolean)));
+  const found = new Map();
+  if (!unique.length) return found;
+
+  const db = await offlineOpenDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readonly");
+    const objectStore = tx.objectStore(store);
+    let pending = unique.length;
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve(found);
+    };
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+
+    unique.forEach((key) => {
+      const request = objectStore.get(key);
+      request.onsuccess = () => {
+        if (request.result != null) found.set(key, request.result);
+        pending -= 1;
+        if (pending <= 0) finish();
+      };
+      request.onerror = () => fail(request.error);
+    });
+    tx.onerror = () => fail(tx.error);
+  });
+};
+
+const offlineGetAllKeys = async (store) => {
+  const db = await offlineOpenDB();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(store, "readonly").objectStore(store).getAllKeys();
+    request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const offlinePutMany = async (store, entries) => {
+  const list = (entries || []).filter((entry) => Array.isArray(entry) && entry[0] != null);
+  if (!list.length) return true;
+
+  const db = await offlineOpenDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const objectStore = tx.objectStore(store);
+    list.forEach(([key, value]) => objectStore.put(value, key));
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error("No se pudo guardar."));
+  });
+};
+
+const offlineDeleteMany = async (store, keys) => {
+  const list = Array.from(new Set((keys || []).map((key) => String(key)).filter(Boolean)));
+  if (!list.length) return true;
+
+  const db = await offlineOpenDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const objectStore = tx.objectStore(store);
+    list.forEach((key) => objectStore.delete(key));
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error("No se pudo borrar."));
+  });
+};
+
 const offlineLibraryKey = (userId) => `library:${Number(userId) || 0}`;
+// Clave vieja: la lista entera de descargas vivía en un solo registro. Se
+// mantiene solo para migrar lo que ya estaba guardado en 1.2.4.
 const offlineDownloadsKey = (userId) => `downloads:${Number(userId) || 0}`;
+const offlineDownloadEntryKey = (userId, trackId) =>
+  `download:${Number(userId) || 0}:${Number(trackId) || 0}`;
 const offlineAudioKey = (userId, trackId) =>
   `${Number(userId) || 0}:${Number(trackId) || 0}`;
+
+/* ------------------------------------------------------------
+   Audio local: tipo de archivo
+   ------------------------------------------------------------ */
+
+const OFFLINE_AUDIO_MIME = {
+  mp3: "audio/mpeg",
+  mp2: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
+  m4a: "audio/mp4",
+  mp4: "audio/mp4",
+  aac: "audio/aac",
+  flac: "audio/flac",
+  webm: "audio/webm",
+  aiff: "audio/aiff",
+  aif: "audio/aiff",
+  wma: "audio/x-ms-wma"
+};
+
+const offlineExtensionOf = (value) => {
+  try {
+    const clean = String(value || "").split(/[?#]/)[0];
+    const name = clean.split("/").pop() || "";
+    const dot = name.lastIndexOf(".");
+    return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
+  } catch (err) {
+    return "";
+  }
+};
+
+const offlineMimeIsGeneric = (type) => {
+  const value = String(type || "").trim().toLowerCase();
+  return (
+    !value ||
+    value === "application/octet-stream" ||
+    value === "binary/octet-stream" ||
+    value === "application/unknown" ||
+    value === "text/plain"
+  );
+};
+
+const offlineMimeFromName = (value) => OFFLINE_AUDIO_MIME[offlineExtensionOf(value)] || "";
+
+const offlineAudioTypeHint = (track, record) => {
+  const stored = String(record?.mime || "").trim();
+  if (stored && !offlineMimeIsGeneric(stored)) return stored;
+
+  const fromUrl = offlineMimeFromName(track?.audioUrl || record?.track?.audioUrl || "");
+  if (fromUrl) return fromUrl;
+
+  const title = String(track?.title || record?.track?.title || "");
+  return offlineMimeFromName(title) || "";
+};
+
+// Último respaldo: si la URL no dice el formato y el servidor no mandó un tipo
+// útil, se mira el encabezado del archivo. Evita que Android rechace una
+// descarga válida solo porque el blob quedó como "application/octet-stream".
+const offlineSniffAudioMime = async (blob) => {
+  if (!blob || typeof blob.slice !== "function") return "";
+  try {
+    const bytes = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+    if (bytes.length < 4) return "";
+    const head = String.fromCharCode(...bytes.subarray(0, 4));
+    if (head === "OggS") return "audio/ogg";
+    if (head === "fLaC") return "audio/flac";
+    if (head === "RIFF") return "audio/wav";
+    if (head.startsWith("ID3")) return "audio/mpeg";
+    if (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) {
+      // ADTS (AAC) no usa los bits de capa; los frames MP3 sí.
+      return (bytes[1] & 0x06) === 0 ? "audio/aac" : "audio/mpeg";
+    }
+    if (bytes.length >= 8 && String.fromCharCode(...bytes.subarray(4, 8)) === "ftyp") {
+      const brand = String.fromCharCode(...bytes.subarray(8, 12));
+      if (/^(M4A|M4B|mp4|iso|dash)/i.test(brand)) return "audio/mp4";
+    }
+  } catch (err) {
+    /* sin acceso a los bytes: se usa el tipo original */
+  }
+  return "";
+};
+
+// Android WebView decide qué decodificador usar según el MIME del blob. Si
+// Cloudinary responde "application/octet-stream" o sin tipo, algunos formatos
+// (M4A/AAC/FLAC) no abren aunque el archivo esté completo. El blob se vuelve a
+// envolver con el tipo correcto sin copiar ni recodificar el audio.
+const offlineNormalizeAudioBlob = (blob, typeHint) => {
+  if (!blob) return null;
+  let source = blob;
+
+  if (!(source instanceof Blob)) {
+    try {
+      source = new Blob([source], { type: String(typeHint || "") });
+    } catch (err) {
+      return null;
+    }
+  }
+
+  const current = String(source.type || "").trim().toLowerCase();
+  const hint = String(typeHint || "").trim().toLowerCase();
+  const next = offlineMimeIsGeneric(current) && hint && !offlineMimeIsGeneric(hint) ? hint : current;
+  if (!next || next === current) return source;
+
+  try {
+    return new Blob([source], { type: next });
+  } catch (err) {
+    return source;
+  }
+};
 
 /* ------------------------------------------------------------
    Biblioteca guardada
@@ -150,6 +345,119 @@ const offlineSummary = () => {
   return { count: waOffline.downloads.size, bytes };
 };
 
+const offlineEntryFromRecord = (trackId, record) => {
+  const id = Number(trackId) || 0;
+  const track = record?.track && typeof record.track === "object" ? record.track : {};
+  return {
+    id,
+    size: Math.max(0, Number(record?.size) || Number(record?.blob?.size) || 0),
+    savedAt: Number(record?.savedAt) || Date.now(),
+    title: String(track.title || ""),
+    artist: String(track.artist || ""),
+    album: String(track.album || ""),
+    genre: String(track.genre || ""),
+    duration: Number(track.duration) || 0,
+    cover: ""
+  };
+};
+
+const offlineReadDownloadEntries = async (userId) => {
+  const prefix = `download:${Number(userId) || 0}:`;
+  const keys = (await offlineGetAllKeys(WA_OFFLINE_META_STORE))
+    .map((key) => String(key))
+    .filter((key) => key.startsWith(prefix));
+  if (!keys.length) return [];
+
+  const values = await offlineGetMany(WA_OFFLINE_META_STORE, keys);
+  return keys
+    .filter((key) => values.has(key))
+    .map((key) => {
+      const entry = values.get(key);
+      const trackId = Number(entry?.id) || Number(key.slice(prefix.length)) || 0;
+      return trackId ? { ...entry, id: trackId } : null;
+    })
+    .filter(Boolean);
+};
+
+// 1.2.4 guardaba todas las fichas en un solo registro. Se pasan a fichas
+// individuales para que una escritura grande no pueda perder varias descargas.
+const offlineMigrateLegacyDownloads = async (userId) => {
+  const legacyKey = offlineDownloadsKey(userId);
+  const saved = await offlineGet(WA_OFFLINE_META_STORE, legacyKey);
+  if (!Array.isArray(saved)) return;
+
+  const entries = [];
+  saved.forEach((entry) => {
+    const trackId = Number(entry?.id);
+    if (!trackId) return;
+    entries.push([offlineDownloadEntryKey(userId, trackId), { ...entry, id: trackId }]);
+  });
+
+  if (entries.length) await offlinePutMany(WA_OFFLINE_META_STORE, entries);
+  await offlineDelete(WA_OFFLINE_META_STORE, legacyKey);
+};
+
+const offlineAudioTrackIds = async (userId) => {
+  const prefix = `${Number(userId) || 0}:`;
+  return (await offlineGetAllKeys(WA_OFFLINE_AUDIO_STORE))
+    .map((key) => String(key))
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => Number(key.slice(prefix.length)) || 0)
+    .filter(Boolean);
+};
+
+// El audio es la fuente de verdad. Si una ficha no llegó a guardarse, se
+// reconstruye desde el registro del audio; si la ficha existe pero el audio ya
+// no está, se quita para no mostrar como descargada una canción que no va a
+// sonar sin conexión.
+const offlineReconcileDownloads = async (userId) => {
+  const audioIds = await offlineAudioTrackIds(userId);
+  const audioSet = new Set(audioIds);
+
+  const missing = audioIds.filter((trackId) => !waOffline.downloads.has(trackId));
+  if (missing.length) {
+    const records = await offlineGetMany(
+      WA_OFFLINE_AUDIO_STORE,
+      missing.map((trackId) => offlineAudioKey(userId, trackId))
+    );
+    const recovered = [];
+    missing.forEach((trackId) => {
+      const record = records.get(offlineAudioKey(userId, trackId));
+      if (!record?.blob) return;
+      const entry = offlineEntryFromRecord(trackId, record);
+      waOffline.downloads.set(trackId, entry);
+      if (entry.cover) waOffline.coverUrls.set(trackId, entry.cover);
+      recovered.push([offlineDownloadEntryKey(userId, trackId), entry]);
+    });
+    if (recovered.length) await offlinePutMany(WA_OFFLINE_META_STORE, recovered);
+  }
+
+  const stale = [];
+  waOffline.downloads.forEach((entry, trackId) => {
+    if (audioSet.has(trackId)) return;
+    waOffline.downloads.delete(trackId);
+    waOffline.coverUrls.delete(trackId);
+    stale.push(offlineDownloadEntryKey(userId, trackId));
+  });
+  if (stale.length) await offlineDeleteMany(WA_OFFLINE_META_STORE, stale);
+};
+
+const offlineSaveDownloadEntry = async (entry) => {
+  const trackId = Number(entry?.id);
+  if (!trackId || !waOffline.userId) return false;
+  try {
+    await offlinePut(
+      WA_OFFLINE_META_STORE,
+      offlineDownloadEntryKey(waOffline.userId, trackId),
+      { ...entry, id: trackId }
+    );
+    return true;
+  } catch (err) {
+    // El audio ya quedó guardado: al próximo arranque se reconstruye la ficha.
+    return false;
+  }
+};
+
 const offlineInit = async (userId) => {
   const id = Number(userId) || 0;
   if (waOffline.ready && waOffline.userId === id) return;
@@ -163,16 +471,27 @@ const offlineInit = async (userId) => {
   }
 
   try {
-    const saved = await offlineGet(WA_OFFLINE_META_STORE, offlineDownloadsKey(id));
-    const list = Array.isArray(saved) ? saved : [];
-    list.forEach((entry) => {
+    await offlineMigrateLegacyDownloads(id);
+  } catch (err) {
+    /* si la migración falla, se intenta leer lo que ya esté guardado */
+  }
+
+  try {
+    const entries = await offlineReadDownloadEntries(id);
+    entries.forEach((entry) => {
       const trackId = Number(entry?.id);
       if (!trackId) return;
       waOffline.downloads.set(trackId, entry);
       if (entry.cover) waOffline.coverUrls.set(trackId, entry.cover);
     });
   } catch (err) {
-    /* almacenamiento no disponible: seguimos solo online */
+    /* fichas ilegibles: la reconciliación puede recuperarlas del audio */
+  }
+
+  try {
+    await offlineReconcileDownloads(id);
+  } catch (err) {
+    /* el audio ya está guardado; se reintenta en el próximo arranque */
   }
 
   waOffline.ready = true;
@@ -208,8 +527,26 @@ const offlinePlaybackURL = async (track) => {
       WA_OFFLINE_AUDIO_STORE,
       offlineAudioKey(waOffline.userId, trackId)
     );
-    if (!record?.blob) return "";
-    const url = URL.createObjectURL(record.blob);
+    let hint = offlineAudioTypeHint(track, record);
+    if (!hint) hint = await offlineSniffAudioMime(record?.blob);
+    const blob = offlineNormalizeAudioBlob(record?.blob, hint);
+    if (!blob?.size) {
+      // La ficha quedó sin audio (por ejemplo, una descarga cortada). Se
+      // descarta para que la canción no figure como disponible sin conexión.
+      waOffline.downloads.delete(trackId);
+      waOffline.coverUrls.delete(trackId);
+      try {
+        await offlineDelete(
+          WA_OFFLINE_META_STORE,
+          offlineDownloadEntryKey(waOffline.userId, trackId)
+        );
+      } catch (err) {
+        /* se reintenta en el próximo arranque */
+      }
+      return "";
+    }
+
+    const url = URL.createObjectURL(blob);
     waOffline.audioUrls.set(trackId, url);
     return url;
   } catch (err) {
@@ -291,18 +628,6 @@ const offlineAskPersistence = async () => {
   }
 };
 
-const offlineSaveDownloads = async () => {
-  try {
-    await offlinePut(
-      WA_OFFLINE_META_STORE,
-      offlineDownloadsKey(waOffline.userId),
-      Array.from(waOffline.downloads.values())
-    );
-  } catch (err) {
-    /* la descarga ya está en audio; se recompone al volver a abrir */
-  }
-};
-
 const offlineDownloadTrack = async (track, onProgress) => {
   const trackId = Number(track?.id);
   const userId = waOffline.userId;
@@ -321,8 +646,12 @@ const offlineDownloadTrack = async (track, onProgress) => {
 
   await offlineAskPersistence();
 
-  const blob = await offlineFetchBlob(track.audioUrl, onProgress);
-  if (!blob.size) throw new Error("La canción llegó vacía. Probá de nuevo.");
+  const fetched = await offlineFetchBlob(track.audioUrl, onProgress);
+  if (!fetched.size) throw new Error("La canción llegó vacía. Probá de nuevo.");
+
+  const hint = offlineAudioTypeHint(track, null) || (await offlineSniffAudioMime(fetched));
+  const blob = offlineNormalizeAudioBlob(fetched, hint);
+  if (!blob?.size) throw new Error("La canción llegó vacía. Probá de nuevo.");
 
   const limit = await offlineStorageLimit();
   let usage = 0;
@@ -340,28 +669,38 @@ const offlineDownloadTrack = async (track, onProgress) => {
   }
 
   const cover = await offlineFetchCover(track.coverUrl);
-  const entry = {
+  const savedAt = Date.now();
+  const snapshot = {
     id: trackId,
-    size: blob.size,
-    savedAt: Date.now(),
     title: track.title || "",
     artist: track.artist || "",
     album: track.album || "",
     genre: track.genre || "",
     duration: Number(track.duration) || 0,
+    coverUrl: track.coverUrl || "",
+    audioUrl: track.audioUrl || ""
+  };
+  const entry = {
+    id: trackId,
+    size: blob.size,
+    savedAt,
+    ...snapshot,
     cover
   };
 
+  // El registro de audio guarda su propia ficha. Así, aunque falle la escritura
+  // de metadatos, al abrir sin conexión la descarga se puede reconstruir.
   await offlinePut(WA_OFFLINE_AUDIO_STORE, offlineAudioKey(userId, trackId), {
     blob,
     size: blob.size,
-    savedAt: entry.savedAt,
-    mime: blob.type || ""
+    savedAt,
+    mime: String(blob.type || ""),
+    track: snapshot
   });
 
   waOffline.downloads.set(trackId, entry);
   if (cover) waOffline.coverUrls.set(trackId, cover);
-  await offlineSaveDownloads();
+  await offlineSaveDownloadEntry(entry);
 
   return { already: false, size: blob.size };
 };
@@ -389,7 +728,15 @@ const offlineRemoveTrack = async (trackId) => {
     /* si ya no estaba, igual limpiamos la lista */
   }
 
-  await offlineSaveDownloads();
+  try {
+    await offlineDelete(
+      WA_OFFLINE_META_STORE,
+      offlineDownloadEntryKey(waOffline.userId, id)
+    );
+  } catch (err) {
+    /* la ficha vieja se descarta en la próxima reconciliación */
+  }
+
   return true;
 };
 

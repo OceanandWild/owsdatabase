@@ -127,6 +127,32 @@ const getToken = () => {
   }
 };
 
+// El token de Surface incluye el id de la cuenta. Se usa como respaldo cuando
+// la respuesta de sesión no trae `user.id`; sin ese dato las descargas y la
+// biblioteca guardada quedaban asociadas al usuario 0 y "desaparecían".
+const decodeTokenPayload = (token) => {
+  try {
+    const segment = String(token || "").split(".")[1];
+    if (!segment) return null;
+    const base64 = segment.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (err) {
+    return null;
+  }
+};
+
+const userIdFromToken = (token) => {
+  const payload = decodeTokenPayload(token);
+  const id = Number(payload?.id ?? payload?.userId ?? payload?.uid ?? payload?.sub);
+  return Number.isFinite(id) && id > 0 ? Math.trunc(id) : 0;
+};
+
+const resolveUserId = (user, token = getToken()) =>
+  Number(user?.id ?? user?.userId ?? user?.uid) || userIdFromToken(token);
+
 const getStoredUser = () => readJSON(USER_KEY, null);
 
 const saveSession = (token, user) => {
@@ -135,7 +161,10 @@ const saveSession = (token, user) => {
   } catch (err) {
     /* noop */
   }
-  const safeUser = { id: Number(user?.id) || 0, username: user?.username || "" };
+  const safeUser = {
+    id: resolveUserId(user, token || getToken()),
+    username: user?.username || ""
+  };
   writeJSON(USER_KEY, safeUser);
   return safeUser;
 };
@@ -552,7 +581,9 @@ const refreshLibrary = async () => {
     const data = await api("/wavernote/library");
     applyLibraryPayload(data);
     state.offline = false;
-    waOffline.saveLibrary(state.user?.id, data);
+    // Se espera la escritura: si la app se cierra enseguida, la copia sin
+    // conexión igual queda guardada antes de seguir.
+    await waOffline.saveLibrary(state.user?.id, data);
     if (typeof updateOfflineUI === "function") updateOfflineUI();
     return data;
   } catch (err) {

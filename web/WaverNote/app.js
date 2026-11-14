@@ -173,8 +173,8 @@ const setAuthBusy = (busy, label = "Conectando…") => {
 };
 
 const enterApp = async (user) => {
-  state.user = user || getStoredUser();
-  saveSession(getToken(), state.user);
+  // saveSession completa el id desde el token si la API no lo devuelve.
+  state.user = saveSession(getToken(), user || getStoredUser());
 
   // Descargas y copia de la biblioteca del usuario. Se cargan antes de
   // pedir datos para que el primer render ya sepa qué está disponible.
@@ -238,6 +238,12 @@ const bootAuth = async () => {
   }
 
   const stored = getStoredUser();
+  // El id también puede venir en el token aunque el usuario guardado sea viejo
+  // (sesiones creadas antes de 1.2.5), así no se pierden las descargas.
+  const storedUser = {
+    id: resolveUserId(stored, token),
+    username: stored?.username || ""
+  };
   setAuthBusy(true);
   try {
     const session = await validateSurfaceSession();
@@ -246,8 +252,8 @@ const bootAuth = async () => {
   } catch (err) {
     // Si falla la red pero hay una sesión guardada, se entra igual con la
     // copia local. Un 401 real sí cierra la sesión.
-    if (isOfflineError(err) && stored?.id) {
-      await enterApp(stored);
+    if (isOfflineError(err) && storedUser.id) {
+      await enterApp(storedUser);
       toast("Sin conexión: entraste con tu biblioteca guardada.");
     } else {
       clearSession();

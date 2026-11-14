@@ -5,7 +5,7 @@
    conexión, el usuario recibe la última versión.
    ============================================================ */
 
-const WA_SW_VERSION = "1.2.4";
+const WA_SW_VERSION = "1.2.5";
 const WA_SW_SHELL = `wavernote-shell-${WA_SW_VERSION}`;
 const WA_SW_IMAGES = "wavernote-images-v1";
 
@@ -28,6 +28,8 @@ const WA_SW_FILES = [
   "cloud.js",
   "updater.js",
   "metadata.js",
+  "watch-core.js",
+  "watched-folder.js",
   "recommend.js",
   "catalog.js",
   "trends.js",
@@ -41,7 +43,10 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(WA_SW_SHELL)
-      .then((cache) => cache.addAll(WA_SW_FILES))
+      // Se guarda cada archivo por separado: si uno falla (por ejemplo, una
+      // versión nueva que todavía no está desplegada), el resto del shell
+      // igual queda en caché y la app puede abrir sin conexión.
+      .then((cache) => Promise.allSettled(WA_SW_FILES.map((file) => cache.add(file))))
       .then(() => self.skipWaiting())
       .catch(() => self.skipWaiting())
   );

@@ -55227,17 +55227,34 @@ app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) =
     let pendingTrack = null;
     let matchedPendingIds = [];
     try {
-      const pendingRows = await pool.query(
-        'SELECT id, title, artist, album, cover_url FROM wavernote_pending_tracks WHERE user_id = $1',
-        [userId]
-      );
-      const matches = pendingRows.rows.filter((row) =>
-        wavernoteSameSong(row.title, row.artist, title, artist)
-      );
-      pendingTrack = matches[0] || null;
-      matchedPendingIds = matches
-        .map((row) => Number(row.id))
-        .filter((id) => Number.isInteger(id) && id > 0);
+      // El id explícito manda: completa exactamente la fila que el usuario
+      // eligió (o la que detectó la carpeta vigilada) aunque los créditos del
+      // archivo estén escritos distinto. Siempre se valida contra su cuenta.
+      const explicitPendingId = Number(body.pendingId);
+      if (Number.isInteger(explicitPendingId) && explicitPendingId > 0) {
+        const explicit = await pool.query(
+          'SELECT id, title, artist, album, cover_url FROM wavernote_pending_tracks WHERE id = $1 AND user_id = $2 LIMIT 1',
+          [explicitPendingId, userId]
+        );
+        pendingTrack = explicit.rows[0] || null;
+        if (pendingTrack) matchedPendingIds = [Number(pendingTrack.id)];
+      }
+
+      // Sin id explícito (o si la fila ya no existe) se mantiene la
+      // coincidencia por título y artista de siempre.
+      if (!pendingTrack) {
+        const pendingRows = await pool.query(
+          'SELECT id, title, artist, album, cover_url FROM wavernote_pending_tracks WHERE user_id = $1',
+          [userId]
+        );
+        const matches = pendingRows.rows.filter((row) =>
+          wavernoteSameSong(row.title, row.artist, title, artist)
+        );
+        pendingTrack = matches[0] || null;
+        matchedPendingIds = matches
+          .map((row) => Number(row.id))
+          .filter((id) => Number.isInteger(id) && id > 0);
+      }
     } catch (matchErr) {
       console.error('[WAVERNOTE] pending lookup:', matchErr);
     }

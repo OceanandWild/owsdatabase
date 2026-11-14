@@ -1,0 +1,45 @@
+WaverNote 1.2.4 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.2.4
+Plataformas: Windows y Android
+Fecha: 2026-11-14
+
+Novedades:
+- Carpeta vigilada: elegí la carpeta donde guardás tu música y WaverNote completa sola las canciones pendientes cuando aparece el archivo correspondiente. Funciona en Windows y Android, incluidas las subcarpetas.
+- La app revisa la carpeta al abrir, al volver a ella y cada pocos minutos mientras esté abierta. No hace falta dejar una pantalla abierta ni subir archivo por archivo.
+- Reconoce la organización real de una biblioteca: Artista/Canción/archivo, Artista/Álbum/01 - Canción, "Artista - Canción" y nombres con etiquetas. Tolera acentos, mayúsculas, "feat." y sufijos de versión como "- Slowed" o "Super Slowed".
+- Si elegís la carpeta de un artista o una carpeta con un solo archivo, la app sigue buscando en las subcarpetas y te avisa si conviene elegir una carpeta más amplia.
+- Solo sube archivos que coinciden con una canción pendiente. No descarga música de Spotify ni de otras plataformas, no elude protecciones y no modifica, mueve ni borra tus archivos.
+- Si dos canciones pendientes se parecen demasiado, no adivina: deja el archivo para que lo subas vos desde la fila de pendientes.
+- En Android el acceso se guarda con el permiso del selector del sistema. Si el sistema lo retira, la app te pide elegir la carpeta otra vez en lugar de fallar.
+- En Windows la carpeta se lee directamente del equipo. Si la movés o la desconectás, podés elegir la nueva ubicación desde la misma tarjeta.
+- La tarjeta de carpeta vigilada muestra el estado, el último escaneo y cuántas canciones se completaron. Se puede pausar, escanear a mano u olvidar sin borrar archivos ni canciones.
+- Formatos reconocidos: MP3, FLAC, M4A, OGG/OPUS, WAV, AAC y WEBM.
+
+Arreglos:
+- Al subir el audio de una canción pendiente desde su fila, la app recuerda exactamente qué fila estabas completando aunque el título o el artista del archivo estén escritos distinto.
+- Los archivos que ya se subieron no se vuelven a procesar si movés o renombrás la carpeta, y los que fallaron se reintentan más tarde sin quedar en un bucle.
+- Las carpetas ocultas, las del sistema y los archivos que no son audio se ignoran durante el escaneo.
+
+=== ENGLISH ===
+Version: 1.2.4
+Platforms: Windows and Android
+Date: 2026-11-14
+
+What's new:
+- Watched folder: choose the folder where you keep your music and WaverNote will complete pending songs on its own when the matching file shows up. It works on Windows and Android, including nested folders.
+- The app checks the folder when it opens, when you return to it, and every few minutes while it stays open. You don't need to leave a screen open or upload file by file.
+- It understands how real music libraries are organized: Artist/Song/file, Artist/Album/01 - Song, "Artist - Song", and files with tags. It tolerates accents, capitalization, "feat.", and version suffixes such as "- Slowed" or "Super Slowed".
+- If you pick an artist folder or a folder with a single file, the app keeps searching its subfolders and tells you when picking a wider folder would work better.
+- It only uploads files that match a pending song. It does not download music from Spotify or other platforms, does not bypass protections, and does not modify, move, or delete your files.
+- If two pending songs look too similar, the app does not guess: it leaves the file for you to upload from the pending row.
+- On Android, access is kept through the system picker permission. If the system revokes it, the app asks you to pick the folder again instead of failing.
+- On Windows, the folder is read directly from your computer. If you move it or disconnect the drive, you can choose the new location from the same card.
+- The watched folder card shows the current state, the last scan, and how many songs were completed. You can pause it, scan manually, or forget it without deleting files or songs.
+- Supported formats: MP3, FLAC, M4A, OGG/OPUS, WAV, AAC, and WEBM.
+
+Fixes:
+- When uploading a pending song's audio from its row, the app now remembers exactly which row you were completing even if the file's title or artist is written differently.
+- Files that were already uploaded are not processed again if you move or rename the folder, and failed files are retried later without getting stuck in a loop.
+- Hidden and system folders, as well as non-audio files, are skipped during the scan.

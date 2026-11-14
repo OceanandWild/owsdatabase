@@ -54067,6 +54067,470 @@ function wavernotePendingCover(value) {
   return /^https?:\/\//i.test(raw) ? raw : null;
 }
 
+// ---------------------------------------------------------------------------
+// Spotify: lectura de links públicos
+// ---------------------------------------------------------------------------
+// Se lee la página de embed que Spotify publica sin credenciales. Devuelve
+// metadatos (título, artista, álbum, duración y portada) y nunca audio.
+// Los datos que el embed no trae (álbum/portada de playlists) se completan
+// con la búsqueda pública de Deezer.
+
+const WAVERNOTE_SPOTIFY_TYPES = new Set(['track', 'album', 'playlist', 'artist']);
+const WAVERNOTE_SPOTIFY_LIST_LIMIT = 100;
+const WAVERNOTE_SPOTIFY_TIMEOUT_MS = 12000;
+const WAVERNOTE_SPOTIFY_CACHE_TTL_MS = 30 * 60 * 1000;
+const WAVERNOTE_SPOTIFY_CACHE_MAX = 80;
+const WAVERNOTE_DEEZER_TIMEOUT_MS = 6000;
+const WAVERNOTE_DEEZER_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const WAVERNOTE_DEEZER_CACHE_MAX = 800;
+const WAVERNOTE_SPOTIFY_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+
+const wavernoteSpotifyCache = new Map();
+const wavernoteDeezerCache = new Map();
+
+function wavernoteCacheGet(cache, key) {
+  const hit = cache.get(key);
+  if (!hit) return undefined;
+  if (Date.now() - hit.at > hit.ttl) {
+    cache.delete(key);
+    return undefined;
+  }
+  return hit.data;
+}
+
+function wavernoteCacheSet(cache, key, data, ttl, max) {
+  cache.set(key, { at: Date.now(), ttl, data });
+  if (cache.size > max) {
+    const extra = cache.size - max;
+    let removed = 0;
+    for (const keyToDrop of cache.keys()) {
+      cache.delete(keyToDrop);
+      removed += 1;
+      if (removed >= extra) break;
+    }
+  }
+}
+
+function wavernoteSpotifyError(message, status = 400) {
+  const err = new Error(message);
+  err.status = status;
+  err.code = 'WAVERNOTE_SPOTIFY';
+  return err;
+}
+
+async function wavernoteFetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(Number(timeoutMs) || 0, 1000));
+  try {
+    return await fetch(url, {
+      redirect: 'follow',
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function wavernoteParseSpotifyLink(value) {
+  const raw = String(value ?? '').trim().slice(0, 500);
+  if (!raw) return null;
+
+  const uri = raw.match(/^spotify:(track|album|playlist|artist):([A-Za-z0-9]{22})$/i);
+  if (uri) {
+    const type = uri[1].toLowerCase();
+    return {
+      type,
+      id: uri[2],
+      url: `https://open.spotify.com/${type}/${uri[2]}`,
+      short: false
+    };
+  }
+
+  const short = raw.match(/^(?:https?:\/\/)?(?:www\.)?(spotify\.link|spotify\.app\.link)\/([A-Za-z0-9]+)/i);
+  if (short) {
+    return { type: '', id: '', url: `https://${short[1].toLowerCase()}/${short[2]}`, short: true };
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    return null;
+  }
+
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+  if (host !== 'open.spotify.com' && host !== 'play.spotify.com' && host !== 'spotify.com') {
+    return null;
+  }
+
+  const parts = parsed.pathname
+    .split('/')
+    .filter(Boolean)
+    .filter((part) => !/^intl-[a-z]{2,5}$/i.test(part) && part.toLowerCase() !== 'embed');
+
+  const type = String(parts[0] || '').toLowerCase();
+  const id = String(parts[1] || '');
+  if (!WAVERNOTE_SPOTIFY_TYPES.has(type) || !/^[A-Za-z0-9]{22}$/.test(id)) {
+    return null;
+  }
+
+  return { type, id, url: `https://open.spotify.com/${type}/${id}`, short: false };
+}
+
+function wavernoteSpotifyImage(entity) {
+  const groups = [entity?.visualIdentity?.image, entity?.coverArt?.sources, entity?.images];
+  let best = null;
+
+  groups.forEach((group) => {
+    if (!Array.isArray(group)) return;
+    group.forEach((source) => {
+      const url = wavernoteText(
+        typeof source === 'string' ? source : source?.url || source?.uri || source?.href,
+        500
+      );
+      if (!/^https?:\/\//i.test(url)) return;
+      const width = Number(source?.maxWidth ?? source?.width ?? 0) || 0;
+      if (!best || width > best.width) best = { url, width };
+    });
+  });
+
+  return best ? best.url : null;
+}
+
+function wavernoteSpotifyArtists(entity, fallback = '') {
+  const names = [];
+  if (Array.isArray(entity?.artists)) {
+    entity.artists.forEach((artist) => {
+      const name = wavernoteText(typeof artist === 'string' ? artist : artist?.name, 120);
+      if (name && !names.includes(name)) names.push(name);
+    });
+  }
+  if (!names.length) {
+    const subtitle = wavernoteText(entity?.subtitle || fallback, 120);
+    if (subtitle) names.push(subtitle);
+  }
+  return names.join(', ');
+}
+
+function wavernoteSpotifySeconds(entity) {
+  const raw = Number(entity?.duration ?? entity?.durationMs ?? entity?.duration_ms) || 0;
+  const seconds = raw > 10000 ? Math.round(raw / 1000) : Math.round(raw);
+  return Math.min(Math.max(seconds, 0), 6 * 60 * 60);
+}
+
+function wavernoteSpotifyRow(entity, options = {}) {
+  const title = wavernoteText(options.title || entity?.title || entity?.name, 160);
+  if (!title) return null;
+
+  const albumSource =
+    typeof entity?.album === 'object' ? entity.album?.name : entity?.album;
+  const duration = Number.isFinite(options.duration)
+    ? options.duration
+    : wavernoteSpotifySeconds(entity);
+
+  return {
+    title,
+    artist: wavernoteText(options.artist || wavernoteSpotifyArtists(entity), 120),
+    album: wavernoteText(options.album || albumSource, 120),
+    duration: Math.min(Math.max(Math.round(duration), 0), 6 * 60 * 60),
+    coverUrl: wavernotePendingCover(options.coverUrl) || wavernoteSpotifyImage(entity),
+    isrc: '',
+    source: 'Spotify'
+  };
+}
+
+function wavernoteParseSpotifyEmbed(html) {
+  const match = String(html || '').match(
+    /<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i
+  );
+  if (!match) return null;
+
+  try {
+    const data = JSON.parse(match[1]);
+    return data?.props?.pageProps?.state?.data?.entity || null;
+  } catch {
+    return null;
+  }
+}
+
+async function wavernoteExpandSpotifyShortLink(link) {
+  const response = await wavernoteFetchWithTimeout(
+    link.url,
+    {
+      headers: {
+        'user-agent': WAVERNOTE_SPOTIFY_USER_AGENT,
+        'accept-language': 'es-AR,es;q=0.9,en;q=0.8'
+      }
+    },
+    WAVERNOTE_SPOTIFY_TIMEOUT_MS
+  );
+
+  const finalUrl = response.url && response.url !== link.url ? response.url : '';
+  const direct = finalUrl ? wavernoteParseSpotifyLink(finalUrl) : null;
+  if (direct && direct.type && !direct.short) return direct;
+
+  const body = await response.text();
+  const found = body.match(
+    /https:\/\/open\.spotify\.com\/(?:intl-[a-z]{2,5}\/)?(track|album|playlist|artist)\/[A-Za-z0-9]{22}/i
+  );
+  const parsed = found ? wavernoteParseSpotifyLink(found[0]) : null;
+  return parsed && !parsed.short ? parsed : null;
+}
+
+async function wavernoteDeezerLookup(track, deadline) {
+  const title = wavernoteText(track?.title, 160);
+  if (!title) return null;
+
+  const artist = wavernoteText(track?.artist, 120);
+  const cacheKey = `${wavernoteNormalizeTitle(title)}|${wavernoteNormalizeText(artist)}`;
+  const cached = wavernoteCacheGet(wavernoteDeezerCache, cacheKey);
+  if (cached !== undefined) return cached;
+
+  const remaining = Number(deadline) - Date.now();
+  if (!Number.isFinite(remaining) || remaining < 500) return null;
+
+  try {
+    const query = encodeURIComponent(`${title} ${artist}`.trim());
+    const response = await wavernoteFetchWithTimeout(
+      `https://api.deezer.com/search?q=${query}&limit=6`,
+      { headers: { accept: 'application/json' } },
+      Math.min(WAVERNOTE_DEEZER_TIMEOUT_MS, remaining)
+    );
+
+    if (!response.ok) return null;
+
+    const payload = await response.json().catch(() => null);
+    const items = Array.isArray(payload?.data) ? payload.data : [];
+
+    let best = null;
+    items.forEach((item) => {
+      if (!wavernoteSameSong(item?.title, item?.artist?.name, title, artist)) return;
+      const diff =
+        track?.duration && item?.duration
+          ? Math.abs(Number(track.duration) - Number(item.duration))
+          : 0;
+      if (track?.duration && item?.duration && diff > 10) return;
+      if (!best || diff < best.diff) best = { item, diff };
+    });
+
+    const result = best
+      ? {
+          album: wavernoteText(best.item?.album?.title, 120),
+          coverUrl: wavernotePendingCover(
+            best.item?.album?.cover_xl ||
+              best.item?.album?.cover_big ||
+              best.item?.album?.cover_medium
+          ),
+          duration: Math.min(Math.max(Number(best.item?.duration) || 0, 0), 6 * 60 * 60),
+          isrc: wavernoteText(best.item?.isrc, 32).toUpperCase()
+        }
+      : null;
+
+    wavernoteCacheSet(
+      wavernoteDeezerCache,
+      cacheKey,
+      result,
+      WAVERNOTE_DEEZER_CACHE_TTL_MS,
+      WAVERNOTE_DEEZER_CACHE_MAX
+    );
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+async function wavernoteEnrichSpotifyTracks(tracks) {
+  const targets = tracks.filter((track) => !track.coverUrl || !track.album);
+  if (!targets.length) return;
+
+  const deadline = Date.now() + 10000;
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(6, targets.length) }, async () => {
+    while (cursor < targets.length && Date.now() < deadline) {
+      const index = cursor;
+      cursor += 1;
+      const track = targets[index];
+
+      const match = await wavernoteDeezerLookup(track, deadline);
+      if (!match) continue;
+      if (!track.album && match.album) track.album = match.album;
+      if (!track.coverUrl && match.coverUrl) track.coverUrl = match.coverUrl;
+      if (!track.isrc && match.isrc) track.isrc = match.isrc;
+      if (!track.duration && match.duration) track.duration = match.duration;
+    }
+  });
+
+  await Promise.all(workers);
+}
+
+async function wavernoteResolveSpotify(rawUrl) {
+  let link = wavernoteParseSpotifyLink(rawUrl);
+  if (!link) {
+    throw wavernoteSpotifyError(
+      'Ese link no parece de Spotify. Copialo desde Compartir → Copiar link.'
+    );
+  }
+
+  if (link.short) {
+    let expanded = null;
+    try {
+      expanded = await wavernoteExpandSpotifyShortLink(link);
+    } catch {
+      expanded = null;
+    }
+    if (!expanded) {
+      throw wavernoteSpotifyError(
+        'No pudimos abrir ese link corto. Probá con el link completo de Spotify.'
+      );
+    }
+    link = expanded;
+  }
+
+  const cacheKey = `${link.type}:${link.id}`;
+  const cached = wavernoteCacheGet(wavernoteSpotifyCache, cacheKey);
+  if (cached) return cached;
+
+  let response;
+  try {
+    response = await wavernoteFetchWithTimeout(
+      `https://open.spotify.com/embed/${link.type}/${link.id}`,
+      {
+        headers: {
+          'user-agent': WAVERNOTE_SPOTIFY_USER_AGENT,
+          'accept-language': 'es-AR,es;q=0.9,en;q=0.8',
+          accept: 'text/html,application/xhtml+xml'
+        }
+      },
+      WAVERNOTE_SPOTIFY_TIMEOUT_MS
+    );
+  } catch {
+    throw wavernoteSpotifyError(
+      'Spotify no respondió a tiempo. Probá de nuevo en un momento.',
+      502
+    );
+  }
+
+  if (response.status === 404) {
+    throw wavernoteSpotifyError(
+      'Ese link ya no existe o la lista es privada.',
+      404
+    );
+  }
+  if (!response.ok) {
+    throw wavernoteSpotifyError(
+      'Spotify no devolvió la información de ese link. Probá de nuevo o importá un CSV.',
+      502
+    );
+  }
+
+  const html = await response.text();
+  const entity = wavernoteParseSpotifyEmbed(html);
+  if (!entity) {
+    throw wavernoteSpotifyError(
+      'No pudimos leer ese link. Verificá que sea público o importá un CSV.',
+      502
+    );
+  }
+
+  const warnings = [];
+  const collectionName =
+    wavernoteText(entity?.name || entity?.title || entity?.profile?.name, 200) || 'Spotify';
+  const collectionSubtitle = wavernoteText(entity?.subtitle, 160);
+  const collectionCover = wavernoteSpotifyImage(entity);
+  const rows = [];
+
+  if (link.type === 'track') {
+    rows.push(
+      wavernoteSpotifyRow(entity, {
+        title: entity?.title || entity?.name,
+        artist: wavernoteSpotifyArtists(entity),
+        album: typeof entity?.album === 'object' ? entity.album?.name : entity?.album,
+        coverUrl: collectionCover
+      })
+    );
+  } else {
+    const list = Array.isArray(entity?.trackList) ? entity.trackList : [];
+    const albumName = link.type === 'album' ? collectionName : '';
+    const fallbackArtist = link.type === 'artist' ? collectionName : collectionSubtitle;
+
+    list.forEach((item) => {
+      rows.push(
+        wavernoteSpotifyRow(item, {
+          title: item?.title || item?.name,
+          artist: wavernoteSpotifyArtists(item, fallbackArtist),
+          album: albumName,
+          coverUrl:
+            link.type === 'playlist' || link.type === 'artist' ? null : collectionCover
+        })
+      );
+    });
+
+    if (
+      (link.type === 'playlist' || link.type === 'artist') &&
+      list.length >= WAVERNOTE_SPOTIFY_LIST_LIMIT
+    ) {
+      warnings.push(
+        `Spotify comparte hasta ${WAVERNOTE_SPOTIFY_LIST_LIMIT} canciones por link. Si la lista es más larga, importá el resto con un CSV.`
+      );
+    }
+  }
+
+  const seen = new Set();
+  const tracks = [];
+  rows.forEach((row) => {
+    if (!row) return;
+    const key = `${wavernoteNormalizeTitle(row.title)}|${wavernoteNormalizeText(row.artist)}`;
+    if (!key.trim() || seen.has(key)) return;
+    seen.add(key);
+    tracks.push(row);
+  });
+
+  if (!tracks.length) {
+    throw wavernoteSpotifyError(
+      'Ese link no tiene canciones que podamos importar. Probá con otro o importá un CSV.',
+      422
+    );
+  }
+
+  try {
+    await wavernoteEnrichSpotifyTracks(tracks);
+  } catch (err) {
+    console.error('[WAVERNOTE] deezer enrich:', err?.message || err);
+  }
+
+  if (link.type === 'playlist' || link.type === 'artist') {
+    tracks.forEach((track) => {
+      if (!track.coverUrl && collectionCover) track.coverUrl = collectionCover;
+    });
+  }
+
+  const data = {
+    collection: {
+      type: link.type,
+      id: link.id,
+      name: collectionName,
+      subtitle: collectionSubtitle,
+      coverUrl: collectionCover,
+      total: tracks.length,
+      url: link.url
+    },
+    tracks,
+    warnings
+  };
+
+  wavernoteCacheSet(
+    wavernoteSpotifyCache,
+    cacheKey,
+    data,
+    WAVERNOTE_SPOTIFY_CACHE_TTL_MS,
+    WAVERNOTE_SPOTIFY_CACHE_MAX
+  );
+
+  return data;
+}
+
 function mapWaverNotePendingTrack(row) {
   return {
     id: Number(row.id),
@@ -54351,6 +54815,25 @@ app.get('/wavernote/library', wavernoteAuth, async (req, res) => {
 
 const WAVERNOTE_PENDING_IMPORT_LIMIT = 3000;
 const WAVERNOTE_PENDING_INSERT_CHUNK = 400;
+
+// POST /wavernote/spotify/resolve  -  lee un link público de Spotify y
+// devuelve las canciones con sus metadatos para previsualizarlas. No baja
+// audio: el usuario sube sus propios archivos después.
+app.post('/wavernote/spotify/resolve', wavernoteAuth, async (req, res) => {
+  try {
+    const data = await wavernoteResolveSpotify(req.body?.url);
+    return res.json({ success: true, ...data });
+  } catch (err) {
+    if (err?.status && err.status < 500) {
+      return res.status(err.status).json({ error: err.message, code: err.code });
+    }
+    console.error('[WAVERNOTE] spotify resolve:', err);
+    return res.status(502).json({
+      error: 'No se pudo leer el link de Spotify. Probá de nuevo o importá un CSV.',
+      code: 'WAVERNOTE_SPOTIFY'
+    });
+  }
+});
 
 // POST /wavernote/pending/import  -  guarda las canciones de una lista
 // importada. No sube audio: quedan como "pendientes" hasta que el usuario
@@ -54710,7 +55193,7 @@ app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) =
 
   const audioUrl = audioFile.path || audioFile.secure_url || audioFile.url || '';
   const audioPublicId = audioFile.filename || audioFile.public_id || '';
-  const coverUrl = coverFile ? (coverFile.path || coverFile.secure_url || coverFile.url || '') : '';
+  let coverUrl = coverFile ? (coverFile.path || coverFile.secure_url || coverFile.url || '') : '';
   const coverPublicId = coverFile ? (coverFile.filename || coverFile.public_id || '') : '';
 
   if (!audioUrl) {
@@ -54722,7 +55205,7 @@ app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) =
   const guess = wavernoteGuessFromFilename(audioFile.originalname);
   const title = wavernoteText(body.title, 160) || guess.title;
   const artist = wavernoteText(body.artist, 120) || guess.artist;
-  const album = wavernoteText(body.album, 120);
+  const albumInput = wavernoteText(body.album, 120);
   const genre = wavernoteText(body.genre, 60);
   const duration = Math.min(Math.max(Number(body.duration) || 0, 0), 6 * 60 * 60);
 
@@ -54736,13 +55219,39 @@ app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) =
 
   try {
     await ensureWaverNoteTables();
+    const userId = req.wavernoteUser.id;
+
+    // Buscar la fila pendiente antes de insertar para heredar los datos que
+    // ya trajo la importación (portada del link y álbum). La limpieza de la
+    // fila pendiente se hace después de que la subida quedó guardada.
+    let pendingTrack = null;
+    let matchedPendingIds = [];
+    try {
+      const pendingRows = await pool.query(
+        'SELECT id, title, artist, album, cover_url FROM wavernote_pending_tracks WHERE user_id = $1',
+        [userId]
+      );
+      const matches = pendingRows.rows.filter((row) =>
+        wavernoteSameSong(row.title, row.artist, title, artist)
+      );
+      pendingTrack = matches[0] || null;
+      matchedPendingIds = matches
+        .map((row) => Number(row.id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+    } catch (matchErr) {
+      console.error('[WAVERNOTE] pending lookup:', matchErr);
+    }
+
+    const album = albumInput || wavernoteText(pendingTrack?.album, 120);
+    const inheritedCover = coverUrl || wavernotePendingCover(pendingTrack?.cover_url);
+
     const { rows } = await pool.query(
       `INSERT INTO wavernote_tracks
          (user_id, title, artist, album, genre, duration, audio_url, audio_public_id, cover_url, cover_public_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
-        req.wavernoteUser.id,
+        userId,
         title,
         artist,
         album,
@@ -54750,35 +55259,24 @@ app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) =
         duration,
         audioUrl,
         audioPublicId,
-        coverUrl || null,
+        inheritedCover || null,
         coverPublicId || null
       ]
     );
 
     // Si la canción estaba importada como pendiente, al subir el archivo
-    // deja de estar pendiente sola. Se comparan título/artista normalizados
-    // (no la clave guardada) para limpiar también filas antiguas. Un fallo
-    // acá no invalida la subida.
+    // deja de estar pendiente sola. Un fallo acá no invalida la subida.
     let matchedPending = false;
-    try {
-      const pendingRows = await pool.query(
-        'SELECT id, title, artist FROM wavernote_pending_tracks WHERE user_id = $1',
-        [req.wavernoteUser.id]
-      );
-      const matchedIds = pendingRows.rows
-        .filter((row) => wavernoteSameSong(row.title, row.artist, title, artist))
-        .map((row) => Number(row.id))
-        .filter((id) => Number.isInteger(id) && id > 0);
-
-      if (matchedIds.length) {
+    if (matchedPendingIds.length) {
+      try {
         await pool.query(
           'DELETE FROM wavernote_pending_tracks WHERE user_id = $1 AND id = ANY($2::bigint[])',
-          [req.wavernoteUser.id, matchedIds]
+          [userId, matchedPendingIds]
         );
         matchedPending = true;
+      } catch (matchErr) {
+        console.error('[WAVERNOTE] pending auto-match:', matchErr);
       }
-    } catch (matchErr) {
-      console.error('[WAVERNOTE] pending auto-match:', matchErr);
     }
 
     return res.status(201).json({

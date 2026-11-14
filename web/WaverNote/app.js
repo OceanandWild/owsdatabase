@@ -16,6 +16,7 @@ const modalEyebrow = $("#modalEyebrow");
 
 let authMode = "login";
 let pendingFiles = [];
+let uploadPrefill = null;
 
 const SCAN_CONSENT_KEY = "wavernote.scanConsent.v1";
 const SCAN_FILE_LIMIT = 400;
@@ -78,6 +79,23 @@ const renderUserUI = () => {
   if (sideUserSub) sideUserSub.textContent = user ? "Cuenta Surface" : "Sin sesión";
 };
 
+// El cartel de la cabecera aparece cuando no hay red o cuando el servidor
+// no respondió y la app está usando la copia guardada.
+const updateOfflineUI = () => {
+  const offline = navigator.onLine === false || state.offline;
+  const badge = $("#offlineBadge");
+  if (badge) badge.hidden = !offline;
+  document.documentElement.classList.toggle("is-offline", offline);
+  return offline;
+};
+
+const formatDataSize = (bytes) => {
+  const value = Math.max(0, Number(bytes) || 0);
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
 const renderSidebarPlaylists = () => {
   const nav = $("#playlistNav");
   if (!nav) return;
@@ -98,6 +116,7 @@ const renderSidebarPlaylists = () => {
 };
 
 const showAuth = (mode = "login") => {
+  window.WaverNoteWatched?.stop();
   setAuthMode(mode);
   authGate.hidden = false;
   authGate.removeAttribute("aria-hidden");
@@ -157,6 +176,10 @@ const enterApp = async (user) => {
   state.user = user || getStoredUser();
   saveSession(getToken(), state.user);
 
+  // Descargas y copia de la biblioteca del usuario. Se cargan antes de
+  // pedir datos para que el primer render ya sepa qué está disponible.
+  await waOffline.init(state.user?.id);
+
   try {
     await refreshLibrary();
   } catch (err) {
@@ -166,6 +189,7 @@ const enterApp = async (user) => {
       setAuthError("Tu sesión expiró. Entrá de nuevo con tu cuenta Surface.");
       return;
     }
+    state.offline = isOfflineError(err);
     toast(friendlyError(err), "error");
   }
 
@@ -179,8 +203,10 @@ const enterApp = async (user) => {
 
   state.ready = true;
   hideAuth();
+  window.WaverNoteWatched?.start();
   renderUserUI();
   renderSidebarPlaylists();
+  updateOfflineUI();
   resetNavigation();
   applyCloudRestore();
 
@@ -200,6 +226,8 @@ const enterApp = async (user) => {
   window.WaverNoteUpdater?.maybeShowChangelogModal();
   // Aviso semanal de artistas: se abre una sola vez y solo si hay vencidos.
   window.WaverNoteArtistReminder?.maybeShow();
+  // Aviso semanal de canciones que hace tiempo no suenan.
+  window.WaverNoteListenReminder?.maybeShow();
 };
 
 const bootAuth = async () => {
@@ -209,15 +237,23 @@ const bootAuth = async () => {
     return;
   }
 
+  const stored = getStoredUser();
   setAuthBusy(true);
   try {
     const session = await validateSurfaceSession();
     saveSession(session.token, session.user);
     await enterApp(session.user);
   } catch (err) {
-    clearSession();
-    showAuth("login");
-    if (err.status !== 401) setAuthError(friendlyError(err));
+    // Si falla la red pero hay una sesión guardada, se entra igual con la
+    // copia local. Un 401 real sí cierra la sesión.
+    if (isOfflineError(err) && stored?.id) {
+      await enterApp(stored);
+      toast("Sin conexión: entraste con tu biblioteca guardada.");
+    } else {
+      clearSession();
+      showAuth("login");
+      if (err.status !== 401) setAuthError(friendlyError(err));
+    }
   } finally {
     setAuthBusy(false);
   }
@@ -230,9 +266,11 @@ const doLogout = () => {
   closeModal(true);
   closePanel();
   clearSession();
+  waOffline.reset();
 
   state.user = null;
   state.ready = false;
+  state.offline = false;
   state.tracks = [];
   state.playlists = [];
   state.liked = new Set();
@@ -253,6 +291,7 @@ const doLogout = () => {
   authForm?.reset();
   renderUserUI();
   renderSidebarPlaylists();
+  updateOfflineUI();
   resetNavigation();
   renderView();
   updateNowPlaying();
@@ -277,20 +316,32 @@ const closeModal = (force = false) => {
   modal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("modal-open");
   modalBody.innerHTML = "";
-  modal.querySelector(".modal__panel")?.classList.remove("modal__panel--upload");
+  const panel = modal.querySelector(".modal__panel");
+  panel?.classList.remove("modal__panel--upload");
+  // Si la hoja venía cerrándose con un gesto, el desplazamiento se limpia
+  // cuando termina el fundido: si no, volvería a su lugar a mitad del cierre.
+  window.setTimeout(() => {
+    if (modal.classList.contains("is-open")) return;
+    panel?.style.removeProperty("transform");
+    panel?.style.removeProperty("transition");
+  }, 240);
 
-  // Si el aviso de artistas quedó esperando detrás de otro modal, este es
-  // el momento de mostrarlo.
+  // Si un aviso semanal quedó esperando detrás de otro modal, este es el
+  // momento de mostrarlo.
   window.WaverNoteArtistReminder?.maybeShow();
+  window.WaverNoteListenReminder?.maybeShow();
 };
 
-const openModal = ({ title, eyebrow = "WaverNote", body }) => {
+const openModal = ({ title, eyebrow = "WaverNote", body, focus = true }) => {
   modalTitle.textContent = title;
   modalEyebrow.textContent = eyebrow;
   modalBody.innerHTML = body;
   modal.classList.add("is-open");
   modal.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
+  modal.querySelector(".modal__panel")?.style.removeProperty("transform");
+
+  if (!focus) return;
 
   requestAnimationFrame(() => {
     const target =
@@ -628,11 +679,16 @@ const renderPendingFiles = () => {
   }
   if (title) title.disabled = pendingFiles.length > 1;
   if (coverHint) {
+    const hasCoverFile = Boolean(cover?.files?.[0]);
     coverHint.textContent = single
-      ? "JPG, PNG o WEBP · se aplica a esta canción."
+      ? uploadPrefill?.coverUrl && !hasCoverFile
+        ? "Se usa la portada importada. Elegí un archivo para cambiarla."
+        : "JPG, PNG o WEBP · se aplica a esta canción."
       : "Solo para una canción a la vez.";
   }
   if (preview && !single) preview.hidden = true;
+
+  updateCoverPreview();
 
   updateUploadSubmitState();
 
@@ -656,16 +712,20 @@ const updateCoverPreview = () => {
   if (!preview) return;
 
   const file = input?.files?.[0];
-  if (!file || pendingFiles.length !== 1) {
+  const remote = !file ? uploadPrefill?.coverUrl || "" : "";
+  if ((!file && !remote) || (file && pendingFiles.length !== 1)) {
     preview.hidden = true;
     const oldImage = preview.querySelector("img");
     if (oldImage) oldImage.removeAttribute("src");
     return;
   }
 
-  pendingCoverPreviewUrl = URL.createObjectURL(file);
+  if (file) {
+    pendingCoverPreviewUrl = URL.createObjectURL(file);
+  }
+
   const image = preview.querySelector("img");
-  if (image) image.src = pendingCoverPreviewUrl;
+  if (image) image.src = pendingCoverPreviewUrl || remote;
   preview.hidden = false;
 };
 
@@ -1109,9 +1169,14 @@ const handleScanAction = (action) => {
   }
 };
 
-const openUpload = () => {
+const openUpload = (prefill = null) => {
   if (!state.user) {
     showAuth("login");
+    return;
+  }
+
+  if (navigator.onLine === false) {
+    toast("Sin conexión: para subir música necesitás internet.", "error");
     return;
   }
 
@@ -1122,10 +1187,36 @@ const openUpload = () => {
   scanPhase = "gate";
   uploadMode = "manual";
   scanRunId += 1;
+  uploadPrefill =
+    prefill && (prefill.title || prefill.artist || prefill.album || prefill.coverUrl)
+      ? {
+          pendingId: Number(prefill.pendingId) || 0,
+          title: String(prefill.title || ""),
+          artist: String(prefill.artist || ""),
+          album: String(prefill.album || ""),
+          coverUrl: String(prefill.coverUrl || "")
+        }
+      : null;
 
   releaseScanArtwork();
   openModal({ title: "Agregar música", eyebrow: "Tu biblioteca", body: uploadModalHTML() });
   modal.querySelector(".modal__panel")?.classList.add("modal__panel--upload");
+
+  const titleInput = $("#uploadTitle");
+  const artistInput = $("#uploadArtist");
+  const albumInput = $("#uploadAlbum");
+  if (titleInput) titleInput.value = uploadPrefill?.title || "";
+  if (artistInput) artistInput.value = uploadPrefill?.artist || "";
+  if (albumInput) albumInput.value = uploadPrefill?.album || "";
+  if (uploadPrefill) {
+    const hint = $("#uploadCoverHint");
+    if (hint) {
+      hint.textContent = uploadPrefill.coverUrl
+        ? "Se usa la portada importada. Elegí un archivo para cambiarla."
+        : hint.textContent;
+    }
+  }
+  updateCoverPreview();
 
   $$("[data-upload-mode]", modalBody).forEach((button) => {
     button.addEventListener("click", () => setUploadMode(button.dataset.uploadMode));
@@ -1230,6 +1321,19 @@ const openUpload = () => {
   });
 
   setUploadMode("manual");
+};
+
+const openUploadForPending = (id) => {
+  const pendingId = Number(id);
+  const item = (state.pending || []).find((entry) => Number(entry.id) === pendingId);
+  if (!item) return;
+  openUpload({
+    pendingId: pendingId,
+    title: item.title,
+    artist: item.artist,
+    album: item.album,
+    coverUrl: item.coverUrl
+  });
 };
 
 const finishUpload = async ({ uploaded, failures }) => {
@@ -1447,7 +1551,14 @@ const runUpload = async () => {
       await uploadTrackFile({
         file,
         cover,
-        fields: { title, artist, album, genre, duration },
+        fields: {
+          pendingId: files.length === 1 ? uploadPrefill?.pendingId || "" : "",
+          title,
+          artist,
+          album,
+          genre,
+          duration
+        },
         onProgress: (ratio) => {
           const total = (index + ratio) / files.length;
           setUploadProgress(total, `Subiendo ${index + 1} de ${files.length}… ${Math.round(ratio * 100)}%`);
@@ -1471,6 +1582,7 @@ const openTrackMenu = (trackId, playlistId = "") => {
   if (!track) return;
 
   const liked = isLiked(track.id);
+  const downloaded = waOffline.has(track.id);
   openModal({
     title: track.title,
     eyebrow: `${track.artist || "Artista desconocido"} · ${albumNameOf(track)}`,
@@ -1479,8 +1591,15 @@ const openTrackMenu = (trackId, playlistId = "") => {
         <button class="menu-item" data-action="menu-play" data-id="${track.id}">
           ${icon("play")} <span>Reproducir</span>
         </button>
+        <button class="menu-item" data-action="menu-play-next" data-id="${track.id}">
+          ${icon("next")} <span>Reproducir a continuación</span>
+        </button>
         <button class="menu-item" data-action="menu-queue" data-id="${track.id}">
           ${icon("plus")} <span>Agregar a la cola</span>
+        </button>
+        <button class="menu-item" data-action="${downloaded ? "menu-offline-remove" : "menu-offline-save"}" data-id="${track.id}">
+          ${icon(downloaded ? "check" : "download")}
+          <span>${downloaded ? "Quitar descarga sin conexión" : "Descargar para escuchar sin conexión"}</span>
         </button>
         <button class="menu-item" data-action="menu-like" data-id="${track.id}">
           ${icon("heart")} <span>${liked ? "Quitar de Me gusta" : "Agregar a Me gusta"}</span>
@@ -1501,6 +1620,219 @@ const openTrackMenu = (trackId, playlistId = "") => {
         </button>
       </div>`
   });
+};
+
+/* ------------------------------------------------------------
+   Agregar canciones a la cola sin salir del reproductor
+   ------------------------------------------------------------ */
+
+const QUEUE_PICK_LIMIT = 60;
+const QUEUE_PICK_FILTERS = [
+  ["recent", "Recientes"],
+  ["unplayed", "Sin escuchar"],
+  ["liked", "Favoritas"],
+  ["az", "A-Z"]
+];
+
+let queueAddQuery = "";
+let queueAddFilter = "recent";
+
+const queuePickOption = (value, label) => {
+  const active = value === queueAddFilter;
+  return `<button class="queue-pick-filter${active ? " is-active" : ""}" type="button" role="tab" aria-selected="${active}" data-action="queue-pick-filter" data-filter="${value}">
+    ${escapeHTML(label)}
+  </button>`;
+};
+
+const queuePickPool = () => {
+  const query = normalize(queueAddQuery);
+  const queued = new Set(state.queue.filter((id) => isQueuedTrack(id)).map(Number));
+  const recentIndex = new Map(state.recent.map((id, index) => [Number(id), index]));
+
+  let tracks = state.tracks.filter((track) => {
+    if (!query) return true;
+    return normalize([track.title, track.artist, track.album, track.genre].join(" ")).includes(query);
+  });
+
+  if (queueAddFilter === "unplayed") {
+    tracks = tracks.filter((track) => playStatsOf(track).count === 0);
+  } else if (queueAddFilter === "liked") {
+    tracks = tracks.filter((track) => isLiked(track.id));
+  }
+
+  const lastPlayedOf = (track) => {
+    const time = new Date(playStatsOf(track).lastPlayedAt || 0).getTime();
+    return Number.isFinite(time) ? time : 0;
+  };
+  const addedOf = (track) => {
+    const time = new Date(track.createdAt || 0).getTime();
+    return Number.isFinite(time) ? time : 0;
+  };
+
+  return tracks.sort((a, b) => {
+    const queuedA = queued.has(Number(a.id)) ? 1 : 0;
+    const queuedB = queued.has(Number(b.id)) ? 1 : 0;
+    if (queuedA !== queuedB) return queuedA - queuedB;
+
+    if (queueAddFilter === "az") return String(a.title).localeCompare(String(b.title), "es");
+    if (queueAddFilter === "unplayed") return addedOf(b) - addedOf(a) || b.id - a.id;
+
+    const playedA = lastPlayedOf(a);
+    const playedB = lastPlayedOf(b);
+    if (playedA !== playedB) return playedB - playedA;
+
+    const recentA = recentIndex.has(Number(a.id)) ? recentIndex.get(Number(a.id)) : 9999;
+    const recentB = recentIndex.has(Number(b.id)) ? recentIndex.get(Number(b.id)) : 9999;
+    if (recentA !== recentB) return recentA - recentB;
+
+    return addedOf(b) - addedOf(a) || a.id - b.id;
+  });
+};
+
+const queuePickStateHTML = (queued) => `${queued ? icon("check") : icon("plus")}<span>${queued ? "En la cola" : "Agregar"}</span>`;
+
+const queuePickRow = (track) => {
+  const queued = isQueuedTrack(track.id);
+  return `<li class="queue-pick${queued ? " is-queued" : ""}" data-queue-pick="${track.id}">
+    <button class="queue-pick__row" type="button" data-action="queue-pick-add" data-id="${track.id}" ${queued ? "disabled" : ""} aria-label="${queued ? `«${escapeHTML(track.title)}» ya está en la cola` : `Agregar «${escapeHTML(track.title)}» a la cola`}">
+      <span class="queue-pick__art">${coverHTML(track)}</span>
+      <span class="queue-pick__info">
+        <strong>${escapeHTML(track.title)}</strong>
+        <small>${escapeHTML(track.artist || "Artista desconocido")} · ${formatTime(track.duration)}</small>
+      </span>
+      <span class="queue-pick__state">${queuePickStateHTML(queued)}</span>
+    </button>
+    <button class="queue-pick__play" type="button" data-action="queue-pick-play" data-id="${track.id}" aria-label="Reproducir «${escapeHTML(track.title)}» ahora" title="Reproducir ahora">
+      ${icon("play", "icon--fill")}
+    </button>
+  </li>`;
+};
+
+const queuePickerSummary = () => {
+  const summary = $("#queuePickerSummary");
+  if (!summary) return;
+  const pending = queueUpcomingCount();
+  summary.textContent = !state.queue.length
+    ? "La cola está vacía"
+    : pending
+      ? `${plural(pending, "canción en espera", "canciones en espera")}`
+      : "No hay canciones en espera";
+};
+
+const renderQueuePickerList = () => {
+  const list = $("#queuePickerList");
+  if (!list) return;
+
+  const pool = queuePickPool();
+  const shown = pool.slice(0, QUEUE_PICK_LIMIT);
+  list.innerHTML = shown.length
+    ? shown.map(queuePickRow).join("")
+    : `<li class="queue-pick-empty">${icon("search")} <span>No hay canciones con ese filtro. Probá con otra búsqueda.</span></li>`;
+
+  const meta = $("#queuePickerMeta");
+  if (meta) {
+    meta.textContent = pool.length
+      ? `${plural(pool.length, "coincidencia", "coincidencias")}${
+          pool.length > QUEUE_PICK_LIMIT ? ` · mostrando ${QUEUE_PICK_LIMIT}` : ""
+        }`
+      : "Sin coincidencias";
+  }
+
+  $$(".queue-pick-filter", modalBody).forEach((button) => {
+    const active = button.dataset.filter === queueAddFilter;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+
+  const addAll = modalBody.querySelector('[data-action="queue-pick-add-all"]');
+  if (addAll) addAll.disabled = !pool.some((track) => !isQueuedTrack(track.id));
+  queuePickerSummary();
+};
+
+const markQueuePickQueued = (trackId) => {
+  const row = modalBody.querySelector(`[data-queue-pick="${Number(trackId)}"]`);
+  if (!row) return;
+  row.classList.add("is-queued");
+  const button = row.querySelector(".queue-pick__row");
+  if (button) {
+    button.disabled = true;
+    button.setAttribute("aria-label", "En la cola");
+  }
+  const status = row.querySelector(".queue-pick__state");
+  if (status) status.innerHTML = queuePickStateHTML(true);
+  const addAll = modalBody.querySelector('[data-action="queue-pick-add-all"]');
+  if (addAll) addAll.disabled = !queuePickPool().some((track) => !isQueuedTrack(track.id));
+  queuePickerSummary();
+};
+
+const addQueuePick = (trackId) => {
+  const result = addToQueue(trackId, { silent: true });
+  if (result === "added" || result === "started") {
+    haptic(9);
+    markQueuePickQueued(trackId);
+    return result;
+  }
+  if (result === "duplicate") toast("Esa canción ya está en la cola");
+  return result;
+};
+
+const openQueueAdd = () => {
+  if (!state.tracks.length) {
+    openModal({
+      title: "Agregar a la cola",
+      eyebrow: "Tu música",
+      body: `
+        <p class="modal__text">Todavía no hay canciones en tu biblioteca. Subí tu música y después armá la cola desde acá.</p>
+        <div class="modal__actions">
+          <button class="btn btn--ghost" data-action="close-modal">Cerrar</button>
+          <button class="btn btn--primary" data-action="open-upload">${icon("upload")} Subir música</button>
+        </div>`
+    });
+    return;
+  }
+
+  queueAddQuery = "";
+  queueAddFilter = "recent";
+
+  openModal({
+    title: "Agregar a la cola",
+    eyebrow: "Cola de reproducción",
+    focus: !isMobilePlayer(),
+    body: `
+      <div class="queue-picker">
+        <label class="queue-picker__search">
+          ${icon("search")}
+          <input id="queuePickerSearch" type="search" placeholder="Buscar canción, artista o álbum…" autocomplete="off" spellcheck="false" aria-label="Buscar canciones para agregar a la cola" />
+          <button class="queue-picker__clear" type="button" data-action="queue-pick-clear" aria-label="Limpiar búsqueda">${icon("x")}</button>
+        </label>
+        <div class="queue-picker__filters" role="tablist" aria-label="Filtrar canciones">
+          ${QUEUE_PICK_FILTERS.map(([value, label]) => queuePickOption(value, label)).join("")}
+        </div>
+        <p class="queue-picker__meta" id="queuePickerMeta"></p>
+        <ul class="queue-picker__list" id="queuePickerList"></ul>
+        <div class="queue-picker__foot">
+          <span class="queue-picker__summary" id="queuePickerSummary" aria-live="polite"></span>
+          <div class="queue-picker__foot-actions">
+            <button class="btn btn--ghost btn--small" data-action="close-modal">Listo</button>
+            <button class="btn btn--soft btn--small" data-action="queue-pick-add-all">${icon("queue-add")} Agregar todas</button>
+          </div>
+        </div>
+      </div>`
+  });
+
+  const input = $("#queuePickerSearch");
+  input?.addEventListener("input", () => {
+    queueAddQuery = input.value;
+    renderQueuePickerList();
+  });
+  input?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const first = queuePickPool().find((track) => !isQueuedTrack(track.id));
+    if (first) addQueuePick(first.id);
+  });
+
+  renderQueuePickerList();
 };
 
 /* ------------------------------------------------------------
@@ -1903,6 +2235,10 @@ const openAccount = () => {
   const username = state.user.username || "tu cuenta";
   const initial = username.charAt(0).toUpperCase();
   const albums = allAlbums();
+  const downloads = waOffline.summary();
+  const downloadsLabel = downloads.count
+    ? `${downloads.count} ${downloads.count === 1 ? "canción" : "canciones"} · ${formatDataSize(downloads.bytes)}`
+    : "Ninguna todavía";
 
   openModal({
     title: "Tu cuenta",
@@ -1926,6 +2262,13 @@ const openAccount = () => {
         <div>
           <strong>Sincronizado con tu cuenta</strong>
           <p>Favoritos, playlists, cola, historial, volumen y preferencias te siguen a cualquier dispositivo.</p>
+        </div>
+      </div>
+      <div class="account-sync">
+        <span class="account-sync__icon">${icon("download")}</span>
+        <div>
+          <strong>Sin conexión: ${downloadsLabel}</strong>
+          <p>Las canciones descargadas se reproducen sin internet. Podés quitarlas desde el menú de cada tema.</p>
         </div>
       </div>
       ${window.WaverNoteUpdater?.accountSectionHTML() || ""}
@@ -2080,10 +2423,10 @@ const openMoreMenu = () => {
           ${icon("chevron-right")}
         </button>
         <button class="more-menu__item" type="button" data-action="open-import">
-          <span class="more-menu__icon">${icon("plus")}</span>
+          <span class="more-menu__icon">${icon("link")}</span>
           <span class="more-menu__copy">
-            <strong>Importar lista</strong>
-            <small>Traé canciones de Spotify en CSV o JSON</small>
+            <strong>Importar desde Spotify</strong>
+            <small>Pegá un link o cargá un CSV/JSON</small>
           </span>
           ${icon("chevron-right")}
         </button>
@@ -2277,6 +2620,56 @@ const handleAction = async (actionEl) => {
       if (row) playRow(row);
       break;
     }
+    case "quick-listen-play": {
+      const id = Number(actionEl.dataset.id);
+      if (!state.trackById.has(id)) return;
+      haptic(8);
+      playTrackNow(id);
+      break;
+    }
+    case "quick-listen-queue": {
+      const result = addToQueue(actionEl.dataset.id);
+      if (result === "added" || result === "started" || result === "duplicate") {
+        haptic(8);
+        actionEl.disabled = true;
+        actionEl.innerHTML = icon("check");
+        actionEl.setAttribute("aria-label", "En la cola");
+      }
+      break;
+    }
+    case "listen-reminder-play": {
+      const id = Number(actionEl.dataset.id);
+      if (!state.trackById.has(id)) return;
+      closeModal(true);
+      playTrackNow(id);
+      break;
+    }
+    case "listen-reminder-play-all": {
+      const ids = (actionEl.dataset.ids || "")
+        .split(",")
+        .map(Number)
+        .filter((id) => state.trackById.has(id));
+      if (!ids.length) return;
+      closeModal(true);
+      startQueue(ids, { startIndex: 0 });
+      break;
+    }
+    case "listen-reminder-queue": {
+      const ids = (actionEl.dataset.ids || "")
+        .split(",")
+        .map(Number)
+        .filter((id) => state.trackById.has(id));
+      if (!ids.length) return;
+      const added = queueCollection(ids, "Para volver a escuchar", { silent: true });
+      if (added) {
+        haptic([8, 20, 8]);
+        toast(`${plural(added, "canción sumada", "canciones sumadas")} a la cola`);
+      } else {
+        toast("Esas canciones ya estaban en la cola");
+      }
+      closeModal(true);
+      break;
+    }
     case "play-rec-section": {
       const section = actionEl.dataset.section || "mix";
       const ids = recommendationTrackIds(section);
@@ -2426,6 +2819,43 @@ const handleAction = async (actionEl) => {
       closeModal(true);
       openPanel("queue");
       break;
+    case "open-queue-add":
+      openQueueAdd();
+      break;
+    case "queue-pick-filter":
+      queueAddFilter = actionEl.dataset.filter || "recent";
+      renderQueuePickerList();
+      haptic(5);
+      break;
+    case "queue-pick-clear": {
+      queueAddQuery = "";
+      const input = $("#queuePickerSearch");
+      if (input) {
+        input.value = "";
+        input.focus({ preventScroll: true });
+      }
+      renderQueuePickerList();
+      break;
+    }
+    case "queue-pick-add":
+      addQueuePick(actionEl.dataset.id);
+      break;
+    case "queue-pick-play":
+      closeModal(true);
+      playTrackNow(actionEl.dataset.id);
+      break;
+    case "queue-pick-add-all": {
+      const ids = queuePickPool().map((track) => track.id);
+      const added = queueCollection(ids, "Tu selección", { silent: true });
+      if (added) {
+        haptic([8, 22, 8]);
+        toast(`${plural(added, "canción agregada", "canciones agregadas")} a la cola`);
+      } else {
+        toast("Esas canciones ya estaban en la cola");
+      }
+      renderQueuePickerList();
+      break;
+    }
     case "queue-move-top":
       moveQueueItemToTop(actionEl.dataset.id);
       break;
@@ -2444,6 +2874,9 @@ const handleAction = async (actionEl) => {
     case "import-analyze":
       window.WaverNoteImport?.analyze();
       break;
+    case "import-link":
+      window.WaverNoteImport?.analyzeLink();
+      break;
     case "import-submit":
       await window.WaverNoteImport?.submit();
       break;
@@ -2452,6 +2885,27 @@ const handleAction = async (actionEl) => {
       break;
     case "import-file-clear":
       window.WaverNoteImport?.clearFile();
+      break;
+    case "watched-pick":
+      await window.WaverNoteWatched?.pickFolder();
+      break;
+    case "watched-scan":
+      window.WaverNoteWatched?.scanNow();
+      break;
+    case "watched-toggle":
+      window.WaverNoteWatched?.toggleEnabled();
+      break;
+    case "watched-forget":
+      window.WaverNoteWatched?.openForget();
+      break;
+    case "watched-forget-confirm":
+      window.WaverNoteWatched?.forget();
+      break;
+    case "watched-help":
+      window.WaverNoteWatched?.openHelp();
+      break;
+    case "pending-upload":
+      openUploadForPending(id);
       break;
     case "pending-remove":
       await window.WaverNoteImport?.removePending(id);
@@ -2502,9 +2956,39 @@ const handleAction = async (actionEl) => {
       closeModal(true);
       startQueue([Number(actionEl.dataset.id)], { startIndex: 0 });
       break;
+    case "menu-play-next":
+      playNext(actionEl.dataset.id);
+      closeModal(true);
+      break;
     case "menu-queue":
       addToQueue(actionEl.dataset.id);
       closeModal(true);
+      break;
+    case "menu-offline-save": {
+      const track = trackById(id);
+      closeModal(true);
+      if (!track) break;
+      toast(`Descargando «${track.title}»…`);
+      try {
+        const result = await waOffline.downloadTrack(track);
+        toast(
+          result.already
+            ? "Esa canción ya estaba guardada."
+            : `«${track.title}» lista para escuchar sin conexión.`
+        );
+      } catch (err) {
+        toast(err?.message || "No se pudo descargar la canción.", "error");
+      }
+      renderView({ resetScroll: false });
+      updateNowPlaying();
+      break;
+    }
+    case "menu-offline-remove":
+      await waOffline.removeTrack(id);
+      toast("Descarga eliminada. La canción sigue en tu cuenta.");
+      closeModal(true);
+      renderView({ resetScroll: false });
+      updateNowPlaying();
       break;
     case "menu-like":
       await toggleLike(actionEl.dataset.id);
@@ -2627,7 +3111,168 @@ document.addEventListener(
 
 window.addEventListener("wavernote:route-change", closeQuickPlayer);
 
+/* ------------------------------------------------------------
+   Gestos táctiles: mantener presionada una canción, cerrar hojas
+   ------------------------------------------------------------ */
+
+let trackLongPress = null;
+let suppressTrackClickUntil = 0;
+
+const cancelTrackLongPress = () => {
+  if (!trackLongPress) return;
+  window.clearTimeout(trackLongPress.timer);
+  trackLongPress.row.classList.remove("is-long-press");
+  trackLongPress = null;
+};
+
+const startTrackLongPress = (event) => {
+  if (!isMobilePlayer() || !event.isPrimary || event.pointerType === "mouse") return;
+  if (event.target.closest("button, a, input, select, textarea")) return;
+
+  const row = event.target.closest("[data-track-row]");
+  if (!row) return;
+
+  cancelTrackLongPress();
+  trackLongPress = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    row,
+    timer: window.setTimeout(() => {
+      if (!trackLongPress) return;
+      const current = trackLongPress;
+      trackLongPress = null;
+      current.row.classList.remove("is-long-press");
+      suppressTrackClickUntil = performance.now() + 900;
+      haptic(14);
+      closeCardMenu();
+      openTrackMenu(current.row.dataset.trackRow, current.row.dataset.playlist || "");
+    }, 460)
+  };
+  row.classList.add("is-long-press");
+};
+
+document.addEventListener("pointerdown", startTrackLongPress, { passive: true });
+
+window.addEventListener(
+  "pointermove",
+  (event) => {
+    if (!trackLongPress || event.pointerId !== trackLongPress.pointerId) return;
+    const dx = Math.abs(event.clientX - trackLongPress.startX);
+    const dy = Math.abs(event.clientY - trackLongPress.startY);
+    if (dx > 10 || dy > 10) cancelTrackLongPress();
+  },
+  { passive: true }
+);
+
+window.addEventListener("pointerup", cancelTrackLongPress, { passive: true });
+window.addEventListener("pointercancel", cancelTrackLongPress, { passive: true });
+window.addEventListener("scroll", cancelTrackLongPress, true);
+
+// Arrastrar hacia abajo una hoja (modal o reproductor) la cierra. Es el gesto
+// que Android espera y evita buscar la X en la esquina superior.
+const bindSheetDismiss = ({ getPanel, handleSelector, onClose }) => {
+  let drag = null;
+
+  const resetPanel = (panel) => {
+    panel.style.removeProperty("transform");
+    panel.style.removeProperty("transition");
+  };
+
+  document.addEventListener("pointerdown", (event) => {
+    if (!isMobilePlayer() || !event.isPrimary || event.pointerType === "mouse") return;
+    if (event.target.closest("button, a, input, select, textarea")) return;
+
+    const handle = event.target.closest(handleSelector);
+    if (!handle) return;
+
+    const panel = getPanel();
+    if (!panel) return;
+
+    drag = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startTime: performance.now(),
+      lastY: event.clientY,
+      panel
+    };
+    panel.style.transition = "none";
+  });
+
+  window.addEventListener(
+    "pointermove",
+    (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const dy = event.clientY - drag.startY;
+      drag.lastY = event.clientY;
+      if (dy <= 0) {
+        drag.panel.style.transform = `translateY(${Math.round(dy * 0.2)}px)`;
+        return;
+      }
+      drag.panel.style.transform = `translateY(${Math.round(dy)}px)`;
+    },
+    { passive: true }
+  );
+
+  const finishDrag = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const current = drag;
+    drag = null;
+    const dy = Math.max(0, current.lastY - current.startY);
+    const elapsed = Math.max(1, performance.now() - current.startTime);
+    const velocity = dy / elapsed;
+    const shouldClose = dy > 110 || (dy > 42 && velocity > 0.55);
+
+    if (!shouldClose) {
+      current.panel.style.transition = "transform 0.22s var(--ease)";
+      current.panel.style.transform = "translateY(0)";
+      window.setTimeout(() => {
+        if (!drag) resetPanel(current.panel);
+      }, 250);
+      return;
+    }
+
+    haptic(8);
+    current.panel.style.transition = "transform 0.18s var(--ease)";
+    current.panel.style.transform = "translateY(100%)";
+    window.setTimeout(() => {
+      onClose();
+      // Si el cierre se bloqueó (por ejemplo, una subida en curso), la hoja
+      // vuelve a su lugar en vez de quedar escondida.
+      if (current.panel.isConnected && current.panel.getBoundingClientRect().top > window.innerHeight * 0.4) {
+        const stillOpen = modal.classList.contains("is-open") || state.panelOpen;
+        if (stillOpen) {
+          current.panel.style.transition = "transform 0.2s var(--ease)";
+          current.panel.style.transform = "translateY(0)";
+        }
+      }
+      window.setTimeout(() => resetPanel(current.panel), 230);
+    }, 170);
+  };
+
+  window.addEventListener("pointerup", finishDrag, { passive: true });
+  window.addEventListener("pointercancel", finishDrag, { passive: true });
+};
+
+bindSheetDismiss({
+  getPanel: () => modal.querySelector(".modal__panel"),
+  handleSelector: ".modal__grab, .modal__head",
+  onClose: () => closeModal()
+});
+
+bindSheetDismiss({
+  getPanel: () => $("#nowPlaying"),
+  handleSelector: ".np__grab, .np__head",
+  onClose: () => closePanel()
+});
+
 document.addEventListener("click", (event) => {
+  if (performance.now() < suppressTrackClickUntil && event.target.closest("[data-track-row]")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
   const actionEl = event.target.closest("[data-action]");
   if (!actionEl) return;
   if (actionEl.matches('a[href="#"]')) event.preventDefault();
@@ -2724,6 +3369,45 @@ authForm?.addEventListener("submit", async (event) => {
 /* ------------------------------------------------------------
    Controles del reproductor
    ------------------------------------------------------------ */
+
+// Doble toque en la barra de progreso: abre «Ahora suena» sin pasar por la
+// flecha. El segundo toque cancela el salto del range para que la canción no
+// cambie de posición por accidente.
+const attachSeekDoubleTap = (input) => {
+  if (!input) return;
+  let lastTapAt = 0;
+  let lastX = 0;
+  let lastY = 0;
+
+  input.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const now = performance.now();
+      const nearInTime = now - lastTapAt > 0 && now - lastTapAt <= 360;
+      const nearInSpace = Math.hypot(event.clientX - lastX, event.clientY - lastY) <= 28;
+
+      if (nearInTime && nearInSpace) {
+        lastTapAt = 0;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        state.currentTime = clamp(engine.getTime(), 0, state.duration);
+        state.seeking = false;
+        updateProgressUI();
+        openPanel("now");
+        return;
+      }
+
+      lastTapAt = now;
+      lastX = event.clientX;
+      lastY = event.clientY;
+    },
+    { passive: false }
+  );
+};
+
+attachSeekDoubleTap(els.seek);
+attachSeekDoubleTap(els.quickSeek);
 
 if (els.seek) {
   els.seek.addEventListener("input", () => {
@@ -2922,6 +3606,42 @@ document.addEventListener("keydown", (event) => {
    Inicio
    ------------------------------------------------------------ */
 
+const registerServiceWorker = () => {
+  if (!("serviceWorker" in navigator)) return;
+  if (!/^https?:$/.test(window.location.protocol)) return;
+  navigator.serviceWorker.register("sw.js").catch(() => {
+    /* sin service worker la app sigue funcionando online */
+  });
+};
+
+// Al recuperar la conexión se refresca la biblioteca y los datos de la
+// cuenta. Mientras tanto, cloud.js reintenta sus propios envíos.
+const watchConnection = () => {
+  window.addEventListener("offline", () => {
+    state.offline = true;
+    updateOfflineUI();
+  });
+
+  window.addEventListener("online", async () => {
+    state.offline = false;
+    updateOfflineUI();
+    if (!state.ready) return;
+
+    try {
+      await refreshLibrary();
+      toast("Conexión restablecida: biblioteca actualizada.");
+    } catch (err) {
+      if (err.status === 401) {
+        clearSession();
+        showAuth("login");
+        setAuthError("Tu sesión expiró. Entrá de nuevo con tu cuenta Surface.");
+        return;
+      }
+      toast(friendlyError(err), "error");
+    }
+  });
+};
+
 const init = () => {
   const root = document.documentElement;
   const android = IS_ANDROID || /Android/i.test(navigator.platform || "");
@@ -2939,6 +3659,7 @@ const init = () => {
   }
   if (els.volume) els.volume.value = String(Math.round(state.volume * 100));
 
+  updateOfflineUI();
   renderUserUI();
   renderSidebarPlaylists();
   updateVolumeUI();
@@ -2948,6 +3669,8 @@ const init = () => {
   renderView({ resetScroll: true });
 
   document.documentElement.classList.add("is-ready");
+  registerServiceWorker();
+  watchConnection();
   window.WaverNoteUpdater?.init();
   bootAuth();
 };

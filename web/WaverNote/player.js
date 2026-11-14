@@ -50,6 +50,18 @@ const els = {
 
 const currentTrack = () => trackById(state.currentTrackId);
 
+// La cola conserva lo ya reproducido detrás de queueIndex para poder volver
+// atrás. Eso es historial, no canciones en espera: no debe figurar como «En
+// la cola» ni bloquear que se vuelva a agregar.
+const queueIndexOf = (id) => state.queue.findIndex((trackId) => Number(trackId) === Number(id));
+
+const isQueuedTrack = (id) => {
+  const index = queueIndexOf(id);
+  return index >= 0 && state.queueIndex >= 0 && index >= state.queueIndex;
+};
+
+const queueUpcomingCount = () => Math.max(0, state.queue.length - state.queueIndex - 1);
+
 let pendingPlayId = null;
 let libraryRefreshScheduled = false;
 
@@ -179,7 +191,7 @@ const prefetchNext = () => {
     nextIndex = state.repeat === "all" ? 0 : -1;
   }
   const next = nextIndex >= 0 ? trackById(state.queue[nextIndex]) : null;
-  engine.prefetch(next?.audioUrl || "");
+  engine.prefetch(next);
 };
 
 engine.onEnded = () => handleTrackEnd();
@@ -275,6 +287,58 @@ const updateBufferingUI = () => {
     : "Subí tu primera canción";
 };
 
+// En Android la pantalla se apaga sola mientras suena la música. Mientras
+// haya reproducción activa pedimos un Wake Lock para que no se corte el
+// gesto ni la lectura de la portada; se libera al pausar o salir de la app.
+let screenWakeLock = null;
+let wakeLockPending = false;
+
+const releaseScreenWakeLock = async () => {
+  const lock = screenWakeLock;
+  screenWakeLock = null;
+  if (!lock) return;
+  try {
+    await lock.release();
+  } catch (err) {
+    /* el sistema ya lo liberó */
+  }
+};
+
+const syncScreenWakeLock = () => {
+  if (!("wakeLock" in navigator) || typeof navigator.wakeLock?.request !== "function") return;
+  const shouldHold = state.isPlaying && !document.hidden;
+  if (!shouldHold) {
+    releaseScreenWakeLock();
+    return;
+  }
+  if (screenWakeLock || wakeLockPending) return;
+
+  wakeLockPending = true;
+  navigator.wakeLock
+    .request("screen")
+    .then((lock) => {
+      if (!state.isPlaying || document.hidden) {
+        lock.release?.().catch(() => {});
+        return;
+      }
+      screenWakeLock = lock;
+      lock.addEventListener?.("release", () => {
+        if (screenWakeLock === lock) screenWakeLock = null;
+      });
+    })
+    .catch(() => {
+      /* el navegador puede negarlo si no hay gesto reciente */
+    })
+    .finally(() => {
+      wakeLockPending = false;
+    });
+};
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) releaseScreenWakeLock();
+  else syncScreenWakeLock();
+});
+
 const updatePlayButton = () => {
   [els.play, els.npPlay].forEach((button) => {
     if (!button) return;
@@ -282,6 +346,7 @@ const updatePlayButton = () => {
     button.setAttribute("aria-label", state.isPlaying ? "Pausar" : "Reproducir");
   });
   els.app?.classList.toggle("is-playing", state.isPlaying);
+  syncScreenWakeLock();
 };
 
 const updateShuffleUI = () => {
@@ -361,6 +426,16 @@ const updateHighlights = () => {
     button.setAttribute("aria-pressed", String(liked));
     button.setAttribute("aria-label", liked ? "Quitar de me gusta" : "Agregar a me gusta");
   });
+
+  // El acceso rápido a la cola vive en la vista de inicio y no se vuelve a
+  // dibujar con cada cambio de pista: sincronizamos su estado acá para que
+  // una canción ya sonada recupere el botón de agregar.
+  $$('[data-action="quick-listen-queue"]').forEach((button) => {
+    const queued = isQueuedTrack(button.dataset.id);
+    button.disabled = queued;
+    button.innerHTML = queued ? icon("check") : icon("plus");
+    button.setAttribute("aria-label", queued ? "Ya está en la cola" : "Agregar a la cola");
+  });
 };
 
 /* ------------------------------------------------------------
@@ -392,7 +467,7 @@ const queueUpcomingEntries = () => {
 };
 
 const queueCurrentHTML = (track) => `<li class="queue-item queue-item--current is-current" data-queue-current>
-    <span class="queue-item__art">${coverHTML({ title: track.title, coverUrl: track.coverUrl })}</span>
+    <span class="queue-item__art">${coverHTML({ id: track.id, title: track.title, coverUrl: track.coverUrl })}</span>
     <span class="queue-item__info">
       <strong>${escapeHTML(track.title)}</strong>
       <small>${escapeHTML(track.artist || "Artista desconocido")}</small>
@@ -405,7 +480,7 @@ const queueCurrentHTML = (track) => `<li class="queue-item queue-item--current i
 
 const queueItemHTML = ({ track: item }) => `<li class="queue-item" data-queue-id="${item.id}">
     <button class="queue-item__button" data-action="play-queue" data-id="${item.id}" aria-label="Reproducir ${escapeHTML(item.title)}">
-      <span class="queue-item__art">${coverHTML({ title: item.title, coverUrl: item.coverUrl })}</span>
+      <span class="queue-item__art">${coverHTML({ id: item.id, title: item.title, coverUrl: item.coverUrl })}</span>
       <span class="queue-item__info">
         <strong>${escapeHTML(item.title)}</strong>
         <small>${escapeHTML(item.artist || "Artista desconocido")}</small>
@@ -925,6 +1000,13 @@ const startQueue = (ids, options = {}) => {
   playCurrent();
 };
 
+const playbackFailureMessage = (track, fallback) => {
+  if (engine.lastError === "offline") {
+    return `«${track?.title || "Esta canción"}» no está descargada. Conectate a internet o descargala desde su menú.`;
+  }
+  return fallback;
+};
+
 const playCurrent = () => {
   const id = state.queue[state.queueIndex];
   const track = trackById(id);
@@ -958,7 +1040,13 @@ const playCurrent = () => {
         updatePlayButton();
         updateHighlights();
         renderQueue();
-        toast("El navegador no pudo iniciar el audio. Probá de nuevo con un clic.", "error");
+        toast(
+          playbackFailureMessage(
+            track,
+            "El navegador no pudo iniciar el audio. Probá de nuevo con un clic."
+          ),
+          "error"
+        );
       }
       syncMediaSessionState();
     })
@@ -1013,7 +1101,10 @@ const togglePlay = () => {
         updatePlayButton();
         updateHighlights();
         renderQueue();
-        toast("No se pudo reanudar el audio. Probá de nuevo.", "error");
+        toast(
+          playbackFailureMessage(track, "No se pudo reanudar el audio. Probá de nuevo."),
+          "error"
+        );
       }
       syncMediaSessionState();
     })
@@ -1183,9 +1274,9 @@ const toggleMute = () => {
   syncSettingsState();
 };
 
-const addToQueue = (id) => {
+const addToQueue = (id, options = {}) => {
   const track = trackById(id);
-  if (!track) return;
+  if (!track) return "invalid";
 
   if (!state.queue.length) {
     state.queue = [track.id];
@@ -1196,26 +1287,122 @@ const addToQueue = (id) => {
     state.isPlaying = false;
     updateNowPlaying();
     syncPlaybackState();
-    toast(`«${track.title}» quedó lista en la cola`);
-    return;
+    if (!options.silent) toast(`«${track.title}» quedó lista en la cola`);
+    return "started";
   }
 
-  if (state.queue.includes(track.id)) {
-    toast("Esa canción ya está en la cola");
-    return;
+  const existing = queueIndexOf(track.id);
+  if (existing >= state.queueIndex) {
+    if (!options.silent) toast("Esa canción ya está en la cola");
+    return "duplicate";
+  }
+
+  // Si ya sonó, sale del historial y vuelve al final: re-agregarla no debe
+  // duplicar la entrada ni mover la canción que está sonando.
+  if (existing >= 0) {
+    state.queue.splice(existing, 1);
+    state.queueIndex = Math.max(0, state.queueIndex - 1);
   }
 
   state.queue.push(track.id);
   renderQueue();
+  updateHighlights();
   syncPlaybackState();
-  toast(`«${track.title}» se sumó a la cola`);
+  if (!options.silent) {
+    toast(existing >= 0 ? `«${track.title}» volvió a la cola` : `«${track.title}» se sumó a la cola`);
+  }
+  return "added";
 };
 
-const queueCollection = (ids, label) => {
-  const fresh = (ids || []).map(Number).filter((id) => state.trackById.has(id) && !state.queue.includes(id));
-  if (!fresh.length) {
-    toast(state.queue.length ? "Ya estaba todo en la cola" : "No hay canciones para agregar.");
+// «Suena a continuación»: deja la canción justo después de la actual sin
+// tocar el resto de la cola. Si ya estaba más abajo, la sube.
+const playNext = (id, options = {}) => {
+  const track = trackById(id);
+  if (!track) return "invalid";
+
+  if (!state.queue.length) {
+    addToQueue(track.id, options);
+    return "started";
+  }
+
+  const currentId = state.queue[state.queueIndex];
+  if (Number(currentId) === Number(track.id)) {
+    if (!options.silent) toast("Esa canción ya está sonando");
+    return "current";
+  }
+
+  const existing = state.queue.indexOf(track.id);
+  if (existing === state.queueIndex + 1) {
+    if (!options.silent) toast(`«${track.title}» ya suena a continuación`);
+    return "next";
+  }
+
+  if (existing >= 0) {
+    state.queue.splice(existing, 1);
+    if (existing <= state.queueIndex) state.queueIndex = Math.max(0, state.queueIndex - 1);
+  }
+
+  state.queue.splice(state.queueIndex + 1, 0, track.id);
+  renderQueue();
+  updateHighlights();
+  syncPlaybackState();
+  if (!options.silent) toast(`«${track.title}» suena a continuación`);
+  return "queued";
+};
+
+// Reproduce una canción concreta sin borrar la cola: la ubica después de la
+// actual y salta a ella. Si ya estaba en la cola, se mueve directo a su lugar.
+const playTrackNow = (id) => {
+  const track = trackById(id);
+  if (!track) return;
+  if (!state.queue.length) {
+    state.queue = [track.id];
+    state.queueIndex = 0;
+    playCurrent();
     return;
+  }
+
+  const existing = queueIndexOf(track.id);
+  if (existing >= state.queueIndex) {
+    state.queueIndex = existing;
+    playCurrent();
+    return;
+  }
+
+  // Si ya sonó, se reubica después de la actual en vez de retroceder la cola
+  // entera: se escucha ahora y el resto sigue donde estaba.
+  if (existing >= 0) {
+    state.queue.splice(existing, 1);
+    state.queueIndex = Math.max(0, state.queueIndex - 1);
+  }
+
+  state.queue.splice(state.queueIndex + 1, 0, track.id);
+  state.queueIndex += 1;
+  playCurrent();
+};
+
+const queueCollection = (ids, label, options = {}) => {
+  const requested = [...new Set((ids || []).map(Number))].filter((id) => state.trackById.has(id));
+  const fresh = [];
+
+  for (const id of requested) {
+    const existing = queueIndexOf(id);
+    if (existing < 0) {
+      fresh.push(id);
+      continue;
+    }
+    // Ya sonó: se saca del historial y se vuelve a sumar al final. Las que
+    // están sonando o esperando se dejan como están.
+    if (existing < state.queueIndex) {
+      state.queue.splice(existing, 1);
+      state.queueIndex = Math.max(0, state.queueIndex - 1);
+      fresh.push(id);
+    }
+  }
+
+  if (!fresh.length) {
+    if (!options.silent) toast(state.queue.length ? "Ya estaba todo en la cola" : "No hay canciones para agregar.");
+    return 0;
   }
 
   // Con la cola vacía la primera pista queda lista (en pausa), igual que
@@ -1230,59 +1417,221 @@ const queueCollection = (ids, label) => {
     state.isPlaying = false;
     updateNowPlaying();
     syncPlaybackState();
-    toast(`${label}: ${plural(fresh.length, "pista lista", "pistas listas")} en la cola`);
-    return;
+    if (!options.silent) {
+      toast(`${label}: ${plural(fresh.length, "pista lista", "pistas listas")} en la cola`);
+    }
+    return fresh.length;
   }
 
   state.queue.push(...fresh);
   renderQueue();
+  updateHighlights();
   syncPlaybackState();
-  toast(`${label}: ${plural(fresh.length, "pista agregada", "pistas agregadas")} a la cola`);
+  if (!options.silent) {
+    toast(`${label}: ${plural(fresh.length, "pista agregada", "pistas agregadas")} a la cola`);
+  }
+  return fresh.length;
 };
 
 /* ------------------------------------------------------------
    Media Session
    ------------------------------------------------------------ */
 
-const syncMediaSession = () => {
-  if (!("mediaSession" in navigator)) return;
-  const track = currentTrack();
-  if (!track) return;
+// Android muestra la carátula de la notificación con el primer tamaño que
+// pueda descargar. Declarar varios tamaños evita el ícono genérico cuando el
+// sistema pide una miniatura chica o una imagen grande para el lockscreen.
+const MEDIA_ARTWORK_SIZES = ["96x96", "128x128", "192x192", "256x256", "384x384", "512x512"];
 
+const mediaArtworkFor = (track) => {
+  const src = track?.coverUrl || new URL("app-icon.png", window.location.href).href;
+  return MEDIA_ARTWORK_SIZES.map((sizes) => ({ src, sizes }));
+};
+
+// Puente opcional con Android (APK): la notificación nativa y el servicio en
+// primer plano los maneja Kotlin. En la web este objeto no existe y todo sigue
+// funcionando con la Media Session del navegador.
+const nativeMediaBridge = () => {
   try {
-    if (typeof MediaMetadata === "function") {
-      const artwork = track.coverUrl ? [{ src: track.coverUrl }] : [];
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.title,
-        artist: track.artist || "WaverNote",
-        album: albumNameOf(track),
-        artwork
-      });
-    }
+    const bridge = window.WaverNoteAndroid;
+    if (bridge && typeof bridge.updateMedia === "function") return bridge;
   } catch (err) {
-    /* el navegador puede no soportar metadata */
+    /* el objeto inyectado no está disponible */
+  }
+  return null;
+};
+
+let lastNativeMediaSignature = "";
+let lastNativeMediaPositionAt = 0;
+let nativeMediaWasActive = false;
+
+const nativeMediaSnapshot = () => {
+  const track = currentTrack();
+  if (!track) return null;
+  return {
+    id: track.id,
+    title: track.title,
+    artist: track.artist || "WaverNote",
+    album: albumNameOf(track),
+    artwork: track.coverUrl || "",
+    isPlaying: Boolean(state.isPlaying),
+    duration: Number(state.duration) || 0,
+    position: Number(state.currentTime) || 0,
+    canNext: state.queueIndex < state.queue.length - 1 || state.repeat === "all",
+    canPrevious: state.queueIndex > 0 || state.repeat === "all"
+  };
+};
+
+const syncNativeMedia = (force = false) => {
+  const bridge = nativeMediaBridge();
+  if (!bridge) return;
+
+  const snapshot = nativeMediaSnapshot();
+  if (!snapshot) {
+    if (!nativeMediaWasActive) return;
+    nativeMediaWasActive = false;
+    lastNativeMediaSignature = "";
+    try {
+      bridge.setPlaybackActive(false);
+      bridge.stopMedia();
+    } catch (err) {
+      /* el puente puede haberse desconectado */
+    }
+    return;
+  }
+
+  nativeMediaWasActive = true;
+  const { position, ...meta } = snapshot;
+  const signature = JSON.stringify(meta);
+  const now = Date.now();
+  if (!force && signature === lastNativeMediaSignature && now - lastNativeMediaPositionAt < 5000) return;
+
+  lastNativeMediaSignature = signature;
+  lastNativeMediaPositionAt = now;
+  try {
+    // Android necesita saber si debe mantener la WebView despierta. El audio
+    // de la canción actual ya lo mantiene el motor de medios del sistema; esto
+    // es para que el JS que avanza la cola no se congele.
+    bridge.setPlaybackActive(Boolean(snapshot.isPlaying));
+    bridge.updateMedia(JSON.stringify(snapshot));
+  } catch (err) {
+    /* la notificación es opcional: nunca debe cortar la reproducción */
+  }
+};
+
+// Los botones de la notificación llegan acá. La app puede estar en segundo
+// plano: el objetivo es que la cola siga viva aunque la pantalla esté apagada.
+window.WaverNoteMediaControls = {
+  handle(action) {
+    if (!state.ready) return;
+    const value = String(action || "");
+
+    if (value.startsWith("seek:")) {
+      const seconds = Number(value.slice(5));
+      if (Number.isFinite(seconds)) {
+        seekTo(seconds);
+        syncNativeMedia(true);
+      }
+      return;
+    }
+
+    if (value === "play") {
+      if (!state.isPlaying) togglePlay();
+    } else if (value === "pause") {
+      if (state.isPlaying) togglePlay();
+    } else if (value === "next") {
+      nextTrack();
+    } else if (value === "previous") {
+      previousTrack();
+    } else if (value === "stop") {
+      if (state.isPlaying) togglePlay();
+      seekTo(0);
+    }
+    syncNativeMedia(true);
+  }
+};
+
+const syncMediaSession = () => {
+  const track = currentTrack();
+  if (!track) {
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = "none";
+      } catch (err) {
+        /* el navegador puede no soportar metadata */
+      }
+    }
+    syncNativeMedia(true);
+    return;
+  }
+
+  if ("mediaSession" in navigator) {
+    try {
+      if (typeof MediaMetadata === "function") {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: track.title,
+          artist: track.artist || "WaverNote",
+          album: albumNameOf(track),
+          artwork: mediaArtworkFor(track)
+        });
+      }
+    } catch (err) {
+      /* el navegador puede no soportar metadata */
+    }
   }
   syncMediaSessionState();
 };
 
-const syncMediaSessionState = () => {
+const syncMediaSessionPosition = () => {
   if (!("mediaSession" in navigator)) return;
+  if (typeof navigator.mediaSession.setPositionState !== "function") return;
+  if (!Number.isFinite(state.duration) || state.duration <= 0) return;
+
   try {
-    navigator.mediaSession.playbackState = state.isPlaying ? "playing" : "paused";
-    if (typeof navigator.mediaSession.setPositionState === "function" && state.duration > 0) {
-      navigator.mediaSession.setPositionState({
-        duration: state.duration,
-        playbackRate: 1,
-        position: clamp(state.currentTime, 0, state.duration)
-      });
-    }
+    const duration = state.duration;
+    const position = clamp(Number(state.currentTime) || 0, 0, Math.max(0, duration - 0.05));
+    navigator.mediaSession.setPositionState({
+      duration,
+      playbackRate: 1,
+      position
+    });
   } catch (err) {
     /* posición fuera de rango en algunos navegadores */
   }
 };
 
+const syncMediaSessionState = () => {
+  if ("mediaSession" in navigator) {
+    try {
+      navigator.mediaSession.playbackState = currentTrack()
+        ? state.isPlaying
+          ? "playing"
+          : "paused"
+        : "none";
+    } catch (err) {
+      /* el navegador puede no soportar el estado */
+    }
+  }
+  syncMediaSessionPosition();
+  syncNativeMedia();
+};
+
+// La notificación de Android queda «pegada» a la canción hasta que el sistema
+// recibe el nuevo estado. Refrescarla al volver del segundo plano evita que
+// muestre una pista vieja o que los botones de la cola dejen de responder.
+document.addEventListener("visibilitychange", () => {
+  syncMediaSessionState();
+  if (!document.hidden) {
+    state.currentTime = clamp(engine.getTime(), 0, state.duration);
+    updateProgressUI();
+  }
+});
+
 const setupMediaSession = () => {
-  if (!("mediaSession" in navigator)) return;
+  if (!("mediaSession" in navigator)) {
+    syncNativeMedia(true);
+    return;
+  }
   const handlers = {
     play: () => {
       if (!state.isPlaying) togglePlay();
@@ -1290,12 +1639,20 @@ const setupMediaSession = () => {
     pause: () => {
       if (state.isPlaying) togglePlay();
     },
+    stop: () => {
+      if (!state.isPlaying) return;
+      togglePlay();
+      seekTo(0);
+      syncMediaSessionState();
+    },
     previoustrack: previousTrack,
     nexttrack: nextTrack,
     seekbackward: (details) => seekTo(state.currentTime - (details?.seekOffset || 5)),
     seekforward: (details) => seekTo(state.currentTime + (details?.seekOffset || 5)),
     seekto: (details) => {
-      if (typeof details?.seekTime === "number") seekTo(details.seekTime);
+      if (typeof details?.seekTime !== "number") return;
+      seekTo(details.seekTime);
+      syncMediaSessionPosition();
     }
   };
   Object.entries(handlers).forEach(([action, handler]) => {
@@ -1305,6 +1662,7 @@ const setupMediaSession = () => {
       /* acción no soportada */
     }
   });
+  syncNativeMedia(true);
 };
 
 /* ------------------------------------------------------------
@@ -1560,10 +1918,31 @@ const drawVisualizer = (now) => {
 let uiLoopStarted = false;
 let lastPlaybackSync = 0;
 let lastPlaybackPositionSave = 0;
+let lastMediaPositionSync = 0;
+let lastNativeMediaSync = 0;
+let backgroundWatchdog = 0;
 
 const startUiLoop = () => {
   if (uiLoopStarted) return;
   uiLoopStarted = true;
+
+  // requestAnimationFrame se congela cuando Android manda la app al fondo.
+  // Este vigilante usa un timer normal (los navegadores no lo frenan mientras
+  // hay audio sonando) y es el que mantiene avanzando la cola en segundo
+  // plano; además refresca la posición de la notificación del sistema.
+  if (!backgroundWatchdog) {
+    backgroundWatchdog = window.setInterval(() => {
+      if (!state.isPlaying || state.seeking) return;
+      const time = engine.getTime();
+      if (state.duration > 0 && time >= state.duration - 0.12) {
+        handleTrackEnd();
+        return;
+      }
+      state.currentTime = clamp(time, 0, state.duration);
+      syncMediaSessionPosition();
+      syncNativeMedia();
+    }, 1000);
+  }
 
   const frame = (now) => {
     if (state.isPlaying && !state.seeking && state.duration > 0) {
@@ -1577,6 +1956,14 @@ const startUiLoop = () => {
         if (now - lastProgressPaint >= PROGRESS_INTERVAL_MS) {
           lastProgressPaint = now;
           updateProgressUI();
+        }
+        if (now - lastMediaPositionSync >= 1000) {
+          lastMediaPositionSync = now;
+          syncMediaSessionPosition();
+        }
+        if (now - lastNativeMediaSync >= 4000) {
+          lastNativeMediaSync = now;
+          syncNativeMedia();
         }
         // La posición también viaja con la cuenta: cada 10 segundos alcanza
         // para retomar la canción casi donde iba en otro dispositivo.

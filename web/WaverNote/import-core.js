@@ -561,6 +561,88 @@
     };
   };
 
+  /* ------------------------------------------------------------
+     Links de Spotify
+     ------------------------------------------------------------ */
+
+  const SPOTIFY_TYPES = new Set(["track", "album", "playlist", "artist"]);
+  const SPOTIFY_ID = /^[A-Za-z0-9]{22}$/;
+  const SPOTIFY_LINK_PATTERN =
+    /(?:https?:\/\/)?(?:open|play)\.spotify\.com\/[^\s<>"']+|spotify:(?:track|album|playlist|artist):[A-Za-z0-9]{22}|(?:https?:\/\/)?(?:spotify\.link|spotify\.app\.link)\/[^\s<>"']+/gi;
+
+  const spotifyFromParts = (type, id) => {
+    const kind = String(type || "").toLowerCase();
+    const spotifyId = String(id || "").trim();
+    if (!SPOTIFY_TYPES.has(kind) || !SPOTIFY_ID.test(spotifyId)) return null;
+    return {
+      type: kind,
+      id: spotifyId,
+      url: `https://open.spotify.com/${kind}/${spotifyId}`
+    };
+  };
+
+  const parseSpotifyLink = (value) => {
+    let raw = String(value || "").trim().replace(/[)\],.;]+$/g, "");
+    if (!raw) return null;
+
+    const uri = raw.match(/^spotify:(track|album|playlist|artist):([A-Za-z0-9]{22})$/i);
+    if (uri) return spotifyFromParts(uri[1], uri[2]);
+
+    if (/^(open\.spotify\.com|play\.spotify\.com|spotify\.link|spotify\.app\.link)\//i.test(raw)) {
+      raw = `https://${raw}`;
+    }
+    if (!/^https?:\/\//i.test(raw)) return null;
+
+    let url;
+    try {
+      url = new URL(raw);
+    } catch (err) {
+      return null;
+    }
+
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "spotify.link" || host === "spotify.app.link") {
+      const shortId = url.pathname.split("/").filter(Boolean).pop() || "";
+      if (!shortId) return null;
+      return { type: "short", id: shortId, url: `https://${host}/${shortId}` };
+    }
+
+    if (!["open.spotify.com", "play.spotify.com", "spotify.com"].includes(host)) return null;
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts[0] && /^intl-[a-z]{2,5}$/i.test(parts[0])) parts.shift();
+
+    const index = parts.findIndex((part) =>
+      ["track", "album", "playlist", "artist"].includes(part.toLowerCase())
+    );
+    if (index < 0) return null;
+
+    return spotifyFromParts(parts[index], parts[index + 1]);
+  };
+
+  const extractSpotifyLinks = (value) => {
+    const raw = stripBOM(String(value || "")).trim();
+    if (!raw) return [];
+
+    const direct = parseSpotifyLink(raw);
+    if (direct) return [direct];
+
+    const found = raw.match(SPOTIFY_LINK_PATTERN) || [];
+    const links = [];
+    const seen = new Set();
+
+    found.forEach((piece) => {
+      const parsed = parseSpotifyLink(piece);
+      if (!parsed || seen.has(parsed.url)) return;
+      seen.add(parsed.url);
+      links.push(parsed);
+    });
+
+    return links;
+  };
+
+  const isSpotifyLink = (value) => Boolean(parseSpotifyLink(value));
+
   /**
    * Marca cada fila como:
    * - "new": no está en la biblioteca, ni pendiente, ni repetida en el archivo.
@@ -625,6 +707,9 @@
     parseDuration,
     parseDelimited,
     detectDelimiter,
-    normalizeHeader
+    normalizeHeader,
+    parseSpotifyLink,
+    extractSpotifyLinks,
+    isSpotifyLink
   };
 })(typeof window !== "undefined" ? window : globalThis);

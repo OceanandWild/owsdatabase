@@ -24,6 +24,17 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
+// Vibración corta para acciones táctiles. En Android se siente como una app
+// nativa; en el resto de los dispositivos no hace nada.
+const haptic = (pattern = 8) => {
+  try {
+    if (typeof navigator.vibrate !== "function") return;
+    navigator.vibrate(pattern);
+  } catch (err) {
+    /* el navegador puede bloquear la vibración sin gesto */
+  }
+};
+
 const escapeHTML = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (char) => {
     const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -188,6 +199,10 @@ const api = async (path, options = {}) => {
   return data;
 };
 
+// Un fallo de red (sin respuesta HTTP) no trae status. Sirve para distinguir
+// "no hay internet" de un error del servidor y no borrar la sesión.
+const isOfflineError = (err) => Boolean(err) && !Number(err.status);
+
 const loginWithSurface = async (username, password) => {
   const data = await api("/surface/login", {
     method: "POST",
@@ -265,7 +280,8 @@ const state = {
   panelOpen: false,
   npTab: "now",
   uploading: false,
-  isBuffering: false
+  isBuffering: false,
+  offline: false
 };
 
 // Agrupar la biblioteca por álbum recorre y ordena todas las canciones: si se
@@ -521,8 +537,7 @@ const saveVolume = () => {
   if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
 };
 
-const refreshLibrary = async () => {
-  const data = await api("/wavernote/library");
+const applyLibraryPayload = (data) => {
   state.tracks = Array.isArray(data?.tracks) ? data.tracks : [];
   state.pending = Array.isArray(data?.pending) ? data.pending : [];
   state.playlists = Array.isArray(data?.playlists) ? data.playlists : [];
@@ -530,7 +545,39 @@ const refreshLibrary = async () => {
   rebuildIndexes();
   loadPlays();
   loadRecent();
-  return data;
+};
+
+const refreshLibrary = async () => {
+  try {
+    const data = await api("/wavernote/library");
+    applyLibraryPayload(data);
+    state.offline = false;
+    waOffline.saveLibrary(state.user?.id, data);
+    if (typeof updateOfflineUI === "function") updateOfflineUI();
+    return data;
+  } catch (err) {
+    // Sin respuesta del servidor: se usa la copia guardada para que la
+    // biblioteca siga disponible aunque no haya internet.
+    if (!isOfflineError(err)) throw err;
+
+    state.offline = true;
+    const cached = await waOffline.readLibrary(state.user?.id);
+    const fallback =
+      cached ||
+      (waOffline.hasDownloads() ? waOffline.libraryFromDownloads() : null);
+
+    if (!fallback) {
+      if (typeof updateOfflineUI === "function") updateOfflineUI();
+      throw err;
+    }
+
+    applyLibraryPayload(fallback);
+    if (typeof toast === "function") {
+      toast(cached ? "Sin conexión: abrimos tu biblioteca guardada." : "Sin conexión: mostrando tus descargas.");
+    }
+    if (typeof updateOfflineUI === "function") updateOfflineUI();
+    return fallback;
+  }
 };
 
 /* ------------------------------------------------------------
@@ -563,8 +610,14 @@ const paletteFor = (value) => COVER_PALETTES[hashString(value) % COVER_PALETTES.
 const coverHTML = (item, className = "") => {
   const title = item?.title || item?.name || "WaverNote";
 
-  if (item?.coverUrl) {
-    return `<img class="cover cover--photo ${className}" src="${escapeHTML(item.coverUrl)}" alt="" loading="lazy" />`;
+  // Si la canción está descargada, la portada también vive en el
+  // dispositivo: así se ve igual sin conexión.
+  const localCover =
+    item?.id && typeof waOffline !== "undefined" ? waOffline.coverURL(item.id) : "";
+  const src = localCover || item?.coverUrl;
+
+  if (src) {
+    return `<img class="cover cover--photo ${className}" src="${escapeHTML(src)}" alt="" loading="lazy" onerror="this.style.display='none'" />`;
   }
 
   const [c1, c2, c3] = paletteFor(title);

@@ -155,11 +155,6 @@
     border-radius: 9px;
   }
 
-  .brand__mark--small svg {
-    width: 24px;
-    height: 24px;
-  }
-
   .search {
     height: 38px;
     flex: 1;
@@ -815,6 +810,16 @@
     border-left: 0;
   }
 
+  .modal__grab {
+    display: block;
+    width: 38px;
+    height: 4px;
+    flex: none;
+    margin: 8px auto 0;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.17);
+  }
+
   .modal__head {
     padding: 15px 17px 10px;
   }
@@ -836,6 +841,76 @@
     flex: 1;
     height: 42px;
     justify-content: center;
+  }
+
+  /* -------------------- Selector de cola -------------------- */
+
+  .queue-picker__list {
+    max-height: min(48dvh, 420px);
+  }
+
+  .queue-pick {
+    min-height: 54px;
+  }
+
+  .queue-pick__row {
+    gap: 11px;
+    padding: 6px 4px;
+  }
+
+  .queue-pick__art {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .queue-pick__art .cover {
+    border-radius: 10px;
+  }
+
+  .queue-pick__info strong {
+    font-size: 12.5px;
+  }
+
+  .queue-pick__info small {
+    font-size: 10.5px;
+  }
+
+  .queue-pick__play {
+    width: 36px;
+    height: 36px;
+  }
+
+  .queue-picker__foot {
+    position: sticky;
+    bottom: 0;
+    margin: 0 -17px -18px;
+    padding: 10px 17px calc(12px + var(--safe-bottom));
+    background: linear-gradient(180deg, rgba(8, 13, 22, 0.9), rgba(7, 12, 21, 0.99));
+    backdrop-filter: blur(14px);
+  }
+
+  .queue-picker__foot .btn {
+    min-height: 34px;
+    height: 34px;
+    padding: 0 11px;
+    font-size: 10.5px;
+  }
+
+  .queue-picker__summary {
+    font-size: 9.5px;
+  }
+
+  /* Pulsacion larga sobre una fila: feedback antes de abrir el menu. */
+  .track-row {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  .track-row.is-long-press {
+    background: rgba(99, 230, 200, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(99, 230, 200, 0.22);
+    transform: scale(0.995);
   }
 
   .more-menu {
@@ -931,6 +1006,30 @@
 
   .player__like {
     display: none;
+  }
+
+  .player {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 2px;
+  }
+
+  .player__quick-add {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    color: var(--muted);
+  }
+
+  .player__quick-add .icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  .player__quick-add:active {
+    background: rgba(99, 230, 200, 0.12);
+    color: var(--mint);
   }
 
   .player__center {
@@ -1099,6 +1198,26 @@
     margin-top: -5.5px;
     opacity: 1;
     box-shadow: 0 0 0 4px rgba(99, 230, 200, 0.16);
+  }
+
+  .quick-player__actions {
+    display: flex;
+    gap: 7px;
+  }
+
+  .quick-player__actions .btn {
+    flex: 1;
+    min-height: 34px;
+    height: 34px;
+    gap: 5px;
+    padding: 0 8px;
+    justify-content: center;
+    font-size: 10px;
+  }
+
+  .quick-player__actions .icon {
+    width: 14px;
+    height: 14px;
   }
 
   /* -------------------- Barra inferior -------------------- */

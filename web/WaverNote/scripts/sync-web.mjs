@@ -9,6 +9,7 @@ const out = path.join(root, "dist");
 
 const FILES = [
   "index.html",
+  "app-icon.png",
   "styles.css",
   "library.css",
   "player.css",
@@ -18,18 +19,22 @@ const FILES = [
   "catalog.css",
   "android.css",
   "audio-engine.js",
+  "offline.js",
   "core.js",
   "import-core.js",
   "cloud.js",
   "updater.js",
   "metadata.js",
+  "watch-core.js",
+  "watched-folder.js",
   "recommend.js",
   "catalog.js",
   "trends.js",
   "views.js",
   "import.js",
   "player.js",
-  "app.js"
+  "app.js",
+  "sw.js"
 ];
 
 await rm(out, { recursive: true, force: true });

@@ -32,6 +32,7 @@ class WaveEngine {
     this.currentUrl = "";
     this.graphFailed = false;
     this.buffering = false;
+    this.lastError = "";
 
     // Precarga de la siguiente canción: el archivo queda en la caché de medios
     // del navegador y cuando llega el turno arranca al toque.
@@ -56,8 +57,9 @@ class WaveEngine {
   }
 
   // Deja el archivo de la siguiente canción downloading en segundo plano.
-  prefetch(url) {
-    const target = String(url || "").trim();
+  // Acepta una canción o una URL; si está descargada usa el blob local.
+  async prefetch(track) {
+    const target = await this.resolveSource(track);
     // Sin siguiente canción no queda nada que precargar: se suelta lo anterior
     // para no seguir bajando un archivo al pedo.
     if (!target || target === this.currentUrl) {
@@ -79,6 +81,19 @@ class WaveEngine {
       this.prefetchEl = null;
       this.prefetchUrl = "";
     }
+  }
+
+  // Fuente de reproducción: primero las descargas locales y, si no hay,
+  // el archivo remoto. Sin conexión y sin descarga devuelve "".
+  async resolveSource(track) {
+    if (track && typeof track === "object") {
+      const cached =
+        typeof waOffline !== "undefined" ? await waOffline.playbackURL(track) : "";
+      if (cached) return cached;
+      if (navigator.onLine === false) return "";
+      return String(track.audioUrl || "");
+    }
+    return String(track || "");
   }
 
   clearPrefetch() {
@@ -126,14 +141,21 @@ class WaveEngine {
   }
 
   async start(track, offset = 0) {
-    if (!track?.audioUrl) return false;
+    if (!track) return false;
 
-    if (this.currentUrl !== track.audioUrl) {
+    const source = await this.resolveSource(track);
+    if (!source) {
+      this.lastError = "offline";
+      return false;
+    }
+    this.lastError = "";
+
+    if (this.currentUrl !== source) {
       // Si esta canción ya estaba precargada para el siguiente turno, se suelta
       // el elemento de precarga: si no, el archivo se descargaría dos veces.
-      if (this.prefetchUrl === track.audioUrl) this.clearPrefetch();
-      this.currentUrl = track.audioUrl;
-      this.audio.src = track.audioUrl;
+      if (this.prefetchUrl === source) this.clearPrefetch();
+      this.currentUrl = source;
+      this.audio.src = source;
       try {
         this.audio.load();
       } catch (err) {

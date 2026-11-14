@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#05080f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="wavernote-version" content="1.2.3" />
+    <meta name="wavernote-version" content="1.2.4" />
     <meta
       name="description"
       content="WaverNote: tu biblioteca musical personal. Subí tus propios archivos y escuchalos desde tu cuenta Surface."
@@ -18,10 +18,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%235fe3c8'/%3E%3Cpath d='M6 19c3-5 5 5 8 0s5 5 8 0 3 2 4 .5' fill='none' stroke='%23071018' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E"
-    />
+    <link rel="icon" type="image/png" href="app-icon.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="library.css" />
     <link rel="stylesheet" href="player.css" />
@@ -199,6 +196,20 @@
           <path d="m9.8 15.2 2.2-2.2 2.2 2.2" />
           <path d="M12 13v5" />
         </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24">
+          <path d="M12 4v11" />
+          <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
+          <path d="M5 19.5h14" />
+        </symbol>
+        <symbol id="i-cloud-off" viewBox="0 0 24 24">
+          <path d="M7.5 18.5h9a4 4 0 0 0 1.4-7.8A6 6 0 0 0 7.3 7.7" />
+          <path d="M5.2 10.2A4.5 4.5 0 0 0 7 18.5" />
+          <path d="M3 3l18 18" />
+        </symbol>
+        <symbol id="i-link" viewBox="0 0 24 24">
+          <path d="M10.2 13.8a4.5 4.5 0 0 0 6.4.1l2.1-2.1a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" />
+          <path d="M13.8 10.2a4.5 4.5 0 0 0-6.4-.1l-2.1 2.1a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
+        </symbol>
         <symbol id="i-music" viewBox="0 0 24 24">
           <path d="M9 18V6.5l10-2v11.5" />
           <circle cx="6.5" cy="18" r="2.5" />
@@ -224,9 +235,7 @@
         <section class="auth__intro">
           <span class="brand brand--auth" aria-hidden="true">
             <span class="brand__mark">
-              <svg viewBox="0 0 32 32">
-                <path d="M6 19c3-5.2 4.8 5 8 0s4.8 5 8 0 3.2 2.6 4 .6" fill="none" stroke="#061018" stroke-width="2.2" stroke-linecap="round" />
-              </svg>
+              <img src="app-icon.png" alt="" width="128" height="128" draggable="false" />
             </span>
             <span class="brand__text">
               <span class="brand__name">Waver<span>Note</span></span>
@@ -295,9 +304,7 @@
       <aside class="sidebar">
         <a class="brand" href="#" data-action="nav-home" aria-label="WaverNote, ir al inicio">
           <span class="brand__mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32">
-              <path d="M6 19c3-5.2 4.8 5 8 0s4.8 5 8 0 3.2 2.6 4 .6" fill="none" stroke="#061018" stroke-width="2.2" stroke-linecap="round" />
-            </svg>
+            <img src="app-icon.png" alt="" width="128" height="128" draggable="false" />
           </span>
           <span class="brand__text">
             <span class="brand__name">Waver<span>Note</span></span>
@@ -361,7 +368,7 @@
         <button class="side-version" type="button" data-action="open-updates" data-wavernote-update title="Buscar actualizaciones">
           <span class="side-version__dot" aria-hidden="true"></span>
           <span class="side-version__meta">
-            <strong data-wavernote-version>v1.2.3</strong>
+            <strong data-wavernote-version>v1.2.4</strong>
             <small>Actualizaciones</small>
           </span>
         </button>
@@ -392,9 +399,7 @@
 
           <a class="topbar__mobile-brand" href="#" data-action="nav-home" aria-label="WaverNote, ir al inicio">
             <span class="brand__mark brand__mark--small" aria-hidden="true">
-              <svg viewBox="0 0 32 32">
-                <path d="M6 19c3-5.2 4.8 5 8 0s4.8 5 8 0 3.2 2.6 4 .6" fill="none" stroke="#061018" stroke-width="2.2" stroke-linecap="round" />
-              </svg>
+              <img src="app-icon.png" alt="" width="128" height="128" draggable="false" />
             </span>
             <span>WaverNote</span>
           </a>
@@ -416,6 +421,16 @@
           </label>
 
           <div class="topbar__actions">
+            <span
+              class="offline-badge"
+              id="offlineBadge"
+              role="status"
+              title="Sin conexión: estás viendo tu copia guardada"
+              hidden
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cloud-off"></use></svg>
+              <span>Sin conexión</span>
+            </span>
             <button class="btn btn--primary btn--upload" data-action="open-upload">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"></use></svg>
               <span>Subir música</span>
@@ -526,10 +541,22 @@
             <div class="np__queue">
               <div class="np__queue-head">
                 <h3>A continuación</h3>
-                <span id="npQueueCount"></span>
+                <div class="np__queue-head-actions">
+                  <span id="npQueueCount"></span>
+                  <button
+                    class="btn btn--soft btn--small np__queue-add"
+                    type="button"
+                    data-action="open-queue-add"
+                    aria-label="Agregar canciones a la cola"
+                    title="Agregar canciones a la cola"
+                  >
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"></use></svg>
+                    <span>Agregar</span>
+                  </button>
+                </div>
               </div>
               <p class="np__queue-hint" id="npQueueHint">
-                Arrastrá una canción al inicio de la lista para que suene primero.
+                Tocá «Agregar» para sumar canciones sin salir de la cola. Arrastrá una canción al inicio para que suene primero.
               </p>
               <ol class="queue" id="npQueue"></ol>
             </div>
@@ -552,8 +579,18 @@
           </div>
           <div class="quick-player__timeline">
             <span class="time" id="quickCurTime">0:00</span>
-            <input id="quickSeek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" />
+            <input id="quickSeek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" title="Doble toque para abrir Ahora suena" />
             <span class="time" id="quickDurTime">0:00</span>
+          </div>
+          <div class="quick-player__actions">
+            <button class="btn btn--soft btn--small" type="button" data-action="open-queue-add">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"></use></svg>
+              <span>Agregar a la cola</span>
+            </button>
+            <button class="btn btn--ghost btn--small" type="button" data-action="open-queue">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"></use></svg>
+              <span>Ver cola</span>
+            </button>
           </div>
         </div>
 
@@ -591,10 +628,14 @@
           </div>
           <div class="player__timeline">
             <span class="time" id="curTime">0:00</span>
-            <input id="seek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" />
+            <input id="seek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" title="Doble toque para abrir Ahora suena" />
             <span class="time" id="durTime">0:00</span>
           </div>
         </div>
+
+        <button class="icon-btn player__quick-add" type="button" data-action="open-queue-add" aria-label="Agregar canción a la cola" title="Agregar a la cola">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-queue-add"></use></svg>
+        </button>
 
         <div class="player__tools">
           <button class="icon-btn" id="queueBtn" data-action="toggle-panel" data-tab="queue" aria-label="Ver cola" aria-expanded="false">
@@ -640,6 +681,7 @@
     <div class="modal" id="modal" aria-hidden="true">
       <div class="modal__backdrop" data-action="close-modal"></div>
       <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <span class="modal__grab" aria-hidden="true"></span>
         <header class="modal__head">
           <div>
             <p class="eyebrow" id="modalEyebrow">WaverNote</p>
@@ -656,11 +698,14 @@
     <div class="toast-stack" id="toasts" role="status" aria-live="polite"></div>
 
     <script src="audio-engine.js"></script>
+    <script src="offline.js"></script>
     <script src="core.js"></script>
     <script src="import-core.js"></script>
     <script src="cloud.js"></script>
     <script src="updater.js"></script>
     <script src="metadata.js"></script>
+    <script src="watch-core.js"></script>
+    <script src="watched-folder.js"></script>
     <script src="recommend.js"></script>
     <script src="catalog.js"></script>
     <script src="trends.js"></script>

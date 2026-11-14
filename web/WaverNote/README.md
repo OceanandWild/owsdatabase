@@ -33,6 +33,17 @@ Todo lo que hacés en WaverNote queda en tu cuenta y te sigue a cualquier dispos
 
 La cola y la posición se restauran en pausa: al entrar desde otro dispositivo ves dónde quedaste, pero el audio no arranca solo.
 
+## Modo sin conexión
+
+WaverNote guarda una copia de tu biblioteca y de las canciones que descargues para que la app abra y suene sin internet.
+
+- La sesión, la biblioteca, las playlists y los favoritos quedan en el dispositivo y se actualizan al reconectar.
+- Cada canción tiene **Descargar para escuchar sin conexión** en su menú. La descarga incluye el audio y la portada.
+- Las canciones descargadas muestran un tilde en la biblioteca y se reproducen desde el almacenamiento local, sin pedir el archivo a Cloudinary.
+- Un service worker guarda el shell de la app (HTML, CSS, JS e íconos) para que abra aunque no haya red.
+- Las descargas viven en IndexedDB, con un tope de 4 GB o la mitad del espacio disponible. Se quitan desde el mismo menú.
+- Subir, editar o borrar canciones necesita conexión. Al volver la red, la biblioteca se refresca sola y la cola y las reproducciones se sincronizan.
+
 ## Qué incluye
 
 - **Inicio:** saludo, última subida y un estado inicial que invita a cargar música.
@@ -159,6 +170,8 @@ trends.css        Tendencias, tarjetas con fuego y franja del inicio
 app.css           Acceso, formularios, modales y subidas
 android.css       Capa móvil/Android cargada al final (barra inferior, panel y cola)
 audio-engine.js   Motor de audio real con <audio> + Web Audio
+offline.js        Copia local de la biblioteca, descargas y modo sin conexión
+sw.js             Service worker del shell para abrir sin red
 core.js           Sesión Surface, API, estado y navegación
 cloud.js          Sincronización de la cuenta (estado y reproducciones)
 metadata.js       Lectura de etiquetas y portadas de archivos locales

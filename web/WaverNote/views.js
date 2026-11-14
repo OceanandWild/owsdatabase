@@ -6,6 +6,11 @@
 
 let activeQuery = "";
 
+const offlineTrackMark = (track) => {
+  if (typeof waOffline === "undefined" || !waOffline.has(track?.id)) return "";
+  return `<span class="track-row__offline" title="Descargada para escuchar sin conexión">${icon("check")}</span>`;
+};
+
 const highlight = (text) => {
   const safe = escapeHTML(text);
   if (!activeQuery) return safe;
@@ -106,7 +111,7 @@ const trackRows = (ids, { showAlbum = true, context = "", playlistId = null, rea
             </span>
             ${showAlbum ? `<button class="track-row__album" data-action="open-album" data-id="${escapeHTML(album.id)}" title="Abrir ${escapeHTML(album.title)}">${escapeHTML(album.title)}</button>` : ""}
             <span class="track-row__plays">${escapeHTML(track.genre || "—")}</span>
-            <span class="track-row__duration">${formatTime(track.duration)}</span>
+            <span class="track-row__duration">${offlineTrackMark(track)}${formatTime(track.duration)}</span>
             <button class="row-like ${liked ? "is-liked" : ""}" data-action="like" data-id="${track.id}" data-like-id="${track.id}" aria-label="${liked ? "Quitar de me gusta" : "Agregar a me gusta"}" aria-pressed="${liked}">${icon("heart")}</button>
             <button class="row-add row-more" data-action="track-menu" data-id="${track.id}" data-playlist="${playlistId || ""}" aria-label="Más opciones de ${escapeHTML(track.title)}" title="Más opciones">${icon("list")}</button>
           </div>`;
@@ -128,6 +133,65 @@ const uploadAction = (label = "Subir música", extraClass = "") => `
   <button class="btn btn--primary ${extraClass}" data-action="open-upload">
     ${icon("upload")} ${escapeHTML(label)}
   </button>`;
+
+/* ------------------------------------------------------------
+   Escucha rapida
+   Mezcla lo ultimo que sono, lo que todavia no se escucho y
+   lo que hace mas tiempo que no aparece.
+   ------------------------------------------------------------ */
+
+const quickListenTracks = (limit = 6) => {
+  if (!state.tracks.length) return [];
+
+  const picks = [];
+  const seen = new Set();
+  const add = (track) => {
+    if (!track || seen.has(Number(track.id)) || picks.length >= limit) return;
+    seen.add(Number(track.id));
+    picks.push(track);
+  };
+
+  state.recent.slice(0, 2).forEach((id) => add(trackById(id)));
+
+  const stats = new Map(state.tracks.map((track) => [track.id, playStatsOf(track)]));
+  const addedAt = (track) => new Date(track.createdAt || 0).getTime() || 0;
+  const playedAt = (track) => new Date(stats.get(track.id)?.lastPlayedAt || 0).getTime() || 0;
+
+  state.tracks
+    .filter((track) => !stats.get(track.id)?.count)
+    .slice()
+    .sort((a, b) => addedAt(b) - addedAt(a) || b.id - a.id)
+    .slice(0, 2)
+    .forEach(add);
+
+  state.tracks
+    .filter((track) => stats.get(track.id)?.count)
+    .slice()
+    .sort((a, b) => playedAt(a) - playedAt(b) || a.id - b.id)
+    .slice(0, 3)
+    .forEach(add);
+
+  state.tracks.slice(0, limit).forEach(add);
+  return picks.slice(0, limit);
+};
+
+const quickListenCard = (track) => {
+  const current = Number(state.currentTrackId) === Number(track.id);
+  const queued = isQueuedTrack(track.id);
+  return `<article class="quick-listen__item${current && state.isPlaying ? " is-playing" : ""}">
+    <button class="quick-listen__main" type="button" data-action="quick-listen-play" data-id="${track.id}" aria-label="Reproducir «${escapeHTML(track.title)}» ahora">
+      <span class="quick-listen__art">${coverHTML(track)}</span>
+      <span class="quick-listen__copy">
+        <strong>${escapeHTML(track.title)}</strong>
+        <small>${escapeHTML(track.artist || "Artista desconocido")}</small>
+      </span>
+      <span class="quick-listen__state">${current ? icon("wave") : icon("play", "icon--fill")}</span>
+    </button>
+    <button class="quick-listen__add" type="button" data-action="quick-listen-queue" data-id="${track.id}" aria-label="${queued ? `«${escapeHTML(track.title)}» ya está en la cola` : `Agregar «${escapeHTML(track.title)}» a la cola`}" ${queued ? "disabled" : ""}>
+      ${queued ? icon("check") : icon("plus")}
+    </button>
+  </article>`;
+};
 
 /* ------------------------------------------------------------
    Inicio
@@ -205,6 +269,7 @@ const viewHome = () => {
   const total = tracks.reduce((sum, track) => sum + (Number(track.duration) || 0), 0);
   const trends = trendItems();
   const recentAdditions = recentlyAddedTracks();
+  const quickListen = quickListenTracks();
 
   return `
     <section class="page-head">
@@ -244,6 +309,20 @@ const viewHome = () => {
         <path d="M0 210 C 200 170 360 250 560 200 S 840 160 1020 210 S 1140 230 1200 205" fill="none" stroke="var(--p3)" stroke-width=".6" opacity=".1"/>
       </svg>
     </section>
+
+    ${quickListen.length >= 3
+      ? `<section class="section">
+          <div class="section__head">
+            <div>
+              <p class="eyebrow">Un toque</p>
+              <h2>Escucha rápida</h2>
+              <p class="section__sub">Lo último que sonó, lo que todavía espera y lo que hace tiempo no aparece.</p>
+            </div>
+            <button class="link-btn" data-action="open-queue-add">${icon("plus")} Agregar a la cola</button>
+          </div>
+          <div class="quick-listen">${quickListen.map(quickListenCard).join("")}</div>
+        </section>`
+      : ""}
 
     ${trends.length
       ? `<section class="section">
@@ -562,7 +641,10 @@ const pendingRow = (item) => `
       ${item.source ? `<span class="pending-row__source">${escapeHTML(item.source)}</span>` : ""}
       <span class="pending-row__time">${item.duration ? formatTime(item.duration) : "—"}</span>
     </span>
-    <button class="icon-btn icon-btn--tiny" data-action="pending-remove" data-id="${item.id}" title="Quitar de pendientes" aria-label="Quitar ${escapeHTML(item.title)} de pendientes">${icon("x")}</button>
+    <span class="pending-row__actions">
+      <button class="icon-btn icon-btn--tiny pending-row__upload" data-action="pending-upload" data-id="${item.id}" title="Subir el audio de esta canción" aria-label="Subir el audio de ${escapeHTML(item.title)}">${icon("upload")}</button>
+      <button class="icon-btn icon-btn--tiny" data-action="pending-remove" data-id="${item.id}" title="Quitar de pendientes" aria-label="Quitar ${escapeHTML(item.title)} de pendientes">${icon("x")}</button>
+    </span>
   </div>`;
 
 const viewLibrary = () => {
@@ -596,13 +678,14 @@ const viewLibrary = () => {
           <button class="btn btn--small btn--primary" data-action="open-import">${icon("plus")} Importar lista</button>
         </div>
       </div>
+      ${window.WaverNoteWatched?.cardHTML?.() || ""}
       ${
         pending.length
-          ? `<p class="pending-hint">${icon("cloud")} Cuando subas un archivo con el mismo título y artista, la canción sale de pendientes sola.</p>
+          ? `<p class="pending-hint">${icon("cloud")} Tocá ${icon("upload")} para subir el audio de una canción con sus datos y portada ya cargados. Cuando el título y el artista coinciden, sale de pendientes sola.</p>
              <div class="pending-list">${pending.map(pendingRow).join("")}</div>`
           : emptyState(
               "No hay canciones pendientes",
-              "Importá tu biblioteca de Spotify o cualquier lista en CSV/JSON. Quedan acá hasta que subas el audio.",
+              "Pegá el link de una playlist, álbum o canción de Spotify, o importá un CSV/JSON. Quedan acá hasta que subas el audio.",
               `<div class="empty__actions"><button class="btn btn--primary" data-action="open-import">${icon("plus")} Importar lista</button><button class="btn btn--ghost" data-action="open-upload">${icon("upload")} Subir música</button></div>`,
               "cloud"
             )

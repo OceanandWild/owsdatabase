@@ -573,6 +573,31 @@
   font-size: 9px;
 }
 
+.np__queue-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.np__queue-add {
+  min-height: 28px;
+  padding: 0 9px;
+  gap: 5px;
+  font-size: 10.5px;
+}
+
+.np__queue-add .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Acceso directo a "Agregar a la cola" en el pie. Solo aparece en movil,
+   donde el panel no esta siempre a la vista. */
+.player__quick-add {
+  display: none;
+}
+
 .np__queue-hint {
   margin: 0;
   padding: 7px 9px;
@@ -1090,11 +1115,6 @@
     width: 30px;
     height: 30px;
     border-radius: 9px;
-  }
-
-  .brand__mark--small svg {
-    width: 26px;
-    height: 26px;
   }
 
   .search {

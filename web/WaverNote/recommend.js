@@ -257,3 +257,132 @@ const recommendationSection = (sectionId) => {
   const rec = state.recommendations || buildRecommendations();
   return rec.sections.find((item) => item.id === sectionId) || null;
 };
+
+/* ------------------------------------------------------------
+   Aviso semanal: canciones que hace tiempo no suenan
+   Se muestra como maximo una vez cada siete dias por usuario y
+   solo cuando hay al menos tres candidatas, para no insistir.
+   ------------------------------------------------------------ */
+
+const LISTEN_REMINDER_PREFIX = "wavernote.listenReminder.v1.";
+const LISTEN_REMINDER_DAYS = 7;
+const LISTEN_REMINDER_DAY_MS = 86400000;
+const LISTEN_REMINDER_MIN = 3;
+const LISTEN_REMINDER_MAX = 6;
+const LISTEN_REMINDER_UNPLAYED_DAYS = 14;
+const LISTEN_REMINDER_SILENT_DAYS = 21;
+
+const listenReminderStorageKey = () => `${LISTEN_REMINDER_PREFIX}${state.user?.id || "local"}`;
+
+const listenReminderLastShown = () => {
+  const saved = readJSON(listenReminderStorageKey(), null);
+  const time = Number(saved?.lastShownAt) || 0;
+  return Number.isFinite(time) ? time : 0;
+};
+
+const listenReminderMarkShown = () => {
+  writeJSON(listenReminderStorageKey(), { lastShownAt: Date.now() });
+};
+
+const listenReminderCandidates = () => {
+  const now = Date.now();
+
+  return state.tracks
+    .map((track) => {
+      const stats = playStatsOf(track);
+      const addedTime = new Date(track.createdAt || 0).getTime();
+      const lastPlayedAt = stats.lastPlayedAt ? new Date(stats.lastPlayedAt).getTime() : 0;
+      const daysAdded =
+        track.createdAt && Number.isFinite(addedTime)
+          ? Math.max(0, (now - addedTime) / LISTEN_REMINDER_DAY_MS)
+          : 0;
+      const daysSincePlayed = lastPlayedAt
+        ? Math.max(0, (now - lastPlayedAt) / LISTEN_REMINDER_DAY_MS)
+        : null;
+
+      const quiet =
+        stats.count === 0
+          ? daysAdded >= LISTEN_REMINDER_UNPLAYED_DAYS
+          : daysSincePlayed !== null && daysSincePlayed >= LISTEN_REMINDER_SILENT_DAYS;
+
+      return { track, stats, quiet, daysAdded, daysSincePlayed };
+    })
+    .filter((item) => item.quiet)
+    .sort((a, b) => {
+      const quietA = a.stats.count === 0 ? a.daysAdded : a.daysSincePlayed || 0;
+      const quietB = b.stats.count === 0 ? b.daysAdded : b.daysSincePlayed || 0;
+      return quietB - quietA || a.track.id - b.track.id;
+    })
+    .slice(0, LISTEN_REMINDER_MAX);
+};
+
+const listenReminderStatus = (item) => {
+  if (item.stats.count === 0) {
+    return `Nunca la escuchaste · hace ${plural(
+      Math.max(1, Math.floor(item.daysAdded)),
+      "día",
+      "días"
+    )} que está en tu biblioteca`;
+  }
+  return `Hace ${plural(
+    Math.max(1, Math.floor(item.daysSincePlayed || 0)),
+    "día",
+    "días"
+  )} que no suena`;
+};
+
+const openListenReminder = (items) => {
+  const ids = items.map((item) => item.track.id).join(",");
+
+  openModal({
+    title: "¿Volvemos a escucharlas?",
+    eyebrow: "Tu música",
+    body: `
+      <div class="listen-reminder">
+        <p class="listen-reminder__lead">Estas canciones hace tiempo que no aparecen por acá. ¿Les damos otra vuelta?</p>
+        <ul class="listen-reminder__list">
+          ${items
+            .map(
+              (item) => `<li class="listen-reminder__item">
+                <span class="listen-reminder__art">${coverHTML(item.track)}</span>
+                <span class="listen-reminder__copy">
+                  <strong>${escapeHTML(item.track.title)}</strong>
+                  <small>${escapeHTML(item.track.artist || "Artista desconocido")}</small>
+                  <em>${escapeHTML(listenReminderStatus(item))}</em>
+                </span>
+                <button class="listen-reminder__play" type="button" data-action="listen-reminder-play" data-id="${item.track.id}" aria-label="Reproducir «${escapeHTML(item.track.title)}» ahora">
+                  ${icon("play", "icon--fill")}
+                </button>
+              </li>`
+            )
+            .join("")}
+        </ul>
+        <p class="listen-reminder__note">Te avisamos una vez por semana. Podés cerrarlo cuando quieras.</p>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" data-action="close-modal">Ahora no</button>
+        <button class="btn btn--soft" data-action="listen-reminder-queue" data-ids="${ids}">${icon("queue-add")} Sumar a la cola</button>
+        <button class="btn btn--primary" data-action="listen-reminder-play-all" data-ids="${ids}" data-autofocus>${icon("play", "icon--fill")} Reproducir ahora</button>
+      </div>`
+  });
+};
+
+let listenReminderShown = false;
+
+const maybeShowListenReminder = () => {
+  if (listenReminderShown) return;
+  if (!state.ready || state.tracks.length < 3) return;
+  if (document.getElementById("modal")?.classList.contains("is-open")) return;
+
+  const now = Date.now();
+  if (now - listenReminderLastShown() < LISTEN_REMINDER_DAYS * LISTEN_REMINDER_DAY_MS) return;
+
+  const items = listenReminderCandidates();
+  if (items.length < LISTEN_REMINDER_MIN) return;
+
+  listenReminderShown = true;
+  listenReminderMarkShown();
+  openListenReminder(items);
+};
+
+window.WaverNoteListenReminder = { maybeShow: maybeShowListenReminder };

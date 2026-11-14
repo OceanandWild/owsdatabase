@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Ecualizador simple: se lee bien como ícono monocromo de notificación. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,10h2.2v4H3zM7.1,6.5h2.2v11H7.1zM11.2,3.5h2.2v17h-2.2zM15.3,6.5h2.2v11h-2.2zM19.4,10H21.6v4h-2.2z" />
+</vector>

@@ -10,6 +10,8 @@
 
 use tauri::Manager;
 
+mod watched_folder;
+
 #[tauri::command]
 fn app_info() -> serde_json::Value {
     serde_json::json!({
@@ -261,6 +263,7 @@ async fn apk_install(_path: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        .manage(watched_folder::WatchedFolderState::default())
         .plugin(
             tauri::plugin::Builder::<tauri::Wry>::new("wavernote-mobile")
                 .setup(|app, api| {
@@ -285,11 +288,16 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_info,
             apk_download,
-            apk_install
+            apk_install,
+            watched_folder::watched_pick_folder,
+            watched_folder::watched_scan_folder,
+            watched_folder::watched_read_chunk
         ]);
 
     #[cfg(not(target_os = "android"))]
-    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    let builder = builder
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build());
 
     builder
         .run(tauri::generate_context!())

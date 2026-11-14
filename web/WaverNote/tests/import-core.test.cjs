@@ -5,7 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "import-core.js"), "utf8");
-const sandbox = { console };
+const sandbox = { console, URL };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
 const core = sandbox.WaverNoteImportCore;
@@ -272,4 +272,40 @@ test("rechaza archivos sin columna de título", () => {
   );
   assert.throws(() => core.parseImportText("   "), /Pegá el contenido/i);
   assert.throws(() => core.parseImportText("{ roto"), /JSON no es válido/i);
+});
+
+test("reconoce links de Spotify de canción, álbum y playlist", () => {
+  const track = core.parseSpotifyLink(
+    "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT?si=abc123"
+  );
+  assert.equal(track.type, "track");
+  assert.equal(track.id, "4cOdK2wGLETKBW3PvgPWqT");
+  assert.equal(track.url, "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT");
+
+  const intl = core.parseSpotifyLink(
+    "https://open.spotify.com/intl-es/album/1DFixLWuPkv3KT3TnV35m3"
+  );
+  assert.equal(intl.type, "album");
+  assert.equal(intl.id, "1DFixLWuPkv3KT3TnV35m3");
+
+  const uri = core.parseSpotifyLink("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M");
+  assert.equal(uri.type, "playlist");
+
+  const short = core.parseSpotifyLink("https://spotify.link/abc123");
+  assert.equal(short.type, "short");
+});
+
+test("extrae links de Spotify dentro de un texto y descarta otros hosts", () => {
+  const links = core.extractSpotifyLinks(
+    "Mirá esta lista: https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M y este tema spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+  );
+  assert.equal(links.length, 2);
+  assert.deepEqual(
+    Array.from(links).map((link) => link.type),
+    ["playlist", "track"]
+  );
+
+  assert.equal(core.parseSpotifyLink("https://example.com/track/4cOdK2wGLETKBW3PvgPWqT"), null);
+  assert.equal(core.parseSpotifyLink("https://open.spotify.com/track/corto"), null);
+  assert.equal(core.isSpotifyLink("https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3"), true);
 });

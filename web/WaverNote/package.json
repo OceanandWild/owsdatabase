@@ -1,6 +1,6 @@
 {
   "name": "wavernote",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "private": true,
   "description": "WaverNote — biblioteca musical personal de Ocean & Wild Studios (Tauri v2)",
   "scripts": {

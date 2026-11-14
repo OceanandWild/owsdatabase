@@ -595,6 +595,11 @@
   transform: none;
 }
 
+/* Manija para arrastrar la hoja hacia abajo en movil. */
+.modal__grab {
+  display: none;
+}
+
 .modal__head {
   display: flex;
   align-items: flex-start;
@@ -642,6 +647,285 @@
 
 body.modal-open {
   overflow: hidden;
+}
+
+/* ------------------------------------------------------------
+   Selector rapido de canciones para la cola
+   ------------------------------------------------------------ */
+
+.queue-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.queue-picker__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 42px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--faint);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.queue-picker__search:focus-within {
+  border-color: rgba(99, 230, 200, 0.42);
+  background: rgba(99, 230, 200, 0.045);
+}
+
+.queue-picker__search > .icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.queue-picker__search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.queue-picker__search input::placeholder {
+  color: var(--faint);
+}
+
+.queue-picker__search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.queue-picker__clear {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  flex: none;
+  border-radius: 50%;
+  color: var(--faint);
+  transition: background 0.2s, color 0.2s;
+}
+
+.queue-picker__clear:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+.queue-picker__clear .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.queue-picker__filters {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 1px;
+  scrollbar-width: none;
+}
+
+.queue-picker__filters::-webkit-scrollbar {
+  display: none;
+}
+
+.queue-pick-filter {
+  flex: none;
+  min-height: 29px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.queue-pick-filter:hover {
+  border-color: var(--line-strong);
+  color: var(--text-soft);
+}
+
+.queue-pick-filter.is-active {
+  border-color: transparent;
+  background: var(--mint);
+  color: #04121a;
+  font-weight: 650;
+}
+
+.queue-picker__meta {
+  margin: -3px 0 0;
+  color: var(--faint);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+
+.queue-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(46vh, 400px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.queue-pick {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 3px;
+  border-radius: 12px;
+  transition: background 0.18s;
+}
+
+.queue-pick:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.queue-pick__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 12px;
+  text-align: left;
+}
+
+.queue-pick__row:disabled {
+  cursor: default;
+}
+
+.queue-pick__art {
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 9px;
+}
+
+.queue-pick__art .cover {
+  height: 100%;
+  border-radius: 9px;
+}
+
+.queue-pick__info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.queue-pick__info strong {
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-pick__info small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-pick__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  color: var(--mint);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.queue-pick__state .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.queue-pick__play {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  color: var(--muted);
+  opacity: 0.75;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.queue-pick__play:hover {
+  background: rgba(99, 230, 200, 0.12);
+  color: var(--mint);
+  opacity: 1;
+}
+
+.queue-pick__play .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.queue-pick.is-queued .queue-pick__row {
+  opacity: 0.55;
+}
+
+.queue-pick-empty {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 20px 8px;
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.queue-pick-empty .icon {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.queue-picker__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+
+.queue-picker__summary {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.queue-picker__foot-actions {
+  display: flex;
+  gap: 7px;
+  flex: none;
 }
 
 /* ------------------------------------------------------------
@@ -2365,5 +2649,63 @@ body.modal-open {
 
   .auth__panel {
     padding: 16px 16px 20px;
+  }
+}
+
+/* ------------------------------------------------------------
+   Modo sin conexión
+   ------------------------------------------------------------ */
+
+.offline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 176, 138, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 176, 138, 0.08);
+  color: #ffb08a;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.offline-badge .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.track-row__duration {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.track-row__offline {
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(99, 230, 200, 0.12);
+  color: var(--mint);
+}
+
+.track-row__offline .icon {
+  width: 10px;
+  height: 10px;
+  stroke-width: 2.6;
+}
+
+@media (max-width: 767px) {
+  .offline-badge {
+    padding: 0 9px;
+  }
+
+  .offline-badge > span {
+    display: none;
   }
 }

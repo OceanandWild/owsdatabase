@@ -1,11 +1,11 @@
 {
   "project_slug": "wavernote",
   "package_id": "com.oceanwildstudios.wavernote",
-  "version_name": "1.2.3",
-  "version_code": 1002003,
-  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.3/WaverNote_1.2.3_universal.apk",
-  "sha256": "1067d128bbe13b44638f70b94436a65aa5c8cf8e933fcb3d8a443f0ebd214964",
-  "size_bytes": 55298455,
-  "release_notes": "Corrige la deteccion de canciones ya importadas: reconoce artistas con colaboradores (CHAXZER/DJ FKU) y sufijos como Slowed, Sped Up o Nightcore. Esas canciones ya no aparecen como nuevas ni se duplican en Pendientes.",
-  "published_at": "2026-11-13T15:24:23Z"
+  "version_name": "1.2.4",
+  "version_code": 1002004,
+  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.4/WaverNote_1.2.4_universal.apk",
+  "sha256": "c6775b48fa9257deeae239a173e585ac73da24591dbe4542e469ced804883c7f",
+  "size_bytes": 55889026,
+  "release_notes": "## WaverNote 1.2.4\n\nDisponible para Windows y Android.\n\n### Adiciones\n\n- Carpeta vigilada: elegí la carpeta donde guardás tu música y WaverNote completa sola las canciones pendientes cuando aparece el archivo correspondiente. Funciona en Windows y Android, incluidas las subcarpetas.\n- La app revisa la carpeta al abrir, al volver a ella y cada pocos minutos mientras esté abierta. No hace falta dejar una pantalla abierta ni subir archivo por archivo.\n- Reconoce la organización real de una biblioteca: Artista/Canción/archivo, Artista/Álbum/01 - Canción, \"Artista - Canción\" y nombres con etiquetas. Tolera acentos, mayúsculas, \"feat.\" y sufijos de versión como \"- Slowed\" o \"Super Slowed\".\n- Si elegís la carpeta de un artista o una carpeta con un solo archivo, la app sigue buscando en las subcarpetas y te avisa si conviene elegir una carpeta más amplia.\n- Solo sube archivos que coinciden con una canción pendiente. No descarga música de Spotify ni de otras plataformas, no elude protecciones y no modifica, mueve ni borra tus archivos.\n- Si dos canciones pendientes se parecen demasiado, no adivina: deja el archivo para que lo subas vos desde la fila de pendientes.\n- En Android el acceso se guarda con el permiso del selector del sistema. Si el sistema lo retira, la app te pide elegir la carpeta otra vez en lugar de fallar.\n- En Windows la carpeta se lee directamente del equipo. Si la movés o la desconectás, podés elegir la nueva ubicación desde la misma tarjeta.\n- La tarjeta de carpeta vigilada muestra el estado, el último escaneo y cuántas canciones se completaron. Se puede pausar, escanear a mano u olvidar sin borrar archivos ni canciones.\n- Formatos reconocidos: MP3, FLAC, M4A, OGG/OPUS, WAV, AAC y WEBM.\n\n### Arreglos\n\n- Al subir el audio de una canción pendiente desde su fila, la app recuerda exactamente qué fila estabas completando aunque el título o el artista del archivo estén escritos distinto.\n- Los archivos que ya se subieron no se vuelven a procesar si movés o renombrás la carpeta, y los que fallaron se reintentan más tarde sin quedar en un bucle.\n- Las carpetas ocultas, las del sistema y los archivos que no son audio se ignoran durante el escaneo.\n\n### Otros\n\n- Windows: instalador NSIS x64 firmado. Android: APK universal firmado.",
+  "published_at": "2026-11-14T04:46:02Z"
 }

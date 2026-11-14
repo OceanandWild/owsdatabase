@@ -1118,7 +1118,7 @@ const startQueue = (ids, options = {}) => {
 
 const playbackFailureMessage = (track, fallback) => {
   if (engine.lastError === "offline") {
-    return `«${track?.title || "Esta canción"}» no está descargada. Conectate a internet o descargala desde su menú.`;
+    return `«${track?.title || "Esta canción"}» no está guardada sin conexión. Conectate a internet o guardá una copia desde su menú.`;
   }
   return fallback;
 };

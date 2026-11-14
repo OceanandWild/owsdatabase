@@ -343,6 +343,7 @@ const state = {
   panelOpen: false,
   npTab: "now",
   uploading: false,
+  savingOffline: false,
   isBuffering: false,
   offline: false
 };
@@ -616,7 +617,7 @@ const applyLibraryPayload = (data) => {
   loadRecent();
 };
 
-const refreshLibrary = async () => {
+const refreshLibrary = async ({ silent = false, retry = false } = {}) => {
   try {
     const data = await api("/wavernote/library");
     applyLibraryPayload(data);
@@ -631,7 +632,16 @@ const refreshLibrary = async () => {
     // biblioteca siga disponible aunque no haya internet.
     if (!isOfflineError(err)) throw err;
 
+    const wasOffline = state.offline;
     state.offline = true;
+
+    // Reintento en segundo plano: si ya se está mostrando la copia, no se
+    // vuelve a pintar ni se avisa otra vez. Solo importa si el servidor volvió.
+    if (retry && wasOffline) {
+      if (typeof updateOfflineUI === "function") updateOfflineUI();
+      throw err;
+    }
+
     const cached = await waOffline.readLibrary(state.user?.id);
     const fallback =
       cached ||
@@ -643,8 +653,12 @@ const refreshLibrary = async () => {
     }
 
     applyLibraryPayload(fallback);
-    if (typeof toast === "function") {
-      toast(cached ? "Sin conexión: abrimos tu biblioteca guardada." : "Sin conexión: mostrando tus descargas.");
+    if (!silent && typeof toast === "function") {
+      toast(
+        cached
+          ? "No pudimos conectar con el servidor: abrimos tu biblioteca guardada."
+          : "No pudimos conectar con el servidor: mostrando tus copias guardadas."
+      );
     }
     if (typeof updateOfflineUI === "function") updateOfflineUI();
     return fallback;
@@ -740,7 +754,7 @@ const uploadTrackFile = ({ file, fields, cover, onProgress }) =>
       });
     }
 
-    xhr.addEventListener("load", () => {
+    xhr.addEventListener("load", async () => {
       let data = null;
       try {
         data = JSON.parse(xhr.responseText || "null");
@@ -749,6 +763,15 @@ const uploadTrackFile = ({ file, fields, cover, onProgress }) =>
       }
 
       if (xhr.status >= 200 && xhr.status < 300 && data?.track) {
+        // El audio salió de este dispositivo: se guarda la misma copia para
+        // que quede disponible sin conexión sin pedir otra descarga.
+        try {
+          if (typeof waOffline !== "undefined" && typeof waOffline.saveUploadedTrack === "function") {
+            await waOffline.saveUploadedTrack(data.track, file, { cover });
+          }
+        } catch (err) {
+          /* la subida ya está bien; la copia local es opcional */
+        }
         resolve(data.track);
         return;
       }

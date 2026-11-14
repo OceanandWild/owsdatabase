@@ -35,13 +35,17 @@ La cola y la posición se restauran en pausa: al entrar desde otro dispositivo v
 
 ## Modo sin conexión
 
-WaverNote guarda una copia de tu biblioteca y de las canciones que descargues para que la app abra y suene sin internet.
+WaverNote guarda una copia de tu biblioteca y de las canciones que guardes para que la app abra y suene sin internet.
 
 - La sesión, la biblioteca, las playlists y los favoritos quedan en el dispositivo y se actualizan al reconectar.
-- Cada canción tiene **Descargar para escuchar sin conexión** en su menú. La descarga incluye el audio y la portada.
-- Las canciones descargadas muestran un tilde en la biblioteca y se reproducen desde el almacenamiento local, sin pedir el archivo a Cloudinary.
+- Al subir una canción desde tu dispositivo, WaverNote guarda automáticamente esa misma copia para escucharla sin conexión. No se vuelve a descargar ni se pide el archivo otra vez.
+- Para una canción que no subiste desde este dispositivo, elegí **Guardar copia sin conexión** en su menú. La copia incluye el audio y la portada.
+- En la biblioteca, **Guardar todas (N)** guarda de una vez las canciones que todavía no tienen copia acá, con progreso y opción de detenerse. El botón solo toma las que faltan, así que se puede retomar.
+- Las copias no se sincronizan entre dispositivos: son de cada equipo. Para escuchar sin conexión en otro dispositivo, entrá con tu cuenta y usá **Guardar todas** también allí.
+- Si falla el servidor pero tu internet funciona, la cabecera muestra **Copia guardada**; si no hay red, muestra **Sin internet**. Al reconectar se actualiza sola.
+- Las canciones con copia guardada muestran un tilde en la biblioteca y se reproducen desde el almacenamiento local, sin pedir el archivo a Cloudinary.
 - Un service worker guarda el shell de la app (HTML, CSS, JS e íconos) para que abra aunque no haya red.
-- Las descargas viven en IndexedDB, con un tope de 4 GB o la mitad del espacio disponible. Se quitan desde el mismo menú.
+- Las copias viven en IndexedDB, con un tope de 4 GB o la mitad del espacio disponible. Se quitan desde el mismo menú.
 - Subir, editar o borrar canciones necesita conexión. Al volver la red, la biblioteca se refresca sola y la cola y las reproducciones se sincronizan.
 
 ## Qué incluye

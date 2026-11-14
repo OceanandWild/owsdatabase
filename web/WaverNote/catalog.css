@@ -89,7 +89,16 @@
   grid-row: 1 / -1;
 }
 
-.mosaic--2 .mosaic__cell:first-child {
+/* Con dos portadas, cada una ocupa una columna entera: la grilla 2x2
+   dejaría la segunda fila vacía (el hueco negro del collage). */
+.mosaic--2 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: 1fr;
+}
+
+/* Con tres, la primera ocupa la columna izquierda y las otras dos se
+   apilan a la derecha. */
+.mosaic--3 .mosaic__cell:first-child {
   grid-row: 1 / -1;
 }
 

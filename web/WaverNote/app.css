@@ -645,6 +645,87 @@
   margin-top: 0;
 }
 
+/* ------------------------------------------------------------
+   Copias sin conexión: aviso y progreso
+   ------------------------------------------------------------ */
+
+.offline-notice {
+  display: flex;
+  gap: 11px;
+  margin-top: 16px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 141, 122, 0.26);
+  border-radius: var(--radius-md);
+  background: rgba(255, 141, 122, 0.06);
+}
+
+.offline-notice__icon {
+  flex: none;
+  color: var(--coral);
+}
+
+.offline-notice__icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.offline-notice strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.offline-notice p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.offline-batch__hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 14px 0 0;
+  color: var(--faint);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.offline-batch__hint .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+}
+
+.offline-batch__errors {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offline-batch__errors li {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.offline-batch__errors strong {
+  display: block;
+  font-weight: 600;
+}
+
+.offline-batch__errors span {
+  color: var(--muted);
+}
+
 body.modal-open {
   overflow: hidden;
 }
@@ -2801,6 +2882,14 @@ body.modal-open {
 .offline-badge .icon {
   width: 14px;
   height: 14px;
+}
+
+/* Sin internet es un aviso de red; «Copia guardada» solo indica que el
+   servidor no respondió y se está usando el caché local. */
+.offline-badge[data-mode="cache"] {
+  border-color: rgba(122, 167, 255, 0.24);
+  background: rgba(122, 167, 255, 0.08);
+  color: #a9c4ff;
 }
 
 .track-row__duration {

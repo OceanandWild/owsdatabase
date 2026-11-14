@@ -79,12 +79,24 @@ const renderUserUI = () => {
   if (sideUserSub) sideUserSub.textContent = user ? "Cuenta Surface" : "Sin sesión";
 };
 
-// El cartel de la cabecera aparece cuando no hay red o cuando el servidor
-// no respondió y la app está usando la copia guardada.
+// El cartel de la cabecera aparece cuando la app está usando la copia
+// guardada (no hay red o el servidor no respondió). El texto distingue los
+// dos casos: «Sin conexión» a secas se confundía con no tener internet.
 const updateOfflineUI = () => {
-  const offline = navigator.onLine === false || state.offline;
+  const offline = Boolean(state.offline);
+  const noNetwork = offline && navigator.onLine === false;
   const badge = $("#offlineBadge");
-  if (badge) badge.hidden = !offline;
+
+  if (badge) {
+    badge.hidden = !offline;
+    badge.dataset.mode = noNetwork ? "network" : "cache";
+    const label = badge.querySelector("span");
+    if (label) label.textContent = noNetwork ? "Sin internet" : "Copia guardada";
+    badge.title = noNetwork
+      ? "No hay conexión a internet: estás escuchando la copia guardada en este dispositivo."
+      : "Tu internet funciona, pero no se pudo conectar con el servidor de WaverNote. Estás viendo la copia guardada; se actualiza sola al reconectar.";
+  }
+
   document.documentElement.classList.toggle("is-offline", offline);
   return offline;
 };
@@ -254,7 +266,7 @@ const bootAuth = async () => {
     // copia local. Un 401 real sí cierra la sesión.
     if (isOfflineError(err) && storedUser.id) {
       await enterApp(storedUser);
-      toast("Sin conexión: entraste con tu biblioteca guardada.");
+      toast("No pudimos conectar con el servidor: entraste con tu biblioteca guardada.");
     } else {
       clearSession();
       showAuth("login");
@@ -314,6 +326,10 @@ const doLogout = () => {
 const closeModal = (force = false) => {
   if (state.uploading && !force) {
     toast("Esperá a que terminen las subidas.");
+    return;
+  }
+  if (state.savingOffline && !force) {
+    toast("Esperá a que terminen las copias sin conexión.");
     return;
   }
   scanRunId += 1;
@@ -1605,7 +1621,7 @@ const openTrackMenu = (trackId, playlistId = "") => {
         </button>
         <button class="menu-item" data-action="${downloaded ? "menu-offline-remove" : "menu-offline-save"}" data-id="${track.id}">
           ${icon(downloaded ? "check" : "download")}
-          <span>${downloaded ? "Quitar descarga sin conexión" : "Descargar para escuchar sin conexión"}</span>
+          <span>${downloaded ? "Quitar copia sin conexión" : "Guardar copia sin conexión"}</span>
         </button>
         <button class="menu-item" data-action="menu-like" data-id="${track.id}">
           ${icon("heart")} <span>${liked ? "Quitar de Me gusta" : "Agregar a Me gusta"}</span>
@@ -2324,7 +2340,7 @@ const openAccount = () => {
         <span class="account-sync__icon">${icon("download")}</span>
         <div>
           <strong>Sin conexión: ${downloadsLabel}</strong>
-          <p>Las canciones descargadas se reproducen sin internet. Podés quitarlas desde el menú de cada tema.</p>
+          <p>Las copias se guardan en este dispositivo y no se sincronizan con otros. En cada uno, usá «Guardar todas sin conexión» en la biblioteca. Podés quitar copias desde el menú de cada canción.</p>
         </div>
       </div>
       ${window.WaverNoteUpdater?.accountSectionHTML() || ""}
@@ -2333,6 +2349,222 @@ const openAccount = () => {
         <button class="btn btn--danger" data-action="logout">${icon("logout")} Cerrar sesión</button>
       </div>`
   });
+};
+
+/* ------------------------------------------------------------
+   Copias sin conexión de toda la biblioteca
+   ------------------------------------------------------------ */
+
+let offlineBatchToken = 0;
+
+const offlineBatchQueue = () => {
+  if (typeof waOffline === "undefined") return [];
+  return state.tracks.filter((track) => track.audioUrl && !waOffline.has(track.id));
+};
+
+const offlineNoticeHTML = () => `
+  <div class="offline-notice">
+    <span class="offline-notice__icon">${icon("cloud-off")}</span>
+    <div>
+      <strong>Las copias no se sincronizan entre dispositivos</strong>
+      <p>Quedan guardadas solo en este dispositivo. Para escucharlas sin conexión en otro, entrá con tu cuenta y usá «Guardar todas» también allí.</p>
+    </div>
+  </div>`;
+
+const openOfflineSaveAll = () => {
+  if (state.savingOffline) {
+    toast("Todavía se están guardando copias.");
+    return;
+  }
+  if (typeof waOffline === "undefined") {
+    toast("Este dispositivo no permite guardar copias sin conexión.", "error");
+    return;
+  }
+  if (navigator.onLine === false || state.offline) {
+    toast("Conectate a internet para guardar las copias.", "error");
+    return;
+  }
+
+  const queue = offlineBatchQueue();
+  if (!queue.length) {
+    toast("Todas tus canciones ya tienen copia en este dispositivo.");
+    return;
+  }
+
+  const countLabel = plural(queue.length, "canción", "canciones");
+
+  openModal({
+    title: "Guardar todas sin conexión",
+    eyebrow: "Modo sin conexión",
+    body: `
+      <p class="modal__text">Se van a guardar <strong>${countLabel}</strong> que todavía no tienen copia en este dispositivo. El audio ya está en tu cuenta: la app solo lo guarda para escucharlo sin internet.</p>
+      ${offlineNoticeHTML()}
+      <p class="offline-batch__hint">${icon("download")} Puede tardar unos minutos y ocupar espacio. Si el almacenamiento se llena, el guardado se detiene y te avisa.</p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" data-action="close-modal">Cancelar</button>
+        <button class="btn btn--primary" data-action="confirm-offline-save-all">${icon("download")} Guardar ${countLabel}</button>
+      </div>`
+  });
+};
+
+const setOfflineBatchProgress = (ratio, label) => {
+  const bar = $("#offlineBatchBar");
+  if (bar) bar.style.width = `${Math.round(clamp(ratio, 0, 1) * 100)}%`;
+  const text = $("#offlineBatchLabel");
+  if (text && label) text.textContent = label;
+};
+
+const stopOfflineBatch = () => {
+  offlineBatchToken += 1;
+  const button = modalBody.querySelector('[data-action="offline-save-all-cancel"]');
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Deteniendo…";
+  }
+  const label = $("#offlineBatchLabel");
+  if (label) label.textContent = "Deteniendo después de esta canción…";
+};
+
+const finishOfflineBatch = ({ queue, saved, already, failed, failures, stopReason }) => {
+  const total = queue.length;
+  const success = saved + already;
+
+  let title = "Copias listas";
+  if (stopReason === "storage") title = "Se llenó el almacenamiento";
+  else if (stopReason === "session") title = "Sesión no disponible";
+  else if (stopReason === "offline") title = "Se cortó la conexión";
+  else if (stopReason === "streak") title = "El guardado se interrumpió";
+  else if (stopReason === "stopped") title = "Guardado detenido";
+  else if (failed) title = "Copias guardadas con avisos";
+
+  let message = "";
+  if (stopReason === "storage") {
+    message = `Se llenó el almacenamiento del dispositivo después de ${success} de ${total}. Quitá algunas copias desde el menú de cada canción y probá de nuevo.`;
+  } else if (stopReason === "session") {
+    message = "La sesión no está disponible. Volvé a iniciar sesión y probá de nuevo.";
+  } else if (stopReason === "offline") {
+    message = `Se cortó la conexión después de ${success} de ${total}. Cuando vuelvas a estar en línea, usá el botón otra vez: solo se guardan las que faltan.`;
+  } else if (stopReason === "streak") {
+    message = `El guardado se interrumpió por errores repetidos después de ${success} de ${total}. Probá de nuevo más tarde.`;
+  } else if (stopReason === "stopped") {
+    message = `Detuviste el guardado: ${success} de ${total}. El botón retoma solo las que faltan.`;
+  } else if (failed) {
+    message = `${success} de ${total} listas. Las que fallaron se pueden reintentar con el mismo botón.`;
+  } else {
+    message = `${plural(success, "copia guardada", "copias guardadas")} de ${total}.`;
+  }
+
+  const failureRows = failures
+    .map(
+      (item) =>
+        `<li><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.message)}</span></li>`
+    )
+    .join("");
+
+  modalTitle.textContent = title;
+  modalBody.innerHTML = `
+    <p class="modal__text">${escapeHTML(message)}</p>
+    ${failureRows ? `<ul class="offline-batch__errors">${failureRows}</ul>` : ""}
+    ${offlineNoticeHTML()}
+    <div class="modal__actions">
+      <button class="btn btn--primary" data-action="close-modal" data-autofocus>Cerrar</button>
+    </div>`;
+
+  renderView({ resetScroll: false });
+  updateNowPlaying();
+};
+
+const runOfflineSaveAll = async () => {
+  if (state.savingOffline) return;
+
+  const queue = offlineBatchQueue();
+  if (!queue.length) {
+    closeModal(true);
+    toast("Todas tus canciones ya tienen copia en este dispositivo.");
+    return;
+  }
+
+  offlineBatchToken += 1;
+  const token = offlineBatchToken;
+  state.savingOffline = true;
+
+  modalTitle.textContent = "Guardando copias sin conexión";
+  modalBody.innerHTML = `
+    <div class="offline-batch">
+      <div class="upload-progress">
+        <div class="upload-progress__track"><span class="upload-progress__bar" id="offlineBatchBar"></span></div>
+        <span class="upload-progress__label" id="offlineBatchLabel">Preparando…</span>
+      </div>
+      <p class="offline-batch__hint">${icon("cloud-off")} Estas copias quedan solo en este dispositivo.</p>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" data-action="offline-save-all-cancel">Detener</button>
+      </div>
+    </div>`;
+  setOfflineBatchProgress(0, `Preparando ${plural(queue.length, "canción", "canciones")}…`);
+
+  let saved = 0;
+  let already = 0;
+  let failed = 0;
+  let streak = 0;
+  let stopReason = "";
+  const failures = [];
+
+  try {
+    for (let index = 0; index < queue.length; index += 1) {
+      if (token !== offlineBatchToken) {
+        stopReason = "stopped";
+        break;
+      }
+
+      const track = queue[index];
+      const position = `Guardando ${index + 1} de ${queue.length}: ${track.title}`;
+      setOfflineBatchProgress(index / queue.length, position);
+
+      try {
+        const result = await waOffline.downloadTrack(track, (ratio) => {
+          const safe = clamp(ratio, 0, 1);
+          setOfflineBatchProgress(
+            (index + safe) / queue.length,
+            `${position} · ${Math.round(safe * 100)}%`
+          );
+        });
+        if (result.already) already += 1;
+        else saved += 1;
+        streak = 0;
+      } catch (err) {
+        failed += 1;
+        streak += 1;
+        const message = String(err?.message || "No se pudo guardar la copia.");
+
+        if (/espacio|cuota|quota/i.test(message)) {
+          stopReason = "storage";
+          failures.push({ title: track.title, message });
+          break;
+        }
+        if (/iniciá sesión|inicia sesión/i.test(message)) {
+          stopReason = "session";
+          failures.push({ title: track.title, message });
+          break;
+        }
+        if (navigator.onLine === false) {
+          stopReason = "offline";
+          failures.push({ title: track.title, message });
+          break;
+        }
+        if (failures.length < 4) failures.push({ title: track.title, message });
+        if (streak >= 3) {
+          stopReason = "streak";
+          break;
+        }
+      }
+    }
+  } finally {
+    if (token !== offlineBatchToken && !stopReason) stopReason = "stopped";
+    state.savingOffline = false;
+    const done = saved + already + failed;
+    setOfflineBatchProgress(queue.length ? done / queue.length : 1, "");
+    finishOfflineBatch({ queue, saved, already, failed, failures, stopReason });
+  }
 };
 
 /* ------------------------------------------------------------
@@ -2894,6 +3126,15 @@ const handleAction = async (actionEl) => {
     case "play-all":
       startQueue(state.tracks.map((track) => track.id), { startIndex: 0 });
       break;
+    case "offline-save-all":
+      openOfflineSaveAll();
+      break;
+    case "confirm-offline-save-all":
+      await runOfflineSaveAll();
+      break;
+    case "offline-save-all-cancel":
+      stopOfflineBatch();
+      break;
     case "play-most": {
       const ids = mostPlayedTracks().map((entry) => entry.track.id);
       if (!ids.length) return;
@@ -3144,7 +3385,7 @@ const handleAction = async (actionEl) => {
       const track = trackById(id);
       closeModal(true);
       if (!track) break;
-      toast(`Descargando «${track.title}»…`);
+      toast(`Guardando «${track.title}» sin conexión…`);
       try {
         const result = await waOffline.downloadTrack(track);
         toast(
@@ -3153,7 +3394,7 @@ const handleAction = async (actionEl) => {
             : `«${track.title}» lista para escuchar sin conexión.`
         );
       } catch (err) {
-        toast(err?.message || "No se pudo descargar la canción.", "error");
+        toast(err?.message || "No se pudo guardar la copia sin conexión.", "error");
       }
       renderView({ resetScroll: false });
       updateNowPlaying();
@@ -3161,7 +3402,7 @@ const handleAction = async (actionEl) => {
     }
     case "menu-offline-remove":
       await waOffline.removeTrack(id);
-      toast("Descarga eliminada. La canción sigue en tu cuenta.");
+      toast("Copia sin conexión eliminada. La canción sigue en tu cuenta.");
       closeModal(true);
       renderView({ resetScroll: false });
       updateNowPlaying();
@@ -3197,6 +3438,12 @@ const handleAction = async (actionEl) => {
         state.currentTrackId = null;
         state.duration = 0;
         state.currentTime = 0;
+      }
+      // La copia sin conexión ya no sirve: se libera junto con la canción.
+      try {
+        await waOffline.removeTrack(id);
+      } catch (err) {
+        /* sin copia guardada no hay nada que quitar */
       }
       state.queue = state.queue.filter((trackId) => Number(trackId) !== Number(id));
       state.queueIndex = Math.min(state.queueIndex, Math.max(0, state.queue.length - 1));
@@ -3804,7 +4051,8 @@ const watchConnection = () => {
     if (!state.ready) return;
 
     try {
-      await refreshLibrary();
+      await refreshLibrary({ silent: true });
+      if (state.offline) return;
       toast("Conexión restablecida: biblioteca actualizada.");
     } catch (err) {
       if (err.status === 401) {
@@ -3815,6 +4063,32 @@ const watchConnection = () => {
       }
       toast(friendlyError(err), "error");
     }
+  });
+
+  // Si el servidor no respondió al abrir (aunque haya internet), el cartel
+  // «Copia guardada» no debe quedar pegado: se reintenta en segundo plano.
+  const retryServer = async () => {
+    if (!state.ready || !state.offline || navigator.onLine === false) return;
+
+    try {
+      await refreshLibrary({ silent: true, retry: true });
+      renderSidebarPlaylists();
+      renderView({ resetScroll: false });
+      toast("Conexión con el servidor restablecida.");
+    } catch (err) {
+      if (err.status === 401) {
+        clearSession();
+        showAuth("login");
+        setAuthError("Tu sesión expiró. Entrá de nuevo con tu cuenta Surface.");
+      }
+      /* sigue usando la copia guardada */
+    }
+  };
+
+  window.setInterval(retryServer, 20000);
+  window.addEventListener("focus", retryServer);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") retryServer();
   });
 };
 

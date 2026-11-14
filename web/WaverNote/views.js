@@ -8,7 +8,7 @@ let activeQuery = "";
 
 const offlineTrackMark = (track) => {
   if (typeof waOffline === "undefined" || !waOffline.has(track?.id)) return "";
-  return `<span class="track-row__offline" title="Descargada para escuchar sin conexión">${icon("check")}</span>`;
+  return `<span class="track-row__offline" title="Copia guardada para escuchar sin conexión">${icon("check")}</span>`;
 };
 
 const highlight = (text) => {
@@ -647,12 +647,45 @@ const pendingRow = (item) => `
     </span>
   </div>`;
 
+const offlineLibraryBar = ({ saved = 0, total = 0, missing = 0, bytes = 0 }) => {
+  if (!total) return "";
+
+  const complete = missing === 0;
+  const sizeLabel = bytes && typeof formatDataSize === "function" ? ` · ${formatDataSize(bytes)}` : "";
+  const title = complete
+    ? "Todas tus canciones están sin conexión"
+    : `${plural(missing, "canción sin copia", "canciones sin copia")} en este dispositivo`;
+
+  return `<div class="offline-bar${complete ? " is-complete" : ""}">
+    <span class="offline-bar__icon" aria-hidden="true">${icon(complete ? "check" : "cloud-off")}</span>
+    <div class="offline-bar__copy">
+      <strong>${title}</strong>
+      <p>${plural(saved, "copia guardada", "copias guardadas")} de ${total}${sizeLabel}. Las copias no se sincronizan entre dispositivos: en cada uno tenés que guardarlas para escucharlas sin conexión.</p>
+    </div>
+    <button class="btn btn--small ${complete ? "btn--ghost" : "btn--primary"}" data-action="offline-save-all" ${complete ? "disabled" : ""}>
+      ${icon(complete ? "check" : "download")} ${complete ? "Todo guardado" : `Guardar todas (${missing})`}
+    </button>
+  </div>`;
+};
+
 const viewLibrary = () => {
   const albums = allAlbums();
   const favorites = likedTracks();
   const favoritesTotal = favorites.reduce((total, track) => total + (Number(track.duration) || 0), 0);
   const recent = recentTracks().slice(0, 8);
   const pending = state.pending || [];
+
+  const offlineAudio = state.tracks.filter((track) => track.audioUrl);
+  const offlineSaved =
+    typeof waOffline === "undefined"
+      ? 0
+      : offlineAudio.filter((track) => waOffline.has(track.id)).length;
+  const offlineStats = {
+    saved: offlineSaved,
+    total: offlineAudio.length,
+    missing: Math.max(0, offlineAudio.length - offlineSaved),
+    bytes: typeof waOffline === "undefined" ? 0 : waOffline.summary().bytes
+  };
 
   let content = "";
 
@@ -775,6 +808,7 @@ const viewLibrary = () => {
         ${pending.length ? `<div><strong>${pending.length}</strong><span>pendientes</span></div>` : ""}
       </div>
     </section>
+    ${offlineLibraryBar(offlineStats)}
     <div class="tabs tabs--library" role="tablist" aria-label="Secciones de la biblioteca">
       ${libraryTabs
         .map(

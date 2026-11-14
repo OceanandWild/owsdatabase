@@ -1,0 +1,31 @@
+WaverNote 1.2.6 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.2.6
+Plataformas: Windows y Android
+Fecha: 2026-11-14
+
+Arreglos:
+- Al subir una canción desde el dispositivo, WaverNote guarda esa misma copia para escucharla sin conexión. Ya no aparece la opción de descargarla de nuevo ni hace falta volver a elegir el archivo.
+- El menú de cada canción ahora distingue «Guardar copia sin conexión» y «Quitar copia sin conexión», para dejar claro que no se reimporta ni se vuelve a subir el audio.
+- Las copias se guardan solo si hay espacio disponible. Si el almacenamiento está lleno, la canción se sube igual y la copia se puede guardar más tarde desde el menú.
+- La biblioteca tiene un botón **Guardar todas (N)** que descarga de una vez las canciones que todavía no tienen copia en el dispositivo, con progreso y opción de detenerse. Solo toma las que faltan, así que se puede retomar.
+- Las copias sin conexión son de cada dispositivo y no se sincronizan entre sí. En otro dispositivo hay que usar el mismo botón para habilitar esas canciones sin conexión; la biblioteca y el aviso del botón lo explican.
+- El aviso de la cabecera ya no dice «Sin conexión» cuando en realidad falló el servidor. Ahora distingue «Sin internet» de «Copia guardada» y se actualiza solo al reconectar.
+- Los collages de artistas, géneros y tendencias reparten las portadas disponibles: con 2 o 3 canciones ya no queda un cuadro negro vacío.
+- Al eliminar una canción de la biblioteca también se borra su copia sin conexión, para no ocupar espacio de más.
+
+=== ENGLISH ===
+Version: 1.2.6
+Platforms: Windows and Android
+Date: 2026-11-14
+
+Fixes:
+- When you upload a song from your device, WaverNote now keeps that same copy for offline listening. The app no longer offers to download it again or asks you to pick the file a second time.
+- Each song's menu now says "Save offline copy" and "Remove offline copy", making it clear that the audio is not re-imported or uploaded again.
+- The copy is saved only when there is enough space. If storage is full, the song is still uploaded and the copy can be saved later from the menu.
+- The library now has a **Save all (N)** button that downloads every song missing a copy on this device in one go, with progress and a stop option. It only takes the missing ones, so it can be resumed.
+- Offline copies belong to each device and do not sync between them. On another device, use the same button to enable those songs offline; the library and the button's notice explain this.
+- The header notice no longer says "Offline" when the server is actually the one failing. It now distinguishes "No internet" from "Saved copy" and clears itself once the connection is back.
+- Artist, genre and trend collages now distribute the available covers: with 2 or 3 songs there is no empty black tile anymore.
+- Deleting a song from the library now also removes its offline copy, so it does not take up extra space.

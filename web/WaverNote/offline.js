@@ -13,6 +13,7 @@ const WA_OFFLINE_META_STORE = "meta";
 // disponible, se usa la mitad de la cuota real como margen de seguridad.
 const WA_OFFLINE_MAX_BYTES = 4 * 1024 * 1024 * 1024;
 const WA_OFFLINE_COVER_MAX_BYTES = 512 * 1024;
+const WA_OFFLINE_COVER_TIMEOUT_MS = 8000;
 const WA_OFFLINE_DOWNLOAD_TIMEOUT_MS = 180000;
 
 const waOffline = {
@@ -566,16 +567,37 @@ const offlineBlobToDataURL = (blob) =>
     }
   });
 
+// La portada es opcional: si tarda o falla, la copia se guarda igual sin ella.
 const offlineFetchCover = async (url) => {
   if (!url) return "";
+
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  let timer = 0;
+  const timedOut = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      try {
+        controller?.abort();
+      } catch (err) {
+        /* el fetch se corta solo */
+      }
+      resolve(null);
+    }, WA_OFFLINE_COVER_TIMEOUT_MS);
+  });
+
   try {
-    const response = await fetch(url, { mode: "cors" });
-    if (!response.ok) return "";
-    const blob = await response.blob();
-    if (!blob.size || blob.size > WA_OFFLINE_COVER_MAX_BYTES) return "";
+    const response = await Promise.race([
+      fetch(url, { mode: "cors", signal: controller?.signal }),
+      timedOut
+    ]);
+    if (!response?.ok) return "";
+
+    const blob = await Promise.race([response.blob(), timedOut]);
+    if (!blob?.size || blob.size > WA_OFFLINE_COVER_MAX_BYTES) return "";
     return await offlineBlobToDataURL(blob);
   } catch (err) {
     return "";
+  } finally {
+    clearTimeout(timer);
   }
 };
 
@@ -596,12 +618,12 @@ const offlineFetchBlob = (url, onProgress) =>
         resolve(request.response);
         return;
       }
-      reject(new Error(`No se pudo descargar la canción (${request.status || "sin respuesta"}).`));
+      reject(new Error(`No se pudo guardar la copia sin conexión (${request.status || "sin respuesta"}).`));
     };
 
     request.onerror = () =>
-      reject(new Error("No se pudo descargar la canción. Revisá tu conexión."));
-    request.ontimeout = () => reject(new Error("La descarga tardó demasiado. Probá de nuevo."));
+      reject(new Error("No se pudo guardar la copia sin conexión. Revisá tu conexión."));
+    request.ontimeout = () => reject(new Error("La copia tardó demasiado. Probá de nuevo."));
     request.send();
   });
 
@@ -628,7 +650,9 @@ const offlineAskPersistence = async () => {
   }
 };
 
-const offlineDownloadTrack = async (track, onProgress) => {
+// Guarda un audio que ya está en memoria (descarga o archivo del dispositivo)
+// y devuelve la misma forma que usa el menú: { already, size }.
+const offlineStoreTrackBlob = async (track, blob, { cover = "", savedAt = Date.now() } = {}) => {
   const trackId = Number(track?.id);
   const userId = waOffline.userId;
 
@@ -636,22 +660,20 @@ const offlineDownloadTrack = async (track, onProgress) => {
   if (waOffline.downloads.has(trackId)) {
     return { already: true, size: Number(waOffline.downloads.get(trackId)?.size) || 0 };
   }
-  if (!track.audioUrl) throw new Error("Esta canción no tiene un archivo descargable.");
-  if (navigator.onLine === false) {
-    throw new Error("Sin conexión: no se puede descargar ahora.");
-  }
-  if (!offlineSupported()) {
-    throw new Error("Este dispositivo no permite guardar descargas.");
-  }
-
-  await offlineAskPersistence();
-
-  const fetched = await offlineFetchBlob(track.audioUrl, onProgress);
-  if (!fetched.size) throw new Error("La canción llegó vacía. Probá de nuevo.");
-
-  const hint = offlineAudioTypeHint(track, null) || (await offlineSniffAudioMime(fetched));
-  const blob = offlineNormalizeAudioBlob(fetched, hint);
   if (!blob?.size) throw new Error("La canción llegó vacía. Probá de nuevo.");
+  if (!offlineSupported()) {
+    throw new Error("Este dispositivo no permite guardar copias sin conexión.");
+  }
+
+  // El archivo del dispositivo suele traer el tipo correcto; se prioriza sobre
+  // la URL, que a veces no tiene extensión o viene como "octet-stream".
+  const blobType = String(blob.type || "").trim();
+  const hint =
+    (!offlineMimeIsGeneric(blobType) ? blobType : "") ||
+    offlineAudioTypeHint(track, null) ||
+    (await offlineSniffAudioMime(blob));
+  const normalized = offlineNormalizeAudioBlob(blob, hint);
+  if (!normalized?.size) throw new Error("La canción llegó vacía. Probá de nuevo.");
 
   const limit = await offlineStorageLimit();
   let usage = 0;
@@ -662,14 +684,12 @@ const offlineDownloadTrack = async (track, onProgress) => {
     usage = 0;
   }
 
-  if (usage + blob.size > limit) {
+  if (usage + normalized.size > limit) {
     throw new Error(
-      "No hay espacio suficiente para esta descarga. Quitá algunas canciones guardadas y probá de nuevo."
+      "No hay espacio suficiente para esta copia sin conexión. Quitá algunas canciones guardadas y probá de nuevo."
     );
   }
 
-  const cover = await offlineFetchCover(track.coverUrl);
-  const savedAt = Date.now();
   const snapshot = {
     id: trackId,
     title: track.title || "",
@@ -682,19 +702,19 @@ const offlineDownloadTrack = async (track, onProgress) => {
   };
   const entry = {
     id: trackId,
-    size: blob.size,
+    size: normalized.size,
     savedAt,
     ...snapshot,
     cover
   };
 
   // El registro de audio guarda su propia ficha. Así, aunque falle la escritura
-  // de metadatos, al abrir sin conexión la descarga se puede reconstruir.
+  // de metadatos, al abrir sin conexión la copia se puede reconstruir.
   await offlinePut(WA_OFFLINE_AUDIO_STORE, offlineAudioKey(userId, trackId), {
-    blob,
-    size: blob.size,
+    blob: normalized,
+    size: normalized.size,
     savedAt,
-    mime: String(blob.type || ""),
+    mime: String(normalized.type || ""),
     track: snapshot
   });
 
@@ -702,7 +722,64 @@ const offlineDownloadTrack = async (track, onProgress) => {
   if (cover) waOffline.coverUrls.set(trackId, cover);
   await offlineSaveDownloadEntry(entry);
 
-  return { already: false, size: blob.size };
+  return { already: false, size: normalized.size };
+};
+
+const offlineDownloadTrack = async (track, onProgress) => {
+  const trackId = Number(track?.id);
+  const userId = waOffline.userId;
+
+  if (!trackId || !userId) throw new Error("Iniciá sesión para guardar canciones.");
+  if (waOffline.downloads.has(trackId)) {
+    return { already: true, size: Number(waOffline.downloads.get(trackId)?.size) || 0 };
+  }
+  if (!track.audioUrl) throw new Error("Esta canción no tiene un archivo para guardar sin conexión.");
+  if (navigator.onLine === false) {
+    throw new Error("Sin conexión: no se puede guardar la copia ahora.");
+  }
+  if (!offlineSupported()) {
+    throw new Error("Este dispositivo no permite guardar copias sin conexión.");
+  }
+
+  await offlineAskPersistence();
+
+  const fetched = await offlineFetchBlob(track.audioUrl, onProgress);
+  if (!fetched.size) throw new Error("La canción llegó vacía. Probá de nuevo.");
+
+  const cover = await offlineFetchCover(track.coverUrl);
+  return offlineStoreTrackBlob(track, fetched, { cover });
+};
+
+// Al subir un archivo desde el dispositivo ya tenemos el audio en la mano: se
+// guarda esa misma copia en vez de pedirle al usuario que lo "descargue" otra
+// vez. Si no hay espacio o el almacenamiento no está disponible, la subida
+// igual queda bien y la copia se puede guardar después desde el menú.
+const offlineSaveUploadedTrack = async (track, file, { cover: coverFile = null } = {}) => {
+  try {
+    const trackId = Number(track?.id);
+    if (!trackId || !file?.size) return { already: false, size: 0, skipped: true };
+    if (!waOffline.userId || !offlineSupported()) {
+      return { already: false, size: 0, skipped: true };
+    }
+    if (waOffline.downloads.has(trackId)) {
+      return { already: true, size: Number(waOffline.downloads.get(trackId)?.size) || 0 };
+    }
+
+    await offlineAskPersistence();
+
+    let cover = "";
+    const hasCoverFile = coverFile instanceof Blob && coverFile.size > 0;
+    if (hasCoverFile && coverFile.size <= WA_OFFLINE_COVER_MAX_BYTES) {
+      cover = await offlineBlobToDataURL(coverFile);
+    }
+    // Solo se busca la portada en la red cuando la subida no trajo ninguna:
+    // así el guardado no espera una descarga extra que no hace falta.
+    if (!hasCoverFile) cover = await offlineFetchCover(track.coverUrl);
+
+    return await offlineStoreTrackBlob(track, file, { cover });
+  } catch (err) {
+    return { already: false, size: 0, skipped: true, error: String(err?.message || err || "") };
+  }
 };
 
 const offlineRemoveTrack = async (trackId) => {
@@ -780,5 +857,6 @@ Object.assign(waOffline, {
   saveLibrary: offlineSaveLibrary,
   libraryFromDownloads: offlineLibraryFromDownloads,
   downloadTrack: offlineDownloadTrack,
+  saveUploadedTrack: offlineSaveUploadedTrack,
   removeTrack: offlineRemoveTrack
 });

@@ -5,7 +5,7 @@
    conexión, el usuario recibe la última versión.
    ============================================================ */
 
-const WA_SW_VERSION = "1.2.5";
+const WA_SW_VERSION = "1.2.6";
 const WA_SW_SHELL = `wavernote-shell-${WA_SW_VERSION}`;
 const WA_SW_IMAGES = "wavernote-images-v1";
 

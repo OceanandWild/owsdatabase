@@ -38,7 +38,7 @@ object WatchedFolderBridge {
   )
 
   private val SYSTEM_DIRS = setOf(
-    "$recycle.bin", "system volume information", "recycler", "lost+found", "node_modules"
+    "\$recycle.bin", "system volume information", "recycler", "lost+found", "node_modules"
   )
 
   private val DOC_PROJECTION = arrayOf(

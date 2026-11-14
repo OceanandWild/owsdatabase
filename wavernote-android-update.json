@@ -1,11 +1,11 @@
 {
   "project_slug": "wavernote",
   "package_id": "com.oceanwildstudios.wavernote",
-  "version_name": "1.2.5",
-  "version_code": 1002005,
-  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.5/WaverNote_1.2.5_universal.apk",
-  "sha256": "793130716108ee58a49eae43affe2e146da771fe3e2235c7c9f78ba8856a6c36",
-  "size_bytes": 55914266,
-  "release_notes": "## WaverNote 1.2.5\n\nDisponible para Windows y Android.\n\n### Novedades\n- Tarjeta «A continuación» sobre la barra de progreso: muestra la tapa y el título de la próxima canción 20 segundos antes del final. Al tocarla, se resalta en la cola para verla o cambiarla.\n- Ajustes de reproducción: elegí cuándo aparece el aviso, de 5 segundos a 2 minutos, en el último 10% o 25%, siempre o nunca. Se guarda en tu cuenta Surface.\n\n### Arreglos\n- Descargas sin conexión: cada descarga guarda su ficha y se repara sola si la app se cerró a mitad.\n- Reproducción en Android de M4A, AAC y FLAC aunque el servidor entregue «octet-stream».\n- Sesión guardada sin id, caché archivo por archivo y limpieza completa al quitar una descarga.\n\n### Otros\n- Windows: instalador NSIS x64 firmado. Android: APK universal firmado.",
-  "published_at": "2026-11-14T20:54:00Z"
+  "version_name": "1.2.6",
+  "version_code": 1002006,
+  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.6/WaverNote_1.2.6_universal.apk",
+  "sha256": "5b9b9a6f4a7bb24059af2a37d4fae98dea8b45ee597e4c988ae8bf7a79d0b308",
+  "size_bytes": 55949706,
+  "release_notes": "## WaverNote 1.2.6\n\nDisponible para Windows y Android.\n\n### Novedades\n- La biblioteca ahora tiene **Guardar todas (N)**: guarda de una vez las canciones que todavÃ­a no tienen copia sin conexiÃ³n en este dispositivo, con progreso, opciÃ³n de detenerse y resumen. Solo toma las que faltan, asÃ­ que se puede retomar.\n- Al subir una canciÃ³n desde el dispositivo, WaverNote guarda automÃ¡ticamente esa misma copia para escucharla sin conexiÃ³n.\n\n### Arreglos\n- Al eliminar una canciÃ³n tambiÃ©n se borra su copia sin conexiÃ³n, para no ocupar espacio de mÃ¡s.\n- El aviso de la cabecera ya no dice Â«Sin conexiÃ³nÂ» cuando en realidad fallÃ³ el servidor: ahora distingue **Sin internet** de **Copia guardada** y se actualiza solo al reconectar.\n- Los collages de artistas, gÃ©neros y tendencias reparten las portadas disponibles: con 2 o 3 canciones ya no queda un cuadro negro vacÃ­o.\n\n### Avisos\n- Las copias sin conexiÃ³n son de cada dispositivo y no se sincronizan entre sÃ­. Para escucharlas sin conexiÃ³n en otro dispositivo, entrÃ¡ con tu cuenta y usÃ¡ **Guardar todas** tambiÃ©n allÃ­.\n\n### Otros\n- Windows: instalador NSIS x64 firmado. Android: APK universal firmado.",
+  "published_at": "2026-11-14T22:14:57Z"
 }

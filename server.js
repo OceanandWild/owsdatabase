@@ -54969,6 +54969,34 @@ app.post('/wavernote/pending/import', wavernoteAuth, async (req, res) => {
   }
 });
 
+// POST /wavernote/pending/cover  -  sube la portada embebida de un archivo
+// local para que la canción pendiente la muestre y la herede al completarse.
+app.post('/wavernote/pending/cover', wavernoteAuth, wavernoteUpload, async (req, res) => {
+  const coverFile = req.files?.cover?.[0] || null;
+  const audioFile = req.files?.audio?.[0] || null;
+
+  if (audioFile) {
+    await Promise.all([
+      wavernoteDestroyAsset(audioFile.filename || audioFile.public_id, 'video'),
+      wavernoteDestroyAsset(coverFile?.filename || coverFile?.public_id, 'image')
+    ]);
+    return res.status(400).json({ error: 'La portada debe enviarse sin audio.' });
+  }
+  if (!coverFile) {
+    return res.status(400).json({ error: 'Elegí una imagen de portada.' });
+  }
+
+  const coverUrl = coverFile.path || coverFile.secure_url || coverFile.url || '';
+  const coverPublicId = coverFile.filename || coverFile.public_id || '';
+
+  if (!coverUrl) {
+    await wavernoteDestroyAsset(coverPublicId, 'image');
+    return res.status(500).json({ error: 'Cloudinary no devolvió la URL de la portada.' });
+  }
+
+  return res.status(201).json({ success: true, coverUrl });
+});
+
 // DELETE /wavernote/pending  -  vacía la lista de pendientes del usuario
 app.delete('/wavernote/pending', wavernoteAuth, async (req, res) => {
   try {

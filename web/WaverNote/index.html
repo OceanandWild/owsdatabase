@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#05080f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="wavernote-version" content="1.2.8" />
+    <meta name="wavernote-version" content="1.2.9" />
     <meta
       name="description"
       content="WaverNote: tu biblioteca musical personal. Subí tus propios archivos y escuchalos desde tu cuenta Surface."
@@ -378,7 +378,7 @@
         <button class="side-version" type="button" data-action="open-updates" data-wavernote-update title="Buscar actualizaciones">
           <span class="side-version__dot" aria-hidden="true"></span>
           <span class="side-version__meta">
-            <strong data-wavernote-version>v1.2.8</strong>
+            <strong data-wavernote-version>v1.2.9</strong>
             <small>Actualizaciones</small>
           </span>
         </button>
@@ -639,6 +639,16 @@
 
       <!-- ================= Reproductor ================= -->
       <footer class="player" aria-label="Reproductor">
+        <button class="bar-next" id="barNextCard" type="button" data-action="next-card-open" hidden aria-label="Ver la próxima canción en la cola">
+          <span class="bar-next__art" id="barNextArt"></span>
+          <span class="bar-next__copy">
+            <span>A continuación <span id="barNextCount"></span></span>
+            <strong id="barNextTitle"></strong>
+            <small id="barNextArtist"></small>
+          </span>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+        </button>
+
         <div class="quick-player" id="quickPlayer" aria-hidden="true">
           <div class="quick-player__head">
             <span class="quick-player__art" id="quickCover"></span>
@@ -650,15 +660,6 @@
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-up"></use></svg>
             </button>
           </div>
-          <button class="quick-player__next" id="quickNextCard" type="button" data-action="next-card-open" hidden aria-label="Ver la próxima canción en la cola">
-            <span class="quick-player__next-art" id="quickNextArt"></span>
-            <span class="quick-player__next-copy">
-              <span>A continuación <span id="quickNextCount"></span></span>
-              <strong id="quickNextTitle"></strong>
-              <small id="quickNextArtist"></small>
-            </span>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
-          </button>
           <div class="quick-player__timeline">
             <span class="time" id="quickCurTime">0:00</span>
             <input id="quickSeek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" title="Doble toque para abrir Ahora suena" />

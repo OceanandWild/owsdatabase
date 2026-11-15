@@ -177,6 +177,12 @@
   display: none;
 }
 
+/* La tarjeta «A continuación» vive arriba de la barra solo en móvil; en
+   escritorio se muestra dentro del panel «Ahora suena». */
+.bar-next {
+  display: none;
+}
+
 .time {
   min-width: 29px;
   color: var(--faint);

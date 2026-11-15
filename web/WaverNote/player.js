@@ -51,11 +51,11 @@ const els = {
   quickSeek: $("#quickSeek"),
   quickCurrent: $("#quickCurTime"),
   quickDuration: $("#quickDurTime"),
-  quickNextCard: $("#quickNextCard"),
-  quickNextArt: $("#quickNextArt"),
-  quickNextTitle: $("#quickNextTitle"),
-  quickNextArtist: $("#quickNextArtist"),
-  quickNextCount: $("#quickNextCount")
+  barNextCard: $("#barNextCard"),
+  barNextArt: $("#barNextArt"),
+  barNextTitle: $("#barNextTitle"),
+  barNextArtist: $("#barNextArtist"),
+  barNextCount: $("#barNextCount")
 };
 
 const currentTrack = () => trackById(state.currentTrackId);
@@ -927,13 +927,13 @@ const fillNextCard = (track) => {
   nextCardTrackKey = key;
 
   const art = coverHTML({ id: track.id, title: track.title, coverUrl: track.coverUrl });
-  [els.npNextArt, els.quickNextArt].forEach((node) => {
+  [els.npNextArt, els.barNextArt].forEach((node) => {
     if (node) node.innerHTML = art;
   });
-  [els.npNextTitle, els.quickNextTitle].forEach((node) => {
+  [els.npNextTitle, els.barNextTitle].forEach((node) => {
     if (node) node.textContent = track.title;
   });
-  [els.npNextArtist, els.quickNextArtist].forEach((node) => {
+  [els.npNextArtist, els.barNextArtist].forEach((node) => {
     if (node) node.textContent = track.artist || "Artista desconocido";
   });
 };
@@ -961,14 +961,14 @@ const updateNextCard = () => {
   }
 
   setCardHidden(els.npNextCard, !show);
-  setCardHidden(els.quickNextCard, !show);
+  setCardHidden(els.barNextCard, !show);
   if (!show) return;
 
   fillNextCard(next);
 
   const remaining = Math.max(0, duration - currentTime);
   const countdown = duration > 0 ? `en ${formatTime(Math.ceil(remaining))}` : "";
-  [els.npNextCount, els.quickNextCount].forEach((node) => {
+  [els.npNextCount, els.barNextCount].forEach((node) => {
     if (node && node.textContent !== countdown) node.textContent = countdown;
   });
 };

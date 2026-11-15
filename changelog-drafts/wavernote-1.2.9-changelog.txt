@@ -1,0 +1,21 @@
+WaverNote 1.2.9 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.2.9
+Plataformas: Windows y Android
+Fecha: 2026-11-15
+
+Mejoras:
+- En Android, la tarjeta «A continuación» ahora aparece flotando arriba de la barra del reproductor, justo sobre la línea de progreso, en lugar de quedar dentro del panel rápido que se abre al tocar la barra.
+- La tarjeta conserva la portada, el título, el artista y la cuenta regresiva, y sigue respetando el ajuste Aviso «A continuación» (por ejemplo, 20 segundos antes del final o desde el inicio).
+- Al tocar la tarjeta se abre la cola para ver o cambiar la próxima canción. Mientras el panel rápido está abierto, la tarjeta se oculta para no superponerse.
+
+=== ENGLISH ===
+Version: 1.2.9
+Platforms: Windows and Android
+Date: 2026-11-15
+
+Improvements:
+- On Android, the "Up next" card now floats above the player bar, right over the progress line, instead of living inside the quick panel that opens when tapping the bar.
+- The card keeps the artwork, title, artist and countdown, and still follows the "Up next" notice setting (for example, 20 seconds before the end or from the start).
+- Tapping the card opens the queue to view or change the next song. While the quick panel is open, the card hides so they don't overlap.

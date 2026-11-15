@@ -3321,6 +3321,40 @@ const handleAction = async (actionEl) => {
     case "watched-help":
       window.WaverNoteWatched?.openHelp();
       break;
+    case "watched-report":
+      window.WaverNoteWatched?.openReport();
+      break;
+    case "watched-rescan":
+      closeModal(true);
+      window.WaverNoteWatched?.scanNow();
+      break;
+    case "toggle-notifications":
+      window.WaverNoteWatched?.toggleNotifications();
+      break;
+    case "notifications-close":
+      window.WaverNoteWatched?.closeNotifications();
+      break;
+    case "notifications-clear":
+      window.WaverNoteWatched?.markNotificationsRead();
+      break;
+    case "notif-open":
+      window.WaverNoteWatched?.openNotification(String(actionEl.dataset.id || ""));
+      break;
+    case "notif-play": {
+      const trackId = Number(actionEl.dataset.id);
+      if (!state.trackById.has(trackId)) return;
+      closeModal(true);
+      playTrackNow(trackId);
+      break;
+    }
+    case "notif-view": {
+      const trackId = Number(actionEl.dataset.id);
+      if (!state.trackById.has(trackId)) return;
+      state.libraryTab = "songs";
+      closeModal(true);
+      navigate({ view: "library" });
+      break;
+    }
     case "pending-upload":
       openUploadForPending(id);
       break;

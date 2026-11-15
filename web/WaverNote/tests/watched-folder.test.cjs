@@ -116,6 +116,156 @@ test("no confunde una versión en vivo con el tema original", () => {
   assert.equal(match, null);
 });
 
+test("un sufijo de versión no se toma como artista al vetar", () => {
+  const index = core.buildPendingIndex([pending(12, "Nada Quedo", "Eternxlkz")]);
+
+  const slowed = core.matchPendingForFile(
+    file("Nada Quedo - Slowed.mp3", "Eternxlkz/Nada Quedo - Slowed.mp3"),
+    index
+  );
+  assert.ok(slowed);
+  assert.equal(Number(slowed.pending.id), 12);
+
+  const sped = core.matchPendingForFile(
+    file("Nada Quedo - Sped Up.mp3", "Eternxlkz/Nada Quedo - Sped Up.mp3"),
+    index
+  );
+  assert.ok(sped);
+  assert.equal(Number(sped.pending.id), 12);
+
+  const live = core.matchPendingForFile(
+    file("Nada Quedo - Live.mp3", "Eternxlkz/Nada Quedo - Live.mp3"),
+    index
+  );
+  assert.equal(live, null);
+});
+
+test("reconoce el número de pista cuando la carpeta es el artista", () => {
+  const index = core.buildPendingIndex([pending(20, "Nada Quedo", "Eternxlkz")]);
+  const match = core.matchPendingForFile(
+    file("01 - Nada Quedo.mp3", "Eternxlkz/01 - Nada Quedo.mp3"),
+    index
+  );
+
+  assert.ok(match);
+  assert.equal(match.ambiguous, false);
+  assert.equal(Number(match.pending.id), 20);
+});
+
+test("reconoce Canción - Artista.mp3 con el orden invertido", () => {
+  const index = core.buildPendingIndex([pending(21, "Nada Quedo", "Eternxlkz")]);
+  const match = core.matchPendingForFile(
+    file("Nada Quedo - Eternxlkz.mp3", "Nada Quedo - Eternxlkz.mp3"),
+    index
+  );
+
+  assert.ok(match);
+  assert.equal(Number(match.pending.id), 21);
+});
+
+test("también reconoce la canción si eligen la carpeta del artista o del álbum", () => {
+  const artistFolder = core.buildPendingIndex([pending(30, "MONTAGEM APARIÇÃO", "DJ AMI")]);
+  const byArtist = core.matchPendingForFile(
+    file("MONTAGEM APARIÇÃO.mp3", "MONTAGEM APARIÇÃO/MONTAGEM APARIÇÃO.mp3"),
+    artistFolder
+  );
+  assert.ok(byArtist);
+  assert.equal(Number(byArtist.pending.id), 30);
+
+  const albumFolder = core.buildPendingIndex([pending(31, "Nada Quedo", "Eternxlkz")]);
+  const byAlbum = core.matchPendingForFile(
+    file("01 - Nada Quedo.mp3", "Arcade/01 - Nada Quedo.mp3"),
+    albumFolder
+  );
+  assert.ok(byAlbum);
+  assert.equal(Number(byAlbum.pending.id), 31);
+});
+
+test("busca el artista más arriba cuando hay álbum y carpeta de disco", () => {
+  const index = core.buildPendingIndex([pending(22, "Nada Quedo", "Eternxlkz")]);
+  const match = core.matchPendingForFile(
+    file("01 - Nada Quedo.mp3", "Eternxlkz/Arcade/CD1/01 - Nada Quedo.mp3"),
+    index
+  );
+
+  assert.ok(match);
+  assert.equal(Number(match.pending.id), 22);
+});
+
+test("acepta guiones largos, títulos en cirílico y créditos de producción", () => {
+  const dash = core.buildPendingIndex([pending(23, "Nada Quedo", "Eternxlkz")]);
+  assert.ok(
+    core.matchPendingForFile(
+      file("Eternxlkz – Nada Quedo.mp3", "Eternxlkz – Nada Quedo.mp3"),
+      dash
+    )
+  );
+
+  const cyrillic = core.buildPendingIndex([pending(24, "Нада Кведо", "Артист")]);
+  const cyrillicMatch = core.matchPendingForFile(
+    file("Нада Кведо.mp3", "Артист/Нада Кведо.mp3"),
+    cyrillic
+  );
+  assert.ok(cyrillicMatch);
+  assert.equal(Number(cyrillicMatch.pending.id), 24);
+
+  const prod = core.buildPendingIndex([pending(25, "Nada Quedo", "Eternxlkz")]);
+  const prodMatch = core.matchPendingForFile(
+    file(
+      "Nada Quedo (Prod. Eternxlkz).mp3",
+      "Eternxlkz/Nada Quedo (Prod. Eternxlkz).mp3"
+    ),
+    prod
+  );
+  assert.ok(prodMatch);
+  assert.equal(Number(prodMatch.pending.id), 25);
+});
+
+test("un título con guion interno coincide completo", () => {
+  const index = core.buildPendingIndex([
+    pending(26, "Nada Quedo - Parte 2", "Eternxlkz")
+  ]);
+  const match = core.matchPendingForFile(
+    file("Nada Quedo - Parte 2.mp3", "Eternxlkz/Nada Quedo - Parte 2.mp3"),
+    index
+  );
+
+  assert.ok(match);
+  assert.equal(Number(match.pending.id), 26);
+});
+
+test("no acepta un archivo que declara otro artista aunque la carpeta diga el correcto", () => {
+  const index = core.buildPendingIndex([pending(27, "Nada Quedo", "Eternxlkz")]);
+  const match = core.matchPendingForFile(
+    file("Nada Quedo - Otro Artista.mp3", "Eternxlkz/Nada Quedo - Otro Artista.mp3"),
+    index
+  );
+
+  assert.equal(match, null);
+});
+
+test("no confunde un número que forma parte del título con un número de pista", () => {
+  const index = core.buildPendingIndex([pending(28, "99 Problems", "JAY-Z")]);
+  const match = core.matchPendingForFile(
+    file("99 Problems.mp3", "JAY-Z/99 Problems.mp3"),
+    index
+  );
+
+  assert.ok(match);
+  assert.equal(Number(match.pending.id), 28);
+});
+
+test("un año o una carpeta genérica no se toma como artista", () => {
+  const index = core.buildPendingIndex([pending(29, "Nada Quedo", "Eternxlkz")]);
+  const match = core.matchPendingForFile(
+    file("01 - Nada Quedo.mp3", "Música 2024/01 - Nada Quedo.mp3"),
+    index
+  );
+
+  assert.ok(match);
+  assert.equal(Number(match.pending.id), 29);
+});
+
 test("marca como ambigua una canción con el mismo título y artistas distintos", () => {
   const index = core.buildPendingIndex([
     pending(12, "MONTAGEM ROYAL", "NUEKI"),

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#05080f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="wavernote-version" content="1.2.6" />
+    <meta name="wavernote-version" content="1.2.7" />
     <meta
       name="description"
       content="WaverNote: tu biblioteca musical personal. Subí tus propios archivos y escuchalos desde tu cuenta Surface."
@@ -158,6 +158,10 @@
         <symbol id="i-clock" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="8.5" />
           <path d="M12 7.5V12l3 2" />
+        </symbol>
+        <symbol id="i-bell" viewBox="0 0 24 24">
+          <path d="M18 9.2a6 6 0 1 0-12 0c0 4.6-1.8 6.1-1.8 6.1h15.6S18 13.8 18 9.2Z" />
+          <path d="M9.8 19.1a2.3 2.3 0 0 0 4.4 0" />
         </symbol>
         <symbol id="i-check" viewBox="0 0 24 24">
           <path d="m5 12.5 4.5 4.5L19 7" />
@@ -374,7 +378,7 @@
         <button class="side-version" type="button" data-action="open-updates" data-wavernote-update title="Buscar actualizaciones">
           <span class="side-version__dot" aria-hidden="true"></span>
           <span class="side-version__meta">
-            <strong data-wavernote-version>v1.2.6</strong>
+            <strong data-wavernote-version>v1.2.7</strong>
             <small>Actualizaciones</small>
           </span>
         </button>
@@ -437,6 +441,50 @@
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cloud-off"></use></svg>
               <span>Copia guardada</span>
             </span>
+
+            <div class="notif" id="notifRoot" hidden>
+              <button
+                class="icon-btn notif__button"
+                id="notifButton"
+                type="button"
+                data-action="toggle-notifications"
+                aria-label="Notificaciones"
+                aria-expanded="false"
+                aria-controls="notifPanel"
+              >
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"></use></svg>
+                <span class="notif__badge" id="notifBadge" hidden></span>
+              </button>
+              <section
+                class="notif__panel"
+                id="notifPanel"
+                hidden
+                aria-label="Notificaciones de la carpeta vigilada"
+              >
+                <header class="notif__head">
+                  <div>
+                    <p class="notif__eyebrow">Carpeta vigilada</p>
+                    <h2>Notificaciones</h2>
+                    <p class="notif__summary" id="notifSummary"></p>
+                  </div>
+                  <div class="notif__head-actions">
+                    <button class="notif__action" type="button" data-action="notifications-clear" hidden>
+                      Marcar leídas
+                    </button>
+                    <button
+                      class="icon-btn icon-btn--tiny notif__close"
+                      type="button"
+                      data-action="notifications-close"
+                      aria-label="Cerrar notificaciones"
+                    >
+                      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"></use></svg>
+                    </button>
+                  </div>
+                </header>
+                <div class="notif__list" id="notifList"></div>
+              </section>
+            </div>
+
             <button class="btn btn--primary btn--upload" data-action="open-upload">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"></use></svg>
               <span>Subir música</span>

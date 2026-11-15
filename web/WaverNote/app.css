@@ -2892,6 +2892,365 @@ body.modal-open {
   color: #a9c4ff;
 }
 
+/* ------------------------------------------------------------
+   Notificaciones de la carpeta vigilada
+   ------------------------------------------------------------ */
+
+.notif {
+  position: relative;
+  display: flex;
+}
+
+.notif[hidden] {
+  display: none;
+}
+
+.notif__button {
+  position: relative;
+  width: 38px;
+  height: 38px;
+}
+
+.notif__button .icon {
+  width: 19px;
+  height: 19px;
+}
+
+.notif__button.has-unread {
+  color: var(--mint);
+}
+
+.notif__badge {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--mint);
+  box-shadow: 0 0 0 2px rgba(5, 8, 15, 0.95);
+  color: #041511;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.notif__badge[hidden] {
+  display: none;
+}
+
+.notif__panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: -6px;
+  z-index: 40;
+  display: flex;
+  width: min(370px, calc(100vw - 32px));
+  max-height: min(72vh, 540px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: #0a1019;
+  box-shadow: 0 28px 70px -20px rgba(0, 0, 0, 0.92);
+  animation: notifIn 0.18s var(--ease);
+}
+
+.notif__panel[hidden] {
+  display: none;
+}
+
+@keyframes notifIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.notif__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 11px;
+  border-bottom: 1px solid var(--line);
+}
+
+.notif__eyebrow {
+  margin: 0 0 2px;
+  color: var(--faint);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.notif__head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.notif__summary {
+  margin: 3px 0 0;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.notif__head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.notif__action {
+  padding: 4px 7px;
+  border-radius: 8px;
+  color: var(--mint);
+  font-size: 9.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.notif__action:hover {
+  background: rgba(99, 230, 200, 0.1);
+}
+
+.notif__action[hidden] {
+  display: none;
+}
+
+.notif__close {
+  width: 28px;
+  height: 28px;
+}
+
+.notif__close .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.notif__list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.notif__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.notif__item:last-child {
+  border-bottom: 0;
+}
+
+.notif__item:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.notif__item.is-unread {
+  background: rgba(99, 230, 200, 0.045);
+}
+
+.notif__item.is-unread:hover {
+  background: rgba(99, 230, 200, 0.075);
+}
+
+.notif__art {
+  display: block;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 11px;
+}
+
+.notif__art .cover {
+  height: 100%;
+  border-radius: 11px;
+}
+
+.notif__copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.notif__copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif__copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.notif__meta .icon {
+  width: 10px;
+  height: 10px;
+  color: var(--mint);
+}
+
+.notif__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--mint);
+  box-shadow: 0 0 0 3px rgba(99, 230, 200, 0.14);
+}
+
+.notif__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 26px 20px;
+  text-align: center;
+}
+
+.notif__empty-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 3px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(99, 230, 200, 0.08);
+  color: var(--mint);
+}
+
+.notif__empty-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.notif__empty strong {
+  font-size: 12.5px;
+}
+
+.notif__empty p {
+  margin: 0;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.notif-detail {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.notif-detail__art {
+  display: block;
+  width: 96px;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.notif-detail__art .cover {
+  height: 100%;
+  border-radius: 16px;
+}
+
+.notif-detail__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notif-detail__copy strong {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.notif-detail__copy > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.notif-detail__copy > small {
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.notif-detail__copy p {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 10px 0 0;
+  color: var(--text-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.notif-detail__copy p .icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--mint);
+}
+
+.notif-detail code {
+  margin-top: 8px;
+  padding: 5px 8px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--faint);
+  font-size: 9.5px;
+}
+
+
 .track-row__duration {
   display: inline-flex;
   align-items: center;

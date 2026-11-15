@@ -1934,3 +1934,104 @@
     display: inline-flex;
   }
 }
+
+/* ------------------------------------------------------------
+   Carpeta vigilada: reporte y notificaciones en móvil
+   ------------------------------------------------------------ */
+
+@media (max-width: 767px) {
+  .notif__panel {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 62px);
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-height: min(70vh, 480px);
+    border-radius: 16px;
+  }
+
+  .notif__head {
+    padding: 12px 12px 9px;
+  }
+
+  .notif__head h2 {
+    font-size: 17px;
+  }
+
+  .notif__item {
+    padding: 9px 11px;
+  }
+
+  .notif__art {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .notif-detail {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .notif-detail__art {
+    width: 64px;
+    height: 64px;
+    border-radius: 13px;
+  }
+
+  .notif-detail__copy strong {
+    font-size: 17px;
+  }
+
+  .scan-report__list {
+    max-height: 42vh;
+    border-radius: 11px;
+  }
+
+  .scan-report__row {
+    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-areas:
+      "art main"
+      "art status";
+    align-items: start;
+    row-gap: 3px;
+    padding: 8px 10px;
+  }
+
+  .scan-report__art {
+    grid-area: art;
+    width: 34px;
+    height: 34px;
+  }
+
+  .scan-report__main {
+    grid-area: main;
+  }
+
+  .scan-report__status {
+    grid-area: status;
+    justify-self: start;
+    padding: 2px 7px;
+  }
+
+  .scan-report__summary {
+    gap: 5px;
+  }
+
+  .scan-report__stat {
+    padding: 3px 8px;
+  }
+
+  .scan-report .modal__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .scan-report .modal__actions .btn {
+    width: 100%;
+  }
+
+  .watch-card__actions .btn--small {
+    min-height: 34px;
+  }
+}

@@ -61,6 +61,11 @@
 
   const VERSION_FILLER = new Set(["and", "y", "e", "with", "the", "plus"]);
 
+  // Créditos de producción: van entre paréntesis o después de un guion,
+  // pero no forman parte del título de la canción.
+  const PRODUCTION_CREDIT =
+    /^(?:prod(?:uced|ucer)?(?:\s+by)?|beat(?:s)?\s+by|mixed\s+by|mastered\s+by)\b/i;
+
   const ARTIST_SEPARATORS =
     /\s*(?:,|&|\/|\\|;|\+|\||×|\bfeat\b\.?|\bft\b\.?|\bfeaturing\b|\bvs\b\.?)\s*/i;
 
@@ -81,7 +86,41 @@
     "various artists",
     "varios artistas",
     "artistas",
-    "artists"
+    "artists",
+    "favoritas",
+    "favoritos",
+    "favorites",
+    "favourites",
+    "playlist",
+    "playlists",
+    "mi lista",
+    "mis listas",
+    "lista",
+    "listas",
+    "recientes",
+    "recent",
+    "nuevos",
+    "nuevas",
+    "new",
+    "todos",
+    "todas",
+    "all",
+    "sin clasificar",
+    "unsorted",
+    "varios",
+    "varias",
+    "various",
+    "otros",
+    "otras",
+    "misc",
+    "mixes",
+    "seleccion",
+    "selecciones",
+    "recomendadas",
+    "recomendados",
+    "top",
+    "hits",
+    "exitos"
   ]);
 
   const MATCH_THRESHOLD = 90;
@@ -95,8 +134,16 @@
   const normalizeText = (value) =>
     stripDiacritics(value)
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
+      // \p{L} conserva letras de cualquier alfabeto (cirílico, griego,
+      // japonés…), no solo las latinas. Antes un título como «Нада Кведо»
+      // quedaba vacío y nunca podía coincidir.
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
       .trim();
+
+  const isDiscFolder = (value) => {
+    const key = normalizeText(value);
+    return /^(?:cd|disc|disk|vol|volume)\s*\d{0,3}$/.test(key);
+  };
 
   const isVersionSegment = (value) => {
     const words = normalizeText(value).split(" ").filter(Boolean);
@@ -116,8 +163,11 @@
 
   const stripVersionSegments = (value) => {
     let output = value.replace(/\s*[\(\[]([^)\]]*)[\)\]]/g, (match, inner) =>
-      isVersionSegment(inner) ? " " : match
+      isVersionSegment(inner) || PRODUCTION_CREDIT.test(String(inner).trim()) ? " " : match
     );
+
+    // «Canción prod. Artista» sin paréntesis: el crédito se descarta.
+    output = output.replace(/\s+(?:prod\.?|produced\s+by|beat\s+by)\s+.*$/i, " ");
 
     for (let pass = 0; pass < 3; pass += 1) {
       const next = output.replace(/\s*[-–—]\s*([^-–—]+)$/, (match, tail) =>
@@ -135,9 +185,9 @@
       stripDiacritics(value)
         .toLowerCase()
         .replace(/\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring)\s+[^)\]]*[\)\]]/g, " ")
-        .replace(/\s*-\s*(?:feat\.?|ft\.?|featuring)\s+.*$/g, " ")
+        .replace(/\s*[-\u2013\u2014]\s*(?:feat\.?|ft\.?|featuring)\s+.*$/g, " ")
     )
-      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
       .trim();
 
   const artistTokens = (value) => {
@@ -182,7 +232,19 @@
 
   const isGenericFolder = (value) => {
     const key = normalizeText(value);
-    return !key || GENERIC_FOLDERS.has(key);
+    if (!key) return true;
+    if (GENERIC_FOLDERS.has(key)) return true;
+    if (isDiscFolder(value)) return true;
+    // «Música 2025», «Favoritas 2024» y similares.
+    const head = key.replace(/\s+\d{1,4}$/, "");
+    return head !== key && GENERIC_FOLDERS.has(head);
+  };
+
+  const isPlausibleArtist = (value) => {
+    const clean = stripTrackNumber(value);
+    if (!clean || isGenericFolder(clean)) return false;
+    // Un número de pista («01») o una carpeta vacía no son un artista.
+    return /\p{L}/u.test(clean);
   };
 
   // "01 - Canción", "01. Canción", "01_ Canción" y "[01] Canción" son
@@ -190,20 +252,20 @@
   // el número no está separado por guion, punto, paréntesis o corchete.
   const stripTrackNumber = (value) =>
     cleanSegment(value)
-      .replace(/^\s*\[?\d{1,3}\]?\s*[-._)]\s*/, "")
+      .replace(/^\s*\[?\d{1,3}\]?\s*[-._–—)]\s*/, "")
       .replace(/^\s*\[\d{1,3}\]\s+/, "")
       .trim();
 
   const folderArtist = (value) => {
     const clean = stripTrackNumber(value);
-    return isGenericFolder(clean) ? "" : clean;
+    return isPlausibleArtist(clean) ? clean : "";
   };
 
   const pushCandidate = (list, seen, candidate) => {
     const title = stripTrackNumber(candidate.title);
     if (!title || isGenericFolder(title)) return;
 
-    const artist = cleanSegment(candidate.artist);
+    const artist = folderArtist(candidate.artist);
     const album = cleanSegment(candidate.album);
     const key = `${normalizeTitle(title)}|${normalizeText(artist)}|${normalizeText(album)}`;
     if (seen.has(key)) return;
@@ -224,7 +286,9 @@
    *   Artista/Canción/canción.mp3
    *   Artista/Álbum/01 - canción.mp3
    *   Artista - Canción.mp3
+   *   Canción - Artista.mp3
    *   Lista/Artista - Canción.mp3
+   *   Artista/Álbum/CD1/01 - canción.mp3
    *   Música/canción.mp3
    */
   const candidatesForFile = (file, metadata = null) => {
@@ -234,11 +298,21 @@
       .map((segment) => cleanSegment(segment))
       .filter(Boolean);
 
-    const name = cleanSegment(fileStem(file?.name || relative));
-    const parent = cleanSegment(file?.parent || segments[segments.length - 2] || "");
-    const grandparent = cleanSegment(
-      file?.grandparent || segments[segments.length - 3] || ""
-    );
+    const name = stripTrackNumber(cleanSegment(fileStem(file?.name || relative)));
+
+    // Carpetas desde la más cercana al archivo hasta la raíz. Así una
+    // estructura Artista/Álbum/CD1/01 - Canción reconoce al artista aunque
+    // haya dos niveles de álbum y disco en el medio.
+    const folders = segments
+      .slice(0, -1)
+      .reverse()
+      .map((segment) => cleanSegment(segment))
+      .filter(Boolean);
+    const fallbackFolders = [file?.parent, file?.grandparent]
+      .map((value) => cleanSegment(value))
+      .filter(Boolean);
+    const ancestors = (folders.length ? folders : fallbackFolders).slice(0, 4);
+
     const fileAlbum = cleanSegment(file?.album || "");
     const metadataAlbum = cleanSegment(metadata?.album || "");
 
@@ -256,31 +330,30 @@
     // Nombre del archivo solo. Sirve cuando la carpeta no aporta nada.
     add(name, "", 12, "filename");
 
-    // "Artista - Canción" o "Canción - Artista".
-    const split = name.match(/^(.{1,90}?)\s+-\s+(.{1,150})$/);
+    // "Artista - Canción" o "Canción - Artista". Se aceptan guion común,
+    // en dash y em dash, que son los que suelen traer los archivos.
+    const split = name.match(/^(.{1,90}?)\s+[-–—]\s+(.{1,150})$/);
     if (split) {
       add(split[2], split[1], 16, "filename-split");
-      add(split[1], split[2], 4, "filename-reverse");
+      add(split[1], split[2], 12, "filename-reverse");
     }
 
     // Artista/Canción/canción.mp3: la carpeta es el título y la de arriba
     // el artista. También funciona si eligieron la carpeta del artista.
-    if (parent && !isGenericFolder(parent)) {
-      add(parent, grandparent, 14, "parent-title");
-      add(parent, "", 8, "parent-title-no-artist");
+    const nearest = ancestors[0] || "";
+    if (nearest && !isGenericFolder(nearest)) {
+      add(nearest, ancestors[1] || "", 14, "parent-title");
+      add(nearest, "", 8, "parent-title-no-artist");
     }
 
-    // Artista/Álbum/01 - canción.mp3: el nombre del archivo es el título y
-    // la carpeta de arriba del álbum es el artista.
-    if (grandparent && !isGenericFolder(grandparent)) {
-      add(name, grandparent, 13, "grandparent-artist");
-      add(parent, grandparent, 10, "grandparent-artist-parent");
-    }
-
-    // La carpeta inmediata como posible artista si el nombre no lo trae.
-    if (parent && !isGenericFolder(parent)) {
-      add(name, parent, 7, "filename-parent-artist");
-    }
+    // Cada carpeta de la ruta puede ser el artista. La carpeta inmediata
+    // pesa menos porque muchas veces es el álbum o el título; las de más
+    // arriba pesan más y también sirven para vetar artistas equivocados.
+    const artistWeights = [7, 13, 12, 11];
+    ancestors.forEach((folder, index) => {
+      if (!isPlausibleArtist(folder)) return;
+      add(name, folder, artistWeights[index] || 10, `ancestor-artist-${index}`);
+    });
 
     // Etiquetas del archivo: pesan más que la ruta, pero no la reemplazan.
     if (metadata) {
@@ -363,13 +436,33 @@
     if (!index || !Array.isArray(index.items) || !index.items.length) return null;
 
     const candidates = candidatesForFile(file, metadata);
-    // Una carpeta con artista claro (Artista/Canción/..., Artista - Canción,
-    // etiquetas) manda sobre el nombre suelto. Si esa señal contradice al
-    // pendiente, no se sube: evita completar "MONTAGEM ROYAL" con el archivo
-    // de otro artista que se llama igual.
-    const strongArtistCandidates = candidates.filter(
-      (candidate) => candidate.weight >= 10 && artistTokens(candidate.artist).size > 0
-    );
+
+    // Cada candidato que declara un artista afirma que ese artista interpreta
+    // ese título. Al comparar un pendiente concreto solo cuentan las
+    // afirmaciones sobre *su* título: así «Canción - Otro Artista.mp3» no se
+    // acepta solo porque una carpeta más arriba diga el artista correcto,
+    // mientras que un título con guion interno («Canción - Parte 2») sigue
+    // coincidiendo completo. Si ninguna pista declara artista, se acepta el
+    // nombre del archivo (y las filas con el mismo título quedan ambiguas).
+    const artistClaims = new Map();
+    candidates.forEach((candidate) => {
+      // La carpeta inmediata (peso 7) suele ser el álbum o el título, no el
+      // artista: suma para puntuar, pero no alcanza para vetar. Los nombres
+      // con guion, las etiquetas y las carpetas de más arriba sí deciden.
+      if (Number(candidate.weight) < 10) return;
+      // «Nada Quedo - Slowed» genera un candidato con «Slowed» como artista.
+      // Un sufijo de versión no es un artista y no debe vetar la carpeta que
+      // sí lo declara.
+      if (isVersionSegment(candidate.artist)) return;
+      const tokens = artistTokens(candidate.artist);
+      if (!tokens.size) return;
+      const key = normalizeTitle(candidate.title);
+      if (!key) return;
+      const claim = artistClaims.get(key);
+      if (claim) tokens.forEach((token) => claim.add(token));
+      else artistClaims.set(key, tokens);
+    });
+
     const matches = [];
 
     for (const candidate of candidates) {
@@ -379,11 +472,9 @@
       if (!bucket || !bucket.length) continue;
 
       for (const entry of bucket) {
-        if (entry.artistTokens.size && strongArtistCandidates.length) {
-          const artistConfirmed = strongArtistCandidates.some((strong) =>
-            artistsOverlap(entry.artistTokens, artistTokens(strong.artist))
-          );
-          if (!artistConfirmed) continue;
+        if (entry.artistTokens.size) {
+          const claim = artistClaims.get(entry.titleKey);
+          if (claim?.size && !artistsOverlap(entry.artistTokens, claim)) continue;
         }
 
         const result = scoreCandidate(entry, candidate);

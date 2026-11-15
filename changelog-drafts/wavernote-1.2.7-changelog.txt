@@ -1,0 +1,39 @@
+WaverNote 1.2.7 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.2.7
+Plataformas: Windows y Android
+Fecha: 2026-11-14
+
+Novedades:
+- La tarjeta de Carpeta Vigilada ahora muestra un reporte del escaneo con cada archivo revisado y su estado: completada, ya estaba en tu biblioteca, ya procesada, en espera, para revisar, con error, copia repetida, archivo vacío o sin coincidencia. El reporte se abre al escanear a mano y queda disponible con «Ver último escaneo».
+- Nueva sección de notificaciones en la cabecera, junto al buscador: una campana avisa cuando la carpeta completa una canción nueva, con contador de no leídas, portada, título, artista y tiempo. Desde el detalle se puede reproducir la canción o abrirla en la biblioteca.
+- Las notificaciones se guardan por cuenta y se pueden marcar como leídas. Los escaneos automáticos solo suman avisos: ya no abren ninguna ventana.
+
+Mejoras:
+- Antes de cada escaneo se actualiza la lista de canciones pendientes, así una canción importada recién se reconoce sin reiniciar la app.
+- El reconocimiento de archivos entiende mejor las bibliotecas reales: números de pista, nombres «Canción - Artista», carpetas de artista, álbum y disco, guiones largos, títulos en otros alfabetos y sufijos como «(Prod. X)».
+- Un título que lleva un guion dentro («Canción - Parte 2») coincide completo aunque la carpeta también diga el artista. Se mantiene el veto para no completar una canción con el archivo de otro artista.
+
+Otros:
+- El reporte conserva hasta 400 archivos por escaneo para no llenar el almacenamiento local; si hay más, indica cuántos quedaron fuera.
+- Windows: instalador NSIS x64 firmado. Android: APK universal firmado.
+
+=== ENGLISH ===
+Version: 1.2.7
+Platforms: Windows and Android
+Date: 2026-11-14
+
+New:
+- The Watched Folder card now shows a scan report with every file reviewed and its status: completed, already in your library, already processed, queued, needs review, failed, duplicate copy, empty file, or no match. The report opens after a manual scan and stays available through "View last scan".
+- A new notifications section in the header, next to search: a bell lets you know when the folder completes a new song, with an unread counter, cover, title, artist and time. From the details you can play the song or open it in your library.
+- Notifications are stored per account and can be marked as read. Automatic scans only add notices: they never open a window.
+
+Improvements:
+- The pending list is refreshed before every scan, so a newly imported song is recognized without restarting the app.
+- File recognition now handles real libraries better: track numbers, "Song - Artist" names, artist, album and disc folders, long dashes, titles in other alphabets, and suffixes such as "(Prod. X)".
+- A title with an inner dash ("Song - Part 2") matches in full even when the folder also names the artist. The artist veto remains, so a song is never completed with another artist's file.
+
+Other:
+- The report keeps up to 400 files per scan to avoid filling local storage; if there are more, it shows how many were left out.
+- Windows: signed NSIS x64 installer. Android: signed universal APK.

@@ -1,0 +1,35 @@
+WaverNote 1.2.8 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.2.8
+Plataformas: Windows y Android
+Fecha: 2026-11-15
+
+Novedades:
+- Los archivos de la carpeta vigilada que no coinciden con una canción pendiente ahora muestran sus datos y su portada en el reporte, y se pueden sumar a Pendientes con un botón en cada fila.
+- También se pueden agregar todos los archivos disponibles de una vez (hasta 50 por tanda), conservando título, artista, álbum, género, duración y la portada embebida.
+- Las canciones agregadas desde el reporte quedan listas para completarse solas en el próximo escaneo, igual que las importadas desde una lista.
+
+Mejoras:
+- Antes de armar una cola nueva, si el modo aleatorio quedó activado de una sesión anterior, la app pregunta si querés escuchar en orden o en aleatorio. Ya no genera una fila mezclada sin avisar.
+- Al elegir "Reproducir en orden", el modo aleatorio se desactiva y la cola respeta el orden original.
+
+Otros:
+- Windows: instalador NSIS x64 firmado. Android: APK universal firmado.
+
+=== ENGLISH ===
+Version: 1.2.8
+Platforms: Windows and Android
+Date: 2026-11-15
+
+New:
+- Watched-folder files that do not match a pending song now show their details and artwork in the report, and can be added to Pending with a button on each row.
+- All available files can also be added at once (up to 50 per run), keeping title, artist, album, genre, duration and the embedded cover.
+- Songs added from the report are ready to be completed automatically on the next scan, just like songs imported from a list.
+
+Improvements:
+- Before building a new queue, if shuffle was left on from a previous session, the app asks whether to play in order or shuffled. It no longer creates a mixed queue without warning.
+- Choosing "Play in order" turns shuffle off and keeps the original queue order.
+
+Other:
+- Windows: signed NSIS x64 installer. Android: signed universal APK.

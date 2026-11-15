@@ -332,6 +332,7 @@ const closeModal = (force = false) => {
     toast("Esperá a que terminen las copias sin conexión.");
     return;
   }
+  window.WaverNoteShuffleGuard?.dismiss();
   scanRunId += 1;
   releaseScanArtwork();
   modal.classList.remove("is-open");
@@ -1210,12 +1211,13 @@ const openUpload = (prefill = null) => {
   uploadMode = "manual";
   scanRunId += 1;
   uploadPrefill =
-    prefill && (prefill.title || prefill.artist || prefill.album || prefill.coverUrl)
+    prefill && (prefill.title || prefill.artist || prefill.album || prefill.genre || prefill.coverUrl)
       ? {
           pendingId: Number(prefill.pendingId) || 0,
           title: String(prefill.title || ""),
           artist: String(prefill.artist || ""),
           album: String(prefill.album || ""),
+          genre: String(prefill.genre || ""),
           coverUrl: String(prefill.coverUrl || "")
         }
       : null;
@@ -1227,9 +1229,11 @@ const openUpload = (prefill = null) => {
   const titleInput = $("#uploadTitle");
   const artistInput = $("#uploadArtist");
   const albumInput = $("#uploadAlbum");
+  const genreInput = $("#uploadGenre");
   if (titleInput) titleInput.value = uploadPrefill?.title || "";
   if (artistInput) artistInput.value = uploadPrefill?.artist || "";
   if (albumInput) albumInput.value = uploadPrefill?.album || "";
+  if (genreInput) genreInput.value = uploadPrefill?.genre || "";
   if (uploadPrefill) {
     const hint = $("#uploadCoverHint");
     if (hint) {
@@ -1354,6 +1358,7 @@ const openUploadForPending = (id) => {
     title: item.title,
     artist: item.artist,
     album: item.album,
+    genre: item.genre,
     coverUrl: item.coverUrl
   });
 };
@@ -3327,6 +3332,12 @@ const handleAction = async (actionEl) => {
     case "watched-rescan":
       closeModal(true);
       window.WaverNoteWatched?.scanNow();
+      break;
+    case "watched-add-pending":
+      await window.WaverNoteWatched?.addToPending(Number(actionEl.dataset.index));
+      break;
+    case "watched-add-pending-all":
+      await window.WaverNoteWatched?.addAllToPending();
       break;
     case "toggle-notifications":
       window.WaverNoteWatched?.toggleNotifications();

@@ -1779,7 +1779,7 @@ mark {
 
 .scan-report__row {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   padding: 9px 11px;
@@ -1865,6 +1865,84 @@ mark {
 .scan-report__status--error {
   background: rgba(255, 142, 142, 0.12);
   color: #ffb3b3;
+}
+
+.scan-report__pending-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 9px 11px;
+  border: 1px solid rgba(122, 167, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(122, 167, 255, 0.06);
+}
+
+.scan-report__pending-bar p {
+  margin: 0;
+  color: #b9cdff;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.scan-report__action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.scan-report__action:empty {
+  display: none;
+}
+
+.scan-report__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba(122, 167, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(122, 167, 255, 0.09);
+  color: #b9cdff;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.scan-report__add .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.scan-report__add:hover {
+  border-color: rgba(122, 167, 255, 0.46);
+  background: rgba(122, 167, 255, 0.16);
+}
+
+.scan-report__add:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+@media (max-width: 560px) {
+  .scan-report__row {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+  }
+
+  .scan-report__art {
+    width: 34px;
+    height: 34px;
+  }
+
+  .scan-report__action {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+  }
 }
 
 .scan-report__empty,

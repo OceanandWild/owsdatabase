@@ -29,6 +29,9 @@
   const MAX_FAILURES = 300;
   const MAX_NOTIFICATIONS = 60;
   const MAX_REPORT_ITEMS = 400;
+  const MAX_REPORT_COVERS = 32;
+  const MAX_REPORT_COVER_BYTES = 2 * 1024 * 1024;
+  const MAX_PENDING_ADDS_PER_RUN = 50;
   const READ_CHUNK_BYTES = 4 * 1024 * 1024;
 
   const IS_ANDROID = /Android/i.test(navigator.userAgent || "");
@@ -52,6 +55,10 @@
     uploadSeq: 0,
     uploads: new Map(),
     tagChecked: new Set(),
+    coverCache: new Map(),
+    coverHydration: 0,
+    pendingAdding: false,
+    pendingProgress: "",
     pendingSignature: "",
     notificationsOpen: false,
     cardQueued: false
@@ -124,8 +131,25 @@
     runtime.config.notifications = Array.isArray(runtime.config.notifications)
       ? runtime.config.notifications.filter((item) => item && item.id).slice(0, MAX_NOTIFICATIONS)
       : [];
+    const report = runtime.config.lastReport;
+    const serializable =
+      report && Array.isArray(report.items)
+        ? {
+            ...runtime.config,
+            // Las portadas leídas del archivo viven solo mientras la app está
+            // abierta (blob:). Se descartan al guardar para no dejar enlaces
+            // muertos en el próximo inicio; se vuelven a leer si hacen falta.
+            lastReport: {
+              ...report,
+              items: report.items.map((item) => ({
+                ...item,
+                coverUrl: /^blob:/i.test(String(item?.coverUrl || "")) ? "" : item?.coverUrl
+              }))
+            }
+          }
+        : runtime.config;
     try {
-      writeJSON(storageKey(runtime.userId), runtime.config);
+      writeJSON(storageKey(runtime.userId), serializable);
     } catch (err) {
       /* modo privado o almacenamiento lleno */
     }
@@ -395,6 +419,7 @@
 
   const REPORT_STATUS = {
     uploaded: { label: "Completada", tone: "ok" },
+    added: { label: "En pendientes", tone: "wait" },
     library: { label: "Ya en tu biblioteca", tone: "soft" },
     known: { label: "Ya procesada", tone: "soft" },
     queued: { label: "En espera", tone: "wait" },
@@ -408,6 +433,7 @@
 
   const REPORT_ORDER = [
     "uploaded",
+    "added",
     "queued",
     "ambiguous",
     "failed",
@@ -421,14 +447,19 @@
 
   const reportDetail = (item) => {
     const pending = item.pendingTitle ? `«${item.pendingTitle}»` : "";
+    const metaLine = [item.artist, item.album, item.genre].filter(Boolean).join(" · ");
     switch (item.status) {
       case "uploaded":
-        return item.artist
-          ? `${item.artist} · agregada a tu biblioteca`
+        return metaLine
+          ? `${metaLine} · agregada a tu biblioteca`
           : "Agregada a tu biblioteca";
+      case "added":
+        return pending
+          ? `Agregada a pendientes como ${pending}`
+          : "Agregada a pendientes con los datos de este archivo";
       case "library":
-        return item.artist
-          ? `${item.artist} · ya estaba en tu biblioteca`
+        return metaLine
+          ? `${metaLine} · ya estaba en tu biblioteca`
           : "Ya estaba en tu biblioteca";
       case "known":
         return "Ya la habíamos subido antes desde esta carpeta";
@@ -445,16 +476,38 @@
       case "empty":
         return "El archivo está vacío";
       case "no-pending":
-        return "No hay canciones pendientes que completar";
+        return (
+          item.detail ||
+          (metaLine
+            ? `${metaLine} · lista para agregar a pendientes`
+            : "No hay canciones pendientes; podés agregar este archivo desde acá")
+        );
       default:
-        return item.detail || "No coincide con ninguna canción pendiente";
+        return (
+          item.detail ||
+          metaLine ||
+          "No coincide con ninguna canción pendiente"
+        );
     }
   };
 
-  const reportRowHTML = (item) => {
+  const canAddToPending = (item) =>
+    Boolean(item) &&
+    (item.status === "unmatched" || item.status === "no-pending") &&
+    Number(item.size) > 0 &&
+    !item.addedToPending;
+
+  const reportActionHTML = (item, index) => {
+    if (canAddToPending(item)) {
+      return `<button class="scan-report__add" type="button" data-action="watched-add-pending" data-index="${index}" title="Agregar a pendientes con sus datos y portada" aria-label="Agregar ${escapeHTML(item.title || item.name)} a pendientes">${icon("plus")}<span>Pendientes</span></button>`;
+    }
+    return "";
+  };
+
+  const reportRowHTML = (item, index) => {
     const meta = REPORT_STATUS[item.status] || REPORT_STATUS.unmatched;
     return `
-      <div class="scan-report__row scan-report__row--${meta.tone}">
+      <div class="scan-report__row scan-report__row--${meta.tone}" data-report-index="${index}">
         <span class="scan-report__art">${coverHTML(item)}</span>
         <span class="scan-report__main">
           <strong>${escapeHTML(item.title || item.name)}</strong>
@@ -462,18 +515,14 @@
           <span class="scan-report__detail">${escapeHTML(reportDetail(item))}</span>
         </span>
         <span class="scan-report__status scan-report__status--${meta.tone}">${meta.label}</span>
+        <span class="scan-report__action">${reportActionHTML(item, index)}</span>
       </div>`;
   };
 
-  const openReport = (report = runtime.config?.lastReport) => {
-    if (!report || !Array.isArray(report.items)) {
-      toast("Todavía no hay un escaneo para mostrar.");
-      return;
-    }
-
-    const counts = report.counts || {};
-    const chips = [
+  const reportSummaryHTML = (counts = {}) =>
+    [
       ["uploaded", "completadas"],
+      ["added", "en pendientes"],
       ["library", "ya en tu biblioteca"],
       ["known", "ya procesadas"],
       ["queued", "en espera"],
@@ -491,6 +540,142 @@
       )
       .join("");
 
+  const syncReportSummary = (report) => {
+    const summary = document.querySelector("[data-report-summary]");
+    if (!summary) return;
+    const html = reportSummaryHTML(report.counts || {});
+    summary.innerHTML = html;
+    summary.hidden = !html;
+  };
+
+  const reportTotalText = (report) =>
+    `${plural(Number(report.files) || 0, "archivo revisado", "archivos revisados")} · ${plural(Number(report.pending) || 0, "canción pendiente", "canciones pendientes")} en tu lista`;
+
+  const syncReportTotal = (report) => {
+    const total = document.querySelector("[data-report-total]");
+    if (total) total.textContent = reportTotalText(report);
+  };
+
+  const syncReportItem = (report, index) => {
+    const row = document.querySelector(
+      `.scan-report__row[data-report-index="${Number(index)}"]`
+    );
+    const item = report?.items?.[Number(index)];
+    if (!row || !item) return;
+
+    const meta = REPORT_STATUS[item.status] || REPORT_STATUS.unmatched;
+    row.className = `scan-report__row scan-report__row--${meta.tone}`;
+
+    const art = row.querySelector(".scan-report__art");
+    if (art) art.innerHTML = coverHTML(item);
+
+    const title = row.querySelector(".scan-report__main strong");
+    if (title) title.textContent = item.title || item.name || "";
+
+    const detail = row.querySelector(".scan-report__detail");
+    if (detail) detail.textContent = reportDetail(item);
+
+    const status = row.querySelector(".scan-report__status");
+    if (status) {
+      status.className = `scan-report__status scan-report__status--${meta.tone}`;
+      status.textContent = meta.label;
+    }
+
+    const action = row.querySelector(".scan-report__action");
+    if (action) action.innerHTML = reportActionHTML(item, index);
+  };
+
+  const pendingBulkLabel = (count) => {
+    const total = Number(count) || 0;
+    const batch = Math.min(total, MAX_PENDING_ADDS_PER_RUN);
+    return total > batch
+      ? `Agregar ${batch} de ${total} archivos`
+      : `Agregar ${plural(total, "archivo", "archivos")}`;
+  };
+
+  const syncReportBulk = (report) => {
+    const bar = document.querySelector("[data-report-pending-bar]");
+    if (!bar) return;
+
+    const pendingCount = report.items.filter(canAddToPending).length;
+    if (!pendingCount) {
+      bar.remove();
+      return;
+    }
+
+    const button = bar.querySelector('[data-action="watched-add-pending-all"]');
+    if (button) {
+      button.disabled = runtime.pendingAdding;
+      button.innerHTML = runtime.pendingAdding
+        ? `${icon("clock")} Agregando…`
+        : `${icon("plus")} ${pendingBulkLabel(pendingCount)} a pendientes`;
+    }
+    const copy = bar.querySelector("[data-report-pending-text]");
+    if (copy) {
+      copy.textContent = runtime.pendingAdding
+        ? runtime.pendingProgress || "Agregando canciones con sus datos y portada…"
+        : `${plural(pendingCount, "archivo puede", "archivos pueden")} sumarse a pendientes con sus datos y portada.`;
+    }
+  };
+
+  // En Android las etiquetas llegan sin la portada para no cruzar varios
+  // megabytes por el puente durante el escaneo. Cuando el usuario abre el
+  // reporte, las portadas se leen de a una para no bloquear la interfaz.
+  const hydrateAndroidCovers = (report) => {
+    if (!IS_ANDROID) return;
+    const token = ++runtime.coverHydration;
+    const queue = report.items
+      .map((item, index) => ({ item, index }))
+      .filter(
+        ({ item }) =>
+          item?.uri &&
+          !item.coverUrl &&
+          (item.status === "unmatched" || item.status === "no-pending")
+      )
+      .slice(0, MAX_REPORT_COVERS);
+    if (!queue.length) return;
+
+    const step = () => {
+      if (token !== runtime.coverHydration) return;
+      const entry = queue.shift();
+      if (!entry) return;
+
+      const row = document.querySelector(
+        `.scan-report__row[data-report-index="${entry.index}"]`
+      );
+      if (!row) return; // El reporte se cerró: se retoma al abrirlo de nuevo.
+
+      try {
+        const blob = androidCoverBlob(entry.item.uri);
+        if (blob) {
+          const key = Core.fileKeys(reportItemFile(entry.item)).contentKey;
+          const url = rememberCover(key, blob);
+          if (url) {
+            entry.item.coverUrl = url;
+            const art = row.querySelector(".scan-report__art");
+            if (art) art.innerHTML = coverHTML(entry.item);
+          }
+        }
+      } catch (err) {
+        /* una portada ilegible no rompe el reporte */
+      }
+
+      window.requestAnimationFrame(step);
+    };
+
+    window.requestAnimationFrame(step);
+  };
+
+  const openReport = (report = runtime.config?.lastReport) => {
+    if (!report || !Array.isArray(report.items)) {
+      toast("Todavía no hay un escaneo para mostrar.");
+      return;
+    }
+
+    const counts = report.counts || {};
+    const chips = reportSummaryHTML(counts);
+    const pendingCount = report.items.filter(canAddToPending).length;
+
     const omitted = Number(report.omitted) || 0;
     const list = report.items.map(reportRowHTML).join("");
     const folder = report.folder || "Tu carpeta";
@@ -506,9 +691,17 @@
       body: `
         <div class="scan-report">
           <p class="scan-report__meta">${meta}</p>
-          ${chips ? `<div class="scan-report__summary">${chips}</div>` : ""}
-          <p class="scan-report__total">${plural(Number(report.files) || 0, "archivo revisado", "archivos revisados")} · ${plural(Number(report.pending) || 0, "canción pendiente", "canciones pendientes")} en tu lista</p>
+          <div class="scan-report__summary" data-report-summary ${chips ? "" : "hidden"}>${chips}</div>
+          <p class="scan-report__total" data-report-total>${reportTotalText(report)}</p>
           ${report.hint ? `<p class="scan-report__hint">${escapeHTML(report.hint)}</p>` : ""}
+          ${
+            pendingCount
+              ? `<div class="scan-report__pending-bar" data-report-pending-bar>
+                  <p data-report-pending-text>${plural(pendingCount, "archivo puede", "archivos pueden")} sumarse a pendientes con sus datos y portada.</p>
+                  <button class="btn btn--small btn--primary" data-action="watched-add-pending-all" ${runtime.pendingAdding ? "disabled" : ""}>${icon("plus")} ${pendingBulkLabel(pendingCount)} a pendientes</button>
+                </div>`
+              : ""
+          }
           ${
             list
               ? `<div class="scan-report__list">${list}</div>`
@@ -521,6 +714,7 @@
           </div>
         </div>`
     });
+    hydrateAndroidCovers(report);
   };
 
   const inviteCardHTML = () => `
@@ -821,6 +1015,53 @@
     });
   };
 
+  const rememberCover = (key, blob) => {
+    if (!key || !blob?.size) return "";
+    // Una portada enorme no entra en el reporte: se descarta en vez de
+    // ocupar memoria durante toda la sesión.
+    if (Number(blob.size) > MAX_REPORT_COVER_BYTES) return "";
+    const cached = runtime.coverCache.get(key);
+    if (cached) {
+      // Mantenerlo como el más reciente dentro del límite.
+      runtime.coverCache.delete(key);
+      runtime.coverCache.set(key, cached);
+      return cached;
+    }
+
+    let url = "";
+    try {
+      url = URL.createObjectURL(blob);
+    } catch (err) {
+      return "";
+    }
+
+    runtime.coverCache.set(key, url);
+    while (runtime.coverCache.size > MAX_REPORT_COVERS) {
+      const oldest = runtime.coverCache.keys().next().value;
+      if (!oldest) break;
+      const stale = runtime.coverCache.get(oldest);
+      runtime.coverCache.delete(oldest);
+      try {
+        if (stale) URL.revokeObjectURL(stale);
+      } catch (err) {
+        /* noop */
+      }
+    }
+    return url;
+  };
+
+  const clearCoverCache = () => {
+    runtime.coverHydration += 1;
+    runtime.coverCache.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        /* noop */
+      }
+    });
+    runtime.coverCache.clear();
+  };
+
   const desktopMetadata = async (file) => {
     if (Number(file.size) > MAX_TAG_BYTES_DESKTOP) return null;
     if (typeof WNMetadata === "undefined" || !WNMetadata.readTrackMetadata) return null;
@@ -831,7 +1072,12 @@
         title: metadata.title,
         artist: metadata.artist,
         album: metadata.album,
-        duration: metadata.duration
+        genre: metadata.genre,
+        duration: metadata.duration,
+        coverUrl: rememberCover(
+          Core.fileKeys(file).contentKey,
+          metadata.coverBlob
+        )
       };
     } catch (err) {
       return null;
@@ -856,10 +1102,30 @@
           title: String(entry.title || ""),
           artist: String(entry.artist || ""),
           album: String(entry.album || ""),
+          genre: String(entry.genre || ""),
           duration: Number(entry.duration) || 0
         });
       });
       return map;
+    } catch (err) {
+      return null;
+    }
+  };
+
+  const androidCoverBlob = (uri) => {
+    const api = bridge();
+    if (!api?.readWatchedCover || !uri) return null;
+    try {
+      const data = parsePayload(api.readWatchedCover(JSON.stringify({ uri })));
+      if (!data?.ok || !data?.data) return null;
+      const binary = atob(String(data.data));
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return new Blob([bytes], {
+        type: String(data.mime || "image/jpeg")
+      });
     } catch (err) {
       return null;
     }
@@ -946,6 +1212,8 @@
         title: Core.fileStem(file.name || file.relative || ""),
         artist: "",
         album: "",
+        genre: "",
+        duration: 0,
         coverUrl: "",
         pendingTitle: "",
         pendingArtist: "",
@@ -1017,7 +1285,8 @@
         pending: pendingItem,
         contentKey: keys.contentKey,
         pathKey: keys.pathKey,
-        record
+        record,
+        tags
       });
     };
 
@@ -1038,12 +1307,24 @@
     };
   };
 
-  const addMetadataMatches = async (plan, config, pending) => {
-    if (!pending.length || !plan.unmatched.length) return;
+  const applyFileMetadata = (plan, file, tags) => {
+    const record = plan.records.get(file.path);
+    if (!record || record.status !== "unmatched" || !tags) return;
+    record.title = tags.title || record.title;
+    record.artist = tags.artist || record.artist;
+    record.album = tags.album || record.album;
+    record.genre = tags.genre || record.genre;
+    record.duration = Number(tags.duration) || record.duration;
+    if (tags.coverUrl && !record.coverUrl) record.coverUrl = tags.coverUrl;
+  };
+
+  const addMetadataMatches = async (plan, config) => {
+    if (!plan.unmatched.length) return;
 
     // Las etiquetas son el último recurso: leerlas cuesta más que comparar
     // nombres. Priorizamos los archivos más recientes y no repetimos la
-    // lectura de un archivo que ya revisamos en esta sesión.
+    // lectura de un archivo que ya revisamos en esta sesión. También sirven
+    // para mostrar los datos reales en el reporte y al agregarlo a pendientes.
     const fresh = plan.unmatched
       .filter((file) => file.size > 0)
       .filter((file) => !runtime.tagChecked.has(Core.fileKeys(file).contentKey))
@@ -1060,6 +1341,7 @@
         if (!tags) return;
         plan.metadata.set(file.path, tags);
         plan.consider(file, tags);
+        applyFileMetadata(plan, file, tags);
       });
       return;
     }
@@ -1073,6 +1355,7 @@
       runtime.tagChecked.add(Core.fileKeys(file).contentKey);
       plan.metadata.set(file.path, tags);
       plan.consider(file, tags);
+      applyFileMetadata(plan, file, tags);
     }
   };
 
@@ -1082,7 +1365,8 @@
       title: pending.title,
       artist: pending.artist,
       album: pending.album,
-      duration: pending.duration
+      duration: pending.duration,
+      genre: match.tags?.genre || pending.genre || ""
     };
 
     if (IS_ANDROID) {
@@ -1090,12 +1374,399 @@
     }
 
     const file = await readDesktopFile(match.file);
+    let metadata = null;
+    try {
+      if (typeof WNMetadata !== "undefined" && WNMetadata.readTrackMetadata) {
+        metadata = await WNMetadata.readTrackMetadata(file);
+      }
+    } catch (err) {
+      metadata = null;
+    }
+
+    let cover = null;
+    if (metadata?.coverBlob) {
+      try {
+        cover = await WNMetadata.prepareCoverForUpload(metadata.coverBlob, file.name);
+      } catch (err) {
+        cover = null;
+      }
+    }
+
     return uploadTrackFile({
       file,
-      fields,
-      cover: null,
+      fields: {
+        ...fields,
+        title: fields.title || metadata?.title || "",
+        artist: fields.artist || metadata?.artist || "",
+        album: fields.album || metadata?.album || "",
+        genre: fields.genre || metadata?.genre || "",
+        duration: fields.duration || metadata?.duration || 0
+      },
+      cover,
       onProgress: () => {}
     });
+  };
+
+  /* ------------------------------------------------------------
+     Agregar archivos del reporte a pendientes
+     ------------------------------------------------------------ */
+
+  const reportItemFile = (item) =>
+    normalizeFile({
+      path: item?.path,
+      uri: item?.uri,
+      name: item?.name,
+      relative: item?.relative,
+      size: item?.size,
+      modified: item?.modified
+    });
+
+  const itemFallbackMetadata = (item) => ({
+    title: item?.title || Core.fileStem(item?.name || ""),
+    artist: item?.artist || "",
+    album: item?.album || "",
+    genre: item?.genre || "",
+    duration: Number(item?.duration) || 0,
+    cover: null
+  });
+
+  const readItemMetadata = async (item) => {
+    const fallback = itemFallbackMetadata(item);
+    if (typeof WNMetadata === "undefined") return fallback;
+
+    if (IS_ANDROID) {
+      const file = reportItemFile(item);
+      if (!file.uri) return fallback;
+      let tags = null;
+      try {
+        const metadata = await androidMetadata([file]);
+        tags = metadata?.get(file.uri) || null;
+      } catch (err) {
+        tags = null;
+      }
+
+      let cover = null;
+      try {
+        const blob = androidCoverBlob(file.uri);
+        if (blob) cover = await WNMetadata.prepareCoverForUpload(blob, file.name);
+      } catch (err) {
+        cover = null;
+      }
+
+      return {
+        ...fallback,
+        ...(tags || {}),
+        cover
+      };
+    }
+
+    const file = reportItemFile(item);
+    if (!file.path) return fallback;
+    // Los archivos muy grandes se agregan igual, pero con los datos que ya
+    // tenía el reporte: cargarlos enteros para leer etiquetas puede agotar
+    // la memoria de la app.
+    if (file.size > MAX_TAG_BYTES_DESKTOP) return fallback;
+    try {
+      const object = await readDesktopFile(file);
+      const metadata = await WNMetadata.readTrackMetadata(object);
+      let cover = null;
+      if (metadata.coverBlob) {
+        try {
+          cover = await WNMetadata.prepareCoverForUpload(metadata.coverBlob, file.name);
+        } catch (err) {
+          cover = null;
+        }
+      }
+      return {
+        title: metadata.title || fallback.title,
+        artist: metadata.artist || fallback.artist,
+        album: metadata.album || fallback.album,
+        genre: metadata.genre || fallback.genre,
+        duration: metadata.duration || fallback.duration,
+        cover
+      };
+    } catch (err) {
+      // Si el archivo se movió o el permiso venció, los datos que ya
+      // teníamos en el reporte siguen sirviendo para crear el pendiente.
+      return fallback;
+    }
+  };
+
+  const uploadPendingCover = async (cover) => {
+    if (!cover?.size) return "";
+    try {
+      const form = new FormData();
+      form.append("cover", cover, cover.name || "cover.jpg");
+      const headers = {};
+      const token = getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE}/wavernote/pending/cover`, {
+        method: "POST",
+        headers,
+        body: form
+      });
+      const text = await response.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (err) {
+        data = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          apiErrorMessage(
+            response.status,
+            data?.error || text,
+            `No se pudo subir la portada (${response.status}).`
+          )
+        );
+      }
+
+      const coverUrl = String(data?.coverUrl || "");
+      return /^https?:\/\//i.test(coverUrl) ? coverUrl : "";
+    } catch (err) {
+      // La portada es opcional: si falla, la canción igual queda pendiente
+      // con sus datos y la carpeta vigilada puede completarla después.
+      console.warn("[WaverNote] pending cover:", err);
+      return "";
+    }
+  };
+
+  const rememberPending = (pending) => {
+    const id = Number(pending?.id) || 0;
+    if (!id || !Array.isArray(state.pending)) return;
+    if (state.pending.some((entry) => Number(entry.id) === id)) return;
+    state.pending = [pending, ...state.pending];
+  };
+
+  const createPendingFromItem = async (item) => {
+    const metadata = await readItemMetadata(item);
+    const title = String(metadata.title || item.title || Core.fileStem(item.name || ""))
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+    if (!title) throw new Error("El archivo no tiene un título que se pueda usar.");
+
+    const payload = {
+      title,
+      artist: String(metadata.artist || "").replace(/\s+/g, " ").trim().slice(0, 120),
+      album: String(metadata.album || "").replace(/\s+/g, " ").trim().slice(0, 120),
+      genre: String(metadata.genre || "").replace(/\s+/g, " ").trim().slice(0, 60),
+      duration: Math.min(Math.max(Number(metadata.duration) || 0, 0), 6 * 60 * 60),
+      coverUrl: await uploadPendingCover(metadata.cover)
+    };
+
+    const data = await api("/wavernote/pending/import", {
+      method: "POST",
+      body: {
+        source: "Carpeta vigilada",
+        tracks: [payload]
+      }
+    });
+
+    const pending = Array.isArray(data?.pending) ? data.pending[0] : null;
+    if (Number(data?.imported) > 0 && pending) {
+      return {
+        status: "added",
+        created: true,
+        pending,
+        coverUrl: pending.coverUrl || payload.coverUrl || "",
+        detail: "Agregada a pendientes con los datos del archivo."
+      };
+    }
+
+    const skipped = data?.skipped || {};
+    if (Number(skipped.alreadyPending) > 0 || Number(skipped.duplicated) > 0) {
+      const existing = (state.pending || []).find((entry) => Core.samePendingSong(entry, payload));
+      return {
+        status: "added",
+        created: false,
+        pending: existing || null,
+        coverUrl: "",
+        detail: "Ya estaba en pendientes."
+      };
+    }
+    if (Number(skipped.inLibrary) > 0) {
+      return {
+        status: "library",
+        created: false,
+        pending: null,
+        coverUrl: "",
+        detail: "Ya estaba en tu biblioteca."
+      };
+    }
+
+    throw new Error("El servidor no guardó la canción pendiente.");
+  };
+
+  const updateReportCounts = (report, fromStatus, toStatus) => {
+    if (!report) return;
+    if (!report.counts || typeof report.counts !== "object") report.counts = {};
+    if (fromStatus) {
+      report.counts[fromStatus] = Math.max(
+        0,
+        (Number(report.counts[fromStatus]) || 0) - 1
+      );
+    }
+    if (toStatus) {
+      report.counts[toStatus] = (Number(report.counts[toStatus]) || 0) + 1;
+    }
+  };
+
+  const applyPendingResult = (
+    report,
+    index,
+    result,
+    { refresh = true, save = true } = {}
+  ) => {
+    const item = report?.items?.[index];
+    if (!item || !result) return;
+
+    const previous = item.status;
+    item.status = result.status;
+    item.pendingTitle = result.pending?.title || item.pendingTitle || item.title;
+    item.pendingArtist = result.pending?.artist || item.pendingArtist || item.artist;
+    item.pendingId = Number(result.pending?.id) || 0;
+    item.coverUrl = result.coverUrl || item.coverUrl || "";
+    item.detail = result.detail || "";
+    item.addedToPending = result.status === "added";
+    item.addedAt = Date.now();
+
+    if (result.created && previous !== "added") {
+      report.pending = (Number(report.pending) || 0) + 1;
+    }
+
+    if (result.pending) {
+      rememberPending({
+        ...result.pending,
+        coverUrl: result.pending.coverUrl || result.coverUrl || ""
+      });
+    }
+
+    updateReportCounts(report, previous, result.status);
+    if (save) saveConfig();
+    syncReportItem(report, index);
+    syncReportSummary(report);
+    syncReportTotal(report);
+    syncReportBulk(report);
+    if (refresh && result.status === "added") refreshPendingView();
+  };
+
+  const addToPendingByIndex = async (index) => {
+    const report = runtime.config?.lastReport;
+    const item = report?.items?.[Number(index)];
+    if (!report || !item || !canAddToPending(item)) return;
+
+    if (runtime.pendingAdding) {
+      toast("Esperá a que termine de agregar las canciones.");
+      return;
+    }
+
+    runtime.pendingAdding = true;
+    const button = document.querySelector(
+      `[data-action="watched-add-pending"][data-index="${Number(index)}"]`
+    );
+    if (button) button.disabled = true;
+
+    try {
+      const result = await createPendingFromItem(item);
+      applyPendingResult(report, Number(index), result);
+      const label = item.pendingTitle || item.title;
+      if (result.status === "library") {
+        toast(`«${label}» ya está en tu biblioteca.`);
+      } else if (result.created) {
+        toast(`«${label}» agregada a pendientes.`);
+      } else {
+        toast(`«${label}» ya estaba en pendientes.`);
+      }
+    } catch (err) {
+      toast(String(err?.message || "No se pudo agregar a pendientes."), "error");
+    } finally {
+      runtime.pendingAdding = false;
+      syncReportItem(report, Number(index));
+      syncReportBulk(report);
+    }
+  };
+
+  const addAllToPending = async () => {
+    const report = runtime.config?.lastReport;
+    if (!report?.items?.length) return;
+
+    if (runtime.pendingAdding) {
+      toast("Ya se están agregando canciones a pendientes.");
+      return;
+    }
+
+    const actionable = report.items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => canAddToPending(item))
+      .slice(0, MAX_PENDING_ADDS_PER_RUN);
+
+    if (!actionable.length) {
+      toast("No quedan archivos para agregar.");
+      return;
+    }
+
+    runtime.pendingAdding = true;
+    runtime.pendingProgress = `Agregando 1 de ${actionable.length}…`;
+    syncReportBulk(report);
+
+    let created = 0;
+    let already = 0;
+    let library = 0;
+    let failed = 0;
+
+    for (let position = 0; position < actionable.length; position += 1) {
+      const index = actionable[position].index;
+      const item = report.items[index];
+      if (!canAddToPending(item)) continue;
+
+      runtime.pendingProgress = `Agregando ${position + 1} de ${actionable.length}…`;
+      syncReportBulk(report);
+
+      try {
+        const result = await createPendingFromItem(item);
+        applyPendingResult(report, index, result, { refresh: false, save: false });
+        if (result.status === "library") library += 1;
+        else if (result.created) created += 1;
+        else already += 1;
+      } catch (err) {
+        failed += 1;
+        item.detail = String(err?.message || "No se pudo agregar.").slice(0, 200);
+        syncReportItem(report, index);
+      }
+    }
+
+    runtime.pendingAdding = false;
+    runtime.pendingProgress = "";
+    saveConfig();
+    syncReportSummary(report);
+    syncReportBulk(report);
+    if (created) refreshPendingView();
+
+    const remaining = report.items.filter(canAddToPending).length;
+    if (created && !failed) {
+      toast(`${plural(created, "canción agregada", "canciones agregadas")} a pendientes.`);
+    } else if (created && failed) {
+      toast(`${created} agregadas a pendientes; ${failed} no se pudieron agregar.`, "error");
+    } else if (failed && (already || library)) {
+      toast(
+        `${plural(failed, "archivo no se pudo agregar", "archivos no se pudieron agregar")}; el resto ya estaba en tu biblioteca o en pendientes.`,
+        "error"
+      );
+    } else if (already || library) {
+      toast("Todas las canciones ya estaban en tu biblioteca o en pendientes.");
+    } else if (failed) {
+      toast("No se pudo agregar ninguna canción a pendientes.", "error");
+    }
+
+    if (remaining && created) {
+      toast(
+        `${plural(remaining, "archivo quedó", "archivos quedaron")} para la próxima tanda.`
+      );
+    }
   };
 
   /* ------------------------------------------------------------
@@ -1211,6 +1882,7 @@
 
     const counts = {
       uploaded: 0,
+      added: 0,
       library: 0,
       known: 0,
       queued: 0,
@@ -1251,11 +1923,17 @@
       items.push({
         name: record.file.name,
         relative: record.file.relative,
+        path: record.file.path,
+        uri: record.file.uri,
+        size: Number(record.file.size) || 0,
+        modified: Number(record.file.modified) || 0,
         status,
         detail: record.detail || "",
         title: record.title || Core.fileStem(record.file.name || ""),
         artist: record.artist || "",
         album: record.album || "",
+        genre: record.genre || "",
+        duration: Number(record.duration) || 0,
         coverUrl: record.coverUrl || "",
         pendingTitle: record.pendingTitle || "",
         pendingArtist: record.pendingArtist || "",
@@ -1360,7 +2038,7 @@
 
       const pending = Array.isArray(state.pending) ? state.pending.slice() : [];
       plan = planMatches(files, pending, config, state.tracks);
-      await addMetadataMatches(plan, config, pending);
+      await addMetadataMatches(plan, config);
       matched = plan.matches.length;
       ambiguous = plan.ambiguous.length;
 
@@ -1569,6 +2247,7 @@
         config.failures = {};
         config.lastReport = null;
         runtime.tagChecked.clear();
+        clearCoverCache();
       }
       if (!config.addedAt) config.addedAt = Date.now();
       runtime.config = config;
@@ -1622,6 +2301,7 @@
     runtime.userId = Number(state.user?.id) || 0;
     runtime.pendingSignature = "";
     runtime.tagChecked.clear();
+    clearCoverCache();
     try {
       localStorage.removeItem(storageKey(runtime.userId));
     } catch (err) {
@@ -1729,6 +2409,7 @@
     runtime.timer = null;
     runtime.scanTimer = null;
     runtime.tagChecked.clear();
+    clearCoverCache();
 
     if (runtime.pickWaiter) {
       window.clearTimeout(runtime.pickWaiter.timer);
@@ -1766,6 +2447,8 @@
   });
 
   window.WaverNoteWatched = {
+    addAllToPending,
+    addToPending: addToPendingByIndex,
     cardHTML,
     closeNotifications,
     forget,

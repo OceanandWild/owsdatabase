@@ -6,6 +6,7 @@ import android.content.Intent
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONArray
@@ -32,6 +33,11 @@ object WatchedFolderBridge {
   private const val MAX_FILES = 12_000
   private const val MAX_DEPTH = 12
   private const val MAX_TAG_FILES = 150
+  private const val MAX_COVER_BYTES = 5 * 1024 * 1024
+
+  private data class NativeCover(val bytes: ByteArray, val mime: String)
+
+  private data class NativeTags(val genre: String, val cover: NativeCover?)
 
   private val AUDIO_EXTENSIONS = setOf(
     "mp3", "wav", "ogg", "oga", "m4a", "mp4", "aac", "flac", "opus", "webm"
@@ -191,16 +197,18 @@ object WatchedFolderBridge {
         val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE).orEmpty()
         val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST).orEmpty()
         val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM).orEmpty()
+        val genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE).orEmpty()
         val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
           ?.toLongOrNull() ?: 0L
 
-        if (title.isNotBlank() || artist.isNotBlank() || album.isNotBlank()) {
+        if (title.isNotBlank() || artist.isNotBlank() || album.isNotBlank() || genre.isNotBlank()) {
           result.put(
             JSONObject()
               .put("uri", uriString)
               .put("title", title)
               .put("artist", artist)
               .put("album", album)
+              .put("genre", genre)
               .put("duration", (durationMs / 1000L).toInt())
           )
         }
@@ -216,6 +224,31 @@ object WatchedFolderBridge {
     }
 
     return result.toString()
+  }
+
+  @JavascriptInterface
+  fun readWatchedCover(payload: String): String {
+    val current = activity ?: return errorPayload("La actividad no está disponible.").toString()
+    val request = try {
+      JSONObject(payload)
+    } catch (err: Exception) {
+      return errorPayload("La portada no es válida.").toString()
+    }
+
+    val uriString = request.optString("uri")
+    if (uriString.isBlank()) {
+      return errorPayload("El archivo no es válido.").toString()
+    }
+
+    val tags = readNativeTags(current, Uri.parse(uriString))
+    val cover = tags.cover
+      ?: return errorPayload("El archivo no tiene una portada compatible.").toString()
+
+    return JSONObject()
+      .put("ok", true)
+      .put("mime", cover.mime)
+      .put("data", Base64.encodeToString(cover.bytes, Base64.NO_WRAP))
+      .toString()
   }
 
   @JavascriptInterface
@@ -369,6 +402,10 @@ object WatchedFolderBridge {
     val uri = Uri.parse(uriString)
     val name = sanitizeFileName(request.optString("name").ifBlank { "audio" })
     val mime = mimeFor(name)
+    val native = readNativeTags(current, uri)
+    if (fields.optString("genre").isBlank() && native.genre.isNotBlank()) {
+      fields.put("genre", native.genre)
+    }
     val boundary = "----WaverNote${System.currentTimeMillis()}"
     val endpoint = URL("${apiBase.trimEnd('/')}/wavernote/tracks")
 
@@ -403,6 +440,16 @@ object WatchedFolderBridge {
               "Content-Disposition: form-data; name=\"${escapeField(key)}\"\r\n\r\n" +
               "$value\r\n"
           )
+        }
+
+        native.cover?.let { cover ->
+          writeText(
+            "--$boundary\r\n" +
+              "Content-Disposition: form-data; name=\"cover\"; filename=\"${coverFileName(cover.mime)}\"\r\n" +
+              "Content-Type: ${cover.mime}\r\n\r\n"
+          )
+          output.write(cover.bytes)
+          writeText("\r\n")
         }
 
         writeText(
@@ -458,6 +505,67 @@ object WatchedFolderBridge {
   /* ------------------------------------------------------------
      Utilidades
      ------------------------------------------------------------ */
+
+  private fun readNativeTags(current: Activity, uri: Uri): NativeTags {
+    val retriever = MediaMetadataRetriever()
+    return try {
+      retriever.setDataSource(current, uri)
+      val genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE).orEmpty()
+      val picture = retriever.embeddedPicture
+      val mime = if (picture != null) imageMime(picture) else null
+      val cover = if (picture != null && mime != null && picture.size in 32..MAX_COVER_BYTES) {
+        NativeCover(picture, mime)
+      } else {
+        null
+      }
+      NativeTags(genre, cover)
+    } catch (err: Exception) {
+      NativeTags("", null)
+    } finally {
+      try {
+        retriever.release()
+      } catch (err: Exception) {
+        // noop
+      }
+    }
+  }
+
+  private fun imageMime(bytes: ByteArray): String? {
+    if (bytes.size >= 3 &&
+      bytes[0] == 0xFF.toByte() &&
+      bytes[1] == 0xD8.toByte() &&
+      bytes[2] == 0xFF.toByte()
+    ) {
+      return "image/jpeg"
+    }
+    if (bytes.size >= 4 &&
+      bytes[0] == 0x89.toByte() &&
+      bytes[1] == 0x50.toByte() &&
+      bytes[2] == 0x4E.toByte() &&
+      bytes[3] == 0x47.toByte()
+    ) {
+      return "image/png"
+    }
+    if (bytes.size >= 12 &&
+      bytes[0] == 0x52.toByte() &&
+      bytes[1] == 0x49.toByte() &&
+      bytes[2] == 0x46.toByte() &&
+      bytes[3] == 0x46.toByte() &&
+      bytes[8] == 0x57.toByte() &&
+      bytes[9] == 0x45.toByte() &&
+      bytes[10] == 0x42.toByte() &&
+      bytes[11] == 0x50.toByte()
+    ) {
+      return "image/webp"
+    }
+    return null
+  }
+
+  private fun coverFileName(mime: String): String = when (mime) {
+    "image/png" -> "cover.png"
+    "image/webp" -> "cover.webp"
+    else -> "cover.jpg"
+  }
 
   private fun mimeFor(name: String): String {
     return when (name.substringAfterLast('.', "").lowercase()) {

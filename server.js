@@ -53822,6 +53822,7 @@ async function ensureWaverNoteTables() {
       title      TEXT NOT NULL,
       artist     TEXT NOT NULL DEFAULT '',
       album      TEXT NOT NULL DEFAULT '',
+      genre      TEXT NOT NULL DEFAULT '',
       duration   DOUBLE PRECISION NOT NULL DEFAULT 0,
       cover_url  TEXT,
       isrc       TEXT NOT NULL DEFAULT '',
@@ -53829,6 +53830,10 @@ async function ensureWaverNoteTables() {
       match_key  TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  await pool.query(`
+    ALTER TABLE wavernote_pending_tracks
+      ADD COLUMN IF NOT EXISTS genre TEXT NOT NULL DEFAULT ''
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_wavernote_pending_user
@@ -54537,6 +54542,7 @@ function mapWaverNotePendingTrack(row) {
     title: row.title,
     artist: row.artist || '',
     album: row.album || '',
+    genre: row.genre || '',
     duration: Number(row.duration) || 0,
     coverUrl: row.cover_url || null,
     isrc: row.isrc || '',
@@ -54874,6 +54880,7 @@ app.post('/wavernote/pending/import', wavernoteAuth, async (req, res) => {
       title,
       artist,
       album: wavernoteText(item?.album, 120),
+      genre: wavernoteText(item?.genre, 60),
       duration: Math.min(Math.max(Number(item?.duration) || 0, 0), 6 * 60 * 60),
       coverUrl: wavernotePendingCover(item?.coverUrl),
       isrc: wavernoteText(item?.isrc, 32).toUpperCase(),
@@ -54926,12 +54933,13 @@ app.post('/wavernote/pending/import', wavernoteAuth, async (req, res) => {
         const base = params.length;
         values.push(
           `($1, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, ` +
-            `$${base + 6}, $${base + 7}, $${base + 8})`
+            `$${base + 6}, $${base + 7}, $${base + 8}, $${base + 9})`
         );
         params.push(
           row.title,
           row.artist,
           row.album,
+          row.genre,
           row.duration,
           row.coverUrl,
           row.isrc,
@@ -54942,7 +54950,7 @@ app.post('/wavernote/pending/import', wavernoteAuth, async (req, res) => {
 
       const { rows: inserted } = await pool.query(
         `INSERT INTO wavernote_pending_tracks
-           (user_id, title, artist, album, duration, cover_url, isrc, source, match_key)
+           (user_id, title, artist, album, genre, duration, cover_url, isrc, source, match_key)
          VALUES ${values.join(', ')}
          ON CONFLICT (user_id, match_key) DO NOTHING
          RETURNING *`,

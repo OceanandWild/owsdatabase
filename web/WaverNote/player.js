@@ -1090,6 +1090,58 @@ const updateNowPlaying = () => {
   syncMediaSession();
 };
 
+/* ------------------------------------------------------------
+   Cola aleatoria con aviso previo
+   ------------------------------------------------------------ */
+
+// El modo aleatorio se conserva entre sesiones. Si viene activado de antes,
+// no armamos una cola nueva al azar sin consultar: avisamos una vez y dejamos
+// elegir. Las acciones que piden aleatorio de forma explícita no pasan por acá.
+let shuffleConsent = false;
+let shufflePendingStart = null;
+
+const resolveShuffleStart = (random) => {
+  const pending = shufflePendingStart;
+  if (!pending) return;
+  shufflePendingStart = null;
+  shuffleConsent = Boolean(random);
+  closeModal(true);
+  startQueue(pending.ids, { ...pending.options, shuffle: Boolean(random) });
+};
+
+const dismissShuffleStart = () => {
+  shufflePendingStart = null;
+};
+
+const requestShuffleStart = (ids, options, count) => {
+  if (shufflePendingStart) return;
+  shufflePendingStart = { ids, options };
+
+  openModal({
+    title: "Modo aleatorio",
+    eyebrow: "Antes de reproducir",
+    body: `
+      <div class="listen-reminder">
+        <p class="listen-reminder__lead">El modo aleatorio quedó activado de la última vez. ¿Querés que arme la cola de ${plural(count, "canción", "canciones")} en orden aleatorio?</p>
+        <p class="listen-reminder__lead">Si elegís en orden, el aleatorio se desactiva para no mezclar la cola sin avisarte.</p>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-shuffle-start="order">Reproducir en orden</button>
+        <button class="btn btn--primary" type="button" data-shuffle-start="random" data-autofocus>Sí, en aleatorio</button>
+      </div>`
+  });
+
+  const body = $("#modalBody");
+  body
+    ?.querySelector('[data-shuffle-start="order"]')
+    ?.addEventListener("click", () => resolveShuffleStart(false));
+  body
+    ?.querySelector('[data-shuffle-start="random"]')
+    ?.addEventListener("click", () => resolveShuffleStart(true));
+};
+
+window.WaverNoteShuffleGuard = { dismiss: dismissShuffleStart };
+
 const startQueue = (ids, options = {}) => {
   let queue = (ids || []).map(Number).filter((id) => state.trackById.has(id));
   if (!queue.length) {
@@ -1097,9 +1149,16 @@ const startQueue = (ids, options = {}) => {
     return;
   }
 
+  const inheritedShuffle = options.shuffle === undefined || options.shuffle === null;
+  if (inheritedShuffle && state.shuffle && !shuffleConsent && queue.length > 1) {
+    requestShuffleStart(ids, options, queue.length);
+    return;
+  }
+
   let index = clamp(Number(options.startIndex) || 0, 0, queue.length - 1);
   if (options.randomStart) index = Math.floor(Math.random() * queue.length);
 
+  if (options.shuffle === true) shuffleConsent = true;
   const shuffle = options.shuffle ?? state.shuffle;
   if (shuffle) {
     const first = queue[index];
@@ -1311,6 +1370,7 @@ const toggleShuffle = () => {
   const currentId = state.currentTrackId;
   if (!state.shuffle) {
     state.shuffle = true;
+    shuffleConsent = true;
     state.baseQueue = state.queue.slice();
     state.baseIndex = state.queueIndex;
     const rest = state.queue.filter((id) => id !== currentId);

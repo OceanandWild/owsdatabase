@@ -368,12 +368,70 @@ jobs:
               print("Sin APK: no se toca wavernote-android-update.json")
           PY
 
-      - name: Commit manifests to main
+      - name: Update OWS Hub catalog
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          version = os.environ["VERSION"].strip()
+          tag = os.environ["TAG"].strip()
+          repo = "OceanandWild/owsdatabase"
+          release_base = f"https://github.com/{repo}/releases/download/{tag}"
+          catalog_path = Path("web/OWS/hub-apps.json")
+
+          # El catálogo del Hub muestra la versión estable: las beta no lo pisan.
+          if "-" in version:
+              print("Versión beta: se conserva el catálogo estable del Hub.")
+              raise SystemExit(0)
+
+          if not catalog_path.exists():
+              raise SystemExit(f"No existe {catalog_path}")
+
+          data = json.loads(catalog_path.read_text(encoding="utf-8"))
+          app = next((a for a in (data.get("apps") or []) if a.get("slug") == "wavernote"), None)
+          if not app:
+              raise SystemExit("No hay entrada wavernote en hub-apps.json")
+
+          def find(pattern):
+              matches = sorted(Path("artifacts").rglob(pattern))
+              return matches[0] if matches else None
+
+          def human_size(size):
+              return f"{size / 1048576:.2f}".replace(".", ",") + " MB"
+
+          def update_platform(key, pattern):
+              asset = find(pattern)
+              if not asset:
+                  return
+              size = asset.stat().st_size
+              app.setdefault("platforms", {}).setdefault(key, {}).update({
+                  "version": version,
+                  "file": asset.name,
+                  "url": f"{release_base}/{asset.name}",
+                  "size": human_size(size),
+                  "size_bytes": size,
+              })
+
+          update_platform("windows", "*_x64-setup.exe")
+          update_platform("android", "*_universal.apk")
+          app["version"] = version
+          app["release_url"] = f"https://github.com/{repo}/releases/tag/{tag}"
+          data["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+          catalog_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print(f"hub-apps.json actualizado a {version}")
+          PY
+
+      - name: Commit manifests and hub catalog to main
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          for file in wavernote-update.json wavernote-android-update.json; do
+          for file in wavernote-update.json wavernote-android-update.json web/OWS/hub-apps.json; do
             if [ -f "$file" ]; then
               git add "$file"
             fi

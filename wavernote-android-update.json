@@ -1,11 +1,11 @@
 {
   "project_slug": "wavernote",
   "package_id": "com.oceanwildstudios.wavernote",
-  "version_name": "1.2.7",
-  "version_code": 1002007,
-  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.7/WaverNote_1.2.7_universal.apk",
-  "sha256": "92fe86fec9187dddd416eb245e00a225b044376bdd7e6155a10ca833e42abadf",
-  "size_bytes": 55957938,
-  "release_notes": "## WaverNote 1.2.7\n\nDisponible para Windows y Android.\n\n### Novedades\n- La tarjeta de **Carpeta Vigilada** ahora muestra un reporte del escaneo con cada archivo revisado y su estado: completada, ya en tu biblioteca, ya procesada, en espera, para revisar, con error, copia repetida, archivo vacío o sin coincidencia. Se abre al escanear a mano y queda disponible con **Ver último escaneo**.\n- Nueva sección de **notificaciones** en la cabecera, junto al buscador: la campana avisa cuando la carpeta completa una canción nueva, con contador de no leídas, portada, título, artista y tiempo. Desde el detalle podés reproducirla o abrirla en la biblioteca.\n- Las notificaciones se guardan por cuenta y se pueden marcar como leídas. Los escaneos automáticos solo suman avisos: ya no abren ninguna ventana.\n\n### Mejoras\n- La lista de pendientes se actualiza antes de cada escaneo, así una canción importada recién se reconoce sin reiniciar la app.\n- El reconocimiento entiende mejor las bibliotecas reales: números de pista, «Canción - Artista», carpetas de artista, álbum y disco, guiones largos, títulos en otros alfabetos y sufijos como «(Prod. X)».\n- Un título con guion interno («Canción - Parte 2») coincide completo aunque la carpeta también diga el artista. Se mantiene el veto para no completar una canción con el archivo de otro artista, y los sufijos de versión ya no se confunden con un artista.\n\n### Otros\n- El reporte conserva hasta 400 archivos por escaneo; si hay más, indica cuántos quedaron fuera.\n- Windows: instalador NSIS x64 firmado. Android: APK universal firmado.",
-  "published_at": "2026-11-15T00:45:28Z"
+  "version_name": "1.2.8",
+  "version_code": 1002008,
+  "apk_url": "https://github.com/OceanandWild/owsdatabase/releases/download/wavernote-v1.2.8/WaverNote_1.2.8_universal.apk",
+  "sha256": "fa8107bf5ffcac6275b80ea43e4ea52afb803883f234b255ceea8a6833f3a348",
+  "size_bytes": 55998978,
+  "release_notes": "## WaverNote 1.2.8\n\nDisponible para Windows y Android.\n\n### Novedades\n- Los archivos de la carpeta vigilada que no coinciden con una canción pendiente ahora muestran sus datos y su portada en el reporte, y se pueden sumar a Pendientes con un botón en cada fila.\n- También se pueden agregar todos los archivos disponibles de una vez (hasta 50 por tanda), conservando título, artista, álbum, género, duración y la portada embebida.\n- Las canciones agregadas desde el reporte quedan listas para completarse solas en el próximo escaneo, igual que las importadas desde una lista.\n\n### Mejoras\n- Antes de armar una cola nueva, si el modo aleatorio quedó activado de una sesión anterior, la app pregunta si querés escuchar en orden o en aleatorio. Ya no genera una fila mezclada sin avisar.\n- Al elegir Reproducir",
+  "published_at": "2026-11-15T04:03:48Z"
 }

@@ -3,16 +3,47 @@
 // Eventos, Proyectos y Usuarios directamente en owsdatabase.onrender.com.
 
 // Mismo API_BASE que el dashboard web/OWS (Render en produccion)
+const API_BASE_DEFAULT = 'https://owsdatabase.onrender.com';
+// Instancia de respaldo: el mismo backend y la misma base de datos, en otro
+// servicio de Render. Se usa solo si el principal queda suspendido (503).
+const API_BASE_ALT = 'https://owsdatabase2.onrender.com';
+
 function resolveAdminApiBase() {
   try {
     const params = new URLSearchParams(window.location.search || '');
     const override = (params.get('api') || localStorage.getItem('ows_api_base') || '').trim();
     if (override && /^https?:\/\//i.test(override)) return override.replace(/\/+$/, '');
   } catch (_) {}
-  return 'https://owsdatabase.onrender.com';
+  return API_BASE_DEFAULT;
 }
 
-const API_BASE = resolveAdminApiBase();
+let API_BASE = resolveAdminApiBase();
+let apiBaseFallback = false;
+
+// Todas las llamadas del panel usan fetch directo (son más de cien), así que
+// el respaldo se resuelve en un solo lugar: si el servicio principal queda
+// suspendido (503) o la respuesta ni siquiera llega (CORS/red), se reintenta
+// la misma petición contra la instancia alternativa.
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async function (input, init) {
+  const url = typeof input === 'string' ? input : (input && input.url) || '';
+  const retryUrl = () => apiFailoverUrl(url);
+  let res;
+  try {
+    res = await nativeFetch(input, init);
+  } catch (err) {
+    const alt = retryUrl();
+    if (!alt) throw err;
+    return nativeFetch(alt, init);
+  }
+  if (res.status === 503) {
+    const alt = retryUrl();
+    if (alt) {
+      try { return await nativeFetch(alt, init); } catch (_) {}
+    }
+  }
+  return res;
+};
 
 const ADMIN_TOKEN_KEY = 'ows_admin_panel_token';
 // Identificador funcional exigido por el backend (guards de cuenta principal).
@@ -28,6 +59,7 @@ let editingProjectId = null;
 let eventImageFile = null;
 let projIconFile = null;
 let projBannerFile = null;
+let projWatermarkImageFile = null;
 let projectsCache = [];
 // Cuántos proyectos solo-admin hay (solo para el aviso de la lista pública).
 let hiddenAdminOnlyCount = 0;
@@ -403,7 +435,9 @@ function isAdminPanelSession() {
 function adminHeaders(extra = {}) {
   return {
     'x-ows-admin-token': adminToken,
-    'x-ows-admin-name': ADMIN_NAME,
+    // El nombre real permite que el backend distinga al Owner de otros
+    // admins (p. ej. Código Fuente es solo-Owner).
+    'x-ows-admin-name': getCurrentAdminName(),
     ...extra
   };
 }
@@ -463,13 +497,68 @@ async function requireAuth() {
 // fetch con headers de admin: si el server responde 401 (token vencido,
 // clave rotada, etc.) se renueva la sesión en silencio y se reintenta una
 // sola vez, en vez de dejar un error o pedir el login.
+// Si el servicio principal está suspendido (Render devuelve 503 en todo),
+// el panel sigue funcionando contra la instancia de respaldo sin que haya que
+// tocar la configuración. Solo aplica cuando NO hay un override manual de API.
+function apiFailoverUrl(url) {
+  if (API_BASE !== API_BASE_DEFAULT) return '';
+  if (typeof url !== 'string' || !url.startsWith(API_BASE_DEFAULT)) return '';
+  API_BASE = API_BASE_ALT;
+  apiBaseFallback = true;
+  showApiFallbackNotice();
+  return API_BASE_ALT + url.slice(API_BASE_DEFAULT.length);
+}
+
+function showApiFallbackNotice() {
+  if (document.getElementById('api-fallback-note')) return;
+  const el = document.createElement('div');
+  el.id = 'api-fallback-note';
+  el.className = 'api-fallback-note';
+  el.innerHTML = `
+    <span class="api-fallback-text">⚠️ El servicio principal está suspendido. Estás trabajando contra <b>owsdatabase2</b>.</span>
+    <button type="button" class="btn btn-ghost btn-sm" data-api-retry>Reintentar principal</button>`;
+  const btn = el.querySelector('[data-api-retry]');
+  if (btn) btn.addEventListener('click', retryPrimaryApi);
+  document.body.appendChild(el);
+}
+
+async function retryPrimaryApi() {
+  const el = document.getElementById('api-fallback-note');
+  const btn = el ? el.querySelector('[data-api-retry]') : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Probando…'; }
+  let ok = false;
+  try {
+    const r = await fetch(API_BASE_DEFAULT + '/ows-launch-projects', { cache: 'no-store' });
+    ok = r.ok;
+  } catch (_) { ok = false; }
+  if (!ok) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Reintentar principal'; }
+    showToast('⚠️ El servicio principal sigue suspendido.');
+    return;
+  }
+  API_BASE = API_BASE_DEFAULT;
+  apiBaseFallback = false;
+  if (el) el.remove();
+  showToast('✅ Servicio principal de vuelta.');
+  location.reload();
+}
+
 async function adminFetch(url, options = {}) {
-  const opts = { ...options, headers: adminHeaders(options.headers || {}) };
-  let res = await fetch(url, opts);
+  const build = () => ({ ...options, headers: adminHeaders(options.headers || {}) });
+  let res = await fetch(url, build());
   if (res.status === 401 && await refreshSessionSilently()) {
-    res = await fetch(url, { ...options, headers: adminHeaders(options.headers || {}) });
+    res = await fetch(apiUrlOnCurrentBase(url), build());
   }
   return res;
+}
+
+// Si ya se cambió al respaldo, una URL armada con el base viejo se rearma
+// sobre el base actual (pasa al reintentar después de renovar la sesión).
+function apiUrlOnCurrentBase(url) {
+  if (apiBaseFallback && typeof url === 'string' && url.startsWith(API_BASE_DEFAULT)) {
+    return API_BASE + url.slice(API_BASE_DEFAULT.length);
+  }
+  return url;
 }
 
 // Renovación proactiva: el JWT dura 2h y el panel puede quedar abierto
@@ -633,7 +722,7 @@ function revealAdminTab(el) {
 
 function switchAdminTab(tab) {
   try { closeFormModal(); } catch (_) {}
-  ['news', 'events', 'projects', 'banners', 'manage', 'incidents', 'reports', 'users'].forEach((t) => {
+  ['news', 'events', 'projects', 'banners', 'manage', 'incidents', 'reports', 'users', 'updates'].forEach((t) => {
     const pane = document.getElementById(`tab-${t}`);
     const btn = document.getElementById(`ptab-${t}`);
     if (pane) pane.classList.toggle('hidden', t !== tab);
@@ -659,6 +748,9 @@ function switchAdminTab(tab) {
   if (tab === 'incidents') loadIncidents();
   // Informes: igual que incidentes, se recarga al entrar.
   if (tab === 'reports') loadReports();
+  // Actualizaciones: el registro se arma al entrar, con el avance y el
+  // historial ya cargados. Es la sección que más cambia durante el día.
+  if (tab === 'updates') { loadProjectUpdates(); loadWorkUpdates(); }
   // Barra de sub-secciones: solo visible si la sección tiene sub-secciones
   renderSubTabs(tab);
 }
@@ -687,6 +779,9 @@ const ADMIN_EXTRA_SUBS = {
     { id: 'activity', label: '📅 14 días' },
     { id: 'analytics', label: '📊 Analytics' },
     { id: 'hitos', label: '🎉 Hitos' }
+  ],
+  updates: [
+    { id: 'history', label: 'Historial' }
   ],
   incidents: [
     { id: 'live', label: '🔴 En curso' },
@@ -763,6 +858,13 @@ function switchAdminSub(tab, sub) {
   if (tab === 'incidents' && (sub === 'live' || sub === 'log')) loadIncidents();
   // Lo mismo para informes: activos e historial se piden al abrir.
   if (tab === 'reports' && (sub === 'live' || sub === 'log')) loadReports();
+  // Historial comparte los datos de Actualizaciones: si ya están cargados,
+  // solo se repinta; si no, se piden al entrar.
+  if (tab === 'updates' && sub === 'history') {
+    if ((projectTimelineCache || []).length) renderProjectHistory();
+    else loadProjectUpdates();
+  }
+  if (tab === 'updates' && sub === 'main') loadWorkUpdates();
   // Las noticias rápidas se piden al abrir su sub-sección: es donde más
   // seguido se publica (texto corto, al instante).
   if (tab === 'news' && sub === 'quick') loadQuickNews();
@@ -871,16 +973,22 @@ async function loadAdminManage() {
   }
   if (!list) return;
   try {
-    const res = await fetch(API_BASE + '/ows-launch-projects?include_hidden=1');
+    // El catálogo completo (ocultos + solo-admin) exige token de admin:
+    // sin la cabecera, el backend devuelve solo los públicos y activos.
+    const res = await fetch(API_BASE + '/ows-launch-projects?include_hidden=1', { headers: adminHeaders() });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     manageProjectsCache = data.projects || [];
     manageLoadedAt = new Date().toISOString();
+    renderSidebarProjects();
     renderManageList();
+    // El tablero de estado vive de este catálogo: se repinta en cuanto llega.
+    renderWsBoard(true);
     // El catálogo cambió: el dropdown de proyecto de Eventos se rearma.
     populateEventProjectOptions();
   } catch (err) {
     list.innerHTML = `<p class="loading-note">⚠️ ${escapeHtml(err.message)}</p>`;
+    renderSidebarProjects();
   }
 }
 
@@ -970,7 +1078,7 @@ function manageProjectCardHtml(p, isPublic) {
     : 'Sin seguimiento de avance todavía — usá “Ajustar %”';
   const rowCls = euph && euph.rowCls ? ` ${euph.rowCls}` : '';
   return `
-  <div class="admin-item manage-admin-item mgmt-project-item${isPublic ? ' manage-readonly-item mgmt-project-public' : ''}${rowCls}">
+  <div class="admin-item manage-admin-item mgmt-project-item${isPublic ? ' manage-readonly-item mgmt-project-public' : ''}${rowCls}" data-project-id="${p.id}">
     ${isPublic ? publicProjectIconHtml(p) : manageProjectIconHtml(p)}
     <div class="admin-item-info">
       <span class="admin-item-title">${escapeHtml(p.name)} ${chips}</span>
@@ -1050,6 +1158,7 @@ function renderManageList() {
   document.querySelectorAll('#manage-filter .mgmt-seg').forEach((b) => {
     b.classList.toggle('is-on', b.dataset.mfilter === manageFilter);
   });
+  applyPendingProjectFocus();
 }
 
 async function saveManageProject(e) {
@@ -1394,6 +1503,8 @@ async function loadProjectDevelopment(manual) {
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     devProgressCache = Array.isArray(data.development) ? data.development : [];
     renderDevList();
+    // Los % del tablero salen de acá: se refresca junto con el control de avance.
+    renderWsBoard(true);
     if (manual) showToast('✔ Desarrollo actualizado');
   } catch (err) {
     list.innerHTML = `<p class="loading-note">⚠️ ${escapeHtml(err.message)}</p>`;
@@ -1754,6 +1865,8 @@ async function saveDevModal() {
     renderDevList();
     // El % es el mismo en Proyectos y en Gestión: se repintan las dos listas.
     renderAdminProjectsList();
+    // El tablero de estado muestra ese mismo %: se actualiza al instante.
+    renderWsBoard(true);
     // El avance recién guardado es un movimiento más del historial: la
     // bitácora de 14 días lo tiene que mostrar de inmediato.
     loadProjectActivity();
@@ -6857,6 +6970,8 @@ function localDatetimeValue(iso) {
 function getEventPhase(ev) {
   if (!ev) return 'upcoming';
   if (ev.is_active === false) return 'hidden';
+  // Sin fecha de inicio: estado propio, no se inventa una fecha ni una fase.
+  if (!ev.starts_at) return 'undated';
   const now = Date.now();
   const s = ev.starts_at ? Date.parse(ev.starts_at) : NaN;
   const e = ev.ends_at ? Date.parse(ev.ends_at) : NaN;
@@ -6870,6 +6985,7 @@ function getEventPhase(ev) {
 const EVENT_PHASE_META = {
   live:     { label: '● En curso',    cls: 'ev-phase-live' },
   upcoming: { label: '◷ Programado',  cls: 'ev-phase-upcoming' },
+  undated:  { label: '📅 Sin fecha',  cls: 'ev-phase-upcoming' },
   ended:    { label: '✔ Finalizado',  cls: 'ev-phase-ended' },
   hidden:   { label: '👁️ Oculto',     cls: 'ev-phase-hidden' }
 };
@@ -6901,7 +7017,7 @@ function eventCountdown(ev) {
   if (Number.isFinite(s) && Number.isFinite(e) && now >= s) return 'Termina ' + fmt(e - now).replace('en ', 'en ');
   if (Number.isFinite(s) && now < s) return (expected ? '🕰️ Esperada ' : 'Empieza ') + fmt(s - now);
   if (Number.isFinite(e) && now <= e) return 'Termina ' + fmt(e - now);
-  return 'Sin horario';
+  return 'Sin fecha';
 }
 
 function eventProgress(ev) {
@@ -7105,6 +7221,12 @@ function setEventQuickDate(mode) {
   const startEl = document.getElementById('event-start');
   const endEl = document.getElementById('event-end');
   if (!startEl || !endEl) return;
+  // Elegir una fecha implica que el evento ya no está "sin fecha".
+  if (eventHasNoDate() && mode !== 'clear-end') {
+    const box = document.getElementById('event-no-date');
+    if (box) box.checked = false;
+    onEventNoDateChange();
+  }
   const pad = (n) => String(n).padStart(2, '0');
   const toLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const now = new Date();
@@ -7137,6 +7259,10 @@ function onEventEndChange() {
 function updateEventDurationHint() {
   const hint = document.getElementById('event-duration-hint');
   if (!hint) return;
+  if (eventHasNoDate()) {
+    hint.textContent = '📅 Sin fecha: el evento se publica como «Fecha aún no definida».';
+    return;
+  }
   const s = document.getElementById('event-start').value;
   const e = document.getElementById('event-end').value;
   if (!s) { hint.textContent = 'Elegí inicio y fin para ver la duración.'; return; }
@@ -7146,6 +7272,165 @@ function updateEventDurationHint() {
   const days = Math.floor(ms / 86400000);
   const hours = Math.floor((ms % 86400000) / 3600000);
   hint.textContent = days > 0 ? `⏳ Duración: ${days}d ${hours}h.` : hours > 0 ? `⏳ Duración: ${hours}h.` : '⏳ Duración: menos de 1 hora.';
+}
+
+// ── Evento combinado ──────────────────────────────────────
+// Un evento puede traer otras cosas (DLC, pase de temporada, extras). El admin
+// las carga acá y OWS resume "este evento y X cosas más vienen juntos".
+const EVENT_BUNDLE_MAX_ITEMS = 20;
+
+function eventBundleEls() {
+  return {
+    toggle: document.getElementById('event-bundle-toggle'),
+    label: document.getElementById('event-bundle-toggle-label'),
+    fields: document.getElementById('event-bundle-fields'),
+    rows: document.getElementById('event-bundle-rows'),
+    count: document.getElementById('event-bundle-count')
+  };
+}
+
+function eventBundleIsOn() {
+  const el = eventBundleEls();
+  return !!(el.toggle && el.toggle.checked);
+}
+
+// Lista normalizada del evento guardado (el backend devuelve bundle_items).
+function eventBundleItemsOf(ev) {
+  if (!ev) return [];
+  const raw = Array.isArray(ev.bundle_items)
+    ? ev.bundle_items
+    : Array.isArray(ev.bundleItems) ? ev.bundleItems : [];
+  return raw.filter((it) => it && typeof it === 'object' && String(it.label || '').trim());
+}
+
+function createEventBundleRow(item) {
+  const data = item && typeof item === 'object' ? item : {};
+  const row = document.createElement('div');
+  row.className = 'ev-bundle-row';
+  row.setAttribute('data-bundle-row', '');
+  row.innerHTML = `
+    <div class="ev-bundle-row-head">
+      <span class="ev-bundle-row-index"></span>
+      <button type="button" class="btn btn-ghost btn-mini ev-bundle-remove" title="Quitar este elemento" data-adm-ev="click" data-adm="removeEventBundleRow">✕</button>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Nombre *</label>
+        <input type="text" class="ev-bundle-label" maxlength="80" placeholder="Ej: Pase de temporada" value="${escapeHtml(data.label || '')}" data-adm-ev="input" data-adm="onEventBundleInput" />
+      </div>
+      <div class="field-group">
+        <label>Link <span class="opt-tag">opcional</span></label>
+        <input type="url" class="ev-bundle-url" maxlength="500" placeholder="https://…" value="${escapeHtml(data.url || '')}" data-adm-ev="input" data-adm="onEventBundleInput" />
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Detalle <span class="opt-tag">opcional</span></label>
+      <input type="text" class="ev-bundle-detail" maxlength="200" placeholder="Ej: 4 skins exclusivas y 2 mapas" value="${escapeHtml(data.detail || '')}" data-adm-ev="input" data-adm="onEventBundleInput" />
+    </div>`;
+  return row;
+}
+
+function renumberEventBundleRows() {
+  const el = eventBundleEls();
+  if (!el.rows) return;
+  const rows = [...el.rows.querySelectorAll('[data-bundle-row]')];
+  rows.forEach((row, i) => {
+    const idx = row.querySelector('.ev-bundle-row-index');
+    if (idx) idx.textContent = `#${i + 1}`;
+    const btn = row.querySelector('.ev-bundle-remove');
+    if (btn) btn.disabled = rows.length <= 1;
+  });
+  if (el.count) el.count.textContent = `${rows.length}/${EVENT_BUNDLE_MAX_ITEMS}`;
+}
+
+function addEventBundleRow(item) {
+  const el = eventBundleEls();
+  if (!el.rows) return;
+  if (el.rows.querySelectorAll('[data-bundle-row]').length >= EVENT_BUNDLE_MAX_ITEMS) {
+    showToast(`⚠️ Podés cargar hasta ${EVENT_BUNDLE_MAX_ITEMS} cosas`);
+    return;
+  }
+  el.rows.appendChild(createEventBundleRow(item));
+  renumberEventBundleRows();
+  updateEventLivePreview();
+}
+
+function removeEventBundleRow() {
+  const row = this && this.closest ? this.closest('[data-bundle-row]') : null;
+  if (!row) return;
+  row.remove();
+  const el = eventBundleEls();
+  if (el.rows && !el.rows.querySelector('[data-bundle-row]')) {
+    el.rows.appendChild(createEventBundleRow({}));
+  }
+  renumberEventBundleRows();
+  updateEventLivePreview();
+}
+
+function onEventBundleInput() {
+  updateEventLivePreview();
+}
+
+function onEventBundleToggle() {
+  const el = eventBundleEls();
+  const on = eventBundleIsOn();
+  if (el.label) el.label.textContent = on ? 'Este evento viene con otras cosas' : 'Este evento viene solo';
+  if (el.fields) el.fields.classList.toggle('hidden', !on);
+  if (on && el.rows && !el.rows.querySelector('[data-bundle-row]')) {
+    el.rows.appendChild(createEventBundleRow({}));
+  }
+  renumberEventBundleRows();
+  updateEventLivePreview();
+}
+
+// Carga la lista guardada en el formulario (editar) o lo deja limpio (reset).
+function setEventBundleFromItems(items) {
+  const el = eventBundleEls();
+  const list = (Array.isArray(items) ? items : [])
+    .filter((it) => it && typeof it === 'object' && String(it.label || '').trim())
+    .slice(0, EVENT_BUNDLE_MAX_ITEMS);
+  if (el.toggle) el.toggle.checked = list.length > 0;
+  if (el.rows) {
+    el.rows.innerHTML = '';
+    if (list.length) list.forEach((it) => el.rows.appendChild(createEventBundleRow(it)));
+    else if (el.toggle && el.toggle.checked) el.rows.appendChild(createEventBundleRow({}));
+  }
+  if (el.fields) el.fields.classList.toggle('hidden', !eventBundleIsOn());
+  if (el.label) el.label.textContent = eventBundleIsOn() ? 'Este evento viene con otras cosas' : 'Este evento viene solo';
+  renumberEventBundleRows();
+}
+
+// Lee las filas del formulario y devuelve solo lo que tiene nombre.
+function eventBundleItemsFromForm() {
+  const el = eventBundleEls();
+  if (!el.rows || !eventBundleIsOn()) return [];
+  const items = [];
+  const seen = new Set();
+  el.rows.querySelectorAll('[data-bundle-row]').forEach((row) => {
+    if (items.length >= EVENT_BUNDLE_MAX_ITEMS) return;
+    const read = (sel) => {
+      const input = row.querySelector(sel);
+      return input ? String(input.value || '').replace(/\s+/g, ' ').trim() : '';
+    };
+    const label = read('.ev-bundle-label').slice(0, 80);
+    if (!label) return;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    const item = { label };
+    const detail = read('.ev-bundle-detail').slice(0, 200);
+    if (detail) item.detail = detail;
+    const url = read('.ev-bundle-url');
+    if (url) item.url = url;
+    items.push(item);
+  });
+  return items;
+}
+
+function eventBundleSummaryText(count) {
+  return count === 1
+    ? 'Este evento y 1 cosa más vienen juntos'
+    : `Este evento y ${count} cosas más vienen juntos`;
 }
 
 function updateEventLivePreview() {
@@ -7167,13 +7452,17 @@ function updateEventLivePreview() {
   const sel = readEventProjectSelection();
   const proj = sel.project_name || 'OWS';
   const src = currentEventImageSrc('');
-  const expected = eventStartIsExpected();
+  const expected = eventStartIsExpected() && !eventHasNoDate();
   const when = startEl && startEl.value
     ? (expected ? '🕰️ Fecha esperada: ' : '') + formatEventDate(new Date(startEl.value).toISOString()) + (endEl && endEl.value ? ' → ' + formatEventDate(new Date(endEl.value).toISOString()) : '')
-    : 'Sin fecha todavía';
+    : '📅 Fecha aún no definida';
   const expiryValue = readEventExpiryValue();
   const expiryText = expiryValue
     ? ` · 🗑️ ${escapeHtml(formatEventExpiryCountdown(expiryValue))}`
+    : '';
+  const bundle = eventBundleItemsFromForm();
+  const bundleLine = bundle.length
+    ? `<div class="ev-live-bundle"><span class="ev-live-bundle-title">🧩 ${escapeHtml(eventBundleSummaryText(bundle.length))}</span>${bundle.slice(0, 3).map((it) => `<span class="ev-live-bundle-chip">${escapeHtml(it.label)}</span>`).join('')}${bundle.length > 3 ? `<span class="ev-live-bundle-chip">+${bundle.length - 3}</span>` : ''}</div>`
     : '';
   box.innerHTML = `
     <div class="ev-live-banner">${src ? `<img src="${escapeHtml(src)}" alt="" data-adm-err="rm" />` : '<span>🗓️</span>'}
@@ -7182,12 +7471,51 @@ function updateEventLivePreview() {
     <div class="ev-live-body">
       <div class="ev-live-title">${escapeHtml(title)}</div>
       <div class="ev-live-desc">${escapeHtml(desc)}</div>
+      ${bundleLine}
       <div class="ev-live-meta">📁 ${escapeHtml(proj)} · 🕒 ${escapeHtml(when)}${expiryText}</div>
     </div>`;
   const vis = document.getElementById('event-visible-label');
   const visBox = document.getElementById('event-visible');
   if (vis && visBox) vis.textContent = visBox.checked ? 'Visible en OWS' : 'Oculto (solo admin)';
   updateEventExpiryHint();
+}
+
+// ── Evento sin fecha ──────────────────────────────────────
+// Un evento puede publicarse sin fecha de inicio: en OWS se anuncia como
+// "Fecha aún no definida" (sin cuenta atrás ni fecha inventada). El interruptor
+// limpia y bloquea los campos de tiempo para que no queden datos a medias.
+function eventHasNoDate() {
+  const box = document.getElementById('event-no-date');
+  return !!(box && box.checked);
+}
+
+function onEventNoDateChange() {
+  const noDate = eventHasNoDate();
+  const startEl = document.getElementById('event-start');
+  const endEl = document.getElementById('event-end');
+  const fields = document.getElementById('event-date-fields');
+  [startEl, endEl].forEach((el) => {
+    if (!el) return;
+    el.disabled = noDate;
+    if (noDate) el.value = '';
+  });
+  if (fields) fields.querySelectorAll('button').forEach((btn) => { btn.disabled = noDate; });
+  const expBox = document.getElementById('event-start-expected');
+  if (expBox) {
+    if (noDate) expBox.checked = false;
+    expBox.disabled = noDate;
+  }
+  const expRow = document.getElementById('event-start-expected-row');
+  if (expRow) expRow.classList.toggle('hidden', noDate);
+  const autoSection = document.getElementById('event-autohide-section');
+  if (autoSection) autoSection.classList.toggle('hidden', noDate);
+  if (noDate) {
+    // Sin fecha tampoco tiene sentido una desaparición automática.
+    const autoEls = eventAutoHideEls();
+    if (autoEls.toggle) autoEls.toggle.checked = false;
+    onEventAutoHideToggle();
+  }
+  onEventStartModeChange();
 }
 
 // ── Fecha esperada de inicio ──────────────────────────────
@@ -7204,13 +7532,17 @@ function onEventStartModeChange() {
   const tag = document.getElementById('event-start-expected-tag');
   const hint = document.getElementById('event-start-hint');
   const startEl = document.getElementById('event-start');
-  if (tag) tag.classList.toggle('hidden', !expected);
+  if (tag) tag.classList.toggle('hidden', !expected || eventHasNoDate());
   if (hint) {
-    hint.innerHTML = expected
-      ? 'Se publica como <b>fecha esperada de inicio</b>: en OWS muestra “por confirmar” y no promete cuenta atrás. Cuando la fecha sea segura, desmarcá la opción.'
-      : 'Si la fecha es estimada, activá la opción: en OWS se muestra como <b>fecha esperada</b> (por confirmar) y sin cuenta atrás exacta.';
+    if (eventHasNoDate()) {
+      hint.innerHTML = 'El evento se publica <b>sin fecha</b>: en OWS se muestra <b>“Fecha aún no definida”</b>. Cuando tengas la fecha, destildá la opción y cargala.';
+    } else {
+      hint.innerHTML = expected
+        ? 'Se publica como <b>fecha esperada de inicio</b>: en OWS muestra “por confirmar” y no promete cuenta atrás. Cuando la fecha sea segura, desmarcá la opción.'
+        : 'Si la dejás vacía, el evento se publica como <b>“Fecha aún no definida”</b>. Si la fecha es estimada, activá la opción: se muestra como <b>fecha esperada</b> (por confirmar).';
+    }
   }
-  if (startEl) startEl.classList.toggle('is-expected', expected);
+  if (startEl) startEl.classList.toggle('is-expected', expected && !eventHasNoDate());
   updateEventLivePreview();
 }
 
@@ -7308,6 +7640,9 @@ function lapseLabel(ms, withSeconds) {
 
 function onEventAutoHideToggle() {
   const el = eventAutoHideEls();
+  // Un evento sin fecha no puede desaparecer solo: no hay fecha desde la que
+  // contar. Si se destilda "sin fecha" más adelante, la opción vuelve a estar.
+  if (eventHasNoDate() && el.toggle) el.toggle.checked = false;
   const on = !!(el.toggle && el.toggle.checked);
   if (el.fields) el.fields.classList.toggle('hidden', !on);
   if (el.label) el.label.textContent = on ? '🗑️ Se quita solo de OWS' : 'El evento queda en OWS para siempre';
@@ -7463,11 +7798,12 @@ function setEventsView(v) {
 
 function updateEventsStats() {
   const total = eventsCache.length;
-  let live = 0, upcoming = 0, ended = 0, hidden = 0;
+  let live = 0, upcoming = 0, undated = 0, ended = 0, hidden = 0;
   eventsCache.forEach((ev) => {
     const ph = getEventPhase(ev);
     if (ph === 'live') live++;
     else if (ph === 'upcoming') upcoming++;
+    else if (ph === 'undated') undated++;
     else if (ph === 'ended') ended++;
     else if (ph === 'hidden') hidden++;
   });
@@ -7475,6 +7811,7 @@ function updateEventsStats() {
   set('ev-stat-total', total);
   set('ev-stat-live', live);
   set('ev-stat-upcoming', upcoming);
+  set('ev-stat-undated', undated);
   set('ev-stat-ended', ended);
   set('ev-stat-hidden', hidden);
 }
@@ -7498,7 +7835,10 @@ async function loadAdminEvents() {
 function filteredEvents() {
   let arr = [...eventsCache];
   if (eventsSearchText) {
-    arr = arr.filter((ev) => `${ev.title || ''} ${ev.description || ''} ${ev.project_name || ''}`.toLowerCase().includes(eventsSearchText));
+    arr = arr.filter((ev) => {
+      const bundleText = eventBundleItemsOf(ev).map((it) => `${it.label || ''} ${it.detail || ''}`).join(' ');
+      return `${ev.title || ''} ${ev.description || ''} ${ev.project_name || ''} ${bundleText}`.toLowerCase().includes(eventsSearchText);
+    });
   }
   if (eventsFilterCategory) {
     arr = arr.filter((ev) => String(ev.category || 'update').toLowerCase() === eventsFilterCategory);
@@ -7513,8 +7853,8 @@ function filteredEvents() {
   } else if (eventsFilterSort === 'az') {
     arr.sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
   } else {
-    // 'soon': en curso primero, luego programados por fecha, luego resto
-    const rank = (ph) => (ph === 'live' ? 0 : ph === 'upcoming' ? 1 : ph === 'hidden' ? 2 : 3);
+    // 'soon': en curso primero, luego programados, sin fecha, ocultos y resto
+    const rank = (ph) => (ph === 'live' ? 0 : ph === 'upcoming' ? 1 : ph === 'undated' ? 2 : ph === 'hidden' ? 3 : 4);
     arr.sort((a, b) => {
       const r = rank(getEventPhase(a)) - rank(getEventPhase(b));
       if (r !== 0) return r;
@@ -7536,7 +7876,7 @@ function renderAdminEvents() {
   if (!items.length) {
     list.innerHTML = eventsCache.length
       ? `<div class="ev-empty"><span class="ev-empty-icon">🔎</span><p><b>Sin resultados</b> con esos filtros.</p><button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="clearEventFilters">↺ Limpiar filtros</button></div>`
-      : `<div class="ev-empty"><span class="ev-empty-icon">🗓️</span><p><b>No hay eventos aún.</b><br />Creá el primero: título, fecha y portada — el resto es opcional.</p><button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusEventForm">＋ Crear primer evento</button></div>`;
+      : `<div class="ev-empty"><span class="ev-empty-icon">🗓️</span><p><b>No hay eventos aún.</b><br />Creá el primero: título y portada; la fecha es opcional — el resto también.</p><button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="focusEventForm">＋ Crear primer evento</button></div>`;
     return;
   }
 
@@ -7548,8 +7888,11 @@ function renderAdminEvents() {
     const img = ev.image_url
       ? `<img src="${escapeHtml(ev.image_url)}" alt="" loading="lazy" data-adm-err="rm" />`
       : `<span class="ev-card-fallback">${cat.icon}</span>`;
-    const dates = `${formatEventDate(ev.starts_at)}${ev.ends_at ? ' → ' + formatEventDate(ev.ends_at) : ''}`;
-    const expected = ev.starts_expected === true || ev.startsExpected === true;
+    const undated = !ev.starts_at;
+    const dates = undated
+      ? 'Fecha aún no definida'
+      : `${formatEventDate(ev.starts_at)}${ev.ends_at ? ' → ' + formatEventDate(ev.ends_at) : ''}`;
+    const expected = !undated && (ev.starts_expected === true || ev.startsExpected === true);
     const expiryIso = ev.expires_at || ev.expiresAt || '';
     const expiryChip = expiryIso
       ? (ev.expired === true
@@ -7557,6 +7900,10 @@ function renderAdminEvents() {
           : `<span class="ev-chip ev-chip-expiry" title="Se quita solo de OWS el ${escapeHtml(formatEventDate(expiryIso))}">🗑️ ${escapeHtml(formatEventExpiryCountdown(expiryIso))}</span>`)
       : '';
     const prio = Number(ev.priority || 0);
+    const bundle = eventBundleItemsOf(ev);
+    const bundleChip = bundle.length
+      ? `<span class="ev-chip ev-chip-bundle" title="${escapeHtml(eventBundleSummaryText(bundle.length))}">🧩 ${bundle.length} más</span>`
+      : '';
     if (eventsView === 'list') {
       return `
       <div class="ev-row ${ph === 'hidden' ? 'is-hidden' : ''}">
@@ -7566,6 +7913,7 @@ function renderAdminEvents() {
           <div class="ev-row-sub">${escapeHtml(ev.project_name || 'OWS')} · ${expected ? '🕰️ ' : ''}${escapeHtml(dates)} · ⏳ ${escapeHtml(eventCountdown(ev))}${prio ? ` · ★ ${prio}` : ''}</div>
         </div>
         <span class="ev-chip ${cat.cls}">${cat.icon} ${cat.label}</span>
+        ${bundleChip}
         ${expected ? '<span class="ev-chip ev-chip-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Esperada</span>' : ''}
         ${expiryChip}
         <span class="ev-chip ${phm.cls}">${phm.label}</span>
@@ -7590,6 +7938,7 @@ function renderAdminEvents() {
           <span>📁 ${escapeHtml(ev.project_name || 'OWS')}${ev.project_is_admin ? ' 🛡️ solo admin' : ''}</span>
           <span>🕒 ${expected ? '🕰️ ' : ''}${escapeHtml(dates)}</span>
           <span>⏳ ${escapeHtml(eventCountdown(ev))}</span>
+          ${bundle.length ? `<span title="${escapeHtml(eventBundleSummaryText(bundle.length))}">🧩 ${bundle.length} cosa${bundle.length === 1 ? '' : 's'} más</span>` : ''}
           ${expected ? '<span title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada de inicio</span>' : ''}
           ${expiryIso ? `<span title="Se quita solo de OWS el ${escapeHtml(formatEventDate(expiryIso))}">🗑️ ${escapeHtml(formatEventExpiryCountdown(expiryIso))}</span>` : ''}
           ${prio ? `<span>★ Prioridad ${prio}</span>` : ''}
@@ -7625,8 +7974,12 @@ async function saveEvent(e) {
   const priority = Number(document.getElementById('event-priority').value || 0);
   const visBox = document.getElementById('event-visible');
   if (!title) return showToast('⚠️ El título es obligatorio');
-  if (!startsAt) return showToast('⚠️ La fecha de inicio es obligatoria');
-  if (endsAt && new Date(endsAt) < new Date(startsAt)) return showToast('⚠️ El fin no puede ser anterior al inicio');
+  // La fecha de inicio es opcional: sin fecha el evento se publica como
+  // "Fecha aún no definida". Un fin suelto no tiene sentido, así que se pide
+  // primero el inicio.
+  const noDate = eventHasNoDate();
+  if (endsAt && !startsAt) return showToast('⚠️ Para cargar un fin, primero definí el inicio');
+  if (endsAt && startsAt && new Date(endsAt) < new Date(startsAt)) return showToast('⚠️ El fin no puede ser anterior al inicio');
   // Desaparición automática: si está activada, la fecha es obligatoria y
   // tiene que caer después del fin (si no, el evento se quitaría antes).
   const expiryIssue = validateEventExpiryBeforeSave();
@@ -7649,14 +8002,16 @@ async function saveEvent(e) {
     if (proj.project_id) fd.append('project_id', String(proj.project_id));
     else fd.append('project_id', '');
     fd.append('project_name', proj.project_name || 'OWS');
-    fd.append('starts_at', new Date(startsAt).toISOString());
-    fd.append('starts_expected', eventStartIsExpected() ? 'true' : 'false');
-    if (endsAt) fd.append('ends_at', new Date(endsAt).toISOString());
+    fd.append('starts_at', startsAt ? new Date(startsAt).toISOString() : '');
+    fd.append('starts_expected', (!noDate && startsAt && eventStartIsExpected()) ? 'true' : 'false');
+    fd.append('ends_at', endsAt ? new Date(endsAt).toISOString() : '');
     // Desaparición automática: ISO cuando está activada; vacío = no se quita
     // (así, al editar y apagarla, el backend limpia la fecha anterior).
     fd.append('expires_at', readEventExpiryValue());
     if (linkUrl) fd.append('link_url', linkUrl);
     fd.append('priority', String(priority));
+    // Evento combinado: la lista completa viaja como JSON (vacía = sin extras).
+    fd.append('bundle_items', JSON.stringify(eventBundleItemsFromForm()));
     if (eventImageFile) fd.append('image', eventImageFile);
     else if (imageUrl) fd.append('image_url', imageUrl);
     else if (editingEventId && !currentEventImageSrc('')) fd.append('image_url', '');
@@ -7718,14 +8073,17 @@ async function editEvent(id) {
     // proyecto del evento no está (eventos viejos a mano), cae en "Otro".
     populateEventProjectOptions();
     selectEventProject(item);
+    const ndBox = document.getElementById('event-no-date');
+    if (ndBox) ndBox.checked = !item.starts_at;
     document.getElementById('event-start').value = localDatetimeValue(item.starts_at);
     document.getElementById('event-end').value = localDatetimeValue(item.ends_at);
     const expBox = document.getElementById('event-start-expected');
     if (expBox) expBox.checked = item.starts_expected === true || item.startsExpected === true;
-    onEventStartModeChange();
-    // Desaparición automática: se restaura tal cual estaba guardada.
+    onEventNoDateChange();
+    // Desaparición automática: se restaura tal cual estaba guardada. Un evento
+    // sin fecha no tiene desaparición automática.
     const autoEls = eventAutoHideEls();
-    const itemExpiry = item.expires_at || item.expiresAt || '';
+    const itemExpiry = (!item.starts_at) ? '' : (item.expires_at || item.expiresAt || '');
     if (autoEls.toggle) autoEls.toggle.checked = Boolean(itemExpiry);
     if (autoEls.date) autoEls.date.value = itemExpiry ? localDatetimeValue(itemExpiry) : '';
     eventExpiryAutoValue = '';
@@ -7749,6 +8107,8 @@ async function editEvent(id) {
     if (mode) { mode.textContent = '✎ Editando'; mode.className = 'status-pill status-from-projects'; }
     document.getElementById('btn-cancel-event').classList.remove('hidden');
     updateEventSaveLabel();
+    // Evento combinado: se restauran las cosas que vienen con el evento.
+    setEventBundleFromItems(eventBundleItemsOf(item));
     updateEventLivePreview();
     openFormModal('event');
   } catch (err) {
@@ -7767,21 +8127,30 @@ async function duplicateEvent(id) {
     fd.append('category', src.category || 'update');
     fd.append('project_id', src.project_id != null ? String(src.project_id) : '');
     fd.append('project_name', src.project_name || 'OWS');
-    const s = src.starts_at ? new Date(src.starts_at) : new Date();
-    fd.append('starts_at', new Date(s.getTime() + 7 * 24 * 3600 * 1000).toISOString());
+    // La copia mantiene el estado de fecha: si el original no tiene, sigue sin
+    // fecha; si tiene, corre una semana.
+    if (src.starts_at) {
+      const s = new Date(src.starts_at);
+      fd.append('starts_at', new Date(s.getTime() + 7 * 24 * 3600 * 1000).toISOString());
+    } else {
+      fd.append('starts_at', '');
+    }
     fd.append('starts_expected', (src.starts_expected === true || src.startsExpected === true) ? 'true' : 'false');
     if (src.ends_at) {
       const e = new Date(src.ends_at);
       fd.append('ends_at', new Date(e.getTime() + 7 * 24 * 3600 * 1000).toISOString());
     }
-    // Desaparición automática: la copia también corre una semana.
-    const srcExpiry = src.expires_at || src.expiresAt || '';
+    // Desaparición automática: la copia también corre una semana. Un evento sin
+    // fecha no lleva desaparición automática, así que no se copia.
+    const srcExpiry = src.starts_at ? (src.expires_at || src.expiresAt || '') : '';
     if (srcExpiry) {
       const x = new Date(srcExpiry);
       fd.append('expires_at', new Date(x.getTime() + 7 * 24 * 3600 * 1000).toISOString());
     }
     if (src.link_url) fd.append('link_url', src.link_url);
     fd.append('priority', String(src.priority || 0));
+    // La copia mantiene las cosas que vienen con el evento.
+    fd.append('bundle_items', JSON.stringify(eventBundleItemsOf(src)));
     if (src.image_url) fd.append('image_url', src.image_url);
     const res = await fetch(API_BASE + '/ows-dashboard/events', {
       method: 'POST',
@@ -7822,6 +8191,8 @@ function resetEventForm() {
   if (vis) vis.checked = true;
   const expBox = document.getElementById('event-start-expected');
   if (expBox) expBox.checked = false;
+  const ndBox = document.getElementById('event-no-date');
+  if (ndBox) ndBox.checked = false;
   const expTag = document.getElementById('event-start-expected-tag');
   if (expTag) expTag.classList.add('hidden');
   const startEl = document.getElementById('event-start');
@@ -7835,7 +8206,8 @@ function resetEventForm() {
   const fi = document.getElementById('event-image');
   if (fi) fi.value = '';
   renderEventImagePreview('');
-  onEventStartModeChange();
+  setEventBundleFromItems([]);
+  onEventNoDateChange();
   try { closeFormModal(); } catch (_) {}
 }
 
@@ -9405,6 +9777,13 @@ function managePermanenceChip(p) {
 }
 
 const PLATFORM_KEYS = ['windows', 'android', 'web', 'mac', 'linux'];
+const PLATFORM_LABELS = {
+  windows: '🪟 Windows',
+  android: '🤖 Android',
+  web: '🌐 Web',
+  mac: '🍎 Mac',
+  linux: '🐧 Linux'
+};
 
 function launchStatusMeta(status) {
   return LAUNCH_STATUS_META[String(status || '').trim().toLowerCase()] || LAUNCH_STATUS_META.development;
@@ -9459,11 +9838,12 @@ function wireProjectImageInput(inputId, previewId, setFile) {
 function clearProjectImageFiles() {
   projIconFile = null;
   projBannerFile = null;
-  ['proj-icon-file', 'proj-banner-file'].forEach((id) => {
+  projWatermarkImageFile = null;
+  ['proj-icon-file', 'proj-banner-file', 'proj-watermark-image-file'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  ['proj-icon-preview', 'proj-banner-preview'].forEach((id) => {
+  ['proj-icon-preview', 'proj-banner-preview', 'proj-watermark-image-preview'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
   });
@@ -9472,6 +9852,7 @@ function clearProjectImageFiles() {
 function setupProjectImageInputs() {
   wireProjectImageInput('proj-icon-file', 'proj-icon-preview', (f) => { projIconFile = f; });
   wireProjectImageInput('proj-banner-file', 'proj-banner-preview', (f) => { projBannerFile = f; });
+  wireProjectImageInput('proj-watermark-image-file', 'proj-watermark-image-preview', (f) => { projWatermarkImageFile = f; });
   wireProjectImageInput('mproj-icon-file', 'mproj-icon-preview', (f) => { manageIconFile = f; });
   wireProjectImageInput('mproj-banner-file', 'mproj-banner-preview', (f) => { manageBannerFile = f; });
 }
@@ -9513,6 +9894,862 @@ function projectProgressHtml(p) {
     </div>`;
 }
 
+// ── Sidebar: todos los proyectos (públicos y solo-admin) ──────────────
+// El menú lateral muestra una sub-sección por proyecto, con su icono.
+// Se alimenta de las dos cachés para no perder ningún alcance.
+let pendingProjectFocus = null;
+let pendingProjectFocusTimer = null;
+
+function sidebarProjectUnion() {
+  const byKey = new Map();
+  const add = (p) => {
+    if (!p || !String(p.slug || '').trim()) return;
+    const key = String(p.id || p.slug).toLowerCase();
+    const prev = byKey.get(key);
+    // La copia de Gestión trae admin_only; si llega después, gana.
+    if (!prev || (!isAdminOnlyProject(prev) && isAdminOnlyProject(p))) byKey.set(key, p);
+  };
+  (manageProjectsCache || []).forEach(add);
+  (projectsCache || []).forEach(add);
+  // Orden alfabético: públicos y solo-admin conviven en la misma lista;
+  // el candado del final distingue a los internos.
+  return Array.from(byKey.values()).sort((a, b) =>
+    String(a.name || a.slug).localeCompare(String(b.name || b.slug), 'es')
+  );
+}
+
+function renderSidebarProjects() {
+  const list = sidebarProjectUnion();
+
+  // Registro que consume admin-shell.js para la paleta, los slots y las
+  // rutas profundas #/catalogo/proyectos/<slug>.
+  window.OWS_ADMIN_PROJECTS = list.map((p) => ({
+    slug: p.slug,
+    name: p.name || p.slug,
+    icon_url: p.icon_url || '',
+    admin_only: isAdminOnlyProject(p)
+  }));
+
+  const box = document.getElementById('ows-project-nav');
+  if (box) {
+    if (!list.length) {
+      box.innerHTML = '<p class="ows-project-nav-empty">Sin proyectos todavía</p>';
+    } else {
+      box.innerHTML = list.map((p) => {
+        const slug = String(p.slug);
+        const route = '/catalogo/proyectos/' + encodeURIComponent(slug);
+        const adminOnly = isAdminOnlyProject(p);
+        const icon = p.icon_url
+          ? `<img src="${escapeHtml(p.icon_url)}" alt="" loading="lazy" data-adm-err="rm" />`
+          : '';
+        return `<a class="ows-project-link" href="#${escapeHtml(route)}" data-ows-route="${escapeHtml(route)}" title="${escapeHtml(p.name || slug)} · ${escapeHtml(slug)}${adminOnly ? ' · Solo admin' : ''}">` +
+          `<span class="ows-project-icon" aria-hidden="true">📁${icon}</span>` +
+          `<span class="ows-project-name">${escapeHtml(p.name || slug)}</span>` +
+          (adminOnly ? '<span class="ows-project-lock" aria-hidden="true" title="Solo admin">🔒</span>' : '') +
+        '</a>';
+      }).join('');
+    }
+  }
+
+  try { if (typeof window.owsRefreshProjectNav === 'function') window.owsRefreshProjectNav(); } catch (_) {}
+}
+
+// Resalta la ficha del proyecto pedida desde el sidebar. Se reintenta hasta
+// que el listado termina de cargar/repintarse.
+function applyPendingProjectFocus() {
+  const pending = pendingProjectFocus;
+  if (!pending) return;
+  if (Date.now() - pending.at > 8000) { pendingProjectFocus = null; return; }
+
+  const all = [...(manageProjectsCache || []), ...(projectsCache || [])];
+  const project = all.find((p) => String(p.slug || '').toLowerCase() === pending.slug);
+  const pane = document.getElementById(pending.adminOnly ? 'tab-manage' : 'tab-projects');
+  const card = project && pane
+    ? pane.querySelector(`[data-project-id="${Number(project.id)}"]`)
+    : null;
+  if (!card) return;
+
+  card.classList.add('is-project-target');
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (pendingProjectFocusTimer) window.clearTimeout(pendingProjectFocusTimer);
+  pendingProjectFocusTimer = window.setTimeout(() => {
+    card.classList.remove('is-project-target');
+    pendingProjectFocusTimer = null;
+    if (pendingProjectFocus === pending) pendingProjectFocus = null;
+  }, 2800);
+}
+
+function focusAdminProject(slug, options) {
+  const wanted = String(slug || '').trim().toLowerCase();
+  if (!wanted) return;
+  const opts = options || {};
+  pendingProjectFocus = { slug: wanted, adminOnly: !!opts.adminOnly, at: Date.now() };
+
+  if (opts.adminOnly) {
+    try { setManageFilter('all'); } catch (_) {}
+    try { clearManageSearch(); } catch (_) {}
+  }
+
+  let tries = 0;
+  const tick = () => {
+    applyPendingProjectFocus();
+    if (pendingProjectFocus && tries++ < 30) window.setTimeout(tick, 150);
+  };
+  window.setTimeout(tick, 60);
+}
+window.owsFocusAdminProject = focusAdminProject;
+
+// ── Ficha de proyecto ────────────────────────────────────────────────
+// El sidebar abre #/catalogo/proyectos/<slug> y acá se pinta TODO lo que
+// el proyecto contiene y necesita: metadatos, visibilidad, publicación,
+// versiones, marca de agua, contenido asociado y checklist de lanzamiento.
+let projectDetailSlug = '';
+let projectDetailTries = 0;
+
+const PROJECT_WATERMARK_POSITION_LABELS = {
+  'top-left': 'Arriba a la izquierda',
+  'top-right': 'Arriba a la derecha',
+  'bottom-left': 'Abajo a la izquierda',
+  'bottom-right': 'Abajo a la derecha',
+  'center': 'Centro'
+};
+
+function projectDetailProject(slug) {
+  const wanted = String(slug || '').trim().toLowerCase();
+  if (!wanted) return null;
+  return sidebarProjectUnion().find(
+    (p) => String(p.slug || '').toLowerCase() === wanted
+  ) || null;
+}
+
+function projectVisibilityState(p) {
+  const adminOnly = isAdminOnlyProject(p);
+  const active = p.is_active !== false;
+  if (active && !adminOnly) {
+    return {
+      tone: 'public',
+      icon: '🌍',
+      label: 'Público y visible',
+      text: 'Aparece en el catálogo público de OWS y en OWS Hub. Cualquiera puede ver su ficha y, si tiene versión, descargarla.'
+    };
+  }
+  if (active && adminOnly) {
+    return {
+      tone: 'admin',
+      icon: '🔒',
+      label: 'Solo-admin',
+      text: 'No aparece en el catálogo público ni en OWS Hub. Solo lo ve el equipo desde este panel.'
+    };
+  }
+  if (!active && !adminOnly) {
+    return {
+      tone: 'hidden',
+      icon: '🚫',
+      label: 'Oculto',
+      text: 'Está marcado como público, pero hoy no se muestra en el catálogo ni en OWS Hub.'
+    };
+  }
+  return {
+    tone: 'hidden',
+    icon: '🚫',
+    label: 'Oculto y solo-admin',
+    text: 'No aparece en ningún lado público. Solo existe para el equipo.'
+  };
+}
+
+// Checklist de lo que el proyecto necesita para estar listo para publicar.
+// Los 9 puntos base se detectan solos con los datos del proyecto, pero el
+// equipo puede pisarlos a mano (metadata.publication_checklist) y sumar
+// requisitos propios (metadata.publication_checklist_custom).
+function projectChecklistState(p) {
+  const meta = (p && p.metadata && typeof p.metadata === 'object') ? p.metadata : {};
+  const rawOverrides = p?.publication_checklist ?? p?.publicationChecklist ?? meta.publication_checklist;
+  const overrides = (rawOverrides && typeof rawOverrides === 'object' && !Array.isArray(rawOverrides))
+    ? { ...rawOverrides }
+    : {};
+  const rawCustom = p?.publication_checklist_custom ?? p?.publicationChecklistCustom ?? meta.publication_checklist_custom;
+  const custom = (Array.isArray(rawCustom) ? rawCustom : [])
+    .filter((x) => x && typeof x === 'object' && String(x.label || '').trim())
+    .map((x, i) => ({
+      id: String(x.id || `custom-${i + 1}`),
+      label: String(x.label).trim().slice(0, 80),
+      done: x.done === true
+    }));
+  return { overrides, custom };
+}
+
+// `fill` describe cómo completar el requisito desde el propio checklist
+// cuando falta. No se muestra si el dato ya existe (auto === true): en ese
+// caso el equipo solo puede marcar/desmarcar o volver a automático.
+function projectAutoChecks(p) {
+  const latest = p.latest_release || p.latestRelease || null;
+  const latestVer = (latest && latest.version) || p.itch_version || p.itchVersion || '';
+  return [
+    {
+      id: 'icon', ok: !!String(p.icon_url || p.iconUrl || '').trim(), label: 'Icono',
+      hint: 'Se usa en el catálogo, el Hub y el menú lateral.',
+      fill: { kind: 'image', placeholder: 'https://… (URL del icono)' }
+    },
+    {
+      id: 'banner', ok: !!String(p.banner_url || p.bannerUrl || (p.metadata && p.metadata.banner_url) || '').trim(), label: 'Banner',
+      hint: 'Portada ancha de la ficha pública.',
+      fill: { kind: 'image', placeholder: 'https://… (URL del banner)' }
+    },
+    {
+      id: 'description', ok: !!String(p.description || '').trim(), label: 'Descripción',
+      hint: 'Contá de qué trata el proyecto.',
+      fill: { kind: 'textarea', placeholder: 'Ej: juego de estrategia por turnos donde cada movimiento…', max: 1000 }
+    },
+    {
+      id: 'genre', ok: !!String(p.genre || '').trim(), label: 'Género',
+      hint: 'Ayuda a clasificarlo en el catálogo.',
+      fill: { kind: 'text', placeholder: 'Ej: Roguelike, estrategia, acción naval…', max: 80 }
+    },
+    {
+      id: 'platforms', ok: Array.isArray(p.platforms) && p.platforms.length > 0, label: 'Plataformas',
+      hint: 'Windows, Android, Web, Mac o Linux.',
+      fill: { kind: 'platforms' }
+    },
+    {
+      id: 'status_feedback', ok: !!String(p.status_feedback || p.statusFeedback || '').trim(), label: 'Feedback del estado',
+      hint: 'Explica por qué está en ese estado.',
+      fill: { kind: 'textarea', placeholder: 'Ej: en desarrollo activo, beta cerrada, sin fecha confirmada…', max: 300 }
+    },
+    {
+      id: 'version', ok: !!latestVer, label: 'Versión descargable',
+      hint: 'Las versiones se registran al sincronizar el build publicado.',
+      fill: { kind: 'action', action: 'openReleasesModal', args: (pid) => [`r:${pid}`], label: '📦 Ver versiones y guía' }
+    },
+    {
+      id: 'visible', ok: p.is_active !== false, label: 'Visible',
+      hint: 'Puede mostrarse a los jugadores.',
+      fill: {
+        kind: 'action', action: 'owsToggleProjectFlag',
+        args: (pid, slug) => [`r:${pid}`, 's:is_active', 'b:1', `s:${slug}`],
+        label: '👁️ Mostrar proyecto'
+      }
+    },
+    {
+      id: 'public', ok: !isAdminOnlyProject(p), label: 'Público',
+      hint: 'No está restringido a administradores.',
+      fill: {
+        kind: 'action', action: 'owsToggleProjectFlag',
+        args: (pid, slug) => [`r:${pid}`, 's:admin_only', 'b:0', `s:${slug}`],
+        label: '🌍 Hacer público'
+      }
+    }
+  ];
+}
+
+function projectDetailChecks(p) {
+  const { overrides, custom } = projectChecklistState(p);
+  const auto = projectAutoChecks(p).map((c) => {
+    const hasManual = Object.prototype.hasOwnProperty.call(overrides, c.id)
+      && typeof overrides[c.id] === 'boolean';
+    return {
+      ...c,
+      auto: c.ok,
+      manual: hasManual,
+      ok: hasManual ? overrides[c.id] : c.ok,
+      custom: false
+    };
+  });
+  const extra = custom.map((c) => ({
+    id: 'custom:' + c.id,
+    rawId: c.id,
+    label: c.label,
+    hint: 'Requisito propio del equipo.',
+    auto: null,
+    manual: true,
+    ok: c.done,
+    custom: true
+  }));
+  return auto.concat(extra);
+}
+
+// Formulario/acción inline para completar un requisito que falta. Solo se
+// muestra cuando el dato realmente no existe (auto === false); si el equipo
+// lo marcó pendiente a mano pero el dato está cargado, no hace falta pedirlo.
+function projectCheckFillHtml(p, c) {
+  if (!c || c.custom || c.ok || c.auto !== false || !c.fill) return '';
+  const pid = Number(p.id);
+  const slug = escapeHtml(p.slug);
+  const id = escapeHtml(c.id);
+  const baseAttrs = `data-adm-a0="r:${pid}" data-adm-a1="s:${slug}" data-adm-a2="s:${id}"`;
+  const fill = c.fill;
+  const input = (tag, extra) => tag === 'input'
+    ? `<input name="value" class="project-fill-input" ${extra} />`
+    : `<textarea name="value" class="project-fill-input" ${extra}></textarea>`;
+  if (fill.kind === 'image') {
+    return `
+      <form class="project-check-fill" data-adm-ev="submit" data-adm="owsSaveProjectCheckField" ${baseAttrs} data-adm-a3="ev">
+        <div class="project-fill-row">
+          <input type="url" name="value" class="project-fill-input" placeholder="${escapeHtml(fill.placeholder || 'https://…')}" autocomplete="off" />
+          <button type="submit" class="btn btn-ghost btn-sm">Guardar</button>
+        </div>
+        <label class="project-fill-file" title="Subir una imagen y usarla directamente">
+          <input type="file" accept="image/*" data-adm-ev="change" data-adm="owsUploadProjectCheckImage" ${baseAttrs} data-adm-a3="ev" />
+          <span>📤 O subí una imagen</span>
+        </label>
+      </form>`;
+  }
+  if (fill.kind === 'text') {
+    return `
+      <form class="project-check-fill" data-adm-ev="submit" data-adm="owsSaveProjectCheckField" ${baseAttrs} data-adm-a3="ev">
+        <div class="project-fill-row">
+          ${input('input', `type="text" maxlength="${Number(fill.max) || 80}" placeholder="${escapeHtml(fill.placeholder || '')}" autocomplete="off"`)}
+          <button type="submit" class="btn btn-ghost btn-sm">Guardar</button>
+        </div>
+      </form>`;
+  }
+  if (fill.kind === 'textarea') {
+    return `
+      <form class="project-check-fill" data-adm-ev="submit" data-adm="owsSaveProjectCheckField" ${baseAttrs} data-adm-a3="ev">
+        ${input('textarea', `rows="2" maxlength="${Number(fill.max) || 500}" placeholder="${escapeHtml(fill.placeholder || '')}"`)}
+        <div class="project-fill-actions">
+          <button type="submit" class="btn btn-ghost btn-sm">Guardar</button>
+        </div>
+      </form>`;
+  }
+  if (fill.kind === 'platforms') {
+    return `
+      <form class="project-check-fill" data-adm-ev="submit" data-adm="owsSaveProjectCheckField" ${baseAttrs} data-adm-a3="ev">
+        <div class="project-fill-platforms">
+          ${PLATFORM_KEYS.map((k) => `
+            <label class="project-fill-chip">
+              <input type="checkbox" value="${k}" />
+              <span>${PLATFORM_LABELS[k] || k}</span>
+            </label>`).join('')}
+        </div>
+        <div class="project-fill-actions">
+          <button type="submit" class="btn btn-ghost btn-sm">Guardar plataformas</button>
+        </div>
+      </form>`;
+  }
+  if (fill.kind === 'action' && fill.action) {
+    const args = (typeof fill.args === 'function' ? fill.args(pid, p.slug) : (fill.args || []))
+      .map((a, i) => `data-adm-a${i}="${escapeHtml(String(a))}"`)
+      .join(' ');
+    return `
+      <div class="project-check-fill is-action">
+        <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="${escapeHtml(fill.action)}" ${args}>${escapeHtml(fill.label || 'Completar')}</button>
+      </div>`;
+  }
+  return '';
+}
+
+function projectDetailHtml(p) {
+  const adminOnly = isAdminOnlyProject(p);
+  const active = p.is_active !== false;
+  const statusMeta = launchStatusMeta(p.status);
+  const vis = projectVisibilityState(p);
+  const dev = manageDevRow(p.id);
+  const pct = dev ? round2(dev.percent) : projectProgressFor(p);
+  const shownPct = pct === null ? 0 : pct;
+  const latest = p.latest_release || p.latestRelease || null;
+  const latestVer = (latest && latest.version) || p.itch_version || p.itchVersion || '';
+  const banner = p.banner_url || p.bannerUrl || (p.metadata && p.metadata.banner_url) || '';
+  const icon = p.icon_url || p.iconUrl || '';
+  const link = p.link_url || p.linkUrl || '';
+  const trailer = p.trailer_url || p.trailerUrl || '';
+  const installer = p.installer_url || p.installerUrl || '';
+  const itch = p.itch_url || p.itchUrl || '';
+  const platforms = (Array.isArray(p.platforms) ? p.platforms : []).map((x) => escapeHtml(x)).join(', ') || '—';
+  const expectedDate = String(p.expected_date || p.expectedDate || '').slice(0, 10);
+  const confirmedDate = String(p.confirmed_date || p.confirmedDate || '').slice(0, 10);
+  const created = fmtProjectCreatedDay(p.created_at) || '—';
+  const updated = p.updated_at ? formatDevAgo(p.updated_at) : '—';
+  const feedback = String(p.status_feedback || p.statusFeedback || '').trim();
+  const desc = String(p.description || '').trim();
+  const wm = (p.watermark && typeof p.watermark === 'object') ? p.watermark : {};
+  const wmOn = p.watermark_enabled === true || p.watermarkEnabled === true || wm.enabled === true;
+  const wmText = String(p.watermark_text || p.watermarkText || wm.text || '').trim() || p.name || '';
+  const wmPos = String(p.watermark_position || p.watermarkPosition || wm.position || 'bottom-right');
+  const wmOpacity = Number(p.watermark_opacity || p.watermarkOpacity || wm.opacity || 35);
+  const checks = projectDetailChecks(p);
+  const ready = checks.filter((c) => c.ok).length;
+  const readinessPct = Math.round((ready / checks.length) * 100);
+  const editAction = adminOnly ? 'editManageProject' : 'editProject';
+  const evCount = (eventsCache || []).filter((ev) => Number(ev.project_id) === Number(p.id)).length;
+  const newsCount = (newsCache || []).filter((n) => String(n.project_name || '').trim().toLowerCase() === String(p.name || '').trim().toLowerCase()).length;
+  const devlogCount = (devlogsCache || []).filter((d) => Number(d.project_id) === Number(p.id)).length;
+  const celebCount = (celebrationsCache || []).filter((c) => Number(c.project_id) === Number(p.id)).length;
+  const permChip = p.status_permanent === true
+    ? '<span class="status-pill status-perm-permanent">🔒 Permanente</span>'
+    : (p.status_permanent === false ? '<span class="status-pill status-perm-temporary">⏸️ Temporal</span>' : '');
+
+  const chip = (text, cls) => `<span class="status-pill ${cls || ''}">${text}</span>`;
+  const fact = (label, value) => `<div class="project-fact"><span>${escapeHtml(label)}</span><b>${value}</b></div>`;
+
+  return `
+  <div class="glass-card project-detail-hero">
+    ${banner ? `<div class="project-detail-banner"><img src="${escapeHtml(banner)}" alt="" data-adm-err="rm" /></div>` : ''}
+    <div class="project-detail-icon project-icon-wrap">${adminOnly ? '🔒' : '📁'}${icon ? `<img src="${escapeHtml(icon)}" alt="" data-adm-err="rm" />` : ''}</div>
+    <div class="project-detail-head">
+      <h3 class="project-detail-title">
+        ${escapeHtml(p.name || p.slug)}
+        ${chip(statusMeta.label, statusMeta.cls)}
+        ${chip(adminOnly ? '🔒 Solo-admin' : '📁 Público', adminOnly ? 'status-admin-only' : 'status-from-projects')}
+        ${chip(active ? '👁️ Visible' : '🚫 Oculto', active ? 'status-on' : 'status-off')}
+        ${latestVer ? chip('📦 v' + escapeHtml(latestVer), 'status-on') : ''}
+        ${wmOn ? chip('💧 Marca de agua', 'status-watermark') : ''}
+        ${permChip}
+      </h3>
+      <div class="project-detail-sub">${escapeHtml(p.slug)}${p.genre ? ' · ' + escapeHtml(p.genre) : ''} · ${platforms}${created !== '—' ? ' · 🗓️ creado ' + escapeHtml(created) : ''}</div>
+      <p class="project-detail-desc">${desc ? escapeHtml(desc) : '<i>Sin descripción todavía. Completala desde “Editar metadatos”.</i>'}</p>
+      <div class="project-detail-actions">
+        <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="owsGoProjects">← Todos los proyectos</button>
+        <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="${editAction}" data-adm-a0="r:${Number(p.id)}">✏️ Editar metadatos</button>
+        <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openDevModal" data-adm-a0="r:${Number(p.id)}">📈 Ajustar %</button>
+        <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openReleasesModal" data-adm-a0="r:${Number(p.id)}">📦 Versiones</button>
+        ${link ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(link)}" target="_blank" rel="noopener">🔗 Abrir link oficial</a>` : ''}
+      </div>
+    </div>
+  </div>
+
+  <div class="project-detail-grid">
+    <section class="glass-card project-detail-card">
+      <h4>👁️ Visibilidad y alcance</h4>
+      <div class="project-visibility-banner is-${vis.tone}">
+        <span class="project-visibility-icon">${vis.icon}</span>
+        <div><b>${vis.label}</b><small>${vis.text}</small></div>
+      </div>
+      <div class="project-toggle-row">
+        <div class="project-toggle-copy">
+          <b>Visible en el OWS público</b>
+          <small>Apagado: deja de mostrarse en el catálogo y en OWS Hub, pero no se borra. Encendido: vuelve a mostrarse (si no es solo-admin).</small>
+        </div>
+        <label class="ev-switch-row" title="${active ? 'Ocultar proyecto' : 'Mostrar proyecto'}">
+          <input type="checkbox" ${active ? 'checked' : ''} data-adm-ev="change" data-adm="owsToggleProjectFlag" data-adm-a0="r:${Number(p.id)}" data-adm-a1="s:is_active" data-adm-a2="thp:checked" data-adm-a3="s:${escapeHtml(p.slug)}" />
+          <span class="ev-switch"></span>
+        </label>
+      </div>
+      <div class="project-toggle-row">
+        <div class="project-toggle-copy">
+          <b>Solo administradores</b>
+          <small>Encendido: el proyecto no aparece en el catálogo público ni en OWS Hub. Solo lo ve el equipo y su marca de agua no se dibuja en eventos/noticias. Apagado: pasa al catálogo público.</small>
+        </div>
+        <label class="ev-switch-row" title="${adminOnly ? 'Hacer público' : 'Restringir a administradores'}">
+          <input type="checkbox" ${adminOnly ? 'checked' : ''} data-adm-ev="change" data-adm="owsToggleProjectFlag" data-adm-a0="r:${Number(p.id)}" data-adm-a1="s:admin_only" data-adm-a2="thp:checked" data-adm-a3="s:${escapeHtml(p.slug)}" />
+          <span class="ev-switch"></span>
+        </label>
+      </div>
+      <div class="project-toggle-row is-static">
+        <div class="project-toggle-copy">
+          <b>Ficha de administración</b>
+          <small>Siempre visible desde este panel, incluso si el proyecto está oculto o es solo-admin.</small>
+        </div>
+        <span class="status-pill status-on">✅ Siempre</span>
+      </div>
+      <div class="project-danger">
+        <div><b>Eliminar proyecto</b><small>Borra la ficha, su % de desarrollo y sus versiones. No se puede deshacer.</small></div>
+        <button class="btn btn-danger btn-sm" data-adm-ev="click" data-adm="owsDeleteProjectFromDetail" data-adm-a0="r:${Number(p.id)}" data-adm-a1="s:${escapeHtml(p.slug)}">🗑️ Eliminar</button>
+      </div>
+    </section>
+
+    <section class="glass-card project-detail-card">
+      <h4>📦 Contenido y distribución</h4>
+      <div class="project-detail-facts">
+        ${fact('Versión más reciente', latestVer ? `v${escapeHtml(latestVer)}${latest && latest.channel && latest.channel !== 'stable' ? ' · ' + escapeHtml(latest.channel) : ''}` : '<span class="is-muted">Sin versión</span>')}
+        ${fact('Archivo', latest && latest.file_label ? escapeHtml(latest.file_label) : (p.itch_file ? escapeHtml(p.itch_file) : '—'))}
+        ${fact('Tamaño', latest && latest.size_label ? escapeHtml(latest.size_label) : (p.itch_size ? escapeHtml(p.itch_size) : '—'))}
+        ${fact('Plataforma del build', latest && latest.platform ? escapeHtml(latest.platform === 'all' ? 'Todas' : latest.platform) : '—')}
+        ${fact('Descarga en OWS Hub', (p.has_release || p.hasRelease) ? '<span class="status-pill status-on">✅ Disponible</span>' : '<span class="status-pill status-off">🚫 Sin release activa</span>')}
+        ${fact('Link oficial', link ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : '—')}
+        ${fact('Instalador directo', installer ? `<a href="${escapeHtml(installer)}" target="_blank" rel="noopener">Abrir instalador</a>` : '—')}
+        ${fact('Página itch.io', itch ? `<a href="${escapeHtml(itch)}" target="_blank" rel="noopener">${escapeHtml(itch)}</a>` : '—')}
+        ${fact('Tráiler', trailer ? `<a href="${escapeHtml(trailer)}" target="_blank" rel="noopener">Abrir tráiler</a>` : '—')}
+        ${fact('Banner', banner ? '<span class="status-pill status-on">✅ Cargado</span>' : '<span class="status-pill status-off">❌ Falta</span>')}
+        ${fact('Marca de agua', wmOn ? `💧 ${escapeHtml(wmText)} · ${escapeHtml(PROJECT_WATERMARK_POSITION_LABELS[wmPos] || wmPos)} · ${Math.max(5, Math.min(100, Math.round(wmOpacity)))}%` : '<span class="is-muted">Desactivada</span>')}
+      </div>
+    </section>
+
+    <section class="glass-card project-detail-card">
+      <h4>🗂️ Ficha técnica</h4>
+      <div class="project-detail-facts">
+        ${fact('ID', '#' + Number(p.id))}
+        ${fact('Slug', escapeHtml(p.slug))}
+        ${fact('Estado', `<span class="status-pill ${statusMeta.cls}">${statusMeta.label}</span>`)}
+        ${fact('Género', p.genre ? escapeHtml(p.genre) : '—')}
+        ${fact('Plataformas', platforms)}
+        ${confirmedDate
+          ? fact('Fecha confirmada', `✅ ${escapeHtml(confirmedDate)}${expectedDate && expectedDate !== confirmedDate ? `<small class="project-date-extra">Esperada: ${escapeHtml(expectedDate)}</small>` : ''}`)
+          : (expectedDate
+            ? fact('Fecha esperada', `🗓️ ${escapeHtml(expectedDate)}<small class="project-date-extra">Todavía sin confirmar</small>`)
+            : fact('Fecha', '<span class="is-muted">Sin fecha cargada</span>'))}
+        ${fact('Creado', escapeHtml(created))}
+        ${fact('Última actualización', escapeHtml(updated))}
+        ${fact('Prioridad', String(Number(p.priority) || 0))}
+        ${fact('Feedback del estado', feedback ? escapeHtml(feedback) : '<span class="is-muted">Sin feedback</span>')}
+        ${fact('Permanencia', p.status_permanent === true ? 'Permanente' : (p.status_permanent === false ? 'Temporal' : 'No aplica'))}
+      </div>
+    </section>
+
+    <section class="glass-card project-detail-card">
+      <h4>📈 Desarrollo</h4>
+      <div class="mgmt-progress">
+        <div class="mgmt-progress-head">
+          <span class="mgmt-progress-label">Progreso de desarrollo</span>
+          <b class="mgmt-progress-pct">${pct === null ? '—' : fmtPct(pct)}${pct !== null && pct >= 100 ? ' 🎉' : ''}</b>
+        </div>
+        <div class="dev-bar mgmt-bar" title="${pct === null ? 'Sin registrar' : fmtPct(pct) + ' completado'}"><div class="dev-fill" style="width:${shownPct}%"></div></div>
+        <span class="mgmt-progress-meta">${dev ? `👤 ${escapeHtml(dev.updated_by || 'sin registrar')}${dev.updated_at ? ' · 🕓 ' + escapeHtml(formatDevAgo(dev.updated_at)) : ''}` : 'Sin seguimiento de avance todavía'}</span>
+      </div>
+      <div class="project-detail-actions">
+        <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openDevModal" data-adm-a0="r:${Number(p.id)}">📈 Ajustar porcentaje</button>
+      </div>
+      <h4 style="margin-top:16px">🧩 Contenido asociado</h4>
+      <div class="project-assoc">
+        <button type="button" class="project-assoc-item" data-adm-ev="click" data-adm="owsGoRoute" data-adm-a0="s:/contenido/noticias" title="Ir a Noticias"><b>${newsCount}</b><span>Noticias</span></button>
+        <button type="button" class="project-assoc-item" data-adm-ev="click" data-adm="owsGoRoute" data-adm-a0="s:/contenido/eventos" title="Ir a Eventos"><b>${evCount}</b><span>Eventos</span></button>
+        <button type="button" class="project-assoc-item" data-adm-ev="click" data-adm="owsGoRoute" data-adm-a0="s:/desarrollo/devlog" title="Ir a Devlog"><b>${devlogCount}</b><span>Devlogs</span></button>
+        <button type="button" class="project-assoc-item" data-adm-ev="click" data-adm="owsGoRoute" data-adm-a0="s:/desarrollo/hitos" title="Ir a Hitos"><b>${celebCount}</b><span>Celebraciones</span></button>
+      </div>
+    </section>
+
+    <section class="glass-card project-detail-card project-detail-checklist-card">
+      <h4>✅ Checklist de publicación <span class="project-readiness-pct">${ready}/${checks.length}</span></h4>
+      <div class="project-readiness">
+        <div class="project-readiness-bar"><div style="width:${readinessPct}%"></div></div>
+        <small>${ready === checks.length ? 'Todo listo para publicar 🎉' : `${checks.length - ready} punto(s) por completar`}</small>
+      </div>
+      <p class="project-checklist-note">Marcá o desmarcá cada punto: el estado manual manda sobre la detección automática. También podés sumar requisitos propios.</p>
+      <div class="project-checklist">
+        ${checks.map((c) => `
+          <div class="project-check ${c.ok ? 'is-ok' : 'is-missing'}${c.custom ? ' is-custom' : ''}">
+            <label class="project-check-toggle" title="${c.ok ? 'Marcar como pendiente' : 'Marcar como cumplido'}">
+              <input type="checkbox" ${c.ok ? 'checked' : ''} data-adm-ev="change" data-adm="owsToggleProjectCheck" data-adm-a0="r:${Number(p.id)}" data-adm-a1="s:${escapeHtml(p.slug)}" data-adm-a2="s:${escapeHtml(c.id)}" data-adm-a3="thp:checked" />
+              <span class="project-check-box">${c.ok ? '✅' : '⭕'}</span>
+            </label>
+            <div class="project-check-copy">
+              <b>${escapeHtml(c.label)}</b>
+              <small>${escapeHtml(c.hint)}</small>
+              ${c.manual && !c.custom ? `<button type="button" class="project-check-reset" data-adm-ev="click" data-adm="owsResetProjectCheck" data-adm-a0="r:${Number(p.id)}" data-adm-a1="s:${escapeHtml(p.slug)}" data-adm-a2="s:${escapeHtml(c.id)}" title="Volver a la detección automática">↺ Volver a automático</button>` : ''}
+              ${projectCheckFillHtml(p, c)}
+            </div>
+            ${c.custom ? `<button type="button" class="project-check-remove" data-adm-ev="click" data-adm="owsRemoveProjectCheck" data-adm-a0="r:${Number(p.id)}" data-adm-a1="s:${escapeHtml(p.slug)}" data-adm-a2="s:${escapeHtml(c.id)}" title="Quitar este requisito">🗑️</button>` : ''}
+          </div>`).join('')}
+      </div>
+      <form class="project-check-add" data-adm-ev="submit" data-adm="owsAddProjectCheck" data-adm-a0="r:${Number(p.id)}" data-adm-a1="s:${escapeHtml(p.slug)}" data-adm-a2="ev">
+        <input type="text" id="project-check-new" placeholder="Nuevo requisito (ej: ficha en itch.io)" maxlength="80" autocomplete="off" />
+        <button type="submit" class="btn btn-ghost btn-sm">➕ Agregar</button>
+      </form>
+    </section>
+  </div>`;
+}
+
+function paintProjectDetail() {
+  const box = document.getElementById('project-detail');
+  if (!box) return;
+  const slug = projectDetailSlug;
+  if (!slug) {
+    box.innerHTML = '<p class="loading-note">Elegí un proyecto del menú lateral.</p>';
+    return;
+  }
+  const p = projectDetailProject(slug);
+  if (!p) {
+    // El catálogo puede estar cargando todavía: se reintenta un rato.
+    if (projectDetailTries++ < 40) {
+      box.innerHTML = '<p class="loading-note">Cargando proyecto…</p>';
+      window.setTimeout(() => { if (projectDetailSlug === slug) paintProjectDetail(); }, 200);
+    } else {
+      box.innerHTML = `
+        <div class="glass-card project-detail-missing">
+          <h3 class="form-title">No pudimos abrir este proyecto</h3>
+          <p class="form-hint">No encontramos <b>${escapeHtml(slug)}</b> en el catálogo. Puede que se haya eliminado o que la sesión no tenga acceso.</p>
+          <div class="project-detail-actions">
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="owsGoProjects">← Todos los proyectos</button>
+            <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="owsRetryProjectDetail">↻ Reintentar</button>
+          </div>
+        </div>`;
+    }
+    return;
+  }
+  box.innerHTML = projectDetailHtml(p);
+}
+
+function owsOpenProjectDetail(slug) {
+  const wanted = String(slug || '').trim().toLowerCase();
+  if (!wanted) return;
+  projectDetailSlug = wanted;
+  projectDetailTries = 0;
+  paintProjectDetail();
+}
+window.owsOpenProjectDetail = owsOpenProjectDetail;
+
+function owsGoProjects() {
+  if (typeof window.owsNavigate === 'function') window.owsNavigate('/catalogo/proyectos');
+  else window.location.hash = '#/catalogo/proyectos';
+}
+
+function owsGoRoute(route) {
+  const target = String(route || '').trim();
+  if (!target) return;
+  if (typeof window.owsNavigate === 'function') window.owsNavigate(target);
+  else window.location.hash = '#' + target;
+}
+
+function owsRetryProjectDetail() {
+  projectDetailTries = 0;
+  loadAdminProjects();
+  loadAdminManage();
+  paintProjectDetail();
+}
+
+async function owsToggleProjectFlag(id, field, value, slug) {
+  const p = projectDetailProject(slug);
+  if (!p) return;
+  const isActiveField = field === 'is_active';
+  const willBeAdminOnly = field === 'admin_only' && value === true;
+  const willBePublic = field === 'admin_only' && value === false;
+  let question = '';
+  if (willBeAdminOnly) {
+    question = '¿Marcar este proyecto como solo-admin?\n\nDejará de aparecer en el catálogo público y en OWS Hub.';
+  } else if (willBePublic) {
+    question = '¿Hacer público este proyecto?\n\nEmpezará a aparecer en el catálogo público y en OWS Hub.';
+  } else if (isActiveField && value === false) {
+    question = '¿Ocultar este proyecto?\n\nDejará de mostrarse en el catálogo público y en OWS Hub, pero no se borra.';
+  } else {
+    question = '¿Mostrar este proyecto?\n\nVolverá a aparecer en el catálogo público y en OWS Hub (si no es solo-admin).';
+  }
+  if (!confirm(question)) { paintProjectDetail(); return; }
+  try {
+    const res = await fetch(API_BASE + `/ows-launch-projects/${Number(id)}`, {
+      method: 'PATCH',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ [field]: value })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast(isActiveField
+      ? (value ? '👁️ Proyecto visible' : '🚫 Proyecto oculto')
+      : (value ? '🔒 Ahora es solo-admin' : '📁 Ahora es público'));
+    await Promise.all([loadAdminProjects(), loadAdminManage()]);
+    paintProjectDetail();
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'No se pudo cambiar la visibilidad'));
+    paintProjectDetail();
+  }
+}
+
+async function owsDeleteProjectFromDetail(id, slug) {
+  const p = projectDetailProject(slug);
+  if (!p) return;
+  if (!confirm(`¿Eliminar “${p.name || p.slug}” permanentemente?\n\nSe borran la ficha, su % de desarrollo y sus versiones.`)) return;
+  try {
+    const res = await fetch(API_BASE + `/ows-launch-projects/${Number(id)}`, {
+      method: 'DELETE',
+      headers: adminHeaders()
+    });
+    if (!res.ok) throw new Error(`Error (${res.status})`);
+    showToast('🗑️ Proyecto eliminado');
+    await Promise.all([loadAdminProjects(), loadAdminManage()]);
+    owsGoProjects();
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'No se pudo eliminar el proyecto'));
+  }
+}
+
+// ── Checklist editable ────────────────────────────────────────────────
+// Los checks base se guardan como overrides en metadata.publication_checklist;
+// los requisitos propios, en metadata.publication_checklist_custom. El PATCH
+// mezcla metadata en el servidor, así que banner_url/itch no se pisan.
+function findChecklistProject(projectId, slug) {
+  return projectDetailProject(slug) || findAnyLaunchProject(projectId);
+}
+
+async function patchProjectAndRefresh(p, payload) {
+  const res = await fetch(API_BASE + `/ows-launch-projects/${Number(p.id)}`, {
+    method: 'PATCH',
+    headers: adminHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+  const updated = data.project;
+  if (updated) {
+    [projectsCache, manageProjectsCache].forEach((list) => {
+      const i = list.findIndex((x) => Number(x.id) === Number(updated.id));
+      if (i >= 0) list[i] = { ...list[i], ...updated };
+    });
+  }
+  paintProjectDetail();
+  return updated;
+}
+
+async function saveProjectChecklist(p, overrides, custom) {
+  return patchProjectAndRefresh(p, {
+    metadata: {
+      publication_checklist: overrides,
+      publication_checklist_custom: custom
+    }
+  });
+}
+
+// Al completar un dato desde el checklist se borra el override manual de ese
+// punto (si existía), para que la detección automática lo dé por cumplido.
+function payloadWithClearedCheck(p, checkId, payload) {
+  const { overrides } = projectChecklistState(p);
+  const id = String(checkId || '');
+  if (!Object.prototype.hasOwnProperty.call(overrides, id)) return payload;
+  delete overrides[id];
+  return { ...payload, metadata: { ...(payload.metadata || {}), publication_checklist: overrides } };
+}
+
+async function owsSaveProjectCheckField(projectId, slug, checkId, ev) {
+  if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+  const p = findChecklistProject(projectId, slug);
+  if (!p) return;
+  const id = String(checkId || '');
+  const form = ev && ev.target && ev.target.closest
+    ? ev.target.closest('.project-check-fill')
+    : document.querySelector('.project-check-fill');
+  const field = form ? form.querySelector('[name="value"]') : null;
+  const value = field ? String(field.value || '').trim() : '';
+  let payload = null;
+  let doneMsg = '';
+  if (id === 'icon' || id === 'banner') {
+    if (!value) {
+      showToast('⚠️ Pegá la URL o subí una imagen');
+      if (field) field.focus();
+      return;
+    }
+    if (!/^https?:\/\//i.test(value)) {
+      showToast('⚠️ La URL tiene que empezar con http:// o https://');
+      if (field) field.focus();
+      return;
+    }
+    payload = id === 'icon' ? { icon_url: value } : { metadata: { banner_url: value } };
+    doneMsg = id === 'icon' ? '🖼️ Icono guardado' : '🖼️ Banner guardado';
+  } else if (id === 'description' || id === 'genre' || id === 'status_feedback') {
+    if (!value) {
+      showToast('⚠️ Escribí el dato que falta');
+      if (field) field.focus();
+      return;
+    }
+    payload = { [id]: value };
+    doneMsg = '✅ ' + (id === 'description' ? 'Descripción guardada' : id === 'genre' ? 'Género guardado' : 'Feedback guardado');
+  } else if (id === 'platforms') {
+    const picked = form
+      ? Array.from(form.querySelectorAll('input[type="checkbox"]:checked')).map((x) => x.value)
+      : [];
+    if (!picked.length) {
+      showToast('⚠️ Marcá al menos una plataforma');
+      return;
+    }
+    payload = { platforms: picked };
+    doneMsg = '🖥️ Plataformas guardadas';
+  }
+  if (!payload) return;
+  try {
+    await patchProjectAndRefresh(p, payloadWithClearedCheck(p, id, payload));
+    showToast(doneMsg);
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'No se pudo guardar el dato'));
+  }
+}
+
+async function owsUploadProjectCheckImage(projectId, slug, checkId, ev) {
+  const input = ev && ev.target;
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\//.test(String(file.type || ''))) {
+    showToast('⚠️ Elegí un archivo de imagen');
+    input.value = '';
+    return;
+  }
+  const p = findChecklistProject(projectId, slug);
+  if (!p) return;
+  const id = String(checkId || '');
+  try {
+    input.disabled = true;
+    showToast('⏳ Subiendo imagen…');
+    const url = await uploadProjectImage(file, id === 'banner' ? 'banner' : 'icon');
+    const payload = id === 'icon' ? { icon_url: url } : { metadata: { banner_url: url } };
+    await patchProjectAndRefresh(p, payloadWithClearedCheck(p, id, payload));
+    showToast(id === 'icon' ? '🖼️ Icono guardado' : '🖼️ Banner guardado');
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'No se pudo subir la imagen'));
+    if (input) { input.disabled = false; input.value = ''; }
+  }
+}
+
+async function owsToggleProjectCheck(projectId, slug, checkId, checked) {
+  const p = findChecklistProject(projectId, slug);
+  if (!p) return;
+  const { overrides, custom } = projectChecklistState(p);
+  const id = String(checkId || '');
+  if (id.indexOf('custom:') === 0) {
+    const item = custom.find((c) => c.id === id.slice(7));
+    if (!item) return;
+    item.done = !!checked;
+  } else {
+    overrides[id] = !!checked;
+  }
+  try {
+    await saveProjectChecklist(p, overrides, custom);
+    showToast(checked ? '✅ Requisito cumplido' : '⭕ Requisito pendiente');
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'No se pudo guardar el checklist'));
+    paintProjectDetail();
+  }
+}
+
+async function owsResetProjectCheck(projectId, slug, checkId) {
+  const p = findChecklistProject(projectId, slug);
+  if (!p) return;
+  const { overrides, custom } = projectChecklistState(p);
+  delete overrides[String(checkId || '')];
+  try {
+    await saveProjectChecklist(p, overrides, custom);
+    showToast('↺ Estado automático restaurado');
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'No se pudo restablecer el requisito'));
+    paintProjectDetail();
+  }
+}
+
+async function owsAddProjectCheck(projectId, slug, ev) {
+  if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+  const p = findChecklistProject(projectId, slug);
+  if (!p) return;
+  const form = ev && ev.target ? ev.target : null;
+  const input = form ? form.querySelector('input') : document.getElementById('project-check-new');
+  const label = String((input && input.value) || '').trim().slice(0, 80);
+  if (!label) {
+    showToast('⚠️ Escribí el requisito que querés agregar');
+    if (input) input.focus();
+    return;
+  }
+  const { overrides, custom } = projectChecklistState(p);
+  custom.push({ id: 'c' + Date.now().toString(36), label, done: false });
+  try {
+    await saveProjectChecklist(p, overrides, custom);
+    showToast('➕ Requisito agregado');
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'No se pudo agregar el requisito'));
+    paintProjectDetail();
+  }
+}
+
+async function owsRemoveProjectCheck(projectId, slug, checkId) {
+  const p = findChecklistProject(projectId, slug);
+  if (!p) return;
+  const { overrides, custom } = projectChecklistState(p);
+  const rawId = String(checkId || '').replace(/^custom:/, '');
+  const target = custom.find((c) => c.id === rawId);
+  if (!target) return;
+  if (!confirm(`¿Quitar el requisito “${target.label}”?`)) return;
+  const next = custom.filter((c) => c.id !== rawId);
+  try {
+    await saveProjectChecklist(p, overrides, next);
+    showToast('🗑️ Requisito quitado');
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'No se pudo quitar el requisito'));
+    paintProjectDetail();
+  }
+}
+
 async function loadAdminProjects() {
   const list = document.getElementById('projects-list');
   if (!list) return;
@@ -9520,17 +10757,19 @@ async function loadAdminProjects() {
     // include_hidden=1: el panel necesita ver tambien los proyectos ocultos.
     // Aquí se muestran SOLO los públicos (admin_only = false); los
     // solo-admin viven en la sección Gestión.
-    const res = await fetch(API_BASE + '/ows-launch-projects?include_hidden=1');
+    const res = await fetch(API_BASE + '/ows-launch-projects?include_hidden=1', { headers: adminHeaders() });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     const all = data.projects || [];
     hiddenAdminOnlyCount = all.filter((p) => p.admin_only === true || p.adminOnly === true).length;
     projectsCache = all.filter((p) => !(p.admin_only === true || p.adminOnly === true));
+    renderSidebarProjects();
     renderAdminProjectsList();
     // El catálogo cambió: el dropdown de proyecto de Eventos se rearma.
     populateEventProjectOptions();
   } catch (err) {
     list.innerHTML = `<p class="loading-note">⚠️ ${escapeHtml(err.message)}</p>`;
+    renderSidebarProjects();
   }
 }
 
@@ -9569,7 +10808,7 @@ function renderAdminProjectsList() {
     const iconHtml = `<div class="admin-item-thumb project-icon-wrap" style="width:50px;height:50px">📁${p.icon_url ? `<img src="${escapeHtml(p.icon_url)}" alt="" data-adm-err="rm" />` : ''}</div>`;
     const canProgress = projectTracksProgress(p);
     return `
-      <div class="admin-item">
+      <div class="admin-item" data-project-id="${p.id}">
         ${iconHtml}
         <div class="admin-item-info">
           <span class="admin-item-title">${escapeHtml(p.name)} ${chips}</span>
@@ -9581,6 +10820,7 @@ function renderAdminProjectsList() {
         </div>
         <div class="admin-item-actions">
           ${canProgress ? `<button class="btn btn-ghost btn-mini" title="Modificar % de desarrollo" data-adm-ev="click" data-adm="openDevModal" data-adm-a0="r:${p.id}">📈</button>` : ''}
+          ${String(p.status || '').toLowerCase() !== 'launched' ? `<button class="btn btn-ghost btn-mini" title="Marcar como lanzado hoy (queda en Historial)" data-adm-ev="click" data-adm="launchProjectNow" data-adm-a0="r:${p.id}">🚀</button>` : ''}
           <button class="btn btn-ghost btn-mini" title="Versiones descargables del Hub" data-adm-ev="click" data-adm="openReleasesModal" data-adm-a0="r:${p.id}">📦</button>
           <button class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="editProject" data-adm-a0="r:${p.id}">✏️</button>
           <button class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="toggleProject" data-adm-a0="r:${p.id}" data-adm-a1="r:${p.is_active ? 'false' : 'true'}">${p.is_active ? '👁️' : '🚫'}</button>
@@ -9589,23 +10829,33 @@ function renderAdminProjectsList() {
       </div>
     `;
   }).join('');
+  applyPendingProjectFocus();
 }
 
 // ── Marca de agua del proyecto (eventos y noticias) ──────────────
 // Cada proyecto puede tener su propia marca de agua: texto (vacío = nombre
-// del proyecto), posición en la imagen y opacidad. OWS Hub la dibuja sobre
-// las portadas de los eventos y noticias asociados al proyecto.
+// del proyecto), posición en la imagen (noticias) y opacidad. Si además
+// sube una imagen propia, el sello de los eventos la muestra en lugar del
+// texto. OWS Hub la dibuja en las noticias y en la barra lateral de los
+// eventos asociados al proyecto.
 const PROJECT_WATERMARK_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'];
+// Misma gota que dibuja OWS Hub en la barra lateral del evento.
+const PROJECT_WATERMARK_DROP_SVG = `<svg class="pw-seal-drop" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path class="pw-seal-drop-body" d="M12 2.2c3.6 4.5 6.6 8.1 6.6 11.7A6.6 6.6 0 0 1 12 20.5a6.6 6.6 0 0 1-6.6-6.6C5.4 10.3 8.4 6.7 12 2.2Z"></path>
+      <path class="pw-seal-drop-shine" d="M9.3 11.1c-.7 1.1-1.1 2-1.1 2.8a3.8 3.8 0 0 0 1.4 3"></path>
+    </svg>`;
 
 function projectWatermarkEls() {
   return {
     enabled: document.getElementById('proj-watermark-enabled'),
     text: document.getElementById('proj-watermark-text'),
+    image: document.getElementById('proj-watermark-image'),
     position: document.getElementById('proj-watermark-position'),
     opacity: document.getElementById('proj-watermark-opacity'),
     label: document.getElementById('proj-watermark-label'),
     fields: document.getElementById('proj-watermark-fields'),
-    sample: document.getElementById('proj-watermark-sample')
+    sample: document.getElementById('proj-watermark-sample'),
+    seal: document.getElementById('proj-watermark-seal')
   };
 }
 
@@ -9628,12 +10878,26 @@ function updateProjectWatermarkPreview() {
   if (!el.sample) return;
   const nameEl = document.getElementById('proj-name');
   const fallbackName = (nameEl && nameEl.value.trim()) || 'Nombre del proyecto';
-  el.sample.textContent = (el.text && el.text.value.trim()) || fallbackName;
+  const label = (el.text && el.text.value.trim()) || fallbackName;
+  el.sample.textContent = label;
   const pos = el.position && PROJECT_WATERMARK_POSITIONS.includes(el.position.value) ? el.position.value : 'bottom-right';
   el.sample.className = `proj-watermark-sample pw-${pos}`;
   el.sample.style.opacity = String(opacity / 100);
   const preview = el.sample.parentElement;
   if (preview) preview.classList.toggle('is-off', !on);
+  // Sello lateral de los eventos: con imagen propia cambia el diseño.
+  if (el.seal) {
+    const image = (el.image && el.image.value.trim()) || '';
+    if (image) {
+      el.seal.className = 'proj-watermark-seal is-image';
+      el.seal.innerHTML = `<span class="pw-seal-frame"><img src="${escapeHtml(image)}" alt="" /></span><span class="pw-seal-text">${escapeHtml(label)}</span>`;
+    } else {
+      el.seal.className = 'proj-watermark-seal';
+      el.seal.innerHTML = `<span class="pw-seal-badge">${PROJECT_WATERMARK_DROP_SVG}</span><span class="pw-seal-text">${escapeHtml(label)}</span><span class="pw-seal-rule"></span>`;
+    }
+    el.seal.style.opacity = String(Math.max(0.55, opacity / 100));
+    el.seal.classList.toggle('is-off', !on);
+  }
 }
 
 function readProjectWatermarkFields() {
@@ -9645,6 +10909,7 @@ function readProjectWatermarkFields() {
   return {
     enabled: !!(el.enabled && el.enabled.checked),
     text: el.text ? el.text.value.trim().slice(0, 60) : '',
+    image: el.image ? el.image.value.trim() : '',
     position: pos,
     opacity
   };
@@ -9678,6 +10943,12 @@ async function saveProject(e) {
       projBannerFile = null;
       document.getElementById('proj-banner-file').value = '';
     }
+    if (projWatermarkImageFile) {
+      btn.textContent = '⏳ Subiendo sello…';
+      document.getElementById('proj-watermark-image').value = await uploadProjectImage(projWatermarkImageFile, 'watermark');
+      projWatermarkImageFile = null;
+      document.getElementById('proj-watermark-image-file').value = '';
+    }
 
     const payload = {
       slug,
@@ -9710,6 +10981,7 @@ async function saveProject(e) {
     payload.watermark_text = wm.text;
     payload.watermark_position = wm.position;
     payload.watermark_opacity = wm.opacity;
+    payload.watermark_image_url = wm.image;
 
     btn.textContent = '💾 Guardando…';
     let res;
@@ -9770,11 +11042,12 @@ async function editProject(id) {
   const wmEls = projectWatermarkEls();
   if (wmEls.enabled) wmEls.enabled.checked = !!(p.watermark_enabled === true || p.watermarkEnabled === true || wmSource.enabled === true);
   if (wmEls.text) wmEls.text.value = String(p.watermark_text || p.watermarkText || wmSource.text || '');
+  if (wmEls.image) wmEls.image.value = String(p.watermark_image_url || p.watermarkImageUrl || wmSource.image || '');
   if (wmEls.position) wmEls.position.value = String(p.watermark_position || p.watermarkPosition || wmSource.position || 'bottom-right');
   if (wmEls.opacity) wmEls.opacity.value = String(Number(p.watermark_opacity || p.watermarkOpacity || wmSource.opacity || 35));
   onProjectWatermarkToggle();
   clearProjectImageFiles();
-  const title = document.querySelector('#tab-projects .form-title');
+  const title = document.querySelector('[data-mform="project"] > h3.form-title');
   if (title) title.textContent = `Editando proyecto: ${p.name}`;
   document.getElementById('btn-cancel-project').classList.remove('hidden');
   document.getElementById('btn-save-project').textContent = '💾 Guardar cambios';
@@ -9801,11 +11074,12 @@ function resetProjectForm() {
   const wmEls = projectWatermarkEls();
   if (wmEls.enabled) wmEls.enabled.checked = false;
   if (wmEls.text) wmEls.text.value = '';
+  if (wmEls.image) wmEls.image.value = '';
   if (wmEls.position) wmEls.position.value = 'bottom-right';
   if (wmEls.opacity) wmEls.opacity.value = '35';
   onProjectWatermarkToggle();
   clearProjectImageFiles();
-  const btn = document.querySelector('#tab-projects .form-title');
+  const btn = document.querySelector('[data-mform="project"] > h3.form-title');
   if (btn) btn.textContent = 'Nuevo proyecto OWS';
   const cancel = document.getElementById('btn-cancel-project');
   if (cancel) cancel.classList.add('hidden');
@@ -9848,15 +11122,15 @@ async function deleteProject(id) {
 
 // =======================================================
 // VERSIONES DESCARGABLES — builds del Hub por proyecto
-// (tabla ows_project_releases). Sin release activa el Hub NO
-// ofrece descarga y el modal muestra el estado del proyecto.
-// Vale para proyectos de Proyectos y de Gestión (misma tabla).
+// (tabla ows_project_releases). Las versiones YA NO se cargan a
+// mano: el backend las registra al sincronizar el build publicado
+// (itch.io / installer directo). Esta ventana es informativa y
+// muestra la guía del flujo interno de OWS Hub (Tauri).
 // =======================================================
 
 let relProjectId = 0;
 let relProjectRef = null;
 let relListCache = [];
-let editingReleaseId = 0;
 
 function findAnyLaunchProject(id) {
   const nid = Number(id);
@@ -9883,73 +11157,47 @@ async function openReleasesModal(id) {
   if (!p) return showToast('⚠️ Proyecto no encontrado en caché');
   relProjectId = Number(p.id);
   relProjectRef = p;
-  editingReleaseId = 0;
   const body = document.getElementById('rel-modal-body');
   if (!body) return;
+
   const onlyAdmin = (p.admin_only === true || p.adminOnly === true);
+  const latest = p.latest_release || p.latestRelease || null;
+  const currentVer = (latest && latest.version) || p.itch_version || p.itchVersion || '';
+  const currentWhen = latest && latest.released_at ? String(latest.released_at).slice(0, 10) : '';
+  const itchUrl = p.itch_url || p.itchUrl || p.link_url || p.linkUrl || '';
+
   body.innerHTML = `
     <h3 class="form-title">📦 Versiones — ${escapeHtml(p.name)}</h3>
-    <p class="form-hint">${escapeHtml(p.slug)} ${onlyAdmin ? '· 🔒 solo-admin' : '· 📁 público'} · Sin release activa el Hub no muestra descarga.</p>
+    <p class="form-hint">${escapeHtml(p.slug)} ${onlyAdmin ? '· 🔒 solo-admin' : '· 📁 público'} · Las versiones se cargan internamente desde el build publicado.</p>
+
+    <div class="rel-current">
+      <span class="rel-current-label">Última versión resuelta</span>
+      <strong>${currentVer ? 'v' + escapeHtml(currentVer) : 'Sin versión detectada'}</strong>
+      <small>${currentVer
+        ? (currentWhen ? 'Release registrada el ' + escapeHtml(currentWhen) + '.' : 'Release registrada automáticamente.')
+        : 'El Hub no ofrece descarga hasta que haya un build publicado y sincronizado.'}</small>
+    </div>
+
+    <section class="rel-guide">
+      <h4 class="form-title">Cómo se carga una versión</h4>
+      <ol class="rel-guide-steps">
+        <li><b>Compilá el build.</b> Windows va como ZIP con el .exe y su carpeta <code>_Data</code>; Android va como <code>.apk</code>.</li>
+        <li><b>Publicalo en itch.io.</b> Subí el archivo con la versión en el nombre (canal de butler o upload web). También podés usar un installer directo.</li>
+        <li><b>Sincronizá desde acá.</b> El backend lee versión, archivo y tamaño, y registra la release automáticamente.</li>
+        <li><b>OWS Hub lo detecta.</b> El Gestor consulta <code>/ows-updates/check</code>; si la versión remota es mayor, Tauri descarga el ZIP, lo extrae y abre el ejecutable.</li>
+      </ol>
+      <p class="form-hint">Para OWS Hub (launcher): el bump va en <code>src-tauri/tauri.conf.json</code>, se publica un tag <code>v*</code> y GitHub Actions genera el instalador + <code>latest.json</code> para que el updater de Tauri se actualice solo.</p>
+    </section>
+
+    <div class="ows-card-actions">
+      <button type="button" class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="syncProjectItch" data-adm-a0="r:${Number(p.id)}">🔄 Sincronizar build</button>
+      ${itchUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(itchUrl)}" target="_blank" rel="noopener">Ver en itch.io</a>` : ''}
+    </div>
+
+    <h4 class="form-title" style="margin-top:16px">Historial registrado</h4>
     <div id="rel-list" class="admin-list"><p class="loading-note">Cargando versiones…</p></div>
-    <h4 class="form-title" id="rel-form-title" style="margin-top:14px">Nueva versión</h4>
-    <form data-adm-ev="submit" data-adm="saveRelease" data-adm-a0="ev">
-      <div class="field-row">
-        <div class="field-group">
-          <label for="rel-version">Versión *</label>
-          <input type="text" id="rel-version" placeholder="ej: 0.1.0" required maxlength="40" />
-        </div>
-        <div class="field-group">
-          <label for="rel-channel">Canal</label>
-          <select id="rel-channel">
-            <option value="stable">stable</option>
-            <option value="beta">beta</option>
-            <option value="alpha">alpha</option>
-            <option value="demo">demo</option>
-          </select>
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field-group">
-          <label for="rel-platform">Plataforma del build</label>
-          <select id="rel-platform">
-            <option value="windows">Windows (.exe / .msi)</option>
-            <option value="android">Android (.apk)</option>
-            <option value="all">Todas</option>
-          </select>
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field-group">
-          <label for="rel-file">Archivo</label>
-          <input type="text" id="rel-file" placeholder="ej: Wilder Gambit.exe" maxlength="200" />
-        </div>
-        <div class="field-group">
-          <label for="rel-size">Tamaño</label>
-          <input type="text" id="rel-size" placeholder="ej: 652 kB" maxlength="40" />
-        </div>
-      </div>
-      <div class="field-group">
-        <label for="rel-installer">Installer URL (descarga directa, opcional)</label>
-        <input type="text" id="rel-installer" placeholder="https://…" />
-      </div>
-      <div class="field-row">
-        <div class="field-group">
-          <label for="rel-itch">itch.io URL (opcional)</label>
-          <input type="text" id="rel-itch" placeholder="https://….itch.io/…" />
-        </div>
-        <div class="field-group">
-          <label for="rel-date">Fecha de release</label>
-          <input type="date" id="rel-date" />
-        </div>
-      </div>
-      <div class="field-group">
-        <label for="rel-notes">Notas</label>
-        <textarea id="rel-notes" rows="2" maxlength="1000" placeholder="Qué trae esta versión…"></textarea>
-      </div>
-      <div id="rel-alert" class="alert-box hidden"></div>
-      <button type="submit" class="btn btn-primary btn-block" id="btn-save-release">📦 Guardar versión</button>
-      <button type="button" class="btn btn-ghost btn-block hidden" id="btn-cancel-release" data-adm-ev="click" data-adm="resetReleaseForm">Cancelar edición</button>
-    </form>`;
+    <p class="form-hint" style="margin-top:10px">El historial es de solo lectura. Para corregir una versión, publicá un build nuevo y sincronizalo.</p>`;
+
   document.getElementById('rel-modal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
   loadReleasesList();
@@ -9963,7 +11211,6 @@ function closeReleasesModal() {
   } catch (_) { document.body.style.overflow = ''; }
   relProjectId = 0;
   relProjectRef = null;
-  editingReleaseId = 0;
 }
 
 async function loadReleasesList() {
@@ -9979,12 +11226,15 @@ async function loadReleasesList() {
     if (!res.ok) throw new Error(data.error || ('Error ' + res.status));
     relListCache = data.releases || [];
     if (!relListCache.length) {
-      box.innerHTML = '<p class="loading-note">📦 Sin versiones: el Hub muestra el estado del proyecto sin descarga. Creá la primera ↓</p>';
+      box.innerHTML = '<p class="loading-note">📦 Sin versiones registradas todavía. Al sincronizar un build, la versión aparece acá automáticamente.</p>';
       return;
     }
     box.innerHTML = relListCache.map((r) => {
       const when = r.released_at ? String(r.released_at).slice(0, 10) : '—';
       const file = [r.file_label, r.size_label].filter(Boolean).join(' · ') || '—';
+      const download = r.installer_url
+        ? `<a class="btn btn-ghost btn-mini" href="${escapeHtml(r.installer_url)}" target="_blank" rel="noopener" title="Descarga directa">⬇</a>`
+        : '';
       return `
       <div class="admin-item">
         <div class="admin-item-info">
@@ -9992,11 +11242,7 @@ async function loadReleasesList() {
           <span class="admin-item-sub">📁 ${escapeHtml(file)} · 🗓️ ${escapeHtml(when)}</span>
           ${r.notes ? `<span class="admin-item-desc">📝 ${escapeHtml(r.notes)}</span>` : ''}
         </div>
-        <div class="admin-item-actions">
-          <button class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="editRelease" data-adm-a0="r:${r.id}">✏️</button>
-          <button class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="toggleRelease" data-adm-a0="r:${r.id}" data-adm-a1="r:${r.is_active ? 'false' : 'true'}">${r.is_active ? '👁️' : '🚫'}</button>
-          <button class="btn btn-danger btn-mini" data-adm-ev="click" data-adm="deleteRelease" data-adm-a0="r:${r.id}">🗑️</button>
-        </div>
+        <div class="admin-item-actions">${download}</div>
       </div>`;
     }).join('');
   } catch (err) {
@@ -10004,117 +11250,38 @@ async function loadReleasesList() {
   }
 }
 
-async function saveRelease(e) {
-  if (e && e.preventDefault) e.preventDefault();
-  if (!relProjectId) return showToast('⚠️ Abrí las versiones de un proyecto primero');
-  const version = document.getElementById('rel-version').value.trim();
-  if (!version) return showToast('⚠️ La versión es obligatoria');
-  const payload = {
-    version,
-    channel: document.getElementById('rel-channel').value,
-    platform: document.getElementById('rel-platform') ? document.getElementById('rel-platform').value : 'windows',
-    file_label: document.getElementById('rel-file').value.trim(),
-    size_label: document.getElementById('rel-size').value.trim(),
-    installer_url: document.getElementById('rel-installer').value.trim(),
-    itch_url: document.getElementById('rel-itch').value.trim(),
-    notes: document.getElementById('rel-notes').value.trim(),
-    released_at: document.getElementById('rel-date').value || undefined
-  };
+// Sincroniza el build publicado (itch.io) y deja que el backend registre
+// la versión. No pide versión, archivo ni URL: todo sale del build real.
+async function syncProjectItch(id) {
+  const p = findAnyLaunchProject(id) || relProjectRef;
+  if (!p) return showToast('⚠️ Proyecto no encontrado');
+  const btn = document.querySelector('[data-adm="syncProjectItch"]');
+  const old = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sincronizando…';
+  }
   try {
-    let res;
-    if (editingReleaseId) {
-      res = await fetch(API_BASE + '/ows-project-releases/' + editingReleaseId, {
-        method: 'PATCH',
-        headers: adminHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify(payload)
-      });
-    } else {
-      res = await fetch(API_BASE + '/ows-project-releases', {
-        method: 'POST',
-        headers: adminHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ project_id: relProjectId, ...payload })
-      });
-    }
+    const res = await fetch(API_BASE + '/ows-launch-projects/' + Number(p.id) + '/sync-itch', {
+      method: 'POST',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({})
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || ('Error ' + res.status));
-    showToast(editingReleaseId ? 'Versión actualizada ✔' : 'Versión creada ✔');
-    resetReleaseForm();
-    loadReleasesList();
-    if (typeof loadAdminProjects === 'function') loadAdminProjects();
-    if (typeof loadAdminManage === 'function') loadAdminManage();
+    const v = data?.itch?.version || '';
+    showToast(v ? 'Build sincronizado: v' + v : 'Build sincronizado ✔');
+    await loadReleasesList();
+    if (typeof loadAdminProjects === 'function') await loadAdminProjects();
+    if (typeof loadAdminManage === 'function') await loadAdminManage();
+    if (typeof paintProjectDetail === 'function') paintProjectDetail();
   } catch (err) {
     showToast('⚠️ ' + err.message);
-  }
-}
-
-function editRelease(id) {
-  const r = relListCache.find((x) => Number(x.id) === Number(id));
-  if (!r) return showToast('⚠️ Versión no encontrada');
-  editingReleaseId = Number(id);
-  document.getElementById('rel-version').value = r.version || '';
-  document.getElementById('rel-channel').value = r.channel || 'stable';
-  const relPlat = document.getElementById('rel-platform');
-  if (relPlat) relPlat.value = r.platform || 'windows';
-  document.getElementById('rel-file').value = r.file_label || '';
-  document.getElementById('rel-size').value = r.size_label || '';
-  document.getElementById('rel-installer').value = r.installer_url || '';
-  document.getElementById('rel-itch').value = r.itch_url || '';
-  document.getElementById('rel-notes').value = r.notes || '';
-  document.getElementById('rel-date').value = r.released_at ? String(r.released_at).slice(0, 10) : '';
-  document.getElementById('rel-form-title').textContent = 'Editar versión v' + (r.version || '');
-  document.getElementById('btn-save-release').textContent = '💾 Guardar cambios';
-  document.getElementById('btn-cancel-release').classList.remove('hidden');
-}
-
-function resetReleaseForm() {
-  editingReleaseId = 0;
-  ['rel-version', 'rel-file', 'rel-size', 'rel-installer', 'rel-itch', 'rel-notes', 'rel-date'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  const ch = document.getElementById('rel-channel');
-  if (ch) ch.value = 'stable';
-  const pl = document.getElementById('rel-platform');
-  if (pl) pl.value = 'windows';
-  const t = document.getElementById('rel-form-title');
-  if (t) t.textContent = 'Nueva versión';
-  const b = document.getElementById('btn-save-release');
-  if (b) b.textContent = '📦 Guardar versión';
-  const c = document.getElementById('btn-cancel-release');
-  if (c) c.classList.add('hidden');
-}
-
-async function toggleRelease(id, newState) {
-  try {
-    const res = await fetch(API_BASE + '/ows-project-releases/' + Number(id), {
-      method: 'PATCH',
-      headers: adminHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ is_active: newState })
-    });
-    if (!res.ok) throw new Error('Error ' + res.status);
-    loadReleasesList();
-    if (typeof loadAdminProjects === 'function') loadAdminProjects();
-    if (typeof loadAdminManage === 'function') loadAdminManage();
-  } catch (err) {
-    showToast('⚠️ ' + err.message);
-  }
-}
-
-async function deleteRelease(id) {
-  if (!confirm('¿Eliminar esta versión permanentemente?')) return;
-  try {
-    const res = await fetch(API_BASE + '/ows-project-releases/' + Number(id), {
-      method: 'DELETE',
-      headers: adminHeaders()
-    });
-    if (!res.ok) throw new Error('Error ' + res.status);
-    showToast('Versión eliminada');
-    if (editingReleaseId === Number(id)) resetReleaseForm();
-    loadReleasesList();
-    if (typeof loadAdminProjects === 'function') loadAdminProjects();
-    if (typeof loadAdminManage === 'function') loadAdminManage();
-  } catch (err) {
-    showToast('⚠️ ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = old || '🔄 Sincronizar build';
+    }
   }
 }
 
@@ -10209,6 +11376,1483 @@ function wsCount(n, one, many) {
 }
 const WS_SESSION_1 = 'sesión';
 const WS_SESSION_N = 'sesiones';
+
+// ═══════════════════════════════════════════════════════════════════
+// TABLERO DE ESTADO — todos los proyectos, en vivo
+// ═══════════════════════════════════════════════════════════════════
+// Las sesiones siguen siendo el registro real (se abren, se pausan y se
+// cierran igual), pero la vista principal deja de ser una timeline larga:
+// ahora es un tablero compacto con TODOS los proyectos, su estado y su
+// tiempo. El historial detallado vive detrás del botón "Historial".
+//
+// Estados automáticos (salen de las sesiones cargadas):
+//   EN VIVO · ABIERTA · EN PAUSA · HOY · INCOMPLETO · 100% ·
+//   RECIENTE · INACTIVO · ESTANCADO · SIN EMPEZAR · SIN ACTIVIDAD
+// Estados manuales o programados (los define el admin):
+//   PROGRAMADO · EN BREVE · ATRASADO · EN ESPERA · EN REVISIÓN ·
+//   EN PRUEBAS · BLOQUEADO · EN DESCANSO · TERMINADO · FUERA DE LÍNEA
+//
+// Los estados manuales se guardan en este navegador (localStorage). Las
+// sesiones y el % siguen viviendo en el backend, como siempre.
+// ═══════════════════════════════════════════════════════════════════
+
+const WS_PLANS_KEY = 'ows_admin_ws_plans_v1';
+const WS_AUTOPUBLISH_KEY = 'ows_admin_devlog_autopublish_v1';
+const WS_HEALTH_OPEN_KEY = 'ows_admin_ws_health_open_v1';
+const WS_PLAN_KINDS = {
+  scheduled: { label: 'PROGRAMADO', tone: 'plan', base: 'Se iniciará', timeLabel: 'para empezar' },
+  waiting:   { label: 'EN ESPERA', tone: 'plan', base: 'En espera para empezar', timeLabel: 'en espera' },
+  paused:    { label: 'EN PAUSA', tone: 'paused', base: 'En pausa', timeLabel: 'en pausa' },
+  review:    { label: 'EN REVISIÓN', tone: 'review', base: 'En revisión', timeLabel: 'en revisión' },
+  testing:   { label: 'EN PRUEBAS', tone: 'review', base: 'En pruebas', timeLabel: 'en pruebas' },
+  blocked:   { label: 'BLOQUEADO', tone: 'blocked', base: 'Bloqueado', timeLabel: 'bloqueado' },
+  break:     { label: 'EN DESCANSO', tone: 'break', base: 'En descanso', timeLabel: 'en descanso' },
+  done:      { label: 'TERMINADO', tone: 'done', base: 'Terminado por hoy', timeLabel: 'terminado' },
+  offline:   { label: 'FUERA DE LÍNEA', tone: 'idle', base: 'Fuera de línea', timeLabel: 'desconectado' }
+};
+
+let wsPlansCache = wsLoadPlans();
+let wsPlanEditingPid = 0;
+let wsPlanEditing = null;
+let wsBoardFilter = 'all';
+let wsBoardQuery = '';
+let wsBoardSig = '';
+let wsHealthShowAll = false;
+let wsHealthCache = [];
+let wsHealthOpen = (() => {
+  try { return localStorage.getItem(WS_HEALTH_OPEN_KEY) !== '0'; } catch (_) { return true; }
+})();
+let wsAutoToastTimer = null;
+let wsHistoryOpen = (() => {
+  try { return localStorage.getItem('ows_admin_ws_history') === '1'; } catch (_) { return false; }
+})();
+
+// ── Estados guardados en el navegador ──
+function wsLoadPlans() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WS_PLANS_KEY) || '{}');
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const out = {};
+    Object.keys(raw).forEach((key) => {
+      const v = raw[key];
+      if (!v || typeof v !== 'object') return;
+      const kind = String(v.kind || 'scheduled');
+      if (kind !== 'scheduled' && !WS_PLAN_KINDS[kind]) return;
+      if (kind === 'scheduled') {
+        if (!v.at || !Number.isFinite(new Date(v.at).getTime())) return;
+        out[key] = {
+          kind,
+          at: new Date(v.at).toISOString(),
+          minutes: Math.max(0, Number(v.minutes) || 0),
+          note: String(v.note || '').slice(0, 160),
+          updated_at: v.updated_at || new Date().toISOString()
+        };
+        return;
+      }
+      out[key] = {
+        kind,
+        note: String(v.note || '').slice(0, 160),
+        since: v.since && Number.isFinite(new Date(v.since).getTime())
+          ? new Date(v.since).toISOString()
+          : new Date().toISOString(),
+        updated_at: v.updated_at || new Date().toISOString()
+      };
+    });
+    return out;
+  } catch (_) { return {}; }
+}
+function wsPersistPlans() {
+  try { localStorage.setItem(WS_PLANS_KEY, JSON.stringify(wsPlansCache)); } catch (_) {}
+}
+function wsPlanOf(pid) {
+  const id = String(Number(pid) || 0);
+  return wsPlansCache[id] || null;
+}
+function wsSetPlan(pid, plan) {
+  const id = String(Number(pid) || 0);
+  if (!id || id === '0') return;
+  wsPlansCache[id] = plan;
+  wsPersistPlans();
+}
+function wsDropPlan(pid) {
+  const id = String(Number(pid) || 0);
+  if (!id || id === '0' || !wsPlansCache[id]) return false;
+  delete wsPlansCache[id];
+  wsPersistPlans();
+  return true;
+}
+
+// ── Auto-publicación del devlog al cerrar ──
+// Preferencia local, apagada por defecto: publicar sin querer es peor que
+// publicar a mano. Cada cierre publica SOLO lo pendiente del proyecto y de
+// los días que tocó la sesión; el % no se vuelve a sumar.
+function wsAutoPublishEnabled() {
+  try { return localStorage.getItem(WS_AUTOPUBLISH_KEY) === '1'; } catch (_) { return false; }
+}
+function syncWsAutoPublishUI() {
+  const input = document.getElementById('ws-autopub-input');
+  const state = document.getElementById('ws-autopub-state');
+  const on = wsAutoPublishEnabled();
+  if (input && input.checked !== on) input.checked = on;
+  if (state) state.textContent = on ? 'Activado' : 'Desactivado';
+}
+function toggleWsAutoPublish() {
+  const input = document.getElementById('ws-autopub-input');
+  const on = input ? !!input.checked : !wsAutoPublishEnabled();
+  try { localStorage.setItem(WS_AUTOPUBLISH_KEY, on ? '1' : '0'); } catch (_) {}
+  syncWsAutoPublishUI();
+  showToast(on
+    ? '📤 Auto-publicación activada: al cerrar una sesión se publica el devlog pendiente del día.'
+    : '📝 Auto-publicación desactivada: volvés a publicar a mano.');
+}
+function wsAutoPublishDaysOf(session) {
+  const days = [];
+  (session && Array.isArray(session.segments) ? session.segments : []).forEach((seg) => {
+    if (seg && seg.day && !days.includes(seg.day)) days.push(seg.day);
+  });
+  if (!days.length && session) {
+    if (session.local_day) days.push(session.local_day);
+    if (session.end_local_day && !days.includes(session.end_local_day)) days.push(session.end_local_day);
+  }
+  return days.sort();
+}
+async function wsAutoPublishClosedSession(session) {
+  if (!wsAutoPublishEnabled()) return [];
+  if (!session || session.status !== 'done') return [];
+  const days = wsAutoPublishDaysOf(session);
+  if (!days.length) return [];
+  const pid = session.project_id == null ? -1 : Number(session.project_id);
+  const created = [];
+  for (const day of days) {
+    try {
+      const res = await adminFetch(API_BASE + '/ows-work-sessions/daily', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: day,
+          tz_offset: wsTzOffset(),
+          project_id: pid,
+          created_by: getCurrentAdminName()
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+      (Array.isArray(data.created) ? data.created : []).forEach((d) => created.push({ ...d, day }));
+    } catch (err) {
+      showToast(`⚠️ Auto-publicación: no se pudo publicar el ${wsFmtShortDay(day)} (${err.message})`);
+    }
+  }
+  return created;
+}
+function wsAutoPublishNote(created) {
+  if (!created.length) return;
+  const note = document.getElementById('ws-autopub-note');
+  if (note) {
+    const d = new Date();
+    const clock = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    note.textContent = `Último: ${clock} · ${created.length === 1 ? '1 devlog' : `${created.length} devlogs`}`;
+    note.classList.remove('hidden');
+  }
+  const names = created.slice(0, 2).map((d) => `“${d.title}”`).join(' · ');
+  const extra = created.length > 2 ? ` · +${created.length - 2}` : '';
+  // Se muestra después del toast de cierre para no pisarlo.
+  if (wsAutoToastTimer) clearTimeout(wsAutoToastTimer);
+  wsAutoToastTimer = setTimeout(() => {
+    wsAutoToastTimer = null;
+    showToast(`📤 Devlog publicado automáticamente: ${names}${extra}`);
+  }, 4100);
+}
+// Se llama sin await desde los tres cierres: el aviso de cierre sale primero.
+async function queueWsAutoPublish(session) {
+  if (!wsAutoPublishEnabled() || !session || session.status !== 'done') return;
+  const created = await wsAutoPublishClosedSession(session);
+  if (!created.length) return;
+  try { await loadDevlogs(); } catch (_) {}
+  try { await loadWorkSessions(); } catch (_) {}
+  try { await loadWsDaily(); } catch (_) {}
+  try { loadProjectActivity(); } catch (_) {}
+  wsAutoPublishNote(created);
+}
+
+function wsClearPlan(pid) {
+  const id = Number(pid) || 0;
+  if (!id || !wsPlanOf(id)) return;
+  if (!window.confirm('¿Quitar el estado programado de este proyecto?')) return;
+  wsDropPlan(id);
+  renderWsBoard(true);
+  showToast('🗓 Estado quitado');
+}
+
+// ── Tiempo adaptativo: minutos, horas, días, semanas, meses y años ──
+function wsAgoFromMs(ms) {
+  const total = Math.max(0, Math.floor(Number(ms) || 0));
+  if (total < 45000) return 'hace un momento';
+  const min = Math.floor(total / 60000);
+  if (min < 60) return `hace ${min} minuto${min === 1 ? '' : 's'}`;
+  const h = Math.floor(min / 60);
+  const rm = min % 60;
+  if (h < 24) return rm
+    ? `hace ${h} hora${h === 1 ? '' : 's'} y ${rm} min`
+    : `hace ${h} hora${h === 1 ? '' : 's'}`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  if (d < 7) return rh
+    ? `hace ${d} día${d === 1 ? '' : 's'} y ${rh} h`
+    : `hace ${d} día${d === 1 ? '' : 's'}`;
+  if (d < 30) {
+    const w = Math.floor(d / 7);
+    const rd = d % 7;
+    return rd
+      ? `hace ${w} semana${w === 1 ? '' : 's'} y ${rd} día${rd === 1 ? '' : 's'}`
+      : `hace ${w} semana${w === 1 ? '' : 's'}`;
+  }
+  if (d < 365) {
+    const mo = Math.floor(d / 30);
+    return `hace ${mo} mes${mo === 1 ? '' : 'es'}`;
+  }
+  const y = Math.floor(d / 365);
+  const rmo = Math.floor((d % 365) / 30);
+  return rmo
+    ? `hace ${y} año${y === 1 ? '' : 's'} y ${rmo} mes${rmo === 1 ? '' : 'es'}`
+    : `hace ${y} año${y === 1 ? '' : 's'}`;
+}
+function wsInFromMs(ms) {
+  const total = Math.max(0, Math.floor(Number(ms) || 0));
+  const min = Math.ceil(total / 60000);
+  if (min < 1) return 'en menos de un minuto';
+  if (min < 60) return `en ${min} minuto${min === 1 ? '' : 's'}`;
+  const h = Math.floor(min / 60);
+  const rm = min % 60;
+  if (h < 24) return rm ? `en ${h} h ${rm} min` : `en ${h} h`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  if (d < 7) return rh ? `en ${d} día${d === 1 ? '' : 's'} y ${rh} h` : `en ${d} día${d === 1 ? '' : 's'}`;
+  if (d < 30) {
+    const w = Math.floor(d / 7);
+    return `en ${w} semana${w === 1 ? '' : 's'}`;
+  }
+  if (d < 365) {
+    const mo = Math.floor(d / 30);
+    return `en ${mo} mes${mo === 1 ? '' : 'es'}`;
+  }
+  const y = Math.floor(d / 365);
+  return `en ${y} año${y === 1 ? '' : 's'}`;
+}
+function wsRelPast(iso) {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  return Number.isFinite(t) ? wsAgoFromMs(Date.now() - t) : '';
+}
+function wsRelFuture(iso) {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  return Number.isFinite(t) ? wsInFromMs(t - Date.now()) : '';
+}
+function wsDayText(dayKey) {
+  const key = String(dayKey || '');
+  if (!key) return '';
+  if (key === wsTodayKey()) return 'hoy';
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  if (key === paxKeyFromDate(y)) return 'ayer';
+  return `el ${wsShortDay(key)}`;
+}
+function wsExactDay(dayKey, iso) {
+  const clock = wsClock(iso);
+  const day = wsDayText(dayKey);
+  return day ? `${day} a las ${clock}` : `a las ${clock}`;
+}
+function wsScheduleWhen(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const dayKey = paxKeyFromDate(d);
+  const clock = wsClock(iso);
+  if (dayKey === wsTodayKey()) return `hoy a las ${clock}`;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (dayKey === paxKeyFromDate(tomorrow)) return `mañana a las ${clock}`;
+  return `el ${wsShortDay(dayKey)} a las ${clock}`;
+}
+
+// El texto de un estado programado o manual. Devuelve null si no se puede
+// interpretar (por ejemplo, una programación sin fecha válida).
+function wsPlanState(plan) {
+  if (!plan) return null;
+  const now = Date.now();
+  const kind = String(plan.kind || 'scheduled');
+  const note = String(plan.note || '').trim();
+  if (kind === 'scheduled') {
+    const atMs = new Date(plan.at).getTime();
+    if (!Number.isFinite(atMs)) return null;
+    const clock = wsClock(plan.at);
+    const diff = atMs - now;
+    let key, label, tone, text, timeValue, timeLabel;
+    if (diff <= -10 * 60000) {
+      key = 'late'; label = 'ATRASADO'; tone = 'late';
+      text = `El inicio estaba previsto para las ${clock} · ${wsAgoFromMs(-diff)}`;
+      timeValue = wsAgoFromMs(-diff);
+      timeLabel = 'atrasado';
+    } else if (diff <= 2 * 60000) {
+      key = 'starting'; label = 'EN BREVE'; tone = 'soon';
+      text = `Se iniciará el trabajo en este proyecto en breve (${clock})`;
+      timeValue = diff <= 0 ? 'ahora' : wsInFromMs(diff);
+      timeLabel = 'en breve';
+    } else {
+      key = 'scheduled'; label = 'PROGRAMADO'; tone = 'plan';
+      text = `Se iniciará el trabajo en este proyecto ${wsScheduleWhen(plan.at)}`;
+      timeValue = wsInFromMs(diff);
+      timeLabel = 'para empezar';
+    }
+    return { key, label, tone, text, sub: note, timeValue, timeLabel, at: plan.at, kind };
+  }
+  const meta = WS_PLAN_KINDS[kind] || WS_PLAN_KINDS.waiting;
+  const since = plan.since || plan.updated_at || '';
+  const sinceMs = since ? new Date(since).getTime() : NaN;
+  const clock = Number.isFinite(sinceMs) ? wsClock(since) : '';
+  const ago = Number.isFinite(sinceMs) ? wsAgoFromMs(Date.now() - sinceMs) : '';
+  const text = `${meta.base}${clock ? ` desde las ${clock}` : ''}${ago ? ` · ${ago}` : ''}`;
+  return {
+    key: WS_PLAN_KINDS[kind] ? kind : 'waiting',
+    label: meta.label,
+    tone: meta.tone,
+    text,
+    sub: note,
+    timeValue: ago || '—',
+    timeLabel: meta.timeLabel,
+    since,
+    kind: WS_PLAN_KINDS[kind] ? kind : 'waiting'
+  };
+}
+
+// ── Instantáneas por proyecto ──
+function wsProjectIconHtml(p) {
+  const url = String((p && (p.icon_url || p.iconUrl)) || '').trim();
+  if (url) return `<img src="${escapeHtml(url)}" alt="" loading="lazy" data-adm-err="rm" />`;
+  const name = String((p && (p.name || p.slug)) || '?').trim();
+  return `<span>${escapeHtml((name.charAt(0) || '?').toUpperCase())}</span>`;
+}
+function wsAllProjects() {
+  const seen = new Set();
+  const out = [];
+  [...(manageProjectsCache || []), ...(projectsCache || [])].forEach((p) => {
+    const id = Number(p && p.id);
+    if (!Number.isInteger(id) || id <= 0 || seen.has(id)) return;
+    seen.add(id);
+    out.push(p);
+  });
+  return out;
+}
+function wsProjectById(pid) {
+  const id = Number(pid) || 0;
+  return wsAllProjects().find((p) => Number(p.id) === id) || null;
+}
+function wsLiveProjectState(live) {
+  const parts = Array.isArray(live.parts) ? live.parts : [];
+  const part = parts[parts.length - 1] || null;
+  const startedIso = (part && part.from) || live.started_at;
+  const startedDay = (part && part.day) || live.local_day || '';
+  const resumed = parts.length > 1;
+  const startText = `${resumed ? 'Se retomó' : 'Se empezó'} ${wsExactDay(startedDay, startedIso)}`;
+  const tags = [];
+  if (live.is_update) tags.push(`✨ ${live.update_name || 'Actualización'}`);
+  if (live.crosses_midnight) tags.push('🌙 cruza la medianoche');
+  if (parts.length > 1) tags.push(`🔁 ${parts.length} tramos`);
+  if (wsElapsedSeconds(live) > 6 * 3600) tags.push('⚠️ sesión larga');
+  return {
+    key: live.realtime ? 'live' : 'open',
+    category: 'live',
+    label: live.realtime ? 'EN VIVO' : 'ABIERTA',
+    tone: live.realtime ? 'live' : 'open',
+    text: `${startText} · ${wsRelPast(startedIso)}`,
+    sub: [live.title || '', tags.join(' · ')].filter(Boolean).join(' · '),
+    timeValue: wsStopwatch(wsElapsedSeconds(live)),
+    timeLabel: live.realtime ? 'en vivo' : 'abierta',
+    session: live
+  };
+}
+function wsPausedProjectState(paused) {
+  const at = paused.ended_at || paused.updated_at || paused.started_at;
+  const reason = paused.incomplete_reason || '';
+  return {
+    key: 'paused',
+    category: 'paused',
+    label: 'EN PAUSA',
+    tone: 'paused',
+    text: `En pausa desde ${wsExactDay(paused.local_day, at)} · ${wsRelPast(at)}`,
+    sub: [paused.title || '', reason].filter(Boolean).join(' · '),
+    timeValue: wsMinutes(paused.duration_minutes || 0),
+    timeLabel: 'trabajado',
+    session: paused
+  };
+}
+function wsIncompleteProjectState(last) {
+  const start = last.started_at;
+  const end = last.ended_at || last.updated_at || start;
+  return {
+    key: 'incomplete',
+    category: 'attention',
+    label: 'INCOMPLETO',
+    tone: 'attention',
+    text: `Se empezó ${wsExactDay(last.local_day, start)} y quedó a medias · ${wsRelPast(end)}`,
+    sub: [last.incomplete_reason || '', last.title || ''].filter(Boolean).join(' · '),
+    timeValue: wsMinutes(last.duration_minutes || 0),
+    timeLabel: 'trabajado',
+    session: last
+  };
+}
+function wsTodayProjectState(todaySessions, last, today, todayMin) {
+  const first = todaySessions[0] || last;
+  const lastToday = todaySessions[todaySessions.length - 1] || last;
+  const firstIso = first.started_at;
+  const lastIso = lastToday.ended_at || lastToday.updated_at || lastToday.started_at;
+  const count = todaySessions.length;
+  const text = count > 1
+    ? `Se empezó hoy a las ${wsClock(firstIso)} · ${wsCount(count, 'sesión', 'sesiones')} · última a las ${wsClock(lastIso)}`
+    : `Se empezó hoy a las ${wsClock(firstIso)} y terminó a las ${wsClock(lastIso)} · ${wsRelPast(lastIso)}`;
+  return {
+    key: 'today',
+    category: 'done',
+    label: 'HOY',
+    tone: 'done',
+    text,
+    sub: lastToday.title || '',
+    timeValue: wsMinutes(todayMin),
+    timeLabel: 'trabajado hoy',
+    session: lastToday
+  };
+}
+function wsCompletedProjectState(dev, last) {
+  const at = (dev && dev.updated_at) || '';
+  return {
+    key: 'completed',
+    category: 'done',
+    label: '100%',
+    tone: 'completed',
+    text: `Proyecto completado al 100%${at ? ` · ${wsRelPast(at)}` : ''}`,
+    sub: last ? `Última sesión: ${last.title}` : '',
+    timeValue: at ? wsRelPast(at) : '—',
+    timeLabel: 'completado'
+  };
+}
+function wsLastProjectState(last) {
+  const start = last.started_at;
+  const end = last.ended_at || last.updated_at || start;
+  const startDay = last.local_day || '';
+  const endDay = last.end_local_day || startDay;
+  const endMs = new Date(end).getTime();
+  const days = Number.isFinite(endMs) ? Math.floor((Date.now() - endMs) / 86400000) : 999;
+  // Tres niveles de enfriamiento: reciente, inactivo y estancado. El estado
+  // automático se ve aunque no haya un plan manual.
+  const stalled = days > 21;
+  const recent = days <= 7;
+  const endText = endDay && endDay === startDay
+    ? `a las ${wsClock(end)}`
+    : wsExactDay(endDay, end);
+  return {
+    key: stalled ? 'stalled' : recent ? 'recent' : 'stale',
+    category: 'idle',
+    label: stalled ? 'ESTANCADO' : recent ? 'RECIENTE' : 'INACTIVO',
+    tone: stalled ? 'stalled' : recent ? 'recent' : 'idle',
+    text: stalled
+      ? `Sin trabajo desde ${wsExactDay(endDay || startDay, end)} · ${wsRelPast(end)}`
+      : `Se empezó ${wsExactDay(startDay, start)} y terminó ${endText} · ${wsRelPast(end)}`,
+    sub: last.title || '',
+    timeValue: wsMinutes(last.duration_minutes || 0),
+    timeLabel: stalled ? 'último trabajo' : 'última sesión',
+    session: last
+  };
+}
+function wsNeverProjectState(percent) {
+  const hasProgress = percent != null && Number(percent) > 0;
+  return {
+    key: hasProgress ? 'never' : 'unstarted',
+    category: 'idle',
+    label: hasProgress ? 'SIN ACTIVIDAD' : 'SIN EMPEZAR',
+    tone: 'idle',
+    text: hasProgress
+      ? `Sin sesiones registradas · ${fmtPct(percent)} de avance`
+      : 'Sin empezar · programá el primer bloque',
+    sub: '',
+    timeValue: '—',
+    timeLabel: 'sin sesiones'
+  };
+}
+function wsProjectSnapshot(p) {
+  const pid = Number(p.id) || 0;
+  const all = (wsCache || []).filter((s) => Number(s.project_id) === pid);
+  const sorted = all.slice().sort((a, b) => {
+    const ta = new Date(a.started_at || 0).getTime();
+    const tb = new Date(b.started_at || 0).getTime();
+    return tb - ta || Number(b.id) - Number(a.id);
+  });
+  const live = sorted.find((s) => s.status === 'active') || null;
+  const paused = sorted.find((s) => s.status === 'paused') || null;
+  const last = sorted[0] || null;
+  const plan = wsPlanOf(pid);
+  const planSnap = plan ? wsPlanState(plan) : null;
+  const dev = manageDevRow(pid);
+  const percent = dev && dev.percent != null
+    ? Number(dev.percent)
+    : (p.percent != null ? Number(p.percent) : null);
+  const today = wsTodayKey();
+  const todaySessions = all
+    .filter((s) => wsTouchesDay(s, today))
+    .sort((a, b) => new Date(a.started_at || 0).getTime() - new Date(b.started_at || 0).getTime());
+  const todayMin = all.reduce((sum, s) => sum + (wsTouchesDay(s, today) ? wsDayMinutesOf(s, today) : 0), 0);
+  const hasIncomplete = last && last.completion === 'incomplete';
+  let snap;
+  if (live) snap = wsLiveProjectState(live);
+  else if (planSnap) {
+    // El estado manual manda sobre el automático, pero la categoría se decide
+    // por la clave real (un inicio atrasado cuenta como atención, no como plan).
+    let cat;
+    if (planSnap.key === 'late') cat = 'attention';
+    else if (planSnap.key === 'scheduled' || planSnap.key === 'starting' || planSnap.kind === 'waiting') cat = 'planned';
+    else if (planSnap.kind === 'paused' || planSnap.kind === 'break') cat = 'paused';
+    else if (planSnap.kind === 'done') cat = 'done';
+    else if (planSnap.kind === 'offline') cat = 'idle';
+    else cat = 'attention';
+    snap = { ...planSnap, category: cat };
+  }
+  else if (paused) snap = wsPausedProjectState(paused);
+  else if (hasIncomplete) snap = wsIncompleteProjectState(last);
+  else if (todayMin > 0) snap = wsTodayProjectState(todaySessions, last, today, todayMin);
+  else if (percent != null && percent >= 100) snap = wsCompletedProjectState(dev, last);
+  else if (last) snap = wsLastProjectState(last);
+  else snap = wsNeverProjectState(percent);
+  return { ...snap, pid, project: p, percent, dev, live, paused, last, plan, sessions: all };
+}
+
+// ── Filtros y pintado del tablero ──
+function wsNormText(v) {
+  return String(v || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+function wsSnapRank(s) {
+  const order = {
+    live: 0, open: 0, starting: 1, scheduled: 2, waiting: 3, late: 4,
+    paused: 5, break: 5, review: 5, testing: 5, blocked: 5,
+    incomplete: 6, today: 7, completed: 8, recent: 9, stalled: 10, stale: 11,
+    never: 12, unstarted: 13
+  };
+  return order[s.key] != null ? order[s.key] : 20;
+}
+function wsBoardCounts(snaps) {
+  return {
+    all: snaps.length,
+    live: snaps.filter((s) => s.category === 'live').length,
+    paused: snaps.filter((s) => s.category === 'paused').length,
+    planned: snaps.filter((s) => s.category === 'planned').length,
+    attention: snaps.filter((s) => s.category === 'attention').length,
+    idle: snaps.filter((s) => s.category === 'idle').length,
+    issues: snaps.filter((s) => (s.health || []).length > 0).length
+  };
+}
+function wsBoardKpisHtml(c) {
+  return [
+    `<span class="wsb-kpi"><b>${c.all}</b> proyectos</span>`,
+    `<span class="wsb-kpi is-live"><b>${c.live}</b> en vivo</span>`,
+    `<span class="wsb-kpi is-paused"><b>${c.paused}</b> en pausa</span>`,
+    `<span class="wsb-kpi is-planned"><b>${c.planned}</b> programados</span>`,
+    c.attention ? `<span class="wsb-kpi is-attention"><b>${c.attention}</b> requieren atención</span>` : '',
+    c.issues
+      ? `<span class="wsb-kpi is-health"><b>${c.issues}</b> con problemas</span>`
+      : `<span class="wsb-kpi is-health is-ok"><b>✓</b> salud al día</span>`,
+    `<span class="wsb-kpi is-idle"><b>${c.idle}</b> sin actividad</span>`
+  ].filter(Boolean).join('');
+}
+function wsBoardFiltersHtml(c) {
+  const defs = [
+    ['all', 'Todo', c.all],
+    ['live', 'En vivo', c.live],
+    ['paused', 'Pausa', c.paused],
+    ['planned', 'Programados', c.planned],
+    ['attention', 'Atención', c.attention],
+    ['issues', 'Con problemas', c.issues],
+    ['idle', 'Sin actividad', c.idle]
+  ];
+  return defs.map(([id, label, n]) =>
+    `<button type="button" class="wsb-filter${wsBoardFilter === id ? ' is-on' : ''}" data-adm-ev="click" data-adm="setWsBoardFilter" data-adm-a0="s:${id}">${escapeHtml(label)} <b>${n}</b></button>`
+  ).join('');
+}
+function setWsBoardFilter(filter) {
+  wsBoardFilter = String(filter || 'all');
+  renderWsBoard(true);
+}
+function onWsBoardSearch() {
+  const el = document.getElementById('wsb-search');
+  wsBoardQuery = el ? el.value : '';
+  renderWsBoard(true);
+}
+function wsBoardActionsHtml(snap) {
+  const pid = Number(snap.pid) || 0;
+  const start = `<button type="button" class="wsb-act is-play" data-adm-ev="click" data-adm="admStartProject" data-adm-a0="r:${pid}" title="Iniciar una sesión en este proyecto">▶ Iniciar</button>`;
+  const plan = `<button type="button" class="wsb-act is-ico" data-adm-ev="click" data-adm="openWsPlanForm" data-adm-a0="r:${pid}" title="Programar un estado">🗓</button>`;
+  if (snap.live) {
+    return `<button type="button" class="wsb-act is-ico" data-adm-ev="click" data-adm="openWsChangeForm" data-adm-a0="r:${Number(snap.live.id)}" title="Anotar un cambio con la hora">⏺</button>
+      <button type="button" class="wsb-act is-stop" data-adm-ev="click" data-adm="openWsStopForm" data-adm-a0="r:${Number(snap.live.id)}" title="Detener el cronómetro">⏹ Detener</button>`;
+  }
+  if (snap.plan) {
+    return `${start}<button type="button" class="wsb-act is-ico" data-adm-ev="click" data-adm="openWsPlanForm" data-adm-a0="r:${pid}" title="Cambiar el estado programado">⚙️</button><button type="button" class="wsb-act is-ico is-danger" data-adm-ev="click" data-adm="wsClearPlan" data-adm-a0="r:${pid}" title="Quitar el estado programado">✕</button>`;
+  }
+  if (snap.paused) {
+    return `<button type="button" class="wsb-act is-play" data-adm-ev="click" data-adm="resumeWsSession" data-adm-a0="r:${Number(snap.paused.id)}" title="Retomar la sesión pausada">▶ Continuar</button>${plan}`;
+  }
+  if (snap.key === 'incomplete' && snap.last) {
+    return `<button type="button" class="wsb-act is-ico" data-adm-ev="click" data-adm="openWsForm" data-adm-a0="r:${Number(snap.last.id)}" title="Editar la última sesión">✏️</button>${start}`;
+  }
+  return `${start}${plan}`;
+}
+function wsBoardRowHtml(snap) {
+  const p = snap.project || {};
+  const pid = Number(snap.pid) || 0;
+  const name = p.name || p.slug || `#${pid}`;
+  const pct = snap.percent == null ? '—' : fmtPct(snap.percent);
+  const ver = (p.latest_release && p.latest_release.version)
+    || (p.latestRelease && p.latestRelease.version)
+    || p.itch_version || p.itchVersion || '';
+  const metaBits = [pct];
+  if (ver) metaBits.push(`v${ver}`);
+  if (p.admin_only === true || p.adminOnly === true) metaBits.push('🔒');
+  if (snap.sessions.length) metaBits.push(wsCount(snap.sessions.length, WS_SESSION_1, WS_SESSION_N));
+  const tone = snap.tone || 'idle';
+  const timer = snap.live
+    ? `<b data-wsb-timer="${Number(snap.live.id)}">${wsStopwatch(wsElapsedSeconds(snap.live))}</b>`
+    : `<b>${escapeHtml(snap.timeValue || '—')}</b>`;
+  const healthChips = (snap.health || []).slice(0, 2).map((h) =>
+    `<span class="wsb-hchip is-${escapeHtml(h.severity)}" title="${escapeHtml(h.detail)}">${h.icon} ${escapeHtml(h.short)}</span>`
+  ).join('');
+  const moreHealth = (snap.health || []).length > 2
+    ? `<span class="wsb-hchip is-more" title="Hay más problemas en este proyecto">+${snap.health.length - 2}</span>`
+    : '';
+  return `
+    <div class="wsb-row is-${escapeHtml(tone)}${snap.live ? ' is-live-row' : ''}" data-wsp="${pid}">
+      <div class="wsb-id">
+        <span class="wsb-ico" aria-hidden="true">${wsProjectIconHtml(p)}</span>
+        <span class="wsb-name"><b>${escapeHtml(name)}</b><small>${escapeHtml(metaBits.join(' · '))}</small></span>
+      </div>
+      <div class="wsb-state">
+        <span class="wsb-pill is-${escapeHtml(tone)}">${escapeHtml(snap.label)}</span>
+        <span class="wsb-text">${escapeHtml(snap.text)}</span>
+        ${snap.sub ? `<span class="wsb-sub" title="${escapeHtml(snap.sub)}">${escapeHtml(snap.sub)}</span>` : ''}
+        ${healthChips || moreHealth ? `<span class="wsb-hchips">${healthChips}${moreHealth}</span>` : ''}
+      </div>
+      <div class="wsb-clock">${timer}<small>${escapeHtml(snap.timeLabel || '')}</small></div>
+      <div class="wsb-actions">${wsBoardActionsHtml(snap)}</div>
+    </div>`;
+}
+// ── Salud del estudio: problemas actuales + recomendaciones ──
+// Se calcula con lo que el tablero ya tiene cargado (proyectos, %,
+// sesiones, planes locales y devlogs pendientes). No hace peticiones extra.
+const WS_HEALTH_SEV = {
+  critical: { label: 'Crítico', rank: 0 },
+  warning: { label: 'Aviso', rank: 1 },
+  info: { label: 'Sugerencia', rank: 2 }
+};
+
+function wsHealthMs(value) {
+  if (!value) return 0;
+  const t = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+function wsHealthDaysSinceMs(ms) {
+  const t = Number(ms) || 0;
+  return t ? Math.max(0, (Date.now() - t) / 86400000) : 0;
+}
+function wsHealthDateKey(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? '' : paxKeyFromDate(d);
+}
+function wsHealthDayDiff(key) {
+  const [y, m, d] = String(key || '').split('-').map(Number);
+  if (!y || !m || !d) return 0;
+  const now = new Date();
+  const target = Date.UTC(y, m - 1, d);
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target - today) / 86400000);
+}
+function wsHealthLastSessionMs(snap) {
+  return (snap.sessions || []).reduce((max, s) => Math.max(
+    max,
+    wsHealthMs(s.ended_at || s.updated_at || s.started_at)
+  ), 0);
+}
+function wsHealthLastActivityMs(snap) {
+  let max = 0;
+  const add = (value) => {
+    const t = wsHealthMs(value);
+    if (t > max) max = t;
+  };
+  (snap.sessions || []).forEach((s) => {
+    add(s.started_at); add(s.ended_at); add(s.updated_at);
+    (s.changes || []).forEach((c) => add(c.at));
+  });
+  const p = snap.project || {};
+  add(p.updated_at); add(p.created_at);
+  if (snap.dev) add(snap.dev.updated_at);
+  if (snap.plan) { add(snap.plan.updated_at); add(snap.plan.at); add(snap.plan.since); }
+  return max;
+}
+// "Trabajo constante": varios cambios repartidos en el tiempo y actividad
+// reciente, o una sesión retomada hace poco. Un cronómetro abierto sin
+// señales de trabajo NO se marca como olvidado.
+function wsHealthLiveEvidence(session) {
+  const times = (Array.isArray(session.changes) ? session.changes : [])
+    .map((c) => wsHealthMs(c.at)).filter(Boolean).sort((a, b) => a - b);
+  const last = times.length ? times[times.length - 1] : 0;
+  const lastRecent = last && (Date.now() - last) <= 4 * 3600000;
+  const spread = times.length >= 2 && (times[times.length - 1] - times[0]) >= 45 * 60000;
+  const multiPart = Number(session.parts_count || 0) > 1;
+  const lastPart = (session.parts || []).reduce((max, p) => Math.max(max, wsHealthMs(p.from)), 0);
+  const partRecent = lastPart && (Date.now() - lastPart) <= 4 * 3600000;
+  return (lastRecent && spread) || (multiPart && partRecent);
+}
+function wsHealthPendingOf(snap) {
+  const today = wsTodayKey();
+  const ids = new Set();
+  const days = new Set();
+  (snap.sessions || []).forEach((s) => {
+    if (s.status !== 'done' || s.published_devlog_id) return;
+    const own = [...new Set((s.segments || []).map((g) => g.day).filter((d) => d && d <= today))];
+    if (!own.length) return;
+    ids.add(s.id);
+    own.forEach((d) => days.add(d));
+  });
+  const list = [...days].sort();
+  return { count: ids.size, days: list, oldestDay: list[0] || '' };
+}
+function wsHealthVersion(p) {
+  return String(
+    (p.latest_release && p.latest_release.version)
+    || (p.latestRelease && p.latestRelease.version)
+    || p.itch_version || p.itchVersion || ''
+  ).trim();
+}
+function wsHealthIssue(snap, severity, rule, icon, short, title, detail, recommendation, actions) {
+  const p = snap.project || {};
+  return {
+    id: `${rule}:${snap.pid}`,
+    pid: snap.pid,
+    projectName: p.name || p.slug || `#${snap.pid}`,
+    severity, rule, icon, short, title, detail, recommendation,
+    actions: actions || []
+  };
+}
+function wsProjectHealth(snaps) {
+  const out = [];
+  const now = Date.now();
+  const dayMs = 86400000;
+  const today = wsTodayKey();
+  const push = (...args) => out.push(wsHealthIssue(...args));
+
+  (snaps || []).forEach((snap) => {
+    const p = snap.project || {};
+    const pid = Number(snap.pid) || 0;
+    const sessions = Array.isArray(snap.sessions) ? snap.sessions : [];
+    const dev = snap.dev || null;
+    const percent = snap.percent;
+    const status = String(p.status || 'development').toLowerCase();
+    const terminal = status === 'cancelled' || status === 'discontinued';
+    const launched = status === 'launched';
+    const live = snap.live || null;
+    const paused = snap.paused || null;
+    const plan = snap.plan || null;
+    const planState = plan ? wsPlanState(plan) : null;
+    const activeSessions = sessions.filter((s) => s.status === 'active');
+    const pausedSessions = sessions.filter((s) => s.status === 'paused');
+    const doneSessions = sessions.filter((s) => s.status === 'done').sort((a, b) =>
+      wsHealthMs(b.ended_at || b.updated_at || b.started_at) - wsHealthMs(a.ended_at || a.updated_at || a.started_at)
+    );
+    const lastDone = doneSessions[0] || null;
+    const lastSessionMs = wsHealthLastSessionMs(snap);
+    const startAction = { label: '▶ Iniciar', fn: 'admStartProject', args: [`r:${pid}`] };
+    const planAction = { label: '🗓 Estado', fn: 'openWsPlanForm', args: [`r:${pid}`] };
+    const editAction = { label: '✏️ Ficha', fn: 'wsHealthEditProject', args: [`r:${pid}`] };
+
+    // 1) Cronómetro abierto demasiado tiempo, solo con trabajo constante.
+    if (live && !terminal) {
+      const hours = wsElapsedSeconds(live) / 3600;
+      if (hours >= 6 && wsHealthLiveEvidence(live)) {
+        const long = wsMinutes(Math.round(hours * 60));
+        push(snap, hours >= 10 ? 'critical' : 'warning', 'live-too-long', '⏱️', 'sesión larga',
+          'Cronómetro abierto hace demasiado',
+          `«${live.title || 'Sesión'}» lleva ${long} abierta y tiene cambios recientes; puede que se te haya olvidado cerrarla.`,
+          'Si seguís trabajando, dejá el cronómetro; si no, detenelo para que el devlog no sume horas de más.',
+          [{ label: '⏹ Detener', fn: 'openWsStopForm', args: [`r:${Number(live.id)}`] }]);
+      }
+    }
+    // 2) Varios cronómetros abiertos en el mismo proyecto.
+    if (activeSessions.length > 1) {
+      push(snap, 'warning', 'multi-live', '⏱️', 'cronómetros duplicados',
+        'Más de un cronómetro abierto',
+        `Hay ${activeSessions.length} sesiones abiertas al mismo tiempo en este proyecto.`,
+        'Cerrá la que no corresponda para que el tiempo y el devlog no se dupliquen.',
+        [{ label: '⏹ Detener', fn: 'openWsStopForm', args: [`r:${Number(activeSessions[0].id)}`] }]);
+    }
+    // 3) Pausa olvidada.
+    if (paused && !terminal) {
+      const since = paused.ended_at || paused.updated_at || paused.started_at;
+      const days = Math.floor(wsHealthDaysSinceMs(wsHealthMs(since)));
+      if (days >= 3) {
+        push(snap, days >= 7 ? 'critical' : 'warning', 'paused-old', '⏸️', 'pausa olvidada',
+          'Sesión pausada hace demasiado',
+          `«${paused.title || 'Sesión'}» quedó pausada ${wsRelPast(since)}${paused.duration_minutes ? ` con ${wsMinutes(paused.duration_minutes)} trabajados` : ''}${pausedSessions.length > 1 ? `; hay ${pausedSessions.length} pausadas en el proyecto` : ''}.`,
+          'Retomala si vas a seguir o cerrala para que no quede colgada y el tablero no la siga contando como trabajo abierto.',
+          [
+            { label: '▶ Continuar', fn: 'resumeWsSession', args: [`r:${Number(paused.id)}`] },
+            { label: '✏️ Editar', fn: 'openWsForm', args: [`r:${Number(paused.id)}`] }
+          ]);
+      } else if (pausedSessions.length > 1) {
+        push(snap, 'info', 'multi-paused', '⏸️', 'varias pausas',
+          'Varias sesiones pausadas',
+          `Hay ${pausedSessions.length} sesiones pausadas en este proyecto.`,
+          'Retomá o cerrá las que ya no uses para que el tablero no acumule trabajo abierto.',
+          [{ label: '▶ Continuar', fn: 'resumeWsSession', args: [`r:${Number(paused.id)}`] }]);
+      }
+    }
+    // 4) La última sesión quedó a medias.
+    if (lastDone && lastDone.completion === 'incomplete' && !terminal) {
+      const ended = lastDone.ended_at || lastDone.updated_at || lastDone.started_at;
+      const days = Math.floor(wsHealthDaysSinceMs(wsHealthMs(ended)));
+      if (days <= 60) {
+        push(snap, 'warning', 'incomplete-last', '⚠️', 'sesión a medias',
+          'La última sesión quedó incompleta',
+          `«${lastDone.title || 'Sesión'}» quedó a medias ${wsRelPast(ended)}${lastDone.incomplete_reason ? `: ${lastDone.incomplete_reason}` : ''}.`,
+          'Retomá lo pendiente o registrá una sesión que lo cierre para que el estado del proyecto quede claro.',
+          [startAction]);
+      }
+    }
+    // 5) Proyecto estancado o sin sesiones.
+    if (!terminal && !live && !paused) {
+      if (!sessions.length) {
+        const createdKey = wsHealthDateKey(p.created_at);
+        const createdDays = createdKey ? Math.max(0, -wsHealthDayDiff(createdKey)) : 0;
+        if (createdDays >= 14 && !(percent > 0)) {
+          push(snap, createdDays >= 45 ? 'warning' : 'info', 'never-worked', '🌱', 'sin sesiones',
+            'Proyecto sin sesiones',
+            `Se creó hace ${createdDays} días y todavía no tiene ningún bloque de trabajo.`,
+            'Programá el primer bloque o revisá si el proyecto sigue activo.',
+            [startAction]);
+        }
+      } else {
+        const activityMs = wsHealthLastActivityMs(snap);
+        const days = Math.floor(wsHealthDaysSinceMs(activityMs));
+        if (days >= 21) {
+          push(snap, days >= 45 ? 'critical' : 'warning', 'stalled', '🕸️', 'estancado',
+            'Proyecto estancado',
+            `Lleva ${days} días sin sesiones, cambios ni ediciones de ficha (última señal ${wsAgoFromMs(now - activityMs)}).`,
+            'Agendá un bloque corto para retomarlo o actualizá la ficha; si ya no sigue, marcalo como cancelado o descontinuado.',
+            [startAction, editAction]);
+        }
+      }
+    }
+    // 6) Hay trabajo reciente pero el % quedó congelado.
+    if (!terminal && percent > 0 && dev && dev.updated_at) {
+      const devDays = Math.floor(wsHealthDaysSinceMs(wsHealthMs(dev.updated_at)));
+      const recentWork = lastSessionMs && (now - lastSessionMs) <= 21 * dayMs;
+      if (devDays >= 21 && recentWork) {
+        push(snap, 'warning', 'progress-stale', '📉', 'avance sin actualizar',
+          'El % quedó atrás',
+          `Hay trabajo reciente, pero el porcentaje no se mueve ${wsRelPast(dev.updated_at)}.`,
+          'Revisá el % al cerrar las sesiones o ajustalo desde Proyectos para que el avance refleje el trabajo real.',
+          [editAction]);
+      }
+    }
+    // 7) 100% sin lanzar.
+    if (!terminal && !launched && percent != null && percent >= 100) {
+      const updated = dev && dev.updated_at;
+      const days = updated ? Math.floor(wsHealthDaysSinceMs(wsHealthMs(updated))) : 0;
+      if (!updated || days >= 2) {
+        push(snap, 'warning', 'complete-not-launched', '🎯', '100% sin lanzar',
+          'Proyecto al 100% sin lanzar',
+          `Está al 100%${updated ? ` desde ${wsRelPast(updated)}` : ''} y su estado sigue siendo «${launchStatusMeta(status).label}».`,
+          'Marcalo como lanzado o revisá qué falta para cerrar el proyecto.',
+          [editAction]);
+      }
+    }
+    // 8) Ficha incoherente: lanzado con avance incompleto.
+    if (launched && percent != null && percent < 100) {
+      push(snap, 'info', 'launched-incomplete', '🧩', 'ficha incoherente',
+        'Lanzado con avance incompleto',
+        `Figura como lanzado, pero el % registrado es ${fmtPct(percent)}.`,
+        'Actualizá el % o el estado para que la ficha y el tablero sean coherentes.',
+        [editAction]);
+    }
+    // 9) Fechas de lanzamiento.
+    if (!terminal && !launched) {
+      const confirmedKey = wsHealthDateKey(p.confirmed_date);
+      const expectedKey = wsHealthDateKey(p.expected_date);
+      const confirmedDiff = confirmedKey ? wsHealthDayDiff(confirmedKey) : 0;
+      const expectedDiff = expectedKey ? wsHealthDayDiff(expectedKey) : 0;
+      if (confirmedKey && confirmedDiff < 0) {
+        const overdue = -confirmedDiff;
+        push(snap, overdue >= 7 ? 'critical' : 'warning', 'confirmed-overdue', '📅', 'fecha confirmada vencida',
+          'La fecha confirmada ya pasó',
+          `La fecha confirmada era el ${wsFmtShortDay(confirmedKey)} y pasaron ${overdue} días; el proyecto sigue en «${launchStatusMeta(status).label}».`,
+          'Actualizá la fecha confirmada o el estado del proyecto para no sostener una promesa vencida.',
+          [editAction]);
+      } else if (expectedKey && expectedDiff < 0) {
+        const overdue = -expectedDiff;
+        push(snap, overdue >= 30 ? 'critical' : 'warning', 'release-overdue', '📅', 'fecha vencida',
+          'La fecha prevista ya pasó',
+          `La fecha prevista era el ${wsFmtShortDay(expectedKey)} y pasaron ${overdue} días; el proyecto sigue en «${launchStatusMeta(status).label}».`,
+          'Actualizá la fecha o el estado del proyecto para que la ficha no muestre una fecha que ya venció.',
+          [editAction]);
+      } else if (expectedKey && expectedDiff >= 0 && expectedDiff <= 7 && percent != null && percent < 80) {
+        const when = expectedDiff === 0
+          ? 'La fecha prevista es hoy'
+          : `Faltan ${expectedDiff} días para la fecha prevista (${wsFmtShortDay(expectedKey)})`;
+        push(snap, expectedDiff <= 3 && percent < 60 ? 'critical' : 'warning', 'launch-risk', '🚨', 'riesgo de lanzamiento',
+          'Lanzamiento cerca y avance bajo',
+          `${when} y el proyecto va por ${fmtPct(percent)}.`,
+          'Revisá el alcance o mové la fecha para no llegar al lanzamiento con el trabajo a medias.',
+          [editAction]);
+      }
+    }
+    // 10) Sesiones cerradas sin devlog (días anteriores a hoy).
+    const pending = wsHealthPendingOf(snap);
+    if (pending.oldestDay && pending.oldestDay < today) {
+      const age = Math.max(0, -wsHealthDayDiff(pending.oldestDay));
+      push(snap, age >= 7 ? 'critical' : age >= 2 ? 'warning' : 'info', 'devlog-pending', '📤', 'devlog pendiente',
+        'Hay sesiones sin devlog',
+        `${wsCount(pending.count, 'sesión cerrada', 'sesiones cerradas')} sin publicar. La más vieja es del ${wsFmtShortDay(pending.oldestDay)}${age ? ` (hace ${age} días)` : ''}.`,
+        'Publicá ese día desde Devlog del día para no perder el registro narrativo del trabajo.',
+        [{ label: '📅 Ver devlog', fn: 'wsHealthOpenDay', args: [`s:${pending.oldestDay}`] }]);
+    }
+    // 11) Proyecto oculto con trabajo reciente.
+    const hidden = p.is_active === false || p.isActive === false;
+    if (hidden && lastSessionMs && (now - lastSessionMs) <= 14 * dayMs) {
+      push(snap, 'info', 'hidden-active', '🙈', 'oculto con actividad',
+        'Proyecto oculto con trabajo reciente',
+        `No es visible en el catálogo, pero tuvo actividad ${wsAgoFromMs(now - lastSessionMs)}.`,
+        'Si ya está listo, activalo; si sigue en preparación, dejalo oculto hasta que corresponda.',
+        [editAction]);
+    }
+    // 12) Avance sin sesiones que lo respalden. Un proyecto lanzado puede
+    // haber avanzado antes de que existiera el registro de sesiones; al
+    // 100% ya lo cubre la regla anterior; y un estado manual (bloqueado, en
+    // espera, pausado o programado) ya explica por qué no hay trabajo nuevo.
+    if (!terminal && !launched && !plan && percent != null && percent > 0 && percent < 100 && !sessions.length) {
+      push(snap, 'info', 'progress-without-sessions', '📈', 'avance sin respaldo',
+        'Avance sin sesiones',
+        `El proyecto va por ${fmtPct(percent)}, pero no tiene ninguna sesión registrada.`,
+        'Registrá las sesiones que respaldan ese avance o ajustá el % desde Proyectos.',
+        [startAction]);
+    }
+    // 13) Estados manuales que quedaron viejos.
+    if (plan && planState) {
+      if (planState.key === 'late') {
+        push(snap, 'warning', 'plan-late', '🕐', 'inicio vencido',
+          'Inicio programado vencido',
+          planState.text,
+          'Iniciá la sesión o reprogramá el estado para que el tablero no quede mostrando un inicio viejo.',
+          [startAction, planAction]);
+      } else if (plan.kind === 'blocked') {
+        const since = plan.since || plan.updated_at;
+        const days = Math.floor(wsHealthDaysSinceMs(wsHealthMs(since)));
+        if (days >= 7) {
+          push(snap, 'warning', 'blocked-old', '⛔', 'bloqueo largo',
+            'Bloqueado hace demasiado',
+            `El proyecto está marcado como bloqueado ${wsRelPast(since)}.`,
+            'Anotá qué falta para desbloquearlo o cambiá el estado si ya se destrabó.',
+            [planAction]);
+        }
+      } else if (plan.kind === 'waiting') {
+        const since = plan.since || plan.updated_at;
+        const days = Math.floor(wsHealthDaysSinceMs(wsHealthMs(since)));
+        if (days >= 14) {
+          push(snap, 'info', 'waiting-old', '⏳', 'espera larga',
+            'En espera hace demasiado',
+            `Está en espera ${wsRelPast(since)}.`,
+            'Revisá si sigue en espera o pasalo a otro estado para reflejar la realidad.',
+            [planAction]);
+        }
+      } else if (['paused', 'break', 'review', 'testing'].includes(plan.kind)) {
+        const since = plan.since || plan.updated_at;
+        const days = Math.floor(wsHealthDaysSinceMs(wsHealthMs(since)));
+        if (days >= 14) {
+          push(snap, 'info', 'plan-stale', '🗓️', 'estado manual viejo',
+            'Estado manual sin actualizar',
+            `El estado «${planState.label}» lleva ${days} días sin cambios.`,
+            'Revisá si sigue siendo el estado real del proyecto o actualizalo.',
+            [planAction]);
+        }
+      }
+    }
+    // 14) Jornadas cerradas inusualmente largas.
+    const longDone = doneSessions
+      .filter((s) => Number(s.duration_minutes) >= 14 * 60)
+      .filter((s) => {
+        const end = wsHealthMs(s.ended_at || s.updated_at || s.started_at);
+        return end && (now - end) <= 60 * dayMs;
+      })
+      .sort((a, b) => Number(b.duration_minutes) - Number(a.duration_minutes))[0];
+    if (longDone) {
+      push(snap, 'info', 'long-session-done', '🕰️', 'jornada larga',
+        'Jornada inusualmente larga',
+        `«${longDone.title || 'Sesión'}» acumuló ${wsMinutes(longDone.duration_minutes)} en un solo bloque.`,
+        'Revisá si el cronómetro quedó abierto; si fue trabajo real, no hace falta hacer nada.',
+        []);
+    }
+    // 15) Lanzado sin versión o sin fecha confirmada.
+    if (launched) {
+      if (!wsHealthVersion(p)) {
+        push(snap, 'warning', 'no-release', '📦', 'lanzado sin versión',
+          'Lanzado sin versión registrada',
+          'El proyecto figura como lanzado, pero no tiene una release o versión cargada.',
+          'Cargá la release para que la ficha y el launcher muestren la versión correcta.',
+          [{ label: '📦 Releases', fn: 'openReleasesModal', args: [`r:${pid}`] }]);
+      }
+      if (!p.confirmed_date) {
+        push(snap, 'info', 'no-confirmed-date', '🗓️', 'lanzado sin fecha',
+          'Lanzado sin fecha confirmada',
+          'No hay fecha de lanzamiento confirmada en la ficha.',
+          'Cargá la fecha real para que la bitácora y la ficha sean precisas.',
+          [editAction]);
+      }
+    }
+  });
+
+  out.sort((a, b) => {
+    const ra = WS_HEALTH_SEV[a.severity] ? WS_HEALTH_SEV[a.severity].rank : 9;
+    const rb = WS_HEALTH_SEV[b.severity] ? WS_HEALTH_SEV[b.severity].rank : 9;
+    if (ra !== rb) return ra - rb;
+    return String(a.projectName).localeCompare(String(b.projectName), 'es')
+      || String(a.title).localeCompare(String(b.title), 'es');
+  });
+  return out;
+}
+
+function wsHealthEditProject(pid) {
+  const id = Number(pid) || 0;
+  const p = wsProjectById(id);
+  if (!p) return showToast('⚠️ Proyecto no encontrado');
+  if (isAdminOnlyProject(p)) return editManageProject(id);
+  if ((projectsCache || []).some((x) => Number(x.id) === id)) return editProject(id);
+  if (typeof window.owsNavigate === 'function') window.owsNavigate('/catalogo/proyectos');
+  showToast('✏️ Abrí la ficha del proyecto para editarlo');
+}
+function wsHealthOpenDay(day) {
+  const key = String(day || '');
+  if (!key) return;
+  setWsDayKey(key, true);
+  const card = document.getElementById('ws-daily');
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('is-flash');
+    setTimeout(() => card.classList.remove('is-flash'), 1200);
+  }
+  showToast(`📅 Devlog del ${wsFmtShortDay(key)} listo para revisar y publicar`);
+}
+function wsHealthVisibleIssues(issues) {
+  if (wsHealthShowAll) return issues;
+  // En móvil la sección tiene que seguir siendo mini: menos tarjetas visibles.
+  const limit = (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) ? 4 : 8;
+  const perProject = new Map();
+  const out = [];
+  for (const issue of issues) {
+    const n = perProject.get(issue.pid) || 0;
+    if (n >= 2) continue;
+    perProject.set(issue.pid, n + 1);
+    out.push(issue);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+function wsHealthIssueHtml(issue) {
+  const sev = WS_HEALTH_SEV[issue.severity] || WS_HEALTH_SEV.info;
+  const actions = (issue.actions || []).map((a) => {
+    const attrs = (a.args || []).map((v, i) => ` data-adm-a${i}="${escapeHtml(v)}"`).join('');
+    return `<button type="button" class="wsb-hact" data-adm-ev="click" data-adm="${escapeHtml(a.fn)}"${attrs} title="${escapeHtml(a.title || a.label)}">${escapeHtml(a.label)}</button>`;
+  }).join('');
+  return `<div class="wsb-hissue is-${escapeHtml(issue.severity)}">
+    <span class="wsb-hissue-ico" aria-hidden="true">${issue.icon || '•'}</span>
+    <div class="wsb-hissue-body">
+      <div class="wsb-hissue-top">
+        <b>${escapeHtml(issue.projectName)}</b>
+        <span class="wsb-hissue-tag">${escapeHtml(issue.title)}</span>
+        <span class="wsb-hissue-sev is-${escapeHtml(issue.severity)}">${escapeHtml(sev.label)}</span>
+      </div>
+      <p class="wsb-hissue-detail">${escapeHtml(issue.detail)}</p>
+      <p class="wsb-hissue-rec"><span aria-hidden="true">💡</span> ${escapeHtml(issue.recommendation)}</p>
+    </div>
+    ${actions ? `<div class="wsb-hissue-actions">${actions}</div>` : ''}
+  </div>`;
+}
+function renderWsHealth(issues) {
+  const box = document.getElementById('wsb-health');
+  if (!box) return;
+  wsHealthCache = Array.isArray(issues) ? issues : [];
+  const total = wsHealthCache.length;
+  const projects = new Set(wsHealthCache.map((i) => i.pid)).size;
+  const counts = {
+    critical: wsHealthCache.filter((i) => i.severity === 'critical').length,
+    warning: wsHealthCache.filter((i) => i.severity === 'warning').length,
+    info: wsHealthCache.filter((i) => i.severity === 'info').length
+  };
+  const visible = wsHealthVisibleIssues(wsHealthCache);
+  const hidden = Math.max(0, total - visible.length);
+  const pills = total
+    ? [
+        counts.critical ? `<span class="wsb-health-pill is-critical">🔴 ${counts.critical} crítico${counts.critical === 1 ? '' : 's'}</span>` : '',
+        counts.warning ? `<span class="wsb-health-pill is-warning">🟠 ${counts.warning} aviso${counts.warning === 1 ? '' : 's'}</span>` : '',
+        counts.info ? `<span class="wsb-health-pill is-info">🔵 ${counts.info} sugerencia${counts.info === 1 ? '' : 's'}</span>` : ''
+      ].filter(Boolean).join('')
+    : '<span class="wsb-health-pill is-ok">✓ Sin problemas detectados</span>';
+  box.classList.remove('hidden');
+  box.innerHTML = `
+    <div class="wsb-health-head">
+      <div class="wsb-health-title">
+        <span class="wsb-health-ico" aria-hidden="true">🩺</span>
+        <div>
+          <b>Salud del estudio</b>
+          <small>${total ? `${total} ${total === 1 ? 'problema' : 'problemas'} en ${projects} ${projects === 1 ? 'proyecto' : 'proyectos'}` : 'Proyectos, sesiones y devlogs revisados'}</small>
+        </div>
+      </div>
+      <div class="wsb-health-pills">${pills}</div>
+      <div class="wsb-health-tools">
+        <button type="button" class="wsb-health-btn" data-adm-ev="click" data-adm="renderWsBoard" data-adm-a0="b:1" title="Volver a revisar">↻</button>
+        <button type="button" class="wsb-health-btn" data-adm-ev="click" data-adm="toggleWsHealth">${wsHealthOpen ? 'Ocultar' : 'Mostrar'}</button>
+      </div>
+    </div>
+    ${wsHealthOpen ? `<div class="wsb-health-body">
+      ${total
+        ? visible.map(wsHealthIssueHtml).join('')
+        : `<div class="wsb-health-ok"><span aria-hidden="true">✅</span><b>Todo en orden</b><small>No hay proyectos estancados, sesiones olvidadas ni devlogs pendientes.</small></div>`}
+      ${total && (hidden > 0 || wsHealthShowAll)
+        ? `<button type="button" class="wsb-health-more" data-adm-ev="click" data-adm="toggleWsHealthShowAll">${wsHealthShowAll ? 'Ver solo los principales' : `Ver todos los problemas (${total})`}</button>`
+        : ''}
+    </div>` : ''}`;
+}
+function toggleWsHealth(force) {
+  wsHealthOpen = typeof force === 'boolean' ? force : !wsHealthOpen;
+  try { localStorage.setItem(WS_HEALTH_OPEN_KEY, wsHealthOpen ? '1' : '0'); } catch (_) {}
+  renderWsHealth(wsHealthCache);
+}
+function toggleWsHealthShowAll() {
+  wsHealthShowAll = !wsHealthShowAll;
+  renderWsHealth(wsHealthCache);
+}
+
+function renderWsBoardTimers() {
+  const list = document.getElementById('wsb-list');
+  if (!list) return;
+  list.querySelectorAll('[data-wsb-timer]').forEach((el) => {
+    const id = Number(el.getAttribute('data-wsb-timer'));
+    const s = (wsCache || []).find((x) => Number(x.id) === id);
+    if (s && s.status === 'active') el.textContent = wsStopwatch(wsElapsedSeconds(s));
+  });
+}
+function renderWsBoard(force) {
+  const list = document.getElementById('wsb-list');
+  if (!list) return;
+  syncWsHistoryUI();
+  syncWsAutoPublishUI();
+  const projects = wsAllProjects();
+  const kpis = document.getElementById('wsb-kpis');
+  const filters = document.getElementById('wsb-filters');
+  const healthBox = document.getElementById('wsb-health');
+  if (!projects.length) {
+    if (kpis) kpis.innerHTML = '';
+    if (filters) filters.innerHTML = '';
+    if (healthBox) { healthBox.innerHTML = ''; healthBox.classList.add('hidden'); }
+    wsHealthCache = [];
+    list.innerHTML = '<p class="loading-note">Todavía no hay proyectos cargados. Se piden al abrir Gestión.</p>';
+    return;
+  }
+  const snaps = projects.map(wsProjectSnapshot);
+  const health = wsProjectHealth(snaps);
+  const healthByProject = new Map();
+  health.forEach((issue) => {
+    if (!healthByProject.has(issue.pid)) healthByProject.set(issue.pid, []);
+    healthByProject.get(issue.pid).push(issue);
+  });
+  snaps.forEach((s) => { s.health = healthByProject.get(s.pid) || []; });
+  snaps.sort((a, b) => {
+    const ra = wsSnapRank(a);
+    const rb = wsSnapRank(b);
+    if (ra !== rb) return ra - rb;
+    if (a.key === 'scheduled' && b.key === 'scheduled' && a.plan && b.plan) {
+      const ta = new Date(a.plan.at || 0).getTime();
+      const tb = new Date(b.plan.at || 0).getTime();
+      if (ta !== tb) return ta - tb;
+    }
+    const la = a.last ? new Date(a.last.started_at || 0).getTime() : 0;
+    const lb = b.last ? new Date(b.last.started_at || 0).getTime() : 0;
+    if (la !== lb) return lb - la;
+    return String((a.project && (a.project.name || a.project.slug)) || '')
+      .localeCompare(String((b.project && (b.project.name || b.project.slug)) || ''), 'es');
+  });
+  const counts = wsBoardCounts(snaps);
+  const q = wsNormText(wsBoardQuery);
+  const filtered = snaps.filter((s) => {
+    if (wsBoardFilter === 'issues') {
+      if (!s.health || !s.health.length) return false;
+    } else if (wsBoardFilter !== 'all' && s.category !== wsBoardFilter) return false;
+    if (!q) return true;
+    const p = s.project || {};
+    return wsNormText(`${p.name || ''} ${p.slug || ''} ${p.genre || ''}`).includes(q);
+  });
+  const sig = [
+    wsBoardFilter,
+    wsBoardQuery,
+    projects.length,
+    Math.floor(Date.now() / 60000),
+    snaps.map((s) => `${s.pid}:${s.key}:${s.plan ? (s.plan.at || s.plan.since || '') : ''}:${s.live ? s.live.id : ''}:${s.paused ? s.paused.id : ''}:${s.last ? s.last.id : ''}:${s.percent}:${(s.health || []).map((h) => h.id).join(',')}`).join('|')
+  ].join('#');
+  if (!force && sig === wsBoardSig) {
+    renderWsBoardTimers();
+    return;
+  }
+  wsBoardSig = sig;
+  if (kpis) kpis.innerHTML = wsBoardKpisHtml(counts);
+  if (filters) filters.innerHTML = wsBoardFiltersHtml(counts);
+  renderWsHealth(health);
+  list.innerHTML = filtered.length
+    ? filtered.map(wsBoardRowHtml).join('')
+    : `<div class="wsb-empty"><span aria-hidden="true">🗂️</span><b>No hay proyectos con este filtro</b><small>Probá con “Todo” o cambiá la búsqueda.</small></div>`;
+  renderWsBoardTimers();
+}
+
+// ── Historial detallado (plegable) ──
+function syncWsHistoryUI() {
+  const wrap = document.getElementById('ws-history');
+  if (wrap) wrap.classList.toggle('hidden', !wsHistoryOpen);
+  const btn = document.getElementById('ws-history-toggle');
+  if (btn) {
+    btn.classList.toggle('is-on', !!wsHistoryOpen);
+    btn.textContent = wsHistoryOpen ? '🗂 Ocultar historial' : '🗂 Historial';
+  }
+}
+function toggleWsHistory(force) {
+  wsHistoryOpen = typeof force === 'boolean' ? force : !wsHistoryOpen;
+  try { localStorage.setItem('ows_admin_ws_history', wsHistoryOpen ? '1' : '0'); } catch (_) {}
+  syncWsHistoryUI();
+  if (wsHistoryOpen) {
+    renderWsTimeline();
+    if (!wsDailyCache) loadWsDaily();
+  }
+}
+function expandWsHistory() {
+  if (!wsHistoryOpen) toggleWsHistory(true);
+}
+function admReloadWsBoard() {
+  loadAdminManage();
+  loadProjectDevelopment();
+  loadWorkSessions(true);
+}
+
+// ── Iniciar desde el tablero ──
+function admStartProject(pid) {
+  const id = Number(pid) || 0;
+  const plan = id ? wsPlanOf(id) : null;
+  // Solo un inicio programado tiene sentido como título tentativo; una nota
+  // de "bloqueado" o "en revisión" no describe el trabajo que va a empezar.
+  const note = plan && plan.kind === 'scheduled' ? String(plan.note || '') : '';
+  openWsRealtimeForm(id || null, note);
+}
+
+// ── Modal: programar un estado o un inicio ──
+function wsPlanKindOptionsHtml(selected) {
+  const list = [
+    ['scheduled', '🗓 Programar inicio'],
+    ['waiting', '⏳ En espera / próximo'],
+    ['paused', '⏸ En pausa'],
+    ['review', '🔎 En revisión'],
+    ['testing', '🧪 En pruebas'],
+    ['blocked', '⛔ Bloqueado'],
+    ['break', '☕ En descanso'],
+    ['done', '✅ Terminado por hoy'],
+    ['offline', '🌙 Fuera de línea']
+  ];
+  return list.map(([id, label]) =>
+    `<option value="${id}"${selected === id ? ' selected' : ''}>${label}</option>`
+  ).join('');
+}
+function openWsPlanForm(pid) {
+  const id = Number(pid) || 0;
+  const p = wsProjectById(id);
+  if (!p) return showToast('⚠️ Proyecto no encontrado');
+  const plan = wsPlanOf(id);
+  wsPlanEditingPid = id;
+  wsPlanEditing = plan;
+  const body = document.getElementById('ws-modal-body');
+  if (!body) return;
+  wsModalStep = 'plan';
+  hideAlert('wsp-alert');
+  const kind = plan ? plan.kind : 'scheduled';
+  const atIso = plan && plan.kind === 'scheduled' && plan.at
+    ? plan.at
+    : new Date(Date.now() + 15 * 60000).toISOString();
+  const minutes = plan && plan.minutes ? Number(plan.minutes) : 0;
+  const note = plan ? String(plan.note || '') : '';
+  const dev = manageDevRow(id);
+  const pct = dev && dev.percent != null ? fmtPct(dev.percent) : '—';
+  const name = p.name || p.slug || `#${id}`;
+  const current = plan ? wsPlanState(plan) : null;
+  body.innerHTML = `
+    <div class="devmodal-head">
+      <div class="devmodal-icon">🗓</div>
+      <div class="devmodal-head-info">
+        <h3 class="devmodal-title">Estado del proyecto</h3>
+        <p class="modal-tagline">${escapeHtml(name)} · ${escapeHtml(pct)}${current ? ` · ahora: ${escapeHtml(current.label)}` : ''}</p>
+      </div>
+    </div>
+    <div class="wsp-project">
+      <span class="wsb-ico" aria-hidden="true">${wsProjectIconHtml(p)}</span>
+      <div><b>${escapeHtml(name)}</b><small>${escapeHtml(pct)} de avance</small></div>
+    </div>
+    <div class="wsp-summary" id="wsp-preview"></div>
+    <div class="field-group">
+      <label for="wsp-kind">¿Qué estado querés mostrar?</label>
+      <select id="wsp-kind" data-adm-ev="change" data-adm="onWsPlanKindChange">${wsPlanKindOptionsHtml(kind)}</select>
+    </div>
+    <div id="wsp-schedule-fields">
+      <div class="wsp-presets">
+        <button type="button" class="wsp-preset" data-adm-ev="click" data-adm="setWsPlanPreset" data-adm-a0="r:0">Ahora</button>
+        <button type="button" class="wsp-preset" data-adm-ev="click" data-adm="setWsPlanPreset" data-adm-a0="r:5">En 5 min</button>
+        <button type="button" class="wsp-preset" data-adm-ev="click" data-adm="setWsPlanPreset" data-adm-a0="r:15">En 15 min</button>
+        <button type="button" class="wsp-preset" data-adm-ev="click" data-adm="setWsPlanPreset" data-adm-a0="r:30">En 30 min</button>
+        <button type="button" class="wsp-preset" data-adm-ev="click" data-adm="setWsPlanPreset" data-adm-a0="r:60">En 1 h</button>
+        <button type="button" class="wsp-preset" data-adm-ev="click" data-adm="setWsPlanPreset" data-adm-a0="s:tomorrow">Mañana 9:00</button>
+      </div>
+      <div class="field-group">
+        <label for="wsp-at">Empieza</label>
+        <input type="datetime-local" id="wsp-at" value="${wsToLocalInput(atIso)}" data-adm-ev="input" data-adm="updateWsPlanPreview" />
+      </div>
+      <div class="field-group">
+        <label for="wsp-minutes">Duración estimada <small>(opcional)</small></label>
+        <select id="wsp-minutes" data-adm-ev="change" data-adm="updateWsPlanPreview">
+          <option value="0">Sin límite</option>
+          <option value="30"${minutes === 30 ? ' selected' : ''}>30 min</option>
+          <option value="60"${minutes === 60 ? ' selected' : ''}>1 h</option>
+          <option value="90"${minutes === 90 ? ' selected' : ''}>1 h 30 min</option>
+          <option value="120"${minutes === 120 ? ' selected' : ''}>2 h</option>
+          <option value="180"${minutes === 180 ? ' selected' : ''}>3 h</option>
+          <option value="240"${minutes === 240 ? ' selected' : ''}>4 h</option>
+          <option value="480"${minutes === 480 ? ' selected' : ''}>8 h</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-group">
+      <label for="wsp-note">Nota <small>(opcional)</small></label>
+      <input type="text" id="wsp-note" maxlength="160" value="${escapeHtml(note)}" placeholder="Ej: Terminar el sistema de combate" autocomplete="off" data-adm-ev="input" data-adm="updateWsPlanPreview" />
+    </div>
+    <div id="wsp-alert" class="alert-box hidden"></div>
+    <div class="ws-step-actions">
+      <button type="button" class="btn btn-ghost" data-adm-ev="click" data-adm="closeWsModal">Cancelar</button>
+      ${plan ? '<button type="button" class="btn btn-danger" data-adm-ev="click" data-adm="clearWsPlanFromForm">Quitar estado</button>' : ''}
+      <button type="button" class="btn btn-primary" data-adm-ev="click" data-adm="saveWsPlan">💾 Guardar estado</button>
+    </div>`;
+  onWsPlanKindChange();
+  openWsModal();
+  setTimeout(() => {
+    const k = document.getElementById('wsp-kind');
+    if (k) { try { k.focus({ preventScroll: true }); } catch (_) { try { k.focus(); } catch (_) {} } }
+  }, 60);
+}
+function onWsPlanKindChange() {
+  const sel = document.getElementById('wsp-kind');
+  const fields = document.getElementById('wsp-schedule-fields');
+  const scheduled = !sel || sel.value === 'scheduled';
+  if (fields) fields.classList.toggle('hidden', !scheduled);
+  if (scheduled) {
+    const at = document.getElementById('wsp-at');
+    if (at && !at.value) at.value = wsToLocalInput(new Date(Date.now() + 15 * 60000).toISOString());
+  }
+  updateWsPlanPreview();
+}
+function setWsPlanPreset(value) {
+  const input = document.getElementById('wsp-at');
+  const kind = document.getElementById('wsp-kind');
+  if (!input) return;
+  if (kind && kind.value !== 'scheduled') kind.value = 'scheduled';
+  const d = new Date();
+  if (value === 'tomorrow') {
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+  } else {
+    d.setTime(d.getTime() + (Number(value) || 0) * 60000);
+    d.setSeconds(0, 0);
+  }
+  input.value = wsToLocalInput(d.toISOString());
+  onWsPlanKindChange();
+}
+function wsReadPlanForm() {
+  const kindEl = document.getElementById('wsp-kind');
+  const atEl = document.getElementById('wsp-at');
+  const minEl = document.getElementById('wsp-minutes');
+  const noteEl = document.getElementById('wsp-note');
+  const kind = (kindEl && kindEl.value) || 'scheduled';
+  let at = '';
+  if (atEl && atEl.value) {
+    const d = new Date(atEl.value);
+    if (!Number.isNaN(d.getTime())) at = d.toISOString();
+  }
+  return {
+    kind,
+    at,
+    minutes: Math.max(0, Number(minEl && minEl.value) || 0),
+    note: String((noteEl && noteEl.value) || '').trim().slice(0, 160),
+    since: wsPlanEditing && wsPlanEditing.kind !== 'scheduled' && wsPlanEditing.since
+      ? wsPlanEditing.since
+      : new Date().toISOString()
+  };
+}
+function updateWsPlanPreview() {
+  const box = document.getElementById('wsp-preview');
+  if (!box) return;
+  const plan = wsReadPlanForm();
+  const st = wsPlanState(plan);
+  if (!st) {
+    box.innerHTML = '<span class="wsb-text">Elegí una fecha válida para el inicio.</span>';
+    return;
+  }
+  const tone = st.tone || 'plan';
+  box.innerHTML = `<span class="wsb-pill is-${escapeHtml(tone)}">${escapeHtml(st.label)}</span>
+    <div class="wsp-summary-text"><b>${escapeHtml(st.text)}</b>${st.sub ? `<small>${escapeHtml(st.sub)}</small>` : ''}</div>`;
+}
+function saveWsPlan() {
+  const pid = Number(wsPlanEditingPid) || 0;
+  if (!pid) return;
+  const plan = wsReadPlanForm();
+  if (plan.kind === 'scheduled') {
+    const t = plan.at ? new Date(plan.at).getTime() : NaN;
+    if (!Number.isFinite(t)) return showAlert('wsp-alert', 'Elegí cuándo va a empezar el trabajo.', 'error');
+    if (t < Date.now() - 60000) return showAlert('wsp-alert', 'Elegí una hora futura: la que cargaste ya pasó.', 'error');
+  }
+  const next = {
+    kind: plan.kind,
+    note: plan.note,
+    updated_at: new Date().toISOString()
+  };
+  if (plan.kind === 'scheduled') {
+    next.at = plan.at;
+    next.minutes = Math.max(0, Number(plan.minutes) || 0);
+  } else {
+    const prev = wsPlanEditing;
+    next.since = prev && prev.kind === plan.kind && prev.since ? prev.since : new Date().toISOString();
+  }
+  wsSetPlan(pid, next);
+  wsPlanEditingPid = 0;
+  wsPlanEditing = null;
+  closeWsModal();
+  renderWsBoard(true);
+  showToast('🗓 Estado guardado');
+}
+function clearWsPlanFromForm() {
+  const pid = Number(wsPlanEditingPid) || 0;
+  if (pid) wsDropPlan(pid);
+  wsPlanEditingPid = 0;
+  wsPlanEditing = null;
+  closeWsModal();
+  renderWsBoard(true);
+  showToast('🗓 Estado quitado');
+}
 
 // ── Sesiones del día ──
 function wsTodayKey() {
@@ -10827,18 +13471,18 @@ function wsReworksSorted(s) {
 let wsLiveSig = '';
 function renderWsLiveBar() {
   renderWsPausedBar();
+  const list = wsRunningList();
+  const btn = document.getElementById('ws-start-btn');
+  // El botón principal SIEMPRE abre una nueva sesión, aunque haya otras
+  // corriendo. El clic lo maneja el dispatch [data-adm]: acá solo se cambia
+  // el texto para no disparar openWsRealtimeForm dos veces.
+  if (btn) {
+    btn.textContent = list.length ? `＋ Iniciar otra (${list.length})` : '⏱ Iniciar';
+    btn.classList.remove('ws-start-btn-stop');
+  }
   const bar = document.getElementById('ws-live-bar');
   if (!bar) return;
   const note = document.getElementById('ws-live-note');
-  const list = wsRunningList();
-  const btn = document.getElementById('ws-start-btn');
-  // El botón principal SIEMPRE abre una nueva sesión: ya no se bloquea ni
-  // se convierte en "detener" aunque haya otras corriendo.
-  if (btn) {
-    btn.textContent = list.length ? `＋ Iniciar otra en vivo (${list.length} corriendo)` : '⏱ Iniciar en tiempo real';
-    btn.classList.remove('ws-start-btn-stop');
-    btn.onclick = () => openWsRealtimeForm();
-  }
   if (!list.length) {
     wsLiveSig = '';
     bar.classList.add('hidden');
@@ -11012,8 +13656,10 @@ function wsMinutesSince(iso) {
 
 // ── Paso 1: pedir los datos ANTES de arrancar ──
 // Se pueden tener VARIAS en vivo a la vez: nunca se redirige a detener.
-function openWsRealtimeForm() {
+function openWsRealtimeForm(presetPid, presetTitle) {
   const running = wsRunningList();
+  const wantedPid = Number(presetPid) || 0;
+  const wantedTitle = String(presetTitle || '').trim();
   const body = document.getElementById('ws-modal-body');
   if (!body) return;
   wsModalStep = 'start';
@@ -11035,6 +13681,7 @@ function openWsRealtimeForm() {
       <label for="wsrt-project">¿De qué proyecto?</label>
       <select id="wsrt-project" data-adm-ev="change" data-adm="onWsrtProjectChange"></select>
     </div>
+    ${wsUpdateBlockHtml('wsrt')}
     <div class="field-group">
       <label for="wsrt-title">¿Qué vas a hacer? *</label>
       <input type="text" id="wsrt-title" maxlength="160" placeholder="Ej: Sistema de combate" autocomplete="off" />
@@ -11050,11 +13697,20 @@ function openWsRealtimeForm() {
     </div>`;
   const sel = document.getElementById('wsrt-project');
   if (sel) {
-    sel.innerHTML = devlogProjectOptions();
-    const last = lastWsProjectId();
-    if (last) sel.value = String(last);
+    sel.innerHTML = devlogProjectOptions(wantedPid || undefined);
+    if (wantedPid) {
+      sel.value = String(wantedPid);
+      wsLastProjectId = wantedPid;
+    } else {
+      const last = lastWsProjectId();
+      if (last) sel.value = String(last);
+    }
   }
   onWsrtProjectChange();
+  if (wantedTitle) {
+    const titleEl = document.getElementById('wsrt-title');
+    if (titleEl) titleEl.value = wantedTitle;
+  }
   openWsModal();
   const first = document.getElementById('wsrt-title');
   if (first) setTimeout(() => first.focus(), 40);
@@ -11076,6 +13732,7 @@ function lastWsProjectId() {
 function onWsrtProjectChange() {
   const sel = document.getElementById('wsrt-project');
   if (sel && sel.value) wsLastProjectId = Number(sel.value);
+  syncWsUpdateBlock('wsrt', null);
 }
 
 async function startWsRealtime() {
@@ -11085,6 +13742,8 @@ async function startWsRealtime() {
   if (!title) {
     return showAlert('wsrt-alert', 'Escribí qué vas a hacer antes de empezar.', 'error');
   }
+  const upd = readWsUpdateLink('wsrt');
+  if (upd.error) return showAlert('wsrt-alert', upd.error, 'error');
   const sel = document.getElementById('wsrt-project');
   if (btn) { btn.disabled = true; btn.textContent = '▶ Arrancando…'; }
   try {
@@ -11097,7 +13756,8 @@ async function startWsRealtime() {
         details: (document.getElementById('wsrt-details') || {}).value || '',
         realtime: true,
         tz_offset: wsTzOffset(),
-        created_by: getCurrentAdminName()
+        created_by: getCurrentAdminName(),
+        ...(upd.skip ? {} : { event_id: upd.event_id, update_name: upd.update_name })
       })
     });
     const data = await res.json().catch(() => ({}));
@@ -11105,10 +13765,12 @@ async function startWsRealtime() {
     closeWsModal();
     // La sesión arranca en su día; si el panel estaba en otro día, saltamos.
     const s = data.session;
+    // El estado programado ya cumplió su función: se limpia solo.
+    if (s && s.project_id) wsDropPlan(s.project_id);
     if (s && s.local_day) setWsDayKey(s.local_day);
     else await loadWorkSessions();
-    // El tick del reloj ya corre; la barra se pinta en el siguiente frame.
-    setTimeout(() => { renderWsLiveBar(); startWsClock(); }, 0);
+    // El tick del reloj ya corre; la barra y el tablero se pintan enseguida.
+    setTimeout(() => { renderWsLiveBar(); renderWsBoard(true); startWsClock(); }, 0);
     showToast(`⏱ Sesión iniciada: ${title} — el cronómetro corre desde las ${wsClock(s && s.started_at)}`);
   } catch (err) {
     showAlert('wsrt-alert', err.message || 'No se pudo iniciar la sesión.', 'error');
@@ -11146,6 +13808,7 @@ function openWsStopForm(id) {
     ${history}
     <div class="wsrt-summary">
       <div class="wsrt-sum-row"><span>Proyecto</span><b>${escapeHtml(proj)}</b></div>
+      ${s.is_update ? `<div class="wsrt-sum-row"><span>Actualización</span><b>${escapeHtml(s.update_name || 'Vinculada a un evento')}</b></div>` : ''}
       <div class="wsrt-sum-row"><span>Empezó</span><b>${wsClock(s.started_at)}</b></div>
       <div class="wsrt-sum-row wsrt-sum-live"><span>Este tramo</span><b id="wsrt-elapsed">${wsStopwatch(elapsed)}</b></div>
       ${s.parts_count > 1 ? `<div class="wsrt-sum-row"><span>Trabajado antes</span><b>${wsMinutes(s.duration_minutes)}</b></div>` : ''}
@@ -11193,7 +13856,8 @@ function openWsStopForm(id) {
       <label for="wsrt-details2">Detalle</label>
       <textarea id="wsrt-details2" rows="3" maxlength="4000" placeholder="Qué se hizo, qué quedó pendiente…">${escapeHtml(s.details || '')}</textarea>
     </div>
-    <div class="field-group">
+    ${room > 0
+      ? `<div class="field-group">
       <label>¿Cuánto avanzó? <small>(en total, contando los tramos anteriores)</small></label>
       <div class="ws-delta">
         <input type="range" id="wsrt-delta-range" min="0" max="${room}" step="0.5" value="0" data-adm-ev="input" data-adm="syncWsrtDelta" />
@@ -11201,7 +13865,8 @@ function openWsStopForm(id) {
         <span class="ws-delta-sign">%</span>
       </div>
       <p class="form-hint" id="wsrt-delta-hint"></p>
-    </div>
+    </div>`
+      : `<div class="wsrt-note">✨ El desarrollo ya está al <b>100%</b>: esta sesión es para una <b>actualización</b> del juego y no mueve el % de desarrollo. Queda registrada con su tiempo y sus cambios.</div>`}
     ${wsCompletionHtml('wsrt', s)}
     <div id="wsrt-alert" class="alert-box hidden"></div>
     <div class="ws-step-actions">
@@ -11290,6 +13955,7 @@ async function stopWsRealtime() {
     if (s && s.end_local_day) setWsDayKey(s.end_local_day);
     else { await loadWorkSessions(); await loadWsDaily(); }
     showWsStopToast(s, comp, dur, delta);
+    queueWsAutoPublish(s);
   } catch (err) {
     showAlert('wsrt-alert', err.message || 'No se pudo detener la sesión.', 'error');
     if (btn) { btn.disabled = false; btn.textContent = wsEndButtonLabel(readWsCompletion('wsrt').completion); }
@@ -11362,7 +14028,7 @@ async function resumeWsSession(id) {
     const ss = data.session;
     if (ss && ss.local_day) setWsDayKey(ss.local_day);
     else await loadWorkSessions();
-    setTimeout(() => { renderWsLiveBar(); startWsClock(); }, 0);
+    setTimeout(() => { renderWsLiveBar(); renderWsBoard(true); startWsClock(); }, 0);
     // Al retomar, los reworks que estaban pausados vuelven a la cola con ella.
     const backReworks = wsReworksSorted(s).filter((r) => r.status !== 'done');
     showToast(`▶ Retomada: ${ss.title} — el cronómetro corre desde las ${wsClock((ss.parts[ss.parts.length - 1] || {}).from)}. `
@@ -11926,6 +14592,13 @@ async function loadWorkSessions(manual) {
     wsCache = Array.isArray(data.sessions) ? data.sessions : [];
     // El índice de reworks se arma desde las sesiones recién cargadas.
     wsInvalidateReworkIndex();
+    // Una sesión en vivo deja sin sentido el estado programado del proyecto:
+    // se limpia solo, sin tocar las sesiones ni el backend.
+    wsCache.forEach((s) => {
+      if (s.status === 'active' && s.project_id) wsDropPlan(s.project_id);
+    });
+    // El tablero se repinta con las sesiones recién llegadas.
+    renderWsBoard(true);
     // La barra en vivo se reconstruye desde el servidor: si la sesión quedó
     // abierta, vuelve a aparecer aunque se haya recargado la página.
     renderWsLiveBar();
@@ -12492,6 +15165,8 @@ function wsToLocalInput(iso) {
 function openWsForm(id, mode) {
   const form = document.getElementById('ws-form');
   if (!form) return;
+  // El formulario manual vive dentro del historial: si estaba plegado, se abre.
+  expandWsHistory();
   wsEditingId = id ? Number(id) : null;
   const s = id ? wsCache.find((x) => Number(x.id) === wsEditingId) : null;
   const now = new Date();
@@ -12501,6 +15176,15 @@ function openWsForm(id, mode) {
     projSel.innerHTML = devlogProjectOptions(pid);
     projSel.value = pid == null ? '' : String(pid);
   }
+  const updSlot = document.getElementById('ws-update-slot');
+  if (updSlot && !updSlot.innerHTML.trim()) updSlot.innerHTML = wsUpdateBlockHtml('ws');
+  // El bloque vive en el formulario (no se re-renderiza): al abrir se limpia
+  // la selección anterior para que una sesión nueva no herede el evento de la
+  // que se estaba editando.
+  const updSelect = document.getElementById('ws-event');
+  if (updSelect) updSelect.value = '';
+  const updName = document.getElementById('ws-upd-name');
+  if (updName) updName.value = '';
   const set = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v; };
   set('ws-title', s ? s.title : '');
   set('ws-details', s ? s.details : '');
@@ -12517,9 +15201,12 @@ function openWsForm(id, mode) {
   renderWsBreaks();
   const room = s ? Math.max(0, 100 - currentProjectPercent(pid)) : 100;
   const delta = s ? round2(s.progress_delta) : 0;
+  // Editar una sesión vieja no puede borrarle el avance porque el proyecto ya
+  // haya llegado al 100%: el tope se amplía hasta lo que tenía registrado.
+  const maxDelta = Math.max(room, delta);
   const range = document.getElementById('ws-delta-range');
-  if (range) { range.max = String(room); range.value = String(Math.min(delta, room)); }
-  set('ws-delta-num', String(round2(Math.min(delta, room))));
+  if (range) { range.max = String(maxDelta); range.value = String(Math.min(delta, maxDelta)); }
+  set('ws-delta-num', String(round2(Math.min(delta, maxDelta))));
   onWsProjectChange();
   // La sección de "incompleta" también se puede corregir después: el campo
   // se arma con lo que ya tenía la sesión.
@@ -12554,16 +15241,34 @@ function currentProjectPercent(projectId) {
 // le queda disponible: el rango se ajusta al tope real.
 function onWsProjectChange() {
   const sel = document.getElementById('ws-project');
-  const room = Math.max(0, 100 - currentProjectPercent(sel ? sel.value : ''));
+  const pid = sel && sel.value ? Number(sel.value) : 0;
+  const pct = pid ? currentProjectPercent(pid) : 0;
+  const atEnd = !!pid && pct >= 100;
+  const room = Math.max(0, 100 - pct);
+  const session = wsEditingId
+    ? (wsCache.find((x) => Number(x.id) === Number(wsEditingId)) || null)
+    : null;
+  // Al editar se conserva el avance que la sesión ya tenía registrado (el
+  // proyecto pudo haber llegado al 100% después): el tope no lo borra.
+  const keepDelta = session && Number(session.project_id) === pid
+    ? round2(session.progress_delta || 0)
+    : 0;
   const range = document.getElementById('ws-delta-range');
-  if (range) range.max = String(room);
+  if (range) range.max = String(Math.max(room, keepDelta));
+  // En un proyecto al 100% el desarrollo ya terminó: la sesión es una
+  // actualización y no mueve el %. El campo se oculta al crear (no al editar).
+  const deltaField = document.getElementById('ws-delta-field');
+  if (deltaField) deltaField.classList.toggle('hidden', atEnd && !wsEditingId);
   const hint = document.getElementById('ws-delta-hint');
   if (hint) {
-    hint.innerHTML = sel && sel.value
-      ? `Queda <b>${fmtPct(currentProjectPercent(sel.value))}</b> de este proyecto, así que la sesión puede mover hasta <b>${fmtPct(room)}</b>. Se aplica al <b>cierre</b> de la sesión, no al abrirla.`
-      : 'Se aplica al <b>cierre</b> de la sesión, no al abrirla. Si es 0, la sesión solo queda registrada.';
+    hint.innerHTML = atEnd
+      ? 'El desarrollo ya está al <b>100%</b>: esta sesión es para una <b>actualización</b> del juego y no mueve el % de desarrollo.'
+      : pid
+        ? `Queda <b>${fmtPct(pct)}</b> de este proyecto, así que la sesión puede mover hasta <b>${fmtPct(room)}</b>. Se aplica al <b>cierre</b> de la sesión, no al abrirla.`
+        : 'Se aplica al <b>cierre</b> de la sesión, no al abrirla. Si es 0, la sesión solo queda registrada.';
   }
   syncWsDelta();
+  syncWsUpdateBlock('ws', session);
 }
 
 function syncWsDelta(fromNum) {
@@ -12611,6 +15316,10 @@ async function saveWsSession() {
   if (built.parts.length > 1 && !end) {
     return showAlert('ws-alert', 'Para anotar pausas necesitás la hora de fin de la sesión.', 'error');
   }
+  // Actualización vinculada: se valida acá para no guardar una sesión de un
+  // proyecto al 100% sin evento (el backend vuelve a validar el vínculo).
+  const upd = readWsUpdateLink('ws');
+  if (upd.error) return showAlert('ws-alert', upd.error, 'error');
   // Sin hora de fin la sesión queda abierta: es el "minidevlog del momento".
   const status = comp.completion === 'paused' ? 'paused' : (end ? 'done' : 'active');
   const body = {
@@ -12625,7 +15334,8 @@ async function saveWsSession() {
     completion: comp.completion,
     incomplete_reason: comp.incomplete_reason,
     tz_offset: wsTzOffset(),
-    created_by: getCurrentAdminName()
+    created_by: getCurrentAdminName(),
+    ...(upd.skip ? {} : { event_id: upd.event_id, update_name: upd.update_name })
   };
   const btn = document.getElementById('ws-save');
   if (btn) { btn.disabled = true; btn.textContent = '💾 Guardando…'; }
@@ -12638,6 +15348,8 @@ async function saveWsSession() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
     closeWsForm();
+    // Al registrar trabajo del proyecto, el estado programado ya no aplica.
+    if (pid) wsDropPlan(pid);
     // El % pudo cambiar: se sincroniza el % real con lo que dice el servidor.
     if (data.development) {
       const i = devProgressCache.findIndex((d) => Number(d.project_id) === Number(data.development.project_id));
@@ -12676,6 +15388,7 @@ async function saveWsSession() {
         showToast('✅ Sesión guardada');
       }
     }
+    if (status === 'done') queueWsAutoPublish(s);
     startWsClock();
   } catch (err) {
     showAlert('ws-alert', err.message || 'No se pudo guardar la sesión.', 'error');
@@ -12741,6 +15454,7 @@ async function closeWorkSession(id) {
     } else {
       showToast(delta ? `✅ Sesión cerrada · ${fmtDelta(delta)} sumados al %` : '✅ Sesión cerrada');
     }
+    queueWsAutoPublish(ss);
     loadWorkSessions();
     loadWsDaily();
     startWsClock();
@@ -12787,6 +15501,8 @@ function startWsClock() {
     clock.textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
     // Barra de la sesión en vivo
     renderWsLiveBar();
+    // Tablero: cronómetros cada segundo y repintado completo al cambiar el minuto.
+    renderWsBoard();
     // Contadores de cada sesión abierta de la línea de tiempo
     document.querySelectorAll('[data-ws-elapsed]').forEach((el) => {
       const s = wsCache.find((x) => Number(x.id) === Number(el.getAttribute('data-ws-elapsed')));
@@ -12986,6 +15702,9 @@ function wsSessionRowHtml(s, day) {
           <span class="ws-item-proj">${s.project_id
             ? `🎯 ${escapeHtml(s.project_name || ('#' + s.project_id))}`
             : '🌐 Sin proyecto'}</span>
+          ${s.is_update
+            ? `<span class="ws-item-upd" title="Trabajo de una actualización: todas estas sesiones se agrupan en el evento">✨ ${escapeHtml(s.update_name || 'Actualización')}</span>`
+            : ''}
           ${deltaNote}
           ${s.interrupt_count && s.paused_minutes
             ? `<span class="ws-item-split" title="Tiempo que estuvo pausada entre los tramos">⏳ ${wsMinutes(s.paused_minutes)} en pausa</span>` : ''}
@@ -14553,7 +17272,7 @@ async function loadProjectActivity(manual) {
     startPaxAutoRefresh();
     if (manual) {
       const n = paxHistoryCache.length;
-      showToast(`✔ Bitácora actualizada: ${n} ${n === 1 ? 'movimiento' : 'movimientos'} en el historial`);
+      showToast(`✔ Registro actualizado: ${n} ${n === 1 ? 'movimiento' : 'movimientos'}`);
     }
   } catch (err) {
     const body = document.getElementById('pax-table-body');
@@ -14564,7 +17283,7 @@ async function loadProjectActivity(manual) {
       empty.classList.remove('hidden');
       const t = empty.querySelector('.news-empty-title');
       const s = empty.querySelector('.news-empty-sub');
-      if (t) t.textContent = 'No se pudo cargar la bitácora';
+      if (t) t.textContent = 'No se pudo cargar el registro';
       if (s) s.textContent = err.message || 'Revisá tu conexión.';
     }
   }
@@ -14597,6 +17316,1151 @@ if (!window._paxDayTimer) {
 }
 
 // =======================================================
+// ACTUALIZACIONES — registro liviano por proyecto
+// =======================================================
+// Una actualización = proyecto + % + estado + nota. Se guarda en el mismo
+// historial de progreso que usa Gestión (PUT /ows-project-development/:id),
+// así el avance del proyecto y su bitácora quedan en un solo lugar.
+
+const UPD_STATUS_LABELS = {
+  planificacion: 'Planificación',
+  prototipo: 'Prototipo',
+  desarrollo: 'En desarrollo',
+  testing: 'Testing',
+  ajustes: 'Ajustes',
+  listo: 'Listo',
+  publicado: 'Publicado',
+  pausado: 'Pausado'
+};
+
+let projectHistoryRaw = [];           // filas crudas de /ows-project-development/history
+let projectHistoryProjectsCache = []; // proyectos con created_at/status/confirmed_date
+let projectTimelineCache = [];        // eventos unificados: alta, avance, 100% y lanzamiento
+let histType = 'all';                 // all | created | progress | milestone | launch
+
+function updHint(message, isError) {
+  const el = document.getElementById('upd-hint');
+  if (!el) return;
+  el.textContent = message || '';
+  el.classList.toggle('is-error', !!isError);
+}
+
+function updCurrentProject() {
+  const sel = document.getElementById('upd-project');
+  const pid = Number(sel && sel.value);
+  return (devProgressCache || []).find((p) => Number(p.project_id) === pid) || null;
+}
+
+// El % se edita con la barra o con el número: los dos se mantienen juntos.
+// El número admite decimales (el % real del proyecto puede tenerlos); la
+// barra trabaja en enteros y sirve para movimientos rápidos.
+function syncUpdPercent(value) {
+  const src = this && this.id ? this.id : '';
+  if (src === 'upd-percent' && String(value).trim() === '') return;
+  const raw = Number(value);
+  const n = Number.isFinite(raw) ? Math.max(0, Math.min(100, round2(raw))) : 0;
+  const range = document.getElementById('upd-range');
+  const num = document.getElementById('upd-percent');
+  if (range) {
+    const step = Math.round(n);
+    if (range.value !== String(step)) range.value = String(step);
+    range.style.setProperty('--upd-pct', n + '%');
+  }
+  // Mientras se escribe no se pisa el campo: reescribirlo rompería "72."
+  // antes de llegar a "72.5". Solo se corrige si se fue de rango.
+  if (num) {
+    if (src === 'upd-percent') {
+      if (raw > 100) num.value = '100';
+      if (raw < 0) num.value = '0';
+    } else if (num.value !== String(n)) {
+      num.value = String(n);
+    }
+  }
+  // Al mover el %, el aviso deja de mostrar el estado guardado y pasa a
+  // contar el salto: "45% → 55% (+10)". Sutil, sin sumar otra etiqueta.
+  if (src === 'upd-range' || src === 'upd-percent') {
+    const project = updCurrentProject();
+    if (!project) return;
+    const base = Number(project.percent) || 0;
+    const diff = round2(n - base);
+    if (!diff) {
+      updHint(`Sin cambios de avance: ${fmtPct(base)}`);
+    } else {
+      const sign = diff > 0 ? '+' : '−';
+      updHint(`${fmtPct(base)} → ${fmtPct(n)} (${sign}${Math.abs(diff)})`);
+    }
+  }
+}
+
+function onUpdProjectChange() {
+  const project = updCurrentProject();
+  if (!project) return;
+  syncUpdPercent(Number(project.percent) || 0);
+  const status = String(project.status || '');
+  const sel = document.getElementById('upd-status');
+  if (sel && UPD_STATUS_LABELS[status]) sel.value = status;
+  const label = UPD_STATUS_LABELS[status];
+  updHint(`Actual: ${fmtPct(project.percent)}${label ? ' · ' + label : ''}`);
+}
+
+// Lista única de proyectos para los dos selects: el de Actualizaciones y el
+// filtro del Historial. Se arma con lo que ya está en memoria y se completa
+// con la consulta de proyectos (que trae created_at y admin_only).
+function histProjectList() {
+  const seen = new Map();
+  (devProgressCache || []).forEach((p) => {
+    const id = Number(p.project_id || p.id || 0);
+    if (!id) return;
+    seen.set(id, {
+      id,
+      name: p.name || p.slug || ('#' + id),
+      admin_only: p.admin_only === true || p.adminOnly === true
+    });
+  });
+  (projectHistoryProjectsCache || []).forEach((p) => {
+    const id = Number(p.id || 0);
+    if (!id) return;
+    const prev = seen.get(id) || {};
+    seen.set(id, {
+      ...prev,
+      id,
+      name: p.name || p.slug || prev.name || ('#' + id),
+      admin_only: prev.admin_only === true || isAdminOnlyProject(p)
+    });
+  });
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+}
+
+function updProjectOptions(includeEmpty, list) {
+  const rows = Array.isArray(list) ? list : histProjectList();
+  const head = includeEmpty ? '<option value="">Todos los proyectos</option>' : '';
+  return head + rows.map((p) => {
+    const name = p.name || p.slug || ('#' + (p.id || p.project_id));
+    const suffix = p.admin_only ? ' · solo-admin' : '';
+    return `<option value="${Number(p.id || p.project_id)}">${escapeHtml(name)}${suffix}</option>`;
+  }).join('');
+}
+
+function fillUpdateSelects() {
+  const list = histProjectList();
+  const projectSel = document.getElementById('upd-project');
+  if (projectSel) {
+    const prev = projectSel.value;
+    projectSel.innerHTML = updProjectOptions(false, list);
+    // Sin selección previa, se abre en el proyecto tocado más recientemente:
+    // es el que se viene siguiendo y evita empezar por orden alfabético.
+    const recent = (devProgressCache || []).slice().sort((a, b) =>
+      new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
+    )[0];
+    const next = prev || (recent ? String(recent.project_id) : '');
+    if (next) projectSel.value = next;
+    if (projectSel.value) onUpdProjectChange();
+  }
+  // El filtro del Historial conserva lo elegido: recargar no debe devolver
+  // al usuario al principio de la línea de tiempo.
+  const histSel = document.getElementById('hist-project');
+  if (histSel) {
+    const prev = histSel.value;
+    histSel.innerHTML = updProjectOptions(true, list);
+    histSel.value = prev || '';
+  }
+}
+
+function histIsoOfDay(key, endOfDay) {
+  const { y, m, d } = paxKeyParts(key);
+  // Las fechas sin hora (lanzamientos) se ubican al cierre del día: así el
+  // hecho principal encabeza su jornada en vez de mezclarse con los avances.
+  return y ? new Date(y, m - 1, d, endOfDay ? 23 : 12, endOfDay ? 59 : 0, 0) : null;
+}
+
+function histTimeLabel(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Une las tres fuentes en una sola lista ordenada. El alta y el lanzamiento
+// salen de ows-launch-projects; los avances, del historial de progreso.
+// El día que un avance cruza el 100% se cuenta como hito, no como avance.
+function buildProjectTimeline() {
+  const events = [];
+  const todayKey = paxKeyFromDate(new Date());
+  const projects = new Map();
+  const addProject = (id, extra) => {
+    const pid = Number(id || 0);
+    if (!pid) return;
+    const prev = projects.get(pid) || {};
+    projects.set(pid, { ...prev, ...extra, id: pid });
+  };
+  (devProgressCache || []).forEach((p) => addProject(p.project_id, {
+    name: p.name || p.slug || '',
+    icon_url: p.icon_url || '',
+    admin_only: p.admin_only === true,
+    status: p.status || '',
+    created_at: p.created_at || null,
+    updated_at: p.updated_at || null,
+    confirmed_date: p.confirmed_date || null
+  }));
+  (projectHistoryProjectsCache || []).forEach((p) => addProject(p.id, {
+    name: p.name || p.slug || '',
+    icon_url: p.icon_url || p.iconUrl || '',
+    admin_only: isAdminOnlyProject(p),
+    status: p.status || '',
+    created_at: p.created_at || null,
+    updated_at: p.updated_at || null,
+    confirmed_date: p.confirmed_date || p.confirmedDate || null
+  }));
+  const nameOf = (id) => {
+    const p = projects.get(Number(id));
+    return (p && (p.name || p.slug)) || ('#' + Number(id || 0));
+  };
+
+  // 1) Altas: la fecha real de creación del proyecto.
+  projects.forEach((p) => {
+    const key = paxKeyOf(p.created_at);
+    if (!key) return;
+    const at = new Date(p.created_at);
+    if (Number.isNaN(at.getTime())) return;
+    events.push({
+      id: `created-${p.id}`,
+      type: 'created',
+      projectId: p.id,
+      projectName: p.name || p.slug || ('#' + p.id),
+      iconUrl: p.icon_url || '',
+      adminOnly: p.admin_only === true,
+      key,
+      ts: at.getTime(),
+      time: histTimeLabel(at.getTime()),
+      action: p.admin_only === true ? 'fue agregado (solo-admin)' : 'fue agregado',
+      note: '',
+      percent: null,
+      delta: 0,
+      status: '',
+      by: ''
+    });
+  });
+
+  // 2) Avances. Cada fila ya trae before/after, así que el paso a 100% se
+  // detecta sin mirar el proyecto actual (que pudo seguir cambiando).
+  (projectHistoryRaw || []).forEach((u) => {
+    const at = u.created_at ? new Date(u.created_at) : null;
+    if (!at || Number.isNaN(at.getTime())) return;
+    const before = Number(u.percent_before) || 0;
+    const after = Number(u.percent_after) || 0;
+    const milestone = after >= 100 && before < 100;
+    events.push({
+      id: `log-${u.id || `${u.project_id}-${at.getTime()}`}`,
+      type: milestone ? 'milestone' : 'progress',
+      projectId: Number(u.project_id || 0),
+      projectName: u.project_name || nameOf(u.project_id),
+      iconUrl: u.project_icon_url || '',
+      adminOnly: u.admin_only === true,
+      key: paxKeyOf(u.created_at),
+      ts: at.getTime(),
+      time: histTimeLabel(at.getTime()),
+      action: milestone ? 'completó el 100%' : `avanzó a ${fmtPct(after)}`,
+      note: String(u.note || '').trim(),
+      percent: after,
+      delta: round2(u.delta || (after - before)),
+      status: String(u.status || ''),
+      by: String(u.created_by || '')
+    });
+  });
+
+  // 3) Lanzamientos. La fecha confirmada manda; si no hay, se usa la última
+  // actualización. Una fecha futura todavía no es historia: se omite.
+  projects.forEach((p) => {
+    if (String(p.status || '').toLowerCase() !== 'launched') return;
+    const confirmedKey = paxKeyOfDateField(p.confirmed_date);
+    if (confirmedKey && confirmedKey > todayKey) return;
+    const fallback = new Date(p.updated_at || p.created_at || 0);
+    const key = confirmedKey || paxKeyOf(p.updated_at) || paxKeyOf(p.created_at);
+    if (!key) return;
+    const at = confirmedKey
+      ? histIsoOfDay(key, true)
+      : (Number.isNaN(fallback.getTime()) ? histIsoOfDay(key, true) : fallback);
+    events.push({
+      id: `launch-${p.id}`,
+      type: 'launch',
+      projectId: p.id,
+      projectName: p.name || p.slug || ('#' + p.id),
+      iconUrl: p.icon_url || '',
+      adminOnly: p.admin_only === true,
+      key,
+      ts: at ? at.getTime() : 0,
+      time: confirmedKey ? '' : histTimeLabel(at ? at.getTime() : 0),
+      action: 'se lanzó',
+      note: '',
+      percent: 100,
+      delta: 0,
+      status: 'publicado',
+      by: ''
+    });
+  });
+
+  return events.sort((a, b) => b.ts - a.ts || a.projectName.localeCompare(b.projectName, 'es'));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ACTUALIZACIONES DE PROYECTOS AL 100%
+   Cuando un proyecto ya está al 100%, una sesión de trabajo es una
+   ACTUALIZACIÓN: se vincula a un evento del calendario. Si el evento
+   todavía no existe se puede crear en un modal encima (el formulario
+   de la sesión no se pierde) o dejar un nombre provisional y
+   vincularlo después desde la pestaña Actualizaciones.
+   ═══════════════════════════════════════════════════════════════ */
+
+let wsUpdateEventsRaw = [];      // eventos del calendario (carga compartida)
+let wsUpdateEventsAt = 0;        // última carga (0 = todavía no se pidió)
+let wsUpdateEventsLoading = null;
+let wsUpdateProgressAt = 0;
+let wsEventModalCtx = null;      // { projectId, onCreated }
+let wupLinkCtx = null;           // { projectId, name }
+let workUpdatesCache = [];
+let workUpdatesTotals = {};
+
+function wsUpdateHasLink(session) {
+  return !!(session && (session.event_id || String(session.update_name || '').trim()));
+}
+
+function wsUpdateNeedsBlock(pid, session) {
+  if (!Number(pid || 0)) return false;
+  if (wsUpdateHasLink(session)) return true;
+  return currentProjectPercent(pid) >= 100;
+}
+
+// El % del proyecto puede no estar cargado todavía (el admin entra directo a
+// Gestión): se pide una vez y se repinta el bloque cuando llega.
+function ensureWsUpdateProgress() {
+  if ((devProgressCache || []).length) return;
+  if (wsUpdateProgressAt && Date.now() - wsUpdateProgressAt < 30000) return;
+  wsUpdateProgressAt = Date.now();
+  loadProjectDevelopment().then(() => {
+    ['wsrt', 'ws'].forEach((p) => {
+      if (!document.getElementById(p + '-update-block')) return;
+      const session = p === 'ws' && wsEditingId
+        ? (wsCache.find((x) => Number(x.id) === Number(wsEditingId)) || null)
+        : null;
+      syncWsUpdateBlock(p, session);
+    });
+  }).catch(() => {});
+}
+
+function ensureWsUpdateEvents(force) {
+  if (!force && wsUpdateEventsAt && Date.now() - wsUpdateEventsAt < 60000) {
+    return Promise.resolve(wsUpdateEventsRaw);
+  }
+  if (wsUpdateEventsLoading) return wsUpdateEventsLoading;
+  wsUpdateEventsLoading = (async () => {
+    try {
+      // include_expired permite ver también los desaparecidos y descartarlos
+      // con criterio propio (los finalizados no se ofrecen).
+      const res = await fetch(API_BASE + '/ows-dashboard/events?include_inactive=1&include_expired=1&limit=100', {
+        headers: adminHeaders()
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+      wsUpdateEventsRaw = Array.isArray(data.events) ? data.events : [];
+    } catch (_) {
+      wsUpdateEventsRaw = [];
+    } finally {
+      wsUpdateEventsAt = Date.now();
+      wsUpdateEventsLoading = null;
+    }
+    return wsUpdateEventsRaw;
+  })();
+  return wsUpdateEventsLoading;
+}
+
+// Elegibles: cualquier evento del proyecto, sin importar la categoría, salvo
+// los que ya terminaron (aunque todavía no hayan desaparecido del feed).
+function wsUpdateEventEligible(ev, projectId, linkedId) {
+  if (!ev) return false;
+  if (linkedId && Number(ev.id) === Number(linkedId)) return true;
+  if (Number(ev.project_id || 0) !== Number(projectId || 0)) return false;
+  const now = Date.now();
+  const ends = ev.ends_at ? Date.parse(ev.ends_at) : NaN;
+  if (Number.isFinite(ends) && now > ends) return false;
+  const expires = ev.expires_at ? Date.parse(ev.expires_at) : NaN;
+  if (Number.isFinite(expires) && now > expires) return false;
+  return true;
+}
+
+function wsUpdateEventLabel(ev) {
+  const phase = getEventPhase(ev);
+  const phaseText = { live: 'en curso', upcoming: 'programado', undated: 'sin fecha', hidden: 'oculto' }[phase] || '';
+  const date = ev.starts_at ? formatEventDate(ev.starts_at) : 'sin fecha';
+  return `${ev.title || 'Evento'} · ${date}${phaseText ? ' · ' + phaseText : ''}`;
+}
+
+function wsUpdateBlockHtml(prefix) {
+  return `
+    <div class="ws-update-block hidden" id="${prefix}-update-block">
+      <div class="ws-update-head">
+        <span class="ws-update-icon">✨</span>
+        <div>
+          <b>El desarrollo ya está al 100%: esta sesión es para una actualización del juego</b>
+          <p class="ws-update-copy">El <b>% de desarrollo ya está completo</b> y no se mueve. Elegí el evento de la actualización: va a agrupar <b>todas las sesiones</b> de ese trabajo en Actualizaciones. Si el evento todavía no existe, creálo acá mismo o dejá un nombre provisional.</p>
+        </div>
+      </div>
+      <div class="ws-field">
+        <label for="${prefix}-event">Evento de la actualización *</label>
+        <div class="ws-update-row">
+          <select id="${prefix}-event" data-adm-ev="change" data-adm="onWsUpdateEventChange" data-adm-a0="s:${prefix}">
+            <option value="">— Elegí el evento —</option>
+          </select>
+          <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsUpdateEventModal" data-adm-a0="s:${prefix}">＋ Crear evento</button>
+        </div>
+        <p class="form-hint" id="${prefix}-event-hint"></p>
+      </div>
+      <div class="ws-field hidden" id="${prefix}-upd-name-field">
+        <label for="${prefix}-upd-name">Nombre provisional de la actualización *</label>
+        <input type="text" id="${prefix}-upd-name" maxlength="120" placeholder="Ej: Actualización 1.4 — Cooperativo" autocomplete="off" />
+        <p class="form-hint">Queda pendiente de vincular. Después, en <b>Actualizaciones</b>, podés enganchar todas sus sesiones a un evento de una sola vez.</p>
+      </div>
+    </div>`;
+}
+
+function syncWsUpdateBlock(prefix, session) {
+  const block = document.getElementById(prefix + '-update-block');
+  if (!block) return;
+  const projSel = document.getElementById(prefix + '-project');
+  const pid = projSel && projSel.value ? Number(projSel.value) : 0;
+  const sameProject = !!(session && session.project_id != null && Number(session.project_id) === pid);
+  const linkedId = sameProject && session.event_id ? Number(session.event_id) : 0;
+  const linkedName = sameProject ? String(session.update_name || '') : '';
+  const visible = wsUpdateNeedsBlock(pid, sameProject ? session : null);
+  block.classList.toggle('hidden', !visible);
+  if (!visible) {
+    block.dataset.wsRequired = '0';
+    return;
+  }
+  // Obligatorio al crear una sesión o si ya era una actualización. Una sesión
+  // vieja de un proyecto que llegó al 100% después se puede vincular, pero no
+  // se bloquea la corrección.
+  block.dataset.wsRequired = (!session || linkedId || linkedName) ? '1' : '0';
+  const pct = currentProjectPercent(pid);
+  const headTitle = block.querySelector('.ws-update-head b');
+  if (headTitle) {
+    headTitle.textContent = pct >= 100
+      ? 'El desarrollo ya está al 100%: esta sesión es para una actualización del juego'
+      : 'Esta sesión está vinculada a una actualización';
+  }
+  const copy = block.querySelector('.ws-update-copy');
+  if (copy) {
+    copy.innerHTML = pct >= 100
+      ? `El desarrollo está al <b>${fmtPct(pct)}</b>: la sesión es para una <b>actualización</b> y no mueve el % de desarrollo. El evento agrupa todas las sesiones de ese trabajo. Si todavía no existe, creálo acá mismo o dejá un nombre provisional.`
+      : `Esta sesión está vinculada a una <b>actualización</b> del proyecto (${fmtPct(pct)} de desarrollo). El evento agrupa todas las sesiones de ese trabajo.`;
+  }
+  const select = document.getElementById(prefix + '-event');
+  if (!select) return;
+  const nameInput = document.getElementById(prefix + '-upd-name');
+  if (!sameProject && nameInput) nameInput.value = '';
+  if (!wsUpdateEventsAt) {
+    select.innerHTML = '<option value="">Cargando eventos…</option>';
+    if (!wsUpdateEventsLoading) {
+      ensureWsUpdateEvents().then(() => {
+        const still = document.getElementById(prefix + '-update-block');
+        if (still && !still.classList.contains('hidden')) syncWsUpdateBlock(prefix, session);
+      });
+    }
+    ensureWsUpdateProgress();
+    return;
+  }
+  const prev = select.value;
+  const events = (wsUpdateEventsRaw || [])
+    .filter((ev) => wsUpdateEventEligible(ev, pid, linkedId))
+    .sort((a, b) => {
+      const at = a.starts_at ? Date.parse(a.starts_at) : Infinity;
+      const bt = b.starts_at ? Date.parse(b.starts_at) : Infinity;
+      return at - bt;
+    });
+  const options = ['<option value="">— Elegí el evento —</option>'];
+  events.forEach((ev) => {
+    options.push(`<option value="${Number(ev.id)}">${escapeHtml(wsUpdateEventLabel(ev))}</option>`);
+  });
+  options.push('<option value="pending">📝 Todavía no existe — usar nombre provisional</option>');
+  select.innerHTML = options.join('');
+  const wanted = [prev, linkedId ? String(linkedId) : '', linkedId ? '' : (linkedName ? 'pending' : '')]
+    .find((v) => v && [...select.options].some((o) => o.value === v));
+  select.value = wanted || '';
+  onWsUpdateEventChange(prefix, linkedName);
+  const hint = document.getElementById(prefix + '-event-hint');
+  if (hint) {
+    hint.innerHTML = !events.length
+      ? 'No hay eventos disponibles de este proyecto (los finalizados no cuentan). Creá uno nuevo o dejá un nombre provisional.'
+      : '';
+  }
+  ensureWsUpdateProgress();
+}
+
+function onWsUpdateEventChange(prefix, presetName) {
+  const select = document.getElementById(prefix + '-event');
+  const field = document.getElementById(prefix + '-upd-name-field');
+  if (!select || !field) return;
+  const pending = select.value === 'pending';
+  field.classList.toggle('hidden', !pending);
+  const input = document.getElementById(prefix + '-upd-name');
+  if (pending) {
+    if (input) {
+      if (presetName && !input.value) input.value = presetName;
+      setTimeout(() => input.focus(), 30);
+    }
+  } else if (input && presetName === undefined) {
+    // Elegir un evento real descarta el nombre provisional.
+    input.value = '';
+  }
+}
+
+function readWsUpdateLink(prefix) {
+  const block = document.getElementById(prefix + '-update-block');
+  if (!block || block.classList.contains('hidden')) return { skip: true };
+  const select = document.getElementById(prefix + '-event');
+  const value = select ? select.value : '';
+  const required = block.dataset.wsRequired === '1';
+  if (!value) {
+    if (!required) return { skip: true };
+    return { error: 'Este proyecto está al 100%: elegí el evento de la actualización o dejá un nombre provisional.' };
+  }
+  if (value === 'pending') {
+    const name = String((document.getElementById(prefix + '-upd-name') || {}).value || '').trim();
+    if (!name) return { error: 'Escribí el nombre provisional de la actualización.' };
+    return { event_id: null, update_name: name };
+  }
+  const ev = (wsUpdateEventsRaw || []).find((x) => Number(x.id) === Number(value));
+  return { event_id: Number(value), update_name: ev ? String(ev.title || '') : '' };
+}
+
+// ── Modal para crear el evento sin perder lo cargado en la sesión ──
+function openWsEventCreator(projectId, onCreated) {
+  const overlay = document.getElementById('ws-event-modal');
+  if (!overlay) return;
+  wsEventModalCtx = { projectId: Number(projectId || 0), onCreated };
+  const projName = (() => {
+    const p = (manageProjectsCache || []).find((x) => Number(x.id) === Number(projectId))
+      || (projectsCache || []).find((x) => Number(x.id) === Number(projectId));
+    return p ? (p.name || p.slug || '') : `#${projectId}`;
+  })();
+  const label = document.getElementById('wsev-project');
+  if (label) label.textContent = projName;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('wsev-title', '');
+  set('wsev-desc', '');
+  set('wsev-start', wsToLocalInput(new Date().toISOString()));
+  set('wsev-end', '');
+  hideAlert('wsev-alert');
+  overlay.classList.remove('hidden');
+  const first = document.getElementById('wsev-title');
+  if (first) setTimeout(() => first.focus(), 40);
+}
+
+function openWsUpdateEventModal(prefix) {
+  const projSel = document.getElementById(prefix + '-project');
+  const pid = projSel && projSel.value ? Number(projSel.value) : 0;
+  if (!pid) return showToast('⚠️ Elegí primero el proyecto de la sesión');
+  openWsEventCreator(pid, (ev) => {
+    syncWsUpdateBlock(prefix, null);
+    const select = document.getElementById(prefix + '-event');
+    if (select) {
+      select.value = String(ev.id);
+      onWsUpdateEventChange(prefix);
+    }
+  });
+}
+
+async function createWsUpdateEvent() {
+  const ctx = wsEventModalCtx;
+  if (!ctx) return;
+  const title = String((document.getElementById('wsev-title') || {}).value || '').trim();
+  const description = String((document.getElementById('wsev-desc') || {}).value || '').trim();
+  const startRaw = String((document.getElementById('wsev-start') || {}).value || '');
+  const endRaw = String((document.getElementById('wsev-end') || {}).value || '');
+  if (!title) return showAlert('wsev-alert', 'El título del evento es obligatorio.', 'error');
+  if (endRaw && !startRaw) return showAlert('wsev-alert', 'Para cargar un fin, primero definí el inicio.', 'error');
+  if (endRaw && startRaw && new Date(endRaw).getTime() < new Date(startRaw).getTime()) {
+    return showAlert('wsev-alert', 'El fin no puede ser anterior al inicio.', 'error');
+  }
+  const btn = document.getElementById('wsev-save');
+  if (btn) { btn.disabled = true; btn.textContent = '✨ Creando…'; }
+  try {
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('description', description);
+    fd.append('category', 'update');
+    fd.append('project_id', String(ctx.projectId));
+    fd.append('starts_at', startRaw ? new Date(startRaw).toISOString() : '');
+    fd.append('ends_at', endRaw ? new Date(endRaw).toISOString() : '');
+    const res = await fetch(API_BASE + '/ows-dashboard/events', {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: fd
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    const ev = data.event;
+    if (!ev || !ev.id) throw new Error('El servidor no devolvió el evento creado.');
+    wsUpdateEventsRaw = [ev, ...(wsUpdateEventsRaw || []).filter((x) => Number(x.id) !== Number(ev.id))];
+    wsUpdateEventsAt = Date.now();
+    // La pestaña Eventos comparte el catálogo: se refleja el alta sin recargar.
+    if (Array.isArray(eventsCache)) {
+      const i = eventsCache.findIndex((x) => Number(x.id) === Number(ev.id));
+      if (i >= 0) eventsCache[i] = ev;
+      else eventsCache.unshift(ev);
+    }
+    const onCreated = ctx.onCreated;
+    wsEventModalCtx = null;
+    const overlay = document.getElementById('ws-event-modal');
+    if (overlay) overlay.classList.add('hidden');
+    showToast('✨ Evento creado y vinculado');
+    if (typeof onCreated === 'function') await onCreated(ev);
+  } catch (err) {
+    showAlert('wsev-alert', err.message || 'No se pudo crear el evento.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Crear y vincular'; }
+  }
+}
+
+function closeWsUpdateEventModal() {
+  const overlay = document.getElementById('ws-event-modal');
+  if (overlay) overlay.classList.add('hidden');
+  wsEventModalCtx = null;
+}
+
+// ── Vincular después: sesiones pendientes de un nombre provisional ──
+function openWorkUpdateLinkModal(projectId, name) {
+  const pid = Number(projectId || 0);
+  if (!pid) return showToast('⚠️ Esta actualización no tiene proyecto');
+  wupLinkCtx = { projectId: pid, name: String(name || '') };
+  const body = document.getElementById('wup-link-body');
+  if (!body) return;
+  hideAlert('wup-link-alert');
+  body.innerHTML = `
+    <div class="devmodal-head">
+      <div class="devmodal-icon">🔗</div>
+      <div class="devmodal-head-info">
+        <h3 class="devmodal-title">Vincular la actualización</h3>
+        <p class="modal-tagline">${escapeHtml(name || 'Actualización')}</p>
+      </div>
+    </div>
+    <div class="wsrt-note">Se van a enganchar <b>todas las sesiones pendientes</b> con este nombre al evento que elijas. Después aparecen juntas en Actualizaciones.</div>
+    <div class="field-group">
+      <label for="wup-link-event">Evento del calendario *</label>
+      <div class="ws-update-row">
+        <select id="wup-link-event"><option value="">Cargando eventos…</option></select>
+        <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsEventFromLink">＋ Crear evento</button>
+      </div>
+      <p class="form-hint" id="wup-link-hint"></p>
+    </div>
+    <div id="wup-link-alert" class="alert-box hidden"></div>
+    <div class="ws-step-actions">
+      <button type="button" class="btn btn-ghost" data-adm-ev="click" data-adm="closeWorkUpdateLinkModal">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="wup-link-go" data-adm-ev="click" data-adm="doLinkWorkUpdate">🔗 Vincular sesiones</button>
+    </div>`;
+  const overlay = document.getElementById('wup-link-modal');
+  if (overlay) overlay.classList.remove('hidden');
+  fillWupLinkEvents();
+}
+
+async function fillWupLinkEvents(selectedId) {
+  const select = document.getElementById('wup-link-event');
+  if (!select || !wupLinkCtx) return;
+  if (!wsUpdateEventsAt) {
+    select.innerHTML = '<option value="">Cargando eventos…</option>';
+    await ensureWsUpdateEvents();
+  }
+  const events = (wsUpdateEventsRaw || [])
+    .filter((ev) => wsUpdateEventEligible(ev, wupLinkCtx.projectId, selectedId))
+    .sort((a, b) => {
+      const at = a.starts_at ? Date.parse(a.starts_at) : Infinity;
+      const bt = b.starts_at ? Date.parse(b.starts_at) : Infinity;
+      return at - bt;
+    });
+  const options = events.length
+    ? ['<option value="">— Elegí el evento —</option>', ...events.map((ev) => `<option value="${Number(ev.id)}">${escapeHtml(wsUpdateEventLabel(ev))}</option>`)]
+    : ['<option value="">— No hay eventos disponibles —</option>'];
+  select.innerHTML = options.join('');
+  if (selectedId && events.some((ev) => Number(ev.id) === Number(selectedId))) {
+    select.value = String(selectedId);
+  }
+  const hint = document.getElementById('wup-link-hint');
+  if (hint) {
+    hint.innerHTML = events.length
+      ? 'Solo se ofrecen eventos de este proyecto que no hayan terminado.'
+      : 'Este proyecto no tiene eventos disponibles: creá uno nuevo acá mismo.';
+  }
+}
+
+function openWsEventFromLink() {
+  if (!wupLinkCtx) return;
+  const pid = wupLinkCtx.projectId;
+  openWsEventCreator(pid, async (ev) => {
+    await fillWupLinkEvents(ev.id);
+  });
+}
+
+function closeWorkUpdateLinkModal() {
+  const overlay = document.getElementById('wup-link-modal');
+  if (overlay) overlay.classList.add('hidden');
+  wupLinkCtx = null;
+}
+
+async function doLinkWorkUpdate() {
+  const ctx = wupLinkCtx;
+  const select = document.getElementById('wup-link-event');
+  const eventId = select ? Number(select.value || 0) : 0;
+  if (!ctx || !eventId) return showAlert('wup-link-alert', 'Elegí el evento del calendario.', 'error');
+  const btn = document.getElementById('wup-link-go');
+  if (btn) { btn.disabled = true; btn.textContent = '🔗 Vinculando…'; }
+  try {
+    const res = await adminFetch(API_BASE + '/ows-work-updates/link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: ctx.projectId,
+        update_name: ctx.name,
+        event_id: eventId,
+        created_by: getCurrentAdminName()
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    closeWorkUpdateLinkModal();
+    await loadWorkUpdates();
+    showToast(`🔗 ${data.updated || 0} ${Number(data.updated) === 1 ? 'sesión vinculada' : 'sesiones vinculadas'}`);
+  } catch (err) {
+    showAlert('wup-link-alert', err.message || 'No se pudieron vincular las sesiones.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 Vincular sesiones'; }
+  }
+}
+
+// ── Pestaña Actualizaciones: proyecto → actualización → fecha ──
+let workUpdatesLoading = null;
+
+// El router del panel llama a switchAdminTab y switchAdminSub seguidos: si ya
+// hay una carga en curso se comparte, para no pedir dos veces lo mismo.
+function loadWorkUpdates(manual) {
+  if (workUpdatesLoading) return workUpdatesLoading;
+  workUpdatesLoading = loadWorkUpdatesNow(manual).finally(() => { workUpdatesLoading = null; });
+  return workUpdatesLoading;
+}
+
+async function loadWorkUpdatesNow(manual) {
+  const box = document.getElementById('wup-list');
+  if (!box) return;
+  if (!workUpdatesCache.length) box.innerHTML = '<p class="upd-empty">Cargando…</p>';
+  try {
+    const res = await adminFetch(API_BASE + '/ows-work-updates?tz_offset=' + encodeURIComponent(wsTzOffset()));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    workUpdatesCache = Array.isArray(data.projects) ? data.projects : [];
+    workUpdatesTotals = data.totals || {};
+    renderWorkUpdates();
+    if (manual) showToast('✔ Actualizaciones al día');
+  } catch (err) {
+    box.innerHTML = `<p class="upd-empty">⚠️ ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderWorkUpdates() {
+  const box = document.getElementById('wup-list');
+  const count = document.getElementById('wup-count');
+  const totals = workUpdatesTotals || {};
+  if (count) {
+    const updates = Number(totals.updates || 0);
+    const sessions = Number(totals.sessions || 0);
+    const pending = Number(totals.pending || 0);
+    count.textContent = updates
+      ? `${updates} ${updates === 1 ? 'actualización' : 'actualizaciones'} · ${sessions} ${sessions === 1 ? 'sesión' : 'sesiones'}${pending ? ` · ${pending} sin evento` : ''}`
+      : 'Sin actualizaciones';
+  }
+  if (!box) return;
+  if (!workUpdatesCache.length) {
+    box.innerHTML = `<div class="wup-empty">
+      <span class="wup-empty-icon">✨</span>
+      <b>Todavía no hay actualizaciones</b>
+      <p>Cuando una sesión de trabajo sea de un proyecto al 100% y la vincules a un evento, va a aparecer acá junto a sus devlogs.</p>
+    </div>`;
+    return;
+  }
+  box.innerHTML = workUpdatesCache.map(workUpdateProjectHtml).join('');
+}
+
+function workUpdateProjectHtml(p) {
+  const icon = p.project_icon_url
+    ? `<img src="${escapeHtml(p.project_icon_url)}" alt="" loading="lazy" data-adm-err="rm" />`
+    : `<span class="wup-proj-fallback">${escapeHtml(String(p.project_name || '?').slice(0, 1).toUpperCase())}</span>`;
+  const updates = Array.isArray(p.updates) ? p.updates : [];
+  return `<details class="wup-project" open>
+    <summary class="wup-proj-head">
+      <span class="wup-proj-icon">${icon}</span>
+      <span class="wup-proj-name">${escapeHtml(p.project_name || 'Sin proyecto')}</span>
+      <span class="wup-proj-meta">${updates.length} ${updates.length === 1 ? 'actualización' : 'actualizaciones'}</span>
+      <span class="wup-proj-last">${p.last_at ? escapeHtml(wupDateLabel(p.last_at, false)) : '—'}</span>
+    </summary>
+    <div class="wup-updates">${updates.map(workUpdateHtml).join('')}</div>
+  </details>`;
+}
+
+// work_date viaja como YYYY-MM-DD: new Date() lo interpreta en UTC y en husos
+// negativos mostraba el día anterior. Las fechas con hora sí se formatean normal.
+function wupDateLabel(value, withTime) {
+  if (!value) return '—';
+  const s = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  return `${formatDevlogDate(s)}${withTime ? ' · ' + wsClock(s) : ''}`;
+}
+
+function workUpdateHtml(u) {
+  const evDate = u.event_starts_at ? formatEventDate(u.event_starts_at) : '';
+  const evEnd = u.event_ends_at ? formatEventDate(u.event_ends_at) : '';
+  const badges = [
+    u.pending_event
+      ? '<span class="wup-badge wup-badge--pending">📝 Pendiente de evento</span>'
+      : '<span class="wup-badge wup-badge--event">✨ Evento vinculado</span>',
+    `<span class="wup-badge">${u.sessions_count} ${u.sessions_count === 1 ? 'sesión' : 'sesiones'}</span>`,
+    u.minutes ? `<span class="wup-badge">⏱ ${escapeHtml(wsMinutes(u.minutes))}</span>` : '',
+    u.delta ? `<span class="wup-badge wup-badge--delta">${escapeHtml(fmtDelta(u.delta))}</span>` : ''
+  ].filter(Boolean).join('');
+  const entries = (Array.isArray(u.entries) ? u.entries : []).map((e) => {
+    const when = wupDateLabel(e.date, e.kind !== 'devlog');
+    if (e.kind === 'devlog') {
+      return `<li class="wup-entry wup-entry--devlog">
+        <span class="wup-entry-icon">📝</span>
+        <div class="wup-entry-body">
+          <button type="button" class="wup-entry-title" data-adm-ev="click" data-adm="openWorkUpdateDevlog" data-adm-a0="r:${e.id}">${escapeHtml(e.title || 'Devlog del día')}</button>
+          <div class="wup-entry-meta">${escapeHtml(when)} · ${escapeHtml(wsMinutes(e.minutes || 0))}${e.session_count ? ` · ${e.session_count} ${e.session_count === 1 ? 'sesión' : 'sesiones'}` : ''}${e.delta ? ' · ' + escapeHtml(fmtDelta(e.delta)) : ''}${e.created_by ? ' · ' + escapeHtml(e.created_by) : ''}</div>
+        </div>
+        <span class="wup-entry-tag wup-entry-tag--devlog">Devlog</span>
+      </li>`;
+    }
+    return `<li class="wup-entry">
+      <span class="wup-entry-icon">⏱</span>
+      <div class="wup-entry-body">
+        <button type="button" class="wup-entry-title" data-adm-ev="click" data-adm="openWorkUpdateSession" data-adm-a0="r:${e.id}">${escapeHtml(e.title || 'Sesión')}</button>
+        <div class="wup-entry-meta">${escapeHtml(when)} · ${escapeHtml(wsMinutes(e.minutes || 0))}${e.delta ? ' · ' + escapeHtml(fmtDelta(e.delta)) : ''}${e.created_by ? ' · ' + escapeHtml(e.created_by) : ''}</div>
+      </div>
+      <span class="wup-entry-tag">Sesión</span>
+    </li>`;
+  }).join('');
+  return `<article class="wup-update">
+    <div class="wup-upd-head">
+      <div class="wup-upd-title">
+        <span class="wup-upd-icon">${u.pending_event ? '📝' : '✨'}</span>
+        <div>
+          <b>${escapeHtml(u.event_title || u.update_name || 'Actualización')}</b>
+          <div class="wup-upd-meta">${evDate
+            ? `Evento: ${escapeHtml(evDate)}${evEnd ? ' → ' + escapeHtml(evEnd) : ''}`
+            : (u.pending_event ? 'Todavía no tiene evento en el calendario' : 'Evento del calendario')}</div>
+        </div>
+      </div>
+      ${u.pending_event && Number(u.project_id || 0) ? `<button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWorkUpdateLinkModal" data-adm-a0="n:${Number(u.project_id || 0)}" data-adm-a1="s:${escapeHtml(u.update_name || u.event_title || '')}">🔗 Vincular evento</button>` : ''}
+    </div>
+    <div class="wup-badges">${badges}</div>
+    <ul class="wup-entries">${entries || '<li class="wup-entry wup-entry--empty">Sin registros todavía.</li>'}</ul>
+  </article>`;
+}
+
+function openWorkUpdateDevlog(id) {
+  viewDevlog(Number(id));
+}
+
+async function openWorkUpdateSession(id) {
+  let s = wsCache.find((x) => Number(x.id) === Number(id));
+  if (!s) {
+    try { await loadWorkSessions(); } catch (_) {}
+    s = wsCache.find((x) => Number(x.id) === Number(id));
+  }
+  if (!s) return showToast('⚠️ No se encontró la sesión');
+  const body = document.getElementById('ws-modal-body');
+  if (!body) return;
+  wsModalStep = 'update-session';
+  const proj = s.project_id ? (s.project_name || `#${s.project_id}`) : 'Sin proyecto';
+  const statusLabel = s.status === 'done' ? 'Cerrada' : (s.status === 'paused' ? 'Pausada' : 'En curso');
+  body.innerHTML = `
+    <div class="devmodal-head">
+      <div class="devmodal-icon">⏱</div>
+      <div class="devmodal-head-info">
+        <h3 class="devmodal-title">${escapeHtml(s.title)}</h3>
+        <p class="modal-tagline">${escapeHtml(proj)} · ${escapeHtml(formatDevlogDate(s.started_at))}</p>
+      </div>
+    </div>
+    <div class="wsrt-summary">
+      <div class="wsrt-sum-row"><span>Horario</span><b>${wsClock(s.started_at)} → ${s.ended_at ? wsClock(s.ended_at) : 'en curso'}</b></div>
+      <div class="wsrt-sum-row"><span>Duración</span><b>${escapeHtml(wsMinutes(s.duration_minutes))}</b></div>
+      <div class="wsrt-sum-row"><span>Avance</span><b>${escapeHtml(fmtDelta(s.progress_delta))}</b></div>
+      <div class="wsrt-sum-row"><span>Estado</span><b>${escapeHtml(statusLabel)}</b></div>
+      ${s.update_name ? `<div class="wsrt-sum-row"><span>Actualización</span><b>${escapeHtml(s.update_name)}</b></div>` : ''}
+    </div>
+    ${s.details ? `<p class="wup-detail">${escapeHtml(s.details)}</p>` : ''}
+    <div class="ws-step-actions">
+      <button type="button" class="btn btn-ghost" data-adm-ev="click" data-adm="closeWsModal">Cerrar</button>
+      <button type="button" class="btn btn-primary" data-adm-ev="click" data-adm="editWorkUpdateSession" data-adm-a0="n:${Number(s.id)}">✏️ Editar en Devlog</button>
+    </div>`;
+  openWsModal();
+}
+
+function editWorkUpdateSession(id) {
+  closeWsModal();
+  switchAdminTab('manage');
+  switchAdminSub('manage', 'devlog');
+  setTimeout(() => openWsForm(Number(id)), 60);
+}
+
+async function loadProjectUpdates(manual) {
+  const list = document.getElementById('upd-list');
+  const histList = document.getElementById('hist-list');
+  if (!list && !histList) return;
+  if (list) list.innerHTML = '<p class="upd-empty">Cargando…</p>';
+  try {
+    if (!(devProgressCache || []).length) await loadProjectDevelopment();
+    const [histRes, projRes] = await Promise.all([
+      adminFetch(API_BASE + '/ows-project-development/history?limit=300'),
+      adminFetch(API_BASE + '/ows-launch-projects?include_hidden=1')
+    ]);
+    const histData = await histRes.json().catch(() => ({}));
+    if (!histRes.ok) throw new Error(histData.error || `Error (${histRes.status})`);
+    projectHistoryRaw = Array.isArray(histData.history) ? histData.history : [];
+    if (projRes.ok) {
+      const projData = await projRes.json().catch(() => ({}));
+      projectHistoryProjectsCache = Array.isArray(projData.projects) ? projData.projects : [];
+    }
+    fillUpdateSelects();
+    projectTimelineCache = buildProjectTimeline();
+    renderRecentUpdates();
+    renderProjectHistory();
+    if (manual) showToast(`✔ ${projectTimelineCache.length} movimientos`);
+  } catch (err) {
+    const msg = `No se pudo cargar el historial: ${escapeHtml(err.message)}`;
+    if (list) list.innerHTML = `<p class="upd-empty">${msg}</p>`;
+    if (histList) histList.innerHTML = `<p class="upd-empty">${msg}</p>`;
+  }
+}
+
+function updDayLabel(key) {
+  if (!key) return 'Sin fecha';
+  const now = new Date();
+  if (key === paxKeyFromDate(now)) return 'Hoy';
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  if (key === paxKeyFromDate(yesterday)) return 'Ayer';
+  const { y, m, d } = paxKeyParts(key);
+  if (!y) return 'Sin fecha';
+  const date = new Date(y, m - 1, d);
+  const day = date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return y === now.getFullYear() ? day : `${day} ${y}`;
+}
+
+const HIST_TYPE_LABELS = {
+  created: 'Alta',
+  progress: 'Avance',
+  milestone: 'Hito',
+  launch: 'Lanzamiento'
+};
+
+const HIST_TYPE_ICONS = {
+  created: '✨',
+  progress: '📈',
+  milestone: '🏆',
+  launch: '🚀'
+};
+
+function histStatusLabel(status) {
+  return UPD_STATUS_LABELS[String(status || '')] || '';
+}
+
+function histMetaText(e) {
+  // En un lanzamiento con fecha confirmada no hay hora: se aclara de dónde
+  // sale el día que encabeza el grupo.
+  const when = e.type === 'launch' && !e.time ? 'Fecha confirmada' : e.time;
+  return [when, histStatusLabel(e.status), e.by].filter(Boolean).join(' · ');
+}
+
+// Versión compacta para "Últimos movimientos" (Actualizaciones).
+function updItemHtml(e) {
+  const delta = round2(e.delta || 0);
+  const deltaHtml = delta
+    ? `<em class="${delta > 0 ? 'is-up' : 'is-down'}">${delta > 0 ? '+' : '−'}${Math.abs(delta)}</em>`
+    : '';
+  const pct = (e.type === 'progress' || e.type === 'milestone' || e.type === 'launch')
+    ? `<span class="upd-item-pct">${fmtPct(e.percent)}${e.type === 'progress' ? deltaHtml : ''}</span>`
+    : '';
+  const meta = [updDayLabel(e.key), e.time, histStatusLabel(e.status), e.by].filter(Boolean).join(' · ');
+  return `<li class="upd-item">
+    <span class="upd-item-icon" aria-hidden="true">${HIST_TYPE_ICONS[e.type] || '•'}</span>
+    <div class="upd-item-body">
+      <div class="upd-item-top">
+        <b>${escapeHtml(e.projectName)}</b>
+        <span class="hist-tag is-${escapeHtml(e.type)}">${escapeHtml(HIST_TYPE_LABELS[e.type] || '')}</span>
+        ${pct}
+      </div>
+      <p class="upd-item-note">${escapeHtml(e.action)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</p>
+      <div class="upd-item-meta">${escapeHtml(meta)}</div>
+    </div>
+  </li>`;
+}
+
+function renderRecentUpdates() {
+  const list = document.getElementById('upd-list');
+  if (!list) return;
+  const rows = (projectTimelineCache || []).slice(0, 4);
+  if (!rows.length) {
+    list.innerHTML = '<p class="upd-empty">Todavía no hay movimientos. Registrá el primero arriba.</p>';
+    return;
+  }
+  list.innerHTML = `<ul class="upd-items">${rows.map(updItemHtml).join('')}</ul>`;
+}
+
+function setHistType(type) {
+  const allowed = ['all', 'created', 'progress', 'milestone', 'launch'];
+  const raw = String(type || '') || (this && this.dataset ? this.dataset.histType : '');
+  histType = allowed.includes(raw) ? raw : 'all';
+  renderProjectHistory();
+}
+
+function histItemHtml(e) {
+  const pct = e.type === 'launch'
+    ? '<span class="hist-item-pct">100%</span>'
+    : (e.type === 'progress' || e.type === 'milestone'
+      ? `<span class="hist-item-pct">${fmtPct(e.percent)}</span>`
+      : '');
+  return `<li class="hist-item is-${escapeHtml(e.type)}">
+    <span class="hist-item-icon" aria-hidden="true">${HIST_TYPE_ICONS[e.type] || '•'}</span>
+    <div class="hist-item-body">
+      <div class="hist-item-top">
+        <b>${escapeHtml(e.projectName)}</b>
+        <span class="hist-tag is-${escapeHtml(e.type)}">${escapeHtml(HIST_TYPE_LABELS[e.type] || '')}</span>
+        ${pct}
+      </div>
+      <p class="hist-item-action">${escapeHtml(e.action)}</p>
+      ${e.note ? `<p class="hist-item-note">${escapeHtml(e.note)}</p>` : ''}
+      <div class="hist-item-meta">${escapeHtml(histMetaText(e))}</div>
+    </div>
+  </li>`;
+}
+
+function renderProjectHistory() {
+  const list = document.getElementById('hist-list');
+  if (!list) return;
+  const projectSel = document.getElementById('hist-project');
+  const pid = Number(projectSel && projectSel.value);
+  const rows = (projectTimelineCache || []).filter((e) =>
+    (!pid || Number(e.projectId) === pid) && (histType === 'all' || e.type === histType)
+  );
+  document.querySelectorAll('[data-hist-type]').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.getAttribute('data-hist-type') === histType);
+  });
+  const count = document.getElementById('hist-count');
+  if (count) count.textContent = `${rows.length} ${rows.length === 1 ? 'movimiento' : 'movimientos'}`;
+  if (!rows.length) {
+    list.innerHTML = `<p class="upd-empty">${pid || histType !== 'all'
+      ? 'No hay movimientos con ese filtro.'
+      : 'Todavía no hay movimientos. Registrá un avance en Actualizaciones o lanzá un proyecto desde Proyectos.'}</p>`;
+    return;
+  }
+  const groups = [];
+  rows.forEach((e) => {
+    if (!groups.length || groups[groups.length - 1].key !== e.key) {
+      groups.push({ key: e.key, items: [] });
+    }
+    groups[groups.length - 1].items.push(e);
+  });
+  list.innerHTML = groups.map((g) => `
+    <section class="hist-group">
+      <div class="hist-group-head">
+        <h4 class="hist-day">${escapeHtml(updDayLabel(g.key))}</h4>
+        <span class="hist-group-count">${g.items.length}</span>
+      </div>
+      <ul class="hist-items">${g.items.map(histItemHtml).join('')}</ul>
+    </section>`).join('');
+}
+
+async function saveProjectUpdate(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  const projectId = Number((document.getElementById('upd-project') || {}).value || 0);
+  const percentRaw = String((document.getElementById('upd-percent') || {}).value || '').trim();
+  const percent = round2(Number(percentRaw));
+  const status = String((document.getElementById('upd-status') || {}).value || '');
+  const note = String((document.getElementById('upd-note') || {}).value || '').trim();
+  if (!projectId) { updHint('Elegí un proyecto antes de registrar.', true); return; }
+  if (percentRaw === '' || !Number.isFinite(percent) || percent < 0 || percent > 100) {
+    updHint('El avance tiene que ir de 0 a 100.', true);
+    return;
+  }
+  const btn = document.getElementById('upd-save');
+  if (btn) btn.disabled = true;
+  updHint('Guardando…');
+  try {
+    const res = await adminFetch(`${API_BASE}/ows-project-development/${projectId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ percent, status, note, mode: 'total' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    const project = (devProgressCache || []).find((p) => Number(p.project_id) === projectId);
+    if (project) {
+      project.percent = percent;
+      project.status = status;
+      project.updated_by = (data.development && data.development.updated_by) || project.updated_by;
+      project.updated_at = (data.development && data.development.updated_at) || new Date().toISOString();
+    }
+    const noteEl = document.getElementById('upd-note');
+    if (noteEl) noteEl.value = '';
+    // No se tocan los filtros del Historial: recargar no debe cambiar la
+    // vista que el usuario estaba mirando.
+    await loadProjectUpdates();
+    const label = UPD_STATUS_LABELS[status];
+    updHint(`Registrado: ${fmtPct(percent)}${label ? ' · ' + label : ''}`);
+    showToast('✔ Actualización registrada');
+  } catch (err) {
+    updHint(err.message || 'No se pudo registrar la actualización.', true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// El lanzamiento también se marca desde Proyectos: pasa el proyecto a
+// status "launched" con la fecha real de hoy. El Historial lo toma de ahí,
+// así que no hay que registrar dos veces el mismo hecho.
+async function launchProjectNow(id) {
+  const pid = Number(id);
+  if (!pid) return;
+  const project = (projectsCache || []).find((p) => Number(p.id) === pid)
+    || (manageProjectsCache || []).find((p) => Number(p.id) === pid);
+  const name = (project && (project.name || project.slug)) || `#${pid}`;
+  if (String((project && project.status) || '').toLowerCase() === 'launched') {
+    showToast('Ese proyecto ya figura como lanzado.');
+    return;
+  }
+  if (!window.confirm(`¿Marcar "${name}" como lanzado hoy?`)) return;
+  const today = paxKeyFromDate(new Date());
+  try {
+    const res = await adminFetch(`${API_BASE}/ows-launch-projects/${pid}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'launched', confirmed_date: today })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    if (project) {
+      project.status = 'launched';
+      project.confirmed_date = today;
+      project.confirmedDate = today;
+    }
+    renderAdminProjectsList();
+    // Si el Historial ya se abrió alguna vez, se refresca en el acto.
+    try { await loadProjectUpdates(); } catch (_) {}
+    showToast(`🚀 ${name} quedó registrado como lanzado`);
+  } catch (err) {
+    showToast(`⚠️ No se pudo marcar el lanzamiento: ${err.message}`);
+  }
+}
+
+// =======================================================
 // INIT
 // =======================================================
 
@@ -14611,6 +18475,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindDecBlur('ws-delta-num', 100);
   wsDay = wsTodayKey();
   try { syncWsDayInputs(); } catch (_) {}
+  try { syncWsAutoPublishUI(); } catch (_) {}
   try { syncWsTimelineModeUI(); } catch (_) {}
   try {
     const vis = document.getElementById('event-visible');

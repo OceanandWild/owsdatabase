@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OWS Admin Panel — Ocean &amp; Wild Studios</title>
-  <link rel="stylesheet" href="admin-styles.css?v=17" />
+  <link rel="stylesheet" href="admin-styles.css?v=20" />
+  <link rel="stylesheet" href="admin-shell.css?v=19" />
+  <link rel="stylesheet" href="admin-minimal.css?v=4" />
+  <link rel="stylesheet" href="admin-notes.css?v=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -62,9 +65,192 @@
 
   <!-- ═══════════════ PANEL ═══════════════ -->
   <section id="admin-panel" class="panel-wrap hidden">
-   <div class="admin-shell">
-    <!-- Barra lateral: marca + navegación + perfil/acciones abajo -->
-    <aside class="admin-sidebar glass-card">
+   <div class="ows-admin">
+    <div class="ows-scrim" id="ows-scrim" hidden></div>
+
+    <!-- Aviso de sección: aparece pegado al borde izquierdo cuando el menú
+         está plegado. Se queda hasta reabrir el menú (botón o Ctrl+B). -->
+    <button type="button" class="ows-rail-toast" id="ows-rail-toast" hidden data-ows-action="rail-open" aria-label="Mostrar navegación">
+      <span class="ows-rail-toast-group" id="ows-rail-toast-group">Sección</span>
+      <strong class="ows-rail-toast-title" id="ows-rail-toast-title">Inicio</strong>
+      <small class="ows-rail-toast-sub" id="ows-rail-toast-sub"></small>
+      <span class="ows-rail-toast-hint">Ctrl+B</span>
+    </button>
+
+    <!-- Barra superior: marca, 5 accesos configurables y utilidades -->
+    <header class="ows-topbar">
+      <div class="ows-topbar-brand">
+        <button type="button" class="ows-menu-btn" id="ows-menu-btn" aria-label="Abrir navegación" aria-expanded="false" aria-controls="ows-sidebar">
+          <span class="ows-burger" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
+        <a class="ows-brand" href="#/inicio" data-ows-route="/inicio" aria-label="OWS Admin · Inicio">
+          <span class="ows-brand-mark">OWS</span>
+          <span class="ows-brand-word">Admin</span>
+        </a>
+      </div>
+
+      <nav class="ows-menubar" id="ows-menubar" aria-label="Secciones del panel"></nav>
+
+      <div class="ows-topbar-utils">
+        <div class="ows-slots" id="ows-top-slots" role="navigation" aria-label="Accesos rápidos (Alt+1 a Alt+5)"></div>
+        <button type="button" class="ows-palette-trigger" id="ows-palette-trigger" aria-label="Buscar sección" aria-haspopup="dialog">
+          <span class="ows-search-icon" aria-hidden="true"></span>
+          <span class="ows-palette-label">Buscar</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+
+        <a class="ows-api-pill" id="ows-api-pill" href="#/ajustes/integraciones" data-ows-route="/ajustes/integraciones" title="Estado de la API">
+          <i aria-hidden="true"></i><span id="ows-api-label">API</span>
+        </a>
+
+        <div class="ows-session">
+          <button type="button" class="ows-session-trigger" id="ows-session-trigger" aria-label="Menú de sesión" aria-expanded="false" aria-controls="ows-session-menu">
+            <span class="ows-session-avatar" id="ows-session-avatar">A</span>
+          </button>
+          <div class="ows-session-menu" id="ows-session-menu" hidden>
+            <div class="ows-session-head">
+              <strong id="ows-session-name">Admin</strong>
+              <small>Sesión administrativa</small>
+            </div>
+            <a href="#/inicio" data-ows-route="/inicio">Inicio</a>
+            <a href="#/ajustes/sesion" data-ows-route="/ajustes/sesion">Sesión y dispositivos</a>
+            <a href="#/ajustes/menu-superior" data-ows-route="/ajustes/menu-superior">Menú superior</a>
+            <a href="#/ajustes/integraciones" data-ows-route="/ajustes/integraciones">Integraciones</a>
+            <button type="button" data-ows-action="logout">Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="admin-shell">
+    <!-- Barra lateral: navegación del shell. Los controles heredados quedan
+         ocultos al final para conservar el estado de secciones y sub-secciones. -->
+    <aside class="admin-sidebar glass-card ows-sidebar" id="ows-sidebar" aria-label="Navegación del panel">
+     <div class="ows-sidebar-head">
+       <span>Menú</span>
+       <button type="button" class="ows-sidebar-close" id="ows-sidebar-close" aria-label="Cerrar navegación">&times;</button>
+     </div>
+
+     <nav class="ows-nav" aria-label="Secciones">
+       <a class="ows-nav-home" href="#/inicio" data-ows-route="/inicio">Inicio</a>
+
+       <div class="ows-group" data-ows-group="contenido">
+         <button type="button" class="ows-group-toggle" aria-expanded="false" aria-controls="ows-group-contenido">
+           <span>Contenido</span><span class="ows-chev" aria-hidden="true"></span>
+         </button>
+         <div class="ows-group-panel" id="ows-group-contenido">
+           <div class="ows-group-inner">
+             <a class="ows-nav-link" href="#/contenido/noticias" data-ows-route="/contenido/noticias">Noticias</a>
+             <a class="ows-nav-link is-child" href="#/contenido/noticias-rapidas" data-ows-route="/contenido/noticias-rapidas">Rápidas</a>
+             <a class="ows-nav-link is-child" href="#/contenido/noticias-modales" data-ows-route="/contenido/noticias-modales">Modales de noticias</a>
+             <a class="ows-nav-link" href="#/contenido/eventos" data-ows-route="/contenido/eventos">Eventos</a>
+             <a class="ows-nav-link is-child" href="#/contenido/eventos-modales" data-ows-route="/contenido/eventos-modales">Modales de eventos</a>
+             <a class="ows-nav-link is-child" href="#/contenido/eventos-presets" data-ows-route="/contenido/eventos-presets">Presets</a>
+           </div>
+         </div>
+       </div>
+
+       <div class="ows-group" data-ows-group="desarrollo">
+         <button type="button" class="ows-group-toggle" aria-expanded="false" aria-controls="ows-group-desarrollo">
+           <span>Desarrollo</span><span class="ows-chev" aria-hidden="true"></span>
+         </button>
+         <div class="ows-group-panel" id="ows-group-desarrollo">
+           <div class="ows-group-inner">
+             <a class="ows-nav-link" href="#/desarrollo/progreso" data-ows-route="/desarrollo/progreso">Progreso</a>
+             <a class="ows-nav-link" href="#/desarrollo/actualizaciones" data-ows-route="/desarrollo/actualizaciones">Actualizaciones</a>
+              <a class="ows-nav-link" href="#/desarrollo/historial" data-ows-route="/desarrollo/historial">Historial</a>
+             <a class="ows-nav-link" href="#/desarrollo/devlog" data-ows-route="/desarrollo/devlog">Devlog</a>
+             <a class="ows-nav-link" href="#/desarrollo/actividad" data-ows-route="/desarrollo/actividad">Actividad</a>
+             <a class="ows-nav-link" href="#/desarrollo/analytics" data-ows-route="/desarrollo/analytics">Analytics</a>
+             <a class="ows-nav-link" href="#/desarrollo/hitos" data-ows-route="/desarrollo/hitos">Hitos</a>
+             <a class="ows-nav-link" href="#/desarrollo/codigo-fuente" data-ows-route="/desarrollo/codigo-fuente">Código Fuente</a>
+           </div>
+         </div>
+       </div>
+
+       <div class="ows-group" data-ows-group="catalogo">
+         <button type="button" class="ows-group-toggle" aria-expanded="false" aria-controls="ows-group-catalogo">
+           <span>Proyectos</span><span class="ows-chev" aria-hidden="true"></span>
+         </button>
+         <div class="ows-group-panel" id="ows-group-catalogo">
+           <div class="ows-group-inner">
+             <a class="ows-nav-link" href="#/catalogo/proyectos" data-ows-route="/catalogo/proyectos">Todos los proyectos</a>
+             <div class="ows-project-nav" id="ows-project-nav" aria-label="Proyectos del estudio">
+               <p class="ows-project-nav-empty">Cargando proyectos…</p>
+             </div>
+           </div>
+         </div>
+       </div>
+
+       <div class="ows-group" data-ows-group="operaciones">
+         <button type="button" class="ows-group-toggle" aria-expanded="false" aria-controls="ows-group-operaciones">
+           <span>Operaciones</span><span class="ows-chev" aria-hidden="true"></span>
+         </button>
+         <div class="ows-group-panel" id="ows-group-operaciones">
+           <div class="ows-group-inner">
+             <a class="ows-nav-link" href="#/operaciones/estado" data-ows-route="/operaciones/estado">Estado</a>
+             <a class="ows-nav-link is-child" href="#/operaciones/estado/en-curso" data-ows-route="/operaciones/estado/en-curso">En curso</a>
+             <a class="ows-nav-link is-child" href="#/operaciones/estado/registro" data-ows-route="/operaciones/estado/registro">Registro de incidentes</a>
+             <a class="ows-nav-link" href="#/operaciones/informes" data-ows-route="/operaciones/informes">Informes</a>
+             <a class="ows-nav-link is-child" href="#/operaciones/informes/activos" data-ows-route="/operaciones/informes/activos">Activos</a>
+             <a class="ows-nav-link is-child" href="#/operaciones/informes/historial" data-ows-route="/operaciones/informes/historial">Historial de informes</a>
+           </div>
+         </div>
+       </div>
+
+       <div class="ows-group" data-ows-group="equipo">
+         <button type="button" class="ows-group-toggle" aria-expanded="false" aria-controls="ows-group-equipo">
+           <span>Equipo</span><span class="ows-chev" aria-hidden="true"></span>
+         </button>
+         <div class="ows-group-panel" id="ows-group-equipo">
+           <div class="ows-group-inner">
+             <a class="ows-nav-link" href="#/equipo/usuarios" data-ows-route="/equipo/usuarios">Usuarios</a>
+           </div>
+         </div>
+       </div>
+
+       <div class="ows-group" data-ows-group="estudio">
+         <button type="button" class="ows-group-toggle" aria-expanded="false" aria-controls="ows-group-estudio">
+           <span>Estudio</span><span class="ows-chev" aria-hidden="true"></span>
+         </button>
+         <div class="ows-group-panel" id="ows-group-estudio">
+           <div class="ows-group-inner">
+             <a class="ows-nav-link" href="#/estudio/notas" data-ows-route="/estudio/notas">Notas</a>
+           </div>
+         </div>
+       </div>
+
+       <div class="ows-group" data-ows-group="ajustes">
+         <button type="button" class="ows-group-toggle" aria-expanded="false" aria-controls="ows-group-ajustes">
+           <span>Ajustes</span><span class="ows-chev" aria-hidden="true"></span>
+         </button>
+         <div class="ows-group-panel" id="ows-group-ajustes">
+           <div class="ows-group-inner">
+             <a class="ows-nav-link" href="#/ajustes/menu-superior" data-ows-route="/ajustes/menu-superior">Menú superior</a>
+             <a class="ows-nav-link" href="#/ajustes/sesion" data-ows-route="/ajustes/sesion">Sesión y dispositivos</a>
+             <a class="ows-nav-link" href="#/ajustes/integraciones" data-ows-route="/ajustes/integraciones">Integraciones</a>
+           </div>
+         </div>
+       </div>
+     </nav>
+
+     <div class="ows-sidebar-spacer"></div>
+
+     <div class="ows-sidebar-footer">
+       <div class="ows-profile">
+         <span class="ows-profile-avatar" id="ows-sidebar-avatar" aria-hidden="true">A</span>
+         <div class="ows-profile-meta">
+           <b id="ows-sidebar-name">Admin</b>
+           <span class="ows-session-dot"><i></i>Sesión admin</span>
+         </div>
+       </div>
+       <div class="ows-sidebar-actions">
+         <a class="ows-text-action" href="../index.html">Ecosistema</a>
+         <button type="button" class="ows-text-action" data-ows-action="logout">Salir</button>
+       </div>
+     </div>
+
+     <div class="ows-legacy-nav" hidden aria-hidden="true">
      <div class="nav-brand">
        <span class="nav-logo-text">OWS</span>
        <div class="nav-titles">
@@ -76,12 +262,13 @@
        <nav class="panel-tabs" aria-label="Secciones principales">
         <button class="ptab active" id="ptab-news" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:news">📰 Noticias</button>
         <button class="ptab" id="ptab-events" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:events">🗓️ Eventos</button>
-        <button class="ptab" id="ptab-projects" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:projects">📁 Proyectos</button>
+        <button class="ptab" id="ptab-projects" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:projects">📁 Proyectos</button>
         <button class="ptab" id="ptab-banners" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:banners">📣 Banners</button>
         <button class="ptab" id="ptab-manage" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:manage">🛡️ Gestión</button>
          <button class="ptab" id="ptab-incidents" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:incidents">🚨 Incidentes</button>
         <button class="ptab" id="ptab-reports" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:reports">📋 Informes</button>
         <button class="ptab" id="ptab-users" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:users">👥 Usuarios</button>
+        <button class="ptab" id="ptab-updates" data-adm-ev="click" data-adm="switchAdminTab" data-adm-a0="s:updates">Actualizaciones</button>
        </nav>
        <div class="admin-nav-divider" aria-hidden="true"></div>
        <nav id="sub-tabs" class="sub-tabs hidden" aria-label="Sub-secciones">
@@ -103,10 +290,212 @@
          <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="adminLogout">Salir</button>
        </div>
      </div>
+     </div>
     </aside>
 
     <!-- Contenido -->
     <main class="admin-main">
+
+    <!-- ============ INICIO (shell) ============ -->
+    <div id="ows-page-inicio" class="ows-page hidden">
+      <section class="glass-card ows-page-head">
+        <div class="ows-page-head-copy">
+          <span class="ows-eyebrow">Panel de administración</span>
+          <h2 class="ows-page-title">Hola, <span id="ows-home-name">Admin</span></h2>
+          <p class="ows-page-sub">Contenido, desarrollo y operaciones del ecosistema OWS en un solo lugar.</p>
+        </div>
+        <div class="ows-page-head-meta">
+          <span class="ows-badge" id="ows-home-api">API principal</span>
+          <span class="ows-badge is-muted" id="ows-home-session">Sesión activa</span>
+        </div>
+      </section>
+
+      <div class="ows-grid-2">
+        <section class="glass-card ows-card">
+          <div class="ows-card-head">
+            <h3>Accesos rápidos</h3>
+            <a class="ows-link-muted" href="#/ajustes/menu-superior" data-ows-route="/ajustes/menu-superior">Configurar</a>
+          </div>
+          <div class="ows-quick-grid" id="ows-quick-grid"></div>
+        </section>
+
+        <section class="glass-card ows-card">
+          <div class="ows-card-head"><h3>Estado del sistema</h3></div>
+          <dl class="ows-facts">
+            <div><dt>Cuenta</dt><dd id="ows-home-account">—</dd></div>
+            <div><dt>API activa</dt><dd id="ows-home-api-base">—</dd></div>
+            <div><dt>Sesión</dt><dd id="ows-home-expiry">—</dd></div>
+            <div><dt>Dispositivo</dt><dd id="ows-home-trust">—</dd></div>
+          </dl>
+        </section>
+      </div>
+
+      <section class="glass-card ows-card">
+        <div class="ows-card-head">
+          <h3>Secciones</h3>
+          <span class="ows-muted">Atajos de todo el panel</span>
+        </div>
+        <div class="ows-home-groups" id="ows-home-sections"></div>
+      </section>
+    </div>
+
+    <!-- ============ AJUSTES · MENÚ SUPERIOR ============ -->
+    <div id="ows-page-menu" class="ows-page hidden">
+      <section class="ows-page-head ows-page-head--plain">
+        <div>
+          <span class="ows-eyebrow">Ajustes</span>
+          <h2 class="ows-page-title">Menú superior</h2>
+          <p class="ows-page-sub">Cinco accesos fijos en la barra superior. En reposo muestran solo su número; al pasar el mouse o enfocar, el nombre. Se abren con Alt+1 a Alt+5 y se guardan en este navegador.</p>
+        </div>
+      </section>
+
+      <section class="glass-card ows-card">
+        <div class="ows-slot-editor" id="ows-slot-editor"></div>
+        <div class="ows-card-actions">
+          <button type="button" class="ows-btn ows-btn-ghost" data-ows-action="slots-reset">Restablecer predeterminados</button>
+          <span class="ows-muted" id="ows-slots-status" role="status"></span>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ AJUSTES · SESIÓN ============ -->
+    <div id="ows-page-sesion" class="ows-page hidden">
+      <section class="ows-page-head ows-page-head--plain">
+        <div>
+          <span class="ows-eyebrow">Ajustes</span>
+          <h2 class="ows-page-title">Sesión y dispositivos</h2>
+          <p class="ows-page-sub">La sesión administrativa se renueva sola mientras el dispositivo de confianza siga activo.</p>
+        </div>
+      </section>
+
+      <div class="ows-grid-2">
+        <section class="glass-card ows-card">
+          <div class="ows-card-head"><h3>Sesión actual</h3></div>
+          <dl class="ows-facts">
+            <div><dt>Cuenta</dt><dd id="ows-session-account">—</dd></div>
+            <div><dt>Token</dt><dd id="ows-session-token">—</dd></div>
+            <div><dt>Vence</dt><dd id="ows-session-expiry">—</dd></div>
+            <div><dt>Dispositivo</dt><dd id="ows-session-trust">—</dd></div>
+          </dl>
+          <div class="ows-card-actions">
+            <button type="button" class="ows-btn" id="ows-session-renew" data-ows-action="session-renew">Renovar ahora</button>
+            <button type="button" class="ows-btn ows-btn-ghost" data-ows-action="logout">Cerrar sesión</button>
+          </div>
+        </section>
+
+        <section class="glass-card ows-card">
+          <div class="ows-card-head"><h3>Cómo funciona</h3></div>
+          <ul class="ows-list">
+            <li>El token dura 2 horas y se renueva dos minutos antes de vencer.</li>
+            <li>Si vence con el panel abierto, se restaura solo con el dispositivo de confianza.</li>
+            <li>Cerrar sesión revoca la confianza: la próxima entrada pide los 3 pasos.</li>
+            <li>Los cierres normales de pestaña no revocan nada.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <!-- ============ AJUSTES · INTEGRACIONES ============ -->
+    <div id="ows-page-integraciones" class="ows-page hidden">
+      <section class="ows-page-head ows-page-head--plain">
+        <div>
+          <span class="ows-eyebrow">Ajustes</span>
+          <h2 class="ows-page-title">Integraciones</h2>
+          <p class="ows-page-sub">Origen de datos del panel, respaldo automático y entorno de cobro de PayPal.</p>
+        </div>
+      </section>
+
+      <div class="ows-grid-2">
+        <section class="glass-card ows-card">
+          <div class="ows-card-head"><h3>API</h3></div>
+          <dl class="ows-facts">
+            <div><dt>Base configurada</dt><dd id="ows-integ-main">—</dd></div>
+            <div><dt>Base activa</dt><dd id="ows-integ-active">—</dd></div>
+            <div><dt>Estado</dt><dd id="ows-integ-state">—</dd></div>
+            <div><dt>Respaldo</dt><dd id="ows-integ-mirror">—</dd></div>
+          </dl>
+          <div class="ows-card-actions">
+            <button type="button" class="ows-btn" id="ows-integ-probe" data-ows-action="api-probe">Probar principal</button>
+            <span class="ows-muted" id="ows-integ-result" role="status"></span>
+          </div>
+        </section>
+
+        <section class="glass-card ows-card">
+          <div class="ows-card-head"><h3>PayPal</h3></div>
+          <dl class="ows-facts">
+            <div><dt>Entorno activo</dt><dd id="ows-paypal-env">—</dd></div>
+            <div><dt>Servicio</dt><dd id="ows-paypal-service">—</dd></div>
+            <div><dt>Credenciales live</dt><dd id="ows-paypal-live">—</dd></div>
+            <div><dt>Credenciales sandbox</dt><dd id="ows-paypal-sandbox">—</dd></div>
+            <div><dt>Webhooks</dt><dd id="ows-paypal-webhooks">—</dd></div>
+            <div><dt>Último cambio</dt><dd id="ows-paypal-updated">—</dd></div>
+          </dl>
+          <div class="ows-card-actions">
+            <select class="ows-select" id="ows-paypal-env-select" aria-label="Entorno de PayPal">
+              <option value="live">Live (cobros reales)</option>
+              <option value="sandbox">Sandbox (pruebas)</option>
+            </select>
+            <button type="button" class="ows-btn" id="ows-paypal-env-save" data-ows-action="paypal-env-save" disabled>Aplicar</button>
+            <button type="button" class="ows-btn ows-btn-ghost" id="ows-paypal-env-test" data-ows-action="paypal-env-test">Probar</button>
+            <span class="ows-muted" id="ows-paypal-env-result" role="status"></span>
+          </div>
+        </section>
+
+        <section class="glass-card ows-card">
+          <div class="ows-card-head"><h3>Servicios</h3></div>
+          <ul class="ows-list">
+            <li><b>API</b>: base principal y espejo con reintento automático ante caídas o errores 502/503/504.</li>
+            <li><b>Imágenes</b>: las subidas del panel van a Cloudinary a través del backend.</li>
+            <li><b>Persistencia</b>: los accesos del menú superior se guardan en este navegador.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <!-- ============ DESARROLLO · CÓDIGO FUENTE ============ -->
+    <div id="ows-page-codigo" class="ows-page hidden">
+      <section class="ows-page-head ows-page-head--plain">
+        <div class="ows-page-head-copy">
+          <span class="ows-eyebrow">Desarrollo</span>
+          <h2 class="ows-page-title">Código Fuente</h2>
+          <p class="ows-page-sub">Descarga del código para el equipo y aviso automático cuando la actividad supera la última actualización.</p>
+        </div>
+        <div class="ows-page-head-meta">
+          <span class="ows-badge is-muted" id="src-owner-badge">Solo lectura</span>
+          <button type="button" class="ows-btn ows-btn-ghost" data-src-action="refresh">↻ Actualizar</button>
+        </div>
+      </section>
+
+      <section class="glass-card ows-card src-summary">
+        <div class="src-summary-grid">
+          <div class="src-stat"><strong id="src-stat-total">—</strong><small>Alcances</small></div>
+          <div class="src-stat is-ok"><strong id="src-stat-current">—</strong><small>Al día</small></div>
+          <div class="src-stat is-warn"><strong id="src-stat-stale">—</strong><small>Revisar</small></div>
+          <div class="src-stat is-muted"><strong id="src-stat-missing">—</strong><small>Sin código</small></div>
+        </div>
+        <p class="src-note" id="src-owner-note">Solo el Owner (OceanandWild) puede cargar o reemplazar el código.</p>
+      </section>
+
+      <div class="glass-card src-toolbar">
+        <label class="src-search" for="src-search">
+          <span aria-hidden="true">🔍</span>
+          <input type="text" id="src-search" placeholder="Buscar por proyecto o versión…" autocomplete="off" />
+        </label>
+        <div class="src-filters" role="tablist" aria-label="Filtrar por estado">
+          <button type="button" class="src-chip-btn active" data-src-filter="all">Todos</button>
+          <button type="button" class="src-chip-btn" data-src-filter="stale">Revisar</button>
+          <button type="button" class="src-chip-btn" data-src-filter="current">Al día</button>
+          <button type="button" class="src-chip-btn" data-src-filter="missing">Sin código</button>
+        </div>
+      </div>
+
+      <div id="src-list" class="src-list" aria-live="polite">
+        <p class="loading-note">Cargando código fuente…</p>
+      </div>
+    </div>
+
+    <!-- ============ ESTUDIO · NOTAS ============ -->
+    <div id="ows-page-notas" class="ows-page hidden"></div>
 
     <!-- ============ TAB: NOTICIAS (diseño renovado) ============ -->
     <div id="tab-news" class="tab-content">
@@ -518,6 +907,7 @@
           <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-total">0</span><span class="ev-stat-label">Total</span></div>
           <div class="ev-stat ev-stat-live"><span class="ev-stat-num" id="ev-stat-live">0</span><span class="ev-stat-label">● En curso</span></div>
           <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-upcoming">0</span><span class="ev-stat-label">◷ Programados</span></div>
+          <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-undated">0</span><span class="ev-stat-label">📅 Sin fecha</span></div>
           <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-ended">0</span><span class="ev-stat-label">✔ Finalizados</span></div>
           <div class="ev-stat"><span class="ev-stat-num" id="ev-stat-hidden">0</span><span class="ev-stat-label">👁️ Ocultos</span></div>
         </div>
@@ -571,28 +961,52 @@
             </div>
 
             <div class="ev-section">
-              <div class="ev-section-title">⏰ Tiempo</div>
-              <div class="field-row">
-                <div class="field-group">
-                  <label for="event-start">Inicio del evento * <span class="opt-tag hidden" id="event-start-expected-tag">fecha esperada</span></label>
-                  <input type="datetime-local" id="event-start" required data-adm-ev="change" data-adm="updateEventLivePreview" />
-                  <label class="ev-switch-row ev-expected-row" for="event-start-expected" title="Marcá esta opción cuando todavía no estés seguro de la fecha">
-                    <input type="checkbox" id="event-start-expected" data-adm-ev="change" data-adm="onEventStartModeChange" />
-                    <span class="ev-switch"></span>
-                    <span>🕰️ Todavía no estoy seguro — es la <b>fecha esperada de inicio</b></span>
-                  </label>
-                  <p class="form-hint" id="event-start-hint">Si la fecha es estimada, activá la opción: en OWS se muestra como <b>fecha esperada</b> (por confirmar) y sin cuenta atrás exacta.</p>
-                </div>
-                <div class="field-group">
-                  <label for="event-end">Fin <span class="opt-tag">opcional</span></label>
-                  <input type="datetime-local" id="event-end" data-adm-ev="change" data-adm="onEventEndChange" />
+              <div class="ev-section-title">🧩 Evento combinado</div>
+              <label class="ev-switch-row" for="event-bundle-toggle" title="Marcá esta opción si el evento viene junto con otras cosas">
+                <input type="checkbox" id="event-bundle-toggle" data-adm-ev="change" data-adm="onEventBundleToggle" />
+                <span class="ev-switch"></span>
+                <span id="event-bundle-toggle-label">Este evento viene solo</span>
+              </label>
+              <div id="event-bundle-fields" class="hidden">
+                <p class="form-hint">Cargá todo lo que llega junto con este evento. En OWS la tarjeta avisa <b>“este evento y X cosas más vienen juntos”</b> y el detalle muestra la lista completa.</p>
+                <div class="ev-bundle-rows" id="event-bundle-rows"></div>
+                <div class="ev-bundle-foot">
+                  <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="addEventBundleRow">＋ Agregar cosa</button>
+                  <span class="char-count" id="event-bundle-count">0/20</span>
                 </div>
               </div>
-              <div class="ev-quick-dates">
-                <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:today">Hoy</button>
-                <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:week">+7 días</button>
-                <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:month">+30 días</button>
-                <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:clear-end">Sin fin</button>
+            </div>
+
+            <div class="ev-section">
+              <div class="ev-section-title">⏰ Tiempo</div>
+              <label class="ev-switch-row ev-nodate-row" for="event-no-date" title="El evento se publica sin fecha y OWS avisa que todavía no fue definida">
+                <input type="checkbox" id="event-no-date" data-adm-ev="change" data-adm="onEventNoDateChange" />
+                <span class="ev-switch"></span>
+                <span>🗓️ Todavía no hay fecha — se publica como <b>“Fecha aún no definida”</b></span>
+              </label>
+              <div id="event-date-fields">
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="event-start">Inicio del evento <span class="opt-tag">opcional</span> <span class="opt-tag hidden" id="event-start-expected-tag">fecha esperada</span></label>
+                    <input type="datetime-local" id="event-start" data-adm-ev="change" data-adm="updateEventLivePreview" />
+                    <label class="ev-switch-row ev-expected-row" id="event-start-expected-row" for="event-start-expected" title="Marcá esta opción cuando todavía no estés seguro de la fecha">
+                      <input type="checkbox" id="event-start-expected" data-adm-ev="change" data-adm="onEventStartModeChange" />
+                      <span class="ev-switch"></span>
+                      <span>🕰️ Todavía no estoy seguro — es la <b>fecha esperada de inicio</b></span>
+                    </label>
+                    <p class="form-hint" id="event-start-hint">Si la dejás vacía, el evento se publica como <b>“Fecha aún no definida”</b>. Si la fecha es estimada, activá la opción: se muestra como <b>fecha esperada</b> (por confirmar).</p>
+                  </div>
+                  <div class="field-group">
+                    <label for="event-end">Fin <span class="opt-tag">opcional</span></label>
+                    <input type="datetime-local" id="event-end" data-adm-ev="change" data-adm="onEventEndChange" />
+                  </div>
+                </div>
+                <div class="ev-quick-dates">
+                  <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:today">Hoy</button>
+                  <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:week">+7 días</button>
+                  <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:month">+30 días</button>
+                  <button type="button" class="btn btn-ghost btn-mini" data-adm-ev="click" data-adm="setEventQuickDate" data-adm-a0="s:clear-end">Sin fin</button>
+                </div>
               </div>
               <p class="ev-duration-hint" id="event-duration-hint">Elegí inicio y fin para ver la duración.</p>
             </div>
@@ -692,6 +1106,7 @@
                 <option value="">Todos los estados</option>
                 <option value="live">● En curso</option>
                 <option value="upcoming">◷ Programados</option>
+                <option value="undated">📅 Sin fecha</option>
                 <option value="ended">✔ Finalizados</option>
                 <option value="hidden">👁️ Ocultos</option>
               </select>
@@ -929,6 +1344,8 @@
 
     <!-- ============ TAB: PROYECTOS (proyectos OWS lanzables) ============ -->
     <div id="tab-projects" class="tab-content hidden">
+      <!-- Sub-panel PRINCIPAL: catálogo y formulario de alta/edición -->
+      <div class="admin-subpane" data-sub="main" id="projects-sub-main">
       <!-- Hero: mismo patrón que el resto (icon · info+badges · acciones) -->
       <div class="glass-card projects-hero page-head">
         <div class="page-head-icon projects-hero-icon">📁</div>
@@ -1001,6 +1418,7 @@
                 <input type="date" id="proj-confirmed" />
               </div>
             </div>
+            <p class="form-hint">Si el proyecto ya salió, poné estado <b>Lanzado</b> y la fecha confirmada real: el lanzamiento queda registrado en <b>Historial</b>. También podés usar 🚀 en la lista.</p>
             <div class="field-group">
               <label for="proj-created">Fecha real de creación <span class="opt-tag">opcional</span></label>
               <input type="date" id="proj-created" />
@@ -1020,7 +1438,7 @@
                     <input type="text" id="proj-watermark-text" maxlength="60" placeholder="ej: Wilder Gambit" autocomplete="off" data-adm-ev="input" data-adm="updateProjectWatermarkPreview" />
                   </div>
                   <div class="field-group">
-                    <label for="proj-watermark-position">Posición en la imagen</label>
+                    <label for="proj-watermark-position">Posición en la imagen <span class="opt-tag">solo noticias</span></label>
                     <select id="proj-watermark-position" data-adm-ev="change" data-adm="updateProjectWatermarkPreview">
                       <option value="bottom-right">Abajo a la derecha</option>
                       <option value="bottom-left">Abajo a la izquierda</option>
@@ -1031,13 +1449,32 @@
                   </div>
                 </div>
                 <div class="field-group">
+                  <label for="proj-watermark-image">Imagen propia del sello <span class="opt-tag">opcional</span></label>
+                  <input type="text" id="proj-watermark-image" placeholder="https://… (.png/.jpg/.webp)" autocomplete="off" data-adm-ev="input" data-adm="updateProjectWatermarkPreview" />
+                  <input type="file" id="proj-watermark-image-file" accept="image/png,image/jpeg,image/webp,image/gif" />
+                  <div id="proj-watermark-image-preview" class="img-preview hidden"></div>
+                  <p class="form-hint">Si subís una imagen, el sello de los <b>eventos</b> la muestra en lugar del texto. Las <b>noticias</b> siguen usando el texto.</p>
+                </div>
+                <div class="field-group">
                   <label for="proj-watermark-opacity">Opacidad <span class="char-count" id="proj-watermark-opacity-label">35%</span></label>
                   <input type="range" id="proj-watermark-opacity" min="5" max="100" value="35" data-adm-ev="input" data-adm="updateProjectWatermarkPreview" />
                 </div>
+                <p class="form-hint pw-preview-label">En las <b>noticias</b> (texto sobre la portada):</p>
                 <div class="proj-watermark-preview" aria-hidden="true">
                   <span class="proj-watermark-sample" id="proj-watermark-sample">Marca de agua</span>
                 </div>
-                <p class="form-hint">Se dibuja sobre la portada de los <b>eventos</b> y las <b>noticias</b> de este proyecto en OWS Hub. En los eventos de proyectos <b>solo-admin</b> no se muestra (el proyecto aparece como “Proyecto interno”).</p>
+                <p class="form-hint pw-preview-label">En los <b>eventos</b> (columna derecha de la tarjeta):</p>
+                <div class="proj-watermark-seal" id="proj-watermark-seal" aria-hidden="true">
+                  <span class="pw-seal-badge">
+                    <svg class="pw-seal-drop" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path class="pw-seal-drop-body" d="M12 2.2c3.6 4.5 6.6 8.1 6.6 11.7A6.6 6.6 0 0 1 12 20.5a6.6 6.6 0 0 1-6.6-6.6C5.4 10.3 8.4 6.7 12 2.2Z"></path>
+                      <path class="pw-seal-drop-shine" d="M9.3 11.1c-.7 1.1-1.1 2-1.1 2.8a3.8 3.8 0 0 0 1.4 3"></path>
+                    </svg>
+                  </span>
+                  <span class="pw-seal-text">Marca de agua</span>
+                  <span class="pw-seal-rule"></span>
+                </div>
+                <p class="form-hint">En las <b>noticias</b> el texto se superpone sobre la portada (posición de arriba). En los <b>eventos</b> el sello va en una columna propia a la derecha de la tarjeta, separado del cuerpo por una línea.</p>
               </div>
             </div>
             <div class="field-group">
@@ -1071,6 +1508,14 @@
           <div id="projects-list" class="admin-list"><p class="loading-note">Cargando…</p></div>
         </div>
       </div>
+      </div><!-- /projects-sub-main -->
+
+      <!-- Sub-panel DETALLE: ficha completa del proyecto elegido en el sidebar -->
+      <div class="admin-subpane hidden" data-sub="detail" id="projects-sub-detail">
+        <div id="project-detail" class="project-detail">
+          <p class="loading-note">Cargando proyecto…</p>
+        </div>
+      </div><!-- /projects-sub-detail -->
     </div>
 
     <!-- ============ TAB: BANNERS (avisos de lanzamiento en OWS Hub) ============ -->
@@ -1422,38 +1867,52 @@
              Mientras trabajás se van abriendo y cerrando bloques. Todas las
              sesiones de un día se combinan después en un solo devlog. Si
              un bloque cae después de las 00:00 se parte entre los dos días. -->
-        <div class="glass-card list-card ws-card m-fold-card" data-fold="ws">
+        <div class="glass-card list-card ws-card ws-card--board">
           <div class="card-head">
             <div class="card-head-text">
-              <h3 class="form-title">🕐 Sesiones de trabajo <span class="ws-live" id="ws-clock">--:--:--</span></h3>
-              <p class="form-hint">Anotá <b>cada bloque por separado</b> mientras avanzás: queda con la hora en que se empezó y la hora en que terminó. Al final del día, todas se combinan en un único <b>devlog del día</b> 👇. Si un bloque termina después de las 00:00, se reparte solo entre los dos días.</p>
+              <h3 class="form-title">🎛️ Estado del estudio <span class="ws-live" id="ws-clock">--:--:--</span></h3>
+              <p class="form-hint">Todos los proyectos con su <b>estado en vivo</b> y el tiempo que lleva cada uno. Programá un inicio, marcá una pausa o abrí el historial detallado cuando lo necesites.</p>
             </div>
-            <div class="ws-head-actions">
+            <div class="ws-head-actions ws-head-actions--board">
+              <button class="btn ws-start-btn btn-sm" id="ws-start-btn" data-adm-ev="click" data-adm="openWsRealtimeForm" title="Pide los datos y arranca el cronómetro">⏱ Iniciar</button>
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsForm" data-adm-a0="x:" data-adm-a1="s:active" title="Abrir una sesión escribiendo las horas a mano">✍️ Manual</button>
+              <button class="btn btn-ghost btn-sm" id="ws-history-toggle" data-adm-ev="click" data-adm="toggleWsHistory" title="Mostrar u ocultar el historial detallado">🗂 Historial</button>
+              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="admReloadWsBoard" title="Recargar proyectos y sesiones">↻</button>
+            </div>
+          </div>
+
+          <!-- Tablero compacto: todos los proyectos, su estado y su tiempo en vivo. -->
+          <div class="wsb" id="ws-board">
+            <div class="wsb-toolbar">
+              <div class="wsb-kpis" id="wsb-kpis"></div>
+              <label class="wsb-search" for="wsb-search">
+                <span aria-hidden="true">🔍</span>
+                <input type="text" id="wsb-search" placeholder="Buscar proyecto…" autocomplete="off" data-adm-ev="input" data-adm="onWsBoardSearch" />
+              </label>
+            </div>
+            <div class="wsb-filters" id="wsb-filters"></div>
+            <!-- Salud del estudio: problemas actuales detectados con datos ya cargados. -->
+            <div class="wsb-health" id="wsb-health"></div>
+            <div class="wsb-list" id="wsb-list"><p class="loading-note">Cargando proyectos…</p></div>
+          </div>
+
+          <!-- Historial detallado: timeline, grupos y formulario manual. -->
+          <div class="ws-history hidden" id="ws-history">
+            <div class="ws-history-bar">
               <div class="ws-view-toggle" role="tablist" aria-label="Vista de sesiones">
                 <button type="button" class="btn btn-ghost btn-sm ws-view-btn is-on" id="ws-view-all" data-adm-ev="click" data-adm="setWsTimelineMode" data-adm-a0="s:all" title="Ver todas las sesiones agrupadas por día">📅 Por día</button>
                 <button type="button" class="btn btn-ghost btn-sm ws-view-btn" id="ws-view-day" data-adm-ev="click" data-adm="setWsTimelineMode" data-adm-a0="s:day" title="Ver un solo día">📓 Un día</button>
               </div>
               <input type="date" id="ws-day" data-adm-ev="change" data-adm="onWsDayChange" />
               <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="admSetWsDayToday" title="Ir a hoy">Hoy</button>
-              <button class="btn ws-start-btn btn-sm" id="ws-start-btn" data-adm-ev="click" data-adm="openWsRealtimeForm" title="Pide los datos y arranca el cronómetro">⏱ Iniciar en tiempo real</button>
-              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="openWsForm" data-adm-a0="x:" data-adm-a1="s:active" title="Abrir una sesión escribiendo las horas a mano">✍️ Manual</button>
-              <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadWorkSessions" data-adm-a0="b:1" title="Recargar sesiones">↻</button>
+              <span class="ws-history-hint">El historial conserva cada bloque con sus pausas, cambios y reworks.</span>
             </div>
-          </div>
 
-          <!-- Barras de sesiones en vivo: una fila por cronómetro (puede haber varias).
-               Las pinta renderWsLiveBar() según las activas del servidor. -->
-          <div class="ws-live-list hidden" id="ws-live-bar"></div>
-          <div class="ws-live-note hidden" id="ws-live-note"></div>
+            <!-- Reworks (cambios masivos): los cambios conectados entre sí.
+                 Lo pinta renderWsReworks() con lo que devuelve /ows-work-reworks. -->
+            <div class="ws-reworks hidden" id="ws-reworks"></div>
 
-          <!-- Sesiones interrumpidas esperando ser retomadas -->
-          <div class="ws-paused-bar hidden" id="ws-paused-bar"></div>
-
-          <!-- Reworks (cambios masivos): los cambios conectados entre sí.
-               Lo pinta renderWsReworks() con lo que devuelve /ows-work-reworks. -->
-          <div class="ws-reworks hidden" id="ws-reworks"></div>
-
-          <div class="ws-banner hidden" id="ws-banner"></div>
+            <div class="ws-banner hidden" id="ws-banner"></div>
 
           <div class="ws-form hidden" id="ws-form">
             <div class="ws-form-head">
@@ -1468,6 +1927,7 @@
               <label for="ws-project">¿De qué proyecto?</label>
               <select id="ws-project" data-adm-ev="change" data-adm="onWsProjectChange"><option value="">— Sin proyecto (general) —</option></select>
             </div>
+            <div id="ws-update-slot"></div>
             <div class="ws-field">
               <label for="ws-title">¿Qué hiciste? *</label>
               <input type="text" id="ws-title" maxlength="160" placeholder="Ej: Sistema de combate" autocomplete="off" />
@@ -1495,7 +1955,7 @@
               <div class="ws-breaks" id="ws-breaks"></div>
               <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="addWsBreak">＋ Agregar pausa</button>
             </div>
-            <div class="ws-field">
+            <div class="ws-field" id="ws-delta-field">
               <label>¿Cuánto avanzó?</label>
               <div class="ws-delta">
                 <input type="range" id="ws-delta-range" min="0" max="100" step="0.5" value="0" data-adm-ev="input" data-adm="syncWsDelta" />
@@ -1512,7 +1972,8 @@
             </div>
           </div>
 
-          <div class="ws-timeline" id="ws-timeline"><p class="loading-note">Cargando sesiones…</p></div>
+            <div class="ws-timeline" id="ws-timeline"><p class="loading-note">Cargando sesiones…</p></div>
+          </div><!-- /ws-history -->
         </div>
 
         <!-- ═══ DEVLOG DEL DÍA: combinación de las sesiones ═══ -->
@@ -1523,9 +1984,15 @@
               <p class="form-hint">Resumen automático de las sesiones de ese día. Al publicar se crea <b>una entrada del devlog</b> con la hora de cada bloque, el total de tiempo y el avance. El porcentaje ya se movió al cerrar cada sesión, así que al publicar no se vuelve a sumar. Para publicar días anteriores, elegí la fecha.</p>
             </div>
             <div class="ws-head-actions">
+              <label class="ws-autopub" for="ws-autopub-input" title="Publica automáticamente las sesiones pendientes del proyecto y del día apenas cerrás una sesión. Cada cierre crea el devlog de lo que quedó sin publicar; no se suma el % dos veces.">
+                <input type="checkbox" id="ws-autopub-input" data-adm-ev="change" data-adm="toggleWsAutoPublish" />
+                <span class="ws-autopub-track" aria-hidden="true"></span>
+                <span class="ws-autopub-text"><b>Auto-publicar</b><small id="ws-autopub-state">Desactivado</small></span>
+              </label>
               <input type="date" id="ws-daily-day" data-adm-ev="change" data-adm="onWsDailyDayChange" title="Elegir qué día publicar" />
               <button class="btn btn-primary btn-sm" data-adm-ev="click" data-adm="publishDailyDevlog" data-adm-a0="n:0">📤 Publicar todo</button>
               <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadWsDaily">↻</button>
+              <span class="ws-autopub-note hidden" id="ws-autopub-note"></span>
             </div>
           </div>
           <div class="ws-daily" id="ws-daily"><p class="loading-note">Cargando resumen…</p></div>
@@ -1583,7 +2050,7 @@
             </div>
           </div>
           <div class="page-head-actions">
-            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadProjectActivity" data-adm-a0="b:1" title="Recargar la bitácora">↻ Actualizar</button>
+            <button class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadProjectActivity" data-adm-a0="b:1" title="Recargar el registro">↻ Actualizar</button>
           </div>
         </div>
 
@@ -1597,7 +2064,7 @@
         <div class="glass-card list-card pax-list-card">
           <div class="card-head">
             <div class="card-head-text">
-              <h3 class="form-title">Bitácora diaria por proyecto</h3>
+              <h3 class="form-title">Registro diario por proyecto</h3>
               <p class="form-hint">Clic en cualquier día para desplegar el detalle de lo que ocurrió. Las celdas vacías son días sin movimiento.</p>
             </div>
           </div>
@@ -2295,7 +2762,111 @@
       </div>
     </div>
 
+    <!-- ============ TAB: ACTUALIZACIONES / HISTORIAL ============ -->
+    <!-- Actualizaciones: alta liviana (proyecto + % + estado + nota).
+         Historial: línea de tiempo completa y filtrable, con altas de proyecto,
+         avances, hitos al 100% y lanzamientos. -->
+    <div id="tab-updates" class="tab-content hidden">
+      <div class="admin-subpane" data-sub="main" id="updates-sub-main">
+        <div class="upd-page">
+          <header class="upd-head">
+            <span class="upd-eyebrow">Desarrollo</span>
+            <h2 class="upd-title">Actualizaciones</h2>
+            <p class="upd-sub">Registrá en qué punto está cada proyecto: porcentaje, estado y una nota corta. Cada línea queda fechada con tu nombre.</p>
+          </header>
+
+          <form id="upd-form" class="upd-composer" data-adm-ev="submit" data-adm="saveProjectUpdate" data-adm-a0="ev" autocomplete="off">
+            <div class="upd-fields">
+              <label class="upd-field upd-field--project">
+                <span class="upd-label">Proyecto</span>
+                <select id="upd-project" class="ows-select" data-adm-ev="change" data-adm="onUpdProjectChange"></select>
+              </label>
+              <label class="upd-field">
+                <span class="upd-label">Estado</span>
+                <select id="upd-status" class="ows-select">
+                  <option value="planificacion">Planificación</option>
+                  <option value="prototipo">Prototipo</option>
+                  <option value="desarrollo" selected>En desarrollo</option>
+                  <option value="testing">Testing</option>
+                  <option value="ajustes">Ajustes</option>
+                  <option value="listo">Listo</option>
+                  <option value="publicado">Publicado</option>
+                  <option value="pausado">Pausado</option>
+                </select>
+              </label>
+              <div class="upd-field upd-field--pct">
+                <span class="upd-label">Avance</span>
+                <div class="upd-pct">
+                  <input type="range" id="upd-range" min="0" max="100" step="1" value="0" aria-label="Porcentaje de avance" data-adm-ev="input" data-adm="syncUpdPercent" data-adm-a0="thp:value" />
+                  <span class="upd-pct-box">
+                    <input type="number" id="upd-percent" min="0" max="100" step="0.01" value="0" inputmode="decimal" aria-label="Porcentaje exacto" data-adm-ev="input" data-adm="syncUpdPercent" data-adm-a0="thp:value" />
+                    <em>%</em>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="upd-actions">
+              <input type="text" id="upd-note" maxlength="240" placeholder="Nota corta (opcional): qué cambió, qué sigue…" />
+              <button type="submit" class="upd-save" id="upd-save">Registrar</button>
+            </div>
+
+            <p class="upd-hint" id="upd-hint" role="status"></p>
+          </form>
+
+          <section class="upd-log upd-log--recent">
+            <div class="upd-log-head">
+              <h3>Últimos movimientos</h3>
+              <a class="upd-link" href="#/desarrollo/historial" data-ows-route="/desarrollo/historial">Ver historial completo →</a>
+            </div>
+            <div id="upd-list" class="upd-list"><p class="upd-empty">Cargando…</p></div>
+          </section>
+
+          <!-- Sesiones de trabajo y devlogs de proyectos al 100%, agrupados
+               por proyecto → actualización → fecha. Solo admins. -->
+          <section class="upd-log upd-log--work">
+            <div class="upd-log-head">
+              <h3>Actualizaciones por proyecto</h3>
+              <span class="wup-count" id="wup-count">—</span>
+              <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="loadWorkUpdates" data-adm-a0="b:1" title="Recargar actualizaciones">↻</button>
+            </div>
+            <p class="wup-intro">El desarrollo de estos proyectos ya está al 100%: cada grupo es una <b>actualización del juego</b> (su evento del calendario) con todas las sesiones de trabajo que le corresponden. Los devlogs aparecen una sola vez y las sesiones que todavía no entraron en un devlog se listan aparte. Si una actualización quedó sin evento, se puede vincular después.</p>
+            <div id="wup-list" class="wup-list"><p class="upd-empty">Cargando…</p></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="admin-subpane hidden" data-sub="history" id="updates-sub-history">
+        <div class="upd-page hist-page">
+          <header class="upd-head">
+            <span class="upd-eyebrow">Desarrollo</span>
+            <h2 class="upd-title">Historial</h2>
+            <p class="upd-sub">Todo lo que le pasó a cada proyecto: cuándo se agregó, cómo avanzó, cuándo llegó al 100% y cuándo se lanzó. Agrupado por día.</p>
+          </header>
+
+          <div class="hist-toolbar">
+            <label class="hist-filter">
+              <span class="upd-label">Proyecto</span>
+              <select id="hist-project" class="ows-select" data-adm-ev="change" data-adm="renderProjectHistory"></select>
+            </label>
+            <div class="hist-chips" id="hist-type-chips" role="group" aria-label="Filtrar por tipo de movimiento">
+              <button type="button" class="hist-chip is-active" data-hist-type="all" data-adm-ev="click" data-adm="setHistType" data-adm-a0="s:all">Todo</button>
+              <button type="button" class="hist-chip" data-hist-type="created" data-adm-ev="click" data-adm="setHistType" data-adm-a0="s:created">Altas</button>
+              <button type="button" class="hist-chip" data-hist-type="progress" data-adm-ev="click" data-adm="setHistType" data-adm-a0="s:progress">Avances</button>
+              <button type="button" class="hist-chip" data-hist-type="milestone" data-adm-ev="click" data-adm="setHistType" data-adm-a0="s:milestone">Hitos</button>
+              <button type="button" class="hist-chip" data-hist-type="launch" data-adm-ev="click" data-adm="setHistType" data-adm-a0="s:launch">Lanzamientos</button>
+            </div>
+            <span class="hist-count" id="hist-count">0 movimientos</span>
+            <button type="button" class="btn btn-ghost btn-sm hist-refresh" data-adm-ev="click" data-adm="loadProjectUpdates" data-adm-a0="b:1" title="Recargar el historial">↻</button>
+          </div>
+
+          <div id="hist-list" class="hist-list"><p class="upd-empty">Cargando…</p></div>
+        </div>
+      </div>
+    </div>
+
     </main>
+   </div>
    </div>
    <footer class="dashboard-footer">
      <span>OWS Admin Panel © 2026 — Panel de administración</span>
@@ -2318,6 +2889,14 @@
     </div>
   </div>
 
+  <!-- Modal: cargar / actualizar código fuente (solo Owner) -->
+  <div id="src-modal" class="devmodal-overlay hidden" data-ows-overlay="src-modal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-src-action="close" aria-label="Cerrar">&times;</button>
+      <div id="src-modal-body"></div>
+    </div>
+  </div>
+
   <!-- Modal: crear / ver devlog -->
   <div id="devlog-modal" class="devmodal-overlay hidden" data-adm-overlay-id="devlog-modal" data-adm-overlay-fn="closeDevlogModal">
     <div class="devmodal-card glass-card">
@@ -2331,6 +2910,53 @@
     <div class="devmodal-card glass-card">
       <button class="devmodal-close" data-adm-ev="click" data-adm="closeWsModal" aria-label="Cerrar">&times;</button>
       <div id="ws-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: vincular después una actualización pendiente (encima del panel) -->
+  <div id="wup-link-modal" class="devmodal-overlay devmodal-overlay--nested hidden" data-adm-overlay-id="wup-link-modal" data-adm-overlay-fn="closeWorkUpdateLinkModal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeWorkUpdateLinkModal" aria-label="Cerrar">&times;</button>
+      <div id="wup-link-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: crear el evento de una actualización sin cerrar la sesión -->
+  <div id="ws-event-modal" class="devmodal-overlay devmodal-overlay--nested hidden" data-adm-overlay-id="ws-event-modal" data-adm-overlay-fn="closeWsUpdateEventModal">
+    <div class="devmodal-card glass-card">
+      <button class="devmodal-close" data-adm-ev="click" data-adm="closeWsUpdateEventModal" aria-label="Cerrar">&times;</button>
+      <div class="devmodal-head">
+        <div class="devmodal-icon">🗓️</div>
+        <div class="devmodal-head-info">
+          <h3 class="devmodal-title">Crear evento de la actualización</h3>
+          <p class="modal-tagline">Proyecto: <b id="wsev-project">—</b> · se crea como evento de tipo <b>actualización</b>.</p>
+        </div>
+      </div>
+      <div class="wsrt-note">Al crearlo volvés a la sesión con todo lo que tenías cargado y el evento queda elegido automáticamente.</div>
+      <div class="field-group">
+        <label for="wsev-title">Título *</label>
+        <input type="text" id="wsev-title" maxlength="80" placeholder="Ej: Actualización 1.4 — Cooperativo" autocomplete="off" />
+      </div>
+      <div class="field-group">
+        <label for="wsev-desc">Descripción <small>(opcional)</small></label>
+        <textarea id="wsev-desc" rows="2" maxlength="600" placeholder="Qué incluye esta actualización…"></textarea>
+      </div>
+      <div class="ws-field-row">
+        <div class="ws-field">
+          <label for="wsev-start">Empieza</label>
+          <input type="datetime-local" id="wsev-start" />
+        </div>
+        <div class="ws-field">
+          <label for="wsev-end">Termina <small>(opcional)</small></label>
+          <input type="datetime-local" id="wsev-end" />
+        </div>
+      </div>
+      <p class="form-hint">Un evento <b>finalizado</b> deja de poder vincularse: si la actualización va a seguir abierta, dejá la fecha de fin vacía.</p>
+      <div id="wsev-alert" class="alert-box hidden"></div>
+      <div class="ws-step-actions">
+        <button type="button" class="btn btn-ghost" data-adm-ev="click" data-adm="closeWsUpdateEventModal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="wsev-save" data-adm-ev="click" data-adm="createWsUpdateEvent">✨ Crear y vincular</button>
+      </div>
     </div>
   </div>
 
@@ -2527,10 +3153,25 @@
     </div>
   </div>
 
+  <!-- Paleta de búsqueda del shell (Ctrl/Cmd+K) -->
+  <div id="ows-palette" class="ows-palette-backdrop" hidden>
+    <div class="ows-palette" role="dialog" aria-modal="true" aria-labelledby="ows-palette-title">
+      <div class="ows-palette-head">
+        <span class="ows-palette-title" id="ows-palette-title">Buscar sección</span>
+        <kbd>Esc</kbd>
+      </div>
+      <input type="text" id="ows-palette-input" class="ows-palette-input" placeholder="Escribí para filtrar…" autocomplete="off" spellcheck="false" />
+      <div class="ows-palette-results" id="ows-palette-results" role="listbox" aria-label="Resultados"></div>
+      <div class="ows-palette-foot"><span>↑ ↓ navegar</span><span>Enter abrir</span><span>Esc cerrar</span></div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <script src="../ows-api-failover.js?v=1"></script>
-  <script src="admin-app.js?v=13"></script>
+  <script src="admin-app.js?v=40"></script>
+  <script src="admin-notes.js?v=2"></script>
+  <script src="admin-shell.js?v=14"></script>
   <div class="an-tip hidden" id="an-tip"></div>
 </body>
 </html>

@@ -1601,6 +1601,22 @@ function eventCategoryMeta(category) {
   return EVENT_CATEGORY_META[String(category || '').trim().toLowerCase()] || EVENT_CATEGORY_META.update;
 }
 
+// "Evento combinado": otras cosas que llegan junto al evento principal
+// (DLC, pase de temporada, extras). El backend las manda como bundle_items.
+function eventBundleItems(ev) {
+  if (!ev) return [];
+  const raw = Array.isArray(ev.bundle_items)
+    ? ev.bundle_items
+    : Array.isArray(ev.bundleItems) ? ev.bundleItems : [];
+  return raw.filter((it) => it && typeof it === 'object' && String(it.label || '').trim());
+}
+
+function eventBundleSummaryText(count) {
+  return count === 1
+    ? 'Este evento y 1 cosa más vienen juntos'
+    : `Este evento y ${count} cosas más vienen juntos`;
+}
+
 function formatEventRange(startIso, endIso) {
   const s = startIso ? new Date(startIso) : null;
   const e = endIso ? new Date(endIso) : null;
@@ -2098,6 +2114,14 @@ function renderEvents(eventsList) {
       : expected
         ? `<span class="event-card-date is-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada: ${dateRange} <span class="ev-date-note">(por confirmar)</span></span>`
         : `<span class="event-card-date">📅 ${dateRange}</span>`;
+    // Evento combinado: resumen + primeras etiquetas; el modal muestra todo.
+    const bundle = eventBundleItems(ev);
+    const bundleNote = bundle.length
+      ? `<div class="event-card-bundle">
+           <span class="event-card-bundle-title">🧩 ${escapeHtml(eventBundleSummaryText(bundle.length))}</span>
+           <span class="event-card-bundle-chips">${bundle.slice(0, 3).map((it) => `<span class="event-bundle-chip">${escapeHtml(it.label)}</span>`).join('')}${bundle.length > 3 ? `<span class="event-bundle-chip is-more">+${bundle.length - 3} más</span>` : ''}</span>
+         </div>`
+      : '';
     // La marca de agua del proyecto vive en una columna propia a la derecha
     // de la tarjeta (no tapa la portada).
     const wmRail = eventWatermarkRail(ev);
@@ -2115,6 +2139,7 @@ function renderEvents(eventsList) {
           <span class="event-card-project">${escapeHtml(eventProjectLabel(ev))}</span>
           <h4 class="event-card-title">${escapeHtml(ev.title)}</h4>
           ${ev.description ? `<p class="event-card-desc">${escapeHtml(ev.description)}</p>` : ''}
+          ${bundleNote}
           ${dateLine}
           ${expiryNote}
           ${expiryMarker}
@@ -2195,6 +2220,22 @@ function openEventModal(ev) {
       : undated
         ? 'Próximamente · fecha aún no definida'
         : (expected ? 'Próximamente · fecha por confirmar' : 'Próximamente');
+  // Evento combinado: lista completa de lo que viene junto al evento.
+  const bundle = eventBundleItems(ev);
+  const bundleBox = bundle.length
+    ? `<div class="ev-bundle-box">
+         <div class="ev-bundle-box-head">🧩 ${escapeHtml(eventBundleSummaryText(bundle.length))}</div>
+         <ul class="ev-bundle-list">
+           ${bundle.map((it) => {
+             const url = safeHttpUrl(it.url || '');
+             const label = url
+               ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.label)} ↗</a>`
+               : escapeHtml(it.label);
+             return `<li><span class="ev-bundle-item-label">${label}</span>${it.detail ? `<span class="ev-bundle-item-detail">${escapeHtml(it.detail)}</span>` : ''}</li>`;
+           }).join('')}
+         </ul>
+       </div>`
+    : '';
   body.innerHTML = `
     ${hasImg ? `<div class="modal-banner-wrap"><img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(ev.title)}" class="modal-banner" />${watermarkChip(ev, { big: true })}</div>` : ''}
     <div class="modal-head">
@@ -2205,6 +2246,7 @@ function openEventModal(ev) {
       </div>
     </div>
     ${ev.description ? `<div class="modal-about"><p class="modal-about-text">${escapeHtml(ev.description)}</p></div>` : ''}
+    ${bundleBox}
     <dl class="modal-data">
       <div class="data-row"><dt>${expected ? 'Fecha esperada de inicio' : 'Inicio'}</dt><dd>${escapeHtml(startsText)}${expected ? ' <span class="ev-date-note">(por confirmar)</span>' : ''}</dd></div>
       <div class="data-row"><dt>Fin</dt><dd>${escapeHtml(ev.ends_at ? new Date(ev.ends_at).toLocaleString('es-ES') : '—')}</dd></div>

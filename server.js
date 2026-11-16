@@ -15249,6 +15249,11 @@ async function ensureOwsDashboardEventsTable() {
   await pool.query(`
     ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
   `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (expires_at):', err.message));
+  // Evento combinado: otras cosas que llegan junto al evento principal (DLC,
+  // pase de temporada, extras). JSON array de { label, detail?, url? }.
+  await pool.query(`
+    ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS bundle_items JSONB NOT NULL DEFAULT '[]'::jsonb
+  `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (bundle_items):', err.message));
   // Fecha opcional: un evento puede publicarse sin fecha de inicio ("aún no
   // definida"). Se guarda NULL y la web lo muestra así, sin inventar fechas ni
   // cuentas atrás. Al definirla después, el evento se ordena y cuenta normal.
@@ -15268,9 +15273,46 @@ function normalizeDashboardEventCategory(value) {
   return DASHBOARD_EVENT_CATEGORIES.has(raw) ? raw : 'update';
 }
 
+// "Evento combinado": lista de otras cosas que llegan junto al evento
+// (DLC, pase de temporada, extras). Se guarda como JSONB y se normaliza acá:
+// etiqueta obligatoria, detalle y link opcionales, sin duplicados ni basura.
+const OWS_EVENT_BUNDLE_MAX_ITEMS = 20;
+const OWS_EVENT_BUNDLE_LABEL_MAX = 80;
+const OWS_EVENT_BUNDLE_DETAIL_MAX = 200;
+
+function normalizeDashboardEventBundleItems(value) {
+  let raw = value;
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch (_) { raw = []; }
+  }
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const entry of raw) {
+    if (out.length >= OWS_EVENT_BUNDLE_MAX_ITEMS) break;
+    const item = entry && typeof entry === 'object' ? entry : { label: entry };
+    const label = String(item.label ?? item.name ?? item.title ?? '')
+      .replace(/\s+/g, ' ').trim().slice(0, OWS_EVENT_BUNDLE_LABEL_MAX);
+    if (!label) continue;
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const detail = String(item.detail ?? item.description ?? item.note ?? '')
+      .replace(/\s+/g, ' ').trim().slice(0, OWS_EVENT_BUNDLE_DETAIL_MAX);
+    const url = sanitizePublicHttpUrl(item.url ?? item.link ?? item.href ?? '');
+    const cleaned = { label };
+    if (detail) cleaned.detail = detail;
+    if (url) cleaned.url = url;
+    out.push(cleaned);
+  }
+  return out;
+}
+
 function mapOwsDashboardEventRow(row) {
   const startsAt = row.starts_at ? new Date(row.starts_at).toISOString() : null;
   const endsAt = row.ends_at ? new Date(row.ends_at).toISOString() : null;
+  // "Evento combinado": lo que viene junto al evento principal.
+  const bundleItems = normalizeDashboardEventBundleItems(row.bundle_items);
   // Desaparición automática: a partir de esta fecha el evento deja de salir
   // en el feed público (y el admin lo ve marcado como "Desaparecido").
   const expiresAt = row.expires_at ? new Date(row.expires_at).toISOString() : null;
@@ -15302,6 +15344,12 @@ function mapOwsDashboardEventRow(row) {
     project_name: linkedName || String(row.project_name || 'OWS'),
     project_watermark: projectWatermark,
     projectWatermark: projectWatermark,
+    // "Evento combinado": array de { label, detail?, url? }. La web pública
+    // resume "este evento y X cosas más vienen juntos" y el modal lista todo.
+    bundle_items: bundleItems,
+    bundleItems,
+    bundle_count: bundleItems.length,
+    bundleCount: bundleItems.length,
     image_url: sanitizePublicHttpUrl(row.image_url),
     imageUrl: sanitizePublicHttpUrl(row.image_url),
     link_url: sanitizePublicHttpUrl(row.link_url),
@@ -15358,7 +15406,7 @@ async function resolveDashboardEventProject(body, fallbackName = 'OWS') {
 }
 
 const OWS_EVENT_COLUMNS_SELECT = `id, title, description, category, project_name, project_id,
-       image_url, link_url, starts_at, ends_at, starts_expected, expires_at, is_active, priority, created_by, created_at, updated_at`;
+       image_url, link_url, starts_at, ends_at, starts_expected, expires_at, bundle_items, is_active, priority, created_by, created_at, updated_at`;
 
 // Fechas del evento. `starts_at` es OPCIONAL: sin fecha el evento se publica
 // como "Fecha aún no definida" (no se rellena con una fecha inventada).
@@ -15436,7 +15484,7 @@ app.get('/ows-dashboard/events', async (req, res) => {
     if (!includeExpired) where.push('(e.expires_at IS NULL OR e.expires_at > NOW())');
     const { rows } = await pool.query(
       `SELECT e.id, e.title, e.description, e.category, e.project_name, e.project_id,
-              e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.expires_at, e.is_active, e.priority,
+              e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.expires_at, e.bundle_items, e.is_active, e.priority,
               e.created_by, e.created_at, e.updated_at,
               p.name AS linked_project_name, p.admin_only AS linked_admin_only,
               p.watermark_enabled, p.watermark_text, p.watermark_position, p.watermark_opacity,
@@ -15479,6 +15527,8 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
   if (expiryError) return res.status(400).json({ error: expiryError });
   const finalImageUrl = (req.file && req.file.path) ? sanitizePublicHttpUrl(req.file.path) : imageUrl;
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
+  // Evento combinado: otras cosas que vienen junto al evento principal.
+  const bundleItems = normalizeDashboardEventBundleItems(req.body?.bundle_items ?? req.body?.bundleItems ?? '[]');
 
   try {
     await ensureOwsLaunchProjectsTable();
@@ -15487,10 +15537,10 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
     if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const { rows } = await pool.query(
       `INSERT INTO ows_dashboard_events
-         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, starts_expected, expires_at, priority, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, starts_expected, expires_at, priority, bundle_items, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14)
        RETURNING ${OWS_EVENT_COLUMNS_SELECT}`,
-      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl, dates.start, dates.end, startsExpected, expiry.value || null, priority, adminName]
+      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl, dates.start, dates.end, startsExpected, expiry.value || null, priority, JSON.stringify(bundleItems), adminName]
     );
     logAdminActivity({
       action: 'create', entityType: 'dashboard_event', entityId: String(rows[0]?.id || ''),
@@ -15531,6 +15581,12 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
     if (req.body?.link_url !== undefined) updates.link_url = sanitizePublicHttpUrl(req.body.link_url);
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
+    // Evento combinado: lista completa (se reemplaza entera). Vacía = sin extras.
+    if (req.body?.bundle_items !== undefined || req.body?.bundleItems !== undefined) {
+      updates.bundle_items = JSON.stringify(
+        normalizeDashboardEventBundleItems(req.body.bundle_items ?? req.body.bundleItems)
+      );
+    }
     // Inicio tentativo ("fecha esperada de inicio"): se puede prender/apagar
     // sin tocar las fechas. Sin una fecha cargada no hay nada que "esperar":
     // se guarda apagado para no dejar estados incoherentes.
@@ -17714,7 +17770,7 @@ app.get('/ows-hub/summary', async (req, res) => {
       ),
       pool.query(
         `SELECT id, title, description, category, project_name, project_id, image_url, link_url,
-                starts_at, ends_at, starts_expected, expires_at, priority, created_by, created_at, updated_at
+                starts_at, ends_at, starts_expected, expires_at, bundle_items, priority, created_by, created_at, updated_at
            FROM ows_dashboard_events
           WHERE is_active = TRUE AND (expires_at IS NULL OR expires_at > NOW())
           ORDER BY starts_at DESC LIMIT 10`

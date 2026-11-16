@@ -1,11 +1,11 @@
 {
   "project_slug": "owshub",
   "package_id": "com.oceanandwild.owshub",
-  "version_name": "3.5.4",
-  "version_code": 29913445,
-  "apk_url": "https://github.com/OceanandWild/ows-hub/releases/download/android-v3.5.4/OWS-Hub-3.5.4-android.apk",
-  "sha256": "d4ae2e7cf97afeb76325f0ece2d8a070f8f781e7a2e5e972c34ff0bc64aff26c",
-  "size_bytes": 15987212,
-  "release_notes": "APK de OWS Hub 3.5.4",
-  "published_at": "2026-11-16T05:26:24.222Z"
+  "version_name": "3.5.5",
+  "version_code": 29913466,
+  "apk_url": "https://github.com/OceanandWild/ows-hub/releases/download/android-v3.5.5/OWS-Hub-3.5.5-android.apk",
+  "sha256": "dce56bf2a8faa070c6184d937d8191b5a52e9341a84c0a92f765ee8d479f22dc",
+  "size_bytes": 16050057,
+  "release_notes": "APK de OWS Hub 3.5.5",
+  "published_at": "2026-11-16T05:47:22.074Z"
 }

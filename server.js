@@ -11219,7 +11219,7 @@ app.post('/ocean-pay/gambits/earn', async (req, res) => {
 // El precio y el cobro viven AQUÍ: el cliente solo lo pinta. El descuento de
 // Tides y la marca de propiedad se hacen en la misma transacción, contra el
 // saldo real de la cuenta Ocean Pay.
-const WILDER_GAMBIT_SEASON = { season: 1, priceTides: 450 };
+const WILDER_GAMBIT_SEASON = { season: 1, priceTides: 400 };
 
 function decodeWilderGambitUser(req) {
   const authHeader = String(req.headers.authorization || '');

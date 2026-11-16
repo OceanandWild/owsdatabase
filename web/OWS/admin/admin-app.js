@@ -7287,6 +7287,7 @@ let combinedCache = [];
 let combinedEditingId = null;
 let combinedImageFile = null;
 let combinedImageObjectUrl = '';
+let combinedInitialImageUrl = '';
 let combinedDropzoneBound = false;
 
 // Compatibilidad con chips y búsqueda: lista plana del evento guardado.
@@ -7403,6 +7404,7 @@ function closeCombinedEvents() {
   combinedEditingId = null;
   combinedCache = [];
   combinedImageFile = null;
+  combinedInitialImageUrl = '';
   if (combinedImageObjectUrl) {
     try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
     combinedImageObjectUrl = '';
@@ -7550,6 +7552,7 @@ function selectCombinedProject(ev) {
 function newCombinedEvent() {
   combinedEditingId = null;
   combinedImageFile = null;
+  combinedInitialImageUrl = '';
   if (combinedImageObjectUrl) {
     try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
     combinedImageObjectUrl = '';
@@ -7581,6 +7584,7 @@ function editCombinedEvent(id) {
   if (!item) return showToast('⚠️ Evento combinado no encontrado');
   combinedEditingId = Number(id);
   combinedImageFile = null;
+  combinedInitialImageUrl = item.image_url || '';
   if (combinedImageObjectUrl) {
     try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
     combinedImageObjectUrl = '';
@@ -7634,7 +7638,7 @@ function currentCombinedImageSrc(existingUrl) {
   if (combinedImageFile) return combinedImageObjectUrl || '';
   const el = combinedEls();
   const typed = el.imageUrl ? el.imageUrl.value.trim() : '';
-  return typed || existingUrl || '';
+  return typed || existingUrl || combinedInitialImageUrl || '';
 }
 
 function renderCombinedImagePreview(existingUrl) {
@@ -7669,19 +7673,23 @@ function onCombinedImageChange() {
 }
 
 function onCombinedImageUrlInput() {
+  const el = combinedEls();
   if (combinedImageFile) {
     combinedImageFile = null;
-    if (combinedEls().imageInput) combinedEls().imageInput.value = '';
+    if (el.imageInput) el.imageInput.value = '';
     if (combinedImageObjectUrl) {
       try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
       combinedImageObjectUrl = '';
     }
   }
+  // Borrar el campo a mano equivale a quitar la portada guardada.
+  if (!el.imageUrl || !el.imageUrl.value.trim()) combinedInitialImageUrl = '';
   renderCombinedImagePreview('');
 }
 
 function removeCombinedImage() {
   combinedImageFile = null;
+  combinedInitialImageUrl = '';
   const el = combinedEls();
   if (el.imageInput) el.imageInput.value = '';
   if (el.imageUrl) el.imageUrl.value = '';
@@ -7768,8 +7776,7 @@ async function saveCombinedEvent(e) {
     fd.append('is_active', active ? 'true' : 'false');
     fd.append('parent_event_id', String(combinedParentId));
     if (combinedImageFile) fd.append('image', combinedImageFile);
-    else if (imageUrl) fd.append('image_url', imageUrl);
-    else if (combinedEditingId) fd.append('image_url', '');
+    else fd.append('image_url', imageUrl || combinedInitialImageUrl || '');
 
     let res;
     if (combinedEditingId) {

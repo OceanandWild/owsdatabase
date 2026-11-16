@@ -7274,164 +7274,576 @@ function updateEventDurationHint() {
   hint.textContent = days > 0 ? `⏳ Duración: ${days}d ${hours}h.` : hours > 0 ? `⏳ Duración: ${hours}h.` : '⏳ Duración: menos de 1 hora.';
 }
 
-// ── Evento combinado ──────────────────────────────────────
-// Un evento puede traer otras cosas (DLC, pase de temporada, extras). El admin
-// las carga acá y OWS resume "este evento y X cosas más vienen juntos".
-const EVENT_BUNDLE_MAX_ITEMS = 20;
+// ── Eventos combinados ────────────────────────────────────
+// Un evento padre puede traer otras cosas (DLC, pase de temporada, extras).
+// Cada cosa es un evento de verdad, con portada, descripción y link propios,
+// pero cuelga del padre: hereda sus fechas y en OWS se abre desde un botón
+// dentro del evento principal. Se administran en un modal dedicado.
+const COMBINED_NEW_MS = 24 * 3600 * 1000;
 
-function eventBundleEls() {
-  return {
-    toggle: document.getElementById('event-bundle-toggle'),
-    label: document.getElementById('event-bundle-toggle-label'),
-    fields: document.getElementById('event-bundle-fields'),
-    rows: document.getElementById('event-bundle-rows'),
-    count: document.getElementById('event-bundle-count')
-  };
-}
+let combinedParentId = null;
+let combinedParentTitle = '';
+let combinedCache = [];
+let combinedEditingId = null;
+let combinedImageFile = null;
+let combinedImageObjectUrl = '';
+let combinedDropzoneBound = false;
 
-function eventBundleIsOn() {
-  const el = eventBundleEls();
-  return !!(el.toggle && el.toggle.checked);
-}
-
-// Lista normalizada del evento guardado (el backend devuelve bundle_items).
+// Compatibilidad con chips y búsqueda: lista plana del evento guardado.
 function eventBundleItemsOf(ev) {
   if (!ev) return [];
-  const raw = Array.isArray(ev.bundle_items)
-    ? ev.bundle_items
-    : Array.isArray(ev.bundleItems) ? ev.bundleItems : [];
-  return raw.filter((it) => it && typeof it === 'object' && String(it.label || '').trim());
-}
-
-function createEventBundleRow(item) {
-  const data = item && typeof item === 'object' ? item : {};
-  const row = document.createElement('div');
-  row.className = 'ev-bundle-row';
-  row.setAttribute('data-bundle-row', '');
-  row.innerHTML = `
-    <div class="ev-bundle-row-head">
-      <span class="ev-bundle-row-index"></span>
-      <button type="button" class="btn btn-ghost btn-mini ev-bundle-remove" title="Quitar este elemento" data-adm-ev="click" data-adm="removeEventBundleRow">✕</button>
-    </div>
-    <div class="field-row">
-      <div class="field-group">
-        <label>Nombre *</label>
-        <input type="text" class="ev-bundle-label" maxlength="80" placeholder="Ej: Pase de temporada" value="${escapeHtml(data.label || '')}" data-adm-ev="input" data-adm="onEventBundleInput" />
-      </div>
-      <div class="field-group">
-        <label>Link <span class="opt-tag">opcional</span></label>
-        <input type="url" class="ev-bundle-url" maxlength="500" placeholder="https://…" value="${escapeHtml(data.url || '')}" data-adm-ev="input" data-adm="onEventBundleInput" />
-      </div>
-    </div>
-    <div class="field-group">
-      <label>Detalle <span class="opt-tag">opcional</span></label>
-      <input type="text" class="ev-bundle-detail" maxlength="200" placeholder="Ej: 4 skins exclusivas y 2 mapas" value="${escapeHtml(data.detail || '')}" data-adm-ev="input" data-adm="onEventBundleInput" />
-    </div>`;
-  return row;
-}
-
-function renumberEventBundleRows() {
-  const el = eventBundleEls();
-  if (!el.rows) return;
-  const rows = [...el.rows.querySelectorAll('[data-bundle-row]')];
-  rows.forEach((row, i) => {
-    const idx = row.querySelector('.ev-bundle-row-index');
-    if (idx) idx.textContent = `#${i + 1}`;
-    const btn = row.querySelector('.ev-bundle-remove');
-    if (btn) btn.disabled = rows.length <= 1;
-  });
-  if (el.count) el.count.textContent = `${rows.length}/${EVENT_BUNDLE_MAX_ITEMS}`;
-}
-
-function addEventBundleRow(item) {
-  const el = eventBundleEls();
-  if (!el.rows) return;
-  if (el.rows.querySelectorAll('[data-bundle-row]').length >= EVENT_BUNDLE_MAX_ITEMS) {
-    showToast(`⚠️ Podés cargar hasta ${EVENT_BUNDLE_MAX_ITEMS} cosas`);
-    return;
-  }
-  el.rows.appendChild(createEventBundleRow(item));
-  renumberEventBundleRows();
-  updateEventLivePreview();
-}
-
-function removeEventBundleRow() {
-  const row = this && this.closest ? this.closest('[data-bundle-row]') : null;
-  if (!row) return;
-  row.remove();
-  const el = eventBundleEls();
-  if (el.rows && !el.rows.querySelector('[data-bundle-row]')) {
-    el.rows.appendChild(createEventBundleRow({}));
-  }
-  renumberEventBundleRows();
-  updateEventLivePreview();
-}
-
-function onEventBundleInput() {
-  updateEventLivePreview();
-}
-
-function onEventBundleToggle() {
-  const el = eventBundleEls();
-  const on = eventBundleIsOn();
-  if (el.label) el.label.textContent = on ? 'Este evento viene con otras cosas' : 'Este evento viene solo';
-  if (el.fields) el.fields.classList.toggle('hidden', !on);
-  if (on && el.rows && !el.rows.querySelector('[data-bundle-row]')) {
-    el.rows.appendChild(createEventBundleRow({}));
-  }
-  renumberEventBundleRows();
-  updateEventLivePreview();
-}
-
-// Carga la lista guardada en el formulario (editar) o lo deja limpio (reset).
-function setEventBundleFromItems(items) {
-  const el = eventBundleEls();
-  const list = (Array.isArray(items) ? items : [])
-    .filter((it) => it && typeof it === 'object' && String(it.label || '').trim())
-    .slice(0, EVENT_BUNDLE_MAX_ITEMS);
-  if (el.toggle) el.toggle.checked = list.length > 0;
-  if (el.rows) {
-    el.rows.innerHTML = '';
-    if (list.length) list.forEach((it) => el.rows.appendChild(createEventBundleRow(it)));
-    else if (el.toggle && el.toggle.checked) el.rows.appendChild(createEventBundleRow({}));
-  }
-  if (el.fields) el.fields.classList.toggle('hidden', !eventBundleIsOn());
-  if (el.label) el.label.textContent = eventBundleIsOn() ? 'Este evento viene con otras cosas' : 'Este evento viene solo';
-  renumberEventBundleRows();
-}
-
-// Lee las filas del formulario y devuelve solo lo que tiene nombre.
-function eventBundleItemsFromForm() {
-  const el = eventBundleEls();
-  if (!el.rows || !eventBundleIsOn()) return [];
-  const items = [];
-  const seen = new Set();
-  el.rows.querySelectorAll('[data-bundle-row]').forEach((row) => {
-    if (items.length >= EVENT_BUNDLE_MAX_ITEMS) return;
-    const read = (sel) => {
-      const input = row.querySelector(sel);
-      return input ? String(input.value || '').replace(/\s+/g, ' ').trim() : '';
-    };
-    const label = read('.ev-bundle-label').slice(0, 80);
-    if (!label) return;
-    const key = label.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    const item = { label };
-    const detail = read('.ev-bundle-detail').slice(0, 200);
-    if (detail) item.detail = detail;
-    const url = read('.ev-bundle-url');
-    if (url) item.url = url;
-    items.push(item);
-  });
-  return items;
+  const raw = Array.isArray(ev.combined_events)
+    ? ev.combined_events
+    : Array.isArray(ev.combinedEvents) ? ev.combinedEvents : [];
+  return raw
+    .filter((it) => it && typeof it === 'object' && String(it.title || it.label || '').trim())
+    .map((it) => ({
+      id: it.id,
+      label: String(it.title || it.label || ''),
+      detail: String(it.description || it.detail || ''),
+      url: String(it.link_url || it.url || ''),
+      created_at: it.created_at || null,
+      is_active: it.is_active !== false
+    }));
 }
 
 function eventBundleSummaryText(count) {
   return count === 1
-    ? 'Este evento y 1 cosa más vienen juntos'
-    : `Este evento y ${count} cosas más vienen juntos`;
+    ? 'Este evento tiene 1 evento combinado'
+    : `Este evento tiene ${count} eventos combinados`;
 }
+
+// ¿Se agregó hace menos de un día? Mismo criterio que la web pública.
+function combinedIsNew(ev) {
+  const ts = Date.parse((ev && (ev.created_at || ev.createdAt)) || '');
+  if (!Number.isFinite(ts)) return false;
+  return Date.now() - ts < COMBINED_NEW_MS;
+}
+
+function combinedEls() {
+  return {
+    overlay: document.getElementById('ev-combined-modal'),
+    title: document.getElementById('evc-title'),
+    listPane: document.getElementById('evc-list-pane'),
+    list: document.getElementById('evc-list'),
+    form: document.getElementById('evc-form'),
+    alert: document.getElementById('evc-alert'),
+    saveBtn: document.getElementById('btn-evc-save'),
+    name: document.getElementById('evc-name'),
+    desc: document.getElementById('evc-desc'),
+    cat: document.getElementById('evc-cat'),
+    project: document.getElementById('evc-project'),
+    customGroup: document.getElementById('evc-project-custom-group'),
+    custom: document.getElementById('evc-project-custom'),
+    link: document.getElementById('evc-link'),
+    imageUrl: document.getElementById('evc-image-url'),
+    imageInput: document.getElementById('evc-image'),
+    preview: document.getElementById('evc-image-preview'),
+    active: document.getElementById('evc-active'),
+    activeLabel: document.getElementById('evc-active-label'),
+    priority: document.getElementById('evc-priority'),
+    priorityRange: document.getElementById('evc-priority-range'),
+    priorityLabel: document.getElementById('evc-priority-label'),
+    nameCount: document.getElementById('evc-name-count'),
+    descCount: document.getElementById('evc-desc-count'),
+    summary: document.getElementById('event-combined-summary'),
+    summaryBtn: document.getElementById('btn-event-combined'),
+    summaryHint: document.getElementById('event-combined-hint')
+  };
+}
+
+// Resumen dentro del formulario del padre. Solo se pueden cargar combinados
+// cuando el evento ya existe: primero se guarda, después se administran.
+function refreshCombinedSummary() {
+  const el = combinedEls();
+  const parent = editingEventId
+    ? eventsCache.find((ev) => Number(ev.id) === Number(editingEventId))
+    : null;
+  const count = parent ? eventBundleItemsOf(parent).length : 0;
+  if (el.summary) {
+    el.summary.textContent = count
+      ? `${count} evento${count === 1 ? '' : 's'} combinado${count === 1 ? '' : 's'}`
+      : 'Sin eventos combinados';
+  }
+  if (el.summaryHint) el.summaryHint.classList.toggle('hidden', Boolean(editingEventId));
+  if (el.summaryBtn) el.summaryBtn.disabled = !editingEventId;
+}
+
+function openCombinedEvents() {
+  if (!editingEventId) {
+    showToast('⚠️ Guardá el evento primero: los combinados se cuelgan de un evento ya creado');
+    return;
+  }
+  const el = combinedEls();
+  const parent = eventsCache.find((ev) => Number(ev.id) === Number(editingEventId));
+  combinedParentId = Number(editingEventId);
+  combinedParentTitle = parent ? String(parent.title || '') : '';
+  combinedCache = parent
+    ? (Array.isArray(parent.combined_events) ? parent.combined_events
+      : Array.isArray(parent.combinedEvents) ? parent.combinedEvents : [])
+    : [];
+  if (el.title) {
+    el.title.textContent = combinedParentTitle
+      ? `Combinados de “${combinedParentTitle}”`
+      : 'Eventos combinados';
+  }
+  showCombinedList();
+  renderCombinedList();
+  if (el.overlay) el.overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  bindCombinedDropzone();
+  loadCombinedEvents();
+}
+
+function closeCombinedEvents() {
+  const el = combinedEls();
+  if (el.overlay) el.overlay.classList.add('hidden');
+  combinedParentId = null;
+  combinedParentTitle = '';
+  combinedEditingId = null;
+  combinedCache = [];
+  combinedImageFile = null;
+  if (combinedImageObjectUrl) {
+    try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
+    combinedImageObjectUrl = '';
+  }
+  hideCombinedAlert();
+  refreshCombinedSummary();
+  updateEventLivePreview();
+  // Relee el padre para dejar el contador al día en la lista de eventos.
+  try { loadAdminEvents(); } catch (_) {}
+}
+
+function showCombinedList() {
+  const el = combinedEls();
+  if (el.listPane) el.listPane.classList.remove('hidden');
+  if (el.form) el.form.classList.add('hidden');
+  hideCombinedAlert();
+}
+
+async function loadCombinedEvents() {
+  if (!combinedParentId) return;
+  const el = combinedEls();
+  if (el.list) el.list.innerHTML = '<div class="evc-empty">⏳ Cargando eventos combinados…</div>';
+  try {
+    const res = await fetch(`${API_BASE}/ows-dashboard/events/${combinedParentId}/combined`, { headers: adminHeaders() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    combinedCache = Array.isArray(data.events) ? data.events : [];
+    renderCombinedList();
+    syncCombinedCountInCache();
+  } catch (err) {
+    if (el.list) el.list.innerHTML = `<div class="evc-empty">⚠️ ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// Deja el contador del padre al día sin recargar toda la lista.
+function syncCombinedCountInCache() {
+  if (!combinedParentId) return;
+  const parent = eventsCache.find((ev) => Number(ev.id) === Number(combinedParentId));
+  if (parent) {
+    parent.combined_events = combinedCache;
+    parent.combinedEvents = combinedCache;
+    parent.combined_count = combinedCache.length;
+    parent.combinedCount = combinedCache.length;
+  }
+  refreshCombinedSummary();
+  updateEventLivePreview();
+}
+
+function renderCombinedList() {
+  const el = combinedEls();
+  if (!el.list) return;
+  if (!combinedCache.length) {
+    el.list.innerHTML = `
+      <div class="evc-empty">
+        <span class="evc-empty-icon">🧩</span>
+        <p><b>Sin eventos combinados.</b><br />Agregá lo que llega junto con este evento: DLC, pases, extras…</p>
+      </div>`;
+    return;
+  }
+  el.list.innerHTML = combinedCache.map((it) => {
+    const hidden = it.is_active === false;
+    const img = it.image_url
+      ? `<img src="${escapeHtml(it.image_url)}" alt="" loading="lazy" data-adm-err="closest:.evc-thumb|add:is-empty" />`
+      : '<span class="evc-thumb-fallback">🧩</span>';
+    const cat = eventCategoryMeta(it.category);
+    const newTag = combinedIsNew(it) ? '<span class="evc-new-tag" title="Agregado hace menos de 1 día">Nuevo!</span>' : '';
+    const linkTag = it.link_url ? '<span title="Tiene link Ver más">🔗</span>' : '';
+    return `
+      <div class="evc-item ${hidden ? 'is-hidden' : ''}">
+        <div class="evc-thumb">${img}</div>
+        <div class="evc-main">
+          <div class="evc-name">${escapeHtml(it.title || 'Sin título')} ${newTag}</div>
+          ${it.description ? `<div class="evc-desc">${escapeHtml(it.description)}</div>` : ''}
+          <div class="evc-meta">
+            <span class="ev-chip ${cat.cls}">${cat.icon} ${cat.label}</span>
+            <span>📁 ${escapeHtml(it.project_name || 'OWS')}</span>
+            ${linkTag}
+            ${hidden ? '<span class="evc-chip evc-chip-hidden">🚫 Oculto</span>' : ''}
+          </div>
+        </div>
+        <div class="evc-actions">
+          <button type="button" class="btn btn-ghost btn-mini" title="Editar" data-adm-ev="click" data-adm="editCombinedEvent" data-adm-a0="r:${it.id}">✏️</button>
+          <button type="button" class="btn btn-ghost btn-mini" title="${hidden ? 'Mostrar' : 'Ocultar'}" data-adm-ev="click" data-adm="toggleCombinedEvent" data-adm-a0="r:${it.id}" data-adm-a1="r:${hidden ? 'true' : 'false'}">${hidden ? '🚫' : '👁️'}</button>
+          <button type="button" class="btn btn-danger btn-mini" title="Eliminar" data-adm-ev="click" data-adm="deleteCombinedEvent" data-adm-a0="r:${it.id}">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function populateCombinedProjectOptions(keep) {
+  const el = combinedEls();
+  if (!el.project) return;
+  const current = keep !== undefined ? keep : el.project.value;
+  const { public: pub, adminOnly } = eventProjectCatalog();
+  const parts = ['<option value="">— Sin proyecto (general OWS) —</option>'];
+  if (pub.length) parts.push(`<optgroup label="🗂️ Proyectos OWS">${pub.map(eventProjectOption).join('')}</optgroup>`);
+  if (adminOnly.length) parts.push(`<optgroup label="🛡️ Solo admin">${adminOnly.map(eventProjectOption).join('')}</optgroup>`);
+  parts.push('<option value="custom">✏️ Otro / escribir a mano.</option>');
+  el.project.innerHTML = parts.join('');
+  const valid = [...el.project.options].some((o) => o.value === String(current));
+  el.project.value = valid ? String(current) : '';
+  onCombinedProjectChange();
+}
+
+function onCombinedProjectChange() {
+  const el = combinedEls();
+  if (el.customGroup) el.customGroup.classList.toggle('hidden', el.project ? el.project.value !== 'custom' : true);
+}
+
+function readCombinedProjectSelection() {
+  const el = combinedEls();
+  const value = el.project ? el.project.value : '';
+  if (value === 'custom') {
+    return { project_id: null, project_name: (el.custom && el.custom.value.trim()) || '' };
+  }
+  if (value) {
+    const opt = el.project ? [...el.project.options].find((o) => o.value === value) : null;
+    return { project_id: Number(value), project_name: (opt && opt.dataset && opt.dataset.name) || '' };
+  }
+  return { project_id: null, project_name: '' };
+}
+
+function selectCombinedProject(ev) {
+  const el = combinedEls();
+  if (!el.project) return;
+  const id = ev && ev.project_id != null ? Number(ev.project_id) : null;
+  if (id && [...el.project.options].some((o) => Number(o.value) === id)) {
+    el.project.value = String(id);
+  } else {
+    const name = String((ev && ev.project_name) || '').trim();
+    const match = [...el.project.options].find((o) => o.value && o.value !== 'custom' && o.dataset.name === name);
+    if (match) {
+      el.project.value = match.value;
+    } else if (name && name !== 'OWS') {
+      el.project.value = 'custom';
+      if (el.custom) el.custom.value = name;
+    } else {
+      el.project.value = '';
+      if (el.custom) el.custom.value = '';
+    }
+  }
+  onCombinedProjectChange();
+}
+
+function newCombinedEvent() {
+  combinedEditingId = null;
+  combinedImageFile = null;
+  if (combinedImageObjectUrl) {
+    try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
+    combinedImageObjectUrl = '';
+  }
+  const el = combinedEls();
+  if (el.name) el.name.value = '';
+  if (el.desc) el.desc.value = '';
+  if (el.cat) el.cat.value = 'update';
+  if (el.link) el.link.value = '';
+  if (el.imageUrl) el.imageUrl.value = '';
+  if (el.imageInput) el.imageInput.value = '';
+  if (el.active) el.active.checked = true;
+  if (el.priority) el.priority.value = '0';
+  if (el.priorityRange) el.priorityRange.value = '0';
+  if (el.custom) el.custom.value = '';
+  populateCombinedProjectOptions('');
+  renderCombinedImagePreview('');
+  syncCombinedPriority('number');
+  onCombinedFieldInput();
+  hideCombinedAlert();
+  if (el.saveBtn) el.saveBtn.textContent = '💾 Guardar evento combinado';
+  if (el.listPane) el.listPane.classList.add('hidden');
+  if (el.form) el.form.classList.remove('hidden');
+  if (el.name) el.name.focus();
+}
+
+function editCombinedEvent(id) {
+  const item = combinedCache.find((ev) => Number(ev.id) === Number(id));
+  if (!item) return showToast('⚠️ Evento combinado no encontrado');
+  combinedEditingId = Number(id);
+  combinedImageFile = null;
+  if (combinedImageObjectUrl) {
+    try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
+    combinedImageObjectUrl = '';
+  }
+  const el = combinedEls();
+  if (el.name) el.name.value = item.title || '';
+  if (el.desc) el.desc.value = item.description || '';
+  if (el.cat) el.cat.value = item.category || 'update';
+  if (el.link) el.link.value = item.link_url || '';
+  if (el.imageUrl) el.imageUrl.value = /^https?:\/\//i.test(String(item.image_url || '')) ? item.image_url : '';
+  if (el.imageInput) el.imageInput.value = '';
+  if (el.active) el.active.checked = item.is_active !== false;
+  if (el.priority) el.priority.value = String(Number(item.priority || 0));
+  if (el.priorityRange) el.priorityRange.value = String(Number(item.priority || 0));
+  if (el.custom) el.custom.value = '';
+  populateCombinedProjectOptions('');
+  selectCombinedProject(item);
+  renderCombinedImagePreview(item.image_url || '');
+  syncCombinedPriority('number');
+  onCombinedFieldInput();
+  hideCombinedAlert();
+  if (el.saveBtn) el.saveBtn.textContent = '💾 Guardar cambios';
+  if (el.listPane) el.listPane.classList.add('hidden');
+  if (el.form) el.form.classList.remove('hidden');
+  if (el.name) el.name.focus();
+}
+
+function cancelCombinedForm() {
+  showCombinedList();
+}
+
+function onCombinedFieldInput() {
+  const el = combinedEls();
+  if (el.nameCount && el.name) el.nameCount.textContent = `${el.name.value.length}/80`;
+  if (el.descCount && el.desc) el.descCount.textContent = `${el.desc.value.length}/280`;
+  if (el.activeLabel && el.active) el.activeLabel.textContent = el.active.checked ? 'Visible en OWS' : 'Oculto (solo admin)';
+}
+
+function syncCombinedPriority(mode) {
+  const el = combinedEls();
+  const raw = mode === 'range'
+    ? (el.priorityRange ? el.priorityRange.value : 0)
+    : (el.priority ? el.priority.value : 0);
+  const val = Math.max(0, Math.min(100, Number(raw) || 0));
+  if (el.priority) el.priority.value = String(val);
+  if (el.priorityRange) el.priorityRange.value = String(val);
+  if (el.priorityLabel) el.priorityLabel.textContent = String(val);
+}
+
+function currentCombinedImageSrc(existingUrl) {
+  if (combinedImageFile) return combinedImageObjectUrl || '';
+  const el = combinedEls();
+  const typed = el.imageUrl ? el.imageUrl.value.trim() : '';
+  return typed || existingUrl || '';
+}
+
+function renderCombinedImagePreview(existingUrl) {
+  const el = combinedEls();
+  if (!el.preview) return;
+  const src = currentCombinedImageSrc(existingUrl);
+  if (!src) {
+    el.preview.innerHTML = '';
+    el.preview.classList.add('hidden');
+    return;
+  }
+  el.preview.innerHTML = `
+    <img src="${escapeHtml(src)}" alt="portada" data-adm-err="closest:.ev-preview|hidden" />
+    <button type="button" class="btn btn-danger btn-mini ev-preview-remove" data-adm-ev="click" data-adm="removeCombinedImage">✕ Quitar</button>`;
+  el.preview.classList.remove('hidden');
+}
+
+function onCombinedImageChange() {
+  const el = combinedEls();
+  combinedImageFile = el.imageInput && el.imageInput.files && el.imageInput.files[0]
+    ? el.imageInput.files[0]
+    : null;
+  if (combinedImageObjectUrl) {
+    try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
+    combinedImageObjectUrl = '';
+  }
+  if (combinedImageFile) {
+    combinedImageObjectUrl = URL.createObjectURL(combinedImageFile);
+    if (el.imageUrl) el.imageUrl.value = '';
+  }
+  renderCombinedImagePreview('');
+}
+
+function onCombinedImageUrlInput() {
+  if (combinedImageFile) {
+    combinedImageFile = null;
+    if (combinedEls().imageInput) combinedEls().imageInput.value = '';
+    if (combinedImageObjectUrl) {
+      try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
+      combinedImageObjectUrl = '';
+    }
+  }
+  renderCombinedImagePreview('');
+}
+
+function removeCombinedImage() {
+  combinedImageFile = null;
+  const el = combinedEls();
+  if (el.imageInput) el.imageInput.value = '';
+  if (el.imageUrl) el.imageUrl.value = '';
+  if (combinedImageObjectUrl) {
+    try { URL.revokeObjectURL(combinedImageObjectUrl); } catch (_) {}
+    combinedImageObjectUrl = '';
+  }
+  renderCombinedImagePreview('');
+}
+
+function bindCombinedDropzone() {
+  if (combinedDropzoneBound) return;
+  const zone = document.getElementById('evc-dropzone');
+  const input = document.getElementById('evc-image');
+  if (!zone || !input) return;
+  combinedDropzoneBound = true;
+  zone.addEventListener('click', (e) => {
+    if (e.target === input) return;
+    if (e.target.closest('button')) return;
+    input.click();
+  });
+  ['dragenter', 'dragover'].forEach((evt) => zone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    zone.classList.add('ev-dropzone-active');
+  }));
+  ['dragleave', 'drop'].forEach((evt) => zone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    if (evt === 'dragleave' && zone.contains(e.relatedTarget)) return;
+    zone.classList.remove('ev-dropzone-active');
+  }));
+  zone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || !files.length) return;
+    try { input.files = files; } catch (_) { return; }
+    onCombinedImageChange();
+  });
+}
+
+function showCombinedAlert(msg) {
+  const el = combinedEls();
+  if (!el.alert) return showToast(`⚠️ ${msg}`);
+  el.alert.textContent = msg;
+  el.alert.classList.remove('hidden');
+}
+
+function hideCombinedAlert() {
+  const el = combinedEls();
+  if (!el.alert) return;
+  el.alert.textContent = '';
+  el.alert.classList.add('hidden');
+}
+
+async function saveCombinedEvent(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  if (!combinedParentId) return showToast('⚠️ No hay evento padre');
+  const el = combinedEls();
+  const title = el.name ? el.name.value.trim() : '';
+  const description = el.desc ? el.desc.value.trim() : '';
+  const category = el.cat ? el.cat.value : 'update';
+  const linkUrl = el.link ? el.link.value.trim() : '';
+  const imageUrl = el.imageUrl ? el.imageUrl.value.trim() : '';
+  const priority = el.priority ? Number(el.priority.value || 0) : 0;
+  const active = el.active ? el.active.checked : true;
+  if (!title) {
+    showCombinedAlert('El título es obligatorio.');
+    if (el.name) el.name.focus();
+    return;
+  }
+  hideCombinedAlert();
+  if (el.saveBtn) {
+    el.saveBtn.disabled = true;
+    el.saveBtn.textContent = '⏳ Guardando…';
+  }
+  try {
+    const proj = readCombinedProjectSelection();
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('description', description);
+    fd.append('category', category);
+    fd.append('project_id', proj.project_id != null ? String(proj.project_id) : '');
+    fd.append('project_name', proj.project_name || 'OWS');
+    fd.append('link_url', linkUrl);
+    fd.append('priority', String(priority));
+    fd.append('is_active', active ? 'true' : 'false');
+    fd.append('parent_event_id', String(combinedParentId));
+    if (combinedImageFile) fd.append('image', combinedImageFile);
+    else if (imageUrl) fd.append('image_url', imageUrl);
+    else if (combinedEditingId) fd.append('image_url', '');
+
+    let res;
+    if (combinedEditingId) {
+      res = await fetch(`${API_BASE}/ows-dashboard/events/${combinedEditingId}`, {
+        method: 'PATCH',
+        headers: adminHeaders(),
+        body: fd
+      });
+    } else {
+      res = await fetch(`${API_BASE}/ows-dashboard/events`, {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: fd
+      });
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast(combinedEditingId ? 'Evento combinado actualizado ✔' : 'Evento combinado agregado ✔');
+    combinedEditingId = null;
+    showCombinedList();
+    await loadCombinedEvents();
+  } catch (err) {
+    showCombinedAlert(err.message);
+  } finally {
+    if (el.saveBtn) {
+      el.saveBtn.disabled = false;
+      el.saveBtn.textContent = combinedEditingId ? '💾 Guardar cambios' : '💾 Guardar evento combinado';
+    }
+  }
+}
+
+async function deleteCombinedEvent(id) {
+  const target = combinedCache.find((ev) => Number(ev.id) === Number(id));
+  const name = target ? target.title : 'este evento combinado';
+  if (!confirm(`¿Eliminar "${name}"?`)) return;
+  try {
+    const res = await fetch(`${API_BASE}/ows-dashboard/events/${id}`, {
+      method: 'DELETE',
+      headers: adminHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    showToast('Evento combinado eliminado ✔');
+    await loadCombinedEvents();
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  }
+}
+
+async function toggleCombinedEvent(id, newState) {
+  try {
+    const res = await fetch(`${API_BASE}/ows-dashboard/events/${id}`, {
+      method: 'PATCH',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ is_active: String(newState) === 'true' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    await loadCombinedEvents();
+  } catch (err) {
+    showToast(`⚠️ ${err.message}`);
+  }
+}
+
+// Escape cierra solo el modal de combinados: el formulario del padre que está
+// debajo sigue abierto (el atajo general cierra el form-modal).
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const overlay = document.getElementById('ev-combined-modal');
+  if (!overlay || overlay.classList.contains('hidden')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  closeCombinedEvents();
+}, true);
 
 function updateEventLivePreview() {
   updateEventDurationHint();
@@ -7460,7 +7872,10 @@ function updateEventLivePreview() {
   const expiryText = expiryValue
     ? ` · 🗑️ ${escapeHtml(formatEventExpiryCountdown(expiryValue))}`
     : '';
-  const bundle = eventBundleItemsFromForm();
+  const parentEv = editingEventId
+    ? eventsCache.find((ev) => Number(ev.id) === Number(editingEventId))
+    : null;
+  const bundle = eventBundleItemsOf(parentEv);
   const bundleLine = bundle.length
     ? `<div class="ev-live-bundle"><span class="ev-live-bundle-title">🧩 ${escapeHtml(eventBundleSummaryText(bundle.length))}</span>${bundle.slice(0, 3).map((it) => `<span class="ev-live-bundle-chip">${escapeHtml(it.label)}</span>`).join('')}${bundle.length > 3 ? `<span class="ev-live-bundle-chip">+${bundle.length - 3}</span>` : ''}</div>`
     : '';
@@ -7902,7 +8317,7 @@ function renderAdminEvents() {
     const prio = Number(ev.priority || 0);
     const bundle = eventBundleItemsOf(ev);
     const bundleChip = bundle.length
-      ? `<span class="ev-chip ev-chip-bundle" title="${escapeHtml(eventBundleSummaryText(bundle.length))}">🧩 ${bundle.length} más</span>`
+      ? `<span class="ev-chip ev-chip-bundle" title="${escapeHtml(eventBundleSummaryText(bundle.length))}">🧩 ${bundle.length} combinado${bundle.length === 1 ? '' : 's'}</span>`
       : '';
     if (eventsView === 'list') {
       return `
@@ -7938,7 +8353,7 @@ function renderAdminEvents() {
           <span>📁 ${escapeHtml(ev.project_name || 'OWS')}${ev.project_is_admin ? ' 🛡️ solo admin' : ''}</span>
           <span>🕒 ${expected ? '🕰️ ' : ''}${escapeHtml(dates)}</span>
           <span>⏳ ${escapeHtml(eventCountdown(ev))}</span>
-          ${bundle.length ? `<span title="${escapeHtml(eventBundleSummaryText(bundle.length))}">🧩 ${bundle.length} cosa${bundle.length === 1 ? '' : 's'} más</span>` : ''}
+          ${bundle.length ? `<span title="${escapeHtml(eventBundleSummaryText(bundle.length))}">🧩 ${bundle.length} evento${bundle.length === 1 ? '' : 's'} combinado${bundle.length === 1 ? '' : 's'}</span>` : ''}
           ${expected ? '<span title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada de inicio</span>' : ''}
           ${expiryIso ? `<span title="Se quita solo de OWS el ${escapeHtml(formatEventDate(expiryIso))}">🗑️ ${escapeHtml(formatEventExpiryCountdown(expiryIso))}</span>` : ''}
           ${prio ? `<span>★ Prioridad ${prio}</span>` : ''}
@@ -8010,8 +8425,6 @@ async function saveEvent(e) {
     fd.append('expires_at', readEventExpiryValue());
     if (linkUrl) fd.append('link_url', linkUrl);
     fd.append('priority', String(priority));
-    // Evento combinado: la lista completa viaja como JSON (vacía = sin extras).
-    fd.append('bundle_items', JSON.stringify(eventBundleItemsFromForm()));
     if (eventImageFile) fd.append('image', eventImageFile);
     else if (imageUrl) fd.append('image_url', imageUrl);
     else if (editingEventId && !currentEventImageSrc('')) fd.append('image_url', '');
@@ -8107,8 +8520,8 @@ async function editEvent(id) {
     if (mode) { mode.textContent = '✎ Editando'; mode.className = 'status-pill status-from-projects'; }
     document.getElementById('btn-cancel-event').classList.remove('hidden');
     updateEventSaveLabel();
-    // Evento combinado: se restauran las cosas que vienen con el evento.
-    setEventBundleFromItems(eventBundleItemsOf(item));
+    // Eventos combinados: el padre ya existe, así que se pueden administrar.
+    refreshCombinedSummary();
     updateEventLivePreview();
     openFormModal('event');
   } catch (err) {
@@ -8149,8 +8562,6 @@ async function duplicateEvent(id) {
     }
     if (src.link_url) fd.append('link_url', src.link_url);
     fd.append('priority', String(src.priority || 0));
-    // La copia mantiene las cosas que vienen con el evento.
-    fd.append('bundle_items', JSON.stringify(eventBundleItemsOf(src)));
     if (src.image_url) fd.append('image_url', src.image_url);
     const res = await fetch(API_BASE + '/ows-dashboard/events', {
       method: 'POST',
@@ -8159,6 +8570,32 @@ async function duplicateEvent(id) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Error (${res.status})`);
+    // La copia también se lleva sus eventos combinados, colgados del nuevo padre.
+    const newId = data.event && data.event.id;
+    const kids = Array.isArray(src.combined_events) ? src.combined_events
+      : Array.isArray(src.combinedEvents) ? src.combinedEvents : [];
+    if (newId && kids.length) {
+      for (const kid of kids) {
+        try {
+          const kfd = new FormData();
+          kfd.append('title', kid.title || '');
+          kfd.append('description', kid.description || '');
+          kfd.append('category', kid.category || 'update');
+          kfd.append('project_id', kid.project_id != null ? String(kid.project_id) : '');
+          kfd.append('project_name', kid.project_name || 'OWS');
+          kfd.append('link_url', kid.link_url || '');
+          kfd.append('priority', String(kid.priority || 0));
+          kfd.append('is_active', kid.is_active === false ? 'false' : 'true');
+          kfd.append('parent_event_id', String(newId));
+          if (kid.image_url) kfd.append('image_url', kid.image_url);
+          await fetch(API_BASE + '/ows-dashboard/events', {
+            method: 'POST',
+            headers: adminHeaders(),
+            body: kfd
+          });
+        } catch (_) {}
+      }
+    }
     showToast('Evento duplicado ✔ (revisá la fecha)');
     await loadAdminEvents();
   } catch (err) {
@@ -8206,7 +8643,7 @@ function resetEventForm() {
   const fi = document.getElementById('event-image');
   if (fi) fi.value = '';
   renderEventImagePreview('');
-  setEventBundleFromItems([]);
+  refreshCombinedSummary();
   onEventNoDateChange();
   try { closeFormModal(); } catch (_) {}
 }

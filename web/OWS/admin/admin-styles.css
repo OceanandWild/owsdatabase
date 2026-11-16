@@ -6055,3 +6055,67 @@ input.is-expected {
   .ws-autopub, .ws-autopub-track, .ws-autopub-track::after, .wsb-health-btn, .wsb-hact { transition: none; }
 }
 
+
+/* ── Eventos combinados (modal dedicado) ─────────────────────────────
+   El padre muestra un resumen; el modal lista cada combinado como una
+   tarjeta chica con su portada, y el formulario reusa el estilo de eventos. */
+#ev-combined-modal { z-index: 9400; }
+.evc-card { width: min(760px, calc(100vw - 32px)); }
+.evc-body { gap: 14px; }
+
+.ev-combined-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  border: 1px dashed var(--gold-border);
+  background: rgba(245, 158, 11, 0.06);
+}
+.ev-combined-bar-text { font-size: 0.86rem; color: var(--text-muted); font-weight: 600; }
+.ev-combined-bar .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.evc-list { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.evc-item {
+  display: flex; gap: 12px; align-items: stretch;
+  padding: 10px; border-radius: var(--radius-sm);
+  border: 1px solid rgba(245, 158, 11, 0.16);
+  background: var(--bg-inset);
+}
+.evc-item.is-hidden { opacity: 0.55; }
+.evc-thumb {
+  width: 86px; min-width: 86px; height: 62px; border-radius: 8px; overflow: hidden;
+  background: rgba(8, 0, 16, 0.8); display: flex; align-items: center; justify-content: center;
+}
+.evc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.evc-thumb-fallback { font-size: 1.4rem; opacity: 0.7; }
+.evc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.evc-name {
+  font-weight: 800; color: var(--text-main); font-size: 0.94rem;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.evc-desc {
+  font-size: 0.8rem; color: var(--text-muted); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.evc-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.74rem; color: var(--text-dim); }
+.evc-actions { display: flex; align-items: center; gap: 4px; }
+.evc-chip-hidden { border-color: rgba(248, 113, 113, 0.35); color: var(--danger); }
+.evc-new-tag {
+  display: inline-block; font-size: 0.62rem; font-weight: 900; letter-spacing: 0.04em;
+  text-transform: uppercase; color: #1b0b2e; background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.45);
+}
+.evc-empty {
+  padding: 26px 16px; text-align: center; font-size: 0.86rem; color: var(--text-muted);
+  border: 1px dashed var(--gold-border); border-radius: var(--radius-sm);
+}
+.evc-empty-icon { display: block; font-size: 1.7rem; margin-bottom: 6px; }
+#evc-form .ev-section:first-child { margin-top: 4px; }
+
+@media (max-width: 560px) {
+  .evc-card { width: calc(100vw - 20px); }
+  .evc-item { flex-wrap: wrap; }
+  .evc-thumb { width: 64px; min-width: 64px; height: 48px; }
+  .evc-actions { width: 100%; justify-content: flex-end; }
+  .ev-combined-bar { flex-direction: column; align-items: stretch; }
+  .ev-combined-bar .btn { width: 100%; }
+}

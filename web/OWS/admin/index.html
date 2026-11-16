@@ -961,20 +961,13 @@
             </div>
 
             <div class="ev-section">
-              <div class="ev-section-title">🧩 Evento combinado</div>
-              <label class="ev-switch-row" for="event-bundle-toggle" title="Marcá esta opción si el evento viene junto con otras cosas">
-                <input type="checkbox" id="event-bundle-toggle" data-adm-ev="change" data-adm="onEventBundleToggle" />
-                <span class="ev-switch"></span>
-                <span id="event-bundle-toggle-label">Este evento viene solo</span>
-              </label>
-              <div id="event-bundle-fields" class="hidden">
-                <p class="form-hint">Cargá todo lo que llega junto con este evento. En OWS la tarjeta avisa <b>“este evento y X cosas más vienen juntos”</b> y el detalle muestra la lista completa.</p>
-                <div class="ev-bundle-rows" id="event-bundle-rows"></div>
-                <div class="ev-bundle-foot">
-                  <button type="button" class="btn btn-ghost btn-sm" data-adm-ev="click" data-adm="addEventBundleRow">＋ Agregar cosa</button>
-                  <span class="char-count" id="event-bundle-count">0/20</span>
-                </div>
+              <div class="ev-section-title">🧩 Eventos combinados</div>
+              <p class="form-hint">Cuando este evento llega junto con otras cosas (DLC, pases, extras), cargalas como eventos combinados: cada una es un evento propio con su portada, descripción y link, y en OWS se abren desde un botón dentro de este evento.</p>
+              <div class="ev-combined-bar">
+                <span class="ev-combined-bar-text" id="event-combined-summary">Sin eventos combinados</span>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-event-combined" data-adm-ev="click" data-adm="openCombinedEvents">🧩 Administrar</button>
               </div>
+              <p class="form-hint hidden" id="event-combined-hint">Guardá el evento primero: los combinados se cuelgan de un evento ya creado.</p>
             </div>
 
             <div class="ev-section">
@@ -3033,6 +3026,109 @@
       <div class="dev-step-actions">
         <button class="btn btn-primary" id="btn-save-report-update" data-adm-ev="click" data-adm="saveReportUpdate">💬 Guardar actualización</button>
         <button class="btn btn-ghost" data-adm-ev="click" data-adm="closeReportUpdateModal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal dedicado: eventos combinados de un evento padre -->
+  <div id="ev-combined-modal" class="devmodal-overlay formmodal-overlay hidden" data-adm-overlay-id="ev-combined-modal" data-adm-overlay-fn="closeCombinedEvents">
+    <div class="devmodal-card formmodal-card glass-card evc-card" role="dialog" aria-modal="true" aria-labelledby="evc-title">
+      <div class="formmodal-head">
+        <div class="formmodal-titles">
+          <span class="formmodal-eyebrow">Evento padre</span>
+          <span class="formmodal-title" id="evc-title">Eventos combinados</span>
+        </div>
+        <button class="devmodal-close" data-adm-ev="click" data-adm="closeCombinedEvents" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="formmodal-body evc-body">
+        <div id="evc-list-pane">
+          <p class="form-hint">Cada combinado es un evento propio con su portada, descripción y link. Comparte las fechas del evento padre, así que no lleva fechas ni desaparición propias.</p>
+          <div id="evc-list" class="evc-list"></div>
+          <button type="button" class="btn btn-primary btn-block" data-adm-ev="click" data-adm="newCombinedEvent">＋ Nuevo evento combinado</button>
+        </div>
+
+        <form id="evc-form" class="hidden" data-adm-ev="submit" data-adm="saveCombinedEvent">
+          <input type="hidden" id="evc-id" />
+          <div class="ev-section">
+            <div class="ev-section-title">📝 Información</div>
+            <div class="field-group">
+              <label for="evc-name">Título * <span class="char-count" id="evc-name-count">0/80</span></label>
+              <input type="text" id="evc-name" maxlength="80" required placeholder="Ej: Pase de temporada" data-adm-ev="input" data-adm="onCombinedFieldInput" />
+            </div>
+            <div class="field-group">
+              <label for="evc-desc">Descripción <span class="char-count" id="evc-desc-count">0/280</span></label>
+              <textarea id="evc-desc" rows="3" maxlength="280" placeholder="Qué incluye, cómo se consigue, etc." data-adm-ev="input" data-adm="onCombinedFieldInput"></textarea>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="evc-cat">Categoría</label>
+                <select id="evc-cat">
+                  <option value="update">⬆️ Actualización</option>
+                  <option value="launch">🚀 Lanzamiento</option>
+                  <option value="release">📦 Release</option>
+                  <option value="event">🎉 Evento</option>
+                  <option value="announcement">📢 Anuncio</option>
+                  <option value="maintenance">🛠️ Mantenimiento</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="evc-project">Proyecto</label>
+                <select id="evc-project" data-adm-ev="change" data-adm="onCombinedProjectChange">
+                  <option value="">— Sin proyecto (general OWS) —</option>
+                </select>
+                <div class="field-group hidden" id="evc-project-custom-group">
+                  <label for="evc-project-custom">Nombre a mano</label>
+                  <input type="text" id="evc-project-custom" maxlength="80" placeholder="Ej: Proyecto sin catalogar" autocomplete="off" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ev-section">
+            <div class="ev-section-title">🖼️ Portada y enlace</div>
+            <div class="ev-dropzone" id="evc-dropzone">
+              <div class="ev-dropzone-inner">
+                <span class="ev-dropzone-icon">📤</span>
+                <span class="ev-dropzone-text"><b>Arrastrá una imagen</b> o hacé clic para elegir <small>PNG · JPG · WEBP · GIF — hasta 15 MB</small></span>
+              </div>
+              <input type="file" id="evc-image" class="hidden" accept="image/png,image/jpeg,image/webp,image/gif" data-adm-ev="change" data-adm="onCombinedImageChange" />
+            </div>
+            <div id="evc-image-preview" class="ev-preview hidden"></div>
+            <div class="field-group ev-url-group">
+              <label for="evc-image-url">…o pegá una URL de imagen</label>
+              <input type="url" id="evc-image-url" placeholder="https://…" data-adm-ev="input" data-adm="onCombinedImageUrlInput" />
+            </div>
+            <div class="field-group">
+              <label for="evc-link">Link “Ver más” <span class="opt-tag">opcional</span></label>
+              <input type="url" id="evc-link" maxlength="500" placeholder="https://…" />
+            </div>
+          </div>
+
+          <div class="ev-section">
+            <div class="ev-section-title">⚙️ Ajustes</div>
+            <div class="field-row ev-extras-row">
+              <div class="field-group">
+                <label for="evc-priority">Prioridad <span class="char-count" id="evc-priority-label">0</span></label>
+                <div class="ev-priority-wrap">
+                  <input type="range" id="evc-priority-range" min="0" max="100" value="0" data-adm-ev="input" data-adm="syncCombinedPriority" data-adm-a0="s:range" />
+                  <input type="number" id="evc-priority" value="0" min="0" max="100" data-adm-ev="input" data-adm="syncCombinedPriority" data-adm-a0="s:number" />
+                </div>
+              </div>
+              <div class="field-group">
+                <label>Visibilidad</label>
+                <label class="ev-switch-row" for="evc-active">
+                  <input type="checkbox" id="evc-active" checked />
+                  <span class="ev-switch"></span>
+                  <span id="evc-active-label">Visible en OWS</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div id="evc-alert" class="alert-box hidden"></div>
+          <button type="submit" class="btn btn-primary btn-block" id="btn-evc-save">💾 Guardar evento combinado</button>
+          <button type="button" class="btn btn-ghost btn-block" data-adm-ev="click" data-adm="cancelCombinedForm">Cancelar</button>
+        </form>
       </div>
     </div>
   </div>

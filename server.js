@@ -15249,11 +15249,66 @@ async function ensureOwsDashboardEventsTable() {
   await pool.query(`
     ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
   `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (expires_at):', err.message));
-  // Evento combinado: otras cosas que llegan junto al evento principal (DLC,
-  // pase de temporada, extras). JSON array de { label, detail?, url? }.
+  // Evento combinado (formato viejo): otras cosas que llegan junto al evento
+  // principal (DLC, pase de temporada, extras). JSON array de { label, detail?, url? }.
+  // Queda solo para migrar: hoy cada cosa es un evento propio (parent_event_id).
   await pool.query(`
     ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS bundle_items JSONB NOT NULL DEFAULT '[]'::jsonb
   `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (bundle_items):', err.message));
+  // Eventos combinados como eventos de verdad: cada cosa que viene con un
+  // evento es una fila completa (título, portada, descripción, link) que
+  // cuelga de su padre. Un combinado pertenece a UN padre y nunca es padre
+  // de otro; se borra junto con el padre (ON DELETE CASCADE).
+  await pool.query(`
+    ALTER TABLE ows_dashboard_events ADD COLUMN IF NOT EXISTS parent_event_id BIGINT
+  `).catch((err) => console.log(' Aviso: migración ows_dashboard_events (parent_event_id):', err.message));
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ows_dashboard_events_parent
+      ON ows_dashboard_events (parent_event_id)
+  `).catch((err) => console.log(' Aviso: índice ows_dashboard_events (parent_event_id):', err.message));
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'ows_dashboard_events_parent_fk'
+      ) THEN
+        ALTER TABLE ows_dashboard_events
+          ADD CONSTRAINT ows_dashboard_events_parent_fk
+          FOREIGN KEY (parent_event_id)
+          REFERENCES ows_dashboard_events(id) ON DELETE CASCADE;
+      END IF;
+    END $$;
+  `).catch((err) => console.log(' Aviso: FK ows_dashboard_events (parent_event_id):', err.message));
+  // Migración de los combinados viejos: cada label/detail/url pasa a ser un
+  // evento combinado con su propia fila. Idempotente: solo inserta si el padre
+  // todavía no tiene hijos y después vacía la lista vieja.
+  await pool.query(`
+    INSERT INTO ows_dashboard_events
+      (title, description, category, project_name, project_id, link_url,
+       parent_event_id, created_by, is_active, priority)
+    SELECT LEFT(COALESCE(NULLIF(item->>'label', ''), 'Evento combinado'), 80),
+           LEFT(COALESCE(item->>'detail', ''), 280),
+           'update',
+           e.project_name,
+           e.project_id,
+           COALESCE(item->>'url', ''),
+           e.id,
+           e.created_by,
+           TRUE,
+           0
+      FROM ows_dashboard_events e
+      CROSS JOIN LATERAL jsonb_array_elements(e.bundle_items) item
+     WHERE e.parent_event_id IS NULL
+       AND jsonb_array_length(e.bundle_items) > 0
+       AND NOT EXISTS (
+         SELECT 1 FROM ows_dashboard_events c WHERE c.parent_event_id = e.id
+       )
+  `).catch((err) => console.log(' Aviso: migración de bundle_items a eventos combinados:', err.message));
+  await pool.query(`
+    UPDATE ows_dashboard_events
+       SET bundle_items = '[]'::jsonb
+     WHERE jsonb_array_length(bundle_items) > 0
+  `).catch((err) => console.log(' Aviso: limpieza de bundle_items migrados:', err.message));
   // Fecha opcional: un evento puede publicarse sin fecha de inicio ("aún no
   // definida"). Se guarda NULL y la web lo muestra así, sin inventar fechas ni
   // cuentas atrás. Al definirla después, el evento se ordena y cuenta normal.
@@ -15350,6 +15405,16 @@ function mapOwsDashboardEventRow(row) {
     bundleItems,
     bundle_count: bundleItems.length,
     bundleCount: bundleItems.length,
+    // Eventos combinados (modelo nuevo): cada cosa es un evento propio.
+    // El feed los adjunta acá ya mapeados; una fila suelta siempre es padre.
+    parent_event_id: row.parent_event_id != null ? Number(row.parent_event_id) : null,
+    parentEventId: row.parent_event_id != null ? Number(row.parent_event_id) : null,
+    is_combined: row.parent_event_id != null,
+    isCombined: row.parent_event_id != null,
+    combined_events: [],
+    combinedEvents: [],
+    combined_count: 0,
+    combinedCount: 0,
     image_url: sanitizePublicHttpUrl(row.image_url),
     imageUrl: sanitizePublicHttpUrl(row.image_url),
     link_url: sanitizePublicHttpUrl(row.link_url),
@@ -15406,7 +15471,7 @@ async function resolveDashboardEventProject(body, fallbackName = 'OWS') {
 }
 
 const OWS_EVENT_COLUMNS_SELECT = `id, title, description, category, project_name, project_id,
-       image_url, link_url, starts_at, ends_at, starts_expected, expires_at, bundle_items, is_active, priority, created_by, created_at, updated_at`;
+       image_url, link_url, starts_at, ends_at, starts_expected, expires_at, bundle_items, parent_event_id, is_active, priority, created_by, created_at, updated_at`;
 
 // Fechas del evento. `starts_at` es OPCIONAL: sin fecha el evento se publica
 // como "Fecha aún no definida" (no se rellena con una fecha inventada).
@@ -15462,6 +15527,38 @@ function validateEventExpiry(expiresAt, startsAt, endsAt) {
   return '';
 }
 
+// Combinados de uno o varios eventos padres, ya mapeados y agrupados.
+// `includeInactive` lo usa el panel (necesita ver también los ocultos).
+async function fetchOwsDashboardCombinedEvents(parentIds, includeInactive) {
+  const ids = (Array.isArray(parentIds) ? parentIds : [])
+    .map((n) => Number(n))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const byParent = new Map();
+  if (!ids.length) return byParent;
+  const { rows } = await pool.query(
+    `SELECT e.id, e.title, e.description, e.category, e.project_name, e.project_id,
+            e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.expires_at,
+            e.bundle_items, e.parent_event_id, e.is_active, e.priority,
+            e.created_by, e.created_at, e.updated_at,
+            p.name AS linked_project_name, p.admin_only AS linked_admin_only,
+            p.watermark_enabled, p.watermark_text, p.watermark_position, p.watermark_opacity,
+            p.watermark_image_url
+       FROM ows_dashboard_events e
+       LEFT JOIN ows_launch_projects p ON p.id = e.project_id
+      WHERE e.parent_event_id = ANY($1::bigint[])
+        AND ($2::boolean OR e.is_active = TRUE)
+      ORDER BY e.priority DESC, e.created_at DESC, e.id DESC`,
+    [ids, includeInactive === true]
+  );
+  for (const row of rows) {
+    const mapped = mapOwsDashboardEventRow(row);
+    const pid = mapped.parent_event_id;
+    if (!byParent.has(pid)) byParent.set(pid, []);
+    byParent.get(pid).push(mapped);
+  }
+  return byParent;
+}
+
 // Feed publico de la seccion "Eventos" del dashboard OWS
 app.get('/ows-dashboard/events', async (req, res) => {
   // El feed es público: pedir borradores, finalizados o caducados solo vale
@@ -15477,6 +15574,8 @@ app.get('/ows-dashboard/events', async (req, res) => {
     await ensureOwsDashboardEventsTable();
     const values = [limit];
     const where = [];
+    // Los combinados no salen como eventos sueltos: se ven dentro de su padre.
+    where.push('e.parent_event_id IS NULL');
     // Calificado con el alias: ows_launch_projects también tiene is_active y
     // sin el "e." el WHERE quedaba ambiguo (500 en el feed de Eventos).
     if (!includeInactive) where.push('e.is_active = TRUE');
@@ -15484,7 +15583,7 @@ app.get('/ows-dashboard/events', async (req, res) => {
     if (!includeExpired) where.push('(e.expires_at IS NULL OR e.expires_at > NOW())');
     const { rows } = await pool.query(
       `SELECT e.id, e.title, e.description, e.category, e.project_name, e.project_id,
-              e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.expires_at, e.bundle_items, e.is_active, e.priority,
+              e.image_url, e.link_url, e.starts_at, e.ends_at, e.starts_expected, e.expires_at, e.bundle_items, e.parent_event_id, e.is_active, e.priority,
               e.created_by, e.created_at, e.updated_at,
               p.name AS linked_project_name, p.admin_only AS linked_admin_only,
               p.watermark_enabled, p.watermark_text, p.watermark_position, p.watermark_opacity,
@@ -15496,9 +15595,42 @@ app.get('/ows-dashboard/events', async (req, res) => {
         LIMIT $1`,
       values
     );
-    return res.json({ success: true, events: rows.map(mapOwsDashboardEventRow) });
+    const events = rows.map(mapOwsDashboardEventRow);
+    // Cada evento lleva sus combinados ya listos para pintar.
+    const combinedByParent = await fetchOwsDashboardCombinedEvents(events.map((ev) => ev.id), adminView);
+    for (const ev of events) {
+      const kids = combinedByParent.get(ev.id) || [];
+      ev.combined_events = kids;
+      ev.combinedEvents = kids;
+      ev.combined_count = kids.length;
+      ev.combinedCount = kids.length;
+    }
+    return res.json({ success: true, events });
   } catch (err) {
     console.error('Error en GET /ows-dashboard/events:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Combinados de un evento (admin): la lista completa, incluso los ocultos.
+app.get('/ows-dashboard/events/:id/combined', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = Number(req.params.id || 0);
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  try {
+    await ensureOwsDashboardEventsTable();
+    const { rows: parentRows } = await pool.query(
+      'SELECT id, parent_event_id FROM ows_dashboard_events WHERE id = $1',
+      [id]
+    );
+    if (!parentRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
+    if (parentRows[0].parent_event_id != null) {
+      return res.status(400).json({ error: 'Este evento es combinado: no tiene combinados propios' });
+    }
+    const byParent = await fetchOwsDashboardCombinedEvents([id], true);
+    return res.json({ success: true, events: byParent.get(id) || [] });
+  } catch (err) {
+    console.error('Error en GET /ows-dashboard/events/:id/combined:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -15516,19 +15648,41 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
   const dates = resolveDashboardEventDates(req.body || {});
   if (!title) return res.status(400).json({ error: 'El titulo es obligatorio' });
   if (dates.error) return res.status(400).json({ error: dates.error });
-  // Inicio tentativo: solo tiene sentido cuando hay una fecha cargada.
-  const startsExpected = dates.start
-    ? normalizeNewsBoolean(req.body?.starts_expected ?? req.body?.startsExpected, false)
-    : false;
+  // Evento combinado: cuelga de un evento padre existente. Un solo nivel:
+  // un combinado nunca es padre de otro combinado.
+  const rawParentId = req.body?.parent_event_id ?? req.body?.parentEventId ?? '';
+  let parentEventId = null;
+  if (String(rawParentId).trim() !== '') {
+    const pid = Number(rawParentId);
+    if (!Number.isFinite(pid) || pid <= 0) return res.status(400).json({ error: 'parent_event_id invalido' });
+    const { rows: parentRows } = await pool.query(
+      'SELECT id, parent_event_id FROM ows_dashboard_events WHERE id = $1',
+      [pid]
+    );
+    if (!parentRows.length) return res.status(404).json({ error: 'Evento padre no encontrado' });
+    if (parentRows[0].parent_event_id != null) {
+      return res.status(400).json({ error: 'Un evento combinado no puede tener eventos combinados' });
+    }
+    parentEventId = Number(parentRows[0].id);
+  }
+  // Los combinados heredan las fechas del padre: no llevan fechas propias.
+  const startsExpected = (parentEventId || !dates.start)
+    ? false
+    : normalizeNewsBoolean(req.body?.starts_expected ?? req.body?.startsExpected, false);
   // Desaparición automática (opcional): cuándo se quita solo de OWS.
-  const expiry = resolveDashboardEventExpiry(req.body || {});
+  // Un combinado desaparece cuando desaparece el padre.
+  const expiry = parentEventId
+    ? { provided: true, value: null }
+    : resolveDashboardEventExpiry(req.body || {});
   if (expiry.error) return res.status(400).json({ error: expiry.error });
   const expiryError = validateEventExpiry(expiry.value, dates.start, dates.end);
   if (expiryError) return res.status(400).json({ error: expiryError });
   const finalImageUrl = (req.file && req.file.path) ? sanitizePublicHttpUrl(req.file.path) : imageUrl;
   const adminName = String(req.headers['x-ows-admin-name'] || 'OceanandWild').trim() || 'OceanandWild';
-  // Evento combinado: otras cosas que vienen junto al evento principal.
-  const bundleItems = normalizeDashboardEventBundleItems(req.body?.bundle_items ?? req.body?.bundleItems ?? '[]');
+  // Formato viejo (bundle_items): ya no se carga desde el panel.
+  const bundleItems = parentEventId
+    ? []
+    : normalizeDashboardEventBundleItems(req.body?.bundle_items ?? req.body?.bundleItems ?? '[]');
 
   try {
     await ensureOwsLaunchProjectsTable();
@@ -15537,16 +15691,23 @@ app.post('/ows-dashboard/events', dashboardEventUpload.single('image'), async (r
     if (proj.notFound) return res.status(404).json({ error: 'Proyecto no encontrado' });
     const { rows } = await pool.query(
       `INSERT INTO ows_dashboard_events
-         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, starts_expected, expires_at, priority, bundle_items, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14)
+         (title, description, category, project_name, project_id, image_url, link_url, starts_at, ends_at, starts_expected, expires_at, priority, bundle_items, parent_event_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15)
        RETURNING ${OWS_EVENT_COLUMNS_SELECT}`,
-      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl, dates.start, dates.end, startsExpected, expiry.value || null, priority, JSON.stringify(bundleItems), adminName]
+      [title, description, category, proj.name, proj.pid, finalImageUrl, linkUrl,
+        parentEventId ? null : dates.start, parentEventId ? null : dates.end, startsExpected,
+        expiry.value || null, priority, JSON.stringify(bundleItems), parentEventId, adminName]
     );
     logAdminActivity({
       action: 'create', entityType: 'dashboard_event', entityId: String(rows[0]?.id || ''),
-      entityName: title, adminName, meta: { category, project_name: proj.name, project_id: proj.pid, expires_at: expiry.value || null }
+      entityName: title, adminName,
+      meta: {
+        category, project_name: proj.name, project_id: proj.pid,
+        expires_at: expiry.value || null, parent_event_id: parentEventId
+      }
     });
-    return res.status(201).json({ success: true, event: mapOwsDashboardEventRow(rows[0] || {}) });
+    const created = mapOwsDashboardEventRow(rows[0] || {});
+    return res.status(201).json({ success: true, event: created });
   } catch (err) {
     console.error('Error en POST /ows-dashboard/events:', err);
     return res.status(500).json({ error: 'Error interno' });
@@ -15561,6 +15722,13 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
   try {
     await ensureOwsLaunchProjectsTable();
     await ensureOwsDashboardEventsTable();
+    // Un combinado no maneja fechas ni desaparición: las hereda del padre.
+    const { rows: flagRows } = await pool.query(
+      'SELECT parent_event_id FROM ows_dashboard_events WHERE id = $1',
+      [id]
+    );
+    if (!flagRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
+    const isCombinedEvent = flagRows[0].parent_event_id != null;
     const updates = {};
     if (req.body?.title !== undefined) {
       const title = String(req.body.title).trim();
@@ -15581,16 +15749,10 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
     if (req.body?.link_url !== undefined) updates.link_url = sanitizePublicHttpUrl(req.body.link_url);
     if (req.body?.priority !== undefined) updates.priority = Math.trunc(normalizeNewsNumber(req.body.priority, 0));
     if (req.body?.is_active !== undefined) updates.is_active = normalizeNewsBoolean(req.body.is_active, true);
-    // Evento combinado: lista completa (se reemplaza entera). Vacía = sin extras.
-    if (req.body?.bundle_items !== undefined || req.body?.bundleItems !== undefined) {
-      updates.bundle_items = JSON.stringify(
-        normalizeDashboardEventBundleItems(req.body.bundle_items ?? req.body.bundleItems)
-      );
-    }
     // Inicio tentativo ("fecha esperada de inicio"): se puede prender/apagar
     // sin tocar las fechas. Sin una fecha cargada no hay nada que "esperar":
     // se guarda apagado para no dejar estados incoherentes.
-    if (req.body?.starts_expected !== undefined || req.body?.startsExpected !== undefined) {
+    if (!isCombinedEvent && (req.body?.starts_expected !== undefined || req.body?.startsExpected !== undefined)) {
       const wanted = normalizeNewsBoolean(req.body.starts_expected ?? req.body.startsExpected, false);
       let hasStart = updates.starts_at !== undefined ? Boolean(updates.starts_at) : null;
       if (hasStart === null) {
@@ -15600,7 +15762,7 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
       }
       updates.starts_expected = wanted && hasStart;
     }
-    if (req.body?.starts_at !== undefined || req.body?.ends_at !== undefined) {
+    if (!isCombinedEvent && (req.body?.starts_at !== undefined || req.body?.ends_at !== undefined)) {
       const { rows: currentRows } = await pool.query('SELECT starts_at, ends_at FROM ows_dashboard_events WHERE id = $1', [id]);
       if (!currentRows.length) return res.status(404).json({ error: 'Evento no encontrado' });
       const rawStart = req.body?.starts_at !== undefined ? req.body.starts_at : currentRows[0].starts_at;
@@ -15620,7 +15782,8 @@ app.patch('/ows-dashboard/events/:id', dashboardEventUpload.single('image'), asy
       }
     }
     // Desaparición automática: se puede fijar, corregir o quitar (cadena vacía).
-    const expiry = resolveDashboardEventExpiry(req.body || {});
+    // Un combinado no lleva la suya: desaparece cuando desaparece el padre.
+    const expiry = isCombinedEvent ? { provided: false } : resolveDashboardEventExpiry(req.body || {});
     if (expiry.provided) {
       if (expiry.error) return res.status(400).json({ error: expiry.error });
       if (expiry.value) {
@@ -15671,6 +15834,10 @@ app.delete('/ows-dashboard/events/:id', async (req, res) => {
   if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
   try {
     await ensureOwsDashboardEventsTable();
+    // Los combinados cuelgan del padre: se van con él (la FK ya lo hace, pero
+    // se explicita para no depender de que la constraint haya quedado creada).
+    await pool.query('DELETE FROM ows_dashboard_events WHERE parent_event_id = $1', [id])
+      .catch((err) => console.warn('Aviso: no se pudieron borrar los combinados del evento', id, err?.message));
     const { rowCount } = await pool.query('DELETE FROM ows_dashboard_events WHERE id = $1', [id]);
     if (!rowCount) return res.status(404).json({ error: 'Evento no encontrado' });
     logAdminActivity({

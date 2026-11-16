@@ -164,6 +164,7 @@ function initStars() {
 
 const MODAL_CLOSERS = {
   'event-modal': closeEventModal,
+  'ev-combined-modal': closeCombinedModal,
   'release-modal': closeReleaseModal,
   'news-modal': closeNewsModal,
   'pcl-modal': closeProjectChangelogModal,
@@ -251,7 +252,7 @@ function bindStaticEvents() {
   });
 
   // Modales: cerrar al click en overlay o botón [data-close]
-  ['event-modal', 'release-modal', 'announce-modal', 'news-chain-modal', 'news-modal', 'pcl-modal', 'upd-detail-modal'].forEach((id) => {
+  ['event-modal', 'ev-combined-modal', 'release-modal', 'announce-modal', 'news-chain-modal', 'news-modal', 'pcl-modal', 'upd-detail-modal'].forEach((id) => {
     const overlay = document.getElementById(id);
     if (!overlay) return;
     overlay.addEventListener('click', (e) => {
@@ -295,20 +296,44 @@ function bindStaticEvents() {
       if (ev) openEventModal(ev);
     };
     eventsGrid.addEventListener('click', (e) => {
+      const combBtn = e.target.closest('[data-ev-combined]');
+      if (combBtn) {
+        e.preventDefault();
+        const idx = Number(combBtn.getAttribute('data-ev-combined'));
+        const ev = eventsRenderList[idx] || eventsCache[idx];
+        if (ev) openCombinedModal(ev);
+        return;
+      }
       const card = e.target.closest('[data-ev-idx]');
       if (card) openFromCard(card);
     });
     eventsGrid.addEventListener('keydown', (e) => {
-      if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-ev-idx]')) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const combBtn = e.target.closest('[data-ev-combined]');
+      if (combBtn) {
+        e.preventDefault();
+        const idx = Number(combBtn.getAttribute('data-ev-combined'));
+        const ev = eventsRenderList[idx] || eventsCache[idx];
+        if (ev) openCombinedModal(ev);
+        return;
+      }
+      if (e.target.closest('[data-ev-idx]')) {
         e.preventDefault();
         openFromCard(e.target.closest('[data-ev-idx]'));
       }
     });
   }
 
+  // Botón "Ver combinados" dentro de la ficha del evento.
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ev-open-combined]');
+    if (!btn) return;
+    e.preventDefault();
+    if (currentEventModalEvent) openCombinedModal(currentEventModalEvent);
+  });
+
   // Eventos dentro de la ficha de proyecto: abren su ficha por encima.
-  const releaseBody = document.getElementById('release-modal-body');
-  if (releaseBody && !releaseBody.dataset.evBound) {
+  const releaseBody = document.getElementById('release-modal-body');  if (releaseBody && !releaseBody.dataset.evBound) {
     releaseBody.dataset.evBound = '1';
     const openFromRelease = (item) => {
       const ev = releaseModalEvents[Number(item.getAttribute('data-rm-ev-idx'))];
@@ -1601,20 +1626,40 @@ function eventCategoryMeta(category) {
   return EVENT_CATEGORY_META[String(category || '').trim().toLowerCase()] || EVENT_CATEGORY_META.update;
 }
 
-// "Evento combinado": otras cosas que llegan junto al evento principal
-// (DLC, pase de temporada, extras). El backend las manda como bundle_items.
+// "Eventos combinados": cosas que llegan junto al evento principal (DLC,
+// pase de temporada, extras). Cada una es un evento propio que cuelga del
+// padre; el backend los manda dentro de `combined_events`.
 function eventBundleItems(ev) {
   if (!ev) return [];
-  const raw = Array.isArray(ev.bundle_items)
-    ? ev.bundle_items
-    : Array.isArray(ev.bundleItems) ? ev.bundleItems : [];
-  return raw.filter((it) => it && typeof it === 'object' && String(it.label || '').trim());
+  const raw = Array.isArray(ev.combined_events)
+    ? ev.combined_events
+    : Array.isArray(ev.combinedEvents) ? ev.combinedEvents : [];
+  return raw.filter((it) => it && typeof it === 'object' && String(it.title || it.label || '').trim());
 }
 
 function eventBundleSummaryText(count) {
   return count === 1
-    ? 'Este evento y 1 cosa más vienen juntos'
-    : `Este evento y ${count} cosas más vienen juntos`;
+    ? '1 evento combinado'
+    : `${count} eventos combinados`;
+}
+
+// "Nuevo!": se agregó hace menos de un día. El padre también lo muestra si
+// alguno de sus combinados es nuevo, para que se note desde la tarjeta.
+const EVENT_NEW_MS = 24 * 3600 * 1000;
+
+function eventCreatedRecently(ev) {
+  const ts = Date.parse((ev && (ev.created_at || ev.createdAt)) || '');
+  return Number.isFinite(ts) && Date.now() - ts < EVENT_NEW_MS;
+}
+
+function eventIsNew(ev) {
+  if (!ev) return false;
+  if (eventCreatedRecently(ev)) return true;
+  return eventBundleItems(ev).some((it) => eventCreatedRecently(it));
+}
+
+function eventNewTag(extraClass) {
+  return `<span class="ev-new-tag${extraClass ? ' ' + extraClass : ''}" title="Agregado hace menos de 1 día">Nuevo!</span>`;
 }
 
 function formatEventRange(startIso, endIso) {
@@ -1650,6 +1695,9 @@ let eventsCache = [];
 // Eventos tal como se pintaron (tras filtro por proyecto + estado y orden).
 // El modal se abre por índice, así que este array es el que manda.
 let eventsRenderList = [];
+// Evento abierto en la ficha: el botón "Ver combinados" usa este objeto para
+// armar el modal de eventos combinados sin depender de índices.
+let currentEventModalEvent = null;
 // Estado de la carga de eventos: evita encadenar fetches y permite
 // reintentar solo al entrar a la vista si la última carga falló.
 let eventsLoadState = 'idle'; // idle | loading | ready | error
@@ -2114,12 +2162,13 @@ function renderEvents(eventsList) {
       : expected
         ? `<span class="event-card-date is-expected" title="Fecha esperada de inicio, por confirmar">🕰️ Fecha esperada: ${dateRange} <span class="ev-date-note">(por confirmar)</span></span>`
         : `<span class="event-card-date">📅 ${dateRange}</span>`;
-    // Evento combinado: resumen + primeras etiquetas; el modal muestra todo.
+    // Eventos combinados: el padre ofrece un botón que abre el modal con
+    // cada combinado como dropdown individual.
     const bundle = eventBundleItems(ev);
     const bundleNote = bundle.length
-      ? `<div class="event-card-bundle">
-           <span class="event-card-bundle-title">🧩 ${escapeHtml(eventBundleSummaryText(bundle.length))}</span>
-           <span class="event-card-bundle-chips">${bundle.slice(0, 3).map((it) => `<span class="event-bundle-chip">${escapeHtml(it.label)}</span>`).join('')}${bundle.length > 3 ? `<span class="event-bundle-chip is-more">+${bundle.length - 3} más</span>` : ''}</span>
+      ? `<div class="event-card-combined">
+           <span class="event-card-combined-title">🧩 ${escapeHtml(eventBundleSummaryText(bundle.length))}</span>
+           <button type="button" class="event-combined-btn" data-ev-combined="${evIdx}">Ver combinados</button>
          </div>`
       : '';
     // La marca de agua del proyecto vive en una columna propia a la derecha
@@ -2137,7 +2186,7 @@ function renderEvents(eventsList) {
         </div>
         <div class="event-card-body">
           <span class="event-card-project">${escapeHtml(eventProjectLabel(ev))}</span>
-          <h4 class="event-card-title">${escapeHtml(ev.title)}</h4>
+          <h4 class="event-card-title">${escapeHtml(ev.title)}${eventIsNew(ev) ? ' ' + eventNewTag('is-card') : ''}</h4>
           ${ev.description ? `<p class="event-card-desc">${escapeHtml(ev.description)}</p>` : ''}
           ${bundleNote}
           ${dateLine}
@@ -2192,6 +2241,7 @@ function openEventModal(ev) {
   const modal = document.getElementById('event-modal');
   const body = document.getElementById('event-modal-body');
   if (!modal || !body || !ev) return;
+  currentEventModalEvent = ev;
   const meta = eventCategoryMeta(ev.category);
   const coverUrl = safeHttpUrl(ev.image_url || ev.cover_url || '');
   const detailUrl = safeHttpUrl(ev.link_url || ev.linkUrl || '');
@@ -2220,20 +2270,16 @@ function openEventModal(ev) {
       : undated
         ? 'Próximamente · fecha aún no definida'
         : (expected ? 'Próximamente · fecha por confirmar' : 'Próximamente');
-  // Evento combinado: lista completa de lo que viene junto al evento.
+  // Eventos combinados: el padre abre un modal con cada combinado en un
+  // dropdown propio; el tag "Nuevo!" avisa lo agregado en las últimas 24 h.
   const bundle = eventBundleItems(ev);
   const bundleBox = bundle.length
-    ? `<div class="ev-bundle-box">
-         <div class="ev-bundle-box-head">🧩 ${escapeHtml(eventBundleSummaryText(bundle.length))}</div>
-         <ul class="ev-bundle-list">
-           ${bundle.map((it) => {
-             const url = safeHttpUrl(it.url || '');
-             const label = url
-               ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.label)} ↗</a>`
-               : escapeHtml(it.label);
-             return `<li><span class="ev-bundle-item-label">${label}</span>${it.detail ? `<span class="ev-bundle-item-detail">${escapeHtml(it.detail)}</span>` : ''}</li>`;
-           }).join('')}
-         </ul>
+    ? `<div class="ev-combined-box">
+         <div class="ev-combined-box-head">
+           <span class="ev-combined-box-title">🧩 ${escapeHtml(eventBundleSummaryText(bundle.length))}</span>
+           <button type="button" class="btn btn-ghost btn-sm ev-combined-open" data-ev-open-combined="1">Ver combinados</button>
+         </div>
+         <p class="ev-combined-box-hint">Vienen junto con este evento. Abrilos para ver qué incluye cada uno.</p>
        </div>`
     : '';
   body.innerHTML = `
@@ -2241,7 +2287,7 @@ function openEventModal(ev) {
     <div class="modal-head">
       <div class="modal-head-info">
         <span class="ev-badge ev-badge-cat ${meta.cls}" style="align-self:flex-start">${meta.icon} ${meta.label}</span>
-        <h3 class="modal-title">${escapeHtml(ev.title)}</h3>
+        <h3 class="modal-title">${escapeHtml(ev.title)}${eventIsNew(ev) ? ' ' + eventNewTag('is-modal') : ''}</h3>
         <p class="modal-tagline">${escapeHtml(eventProjectLabel(ev))} · ${escapeHtml(formatEventRange(ev.starts_at, ev.ends_at))}</p>
       </div>
     </div>
@@ -2280,8 +2326,66 @@ function closeEventModal() {
       el.removeAttribute('data-ev-countdown');
       el.removeAttribute('data-ev-phase');
     });
+    currentEventModalEvent = null;
+    closeCombinedModal();
     releaseBodyScroll();
   }
+}
+
+// ── Modal de eventos combinados ───────────────────────────────
+// Se apila por encima de la ficha del padre. Cada combinado es un dropdown
+// individual (details/summary) con su descripción y su link.
+function openCombinedModal(ev) {
+  const modal = document.getElementById('ev-combined-modal');
+  const body = document.getElementById('ev-combined-modal-body');
+  if (!modal || !body || !ev) return;
+  const items = eventBundleItems(ev);
+  if (!items.length) return;
+  body.innerHTML = `
+    <div class="evcm-head">
+      <span class="ev-badge ev-badge-cat ev-cat-event">🧩 Combinados</span>
+      <h3 class="modal-title">Eventos combinados</h3>
+      <p class="modal-tagline">Vienen junto con “${escapeHtml(ev.title)}” · ${escapeHtml(eventBundleSummaryText(items.length))}</p>
+    </div>
+    <div class="evcm-list">
+      ${items.map((it) => {
+        const url = safeHttpUrl(it.link_url || it.url || '');
+        const cover = safeHttpUrl(it.image_url || '');
+        const meta = eventCategoryMeta(it.category);
+        const tag = eventCreatedRecently(it) ? eventNewTag('is-modal') : '';
+        return `<details class="evcm-item"${items.length === 1 ? ' open' : ''}>
+          <summary class="evcm-summary">
+            <span class="evcm-thumb">${cover
+              ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`
+              : `<span class="evcm-thumb-fallback">${meta.icon}</span>`}</span>
+            <span class="evcm-summary-main">
+              <span class="evcm-title">${escapeHtml(it.title || 'Evento combinado')}${tag}</span>
+              <span class="evcm-sub">${meta.icon} ${escapeHtml(meta.label)} · ${escapeHtml(eventProjectLabel(it))}</span>
+            </span>
+            <span class="evcm-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="evcm-detail">
+            ${it.description
+              ? `<p class="evcm-desc">${escapeHtml(it.description)}</p>`
+              : '<p class="evcm-desc is-muted">Este evento no tiene descripción.</p>'}
+            ${url ? `<a class="btn btn-primary btn-block evcm-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Ver más detalles ↗</a>` : ''}
+          </div>
+        </details>`;
+      }).join('')}
+    </div>`;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  const card = modal.querySelector('.ev-combined-modal-card');
+  if (card) card.scrollTop = 0;
+}
+
+function closeCombinedModal() {
+  const modal = document.getElementById('ev-combined-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  modal.classList.add('hidden');
+  const body = document.getElementById('ev-combined-modal-body');
+  if (body) body.innerHTML = '';
+  releaseBodyScroll();
 }
 
 // ═══════════════════════════════════════════════
@@ -6441,7 +6545,13 @@ function clearCompletedDownloads() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { closeNewsModal(); closeReleaseModal(); closeEventModal(); try { closeAnnounceModal(); } catch (_) {} try { closeReleasesDock(); } catch (_) {} }
+  if (e.key === 'Escape') {
+    // El modal de combinados se apila sobre la ficha del padre: Escape cierra
+    // solo el de arriba, sin cerrar también el evento.
+    const comb = document.getElementById('ev-combined-modal');
+    if (comb && !comb.classList.contains('hidden')) { closeCombinedModal(); return; }
+    closeNewsModal(); closeReleaseModal(); closeEventModal(); try { closeAnnounceModal(); } catch (_) {} try { closeReleasesDock(); } catch (_) {}
+  }
 });
 
 // ═══════════════════════════════════════════════

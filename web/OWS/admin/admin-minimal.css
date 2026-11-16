@@ -1,0 +1,570 @@
+/* ============================================================================
+   OWS Admin Panel — capa minimal
+   ----------------------------------------------------------------------------
+   Se carga DESPUÉS de admin-styles.css y admin-shell.css.
+   Objetivo: navegación superior con desplegables (sin barra lateral en
+   escritorio) y contenido más denso: encabezados de sección compactos,
+   controles más chicos y menos aire entre bloques.
+
+   No cambia la lógica del panel: solo la presentación. En móvil/tablet se
+   conserva el drawer lateral que ya maneja admin-shell.js.
+   ========================================================================== */
+
+/* ── Medidas base ───────────────────────────────────────────────────────── */
+
+.ows-admin {
+  --ows-topbar-h: 48px;
+  --ows-sidebar-w: 232px;
+  --min-line: rgba(244, 226, 186, 0.09);
+  --min-panel: rgba(18, 11, 30, 0.92);
+  --min-panel-solid: #100a1c;
+}
+
+/* ── Barra superior ─────────────────────────────────────────────────────── */
+
+.ows-admin .ows-topbar {
+  min-height: var(--ows-topbar-h);
+  padding: 0 10px;
+  margin-bottom: 10px;
+  gap: 10px;
+  border-radius: 12px;
+  border-color: var(--min-line);
+  background: rgba(9, 3, 17, 0.82);
+  box-shadow: none;
+}
+
+.ows-admin .ows-brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 0.6rem;
+}
+
+.ows-admin .ows-brand-word {
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+}
+
+.ows-admin .ows-brand {
+  gap: 7px;
+}
+
+/* Menú de secciones: en escritorio reemplaza a la barra lateral. */
+
+.ows-menubar {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ows-menu-home,
+.ows-menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--ows-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ows-menu-home:hover,
+.ows-menu-toggle:hover,
+.ows-menu-group.is-open > .ows-menu-toggle {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ows-ink);
+}
+
+.ows-menu-home.is-active,
+.ows-menu-group.has-active > .ows-menu-toggle {
+  color: var(--gold-light);
+}
+
+.ows-menu-group {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.ows-menu-chev {
+  width: 5px;
+  height: 5px;
+  margin-top: -2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  opacity: 0.7;
+  transform: rotate(45deg);
+  transition: transform 0.16s ease, margin 0.16s ease;
+}
+
+.ows-menu-group.is-open > .ows-menu-toggle .ows-menu-chev {
+  margin-top: 2px;
+  transform: rotate(225deg);
+}
+
+.ows-menu-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 140;
+  display: none;
+  min-width: 208px;
+  max-height: min(72vh, 520px);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid rgba(244, 226, 186, 0.13);
+  border-radius: 10px;
+  background: var(--min-panel-solid);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+.ows-menu-group.is-open > .ows-menu-panel {
+  display: block;
+}
+
+.ows-menu-group:last-child .ows-menu-panel {
+  left: auto;
+  right: 0;
+}
+
+.ows-menu-link {
+  display: block;
+  padding: 6px 9px;
+  border-radius: 6px;
+  color: var(--ows-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.ows-menu-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ows-ink);
+}
+
+.ows-menu-link.is-active {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--gold-light);
+  font-weight: 700;
+}
+
+.ows-menu-link.is-child {
+  padding-left: 20px;
+  font-size: 0.72rem;
+  color: var(--ows-faint);
+}
+
+.ows-menu-link.is-child.is-active {
+  color: var(--gold);
+}
+
+.ows-menu-panel .ows-project-nav {
+  margin: 3px 0 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--min-line);
+}
+
+.ows-menu-panel .ows-project-nav-empty {
+  padding: 5px 9px;
+  font-size: 0.7rem;
+}
+
+.ows-menu-panel .ows-project-link {
+  padding: 5px 9px;
+  font-size: 0.73rem;
+}
+
+/* Utilidades: más chicas y sin peso visual. */
+
+.ows-admin .ows-slots {
+  gap: 4px;
+}
+
+.ows-admin .ows-slot {
+  width: 28px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 0.68rem;
+}
+
+.ows-admin .ows-slot.is-active::after {
+  bottom: -5px;
+  width: 10px;
+}
+
+.ows-admin .ows-palette-trigger {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 0.68rem;
+  border-radius: 7px;
+}
+
+.ows-admin .ows-api-pill {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 0.62rem;
+}
+
+.ows-admin .ows-session-trigger {
+  width: 28px;
+  height: 28px;
+}
+
+.ows-admin .ows-session-avatar {
+  font-size: 0.68rem;
+}
+
+/* ── Layout: sin columna lateral en escritorio ──────────────────────────── */
+
+.panel-wrap {
+  max-width: 1560px;
+  padding: 10px 14px 28px;
+}
+
+.admin-shell {
+  display: block;
+}
+
+.admin-main {
+  gap: 10px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+@media (min-width: 1024px) {
+  .ows-admin .admin-shell {
+    display: block;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .ows-admin .admin-sidebar.ows-sidebar {
+    display: none;
+  }
+
+  .ows-admin .ows-menu-btn {
+    display: none;
+  }
+
+  .ows-admin .admin-main {
+    padding: 0;
+    border-radius: 0;
+    background: none;
+  }
+
+  .ows-admin .ows-rail-toast {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .ows-menubar {
+    display: none;
+  }
+
+  .admin-main {
+    max-width: none;
+  }
+}
+
+/* ── Contenido compacto ─────────────────────────────────────────────────── */
+
+.admin-main .glass-card {
+  border-radius: 10px;
+  border-color: var(--min-line);
+  background: rgba(10, 4, 18, 0.58);
+  box-shadow: none;
+}
+
+.admin-main .btn-primary {
+  box-shadow: none;
+}
+
+.admin-main .list-card,
+.admin-main .newsadm-list-card,
+.admin-main .events-list-card {
+  min-height: 0;
+  padding: 12px;
+}
+
+.admin-main .admin-item {
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-color: var(--min-line);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.admin-main .admin-item:hover {
+  border-color: rgba(244, 226, 186, 0.2);
+  transform: none;
+}
+
+.admin-main .admin-item-title {
+  font-size: 0.84rem;
+}
+
+.admin-main .admin-item-sub {
+  font-size: 0.68rem;
+}
+
+.admin-main .admin-item-desc {
+  font-size: 0.74rem;
+}
+
+.admin-main .admin-item-actions {
+  gap: 4px;
+}
+
+.admin-main .admin-item-actions .btn-mini {
+  min-height: 24px;
+  padding: 3px 7px;
+  font-size: 0.68rem;
+  border-radius: 6px;
+}
+
+/* Encabezado de cada sección: una sola fila baja. */
+
+.admin-main .page-head {
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  overflow: visible;
+}
+
+.admin-main .page-head::before {
+  display: none;
+}
+
+.admin-main .page-head-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  font-size: 1rem;
+  box-shadow: none;
+}
+
+.admin-main .page-head-body {
+  gap: 3px;
+}
+
+.admin-main .page-head-body .form-title {
+  font-size: 1rem;
+  line-height: 1.25;
+  margin-bottom: 0;
+}
+
+.admin-main .page-head-body .form-hint {
+  margin: 0;
+  max-width: 92ch;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.admin-main .page-head-actions {
+  gap: 5px;
+  padding-top: 0;
+}
+
+.admin-main .newsadm-stats,
+.admin-main .events-stats {
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.admin-main .page-head .manage-badges {
+  margin-top: 2px;
+}
+
+.admin-main .newsadm-stat,
+.admin-main .ev-stat {
+  padding: 3px 8px;
+  border-radius: 7px;
+  gap: 5px;
+}
+
+.admin-main .newsadm-stat strong,
+.admin-main .ev-stat strong {
+  font-size: 0.78rem;
+}
+
+.admin-main .newsadm-stat small,
+.admin-main .ev-stat small {
+  font-size: 0.56rem;
+}
+
+/* Botones y campos un poco más bajos, sin cambiar la jerarquía. */
+
+.admin-main .btn {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+}
+
+.admin-main .btn-sm {
+  padding: 6px 9px;
+  font-size: 0.74rem;
+}
+
+.admin-main input[type='text'],
+.admin-main input[type='search'],
+.admin-main input[type='url'],
+.admin-main input[type='email'],
+.admin-main input[type='password'],
+.admin-main input[type='number'],
+.admin-main input[type='date'],
+.admin-main input[type='time'],
+.admin-main input[type='datetime-local'],
+.admin-main input[type='tel'],
+.admin-main select,
+.admin-main textarea {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.admin-main .field-group label {
+  font-size: 0.78rem;
+}
+
+.admin-main .form-title {
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.admin-main .form-card,
+.admin-main .list-card {
+  padding: 14px;
+}
+
+.admin-main .card-head {
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.admin-main table th,
+.admin-main table td {
+  padding: 7px 9px;
+  font-size: 0.78rem;
+}
+
+/* Páginas propias del shell (Inicio, Ajustes, Código, Notas). */
+
+.ows-page .ows-page-head,
+.ows-page .ows-card {
+  border-radius: 12px;
+}
+
+.ows-page .ows-page-head {
+  padding: 14px 16px;
+}
+
+.ows-page .ows-page-title {
+  font-size: 1.08rem;
+}
+
+.ows-page .ows-page-sub {
+  font-size: 0.76rem;
+}
+
+.ows-page .ows-card {
+  padding: 14px;
+}
+
+.ows-page .ows-card-head h3 {
+  font-size: 0.88rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1240px) {
+  .ows-menu-home,
+  .ows-menu-toggle {
+    padding: 0 7px;
+    font-size: 0.72rem;
+  }
+
+  .ows-admin .ows-slots {
+    display: none;
+  }
+}
+
+@media (max-width: 1080px) and (min-width: 641px) {
+  .admin-main .page-head-actions {
+    justify-content: flex-end;
+  }
+
+  .admin-main .page-head-actions .btn {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .ows-admin .ows-topbar {
+    min-height: 48px;
+    padding: 0 8px;
+  }
+
+  .admin-main .page-head {
+    padding: 10px;
+  }
+
+  .admin-main .page-head-body .form-hint {
+    -webkit-line-clamp: 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel-wrap {
+    padding: 8px 10px 22px;
+  }
+
+  .ows-admin .ows-brand-word {
+    display: none;
+  }
+
+  .admin-main .page-head-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+
+  .admin-main .page-head-body .form-title {
+    font-size: 0.94rem;
+  }
+
+  .admin-main .page-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .admin-main .btn-sm {
+    padding: 6px 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ows-menu-panel,
+  .ows-menu-chev {
+    transition: none;
+  }
+}

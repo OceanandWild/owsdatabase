@@ -1,11 +1,11 @@
 {
-  "version": "3.4.33",
-  "notes": "OWS Hub v3.4.33 - instalador de Windows. Las descargas del navegador requieren esta app.",
-  "pub_date": "2026-10-30T03:44:05Z",
+  "version": "3.5.4",
+  "notes": "OWS Hub v3.5.4 - instalador de Windows. Las descargas del navegador requieren esta app.",
+  "pub_date": "2026-11-16T04:40:59Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/OceanandWild/ows-hub/releases/download/v3.4.33/OWS-Hub_3.4.33_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUGY5THVQVzhGaFNpUmhZeTQvbG96UmdUN2JxSDR4QlJJcmNzTm9mcUFxbU91c2xhV3pGNmZUaHhHVmxXS0pUSzBzaE10ZTRaNFNaUDZNT1pTd1ZZQWtxNy9ha3VyVWc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzMxODQ1CWZpbGU6T1dTIEh1Yl8zLjQuMzNfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjMuNC4zMwpIbTFQblFmYUMrQU1zYWNYRlU1enNTOS95MllyYzdCL2NFbFVpNWNjRkdIb3BBR2dOckxUMWkxTDdtNkFHbDdkUTdnUUcrV0RGZDBJMHBLSDk5a0lDdz09Cg=="
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUUGY5THVQVzhGaFhETThPZVNCUTJKUFp2ZVJydWRZTXdKemt2WHdMTFA1Nm9lL0pYdk1heGp3L050OE5Ld1lWYjBVZ08rdFpVVkFNMC9jY3NpZ3YzUU44aHB0V0o1cndZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0ODA0MDU5CWZpbGU6T1dTIEh1Yl8zLjUuNF94NjQtc2V0dXAuZXhlCXZlcnNpb246My41LjQKNHFVcjdiZWVOeWhpL1gxb01oMlhYRk1tYWRaTlVHSFkyeEF5LytaUC9ZZHM5c2ZLT1RmdGpPVjlYSDI4VmEzN3gvTnBEckM0NFlNaHFXMVFjb0EzQWc9PQo=",
+      "url": "https://github.com/OceanandWild/ows-hub/releases/download/v3.5.4/OWS-Hub_3.5.4_x64-setup.exe"
     }
   }
 }

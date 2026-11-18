@@ -1829,6 +1829,15 @@ body.srf-no-anim .srf-view { animation: none !important; }
 /* Estado contextual bajo los topes */
 .srf-mg-limit-state:empty { display: none; }
 .srf-mg-limit-state { margin-top: 14px; }
+.srf-mg-sync {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: var(--srf-dim);
+}
+.srf-mg-sync.is-ok { color: var(--srf-accent, #6ee7c8); }
+.srf-mg-sync.is-bad { color: #ff9a9a; }
+.srf-mg-sync-btn { margin-top: 8px; padding: 7px 12px; font-size: 0.72rem; }
+.srf-mg-sync-btn.hidden { display: none; }
 .srf-mg-limit-banner {
   display: flex;
   align-items: center;

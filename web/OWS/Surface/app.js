@@ -330,6 +330,12 @@ function bindSurfaceEvents() {
   });
 
   on('#mg-limits-enabled', 'change', handleLimitsEnabledChange);
+  on('#btn-mg-sync-retry', 'click', function () {
+    mgServerPushChain = mgServerPushChain.then(
+      function () { return mgServerPush(loadManagement()); },
+      function () { return mgServerPush(loadManagement()); }
+    );
+  });
   on('#btn-mg-change-scope', 'click', () => openLimitScopeModal());
   on('#btn-apply-limit-scope', 'click', applyLimitScopeModal);
   all('[data-close-limit-scope]', 'click', () => closeLimitScopeModal(true));
@@ -2981,6 +2987,7 @@ function mgUserKey() {
 function mgDefaults() {
   return {
     version: 4,
+    updatedAt: null,
     limits: {
       enabled: false,
       period: 'monthly',
@@ -3062,6 +3069,7 @@ function mgBoolean(value, fallback) {
 function sanitizeManagement(raw) {
   const base = mgDefaults();
   if (!raw || typeof raw !== 'object') return base;
+  base.updatedAt = mgIsoOrNull(raw.updatedAt);
 
   const limits = raw.limits && typeof raw.limits === 'object' ? raw.limits : {};
   base.limits.enabled = !!limits.enabled;
@@ -3141,6 +3149,10 @@ function loadManagement() {
 
 function saveManagement(state) {
   const clean = sanitizeManagement(state);
+  // Marca el momento del cambio: permite decidir qué versión manda cuando el
+  // mismo usuario tiene Surface abierto en dos dispositivos (o el servidor
+  // tiene datos mas nuevos que este equipo).
+  clean.updatedAt = new Date().toISOString();
   try { localStorage.setItem(mgUserKey(), JSON.stringify(clean)); } catch (_) {}
   mgServerSchedulePush(clean);
   return clean;
@@ -3151,13 +3163,38 @@ function saveManagement(state) {
 // -----------------------------------------
 // El checkout global de Unity valida los topes contra el servidor, así que
 // Surface › Gestión no puede vivir solo en localStorage. Reglas:
-//   · Si este dispositivo ya tiene ajustes guardados, esos mandan y se suben.
-//   · Si no tiene nada, se adoptan los del servidor (otro dispositivo).
-//   · Cada cambio local se empuja con un pequeño debounce.
+//   · Todo cambio se empuja al servidor con reintentos y se VERIFICA leyendo
+//     el mismo endpoint que usa el checkout (antes un 503 de Render dejaba el
+//     tope nuevo solo en este equipo y el juego seguía viendo el viejo).
+//   · Los PUT van en cola: una respuesta vieja nunca puede pisar un cambio
+//     más reciente.
+//   · Si otro dispositivo guardó después (updatedAt), se adopta esa versión.
 // =========================================
 
 let mgServerPushTimer = null;
 let mgServerLastPushed = '';
+let mgServerPendingState = null;
+let mgServerPushChain = Promise.resolve();
+const MG_SERVER_PUSH_RETRIES = 5;
+
+function mgSetSyncState(status) {
+  const node = el('mg-sync-state');
+  if (!node) return;
+  const messages = {
+    pending: 'Guardando topes…',
+    ok: 'Topes sincronizados. Ya los ve el checkout de los juegos.',
+    saved: 'Topes guardados en el servidor. Sin verificar: se confirmará al recargar.',
+    error: 'Los topes quedaron guardados acá, pero no se pudo sincronizar. Reintentando…',
+    off: 'Sin sesión: los cambios quedan solo en este dispositivo.',
+    remote: 'Topes actualizados desde otra sesión de Surface.'
+  };
+  node.textContent = messages[status] || messages.pending;
+  node.classList.toggle('is-ok', status === 'ok' || status === 'remote');
+  node.classList.toggle('is-bad', status === 'error');
+  node.dataset.status = status || 'pending';
+  const retry = el('btn-mg-sync-retry');
+  if (retry) retry.classList.toggle('hidden', status !== 'error');
+}
 
 /* El backend necesita saber qué tarjeta está activa para poder aplicar un
    límite de una sola tarjeta en los checkouts de los juegos. */
@@ -3172,80 +3209,174 @@ function mgServerToken() {
   try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (_) { return ''; }
 }
 
+/* Compara solo lo que el checkout usa para decidir. */
+function mgServerLimitsMatch(a, b) {
+  const la = (a && a.limits) || {};
+  const lb = (b && b.limits) || {};
+  const pa = la.perOp || {};
+  const pb = lb.perOp || {};
+  return !!la.enabled === !!lb.enabled &&
+    la.period === lb.period &&
+    mgInt(la.gambits) === mgInt(lb.gambits) &&
+    mgInt(la.tides) === mgInt(lb.tides) &&
+    mgInt(pa.gambits) === mgInt(pb.gambits) &&
+    mgInt(pa.tides) === mgInt(pb.tides) &&
+    !!la.block === !!lb.block;
+}
+
+function mgServerDelay(ms) {
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
 function mgServerSchedulePush(state) {
-  if (!mgServerToken()) return;
+  if (!mgServerToken()) { mgSetSyncState('off'); return; }
   const clean = mgServerSnapshot(state);
   const serialized = JSON.stringify(clean);
   if (serialized === mgServerLastPushed) return;
 
+  mgServerPendingState = clean;
+  mgSetSyncState('pending');
   if (mgServerPushTimer) clearTimeout(mgServerPushTimer);
   mgServerPushTimer = setTimeout(function () {
     mgServerPushTimer = null;
-    mgServerPush(clean);
-  }, 450);
+    mgServerFlushPush();
+  }, 350);
+}
+
+/* Serializa los envíos: si el usuario cambia el tope dos veces seguidas, el
+   PUT anterior no puede llegar después y dejar el servidor con el viejo. */
+function mgServerFlushPush() {
+  const state = mgServerPendingState;
+  mgServerPendingState = null;
+  if (!state) return mgServerPushChain;
+  mgServerPushChain = mgServerPushChain.then(
+    function () { return mgServerPush(state); },
+    function () { return mgServerPush(state); }
+  );
+  return mgServerPushChain;
 }
 
 async function mgServerPush(state) {
   const token = mgServerToken();
-  if (!token) return;
+  if (!token) { mgSetSyncState('off'); return false; }
   const clean = mgServerSnapshot(state);
   const serialized = JSON.stringify(clean);
-  if (serialized === mgServerLastPushed) return;
+  if (serialized === mgServerLastPushed) return true;
 
-  try {
-    const res = await fetch(API_BASE + '/surface/checkout/settings', {
-      method: 'PUT',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ management: clean })
-    });
-    if (res.ok) mgServerLastPushed = serialized;
-  } catch (err) {
-    console.warn('[Surface] No se pudo sincronizar Gestión con el servidor:', err);
+  for (let attempt = 0; attempt < MG_SERVER_PUSH_RETRIES; attempt++) {
+    let putOk = false;
+    try {
+      const res = await fetch(API_BASE + '/surface/checkout/settings', {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ management: clean })
+      });
+      putOk = !!res.ok;
+      if (res.status === 401) { mgSetSyncState('off'); return false; }
+    } catch (err) {
+      console.warn('[Surface] No se pudo guardar la gestión en el servidor:', err);
+    }
+
+    if (putOk) {
+      mgServerLastPushed = serialized;
+      // Verificación de ida y vuelta: el juego lee este MISMO endpoint.
+      try {
+        const res = await fetch(API_BASE + '/surface/checkout/settings', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+          const data = await res.json().catch(function () { return {}; });
+          const server = data && data.management ? sanitizeManagement(data.management) : null;
+          if (server && mgServerLimitsMatch(clean, server)) {
+            mgSetSyncState('ok');
+            return true;
+          }
+          if (server && server.updatedAt && clean.updatedAt && server.updatedAt > clean.updatedAt) {
+            // Otro dispositivo guardó más tarde: adoptamos su versión para no
+            // pisar un cambio más nuevo.
+            try { localStorage.setItem(mgUserKey(), JSON.stringify(server)); } catch (_) {}
+            mgServerLastPushed = JSON.stringify(server);
+            mgApplyStoredActiveCard(server);
+            mgResolveSuspension({ announce: false });
+            renderManagement();
+            updateTransferPreview();
+            mgSetSyncState('remote');
+            return true;
+          }
+        }
+      } catch (err) {
+        console.warn('[Surface] No se pudo verificar la gestión sincronizada:', err);
+      }
+      // El PUT se guardó; si el GET no responde, se reintenta al recargar.
+      mgSetSyncState('saved');
+      return true;
+    }
+
+    if (attempt < MG_SERVER_PUSH_RETRIES - 1) {
+      await mgServerDelay(900 * (attempt + 1));
+    }
   }
+
+  mgServerLastPushed = '';
+  mgSetSyncState('error');
+  return false;
 }
 
 async function mgServerHydrate() {
   const token = mgServerToken();
-  if (!token) return;
+  if (!token) { mgSetSyncState('off'); return; }
 
   let localRaw = null;
   try { localRaw = localStorage.getItem(mgUserKey()); } catch (_) {}
+  const local = localRaw ? loadManagement() : null;
 
-  // Este dispositivo ya tiene ajustes propios: se empujan al servidor.
-  if (localRaw) {
-    mgServerSchedulePush(loadManagement());
-    return;
-  }
-
+  // Siempre se consulta el servidor: así el resumen no muestra un tope que el
+  // checkout no va a respetar, y se decide qué versión manda por updatedAt.
+  let server = null;
   try {
     const res = await fetch(API_BASE + '/surface/checkout/settings', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
-    if (res.status === 401 || !res.ok) return;
+    if (res.status === 401) { mgSetSyncState('off'); return; }
+    if (res.ok) {
+      const data = await res.json().catch(function () { return {}; });
+      if (data && data.management) server = sanitizeManagement(data.management);
+    }
+  } catch (err) {
+    console.warn('[Surface] No se pudo leer la gestión del servidor:', err);
+  }
 
-    const data = await res.json().catch(function () { return {}; });
-    if (!data || !data.management) return;
+  // Sin datos locales, el servidor manda aunque no traiga updatedAt (datos
+  // guardados por una versión anterior de Surface).
+  const serverIsNewer = !!server && (
+    !local || (!!server.updatedAt && (!local.updatedAt || server.updatedAt > local.updatedAt))
+  );
 
-    const clean = sanitizeManagement(data.management);
-    try { localStorage.setItem(mgUserKey(), JSON.stringify(clean)); } catch (_) {}
-    mgServerLastPushed = JSON.stringify(clean);
-    mgApplyStoredActiveCard(clean);
+  if (serverIsNewer) {
+    try { localStorage.setItem(mgUserKey(), JSON.stringify(server)); } catch (_) {}
+    mgServerLastPushed = JSON.stringify(server);
+    mgApplyStoredActiveCard(server);
     mgResolveSuspension({ announce: true });
     renderManagement();
     updateTransferPreview();
     mgScheduleSuspensionWake();
-  } catch (err) {
-    console.warn('[Surface] No se pudo leer la gestión del servidor:', err);
+    mgSetSyncState('ok');
+    return;
   }
+
+  if (local) mgServerSchedulePush(local);
+  else mgSetSyncState('off');
 }
 
 function mgServerReset() {
   if (mgServerPushTimer) clearTimeout(mgServerPushTimer);
   mgServerPushTimer = null;
+  mgServerPendingState = null;
   mgServerLastPushed = '';
+  mgSetSyncState('off');
 }
 
 // =========================================

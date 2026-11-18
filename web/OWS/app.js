@@ -6790,6 +6790,96 @@ function owsContentNotify(title, body) {
   } catch (_) {}
 }
 
+/* Días de calendario (no horas sueltas): si el evento arranca mañana a la
+   noche, el aviso debe decir "mañana", no "en 0 días". */
+function owsContentCalendarDaysUntil(targetMs, now) {
+  const start = new Date(targetMs);
+  const today = new Date(now);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(today.getTime())) return null;
+  start.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return Math.round((start.getTime() - today.getTime()) / 86400000);
+}
+
+function owsContentDaysShort(targetMs, now) {
+  const days = owsContentCalendarDaysUntil(targetMs, now);
+  if (days == null) return '';
+  if (days < 0) return 'la fecha ya pasó';
+  if (days === 0) return 'es hoy';
+  if (days === 1) return 'falta 1 día';
+  return `faltan ${days} días`;
+}
+
+/* Fecha + cuenta de días en la misma frase: el aviso de cambio de fecha debe
+   decir cuánto falta sin obligar a abrir el evento. */
+function owsContentDatePhrase(targetMs, now, expected) {
+  const days = owsContentCalendarDaysUntil(targetMs, now);
+  if (days == null) return '';
+  const when = new Date(targetMs).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  const prefix = expected ? 'la fecha estimada es' : 'arranca';
+  if (days < 0) return expected ? `la fecha estimada era el ${when}` : `arrancó el ${when}`;
+  if (days === 0) return `${prefix} hoy (${when})`;
+  if (days === 1) return `${prefix} mañana (${when}) · falta 1 día`;
+  return `${prefix} el ${when} · faltan ${days} días`;
+}
+
+/* Un evento puede mover su fecha o pasar de "por confirmar" a una fecha real.
+   El aviso conserva el nombre y los días que faltan en el mismo mensaje. */
+function owsContentDateChangeNotice(prev, base, now) {
+  if (!prev) return null;
+  const prevStart = prev.s ? Date.parse(prev.s) : NaN;
+  const nextStart = base.s ? Date.parse(base.s) : NaN;
+  const hadDate = !!(prev.s && Number.isFinite(prevStart));
+  const hasDate = !!(base.s && Number.isFinite(nextStart));
+  const dateChanged = String(prev.s || '') !== String(base.s || '');
+  // Los estados guardados antes de esta versión no tienen `x`: no se inventa
+  // un cambio de confirmación que el usuario nunca hizo.
+  const expectedKnown = Object.prototype.hasOwnProperty.call(prev, 'x');
+  const wasExpected = expectedKnown ? !!prev.x : false;
+  const isExpected = !!base.x;
+  const expectedChanged = expectedKnown && wasExpected !== isExpected;
+  if (!dateChanged && !expectedChanged) return null;
+  const endTs = base.e ? Date.parse(base.e) : NaN;
+  if (Number.isFinite(endTs) && now >= endTs) return null;
+  const name = base.t;
+  if (!hadDate && !hasDate) return null;
+  if (!hasDate) {
+    return {
+      title: '📅 Un evento se quedó sin fecha',
+      body: `${name}: por ahora no tiene una fecha definida.`,
+      short: `${name} · sin fecha`
+    };
+  }
+  const phrase = owsContentDatePhrase(nextStart, now, isExpected);
+  const short = `${name} · ${owsContentDaysShort(nextStart, now)}`;
+  if (!hadDate) {
+    return {
+      title: isExpected ? '🕰️ Ya hay una fecha estimada' : '📅 Ya hay fecha para un evento',
+      body: `${name}: ${phrase}.`,
+      short
+    };
+  }
+  if (expectedKnown && wasExpected && !isExpected) {
+    return {
+      title: '📅 Fecha confirmada',
+      body: `${name}: ${phrase}.`,
+      short
+    };
+  }
+  if (expectedKnown && !wasExpected && isExpected) {
+    return {
+      title: '🕰️ La fecha volvió a estar por confirmar',
+      body: `${name}: ${phrase}.`,
+      short
+    };
+  }
+  return {
+    title: isExpected ? '🕰️ Cambió la fecha estimada' : '📅 Cambió la fecha de un evento',
+    body: `${name}: ${phrase}.`,
+    short
+  };
+}
+
 function owsContentFlush(pending) {
   if (!pending) return;
   let sent = 0;
@@ -6799,7 +6889,23 @@ function owsContentFlush(pending) {
     sent += 1;
     owsContentNotify(title, owsContentSummarize(list));
   };
+  const sendText = (title, body) => {
+    if (!body || sent >= OWS_CONTENT_MAX_NOTIFS) return;
+    sent += 1;
+    owsContentNotify(title, body);
+  };
   const n = (list) => (Array.isArray(list) ? list.length : 0);
+  // Los cambios de fecha van primero: afectan la expectativa del usuario y no
+  // deben quedar afuera cuando coinciden con un lanzamiento o una noticia.
+  const changes = (pending.dateChanges || []).filter(Boolean);
+  if (changes.length === 1) {
+    sendText(changes[0].title, changes[0].body);
+  } else if (changes.length > 1) {
+    sendText(
+      `📅 ${changes.length} eventos cambiaron de fecha`,
+      changes.map((c) => c.short).join(' · ')
+    );
+  }
   if (n(pending.created)) {
     send(n(pending.created) === 1 ? '🗓️ Nuevo evento en OWS' : `🗓️ ${n(pending.created)} eventos nuevos en OWS`, pending.created);
   }
@@ -6825,7 +6931,10 @@ function owsContentEventEntry(ev) {
     t: String((ev && ev.title) || 'Evento'),
     p: String(project),
     s: rawStart ? String(rawStart) : '',
-    e: rawEnd ? String(rawEnd) : ''
+    e: rawEnd ? String(rawEnd) : '',
+    // Inicio tentativo: guardar el flag permite detectar el paso de "por
+    // confirmar" a fecha real incluso si la fecha no cambió.
+    x: !!(ev && (ev.starts_expected === true || ev.startsExpected === true))
   };
 }
 
@@ -6841,7 +6950,7 @@ function owsContentPruneEvents(state) {
 function owsContentEvalEvents(state, list, opts) {
   const now = (opts && opts.now) || Date.now();
   const seeded = !!(opts && opts.seeded);
-  const pending = { created: [], started: [], ended: [] };
+  const pending = { created: [], started: [], ended: [], dateChanges: [] };
   const entries = [];
   if (Array.isArray(list)) {
     list.forEach((ev) => {
@@ -6852,7 +6961,17 @@ function owsContentEvalEvents(state, list, opts) {
   } else {
     Object.keys(state.events || {}).forEach((id) => {
       const e = state.events[id] || {};
-      entries.push({ id, ev: { id, title: e.t, project_name: e.p, starts_at: e.s, ends_at: e.e } });
+      entries.push({
+        id,
+        ev: {
+          id,
+          title: e.t,
+          project_name: e.p,
+          starts_at: e.s,
+          ends_at: e.e,
+          starts_expected: e.x === true
+        }
+      });
     });
   }
 
@@ -6865,9 +6984,18 @@ function owsContentEvalEvents(state, list, opts) {
       end: !!(prev && prev.end),
       at: now
     };
+    // Estado viejo sin `x`: se conserva desconocido hasta el próximo poll con
+    // datos reales, para no inventar un cambio de confirmación.
+    if (prev && !Object.prototype.hasOwnProperty.call(prev, 'x')) delete next.x;
     const startTs = base.s ? Date.parse(base.s) : NaN;
     const endTs = base.e ? Date.parse(base.e) : NaN;
     const isNew = !prev;
+    // Si la fecha se movió, la cuenta de inicio/fin anterior ya no sirve: el
+    // evento vuelve a "pendiente" y avisa cuando llegue la fecha nueva.
+    const startDateChanged = !!(prev && String(prev.s || '') !== String(base.s || ''));
+    const endDateChanged = !!(prev && String(prev.e || '') !== String(base.e || ''));
+    if (startDateChanged) next.start = false;
+    if (endDateChanged) next.end = false;
 
     // Primer arranque: solo se registra lo que ya existe. Un evento en curso o
     // ya terminado no dispara avisos retroactivos.
@@ -6882,6 +7010,12 @@ function owsContentEvalEvents(state, list, opts) {
       // Si ya había empezado, el aviso de inicio no se duplica.
       if (Number.isFinite(startTs) && now >= startTs) next.start = true;
       if (Number.isFinite(endTs) && now >= endTs) next.end = true;
+    }
+
+    // Cambio de fecha o de confirmación: se avisa con los días que faltan.
+    if (prev && seeded) {
+      const dateNotice = owsContentDateChangeNotice(prev, base, now);
+      if (dateNotice) pending.dateChanges.push(dateNotice);
     }
 
     if (Number.isFinite(startTs) && now >= startTs && !next.start) {
@@ -6954,7 +7088,7 @@ async function owsContentPoll() {
   const key = owsContentKey();
   const state = owsContentLoad(key);
   const now = Date.now();
-  const pending = { created: [], started: [], ended: [], news: [], releases: [] };
+  const pending = { created: [], started: [], ended: [], dateChanges: [], news: [], releases: [] };
   owsContentPolling = true;
   owsContentLastPoll = now;
   try {
@@ -6972,6 +7106,7 @@ async function owsContentPoll() {
       pending.created.push(...p.created);
       pending.started.push(...p.started);
       pending.ended.push(...p.ended);
+      pending.dateChanges.push(...p.dateChanges);
       state.sources.events = true;
     }
 
@@ -7010,7 +7145,7 @@ function owsContentTick() {
   const pending = owsContentEvalEvents(state, null, { seeded: true, now: Date.now() });
   if (!pending.started.length && !pending.ended.length) return;
   owsContentSave(key, state);
-  owsContentFlush({ created: [], started: pending.started, ended: pending.ended, news: [], releases: [] });
+  owsContentFlush({ created: [], started: pending.started, ended: pending.ended, dateChanges: [], news: [], releases: [] });
 }
 
 function owsContentBindFocus() {

@@ -632,6 +632,7 @@
                 <div class="srf-mg-limit-state" id="mg-limit-state" aria-live="polite"></div>
                 <div class="srf-mg-sync" id="mg-sync-state" data-status="pending" aria-live="polite">Guardando topes…</div>
                 <button class="srf-ghost srf-mg-sync-btn hidden" type="button" id="btn-mg-sync-retry">Reintentar sincronización</button>
+                <button class="srf-ghost srf-mg-sync-btn hidden" type="button" id="btn-mg-session-login">Volver a iniciar sesión</button>
               </section>
 
               <div class="srf-col">
@@ -1186,6 +1187,39 @@
         <button class="srf-ghost" type="button" data-close-limit-snooze>Cancelar</button>
         <button class="srf-primary srf-warn" type="button" id="btn-confirm-limit-snooze">Sí, desactivar hasta el reinicio</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: sesión vencida (re-login sin perder la pantalla) ═══ -->
+  <div id="session-expired-modal" class="srf-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="session-expired-title">
+    <div class="srf-modal srf-modal-sm">
+      <div class="srf-modal-head">
+        <h2 class="srf-modal-title" id="session-expired-title">Tu sesión venció</h2>
+        <button class="srf-ico" type="button" data-close-session-expired aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p class="srf-modal-sub">Para que los cambios que hagas en Gestión se apliquen de verdad en la billetera y en los juegos, volvé a iniciar sesión.</p>
+
+      <div class="srf-alert srf-alert-info" role="status">
+        Mientras la sesión siga vencida, los cambios quedan guardados solo en este dispositivo y no llegan al servidor.
+      </div>
+
+      <form id="session-expired-form" class="srf-form">
+        <label class="srf-field">
+          <span class="srf-field-label">Usuario OWS</span>
+          <input type="text" id="session-expired-username" autocomplete="username" readonly />
+        </label>
+        <label class="srf-field">
+          <span class="srf-field-label">Contraseña</span>
+          <input type="password" id="session-expired-password" placeholder="••••••••" required autocomplete="current-password" />
+        </label>
+        <div id="session-expired-alert" class="srf-alert hidden"></div>
+        <div class="srf-modal-actions">
+          <button class="srf-ghost" type="button" id="btn-session-expired-logout">Cerrar sesión</button>
+          <button class="srf-primary" type="submit" id="btn-session-expired-submit">Volver a entrar</button>
+        </div>
+      </form>
     </div>
   </div>
 

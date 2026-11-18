@@ -22,6 +22,9 @@ const TOKEN_KEY = 'ocean_pay_token';
 const USER_KEY  = 'ocean_pay_user';
 
 let currentUser = null;
+// Se activa cuando el servidor rechaza el token (401). La pantalla se conserva
+// y se pide re-login: así el usuario no sigue tocando topes que no se aplican.
+let sessionExpired = false;
 let userCards = [];
 let selectedCardIndex = 0;
 let cardDataVisible = false;   // número y CVV ocultos por defecto
@@ -295,6 +298,13 @@ function bindSurfaceEvents() {
   all('[data-optab]', 'click', (e) => switchAuthTab(e.currentTarget.getAttribute('data-optab')));
   on('#login-form', 'submit', handleLogin);
   on('#register-form', 'submit', handleRegister);
+  on('#session-expired-form', 'submit', handleSessionExpiredSubmit);
+  all('[data-close-session-expired]', 'click', closeSessionExpiredModal);
+  on('#session-expired-modal', 'click', (e) => {
+    if (e.target.id === 'session-expired-modal') closeSessionExpiredModal();
+  });
+  on('#btn-session-expired-logout', 'click', handleLogout);
+  on('#btn-mg-session-login', 'click', () => openSessionExpiredModal());
 
   // Barra superior
   on('#btn-back-ows', 'click', () => { window.location.href = '../index.html'; });
@@ -503,6 +513,7 @@ function bindSurfaceEvents() {
   // Escape cierra el modal abierto de arriba hacia abajo
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (!el('session-expired-modal')?.classList.contains('hidden')) return closeSessionExpiredModal();
     if (!el('limit-snooze-modal')?.classList.contains('hidden')) return closeLimitSnoozeModal();
     if (!el('limit-scope-modal')?.classList.contains('hidden')) return closeLimitScopeModal(true);
     if (!el('admin-modal')?.classList.contains('hidden')) return closeAdminModal();
@@ -695,7 +706,112 @@ async function handleRegister(e) {
   }
 }
 
+function sessionExpiredUsername() {
+  return String((currentUser && (currentUser.username || currentUser.id)) || '').trim();
+}
+
+/* Abre el re-login sin sacar al usuario de la pantalla donde estaba. Se usa
+   cuando el servidor responde 401: el token guardado ya no sirve y cualquier
+   cambio de Gestión quedaría solo en localStorage. */
+function openSessionExpiredModal(opts) {
+  if (!localStorage.getItem(TOKEN_KEY)) { handleLogout(); return; }
+  sessionExpired = true;
+  const modal = el('session-expired-modal');
+  mgSetSyncState('expired');
+  if (!modal) return;
+  // Si ya está abierto (varios 401 en paralelo), no se borra lo que el usuario
+  // está escribiendo.
+  if (!modal.classList.contains('hidden')) return;
+
+  const username = sessionExpiredUsername();
+  const userInput = el('session-expired-username');
+  if (userInput) {
+    userInput.value = username;
+    userInput.readOnly = !!username;
+  }
+  hideAlert('session-expired-alert');
+  modal.classList.remove('hidden');
+  const pass = el('session-expired-password');
+  if (pass) {
+    pass.value = '';
+    if (!opts || opts.focus !== false) {
+      setTimeout(function () { try { pass.focus(); } catch (_) {} }, 60);
+    }
+  }
+}
+
+function closeSessionExpiredModal() {
+  el('session-expired-modal')?.classList.add('hidden');
+  const pass = el('session-expired-password');
+  if (pass) pass.value = '';
+  hideAlert('session-expired-alert');
+}
+
+/* Punto único para los 401: mantiene la sesión visual, pide credenciales y
+   deja el cambio local listo para empujarse cuando el login se renueve. */
+function handleSessionExpired(opts) {
+  openSessionExpiredModal(opts);
+}
+
+async function handleSessionExpiredSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  hideAlert('session-expired-alert');
+
+  const userInput = el('session-expired-username');
+  const passInput = el('session-expired-password');
+  const username = String((userInput && userInput.value) || sessionExpiredUsername()).trim();
+  const password = String((passInput && passInput.value) || '').trim();
+  if (!username || !password) {
+    showAlert('session-expired-alert', 'Ingresá tu contraseña para renovar la sesión.', 'error');
+    return;
+  }
+
+  const btn = el('btn-session-expired-submit');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Conectando…';
+  }
+
+  try {
+    const res = await fetch(API_BASE + '/surface/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok || !data.token) {
+      throw new Error(data.error || 'No se pudo renovar la sesión.');
+    }
+
+    currentUser = data.user || { id: data.id, username };
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+    sessionExpired = false;
+    closeSessionExpiredModal();
+    // El token nuevo reinicia la comparación: lo que quedó guardado local se
+    // vuelve a empujar y se verifica contra el servidor.
+    mgServerLastPushed = '';
+    showToast('Sesión renovada. Ya podés aplicar cambios.');
+    await loadWalletData();
+    mgServerSchedulePush(loadManagement());
+  } catch (err) {
+    let msg = err.message || 'No se pudo renovar la sesión.';
+    if (String(err.message || '').includes('Failed to fetch') || err instanceof TypeError) {
+      msg = 'No se pudo conectar con el servidor. Revisá tu internet e intentá de nuevo.';
+    }
+    if (passInput) passInput.focus();
+    showAlert('session-expired-alert', msg, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Volver a entrar';
+    }
+  }
+}
+
 function handleLogout() {
+  sessionExpired = false;
+  closeSessionExpiredModal();
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   currentUser = null;
@@ -763,7 +879,12 @@ async function loadWalletData(opts) {
     });
     clearTimeout(timeoutId);
 
-    if (res.status === 401) return handleLogout();
+    if (res.status === 401) {
+      // No se cierra la sesión en seco: el modal pide re-login y conserva el
+      // estado de la pantalla (Gestión incluida).
+      handleSessionExpired({ focus: false });
+      return;
+    }
 
     const data = await res.json().catch(() => ({}));
     currentUser = data.user || currentUser || {};
@@ -1380,7 +1501,11 @@ async function executeFinalTransfer() {
 
     const data = await res.json().catch(() => ({}));
 
-    if (res.status === 401) { closeConfirmModal(); return handleLogout(); }
+    if (res.status === 401) {
+      closeConfirmModal();
+      handleSessionExpired();
+      return;
+    }
     if (res.status === 404 || res.status === 501) {
       throw new Error('El servidor todavía no tiene activo el envío directo. Probá de nuevo en unos minutos.');
     }
@@ -1583,8 +1708,8 @@ async function createTidesPayPalOrder(pkg) {
   });
   const data = await res.json().catch(function () { return {}; });
   if (res.status === 401) {
-    handleLogout();
-    throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
+    handleSessionExpired({ focus: false });
+    throw new Error('Tu sesión venció. Volvé a iniciar sesión para continuar.');
   }
   if (!res.ok) throw new Error(tidesPayPalErrorMessage(data, 'No se pudo iniciar el pago con PayPal.'));
   if (!data.orderId) throw new Error('PayPal no devolvió una orden válida.');
@@ -1617,8 +1742,8 @@ async function captureTidesPayPalOrder(orderId, packageId) {
   });
   const data = await res.json().catch(function () { return {}; });
   if (res.status === 401) {
-    handleLogout();
-    throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
+    handleSessionExpired({ focus: false });
+    throw new Error('Tu sesión venció. Volvé a iniciar sesión para confirmar el pago.');
   }
   if (res.status === 409) {
     const pendingMessage = data.error || 'Tu pago quedó pendiente de confirmación. Las Tides se acreditarán automáticamente.';
@@ -1955,8 +2080,8 @@ async function createCreditPayPalOrder(amount) {
   });
   const data = await res.json().catch(function () { return {}; });
   if (res.status === 401) {
-    handleLogout();
-    throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
+    handleSessionExpired({ focus: false });
+    throw new Error('Tu sesión venció. Volvé a iniciar sesión para continuar.');
   }
   if (!res.ok) throw new Error(creditPayPalErrorMessage(data, 'No se pudo iniciar la carga de saldo.'));
 
@@ -1991,8 +2116,8 @@ async function captureCreditPayPalOrder(orderId, cents) {
   });
   const data = await res.json().catch(function () { return {}; });
   if (res.status === 401) {
-    handleLogout();
-    throw new Error('Tu sesión venció. Iniciá sesión de nuevo.');
+    handleSessionExpired({ focus: false });
+    throw new Error('Tu sesión venció. Volvé a iniciar sesión para confirmar la carga.');
   }
   if (res.status === 409) {
     const pendingMessage = data.error || 'Tu pago quedó pendiente de confirmación. El saldo se acreditará automáticamente.';
@@ -2403,7 +2528,10 @@ async function startTidesCheckout() {
       body: JSON.stringify({ packageId: pkg.id, returnUrl: buildTidesReturnUrl() })
     });
     const data = await res.json().catch(function () { return {}; });
-    if (res.status === 401) return handleLogout();
+    if (res.status === 401) {
+      handleSessionExpired({ focus: false });
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el pago.');
     if (!data.initPoint) throw new Error('Mercado Pago no devolvió un enlace de pago.');
 
@@ -2549,7 +2677,10 @@ async function processPendingTidesReturn() {
       })
     });
     const data = await res.json().catch(function () { return {}; });
-    if (res.status === 401) return handleLogout();
+    if (res.status === 401) {
+      handleSessionExpired({ focus: false });
+      return;
+    }
     if (!res.ok) {
       const errorMessage = String(data.error || '');
       if (res.status === 403 || /no corresponde|inv[aá]lido|no reconocido/i.test(errorMessage)) {
@@ -3186,14 +3317,17 @@ function mgSetSyncState(status) {
     saved: 'Topes guardados en el servidor. Sin verificar: se confirmará al recargar.',
     error: 'Los topes quedaron guardados acá, pero no se pudo sincronizar. Reintentando…',
     off: 'Sin sesión: los cambios quedan solo en este dispositivo.',
+    expired: 'Sesión vencida: volvé a iniciar sesión para que los cambios se apliquen en los juegos.',
     remote: 'Topes actualizados desde otra sesión de Surface.'
   };
   node.textContent = messages[status] || messages.pending;
   node.classList.toggle('is-ok', status === 'ok' || status === 'remote');
-  node.classList.toggle('is-bad', status === 'error');
+  node.classList.toggle('is-bad', status === 'error' || status === 'expired');
   node.dataset.status = status || 'pending';
   const retry = el('btn-mg-sync-retry');
   if (retry) retry.classList.toggle('hidden', status !== 'error');
+  const login = el('btn-mg-session-login');
+  if (login) login.classList.toggle('hidden', status !== 'expired');
 }
 
 /* El backend necesita saber qué tarjeta está activa para poder aplicar un
@@ -3235,6 +3369,13 @@ function mgServerSchedulePush(state) {
   if (serialized === mgServerLastPushed) return;
 
   mgServerPendingState = clean;
+  // Con la sesión vencida el cambio se conserva local, pero antes de seguir se
+  // pide re-login: sin token nuevo el servidor no va a aplicar los topes.
+  if (sessionExpired) {
+    mgSetSyncState('expired');
+    openSessionExpiredModal({ focus: false });
+    return;
+  }
   mgSetSyncState('pending');
   if (mgServerPushTimer) clearTimeout(mgServerPushTimer);
   mgServerPushTimer = setTimeout(function () {
@@ -3275,7 +3416,13 @@ async function mgServerPush(state) {
         body: JSON.stringify({ management: clean })
       });
       putOk = !!res.ok;
-      if (res.status === 401) { mgSetSyncState('off'); return false; }
+      if (res.status === 401) {
+        // Se guarda el cambio para empujarlo apenas se renueve la sesión.
+        mgServerPendingState = clean;
+        mgSetSyncState('expired');
+        openSessionExpiredModal({ focus: false });
+        return false;
+      }
     } catch (err) {
       console.warn('[Surface] No se pudo guardar la gestión en el servidor:', err);
     }
@@ -3340,7 +3487,12 @@ async function mgServerHydrate() {
     const res = await fetch(API_BASE + '/surface/checkout/settings', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
-    if (res.status === 401) { mgSetSyncState('off'); return; }
+    if (res.status === 401) {
+      if (local) mgServerPendingState = local;
+      mgSetSyncState('expired');
+      openSessionExpiredModal({ focus: false });
+      return;
+    }
     if (res.ok) {
       const data = await res.json().catch(function () { return {}; });
       if (data && data.management) server = sanitizeManagement(data.management);
@@ -5519,6 +5671,11 @@ async function handleAdminBalanceSubmit(e) {
       body: JSON.stringify({ targetUsername: targetUser, currency, amount, mode })
     });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      closeAdminModal();
+      handleSessionExpired();
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el saldo.');
 
     showAlert('admin-alert',

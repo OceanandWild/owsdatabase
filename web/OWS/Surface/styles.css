@@ -1838,6 +1838,7 @@ body.srf-no-anim .srf-view { animation: none !important; }
 .srf-mg-sync.is-bad { color: #ff9a9a; }
 .srf-mg-sync-btn { margin-top: 8px; padding: 7px 12px; font-size: 0.72rem; }
 .srf-mg-sync-btn.hidden { display: none; }
+#session-expired-modal .srf-alert { margin-bottom: 14px; }
 .srf-mg-limit-banner {
   display: flex;
   align-items: center;

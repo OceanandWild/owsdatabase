@@ -11887,6 +11887,9 @@ function sanitizeSurfaceManagement(raw) {
 
   return {
     version: 4,
+    // updatedAt viaja de ida y vuelta: Surface decide con él qué dispositivo
+    // tiene la versión más reciente de los topes.
+    updatedAt: surfaceCheckoutIso(source.updatedAt),
     limits: {
       enabled: limitsRaw.enabled === true,
       period: SURFACE_CHECKOUT_PERIODS.has(rawPeriod) ? rawPeriod : 'monthly',
@@ -11940,6 +11943,20 @@ async function readSurfaceManagement(client, userId, forUpdate = false) {
 
 async function writeSurfaceManagement(client, userId, raw) {
   const clean = sanitizeSurfaceManagement(raw);
+
+  // Un dispositivo con datos viejos no debe pisar los topes que otro acaba
+  // de guardar. Clientes sin `updatedAt` siguen escribiendo como siempre.
+  const { rows: previous } = await client.query(
+    `SELECT management FROM surface_checkout_settings WHERE user_id = $1 FOR UPDATE`,
+    [userId]
+  );
+  if (previous.length) {
+    const prev = sanitizeSurfaceManagement(previous[0].management);
+    if (prev.updatedAt && clean.updatedAt && prev.updatedAt > clean.updatedAt) {
+      return prev;
+    }
+  }
+
   await client.query(
     `INSERT INTO surface_checkout_settings (user_id, management, updated_at)
      VALUES ($1, $2::jsonb, NOW())

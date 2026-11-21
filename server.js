@@ -17856,13 +17856,25 @@ app.get('/ows-launch-projects/:slug/apk-download', async (req, res) => {
     // Versión oficial Android (o Windows como respaldo) para elegir el .apk
     // correcto cuando conviven varias builds en itch.io.
     let officialVersion = '';
+    let officialApkUrl = '';
     try {
       const relA = await getLatestReleaseBySlug(slug, 'android');
       const relW = (!relA || !relA.id) ? await getLatestReleaseBySlug(slug, 'windows') : null;
       const rel = (relA && relA.id) ? relA : relW;
       if (rel && rel.version) officialVersion = String(rel.version);
-      trace.push({ step: 'release', version: officialVersion || null });
+      // APK oficial cargado en la tabla de releases (GitHub, CDN, etc.).
+      // Manda sobre itch: la API puede devolver otro juego de la cuenta y
+      // dejaba este endpoint en 404 aunque la release existiera.
+      if (relA && /^https?:\/\//i.test(String(relA.installer_url || ''))) {
+        officialApkUrl = String(relA.installer_url).trim();
+      }
+      trace.push({ step: 'release', version: officialVersion || null, apk_url: officialApkUrl || null });
     } catch (_) { /* sigue sin versión oficial */ }
+    if (officialApkUrl) {
+      trace.push({ step: 'release-apk', action: 'redirect-302' });
+      if (debug) return finishTrace('release-apk', { version: officialVersion || null, apk_url: officialApkUrl });
+      return res.redirect(302, officialApkUrl);
+    }
     const apiKey = String(process.env.ITCH_API_KEY || process.env.ITCHIO_API_KEY || '').trim();
     trace.push({ step: 'itch-api', key_present: !!apiKey });
     try {

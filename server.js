@@ -55599,12 +55599,27 @@ app.post('/wavernote/tracks', wavernoteAuth, wavernoteUpload, async (req, res) =
   }
 });
 
-app.patch('/wavernote/tracks/:id', wavernoteAuth, async (req, res) => {
+app.patch('/wavernote/tracks/:id', wavernoteAuth, wavernoteUpload, async (req, res) => {
   const trackId = Number(req.params.id);
   if (!Number.isInteger(trackId) || trackId <= 0) {
     return res.status(400).json({ error: 'Canción inválida.' });
   }
 
+  const coverFile = req.files?.cover?.[0] || null;
+  const uploadedCoverUrl = coverFile
+    ? coverFile.path || coverFile.secure_url || coverFile.url || ''
+    : '';
+  const uploadedCoverPublicId = coverFile
+    ? coverFile.filename || coverFile.public_id || ''
+    : '';
+  const removeCover = String(req.body?.removeCover || '').toLowerCase() === 'true';
+
+  if (coverFile && !uploadedCoverUrl) {
+    await wavernoteDestroyAsset(uploadedCoverPublicId, 'image');
+    return res.status(500).json({ error: 'Cloudinary no devolvió la URL de la portada.' });
+  }
+
+  let saved = false;
   try {
     await ensureWaverNoteTables();
     const current = await pool.query(
@@ -55612,28 +55627,50 @@ app.patch('/wavernote/tracks/:id', wavernoteAuth, async (req, res) => {
       [trackId, req.wavernoteUser.id]
     );
     if (!current.rows.length) {
+      await wavernoteDestroyAsset(uploadedCoverPublicId, 'image');
       return res.status(404).json({ error: 'La canción no existe en tu biblioteca.' });
     }
 
     const row = current.rows[0];
     const body = req.body || {};
     const title = body.title === undefined ? row.title : wavernoteText(body.title, 160);
-    if (!title) return res.status(400).json({ error: 'La canción necesita un título.' });
+    if (!title) {
+      await wavernoteDestroyAsset(uploadedCoverPublicId, 'image');
+      return res.status(400).json({ error: 'La canción necesita un título.' });
+    }
 
     const artist = body.artist === undefined ? row.artist : wavernoteText(body.artist, 120);
     const album = body.album === undefined ? row.album : wavernoteText(body.album, 120);
     const genre = body.genre === undefined ? row.genre : wavernoteText(body.genre, 60);
 
+    let coverUrl = row.cover_url || null;
+    let coverPublicId = row.cover_public_id || null;
+    if (coverFile) {
+      coverUrl = uploadedCoverUrl;
+      coverPublicId = uploadedCoverPublicId || null;
+    } else if (removeCover) {
+      coverUrl = null;
+      coverPublicId = null;
+    }
+
     const { rows } = await pool.query(
       `UPDATE wavernote_tracks
-          SET title = $1, artist = $2, album = $3, genre = $4
-        WHERE id = $5 AND user_id = $6
+          SET title = $1, artist = $2, album = $3, genre = $4,
+              cover_url = $5, cover_public_id = $6
+        WHERE id = $7 AND user_id = $8
         RETURNING *`,
-      [title, artist, album, genre, trackId, req.wavernoteUser.id]
+      [title, artist, album, genre, coverUrl, coverPublicId, trackId, req.wavernoteUser.id]
     );
+    saved = true;
+
+    // La portada anterior se borra recién cuando la fila ya apunta a la nueva.
+    if ((coverFile || removeCover) && row.cover_public_id && row.cover_public_id !== coverPublicId) {
+      await wavernoteDestroyAsset(row.cover_public_id, 'image');
+    }
 
     return res.json({ success: true, track: mapWaverNoteTrack(rows[0]) });
   } catch (err) {
+    if (!saved) await wavernoteDestroyAsset(uploadedCoverPublicId, 'image');
     console.error('[WAVERNOTE] update track:', err);
     return res.status(500).json({ error: 'No se pudo actualizar la canción.' });
   }

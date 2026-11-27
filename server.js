@@ -889,6 +889,145 @@ app.post('/tigertasks/link/oceanpay', async (req, res) => {
   }
 });
 
+// ── Tiger Tasks: tablero vinculado a la cuenta de Surface ───────────────────
+// El tablero completo (tareas + categorías) vive en una fila JSONB por usuario.
+// El cliente manda el estado entero y el servidor lo sanea antes de guardarlo.
+const TIGER_TASKS_PALETTE = ['#ff8a3d', '#e9c46a', '#5fbf8f', '#7fb3d5', '#d98cb3', '#b6a2e0', '#f2a65a'];
+
+function tigerTasksText(value, max) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function tigerTasksNotes(value, max) {
+  return String(value == null ? '' : value).trim().slice(0, max);
+}
+
+function tigerTasksDateOnly(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+}
+
+function tigerTasksTimestamp(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function sanitizeTigerTasksState(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const categories = [];
+  const seenCategories = new Set();
+
+  function addCategory(nameValue, colorValue) {
+    const name = tigerTasksText(nameValue, 28);
+    if (!name) return;
+    const key = name.toLowerCase();
+    if (seenCategories.has(key)) return;
+    seenCategories.add(key);
+    const color = /^#[0-9a-f]{6}$/i.test(String(colorValue || ''))
+      ? String(colorValue)
+      : TIGER_TASKS_PALETTE[categories.length % TIGER_TASKS_PALETTE.length];
+    categories.push({ name, color });
+  }
+
+  (Array.isArray(source.categories) ? source.categories : []).slice(0, 40).forEach((category) => {
+    if (!category || typeof category !== 'object') return;
+    addCategory(category.name, category.color);
+  });
+
+  const tasks = [];
+  const seenTasks = new Set();
+
+  (Array.isArray(source.tasks) ? source.tasks : []).slice(0, 1500).forEach((task) => {
+    if (!task || typeof task !== 'object') return;
+    const title = tigerTasksText(task.title, 90);
+    if (!title) return;
+
+    let id = tigerTasksText(task.id, 64);
+    if (!id || seenTasks.has(id)) id = 't-' + crypto.randomUUID();
+    seenTasks.add(id);
+
+    const category = tigerTasksText(task.category, 28) || 'General';
+    addCategory(category, null);
+
+    const subtasks = (Array.isArray(task.subtasks) ? task.subtasks : [])
+      .slice(0, 60)
+      .map((subtask) => {
+        if (!subtask || typeof subtask !== 'object') return null;
+        const text = tigerTasksText(subtask.text, 80);
+        if (!text) return null;
+        return {
+          id: tigerTasksText(subtask.id, 64) || 's-' + crypto.randomUUID(),
+          text,
+          done: !!subtask.done
+        };
+      })
+      .filter(Boolean);
+
+    tasks.push({
+      id,
+      title,
+      notes: tigerTasksNotes(task.notes, 420),
+      category,
+      priority: ['high', 'medium', 'low'].includes(task.priority) ? task.priority : 'medium',
+      due: tigerTasksDateOnly(task.due),
+      createdAt: tigerTasksTimestamp(task.createdAt) || new Date().toISOString(),
+      completedAt: tigerTasksTimestamp(task.completedAt),
+      subtasks
+    });
+  });
+
+  return { version: 2, categories, tasks };
+}
+
+app.get('/tigertasks/state', async (req, res) => {
+  const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Inicia sesion con Surface' });
+
+  try {
+    const { rows } = await pool.query(
+      'SELECT state, updated_at FROM tiger_tasks_state WHERE user_id = $1 LIMIT 1',
+      [userId]
+    );
+    if (!rows.length) {
+      return res.json({
+        success: true,
+        state: { version: 2, categories: [], tasks: [] },
+        updatedAt: null
+      });
+    }
+    return res.json({
+      success: true,
+      state: rows[0].state,
+      updatedAt: rows[0].updated_at
+    });
+  } catch (e) {
+    console.error('TigerTasks state read error:', e);
+    return res.status(500).json({ error: 'No se pudo leer el tablero' });
+  }
+});
+
+app.put('/tigertasks/state', async (req, res) => {
+  const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Inicia sesion con Surface' });
+
+  try {
+    const state = sanitizeTigerTasksState(req.body && req.body.state ? req.body.state : req.body);
+    await pool.query(
+      `INSERT INTO tiger_tasks_state (user_id, state, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (user_id)
+       DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()`,
+      [userId, JSON.stringify(state)]
+    );
+    return res.json({ success: true, savedAt: new Date().toISOString() });
+  } catch (e) {
+    console.error('TigerTasks state save error:', e);
+    return res.status(500).json({ error: 'No se pudo guardar el tablero' });
+  }
+});
+
 
 // ── Ocean AI: DMs (usuario ↔ usuario) ───────────────────────────────────────
 app.post('/ocean-ai/dm/send', async (req, res) => {
@@ -43263,6 +43402,13 @@ async function ensureOceanPayTables() {
       linked_at TIMESTAMP DEFAULT NOW()
     );
   `).catch(e => console.log('Ã¢Ã…Â¡Ã‚Â Ã¯Ã‚Â¸Ã‚Â Error tiger_tasks_oceanpay_links:', e.message));
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tiger_tasks_state (
+      user_id INTEGER PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      state JSONB NOT NULL DEFAULT '{"version":2,"categories":[],"tasks":[]}'::jsonb,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
+  `).catch(e => console.log('Error tiger_tasks_state:', e.message));
 }
 await ensureOceanPayTables();
 cancelLegacyWildTransferSubscriptions()

@@ -13,7 +13,7 @@
   const icon = UI.icon;
 
   const CART_KEY = 'turbopoder_cart';
-  const SHIPPING = { flat: 2500, freeFrom: 30000 };
+  const SHIPPING = { flat: 2500, freeFrom: 5000 };
   const CATEGORY_EMOJI = {
     'Tecnología': '💻', 'Hogar': '🛋️', 'Moda': '👕', 'Comida': '🥐', 'Juguetes': '🧸',
     'Arte': '🎨', 'Deportes': '🛹', 'Música': '🎸', 'Libros': '📚', 'Jardín': '🌿',
@@ -132,7 +132,7 @@
     };
   }
 
-  function addToCart(product, qty) {
+  function addToCart(product, qty, options) {
     const amount = Math.max(1, Number(qty) || 1);
     const existing = state.cart.find(function (item) { return item.id === Number(product.id); });
     const stock = Number(product.stock) || 0;
@@ -145,6 +145,8 @@
     }
     saveCart();
     UI.toast(product.name + ' entró al carrito.', 'success');
+    if (options && options.open === false) renderCartDrawer();
+    else openCart();
   }
 
   function setCartQty(id, qty) {
@@ -156,11 +158,127 @@
       item.qty = Math.min(20, item.stock || 20, qty);
     }
     saveCart();
+    renderCartDrawer();
   }
 
   function removeFromCart(id) {
     state.cart = state.cart.filter(function (entry) { return entry.id !== Number(id); });
     saveCart();
+    renderCartDrawer();
+  }
+
+  function isCartOpen() {
+    const drawer = document.getElementById('cartDrawer');
+    return Boolean(drawer && drawer.classList.contains('is-open'));
+  }
+
+  function cartLineHtml(item) {
+    return '<article class="cart-line">' +
+      '<a class="cart-line-thumb" href="#/producto/' + item.id + '" style="--glow:' + esc(item.storeAccent) + '" aria-hidden="true" tabindex="-1">' +
+        (item.imageUrl ? '<img src="' + esc(item.imageUrl) + '" alt="" />' : esc(item.emoji)) +
+      '</a>' +
+      '<div class="cart-line-copy">' +
+        '<a class="cart-line-name" href="#/producto/' + item.id + '">' + esc(item.name) + '</a>' +
+        '<span class="cart-line-store">' + esc(item.storeName) + '</span>' +
+        '<div class="cart-line-qty">' +
+          '<button type="button" data-action="cart-minus" data-id="' + item.id + '" aria-label="Restar uno">−</button>' +
+          '<span>' + item.qty + '</span>' +
+          '<button type="button" data-action="cart-plus" data-id="' + item.id + '" aria-label="Sumar uno">+</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cart-line-side">' +
+        '<strong>' + money(item.price * item.qty) + '</strong>' +
+        '<button class="cart-line-remove" type="button" data-action="cart-remove" data-id="' + item.id + '">Quitar</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function cartShippingMeter(totals) {
+    if (!totals.groups.length) return '';
+    const freeFrom = shippingFreeFrom();
+    const pending = totals.groups.filter(function (group) { return group.shipping > 0; });
+    if (!pending.length) {
+      return '<div class="cart-ship-card is-free">' +
+        '<div class="cart-ship-head"><span class="cart-ship-icon">✓</span><div><b>Envío gratis desbloqueado</b><small>Todo el pedido viaja sin costo de envío.</small></div></div>' +
+        '<div class="cart-ship-track"><span style="width:100%"></span></div>' +
+      '</div>';
+    }
+    const group = pending.sort(function (a, b) { return (freeFrom - a.subtotal) - (freeFrom - b.subtotal); })[0];
+    const remaining = Math.max(0, freeFrom - group.subtotal);
+    const progress = Math.max(6, Math.min(100, Math.round((group.subtotal / freeFrom) * 100)));
+    const extra = pending.length > 1 ? ' (+' + (pending.length - 1) + ' tienda' + (pending.length > 2 ? 's' : '') + ')' : '';
+    return '<div class="cart-ship-card">' +
+      '<div class="cart-ship-head"><span class="cart-ship-icon">🚚</span><div><b>Te faltan ' + money(remaining) + ' para envío gratis</b><small>En ' + esc(group.storeName) + extra + ' · desde ' + money(freeFrom) + ' por tienda.</small></div></div>' +
+      '<div class="cart-ship-track"><span style="width:' + progress + '%"></span></div>' +
+    '</div>';
+  }
+
+  function renderCartDrawer() {
+    const body = document.getElementById('cartPanelBody');
+    const foot = document.getElementById('cartPanelFoot');
+    const ship = document.getElementById('cartShip');
+    const count = document.getElementById('cartPanelCount');
+    if (!body || !foot || !ship || !count) return;
+    count.textContent = String(cartCount());
+
+    if (!state.cart.length) {
+      ship.hidden = true;
+      ship.innerHTML = '';
+      body.innerHTML = '<div class="cart-empty">' +
+        '<span class="cart-empty-bolt" aria-hidden="true">' + icon('cart', 28) + '</span>' +
+        '<h3>Tu carrito está vacío</h3>' +
+        '<p>Cuando algo te guste, va a aparecer acá listo para cerrar la compra.</p>' +
+        '<a class="btn btn-ghost btn-block" href="#/catalogo">Recorrer el catálogo</a>' +
+      '</div>';
+      foot.innerHTML = '<button class="cart-keep" type="button" data-action="close-cart">Seguir mirando</button>';
+      return;
+    }
+
+    const totals = cartTotals();
+    ship.hidden = false;
+    ship.innerHTML = cartShippingMeter(totals);
+    body.innerHTML = '<div class="cart-lines">' + state.cart.map(cartLineHtml).join('') + '</div>' +
+      '<p class="cart-pack-note">Cada tienda prepara y envía su parte del pedido.</p>';
+    foot.innerHTML = '<div class="cart-totals">' +
+        '<div><span>Productos</span><b>' + money(totals.subtotal) + '</b></div>' +
+        '<div><span>Envío</span><b class="' + (totals.shipping ? '' : 'is-free') + '">' + (totals.shipping ? money(totals.shipping) : 'Gratis') + '</b></div>' +
+      '</div>' +
+      '<div class="cart-total"><span>Total</span><strong>' + money(totals.total) + '</strong></div>' +
+      '<a class="btn btn-turbo btn-block" href="#/carrito">Finalizar compra ' + icon('arrowRight', 16) + '</a>' +
+      '<button class="cart-keep" type="button" data-action="close-cart">Seguir mirando</button>' +
+      '<p class="cart-panel-note">Sin pagos online: coordinás con cada tienda.</p>';
+  }
+
+  let cartReturnFocus = null;
+
+  function openCart() {
+    const drawer = document.getElementById('cartDrawer');
+    const panel = document.getElementById('cartPanel');
+    const button = document.getElementById('cartBtn');
+    if (!drawer || !panel) return;
+    renderCartDrawer();
+    cartReturnFocus = document.activeElement;
+    drawer.inert = false;
+    drawer.classList.add('is-open');
+    drawer.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('cart-open');
+    if (button) button.setAttribute('aria-expanded', 'true');
+    window.setTimeout(function () { panel.focus({ preventScroll: true }); }, 40);
+  }
+
+  function closeCart(restoreFocus) {
+    const drawer = document.getElementById('cartDrawer');
+    const button = document.getElementById('cartBtn');
+    if (!drawer) return;
+    drawer.classList.remove('is-open');
+    drawer.setAttribute('aria-hidden', 'true');
+    drawer.inert = true;
+    document.body.classList.remove('cart-open');
+    if (button) button.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && cartReturnFocus && document.contains(cartReturnFocus)) {
+      try { cartReturnFocus.focus({ preventScroll: true }); } catch (error) {}
+    }
+    cartReturnFocus = null;
   }
 
   /* -------------------------------- sesión -------------------------------- */
@@ -218,6 +336,7 @@
     if (!metaPromise) {
       metaPromise = Api.meta().then(function (data) {
         state.meta = data;
+        if (isCartOpen()) renderCartDrawer();
         return data;
       }).catch(function (error) {
         metaPromise = null;
@@ -658,7 +777,7 @@
     const addBtn = document.getElementById('detailAdd');
     if (addBtn && !out) addBtn.addEventListener('click', function () { addToCart(product, qty); });
     const buyBtn = document.getElementById('detailBuy');
-    if (buyBtn && !out) buyBtn.addEventListener('click', function () { addToCart(product, qty); navigate('/carrito'); });
+    if (buyBtn && !out) buyBtn.addEventListener('click', function () { addToCart(product, qty, { open: false }); navigate('/carrito'); });
 
     const galleryMain = document.getElementById('galleryMain');
     const thumbs = document.querySelectorAll('[data-gallery-src]');
@@ -672,27 +791,6 @@
   }
   /* -------------------------------- carrito -------------------------------- */
 
-  function cartItemHtml(item) {
-    return '<div class="cart-item">' +
-      '<a class="cart-thumb" href="#/producto/' + item.id + '" style="--glow:' + esc(item.storeAccent) + '">' +
-        (item.imageUrl ? '<img src="' + esc(item.imageUrl) + '" alt="' + esc(item.name) + '" />' : esc(item.emoji)) +
-      '</a>' +
-      '<div class="cart-item-info">' +
-        '<b><a href="#/producto/' + item.id + '">' + esc(item.name) + '</a></b>' +
-        '<small><a href="#/tienda/' + esc(item.storeSlug) + '">' + esc(item.storeName) + '</a> · ' + money(item.price) + ' c/u</small>' +
-        '<div class="qty-inline" style="width:fit-content">' +
-          '<button type="button" data-action="cart-minus" data-id="' + item.id + '" aria-label="Restar uno">−</button>' +
-          '<span>' + item.qty + '</span>' +
-          '<button type="button" data-action="cart-plus" data-id="' + item.id + '" aria-label="Sumar uno">+</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="cart-item-actions">' +
-        '<span class="price">' + money(item.price * item.qty) + '</span>' +
-        '<button class="remove-link" type="button" data-action="cart-remove" data-id="' + item.id + '">Quitar</button>' +
-      '</div>' +
-    '</div>';
-  }
-
   async function viewCart() {
     await getMeta().catch(function () {});
     if (!state.cart.length) {
@@ -703,36 +801,53 @@
 
     const totals = cartTotals();
     const savedEmail = Api.lastEmail();
+    const count = cartCount();
     const shippingLines = totals.groups.map(function (group) {
-      return '<div class="summary-row"><span>' + esc(group.storeName) + '</span><strong>' + (group.shipping ? money(group.shipping) : 'Gratis') + '</strong></div>';
+      return '<div class="summary-row"><span>' + esc(group.storeName) + '</span><strong class="' + (group.shipping ? '' : 'free-text') + '">' + (group.shipping ? money(group.shipping) : 'Gratis') + '</strong></div>';
+    }).join('');
+    const miniItems = state.cart.map(function (item) {
+      return '<div class="checkout-mini">' +
+        '<span class="checkout-mini-thumb" style="--glow:' + esc(item.storeAccent) + '">' +
+          (item.imageUrl ? '<img src="' + esc(item.imageUrl) + '" alt="" />' : esc(item.emoji)) +
+        '</span>' +
+        '<span class="checkout-mini-copy"><b>' + esc(item.name) + '</b><small>' + item.qty + ' × ' + esc(item.storeName) + '</small></span>' +
+        '<strong>' + money(item.price * item.qty) + '</strong>' +
+      '</div>';
     }).join('');
 
     setView(
-      '<div class="container">' +
-        pageHead('El carrito', cartCount() + (cartCount() === 1 ? ' producto esperando.' : ' productos esperando.')) +
-        '<div class="cart-layout">' +
-          '<div>' +
-            '<div class="cart-list">' + state.cart.map(cartItemHtml).join('') + '</div>' +
-            '<form id="checkoutForm" class="summary-card" style="position:static;margin-top:22px" novalidate>' +
-              '<h2>Datos de entrega</h2>' +
-              '<div class="form-grid">' +
-                '<label class="field"><span>Nombre y apellido</span><input class="input" name="buyerName" required minlength="2" placeholder="Quién recibe" /></label>' +
-                '<label class="field"><span>Correo</span><input class="input" name="buyerEmail" type="email" required value="' + esc(savedEmail) + '" placeholder="vos@correo.com" /></label>' +
-                '<label class="field"><span>Teléfono</span><input class="input" name="buyerPhone" value="" placeholder="Opcional, para coordinar" /></label>' +
-                '<label class="field"><span>Dirección</span><input class="input" name="address" required minlength="5" placeholder="Calle, número, piso" /></label>' +
-                '<label class="field full"><span>Nota para la tienda</span><textarea class="textarea" name="note" maxlength="500" placeholder="Horarios, referencias, algún detalle"></textarea></label>' +
-              '</div>' +
-              '<p class="tiny muted mt-16">El pedido se registra y cada tienda lo coordina con vos. El pago se arregla directo al recibir o por el medio que acuerden.</p>' +
-            '</form>' +
-          '</div>' +
-          '<aside class="summary-card">' +
-            '<h2>Resumen</h2>' +
-            '<div class="summary-row"><span>Productos</span><strong>' + money(totals.subtotal) + '</strong></div>' +
-            shippingLines +
+      '<div class="container checkout-page">' +
+        '<div class="checkout-head">' +
+          pageHead('Finalizar compra', count + (count === 1 ? ' producto listo para coordinar.' : ' productos listos para coordinar.')) +
+          '<button class="btn btn-ghost btn-sm" type="button" data-action="open-cart">Editar carrito</button>' +
+        '</div>' +
+        '<div class="checkout-layout">' +
+          '<form id="checkoutForm" class="checkout-card" novalidate>' +
+            '<div class="checkout-section-head"><span class="checkout-step">01</span><div><h2>Datos de entrega</h2><p>Contanos quién recibe y a dónde va el pedido.</p></div></div>' +
+            '<div class="form-grid">' +
+              '<label class="field"><span>Nombre y apellido</span><input class="input" name="buyerName" required minlength="2" placeholder="Quién recibe" /></label>' +
+              '<label class="field"><span>Correo</span><input class="input" name="buyerEmail" type="email" required value="' + esc(savedEmail) + '" placeholder="vos@correo.com" /></label>' +
+              '<label class="field"><span>Teléfono</span><input class="input" name="buyerPhone" value="" placeholder="Opcional, para coordinar" /></label>' +
+              '<label class="field"><span>Dirección</span><input class="input" name="address" required minlength="5" placeholder="Calle, número, piso" /></label>' +
+              '<label class="field full"><span>Nota para la tienda</span><textarea class="textarea" name="note" maxlength="500" placeholder="Horarios, referencias, algún detalle"></textarea></label>' +
+            '</div>' +
+            '<div class="checkout-callout">' +
+              '<span class="checkout-callout-icon">' + icon('package', 18) + '</span>' +
+              '<p><b>Envío ' + money(shippingFlat()) + ' por tienda · gratis desde ' + money(shippingFreeFrom()) + '.</b><br />Cada rincón prepara su parte y coordina la entrega con vos.</p>' +
+            '</div>' +
+            '<p class="tiny muted mt-16">El pago se arregla directo con cada tienda, al recibir o por el medio que acuerden. No se cobra online.</p>' +
+          '</form>' +
+          '<aside class="checkout-aside">' +
+            '<div class="checkout-aside-head"><h2>Tu pedido</h2><button type="button" data-action="open-cart">Editar</button></div>' +
+            '<div class="checkout-mini-list">' + miniItems + '</div>' +
+            '<div class="checkout-summary">' +
+              '<div class="summary-row"><span>Productos</span><strong>' + money(totals.subtotal) + '</strong></div>' +
+              shippingLines +
+              '<p class="checkout-ship-note">El envío se calcula por tienda.</p>' +
+            '</div>' +
             '<div class="summary-total"><span>Total</span><span>' + money(totals.total) + '</span></div>' +
             '<button class="btn btn-turbo btn-block mt-16" type="submit" form="checkoutForm" id="checkoutBtn">Confirmar pedido</button>' +
             '<p class="tiny muted mt-8">Sin pagos online: coordinás con cada rincón.</p>' +
-            '<a class="link-arrow mt-16" href="#/catalogo" style="font-size:11px">Seguir mirando</a>' +
           '</aside>' +
         '</div>' +
       '</div>'
@@ -1383,6 +1498,13 @@
     const action = trigger.getAttribute('data-action');
     const id = Number(trigger.getAttribute('data-id') || 0);
 
+    if (action === 'open-cart') {
+      if (isCartOpen()) closeCart(true);
+      else openCart();
+      return;
+    }
+    if (action === 'close-cart') { closeCart(true); return; }
+
     if (action === 'add') {
       const product = state.productIndex[id];
       if (product) addToCart(product, 1);
@@ -1394,6 +1516,7 @@
       if (!item) return;
       if (action === 'cart-remove') removeFromCart(id);
       else setCartQty(id, item.qty + (action === 'cart-plus' ? 1 : -1));
+      renderCartDrawer();
       if (queryFromHash().path.indexOf('/carrito') === 0) renderRoute();
       return;
     }
@@ -1535,8 +1658,6 @@
 
     const ticker = document.getElementById('tickerTrack');
     if (ticker) ticker.innerHTML = ticker.innerHTML + ticker.innerHTML;
-    const year = document.getElementById('footYear');
-    if (year) year.textContent = String(new Date().getFullYear());
 
     const menuBtn = document.getElementById('menuBtn');
     const head = document.getElementById('siteHead');
@@ -1563,7 +1684,26 @@
       if (event.target.closest('#headNav a')) closeNav();
     });
 
-    window.addEventListener('hashchange', renderRoute);
+    window.addEventListener('hashchange', function () {
+      closeCart(false);
+      renderRoute();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (!isCartOpen()) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeCart(true);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const drawer = document.getElementById('cartDrawer');
+      const focusables = drawer ? Array.prototype.slice.call(drawer.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])')) : [];
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
     renderRoute();
     refreshStatus();
     getMeta().catch(function () {});

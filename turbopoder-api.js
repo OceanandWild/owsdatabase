@@ -29,7 +29,7 @@ const ORDER_STATUSES = ['pendiente', 'confirmado', 'enviado', 'entregado', 'canc
 // cuenta de la tienda. Ambos valores se publican en /turbopoder/meta para
 // que el carrito muestre exactamente lo que va a cobrar el servidor.
 const SHIPPING_FLAT = 2500;
-const FREE_SHIPPING_FROM = 30000;
+const FREE_SHIPPING_FROM = 5000;
 
 const MAX_PRODUCTS_PER_STORE = 120;
 const MAX_ORDER_ITEMS = 25;

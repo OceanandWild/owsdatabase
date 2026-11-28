@@ -762,6 +762,7 @@ export function registerTurboPoder(app, deps) {
     const stock = clampInt(body.stock, 0, 9999, 1);
     const category = CATEGORIES.indexOf(text(body.category, 40)) !== -1 ? text(body.category, 40) : 'Otros';
     const emoji = pickEmoji(body.emoji, '📦');
+    const status = body.status === 'pausado' ? 'pausado' : 'activo';
     const uploaded = (req.files || []).map(function (file) { return safeHttpUrl(file.path); }).filter(Boolean);
     const linked = safeHttpUrl(body.imageUrl);
     const images = (uploaded.length ? uploaded : (linked ? [linked] : [])).slice(0, 3);
@@ -773,8 +774,8 @@ export function registerTurboPoder(app, deps) {
 
     const inserted = await pool.query(
       'INSERT INTO turbopoder_products (store_id, name, description, price, stock, category, emoji, image_url, image_urls, status) ' +
-      "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, 'activo') RETURNING *",
-      [storeId, name, description, price, stock, category, emoji, imageUrl, JSON.stringify(images)]
+      'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10) RETURNING *',
+      [storeId, name, description, price, stock, category, emoji, imageUrl, JSON.stringify(images), status]
     );
     const product = mapProduct({
       ...inserted.rows[0],

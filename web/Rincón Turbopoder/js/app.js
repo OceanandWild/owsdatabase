@@ -613,7 +613,7 @@
       '<div class="container">' +
         '<nav class="breadcrumb"><a href="#/catalogo">Catálogo</a><span>/</span><a href="#/tienda/' + esc(product.storeSlug) + '">' + esc(product.storeName) + '</a></nav>' +
         '<div class="product-layout">' +
-          '<div class="product-hero-media' + (images.length ? ' has-gallery' : '') + '" style="--glow:' + esc(product.storeAccent) + '">' +
+          '<div class="product-hero-media' + (images.length > 1 ? ' has-gallery' : '') + '" style="--glow:' + esc(product.storeAccent) + '">' +
             media +
           '</div>' +
           '<div class="product-info">' +

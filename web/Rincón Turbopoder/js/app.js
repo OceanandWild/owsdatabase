@@ -465,8 +465,11 @@
       lastCount = products.length;
       offset += products.length;
       if (!products.length && offset === 0) {
-        results.innerHTML = emptyBlock('🔍', 'Ese rincón está vacío', 'No encontramos nada con esos filtros. Probá con otra palabra o mirá todo el catálogo.', '#/catalogo', 'Ver todo');
-        if (countLabel) countLabel.textContent = 'Sin resultados';
+        const filtered = Boolean(query || category);
+        results.innerHTML = filtered
+          ? emptyBlock('🔍', 'Ese rincón está vacío', 'No encontramos nada con esos filtros. Probá con otra palabra o mirá todo el catálogo.', '#/catalogo', 'Ver todo')
+          : emptyBlock('⚡', 'La vidriera está tomando forma', 'El estudio todavía no cargó la primera tanda. Volvé en unos días o seguí un pedido si ya compraste.', '#/seguimiento', 'Seguir un pedido');
+        if (countLabel) countLabel.textContent = filtered ? 'Sin resultados' : 'Todavía sin productos';
         return;
       }
       if (offset === products.length) {

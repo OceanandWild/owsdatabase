@@ -16,6 +16,7 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 import { spawn } from 'child_process';
 import { WebSocketServer } from 'ws';
+import { registerTurboPoder } from './turbopoder-api.js';
 
 // ===== BREVO (ex-Sendinblue) EMAIL — Floret Shop phone verification =====
 // Uses HTTPS REST API — works on Render free tier (no SMTP port restrictions)
@@ -362,6 +363,10 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
+
+// ===== RINCÓN TURBOPODER (API multitienda) =====
+// Monta /turbopoder con tablas propias turbopoder_*; no toca el resto del backend.
+registerTurboPoder(app, { pool, upload, bcrypt, jwt, getStudioSecret });
 
 // JSON body parser con configuración permisiva y manejo de errores explícito
 app.use(express.json({
@@ -8461,6 +8466,28 @@ const cleanOldWildTransferFiles = () => {
 setInterval(cleanOldWildTransferFiles, 6 * 60 * 60 * 1000);
 
 app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer'), { maxAge: '1h' }));
+
+// ===== RINCÓN TURBOPODER (frontend) =====
+// Se sirve desde el mismo backend para que el sitio y la API compartan origen.
+// En Render la carpeta viaja con el deploy; si falta, el bloque se omite.
+try {
+  const turboWebDir = join(__dirname, 'web', 'Rincón Turbopoder');
+  if (fs.existsSync(turboWebDir)) {
+    app.use('/rincon-turbopoder', express.static(turboWebDir, {
+      maxAge: '1h',
+      setHeaders: (res, filePath) => {
+        if (/\.html?$/i.test(String(filePath || ''))) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      }
+    }));
+    app.get('/rincon-turbopoder', (_req, res) => res.sendFile(join(turboWebDir, 'index.html')));
+    console.log('[TURBOPODER] Frontend en /rincon-turbopoder ->', turboWebDir);
+  }
+} catch (err) {
+  console.error('[TURBOPODER] No se pudo montar el frontend:', err.message);
+}
+app.get('/turbopoder', (_req, res) => res.redirect('/rincon-turbopoder/'));
 
 // ===== WEB/OWS FRONTEND (desarrollo local) =====
 // Sirve web/OWS en http://localhost:3000/ows para no usar file:// (que causa

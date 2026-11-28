@@ -862,6 +862,45 @@ button { font: inherit; color: inherit; }
 .product-hero-media img { width: 100%; height: 100%; object-fit: cover; }
 .product-hero-media .tile-emoji { font-size: clamp(96px, 16vw, 170px); }
 
+.product-hero-media.has-gallery #galleryMain {
+  position: absolute;
+  inset: 0 0 76px 0;
+  width: 100%;
+  height: calc(100% - 76px);
+}
+
+.gallery-thumbs {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 76px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(9, 9, 14, 0.78);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line);
+}
+
+.gallery-thumb {
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: none;
+  cursor: pointer;
+  opacity: 0.62;
+  transition: opacity 0.16s ease, border-color 0.16s ease;
+}
+.gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-thumb:hover { opacity: 1; }
+.gallery-thumb.is-active { opacity: 1; border-color: var(--turbo); }
+
 .product-hero-media::after {
   content: "";
   position: absolute;
@@ -905,7 +944,7 @@ button { font: inherit; color: inherit; }
 
 .shipping-note { font-size: 12.5px; color: var(--muted-2); display: flex; align-items: center; gap: 8px; }
 
-.seller-chip {
+.store-chip {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -917,8 +956,8 @@ button { font: inherit; color: inherit; }
   font-size: 13px;
   font-weight: 600;
 }
-.seller-chip .store-emoji { width: 30px; height: 30px; border-radius: 50%; font-size: 15px; }
-.seller-chip:hover { border-color: rgba(217, 255, 60, 0.5); }
+.store-chip .store-emoji { width: 30px; height: 30px; border-radius: 50%; font-size: 15px; }
+.store-chip:hover { border-color: rgba(217, 255, 60, 0.5); }
 
 .review-list { display: flex; flex-direction: column; gap: 12px; }
 .review {
@@ -1023,7 +1062,7 @@ button { font: inherit; color: inherit; }
 .tabs button { border: 0; background: none; color: var(--muted); padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .tabs button.is-active { background: var(--turbo); color: #0a0a0f; }
 
-/* ------------------------------- seller --------------------------------- */
+/* ------------------------------- admin ---------------------------------- */
 
 .dash-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin: 26px 0 30px; }
 .stat-card { padding: 18px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: rgba(255, 255, 255, 0.025); }
@@ -1032,8 +1071,8 @@ button { font: inherit; color: inherit; }
 .stat-card.accent { border-color: rgba(217, 255, 60, 0.35); background: rgba(217, 255, 60, 0.06); }
 
 .dash-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 22px; flex-wrap: wrap; }
-.dash-tabs button { border: 0; background: none; color: var(--muted); padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
-.dash-tabs button.is-active { color: var(--text); border-bottom-color: var(--turbo); }
+.dash-tabs button, .dash-tabs a { border: 0; background: none; color: var(--muted); padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+.dash-tabs button.is-active, .dash-tabs a.is-active { color: var(--text); border-bottom-color: var(--turbo); }
 
 .store-switch { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
 
@@ -1058,6 +1097,33 @@ button { font: inherit; color: inherit; }
 .mini-icon { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
 .mini-icon:hover { color: var(--text); border-color: var(--line-strong); background: rgba(255, 255, 255, 0.05); }
 .mini-icon.danger:hover { color: var(--danger); border-color: rgba(255, 92, 92, 0.4); }
+
+.admin-session { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 18px; padding: 9px 12px 9px 16px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.022); font-size: 13px; font-weight: 600; }
+.admin-session .btn { margin-left: auto; }
+
+.admin-badge { display: inline-flex; align-items: center; justify-content: center; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.admin-badge.owner { color: #0a0a0f; background: var(--turbo); border-color: var(--turbo); }
+.admin-badge.level { color: var(--cyan); border-color: rgba(53, 224, 255, 0.35); }
+.admin-badge.off { opacity: 0.62; }
+
+.admin-avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.04); font-family: var(--display); font-size: 18px; }
+.admin-row-info small { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.admin-row-actions .tiny { text-align: right; }
+
+.admin-intro { max-width: 680px; margin: 4px 0 16px; font-size: 13px; }
+.admin-search { width: min(520px, 100%); margin-bottom: 22px; }
+
+.admin-gate { display: flex; justify-content: center; padding: 26px 0 54px; }
+.admin-gate-card { width: min(460px, 100%); padding: 30px; border-radius: 26px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)); }
+.admin-gate-card h2 { font-family: var(--display); font-size: clamp(28px, 4vw, 38px); letter-spacing: -0.03em; margin: 10px 0 10px; }
+.admin-gate-card > p { font-size: 13.5px; line-height: 1.6; }
+.admin-login-form { display: flex; flex-direction: column; gap: 14px; margin-top: 22px; }
+
+.admin-gallery { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-gallery img { width: 66px; height: 66px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.image-preview { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
+.image-preview:empty { display: none; }
+.image-preview img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
 
 .order-card { padding: 18px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: rgba(255, 255, 255, 0.022); display: flex; flex-direction: column; gap: 12px; }
 .order-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }

@@ -1,14 +1,14 @@
 /* ============================================================================
  * RINCÓN TURBOPODER — API multitienda (Océano & Wild Studios)
  * ----------------------------------------------------------------------------
- * Mercado donde cualquiera abre su tienda y vende cualquier cosa. Se monta
- * desde server.js con una sola llamada a registerTurboPoder(app, deps).
+ * Mercado curado por el estudio: un administrador arma las tiendas y carga
+ * los productos. Se monta desde server.js con registerTurboPoder(app, deps).
  *
- *   /turbopoder/register  /login  /me          sesión de vendedores
- *   /turbopoder/stores    GET / POST / PATCH    tiendas
- *   /turbopoder/products  GET / POST / PATCH    catálogo
- *   /turbopoder/orders    POST / GET            pedidos
- *   /turbopoder/seller/*                        panel de cada tienda
+ *   /turbopoder/me                               identidad y rol (Surface)
+ *   /turbopoder/stores      GET / POST / PATCH / DELETE
+ *   /turbopoder/products    GET / POST / PATCH / DELETE
+ *   /turbopoder/orders      POST / seguimiento   compra como invitado
+ *   /turbopoder/admin/*                          panel, pedidos y admins
  *
  * Tablas propias (turbopoder_*), aisladas del resto del backend. Las imágenes
  * se suben al mismo Cloudinary que usa el resto del ecosistema.
@@ -31,7 +31,6 @@ const ORDER_STATUSES = ['pendiente', 'confirmado', 'enviado', 'entregado', 'canc
 const SHIPPING_FLAT = 2500;
 const FREE_SHIPPING_FROM = 30000;
 
-const MAX_STORES_PER_OWNER = 5;
 const MAX_PRODUCTS_PER_STORE = 120;
 const MAX_ORDER_ITEMS = 25;
 
@@ -210,7 +209,7 @@ export function registerTurboPoder(app, deps) {
   const router = express.Router();
   app.use('/turbopoder', router);
 
-  const loginAttempts = new Map();
+  const OWNER_USERNAME = String(process.env.TURBOPODER_OWNER_USERNAME || 'OceanandWild').trim().toLowerCase();
 
   function fail(status, message) {
     const error = new Error(message);
@@ -235,82 +234,93 @@ export function registerTurboPoder(app, deps) {
     };
   }
 
-  function readToken(req) {
+  // La identidad la emite Ocean Pay (cuenta Surface). TurboPoder no guarda
+  // contraseñas propias: valida el mismo JWT y consulta el rol en la base.
+  function readSession(req) {
     const header = String(req.headers.authorization || '');
     if (header.toLowerCase().indexOf('bearer ') !== 0) return null;
     const token = header.slice(7).trim();
     if (!token) return null;
     try {
       const payload = jwt.verify(token, getStudioSecret());
-      const id = Number(payload && payload.id);
-      if (!id || payload.app !== 'turbopoder') return null;
-      return { id: id, email: String(payload.email || '') };
+      const id = Number(payload && (payload.id || payload.uid));
+      if (!id) return null;
+      // Los tokens viejos de TurboPoder no sirven: no traen username de Surface.
+      if (payload.app === 'turbopoder' || !payload.username) return null;
+      return { id: id, username: String(payload.username).trim() };
     } catch (_) {
       return null;
     }
   }
 
-  function authOptional(req, _res, next) {
-    req.tpUser = readToken(req);
-    next();
+  function roleFor(row) {
+    const username = String(row.username || '').trim().toLowerCase();
+    const isOwner = username === OWNER_USERNAME;
+    const isAdmin = isOwner || row.is_admin === true || Number(row.power_level || 0) > 0;
+    return { isOwner: isOwner, isAdmin: isAdmin };
   }
 
-  function authRequired(req, res, next) {
-    req.tpUser = readToken(req);
-    if (!req.tpUser) return res.status(401).json({ error: 'Necesitás iniciar sesión para hacer esto.' });
-    next();
+  async function actorFor(req) {
+    const session = readSession(req);
+    if (!session) return null;
+    const result = await pool.query(
+      'SELECT id, username, is_admin, power_level, created_at FROM ocean_pay_users WHERE id = $1 LIMIT 1',
+      [session.id]
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    const role = roleFor(row);
+    return {
+      id: Number(row.id),
+      username: row.username,
+      isAdmin: role.isAdmin,
+      isOwner: role.isOwner,
+      createdAt: row.created_at
+    };
   }
 
-  async function currentUser(id) {
-    const result = await pool.query('SELECT id, name, email, created_at FROM turbopoder_users WHERE id = $1 LIMIT 1', [id]);
-    return result.rows[0] || null;
+  function requireAdmin(req, res, next) {
+    actorFor(req).then(function (actor) {
+      if (!actor) return res.status(401).json({ error: 'Necesitás entrar con tu cuenta Surface.' });
+      if (!actor.isAdmin) return res.status(403).json({ error: 'Esa cuenta no tiene permisos de administración.' });
+      req.admin = actor;
+      next();
+    }).catch(next);
   }
 
-  function throttle(email, req) {
-    const key = String(req.ip || '') + '|' + email;
-    const now = Date.now();
-    const entry = loginAttempts.get(key);
-    if (!entry || entry.resetAt < now) {
-      loginAttempts.set(key, { count: 0, resetAt: now + 10 * 60 * 1000 });
-      return;
+  function requireOwner(req, res, next) {
+    requireAdmin(req, res, function () {
+      if (!req.admin.isOwner) return res.status(403).json({ error: 'Solo OceanandWild puede administrar quién es admin.' });
+      next();
+    });
+  }
+
+  function parseImages(row) {
+    let list = [];
+    if (Array.isArray(row.image_urls)) list = row.image_urls;
+    else if (typeof row.image_urls === 'string') {
+      try { list = JSON.parse(row.image_urls); } catch (_) { list = []; }
     }
-    if (entry.count >= 8) {
-      throw fail(429, 'Demasiados intentos seguidos. Esperá unos minutos y volvé a probar.');
+    if (!Array.isArray(list)) list = [];
+    list = list.map(function (value) { return safeHttpUrl(value); }).filter(Boolean);
+    if (!list.length && row.image_url) {
+      const legacy = safeHttpUrl(row.image_url);
+      if (legacy) list = [legacy];
     }
-  }
-
-  function noteAttempt(email, req) {
-    const key = String(req.ip || '') + '|' + email;
-    const entry = loginAttempts.get(key);
-    if (!entry) return;
-    entry.count += 1;
+    return list.slice(0, 3);
   }
 
   let tablesReady = null;
 
-  async function seedDemo() {
-    const meta = await pool.query("SELECT value FROM turbopoder_meta WHERE key = 'seeded' LIMIT 1");
+  // El catálogo nace vacío: los productos los carga un administrador desde
+  // el panel. Esta limpieza puntual borra las tiendas de demostración de la
+  // primera versión y no vuelve a ejecutarse (queda marcada en turbopoder_meta).
+  async function clearLegacyDemo() {
+    const meta = await pool.query("SELECT value FROM turbopoder_meta WHERE key = 'demo_cleared' LIMIT 1");
     if (meta.rows.length) return;
-    const existing = await pool.query('SELECT COUNT(*)::int AS total FROM turbopoder_stores');
-    if ((existing.rows[0] || {}).total === 0) {
-      for (const store of DEMO_STORES) {
-        const inserted = await pool.query(
-          'INSERT INTO turbopoder_stores (owner_id, slug, name, tagline, description, category, emoji, accent) ' +
-          'VALUES (NULL, $1, $2, $3, $4, $5, $6, $7) ON CONFLICT (slug) DO NOTHING RETURNING id',
-          [store.slug, store.name, store.tagline, store.description, store.category, store.emoji, store.accent]
-        );
-        if (!inserted.rows.length) continue;
-        const storeId = inserted.rows[0].id;
-        for (const item of store.products) {
-          await pool.query(
-            'INSERT INTO turbopoder_products (store_id, name, description, price, stock, category, emoji, status) ' +
-            'VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-            [storeId, item.name, item.description, item.price, item.stock, item.category, item.emoji, 'activo']
-          );
-        }
-      }
-    }
-    await pool.query("INSERT INTO turbopoder_meta (key, value) VALUES ('seeded', '1') ON CONFLICT (key) DO NOTHING");
+    const slugs = DEMO_STORES.map(function (store) { return store.slug; });
+    await pool.query('DELETE FROM turbopoder_stores WHERE slug = ANY($1::text[])', [slugs]);
+    await pool.query("INSERT INTO turbopoder_meta (key, value) VALUES ('demo_cleared', '1') ON CONFLICT (key) DO NOTHING");
   }
 
   function ensureTables() {
@@ -355,6 +365,8 @@ export function registerTurboPoder(app, deps) {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           )
         `);
+        await pool.query("ALTER TABLE turbopoder_products ADD COLUMN IF NOT EXISTS image_urls JSONB NOT NULL DEFAULT '[]'::jsonb");
+        await pool.query("UPDATE turbopoder_products SET image_urls = jsonb_build_array(image_url) WHERE image_url <> '' AND (image_urls IS NULL OR image_urls = '[]'::jsonb)");
         await pool.query(`
           CREATE TABLE IF NOT EXISTS turbopoder_orders (
             id SERIAL PRIMARY KEY,
@@ -405,7 +417,7 @@ export function registerTurboPoder(app, deps) {
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tp_products_store ON turbopoder_products(store_id)').catch(function () {});
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tp_orders_store ON turbopoder_orders(store_id)').catch(function () {});
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tp_orders_buyer ON turbopoder_orders(buyer_email)').catch(function () {});
-        await seedDemo();
+        await clearLegacyDemo();
       })().catch(function (error) {
         tablesReady = null;
         throw error;
@@ -434,6 +446,7 @@ export function registerTurboPoder(app, deps) {
   }
 
   function mapProduct(row) {
+    const images = parseImages(row);
     return {
       id: Number(row.id),
       storeId: Number(row.store_id),
@@ -448,7 +461,8 @@ export function registerTurboPoder(app, deps) {
       stock: Number(row.stock || 0),
       category: row.category || 'Otros',
       emoji: row.emoji || '📦',
-      imageUrl: row.image_url || '',
+      imageUrl: images[0] || '',
+      images: images,
       status: row.status || 'activo',
       sales: Number(row.sales || 0),
       createdAt: row.created_at,
@@ -492,7 +506,7 @@ export function registerTurboPoder(app, deps) {
     await ensureTables();
     const stats = await pool.query(`
       SELECT
-        (SELECT COUNT(*) FROM turbopoder_stores)::int AS stores,
+        (SELECT COUNT(*) FROM turbopoder_stores s WHERE EXISTS (SELECT 1 FROM turbopoder_products p WHERE p.store_id = s.id AND p.status = 'activo'))::int AS stores,
         (SELECT COUNT(*) FROM turbopoder_products WHERE status = 'activo')::int AS products,
         (SELECT COUNT(*) FROM turbopoder_orders)::int AS orders,
         (SELECT COUNT(DISTINCT category) FROM turbopoder_products WHERE status = 'activo')::int AS categories
@@ -501,78 +515,30 @@ export function registerTurboPoder(app, deps) {
       categories: CATEGORIES,
       accents: ACCENTS,
       shipping: { flat: SHIPPING_FLAT, freeFrom: FREE_SHIPPING_FROM },
-      limits: { storesPerOwner: MAX_STORES_PER_OWNER, productsPerStore: MAX_PRODUCTS_PER_STORE },
+      limits: { productsPerStore: MAX_PRODUCTS_PER_STORE, imagesPerProduct: 3 },
       stats: stats.rows[0] || { stores: 0, products: 0, orders: 0, categories: 0 }
     });
   }));
 
-  router.post('/register', wrap(async function (req, res) {
-    await ensureTables();
-    const name = text(req.body && req.body.name, 60);
-    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
-    const password = String((req.body && req.body.password) || '');
-
-    if (name.length < 2) throw fail(400, 'Poné tu nombre (mínimo 2 letras).');
-    if (!isEmail(email)) throw fail(400, 'Ese correo no parece válido.');
-    if (password.length < 6) throw fail(400, 'La contraseña necesita al menos 6 caracteres.');
-    if (password.length > 120) throw fail(400, 'La contraseña es demasiado larga.');
-
-    const duplicate = await pool.query('SELECT 1 FROM turbopoder_users WHERE email = $1 LIMIT 1', [email]);
-    if (duplicate.rows.length) throw fail(409, 'Ya hay una cuenta con ese correo. Probá entrar.');
-
-    const hash = await bcrypt.hash(password, 10);
-    const inserted = await pool.query(
-      'INSERT INTO turbopoder_users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, created_at',
-      [name, email, hash]
-    );
-    const user = inserted.rows[0];
-    const token = jwt.sign({ id: user.id, email: user.email, app: 'turbopoder' }, getStudioSecret(), { expiresIn: '30d' });
-    res.status(201).json({
-      success: true,
-      token: token,
-      user: { id: Number(user.id), name: user.name, email: user.email, createdAt: user.created_at }
-    });
-  }));
-
-  router.post('/login', wrap(async function (req, res) {
-    await ensureTables();
-    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
-    const password = String((req.body && req.body.password) || '');
-    if (!isEmail(email) || !password) throw fail(400, 'Completá correo y contraseña.');
-
-    throttle(email, req);
-    const result = await pool.query('SELECT * FROM turbopoder_users WHERE email = $1 LIMIT 1', [email]);
-    const user = result.rows[0];
-    const valid = user ? await bcrypt.compare(password, user.password_hash) : false;
-    if (!valid) {
-      noteAttempt(email, req);
-      throw fail(401, 'Correo o contraseña incorrectos.');
-    }
-    loginAttempts.delete(String(req.ip || '') + '|' + email);
-    const token = jwt.sign({ id: user.id, email: user.email, app: 'turbopoder' }, getStudioSecret(), { expiresIn: '30d' });
+  router.get('/me', wrap(async function (req, res) {
+    if (!readSession(req)) throw fail(401, 'Tu sesión de Surface no es válida. Volvé a entrar.');
+    const actor = await actorFor(req);
+    if (!actor) throw fail(401, 'No encontramos tu cuenta de Surface.');
     res.json({
-      success: true,
-      token: token,
-      user: { id: Number(user.id), name: user.name, email: user.email, createdAt: user.created_at }
+      user: { id: actor.id, username: actor.username, createdAt: actor.createdAt },
+      isAdmin: actor.isAdmin,
+      isOwner: actor.isOwner
     });
-  }));
-
-  router.get('/me', authRequired, wrap(async function (req, res) {
-    await ensureTables();
-    const user = await currentUser(req.tpUser.id);
-    if (!user) throw fail(401, 'Tu sesión venció. Volvé a entrar.');
-    res.json({ user: { id: Number(user.id), name: user.name, email: user.email, createdAt: user.created_at } });
   }));
 
   /* ------------------------------- tiendas -------------------------------- */
 
-  router.get('/stores', authOptional, wrap(async function (req, res) {
+  router.get('/stores', wrap(async function (req, res) {
     await ensureTables();
     const search = text(req.query.search, 60);
     const category = text(req.query.category, 40);
-    const onlyMine = String(req.query.owner || '') === 'me';
     const limit = clampInt(req.query.limit, 1, 60, 24);
-    const where = [];
+    const where = ["EXISTS (SELECT 1 FROM turbopoder_products p WHERE p.store_id = s.id AND p.status = 'activo')"];
     const values = [];
 
     if (search) {
@@ -584,11 +550,6 @@ export function registerTurboPoder(app, deps) {
       values.push(category);
       where.push('s.category = $' + values.length);
     }
-    if (onlyMine) {
-      if (!req.tpUser) return res.status(401).json({ error: 'Necesitás iniciar sesión.' });
-      values.push(req.tpUser.id);
-      where.push('s.owner_id = $' + values.length);
-    }
 
     const sql =
       'SELECT s.*, u.name AS owner_name, ' +
@@ -596,14 +557,14 @@ export function registerTurboPoder(app, deps) {
       '(SELECT COUNT(*) FROM turbopoder_reviews r WHERE r.store_id = s.id)::int AS review_count, ' +
       'COALESCE((SELECT ROUND(AVG(r.rating)::numeric, 1) FROM turbopoder_reviews r WHERE r.store_id = s.id), 0) AS avg_rating ' +
       'FROM turbopoder_stores s LEFT JOIN turbopoder_users u ON u.id = s.owner_id ' +
-      (where.length ? 'WHERE ' + where.join(' AND ') + ' ' : '') +
+      'WHERE ' + where.join(' AND ') + ' ' +
       'ORDER BY product_count DESC, s.created_at DESC LIMIT ' + limit;
 
     const result = await pool.query(sql, values);
     res.json({ stores: result.rows.map(mapStore) });
   }));
 
-  router.get('/stores/:slug', authOptional, wrap(async function (req, res) {
+  router.get('/stores/:slug', wrap(async function (req, res) {
     await ensureTables();
     const slug = text(req.params.slug, 80).toLowerCase();
     const result = await pool.query(
@@ -628,7 +589,7 @@ export function registerTurboPoder(app, deps) {
     res.json({ store: store, products: products.rows.map(mapProduct) });
   }));
 
-  router.post('/stores', authRequired, wrap(async function (req, res) {
+  router.post('/stores', requireAdmin, wrap(async function (req, res) {
     await ensureTables();
     const body = req.body || {};
     const name = text(body.name, 60);
@@ -639,37 +600,33 @@ export function registerTurboPoder(app, deps) {
     const accent = ACCENTS.indexOf(String(body.accent || '').toLowerCase()) !== -1 ? String(body.accent).toLowerCase() : ACCENTS[0];
 
     if (name.length < 3) throw fail(400, 'El nombre de la tienda necesita al menos 3 letras.');
-    if (tagline.length < 6) throw fail(400, 'Sumale una frase corta que explique qué vendés.');
-
-    const owned = await pool.query('SELECT COUNT(*)::int AS total FROM turbopoder_stores WHERE owner_id = $1', [req.tpUser.id]);
-    if ((owned.rows[0] || {}).total >= MAX_STORES_PER_OWNER) {
-      throw fail(429, 'Llegaste al máximo de ' + MAX_STORES_PER_OWNER + ' tiendas por cuenta.');
-    }
+    if (tagline.length < 6) throw fail(400, 'Sumale una frase corta que explique qué hay en este rincón.');
 
     const baseSlug = slugify(name) || 'rincon';
     let slug = baseSlug;
-    for (let attempt = 1; attempt <= 12; attempt += 1) {
+    for (let attempt = 1; attempt <= 40; attempt += 1) {
       const taken = await pool.query('SELECT 1 FROM turbopoder_stores WHERE slug = $1 LIMIT 1', [slug]);
       if (!taken.rows.length) break;
       slug = baseSlug + '-' + attempt;
     }
 
+    // Las tiendas ahora las cura el estudio: no pertenecen a una cuenta de comprador.
     const inserted = await pool.query(
       'INSERT INTO turbopoder_stores (owner_id, slug, name, tagline, description, category, emoji, accent) ' +
-      'VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [req.tpUser.id, slug, name, tagline, description, category, emoji, accent]
+      'VALUES (NULL, $1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [slug, name, tagline, description, category, emoji, accent]
     );
     res.status(201).json({ success: true, store: mapStore(inserted.rows[0]) });
   }));
 
-  router.patch('/stores/:id', authRequired, wrap(async function (req, res) {
+  router.patch('/stores/:id', requireAdmin, wrap(async function (req, res) {
     await ensureTables();
     const storeId = toInt(req.params.id, 0);
     if (!storeId) throw fail(400, 'Tienda inválida.');
-    const owned = await pool.query('SELECT * FROM turbopoder_stores WHERE id = $1 AND owner_id = $2 LIMIT 1', [storeId, req.tpUser.id]);
-    if (!owned.rows.length) throw fail(403, 'Esa tienda no es tuya.');
+    const found = await pool.query('SELECT * FROM turbopoder_stores WHERE id = $1 LIMIT 1', [storeId]);
+    if (!found.rows.length) throw fail(404, 'Esa tienda no existe.');
     const body = req.body || {};
-    const current = owned.rows[0];
+    const current = found.rows[0];
 
     const name = body.name === undefined ? current.name : text(body.name, 60);
     const tagline = body.tagline === undefined ? current.tagline : text(body.tagline, 140);
@@ -689,6 +646,15 @@ export function registerTurboPoder(app, deps) {
       [name, tagline, description, category, emoji, accent, storeId]
     );
     res.json({ success: true, store: mapStore(updated.rows[0]) });
+  }));
+
+  router.delete('/stores/:id', requireAdmin, wrap(async function (req, res) {
+    await ensureTables();
+    const storeId = toInt(req.params.id, 0);
+    if (!storeId) throw fail(400, 'Tienda inválida.');
+    const deleted = await pool.query('DELETE FROM turbopoder_stores WHERE id = $1 RETURNING id', [storeId]);
+    if (!deleted.rows.length) throw fail(404, 'Esa tienda no existe.');
+    res.json({ success: true });
   }));
 
   /* ------------------------------ productos ------------------------------- */
@@ -740,7 +706,7 @@ export function registerTurboPoder(app, deps) {
     res.json({ products: result.rows.map(mapProduct), limit: limit, offset: offset, count: result.rows.length });
   }));
 
-  router.get('/products/:id', authOptional, wrap(async function (req, res) {
+  router.get('/products/:id', wrap(async function (req, res) {
     await ensureTables();
     const productId = toInt(req.params.id, 0);
     if (!productId) throw fail(400, 'Producto inválido.');
@@ -776,14 +742,14 @@ export function registerTurboPoder(app, deps) {
     });
   }));
 
-  router.post('/products', authRequired, upload.array('images', 3), wrap(async function (req, res) {
+  router.post('/products', requireAdmin, upload.array('images', 3), wrap(async function (req, res) {
     await ensureTables();
     const body = req.body || {};
     const storeId = toInt(body.storeId, 0);
     if (!storeId) throw fail(400, 'Elegí en qué tienda va el producto.');
 
-    const owned = await pool.query('SELECT * FROM turbopoder_stores WHERE id = $1 AND owner_id = $2 LIMIT 1', [storeId, req.tpUser.id]);
-    if (!owned.rows.length) throw fail(403, 'Esa tienda no es tuya.');
+    const store = await pool.query('SELECT * FROM turbopoder_stores WHERE id = $1 LIMIT 1', [storeId]);
+    if (!store.rows.length) throw fail(404, 'Esa tienda no existe.');
 
     const countResult = await pool.query('SELECT COUNT(*)::int AS total FROM turbopoder_products WHERE store_id = $1', [storeId]);
     if ((countResult.rows[0] || {}).total >= MAX_PRODUCTS_PER_STORE) {
@@ -796,38 +762,37 @@ export function registerTurboPoder(app, deps) {
     const stock = clampInt(body.stock, 0, 9999, 1);
     const category = CATEGORIES.indexOf(text(body.category, 40)) !== -1 ? text(body.category, 40) : 'Otros';
     const emoji = pickEmoji(body.emoji, '📦');
-    const uploaded = req.files && req.files[0] ? req.files[0].path : '';
-    const imageUrl = safeHttpUrl(uploaded) || safeHttpUrl(body.imageUrl);
+    const uploaded = (req.files || []).map(function (file) { return safeHttpUrl(file.path); }).filter(Boolean);
+    const linked = safeHttpUrl(body.imageUrl);
+    const images = (uploaded.length ? uploaded : (linked ? [linked] : [])).slice(0, 3);
+    const imageUrl = images[0] || '';
 
     if (name.length < 2) throw fail(400, 'Poné un nombre de producto.');
     if (!Number.isFinite(price) || price <= 0) throw fail(400, 'El precio tiene que ser mayor a cero.');
     if (price > 5000000) throw fail(400, 'Ese precio se va de rango.');
 
     const inserted = await pool.query(
-      'INSERT INTO turbopoder_products (store_id, name, description, price, stock, category, emoji, image_url, status) ' +
-      "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'activo') RETURNING *",
-      [storeId, name, description, price, stock, category, emoji, imageUrl]
+      'INSERT INTO turbopoder_products (store_id, name, description, price, stock, category, emoji, image_url, image_urls, status) ' +
+      "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, 'activo') RETURNING *",
+      [storeId, name, description, price, stock, category, emoji, imageUrl, JSON.stringify(images)]
     );
     const product = mapProduct({
       ...inserted.rows[0],
-      store_slug: owned.rows[0].slug,
-      store_name: owned.rows[0].name,
-      store_emoji: owned.rows[0].emoji,
-      store_accent: owned.rows[0].accent
+      store_slug: store.rows[0].slug,
+      store_name: store.rows[0].name,
+      store_emoji: store.rows[0].emoji,
+      store_accent: store.rows[0].accent
     });
     res.status(201).json({ success: true, product: product });
   }));
 
-  router.patch('/products/:id', authRequired, wrap(async function (req, res) {
+  router.patch('/products/:id', requireAdmin, upload.array('images', 3), wrap(async function (req, res) {
     await ensureTables();
     const productId = toInt(req.params.id, 0);
     if (!productId) throw fail(400, 'Producto inválido.');
-    const owned = await pool.query(
-      'SELECT p.* FROM turbopoder_products p JOIN turbopoder_stores s ON s.id = p.store_id WHERE p.id = $1 AND s.owner_id = $2 LIMIT 1',
-      [productId, req.tpUser.id]
-    );
-    if (!owned.rows.length) throw fail(403, 'Ese producto no está en tus tiendas.');
-    const current = owned.rows[0];
+    const found = await pool.query('SELECT * FROM turbopoder_products WHERE id = $1 LIMIT 1', [productId]);
+    if (!found.rows.length) throw fail(404, 'Ese producto no existe.');
+    const current = found.rows[0];
     const body = req.body || {};
 
     const name = body.name === undefined ? current.name : text(body.name, 100);
@@ -845,62 +810,38 @@ export function registerTurboPoder(app, deps) {
     const status = body.status === undefined
       ? current.status
       : (['activo', 'pausado'].indexOf(body.status) !== -1 ? body.status : current.status);
-    const imageUrl = body.imageUrl === undefined ? current.image_url : (safeHttpUrl(body.imageUrl) || '');
+
+    const uploaded = (req.files || []).map(function (file) { return safeHttpUrl(file.path); }).filter(Boolean);
+    let images = parseImages(current);
+    if (uploaded.length) images = uploaded.slice(0, 3);
+    else if (body.imageUrl !== undefined && String(body.imageUrl).trim()) {
+      const linked = safeHttpUrl(body.imageUrl);
+      images = linked ? [linked] : [];
+    }
+    const imageUrl = images[0] || '';
 
     if (name.length < 2) throw fail(400, 'Poné un nombre de producto.');
 
     const updated = await pool.query(
-      'UPDATE turbopoder_products SET name = $1, description = $2, price = $3, stock = $4, category = $5, emoji = $6, image_url = $7, status = $8 ' +
-      'WHERE id = $9 RETURNING *',
-      [name, description, price, stock, category, emoji, imageUrl, status, productId]
+      'UPDATE turbopoder_products SET name = $1, description = $2, price = $3, stock = $4, category = $5, emoji = $6, image_url = $7, image_urls = $8::jsonb, status = $9 ' +
+      'WHERE id = $10 RETURNING *',
+      [name, description, price, stock, category, emoji, imageUrl, JSON.stringify(images), status, productId]
     );
     res.json({ success: true, product: mapProduct(updated.rows[0]) });
   }));
 
-  router.delete('/products/:id', authRequired, wrap(async function (req, res) {
+  router.delete('/products/:id', requireAdmin, wrap(async function (req, res) {
     await ensureTables();
     const productId = toInt(req.params.id, 0);
     if (!productId) throw fail(400, 'Producto inválido.');
-    const deleted = await pool.query(
-      'DELETE FROM turbopoder_products p USING turbopoder_stores s WHERE p.id = $1 AND s.id = p.store_id AND s.owner_id = $2 RETURNING p.id',
-      [productId, req.tpUser.id]
-    );
-    if (!deleted.rows.length) throw fail(404, 'No encontramos ese producto en tus tiendas.');
+    const deleted = await pool.query('DELETE FROM turbopoder_products WHERE id = $1 RETURNING id', [productId]);
+    if (!deleted.rows.length) throw fail(404, 'Ese producto no existe.');
     res.json({ success: true });
-  }));
-
-  /* -------------------------------- reviews ------------------------------- */
-
-  router.post('/products/:id/reviews', authRequired, wrap(async function (req, res) {
-    await ensureTables();
-    const productId = toInt(req.params.id, 0);
-    if (!productId) throw fail(400, 'Producto inválido.');
-    const rating = clampInt(req.body && req.body.rating, 1, 5, 0);
-    const comment = trimmed(req.body && req.body.comment, 600);
-    if (!rating) throw fail(400, 'Elegí una puntuación de 1 a 5.');
-
-    const user = await currentUser(req.tpUser.id);
-    if (!user) throw fail(401, 'Tu sesión venció. Volvé a entrar.');
-
-    const product = await pool.query('SELECT id, store_id FROM turbopoder_products WHERE id = $1 LIMIT 1', [productId]);
-    if (!product.rows.length) throw fail(404, 'Ese producto no existe.');
-
-    const inserted = await pool.query(
-      'INSERT INTO turbopoder_reviews (product_id, store_id, user_id, author, rating, comment) ' +
-      'VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (product_id, user_id) DO NOTHING RETURNING *',
-      [productId, product.rows[0].store_id, user.id, user.name, rating, comment]
-    );
-    if (!inserted.rows.length) throw fail(409, 'Ya dejaste tu opinión sobre este producto.');
-    const row = inserted.rows[0];
-    res.status(201).json({
-      success: true,
-      review: { id: Number(row.id), author: row.author, rating: Number(row.rating), comment: row.comment, createdAt: row.created_at }
-    });
   }));
 
   /* -------------------------------- pedidos ------------------------------- */
 
-  router.post('/orders', authOptional, wrap(async function (req, res) {
+  router.post('/orders', wrap(async function (req, res) {
     await ensureTables();
     const body = req.body || {};
     const items = Array.isArray(body.items) ? body.items.slice(0, MAX_ORDER_ITEMS) : [];
@@ -952,7 +893,7 @@ export function registerTurboPoder(app, deps) {
       groups.get(storeId).lines.push({ row: row, qty: qty });
     }
 
-    const buyerId = req.tpUser ? req.tpUser.id : null;
+    const buyerId = null;
     const client = await pool.connect();
     const created = [];
     try {
@@ -1035,32 +976,61 @@ export function registerTurboPoder(app, deps) {
     res.json({ order: mapOrder({ ...result.rows[0], items: items.rows }) });
   }));
 
-  router.get('/orders', authRequired, wrap(async function (req, res) {
+  /* ------------------------------- admin ---------------------------------- */
+
+  router.get('/admin/summary', requireAdmin, wrap(async function (_req, res) {
     await ensureTables();
-    const user = await currentUser(req.tpUser.id);
-    if (!user) throw fail(401, 'Tu sesión venció. Volvé a entrar.');
-    const result = await pool.query(
-      'SELECT o.*, s.name AS store_name, s.slug AS store_slug, s.emoji AS store_emoji, s.accent AS store_accent, ' +
-      'COALESCE(json_agg(json_build_object(\'name\', i.name, \'qty\', i.qty, \'price\', i.price) ORDER BY i.id) FILTER (WHERE i.id IS NOT NULL), \'[]\') AS items ' +
-      'FROM turbopoder_orders o JOIN turbopoder_stores s ON s.id = o.store_id ' +
-      'LEFT JOIN turbopoder_order_items i ON i.order_id = o.id ' +
-      'WHERE o.buyer_id = $1 OR LOWER(o.buyer_email) = LOWER($2) ' +
-      'GROUP BY o.id, s.name, s.slug, s.emoji, s.accent ORDER BY o.created_at DESC LIMIT 60',
-      [user.id, user.email]
+    const stores = await pool.query(
+      'SELECT s.*, ' +
+      '(SELECT COUNT(*) FROM turbopoder_products p WHERE p.store_id = s.id)::int AS products, ' +
+      "(SELECT COUNT(*) FROM turbopoder_products p WHERE p.store_id = s.id AND p.status = 'activo')::int AS active_products, " +
+      '(SELECT COUNT(*) FROM turbopoder_orders o WHERE o.store_id = s.id)::int AS orders, ' +
+      "(SELECT COUNT(*) FROM turbopoder_orders o WHERE o.store_id = s.id AND o.status = 'pendiente')::int AS pending, " +
+      "COALESCE((SELECT SUM(o.total) FROM turbopoder_orders o WHERE o.store_id = s.id AND o.status <> 'cancelado'), 0) AS revenue " +
+      'FROM turbopoder_stores s ORDER BY s.created_at DESC'
     );
-    res.json({ orders: result.rows.map(mapOrder) });
+
+    const mapped = stores.rows.map(function (row) {
+      return {
+        ...mapStore(row),
+        products: Number(row.products || 0),
+        activeProducts: Number(row.active_products || 0),
+        orders: Number(row.orders || 0),
+        pending: Number(row.pending || 0),
+        revenue: sqlMoney(row.revenue)
+      };
+    });
+
+    const totals = await pool.query(
+      "SELECT (SELECT COUNT(*) FROM turbopoder_products)::int AS products, " +
+      "(SELECT COUNT(*) FROM turbopoder_products WHERE status = 'activo')::int AS active_products, " +
+      "(SELECT COUNT(*) FROM turbopoder_orders)::int AS orders, " +
+      "(SELECT COUNT(*) FROM turbopoder_orders WHERE status = 'pendiente')::int AS pending, " +
+      "(SELECT COALESCE(SUM(total), 0) FROM turbopoder_orders WHERE status <> 'cancelado') AS revenue"
+    );
+    const t = totals.rows[0] || {};
+
+    res.json({
+      stores: mapped,
+      totals: {
+        stores: mapped.length,
+        products: Number(t.products || 0),
+        activeProducts: Number(t.active_products || 0),
+        orders: Number(t.orders || 0),
+        pending: Number(t.pending || 0),
+        revenue: sqlMoney(t.revenue)
+      }
+    });
   }));
 
-  /* -------------------------------- vendedor ------------------------------ */
-
-  router.get('/seller/products', authRequired, wrap(async function (req, res) {
+  router.get('/admin/products', requireAdmin, wrap(async function (req, res) {
     await ensureTables();
     const storeId = toInt(req.query.storeId, 0);
-    const values = [req.tpUser.id];
-    let filter = 's.owner_id = $1';
+    const values = [];
+    let filter = '1=1';
     if (storeId) {
       values.push(storeId);
-      filter += ' AND p.store_id = $2';
+      filter += ' AND p.store_id = $' + values.length;
     }
     const result = await pool.query(
       'SELECT p.*, s.slug AS store_slug, s.name AS store_name, s.emoji AS store_emoji, s.accent AS store_accent, ' +
@@ -1073,46 +1043,12 @@ export function registerTurboPoder(app, deps) {
     res.json({ products: result.rows.map(mapProduct) });
   }));
 
-  router.get('/seller/summary', authRequired, wrap(async function (req, res) {
-    await ensureTables();
-    const stores = await pool.query(
-      'SELECT s.*, ' +
-      '(SELECT COUNT(*) FROM turbopoder_products p WHERE p.store_id = s.id)::int AS products, ' +
-      '(SELECT COUNT(*) FROM turbopoder_orders o WHERE o.store_id = s.id)::int AS orders, ' +
-      "(SELECT COUNT(*) FROM turbopoder_orders o WHERE o.store_id = s.id AND o.status = 'pendiente')::int AS pending, " +
-      "COALESCE((SELECT SUM(o.total) FROM turbopoder_orders o WHERE o.store_id = s.id AND o.status <> 'cancelado'), 0) AS revenue " +
-      'FROM turbopoder_stores s WHERE s.owner_id = $1 ORDER BY s.created_at DESC',
-      [req.tpUser.id]
-    );
-
-    const mapped = stores.rows.map(function (row) {
-      return {
-        ...mapStore(row),
-        products: Number(row.products || 0),
-        orders: Number(row.orders || 0),
-        pending: Number(row.pending || 0),
-        revenue: sqlMoney(row.revenue)
-      };
-    });
-
-    res.json({
-      stores: mapped,
-      totals: {
-        stores: mapped.length,
-        products: mapped.reduce(function (sum, s) { return sum + s.products; }, 0),
-        orders: mapped.reduce(function (sum, s) { return sum + s.orders; }, 0),
-        pending: mapped.reduce(function (sum, s) { return sum + s.pending; }, 0),
-        revenue: mapped.reduce(function (sum, s) { return sum + s.revenue; }, 0)
-      }
-    });
-  }));
-
-  router.get('/seller/orders', authRequired, wrap(async function (req, res) {
+  router.get('/admin/orders', requireAdmin, wrap(async function (req, res) {
     await ensureTables();
     const status = text(req.query.status, 24);
     const storeId = toInt(req.query.storeId, 0);
-    const values = [req.tpUser.id];
-    const filters = ['s.owner_id = $1'];
+    const values = [];
+    const filters = ['1=1'];
     if (status && ORDER_STATUSES.indexOf(status) !== -1) {
       values.push(status);
       filters.push('o.status = $' + values.length);
@@ -1128,25 +1064,22 @@ export function registerTurboPoder(app, deps) {
       'FROM turbopoder_orders o JOIN turbopoder_stores s ON s.id = o.store_id ' +
       'LEFT JOIN turbopoder_order_items i ON i.order_id = o.id ' +
       'WHERE ' + filters.join(' AND ') + ' ' +
-      'GROUP BY o.id, s.name, s.slug, s.emoji, s.accent ORDER BY o.created_at DESC LIMIT 80',
+      'GROUP BY o.id, s.name, s.slug, s.emoji, s.accent ORDER BY o.created_at DESC LIMIT 120',
       values
     );
     res.json({ orders: result.rows.map(mapOrder) });
   }));
 
-  router.patch('/orders/:id/status', authRequired, wrap(async function (req, res) {
+  router.patch('/admin/orders/:id/status', requireAdmin, wrap(async function (req, res) {
     await ensureTables();
     const orderId = toInt(req.params.id, 0);
     const status = text(req.body && req.body.status, 24);
     if (!orderId) throw fail(400, 'Pedido inválido.');
     if (ORDER_STATUSES.indexOf(status) === -1) throw fail(400, 'Ese estado no existe.');
 
-    const owned = await pool.query(
-      'SELECT o.* FROM turbopoder_orders o JOIN turbopoder_stores s ON s.id = o.store_id WHERE o.id = $1 AND s.owner_id = $2 LIMIT 1',
-      [orderId, req.tpUser.id]
-    );
-    if (!owned.rows.length) throw fail(403, 'Ese pedido no pertenece a tus tiendas.');
-    const current = owned.rows[0];
+    const found = await pool.query('SELECT * FROM turbopoder_orders WHERE id = $1 LIMIT 1', [orderId]);
+    if (!found.rows.length) throw fail(404, 'Ese pedido no existe.');
+    const current = found.rows[0];
     if (current.status === status) return res.json({ success: true, status: status });
 
     const client = await pool.connect();
@@ -1171,6 +1104,49 @@ export function registerTurboPoder(app, deps) {
       client.release();
     }
     res.json({ success: true, status: status });
+  }));
+
+  router.get('/admin/admins', requireOwner, wrap(async function (req, res) {
+    const search = text(req.query.search, 60);
+    const values = [];
+    let filter = '1=1';
+    if (search) {
+      values.push('%' + search + '%');
+      filter = 'username ILIKE $1';
+    }
+    const result = await pool.query(
+      'SELECT id, username, is_admin, power_level, created_at FROM ocean_pay_users WHERE ' + filter +
+      ' ORDER BY is_admin DESC, username ASC LIMIT 120',
+      values
+    );
+    res.json({
+      admins: result.rows.map(function (row) {
+        const username = String(row.username || '');
+        const isOwner = username.toLowerCase() === OWNER_USERNAME;
+        return {
+          id: Number(row.id),
+          username: username,
+          isAdmin: isOwner || row.is_admin === true || Number(row.power_level || 0) > 0,
+          isOwner: isOwner,
+          flag: row.is_admin === true,
+          powerLevel: Number(row.power_level || 0)
+        };
+      })
+    });
+  }));
+
+  router.patch('/admin/admins/:id', requireOwner, wrap(async function (req, res) {
+    const targetId = toInt(req.params.id, 0);
+    if (!targetId) throw fail(400, 'Cuenta inválida.');
+    if (typeof (req.body && req.body.isAdmin) !== 'boolean') throw fail(400, 'Indicá si la cuenta es admin o no.');
+
+    const found = await pool.query('SELECT id, username FROM ocean_pay_users WHERE id = $1 LIMIT 1', [targetId]);
+    if (!found.rows.length) throw fail(404, 'Esa cuenta de Surface no existe.');
+    if (String(found.rows[0].username || '').toLowerCase() === OWNER_USERNAME) {
+      throw fail(400, 'La cuenta principal no se puede cambiar.');
+    }
+    await pool.query('UPDATE ocean_pay_users SET is_admin = $1 WHERE id = $2', [req.body.isAdmin, targetId]);
+    res.json({ success: true, id: targetId, isAdmin: req.body.isAdmin });
   }));
 
   console.log('[TURBOPODER] API montada en /turbopoder');

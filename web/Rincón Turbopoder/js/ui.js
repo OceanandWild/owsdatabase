@@ -215,8 +215,8 @@
         '</div>' +
         '<p class="store-tagline">' + escapeHtml(truncate(store.tagline || store.description || '', 96)) + '</p>' +
         '<div class="store-foot">' +
-          '<span class="mini">' + icon('package', 14) + (store.productCount || 0) + ' productos</span>' +
-          '<span class="mini">' + ratingLabel(store.rating, store.reviewCount) + '</span>' +
+          '<span class="mini">' + icon('package', 14) + (store.productCount || 0) + (store.productCount === 1 ? ' producto' : ' productos') + '</span>' +
+          (store.reviewCount ? '<span class="mini">' + ratingLabel(store.rating, store.reviewCount) + '</span>' : '') +
         '</div>' +
       '</a>'
     );

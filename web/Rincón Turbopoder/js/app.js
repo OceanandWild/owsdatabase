@@ -1,6 +1,6 @@
 /* ==========================================================================
    RINCÓN TURBOPODER — aplicación
-   SPA con hash router, carrito local y sesión contra la API de OWS.
+   SPA con hash router, carrito local y panel de administración contra la API de OWS.
    ========================================================================== */
 
 (function () {
@@ -168,15 +168,10 @@
   function updateAccount() {
     const btn = document.getElementById('accountBtn');
     if (!btn) return;
-    if (state.user) {
-      btn.setAttribute('href', '#/panel');
-      btn.setAttribute('aria-label', 'Mi panel: ' + state.user.name);
-      btn.classList.add('is-user');
-    } else {
-      btn.setAttribute('href', '#/entrar');
-      btn.setAttribute('aria-label', 'Mi cuenta');
-      btn.classList.remove('is-user');
-    }
+    const admin = Boolean(state.user && state.user.isAdmin);
+    btn.setAttribute('href', '#/admin');
+    btn.setAttribute('aria-label', admin ? 'Panel de administración' : 'Acceso de administración');
+    btn.classList.toggle('is-user', admin);
   }
 
   function applySession(user, token) {
@@ -189,26 +184,32 @@
     Api.clearSession();
     state.user = null;
     updateAccount();
-    UI.toast('Cerré tu sesión. Nos vemos en el rincón.');
-    navigate('/');
+    UI.toast('Sesión de administración cerrada.', 'success');
+    navigate('/admin');
   }
 
-  async function ensureUser() {
+  async function ensureAdmin() {
     if (!Api.getToken()) { state.user = null; updateAccount(); return null; }
-    if (state.user) return state.user;
+    if (state.user && state.user.isAdmin) return state.user;
     try {
       const data = await Api.me();
-      state.user = data.user;
-      Api.setSession(Api.getToken(), data.user);
-      updateAccount();
+      if (!data.isAdmin) {
+        Api.clearSession();
+        state.user = null;
+        updateAccount();
+        return null;
+      }
+      const user = Object.assign({}, data.user, { isAdmin: true, isOwner: Boolean(data.isOwner) });
+      applySession(user, Api.getToken());
+      return user;
     } catch (error) {
-      if (error.status === 401) {
+      if (error.status === 401 || error.status === 403) {
         Api.clearSession();
         state.user = null;
         updateAccount();
       }
     }
-    return state.user;
+    return null;
   }
     /* ------------------------------ utilidades ------------------------------ */
 
@@ -319,11 +320,11 @@
     setView(
       '<section class="hero"><div class="container hero-grid">' +
         '<div>' +
-          '<span class="eyebrow">Mercado abierto · ' + (stats.stores || 0) + ' rincones</span>' +
-          '<h1>Vendé lo que sea. Comprá lo que <span class="mark">no sabías</span> que necesitabas.</h1>' +
-          '<p class="hero-lede">Tiendas de barrio, talleres y coleccionistas en la misma vereda. Entrá, mirá y llevate algo raro: acá no hay góndola que te diga qué buscar.</p>' +
+          '<span class="eyebrow">Mercado curado · ' + (stats.stores || 0) + (stats.stores === 1 ? ' rincón' : ' rincones') + '</span>' +
+          '<h1>Cosas raras. <span class="mark">Bien elegidas.</span></h1>' +
+          '<p class="hero-lede">Un rincón donde el estudio elige qué se vende: objetos, comida, arte y esas cosas que no sabías que necesitabas.</p>' +
           '<div class="hero-actions"><a class="btn btn-turbo" href="#/catalogo">Recorrer el catálogo ' + icon('arrowRight', 15) + '</a>' +
-          '<a class="btn btn-ghost" href="#/vender">Abrir mi rincón</a></div>' +
+          '<a class="btn btn-ghost" href="#/seguimiento">Seguir un pedido</a></div>' +
           '<form class="hero-search" id="homeSearch" role="search">' + icon('search', 17) +
             '<input type="search" name="q" placeholder="Buscá una lámpara, un vinilo, un teclado…" aria-label="Buscar productos" />' +
             '<button class="btn btn-turbo btn-sm" type="submit">Buscar</button></form>' +
@@ -344,6 +345,9 @@
         categoryTiles(meta.categories || []) +
       '</section>' +
 
+      (!featured.length && !stores.length && !fresh.length ? '<section class="section container">' +
+        emptyBlock('⚡', 'La vidriera está tomando forma', 'Estamos preparando la primera tanda de rincones. Volvé en unos días o seguí un pedido si ya compraste.', '#/seguimiento', 'Seguir un pedido') + '</section>' : '') +
+
       (featured.length ? '<section class="section container">' +
         sectionHead('Lo que más circula', 'Lo que la gente se lleva sin pensarlo dos veces.', '#/catalogo?sort=vendidos', 'Ver más') +
         productGrid(featured, {}) + '</section>' : '') +
@@ -357,17 +361,17 @@
         productGrid(fresh, {}) + '</section>' : '') +
 
       '<section class="section container" id="pasos">' +
-        sectionHead('Abrir tu rincón, en tres movimientos', 'Sin formularios eternos ni comisiones de bienvenida.') +
+        sectionHead('Comprar acá, en tres pasos', 'Sin cuenta, sin pagos online y sin letra chica.') +
         '<div class="steps">' +
-          '<article class="step"><div class="num">01</div><h3>Poné nombre y onda</h3><p>Elegí cómo se llama tu tienda, qué vendés y con qué color te identificás. Tarda menos que preparar un café.</p></article>' +
-          '<article class="step"><div class="num">02</div><h3>Cargá lo primero</h3><p>Un producto alcanza para arrancar. Foto o emoji, precio y stock: después sumás el resto cuando quieras.</p></article>' +
-          '<article class="step"><div class="num">03</div><h3>Que circule</h3><p>Compartí el link de tu rincón. Los pedidos te llegan al panel y los coordinás directo con quien compra.</p></article>' +
+          '<article class="step"><div class="num">01</div><h3>Elegí tu rincón</h3><p>Entrá a una tienda, mirá las fotos y sumá lo que te guste al carrito. Podés mezclar rincones en un mismo pedido.</p></article>' +
+          '<article class="step"><div class="num">02</div><h3>Confirmá el pedido</h3><p>Dejanos tus datos de entrega. No se paga online: cada tienda coordina el medio de pago con vos.</p></article>' +
+          '<article class="step"><div class="num">03</div><h3>Seguí el envío</h3><p>Guardá el código. Con tu correo podés ver en qué anda el pedido, sin crear cuenta.</p></article>' +
         '</div></section>' +
 
       '<section class="container"><div class="cta-band">' +
-        '<div><h2>Tu rincón puede estar abierto esta tarde.</h2>' +
-        '<p>No hace falta un catálogo enorme. Con ganas y una idea alcanza para empezar a vender.</p></div>' +
-        '<a class="btn btn-turbo" href="#/vender">Abrir mi tienda ' + icon('arrowRight', 15) + '</a>' +
+        '<div><h2>¿Ya hiciste un pedido?</h2>' +
+        '<p>Con el código y el correo de la compra ves el estado y los datos de entrega.</p></div>' +
+        '<a class="btn btn-turbo" href="#/seguimiento">Seguir mi pedido ' + icon('arrowRight', 15) + '</a>' +
       '</div></section>'
     );
 
@@ -505,7 +509,7 @@
     const query = (params.get('q') || '').trim();
     setView(
       '<div class="container">' +
-        pageHead('Los rincones', 'Tiendas con nombre, color y algo para vender. Entrá a la que te llame.') +
+        pageHead('Los rincones', 'Tiendas con nombre, color y algo para mostrar. Entrá a la que te llame.') +
         '<form class="catalog-search" id="storeSearch" style="margin-bottom:24px" role="search">' + icon('search', 16) +
         '<input type="search" name="q" value="' + esc(query) + '" placeholder="Buscar una tienda…" aria-label="Buscar tiendas" />' +
         '<button type="submit" aria-label="Buscar">' + icon('arrowRight', 15) + '</button></form>' +
@@ -528,7 +532,7 @@
       const stores = data.stores || [];
       box.innerHTML = stores.length
         ? '<div class="store-grid">' + stores.map(UI.storeCard).join('') + '</div>'
-        : emptyBlock('🏚️', 'No hay rincones con ese nombre', 'Probá con otra palabra. O abrí el tuyo y quedate con el nombre primero.', '#/vender', 'Abrir mi tienda');
+        : emptyBlock('🏚️', 'No hay rincones con ese nombre', 'Probá con otra palabra o mirá todas las tiendas disponibles.', '#/tiendas', 'Ver todas las tiendas');
     } catch (error) {
       box.innerHTML = errorBlock(error);
     }
@@ -540,8 +544,7 @@
     const store = data.store;
     const products = data.products || [];
     state.currentStore = store;
-    const isOwner = state.user && Number(store.ownerId) === Number(state.user.id);
-    const rating = store.reviewCount ? UI.ratingLabel(store.rating, store.reviewCount) : '<span class="rating">Sin opiniones todavía</span>';
+    const canEdit = Boolean(state.user && state.user.isAdmin);
 
     setView(
       '<div class="container">' +
@@ -555,14 +558,13 @@
               '<p>' + esc(store.tagline || '') + '</p>' +
               (store.description ? '<p class="tiny" style="opacity:.72">' + esc(store.description) + '</p>' : '') +
               '<div class="store-hero-meta">' +
-                '<span>' + icon('package', 14) + products.length + ' productos</span>' +
-                '<span>' + icon('user', 14) + (store.ownerName ? 'A cargo de ' + esc(store.ownerName) : 'Rincón independiente') + '</span>' +
-                '<span>' + rating + '</span>' +
+                '<span>' + icon('package', 14) + products.length + (products.length === 1 ? ' producto' : ' productos') + '</span>' +
+                '<span>' + icon('user', 14) + 'Curado por Ocean &amp; Wild</span>' +
                 (store.createdAt ? '<span>Abierto desde ' + UI.dateShort(store.createdAt) + '</span>' : '') +
               '</div>' +
             '</div>' +
             '<div class="store-hero-actions">' +
-              (isOwner
+              (canEdit
                 ? '<button class="btn btn-dark btn-sm" type="button" data-action="edit-store" data-id="' + store.id + '">Editar tienda</button>' +
                   '<button class="btn btn-turbo btn-sm" type="button" data-action="new-product" data-store="' + store.id + '">Sumar producto</button>'
                 : '<button class="btn btn-ghost btn-sm" type="button" data-action="share-store" data-slug="' + esc(store.slug) + '">Compartir rincón</button>') +
@@ -573,7 +575,7 @@
         '<section class="section">' +
           (products.length
             ? sectionHead('Todo lo que hay acá', products.length + (products.length === 1 ? ' producto en la vidriera.' : ' productos en la vidriera.')) + productGrid(products, {})
-            : emptyBlock('📦', 'La vidriera está esperando', isOwner ? 'Cargá tu primer producto y empezá a mostrarlo.' : 'Este rincón todavía no colgó nada. Volvé en un rato.', isOwner ? '' : '#/catalogo', 'Seguir mirando')) +
+            : emptyBlock('📦', 'La vidriera está esperando', canEdit ? 'Cargá el primer producto de esta tienda.' : 'Este rincón todavía no tiene productos. Volvé en un rato.', canEdit ? '' : '#/catalogo', 'Seguir mirando')) +
         '</section>' +
       '</div>'
     );
@@ -592,53 +594,38 @@
   async function viewProduct(params, id) {
     const data = await Api.product(id);
     const product = data.product;
-    const reviews = data.reviews || [];
     const related = data.related || [];
+    const images = (product.images && product.images.length ? product.images : (product.imageUrl ? [product.imageUrl] : [])).slice(0, 3);
     const out = Number(product.stock) <= 0;
     const low = product.stock > 0 && product.stock <= 5;
     const stockClass = out ? 'out' : (low ? 'low' : '');
     const stockText = out ? 'Sin stock por ahora' : (low ? 'Quedan ' + product.stock + ' unidades' : product.stock + ' disponibles');
     state.productIndex[product.id] = product;
 
-    const reviewLocks = reviews.map(function (review) {
-      return '<article class="review"><div class="review-head"><b>' + esc(review.author) + '</b>' +
-        '<small>' + UI.dateShort(review.createdAt) + ' · ' + '★'.repeat(review.rating) + '</small></div>' +
-        (review.comment ? '<p>' + esc(review.comment) + '</p>' : '<p class="tiny muted">Sin comentario, solo la puntuación.</p>') +
-        '</article>';
-    }).join('');
-
-    const reviewForm = state.user
-      ? '<form id="reviewForm" class="mt-16" style="padding:18px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.02)">' +
-        '<div class="form-grid">' +
-          '<div class="field full"><span>Tu puntuación</span><div class="star-input" id="starInput">' +
-            [1, 2, 3, 4, 5].map(function (value) {
-              return '<button type="button" class="star-btn' + (value <= 5 ? ' is-on' : '') + '" data-star="' + value + '" aria-label="' + value + ' de 5">★</button>';
-            }).join('') +
-          '</div><input type="hidden" name="rating" value="5" /></div>' +
-          '<div class="field full"><span>Comentario (opcional)</span><textarea class="textarea" name="comment" maxlength="600" placeholder="¿Cómo llegó? ¿Era lo que esperabas?"></textarea></div>' +
-        '</div>' +
-        '<div class="modal-foot" style="margin-top:14px"><button class="btn btn-turbo btn-sm" type="submit">Publicar opinión</button></div>' +
-        '</form>'
-      : '<div class="row mt-16"><button class="btn btn-dark btn-sm" type="button" id="reviewLogin">Entrá para dejar tu opinión</button></div>';
+    const media = images.length
+      ? '<img id="galleryMain" src="' + esc(images[0]) + '" alt="' + esc(product.name) + '" />' +
+        (images.length > 1 ? '<div class="gallery-thumbs">' + images.map(function (src, index) {
+          return '<button type="button" class="gallery-thumb' + (index === 0 ? ' is-active' : '') + '" data-gallery-src="' + esc(src) + '" aria-label="Ver foto ' + (index + 1) + '"><img src="' + esc(src) + '" alt="" /></button>';
+        }).join('') + '</div>' : '')
+      : '<span class="tile-emoji" aria-hidden="true">' + esc(product.emoji) + '</span>';
 
     setView(
       '<div class="container">' +
         '<nav class="breadcrumb"><a href="#/catalogo">Catálogo</a><span>/</span><a href="#/tienda/' + esc(product.storeSlug) + '">' + esc(product.storeName) + '</a></nav>' +
         '<div class="product-layout">' +
-          '<div class="product-hero-media" style="--glow:' + esc(product.storeAccent) + '">' +
-            (product.imageUrl ? '<img src="' + esc(product.imageUrl) + '" alt="' + esc(product.name) + '" />' : '<span class="tile-emoji" aria-hidden="true">' + esc(product.emoji) + '</span>') +
+          '<div class="product-hero-media' + (images.length ? ' has-gallery' : '') + '" style="--glow:' + esc(product.storeAccent) + '">' +
+            media +
           '</div>' +
           '<div class="product-info">' +
-            '<a class="seller-chip" href="#/tienda/' + esc(product.storeSlug) + '" style="--accent:' + esc(product.storeAccent) + '">' +
+            '<a class="store-chip" href="#/tienda/' + esc(product.storeSlug) + '" style="--accent:' + esc(product.storeAccent) + '">' +
               '<span class="store-emoji" aria-hidden="true">' + esc(product.storeEmoji) + '</span>' +
               '<span>' + esc(product.storeName) + '<br /><small class="muted">' + esc(product.storeTagline || 'Rincón independiente') + '</small></span>' +
             '</a>' +
             '<h1>' + esc(product.name) + '</h1>' +
-            '<div class="row">' + (product.reviewCount ? UI.ratingLabel(product.rating, product.reviewCount) : '<span class="rating">Todavía sin opiniones</span>') +
-              '<span class="tiny muted">·</span><span class="tiny muted">' + product.sales + ' vendidos</span></div>' +
+            '<div class="row"><span class="tiny muted">' + product.sales + (product.sales === 1 ? ' vendido' : ' vendidos') + '</span></div>' +
             '<div class="product-price-row"><span class="price">' + money(product.price) + '</span>' +
               '<span class="stock-pill ' + stockClass + '">' + esc(stockText) + '</span></div>' +
-            '<p class="product-desc">' + (product.description ? esc(product.description) : 'El vendedor no sumó una descripción, pero podés escribirle desde el panel del rincón si necesitás un detalle.') + '</p>' +
+            '<p class="product-desc">' + (product.description ? esc(product.description) : 'Todavía no hay una descripción para este producto.') + '</p>' +
             '<div class="buy-row">' +
               '<div class="stepper"><button type="button" data-qty-minus aria-label="Restar">−</button><span id="detailQty">1</span><button type="button" data-qty-plus aria-label="Sumar">+</button></div>' +
               '<button class="btn btn-turbo" type="button" id="detailAdd"' + (out ? ' disabled' : '') + '>' + icon('cart', 16) + ' Agregar al carrito</button>' +
@@ -652,11 +639,6 @@
             '</div>' +
           '</div>' +
         '</div>' +
-
-        '<section class="section" id="opiniones">' +
-          sectionHead('Lo que dicen', reviews.length ? 'Opiniones de gente que ya lo llevó.' : 'Todavía nadie se animó a opinar.') +
-          '<div class="review-list">' + (reviewLocks || '<p class="tiny muted">Sin opiniones por ahora.</p>') + '</div>' + reviewForm +
-        '</section>' +
 
         (related.length ? '<section class="section">' + sectionHead('Del mismo rincón', 'Otros productos de ' + esc(product.storeName) + '.') + productGrid(related, {}) + '</section>' : '') +
       '</div>'
@@ -675,46 +657,15 @@
     const buyBtn = document.getElementById('detailBuy');
     if (buyBtn && !out) buyBtn.addEventListener('click', function () { addToCart(product, qty); navigate('/carrito'); });
 
-    const starWrap = document.getElementById('starInput');
-    if (starWrap) {
-      const ratingInput = starWrap.parentElement.querySelector('input[name="rating"]');
-      starWrap.addEventListener('click', function (event) {
-        const button = event.target.closest('[data-star]');
-        if (!button) return;
-        const value = Number(button.getAttribute('data-star'));
-        if (ratingInput) ratingInput.value = String(value);
-        starWrap.querySelectorAll('[data-star]').forEach(function (star) {
-          star.classList.toggle('is-on', Number(star.getAttribute('data-star')) <= value);
-        });
+    const galleryMain = document.getElementById('galleryMain');
+    const thumbs = document.querySelectorAll('[data-gallery-src]');
+    thumbs.forEach(function (thumb) {
+      thumb.addEventListener('click', function () {
+        if (!galleryMain) return;
+        galleryMain.src = thumb.getAttribute('data-gallery-src');
+        thumbs.forEach(function (other) { other.classList.toggle('is-active', other === thumb); });
       });
-    }
-
-    const reviewFormEl = document.getElementById('reviewForm');
-    if (reviewFormEl) {
-      reviewFormEl.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        const button = reviewFormEl.querySelector('button[type="submit"]');
-        button.disabled = true;
-        try {
-          const payload = UI.formDataToObject(reviewFormEl);
-          await Api.addReview(product.id, { rating: payload.rating, comment: payload.comment || '' });
-          UI.toast('Tu opinión quedó publicada.', 'success');
-          await viewProduct(params, id);
-        } catch (error) {
-          UI.toast(error.message, 'error');
-          button.disabled = false;
-        }
-      });
-    }
-
-    const reviewLogin = document.getElementById('reviewLogin');
-    if (reviewLogin) {
-      reviewLogin.addEventListener('click', function () {
-        openAuthModal('login').then(function (user) {
-          if (user) viewProduct(params, id);
-        });
-      });
-    }
+    });
   }
   /* -------------------------------- carrito -------------------------------- */
 
@@ -742,14 +693,13 @@
   async function viewCart() {
     await getMeta().catch(function () {});
     if (!state.cart.length) {
-      setView('<div class="container">' + pageHead('El carrito', 'Todavía no elegiste nada. El rincón tiene de todo, aunque no lo parezca.') +
-        emptyBlock('🛒', 'Carrito vacío, mente abierta', 'Cuando algo te guste, sumalo y volvé. Guardamos todo acá.', '#/catalogo', 'Ir al catálogo') + '</div>');
+      setView('<div class="container">' + pageHead('El carrito', 'Todavía no elegiste nada. Cuando encuentres algo, guardalo acá.') +
+        emptyBlock('🛒', 'Carrito vacío', 'Cuando algo te guste, sumalo y volvé. Guardamos todo acá.', '#/catalogo', 'Ir al catálogo') + '</div>');
       return;
     }
 
     const totals = cartTotals();
-    const user = state.user || {};
-    const savedEmail = Api.lastEmail() || user.email || '';
+    const savedEmail = Api.lastEmail();
     const shippingLines = totals.groups.map(function (group) {
       return '<div class="summary-row"><span>' + esc(group.storeName) + '</span><strong>' + (group.shipping ? money(group.shipping) : 'Gratis') + '</strong></div>';
     }).join('');
@@ -763,11 +713,11 @@
             '<form id="checkoutForm" class="summary-card" style="position:static;margin-top:22px" novalidate>' +
               '<h2>Datos de entrega</h2>' +
               '<div class="form-grid">' +
-                '<label class="field"><span>Nombre y apellido</span><input class="input" name="buyerName" required minlength="2" value="' + esc(user.name || '') + '" placeholder="Quién recibe" /></label>' +
+                '<label class="field"><span>Nombre y apellido</span><input class="input" name="buyerName" required minlength="2" placeholder="Quién recibe" /></label>' +
                 '<label class="field"><span>Correo</span><input class="input" name="buyerEmail" type="email" required value="' + esc(savedEmail) + '" placeholder="vos@correo.com" /></label>' +
                 '<label class="field"><span>Teléfono</span><input class="input" name="buyerPhone" value="" placeholder="Opcional, para coordinar" /></label>' +
                 '<label class="field"><span>Dirección</span><input class="input" name="address" required minlength="5" placeholder="Calle, número, piso" /></label>' +
-                '<label class="field full"><span>Nota para el vendedor</span><textarea class="textarea" name="note" maxlength="500" placeholder="Horarios, referencias, algún detalle"></textarea></label>' +
+                '<label class="field full"><span>Nota para la tienda</span><textarea class="textarea" name="note" maxlength="500" placeholder="Horarios, referencias, algún detalle"></textarea></label>' +
               '</div>' +
               '<p class="tiny muted mt-16">El pedido se registra y cada tienda lo coordina con vos. El pago se arregla directo al recibir o por el medio que acuerden.</p>' +
             '</form>' +
@@ -933,285 +883,107 @@
       trackingFormHtml('') + '</div>');
     bindTrackingForm();
   }
-  /* -------------------------------- cuenta --------------------------------- */
+  /* ----------------------------- administración ---------------------------- */
 
-  function authCardHtml(mode, bare) {
-    const isLogin = mode !== 'register';
-    return '<div class="' + (bare ? '' : 'auth-card') + '">' +
-      '<div class="tabs" role="tablist">' +
-        '<button type="button" data-auth-mode="login" class="' + (isLogin ? 'is-active' : '') + '">Entrar</button>' +
-        '<button type="button" data-auth-mode="register" class="' + (!isLogin ? 'is-active' : '') + '">Crear cuenta</button>' +
-      '</div>' +
-      '<form class="auth-form" data-mode="login"' + (isLogin ? '' : ' hidden') + '>' +
-        '<label class="field"><span>Correo</span><input class="input" name="email" type="email" required autocomplete="email" placeholder="vos@correo.com" /></label>' +
+  function adminLoginHtml(message) {
+    return '<div class="admin-gate"><div class="admin-gate-card">' +
+      '<span class="eyebrow">Acceso restringido</span>' +
+      '<h2>Panel del rincón</h2>' +
+      '<p class="muted">Entrá con tu cuenta de Surface. Solo las cuentas con permisos pueden armar tiendas y cargar productos.</p>' +
+      '<form id="adminLoginForm" class="admin-login-form" novalidate>' +
+        '<label class="field"><span>Usuario de Surface</span><input class="input" name="username" required autocomplete="username" placeholder="Tu usuario" /></label>' +
         '<label class="field"><span>Contraseña</span><input class="input" name="password" type="password" required autocomplete="current-password" placeholder="Tu contraseña" /></label>' +
-        '<p class="form-error" data-auth-error></p>' +
-        '<button class="btn btn-turbo btn-block" type="submit">Entrar al rincón</button>' +
+        '<p class="form-error" id="adminLoginError">' + esc(message || '') + '</p>' +
+        '<button class="btn btn-turbo btn-block" type="submit">Entrar al panel</button>' +
       '</form>' +
-      '<form class="auth-form" data-mode="register"' + (!isLogin ? '' : ' hidden') + '>' +
-        '<label class="field"><span>Tu nombre</span><input class="input" name="name" required minlength="2" autocomplete="name" placeholder="Cómo te llamás" /></label>' +
-        '<label class="field"><span>Correo</span><input class="input" name="email" type="email" required autocomplete="email" placeholder="vos@correo.com" /></label>' +
-        '<label class="field"><span>Contraseña</span><input class="input" name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="Al menos 6 caracteres" /></label>' +
-        '<p class="form-error" data-auth-error></p>' +
-        '<button class="btn btn-turbo btn-block" type="submit">Crear mi cuenta</button>' +
-      '</form>' +
-      '<p class="tiny muted mt-16">Con tu cuenta abrís tiendas, cargás productos y seguís tus pedidos.</p>' +
-    '</div>';
+      '<p class="tiny muted mt-16">OceanandWild administra desde acá quién puede entrar y cargar contenido.</p>' +
+    '</div></div>';
   }
 
-  function bindAuth(root, onSuccess) {
-    if (!root) return;
-    const tabs = root.querySelectorAll('[data-auth-mode]');
-    const forms = root.querySelectorAll('.auth-form');
-    function show(mode) {
-      tabs.forEach(function (tab) { tab.classList.toggle('is-active', tab.getAttribute('data-auth-mode') === mode); });
-      forms.forEach(function (form) { form.hidden = form.getAttribute('data-mode') !== mode; });
-      const first = root.querySelector('.auth-form[data-mode="' + mode + '"] input');
-      if (first) first.focus();
-    }
-    tabs.forEach(function (tab) {
-      tab.addEventListener('click', function () { show(tab.getAttribute('data-auth-mode')); });
-    });
-    forms.forEach(function (form) {
-      form.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        const button = form.querySelector('button[type="submit"]');
-        const errorBox = form.querySelector('[data-auth-error]');
-        if (errorBox) errorBox.textContent = '';
-        if (!form.reportValidity()) return;
-        button.disabled = true;
-        const original = button.textContent;
-        button.textContent = 'Un segundo…';
-        try {
-          const mode = form.getAttribute('data-mode');
-          const payload = UI.formDataToObject(form);
-          const data = mode === 'register'
-            ? await Api.register({ name: payload.name, email: payload.email, password: payload.password })
-            : await Api.login({ email: payload.email, password: payload.password });
-          applySession(data.user, data.token);
-          const firstName = String(data.user.name || '').split(' ')[0];
-          UI.toast('Hola, ' + firstName + '. Ya estás adentro.', 'success');
-          onSuccess(data.user);
-        } catch (error) {
-          if (errorBox) errorBox.textContent = error.message;
-          UI.toast(error.message, 'error');
-          button.disabled = false;
-          button.textContent = original;
-        }
-      });
-    });
-  }
-
-  function openAuthModal(mode) {
-    return new Promise(function (resolve) {
-      let done = false;
-      const dialog = UI.modal('<div id="authModalBody">' + authCardHtml(mode || 'login', true) + '</div>', {
-        title: 'Entrá al rincón',
-        subtitle: 'Tu cuenta te deja abrir tiendas y seguir tus pedidos.',
-        label: 'Cuenta'
-      });
-      bindAuth(document.getElementById('authModalBody'), function (user) {
-        done = true;
-        dialog.close();
-        resolve(user);
-      });
-      const root = document.getElementById('modalRoot');
-      const observer = new MutationObserver(function () {
-        if (!done && !root.querySelector('.modal')) {
-          observer.disconnect();
-          resolve(null);
-        }
-      });
-      observer.observe(root, { childList: true });
-    });
-  }
-
-  async function viewAuth(params) {
-    await getMeta().catch(function () {});
-    if (state.user) {
-      const initial = String(state.user.name || '?').trim().charAt(0).toUpperCase();
-      setView('<div class="container">' + pageHead('Tu cuenta', 'Acá tenés todo lo tuyo: tus tiendas, tus compras y tus datos.') +
-        '<div class="auth-card"><div class="account-head">' +
-        '<div class="avatar">' + esc(initial) + '</div>' +
-        '<div><h2>' + esc(state.user.name) + '</h2><p class="muted">' + esc(state.user.email) + '</p></div></div>' +
-        '<div class="row mt-24"><a class="btn btn-turbo" href="#/panel">Ir a mi panel</a>' +
-        '<a class="btn btn-ghost" href="#/vender">Abrir otra tienda</a></div>' +
-        '<button class="btn btn-ghost mt-16" type="button" data-action="logout">Cerrar sesión</button></div></div>');
-      return;
-    }
-    const next = params.get('next') || '/panel';
-    const mode = params.get('mode') === 'register' ? 'register' : 'login';
-    setView('<div class="container">' + pageHead('Entrá al rincón', 'Una cuenta, todos tus rincones y tus compras en un mismo lugar.') +
-      '<div id="authPage">' + authCardHtml(mode) + '</div></div>');
-    bindAuth(document.getElementById('authPage'), function () { navigate(next); });
-  }
-
-  /* -------------------------------- vender --------------------------------- */
-
-  function sellPitchHtml() {
-    return '<div class="sell-pitch">' +
-      '<span class="eyebrow">Para vendedores</span>' +
-      '<h2>Tu rincón, tus reglas.</h2>' +
-      '<p>Abrí una tienda con el nombre que quieras, cargá lo que tengas y empezá a recibir pedidos. Sin comisiones por publicar y sin letra chica.</p>' +
-      '<ul class="check-list">' +
-        '<li>Tienda propia con link para compartir</li>' +
-        '<li>Productos con foto o emoji, stock y precio</li>' +
-        '<li>Pedidos y estados en un panel simple</li>' +
-        '<li>Hasta 5 tiendas por cuenta</li>' +
-      '</ul>' +
-      '<div class="sell-note">El pago lo coordinás directo con quien compra. Acá solo se registra el pedido y se descuenta stock.</div>' +
-    '</div>';
-  }
-
-  function sellInfoHtml() {
-    return '<div class="steps" style="margin-top:34px">' +
-      '<article class="step"><div class="num">$</div><h3>Publicar no cuesta</h3><p>Crear la tienda y subir productos es gratis. No te cobramos por estar en la vidriera.</p></article>' +
-      '<article class="step"><div class="num">↔</div><h3>El envío lo arreglás vos</h3><p>Cada tienda define cómo entrega. El sitio sugiere $2.500 de envío y gratis desde $30.000.</p></article>' +
-      '<article class="step"><div class="num">◎</div><h3>Todo queda registrado</h3><p>Cuando alguien compra, el pedido aparece en tu panel con los datos de entrega y el stock ya descontado.</p></article>' +
-    '</div>';
-  }
-  async function viewSell() {
-    const meta = await getMeta();
-    if (!state.user) {
-      setView('<div class="container">' + pageHead('Abrí tu rincón', 'Un nombre, un color y algo para vender. El resto se acomoda.') +
-        '<div class="sell-layout">' + sellPitchHtml() + '<div id="sellAuth">' + authCardHtml('register') + '</div></div>' +
-        sellInfoHtml() + '</div>');
-      bindAuth(document.getElementById('sellAuth'), function () { viewSell(); });
-      return;
-    }
-
-    let myStores = [];
-    try {
-      const data = await Api.stores({ owner: 'me', limit: 20 });
-      myStores = data.stores || [];
-    } catch (error) {}
-
-    const limit = meta.limits ? meta.limits.storesPerOwner : 5;
-    const categories = meta.categories || [];
-    const accents = meta.accents || ACCENTS;
-    const emojis = STORE_EMOJIS;
-
-    const mineHtml = myStores.length
-      ? '<div class="row" style="margin-bottom:18px"><span class="tiny muted">Tus rincones:</span>' + myStores.map(function (store) {
-          return '<a class="chip" href="#/tienda/' + esc(store.slug) + '">' + esc(store.emoji) + ' ' + esc(store.name) + '</a>';
-        }).join('') + '<a class="chip" href="#/panel">Ir al panel →</a></div>'
-      : '';
-
-    const formHtml = myStores.length >= limit
-      ? '<div class="empty-state" style="padding:40px 24px"><span class="emoji">🏪</span><h3>Ya tenés ' + limit + ' rincones</h3><p>Es el máximo por cuenta. Podés administrar los que ya abriste desde el panel.</p><a class="btn btn-turbo" href="#/panel">Ir al panel</a></div>'
-      : '<form id="storeForm" class="summary-card" style="position:static">' +
-        '<h2>Abrí un rincón nuevo</h2>' +
-        '<div class="form-grid">' +
-          '<label class="field"><span>Nombre de la tienda</span><input class="input" name="name" required minlength="3" maxlength="60" placeholder="Ej. Bazar Nueve Vidas" /></label>' +
-          '<label class="field"><span>Categoría</span><select name="category">' + categories.map(function (category) {
-            return '<option value="' + esc(category) + '"' + (category === 'Tecnología' ? ' selected' : '') + '>' + esc(category) + '</option>';
-          }).join('') + '</select></label>' +
-          '<label class="field full"><span>Frase corta</span><input class="input" name="tagline" required minlength="6" maxlength="140" placeholder="Qué vendés y por qué vale la pena entrar" /></label>' +
-          '<label class="field full"><span>Descripción</span><textarea class="textarea" name="description" maxlength="700" placeholder="Contá un poco más: de dónde sale lo que vendés, cómo trabajás, qué te gusta."></textarea></label>' +
-          '<div class="field full"><span>Emoji de portada</span><div class="emoji-picker" id="emojiPicker">' + emojis.map(function (emoji, index) {
-            return '<button type="button" data-emoji="' + emoji + '"' + (index === 0 ? ' class="is-active"' : '') + ' aria-label="Elegir ' + emoji + '">' + emoji + '</button>';
-          }).join('') + '</div><input type="hidden" name="emoji" value="' + emojis[0] + '" /></div>' +
-          '<div class="field full"><span>Color del rincón</span><div class="accent-picker" id="accentPicker">' + accents.map(function (accent, index) {
-            return '<button type="button" data-accent="' + esc(accent) + '" style="background:' + esc(accent) + '"' + (index === 0 ? ' class="is-active"' : '') + ' aria-label="Elegir color"></button>';
-          }).join('') + '</div><input type="hidden" name="accent" value="' + esc(accents[0]) + '" /></div>' +
-        '</div>' +
-        '<button class="btn btn-turbo btn-block mt-16" type="submit">Abrir mi tienda</button>' +
-      '</form>';
-
-    setView('<div class="container">' + pageHead('Abrí tu rincón', 'Un nombre, un color y algo para vender. El resto se acomoda.') +
-      sellInfoHtml() + mineHtml +
-      '<div class="form-layout mt-24">' + formHtml +
-      '<aside class="preview-wrap"><p class="tiny muted">Así se va a ver</p>' +
-      '<div class="store-card" id="storePreview" style="--accent:' + esc(accents[0]) + '">' +
-        '<div class="store-top"><span class="store-emoji" id="prevEmoji">' + emojis[0] + '</span><div><div class="store-cat" id="prevCat">Tecnología</div><div class="store-name" id="prevName">Tu rincón</div></div></div>' +
-        '<p class="store-tagline" id="prevTagline">La frase que te describe.</p>' +
-        '<div class="store-foot"><span class="mini">0 productos</span><span class="mini">Nuevo</span></div>' +
-      '</div><p class="tiny muted mt-16">El nombre se convierte en el link de tu tienda.</p></aside></div>' +
-      '</div>');
-
-    const form = document.getElementById('storeForm');
+  function bindAdminLogin(root) {
+    const form = root && root.querySelector('#adminLoginForm');
     if (!form) return;
-    const preview = document.getElementById('storePreview');
-    const prevName = document.getElementById('prevName');
-    const prevTagline = document.getElementById('prevTagline');
-    const prevCat = document.getElementById('prevCat');
-    const prevEmoji = document.getElementById('prevEmoji');
-    const nameInput = form.querySelector('[name="name"]');
-    const taglineInput = form.querySelector('[name="tagline"]');
-    const categorySelect = form.querySelector('[name="category"]');
-    const emojiInput = form.querySelector('[name="emoji"]');
-    const accentInput = form.querySelector('[name="accent"]');
-
-    function paint() {
-      if (prevName) prevName.textContent = nameInput.value.trim() || 'Tu rincón';
-      if (prevTagline) prevTagline.textContent = taglineInput.value.trim() || 'La frase que te describe.';
-      if (prevCat) prevCat.textContent = categorySelect.value;
-      if (prevEmoji) prevEmoji.textContent = emojiInput.value;
-      if (preview) preview.style.setProperty('--accent', accentInput.value);
-    }
-    [nameInput, taglineInput].forEach(function (input) { input.addEventListener('input', paint); });
-    categorySelect.addEventListener('change', paint);
-
-    document.getElementById('emojiPicker').addEventListener('click', function (event) {
-      const button = event.target.closest('[data-emoji]');
-      if (!button) return;
-      emojiInput.value = button.getAttribute('data-emoji');
-      document.querySelectorAll('#emojiPicker button').forEach(function (item) { item.classList.toggle('is-active', item === button); });
-      paint();
-    });
-    document.getElementById('accentPicker').addEventListener('click', function (event) {
-      const button = event.target.closest('[data-accent]');
-      if (!button) return;
-      accentInput.value = button.getAttribute('data-accent');
-      document.querySelectorAll('#accentPicker button').forEach(function (item) { item.classList.toggle('is-active', item === button); });
-      paint();
-    });
-
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
-      if (!form.reportValidity()) return;
       const button = form.querySelector('button[type="submit"]');
+      const errorBox = document.getElementById('adminLoginError');
+      if (errorBox) errorBox.textContent = '';
+      if (!form.reportValidity()) return;
       button.disabled = true;
-      button.textContent = 'Abriendo el rincón…';
+      const original = button.textContent;
+      button.textContent = 'Entrando…';
       try {
-        const data = await Api.createStore(UI.formDataToObject(form));
-        UI.toast('Tu rincón está abierto. Ahora cargá algo.', 'success');
-        navigate('/tienda/' + data.store.slug);
+        const payload = UI.formDataToObject(form);
+        Api.clearSession();
+        const login = await Api.surfaceLogin({ username: payload.username, password: payload.password, client: 'ows' });
+        if (!login || !login.token) throw new Error('Surface no devolvió una sesión.');
+        Api.setSession(login.token, null);
+        const me = await Api.me();
+        if (!me.isAdmin) {
+          Api.clearSession();
+          throw new Error('Esa cuenta no tiene permisos de administración.');
+        }
+        const user = Object.assign({}, me.user, { isAdmin: true, isOwner: Boolean(me.isOwner) });
+        applySession(user, login.token);
+        UI.toast('Bienvenido, ' + me.user.username + '.', 'success');
+        navigate('/admin?tab=tiendas');
       } catch (error) {
+        if (errorBox) errorBox.textContent = error.message;
         UI.toast(error.message, 'error');
         button.disabled = false;
-        button.textContent = 'Abrir mi tienda';
+        button.textContent = original;
       }
     });
   }
-  /* -------------------------------- panel ---------------------------------- */
 
-  function panelHref(tab, storeId) {
+  function adminHref(tab, storeId, status, q) {
     const params = new URLSearchParams();
-    params.set('tab', tab);
+    params.set('tab', tab || 'tiendas');
     if (storeId) params.set('store', storeId);
-    return '#/panel?' + params.toString();
+    if (status) params.set('status', status);
+    if (q) params.set('q', q);
+    return '#/admin?' + params.toString();
   }
 
   function statCard(label, value, accent) {
     return '<div class="stat-card' + (accent ? ' accent' : '') + '"><span>' + label + '</span><strong>' + value + '</strong></div>';
   }
 
-  function panelProductsHtml(products, stores) {
+  function adminStoresHtml(stores) {
+    if (!stores.length) {
+      return emptyBlock('🏪', 'Todavía no hay tiendas', 'Creá el primer rincón y después cargale productos. El catálogo público se arma solo.', '', '') +
+        '<div class="row mt-16" style="justify-content:center"><button class="btn btn-turbo" type="button" data-action="new-store">Crear la primera tienda</button></div>';
+    }
+    return stores.map(function (store) {
+      return '<div class="admin-row">' +
+        '<a class="cart-thumb" href="#/tienda/' + esc(store.slug) + '" style="--glow:' + esc(store.accent) + '">' + esc(store.emoji) + '</a>' +
+        '<div class="admin-row-info"><b>' + esc(store.name) + (store.activeProducts ? '' : ' <span class="tiny muted">· sin productos activos</span>') + '</b>' +
+        '<small>' + esc(store.category) + ' · ' + (store.products || 0) + (store.products === 1 ? ' producto' : ' productos') + ' · ' + (store.orders || 0) + (store.orders === 1 ? ' pedido' : ' pedidos') + '</small>' +
+        '<small class="muted">' + esc(UI.truncate(store.tagline || '', 90)) + '</small></div>' +
+        '<div class="admin-row-actions">' +
+          '<button class="mini-icon" type="button" data-action="new-product" data-store="' + store.id + '" title="Cargar producto">' + icon('plus', 15) + '</button>' +
+          '<button class="mini-icon" type="button" data-action="edit-store" data-id="' + store.id + '" title="Editar tienda">' + icon('edit', 15) + '</button>' +
+          '<button class="mini-icon danger" type="button" data-action="delete-store" data-id="' + store.id + '" title="Eliminar tienda">' + icon('trash', 15) + '</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  function adminProductsHtml(products, stores) {
+    if (!stores.length) {
+      return emptyBlock('🏪', 'Primero armá una tienda', 'Los productos viven dentro de un rincón. Creá uno y volvé a esta pestaña.', '#/admin?tab=tiendas', 'Ir a tiendas');
+    }
     if (!products.length) {
-      return emptyBlock('📦', 'Todavía no hay productos', 'Sumá el primero y empezá a mostrarlo en tu vidriera.', '', '') +
-        '<div class="row mt-16" style="justify-content:center"><button class="btn btn-turbo" type="button" data-action="new-product" data-store="' + (stores[0] ? stores[0].id : '') + '">Sumar producto</button></div>';
+      return emptyBlock('📦', 'La vidriera está vacía', 'Cargá el primer producto con sus fotos, precio y stock.', '', '') +
+        '<div class="row mt-16" style="justify-content:center"><button class="btn btn-turbo" type="button" data-action="new-product" data-store="' + stores[0].id + '">Cargar el primero</button></div>';
     }
     return '<div class="row mb-16"><span class="tiny muted">' + products.length + (products.length === 1 ? ' producto' : ' productos') + '</span>' +
-      '<span class="spacer"></span><button class="btn btn-turbo btn-sm" type="button" data-action="new-product" data-store="' + (stores[0] ? stores[0].id : '') + '">+ Sumar producto</button></div>' +
+      '<span class="spacer"></span><button class="btn btn-turbo btn-sm" type="button" data-action="new-product" data-store="' + stores[0].id + '">+ Nuevo producto</button></div>' +
       '<div class="admin-list">' + products.map(function (product) {
-        const thumb = product.imageUrl
-          ? '<img src="' + esc(product.imageUrl) + '" alt="" />'
-          : esc(product.emoji);
+        const thumb = product.imageUrl ? '<img src="' + esc(product.imageUrl) + '" alt="" />' : esc(product.emoji);
         return '<div class="admin-row">' +
           '<a class="cart-thumb" href="#/producto/' + product.id + '" style="--glow:' + esc(product.storeAccent) + '">' + thumb + '</a>' +
           '<div class="admin-row-info"><b>' + esc(product.name) + (product.status === 'pausado' ? ' <span class="tiny muted">· pausado</span>' : '') + '</b>' +
-          '<small>' + esc(product.storeName) + ' · ' + money(product.price) + ' · ' + product.stock + ' en stock</small></div>' +
+          '<small>' + esc(product.storeName) + ' · ' + money(product.price) + ' · ' + product.stock + ' en stock' + (product.images && product.images.length > 1 ? ' · ' + product.images.length + ' fotos' : '') + '</small></div>' +
           '<div class="admin-row-actions">' +
             '<button class="mini-icon" type="button" data-action="toggle-product" data-id="' + product.id + '" title="' + (product.status === 'activo' ? 'Pausar' : 'Activar') + '">' + icon(product.status === 'activo' ? 'eye' : 'pause', 15) + '</button>' +
             '<button class="mini-icon" type="button" data-action="edit-product" data-id="' + product.id + '" title="Editar">' + icon('edit', 15) + '</button>' +
@@ -1220,91 +992,133 @@
       }).join('') + '</div>';
   }
 
-  async function viewPanel(params) {
+  function adminOrdersHtml(orders, status, storeFilter) {
+    const statuses = ['todos', 'pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado'];
+    const chips = '<div class="store-switch">' + statuses.map(function (value) {
+      const active = value === 'todos' ? !status : status === value;
+      return '<a class="chip' + (active ? ' is-active' : '') + '" href="' + adminHref('pedidos', storeFilter, value === 'todos' ? '' : value) + '">' + (value === 'todos' ? 'Todos' : value.charAt(0).toUpperCase() + value.slice(1)) + '</a>';
+    }).join('') + '</div>';
+    if (!orders.length) {
+      return chips + emptyBlock('🧾', 'No hay pedidos con ese filtro', 'Cuando alguien compre, el pedido aparece acá con sus datos y su estado.', '', '');
+    }
+    return chips + orders.map(function (order) { return UI.orderCard(order, { editable: true }); }).join('');
+  }
+
+  function adminAdminsHtml(admins, query) {
+    return '<div class="admin-intro"><p class="muted">Estas son las cuentas de Surface que pueden entrar al panel. Solo OceanandWild puede dar o quitar permisos.</p></div>' +
+      '<form class="head-search admin-search" id="adminSearchForm" role="search">' + icon('search', 16) +
+        '<input type="search" name="q" value="' + esc(query || '') + '" placeholder="Buscar una cuenta de Surface…" />' +
+        '<button class="btn btn-turbo btn-sm" type="submit">Buscar</button></form>' +
+      (admins.length ? '<div class="admin-list">' + admins.map(function (account) {
+        const badges = (account.isOwner ? '<span class="admin-badge owner">Cuenta principal</span>' : '') +
+          (account.isAdmin ? '<span class="admin-badge">Admin</span>' : '<span class="admin-badge off">Sin acceso</span>') +
+          (account.powerLevel > 0 ? '<span class="admin-badge level">Nivel ' + account.powerLevel + '</span>' : '');
+        const canToggle = !account.isOwner && account.powerLevel === 0;
+        return '<div class="admin-row">' +
+          '<span class="admin-avatar">' + esc(String(account.username || '?').charAt(0).toUpperCase()) + '</span>' +
+          '<div class="admin-row-info"><b>' + esc(account.username) + '</b><small>' + badges + '</small></div>' +
+          '<div class="admin-row-actions">' + (canToggle
+            ? '<button class="btn btn-ghost btn-sm" type="button" data-action="toggle-admin" data-id="' + account.id + '" data-admin="' + (account.flag ? 'true' : 'false') + '">' + (account.flag ? 'Quitar admin' : 'Hacer admin') + '</button>'
+            : '<span class="tiny muted">' + (account.isOwner ? 'No se puede cambiar' : 'Admin por nivel') + '</span>') +
+          '</div></div>';
+      }).join('') + '</div>' : emptyBlock('🔎', 'No encontramos esa cuenta', 'Probá con otro nombre de usuario de Surface.', '', ''));
+  }
+
+  async function viewAdmin(params) {
     await getMeta().catch(function () {});
-    const user = await ensureUser();
+    const user = await ensureAdmin();
     if (!user) {
-      setView('<div class="container">' + pageHead('Tu panel', 'Entrá para ver tus tiendas, tus productos y los pedidos.') +
-        '<div id="panelAuth">' + authCardHtml('login') + '</div></div>');
-      bindAuth(document.getElementById('panelAuth'), function () { viewPanel(params); });
+      setView('<div class="container">' + pageHead('Administración', 'Tiendas, productos y pedidos del rincón.') +
+        '<div id="adminLogin">' + adminLoginHtml('') + '</div></div>');
+      bindAdminLogin(document.getElementById('adminLogin'));
       return;
     }
 
-    const tab = params.get('tab') === 'pedidos' ? 'pedidos' : (params.get('tab') === 'compras' ? 'compras' : 'productos');
+    let tab = ['tiendas', 'productos', 'pedidos', 'admins'].indexOf(params.get('tab')) !== -1 ? params.get('tab') : 'tiendas';
+    if (tab === 'admins' && !user.isOwner) tab = 'tiendas';
     const storeFilter = Number(params.get('store') || 0);
-    setView('<div class="container">' + pageHead('Tu panel', 'Tus rincones, tus productos y los pedidos que van entrando.') +
-      '<div class="dash-top" id="panelStats">' + UI.skeletonGrid(5).replace('loading-block', 'loading-block') + '</div>' +
-      '<div id="panelBody">' + UI.skeletonGrid(4) + '</div></div>');
+    const statusFilter = ['pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado'].indexOf(params.get('status')) !== -1 ? params.get('status') : '';
+    const query = String(params.get('q') || '').trim();
+    setView('<div class="container">' + pageHead('Administración', 'Armá las tiendas, cargá productos y seguí los pedidos.') +
+      '<div class="admin-session"><span>@' + esc(user.username) + '</span>' +
+        '<span class="admin-badge' + (user.isOwner ? ' owner' : '') + '">' + (user.isOwner ? 'Cuenta principal' : 'Admin') + '</span>' +
+        '<span class="spacer"></span><button class="btn btn-ghost btn-sm" type="button" data-action="logout">Cerrar sesión</button></div>' +
+      '<div class="dash-top" id="adminStats">' + UI.skeletonGrid(5) + '</div>' +
+      '<div id="adminBody">' + UI.skeletonGrid(4) + '</div></div>');
 
     try {
-      const [summary, sellerOrders, purchases, sellerProducts] = await Promise.all([
-        Api.sellerSummary(),
-        Api.sellerOrders(),
-        Api.myOrders().catch(function () { return { orders: [] }; }),
-        Api.sellerProducts(storeFilter || undefined)
+      const results = await Promise.all([
+        Api.adminSummary(),
+        Api.adminProducts(storeFilter || undefined),
+        Api.adminOrders({ status: statusFilter || undefined, storeId: storeFilter || undefined }),
+        user.isOwner ? Api.admins(query) : Promise.resolve({ admins: [] })
       ]);
+      const summary = results[0] || {};
       const stores = summary.stores || [];
       const totals = summary.totals || {};
-      const products = sellerProducts.products || [];
-      const orders = sellerOrders.orders || [];
-      const myOrders = purchases.orders || [];
-      state.sellerStores = stores;
-      state.sellerProducts = products;
+      const products = (results[1] && results[1].products) || [];
+      const orders = (results[2] && results[2].orders) || [];
+      const admins = (results[3] && results[3].admins) || [];
 
-      const visibleOrders = storeFilter ? orders.filter(function (order) { return Number(order.storeId) === storeFilter; }) : orders;
-      const firstName = String(user.name || '').split(' ')[0];
+      state.adminStores = stores;
+      state.adminProducts = products;
+      state.adminOrders = orders;
 
-      const statsHtml = statCard('Tiendas', totals.stores || 0) +
+      const stats = document.getElementById('adminStats');
+      if (stats) stats.innerHTML = statCard('Tiendas', totals.stores || 0) +
         statCard('Productos', totals.products || 0) +
         statCard('Pedidos', totals.orders || 0) +
         statCard('Pendientes', totals.pending || 0) +
         statCard('Facturado', money(totals.revenue || 0), true);
 
-      const storeSwitch = stores.length ? '<div class="store-switch">' +
-        '<a class="chip' + (!storeFilter ? ' is-active' : '') + '" href="' + panelHref(tab, 0) + '">Todos los rincones</a>' +
+      const storeSwitch = stores.length && (tab === 'productos' || tab === 'pedidos') ? '<div class="store-switch">' +
+        '<a class="chip' + (!storeFilter ? ' is-active' : '') + '" href="' + adminHref(tab, 0, statusFilter, query) + '">Todos los rincones</a>' +
         stores.map(function (store) {
-          return '<a class="chip' + (storeFilter === Number(store.id) ? ' is-active' : '') + '" href="' + panelHref(tab, store.id) + '">' + esc(store.emoji) + ' ' + esc(store.name) + '</a>';
-        }).join('') + '<button class="chip" type="button" data-action="new-store">+ Nueva tienda</button></div>' : '';
+          return '<a class="chip' + (storeFilter === Number(store.id) ? ' is-active' : '') + '" href="' + adminHref(tab, store.id, statusFilter, query) + '">' + esc(store.emoji) + ' ' + esc(store.name) + '</a>';
+        }).join('') + '</div>' : '';
 
       let bodyHtml = '';
-      if (!stores.length) {
-        bodyHtml = emptyBlock('🏪', 'Todavía no abriste un rincón', 'Creá tu primera tienda y en un par de minutos ya podés cargar productos.', '#/vender', 'Abrir mi tienda');
-      } else if (tab === 'productos') {
-        bodyHtml = panelProductsHtml(products, stores);
-      } else if (tab === 'pedidos') {
-        bodyHtml = visibleOrders.length
-          ? visibleOrders.map(function (order) { return UI.orderCard(order, { editable: true }); }).join('')
-          : emptyBlock('🧾', 'No hay pedidos por acá', 'Cuando alguien compre en tus rincones, el pedido aparece en esta lista.', '', '');
-      } else {
-        bodyHtml = myOrders.length
-          ? myOrders.map(function (order) { return UI.orderCard(order, {}); }).join('')
-          : emptyBlock('🛍️', 'Todavía no compraste nada', 'Cuando lo hagas, todos tus pedidos quedan acá con su estado.', '#/catalogo', 'Ver catálogo');
-      }
+      if (tab === 'tiendas') bodyHtml = adminStoresHtml(stores);
+      else if (tab === 'productos') bodyHtml = adminProductsHtml(products, stores);
+      else if (tab === 'pedidos') bodyHtml = adminOrdersHtml(orders, statusFilter, storeFilter);
+      else bodyHtml = adminAdminsHtml(admins, query);
 
-      const body = '<div class="row mb-24" style="justify-content:space-between">' +
-        '<p class="muted" style="font-size:14px">Hola de nuevo, ' + esc(firstName) + '.</p>' +
+      const actions = '<div class="row mb-24" style="justify-content:space-between">' +
+        '<p class="muted" style="font-size:14px">' + (totals.activeProducts || 0) + ' productos activos en ' + (totals.stores || 0) + (totals.stores === 1 ? ' tienda' : ' tiendas') + '.</p>' +
         '<div class="row"><button class="btn btn-ghost btn-sm" type="button" data-action="new-store">Nueva tienda</button>' +
-        '<button class="btn btn-turbo btn-sm" type="button" data-action="new-product" data-store="' + (storeFilter || (stores[0] ? stores[0].id : '')) + '">Nuevo producto</button></div></div>' +
-        '<div class="dash-tabs">' +
-        '<a class="' + (tab === 'productos' ? 'is-active' : '') + '" href="' + panelHref('productos', storeFilter) + '">Productos</a>' +
-        '<a class="' + (tab === 'pedidos' ? 'is-active' : '') + '" href="' + panelHref('pedidos', storeFilter) + '">Pedidos <span class="tiny muted">' + orders.length + '</span></a>' +
-        '<a class="' + (tab === 'compras' ? 'is-active' : '') + '" href="' + panelHref('compras', 0) + '">Mis compras</a>' +
-        '</div>' + storeSwitch + bodyHtml;
+        '<button class="btn btn-turbo btn-sm" type="button" data-action="new-product" data-store="' + (storeFilter || (stores[0] ? stores[0].id : '')) + '"' + (stores.length ? '' : ' disabled') + '>Nuevo producto</button></div></div>';
 
-      const stats = document.getElementById('panelStats');
-      if (stats) stats.innerHTML = statsHtml;
-      const container = document.getElementById('panelBody');
-      if (container) {
-        container.innerHTML = body;
-        container.querySelectorAll('.dash-tabs a').forEach(function (link) {
-          link.addEventListener('click', function () {});
+      const tabs = '<div class="dash-tabs">' +
+        '<a class="' + (tab === 'tiendas' ? 'is-active' : '') + '" href="' + adminHref('tiendas') + '">Tiendas <span class="tiny muted">' + (totals.stores || 0) + '</span></a>' +
+        '<a class="' + (tab === 'productos' ? 'is-active' : '') + '" href="' + adminHref('productos') + '">Productos <span class="tiny muted">' + (totals.products || 0) + '</span></a>' +
+        '<a class="' + (tab === 'pedidos' ? 'is-active' : '') + '" href="' + adminHref('pedidos') + '">Pedidos <span class="tiny muted">' + (totals.pending || 0) + '</span></a>' +
+        (user.isOwner ? '<a class="' + (tab === 'admins' ? 'is-active' : '') + '" href="' + adminHref('admins') + '">Admins</a>' : '') +
+        '</div>';
+
+      const container = document.getElementById('adminBody');
+      if (container) container.innerHTML = actions + tabs + storeSwitch + bodyHtml;
+      const searchForm = document.getElementById('adminSearchForm');
+      if (searchForm) {
+        searchForm.addEventListener('submit', function (event) {
+          event.preventDefault();
+          const value = searchForm.querySelector('input').value.trim();
+          navigate('/admin?tab=admins' + (value ? '&q=' + encodeURIComponent(value) : ''));
         });
       }
     } catch (error) {
-      const container = document.getElementById('panelBody');
+      if (error.status === 401 || error.status === 403) {
+        Api.clearSession();
+        state.user = null;
+        updateAccount();
+        setView('<div class="container">' + pageHead('Administración', 'La sesión no tiene permisos para este panel.') + adminLoginHtml(error.message) + '</div>');
+        bindAdminLogin(document.getElementById('view'));
+        return;
+      }
+      const container = document.getElementById('adminBody');
       if (container) container.innerHTML = errorBlock(error);
     }
   }
+
   /* ------------------------------- modales --------------------------------- */
 
   const PRODUCT_EMOJIS = ['📦', '🎧', '👟', '🪑', '🕯️', '🎸', '📚', '🪴', '🧸', '🃏', '🍫', '☕', '💻', '🛹', '🎨', '🧵', '📷', '🪐', '⌚', '🍊', '💡', '🔌', '🛋️', '🐈'];
@@ -1339,25 +1153,25 @@
     const emojis = STORE_EMOJIS;
     return '<form id="storeModalForm">' +
       '<div class="form-grid">' +
-        '<label class="field"><span>Nombre</span><input class="input" name="name" required minlength="3" maxlength="60" value="' + esc(store ? store.name : '') + '" placeholder="Ej. Bazar Nueve Vidas" /></label>' +
+        '<label class="field"><span>Nombre</span><input class="input" name="name" required minlength="3" maxlength="60" value="' + esc(store ? store.name : '') + '" placeholder="Cómo se llama el rincón" /></label>' +
         '<label class="field"><span>Categoría</span><select name="category">' + categories.map(function (category) {
           return '<option value="' + esc(category) + '"' + ((store ? store.category : 'Otros') === category ? ' selected' : '') + '>' + esc(category) + '</option>';
         }).join('') + '</select></label>' +
-        '<label class="field full"><span>Frase corta</span><input class="input" name="tagline" required minlength="6" maxlength="140" value="' + esc(store ? store.tagline : '') + '" placeholder="Qué vendés y por qué vale la pena entrar" /></label>' +
-        '<label class="field full"><span>Descripción</span><textarea class="textarea" name="description" maxlength="700" placeholder="De dónde sale lo que vendés, cómo trabajás…">' + esc(store ? store.description : '') + '</textarea></label>' +
+        '<label class="field full"><span>Frase corta</span><input class="input" name="tagline" required minlength="6" maxlength="140" value="' + esc(store ? store.tagline : '') + '" placeholder="Qué se encuentra en esta tienda" /></label>' +
+        '<label class="field full"><span>Descripción</span><textarea class="textarea" name="description" maxlength="700" placeholder="De dónde sale lo que se vende, cómo se trabaja…">' + esc(store ? store.description : '') + '</textarea></label>' +
         '<div class="field full"><span>Emoji</span>' + pickerHtml(emojis, 'emoji', store ? store.emoji : emojis[0], 'emoji') + '</div>' +
         '<div class="field full"><span>Color</span>' + pickerHtml(accents, 'accent', store ? store.accent : accents[0], 'accent') + '</div>' +
       '</div>' +
       '<div class="modal-foot"><button class="btn btn-ghost" type="button" data-modal-close>Cancelar</button>' +
-      '<button class="btn btn-turbo" type="submit">' + (store ? 'Guardar cambios' : 'Abrir tienda') + '</button></div>' +
+      '<button class="btn btn-turbo" type="submit">' + (store ? 'Guardar cambios' : 'Crear tienda') + '</button></div>' +
     '</form>';
   }
 
   async function openStoreModal(store) {
     const meta = await getMeta();
     const dialog = UI.modal(storeFormHtml(store || null, meta), {
-      title: store ? 'Editar ' + store.name : 'Abrir un rincón',
-      subtitle: store ? 'Cambiá lo que quieras: el link se mantiene.' : 'Después podés ajustar todo desde el panel.',
+      title: store ? 'Editar ' + store.name : 'Nueva tienda',
+      subtitle: store ? 'Cambiá lo que quieras: el link se mantiene.' : 'Después de crearla podés cargarle productos.',
       label: store ? 'Editar tienda' : 'Nueva tienda'
     });
     const form = document.getElementById('storeModalForm');
@@ -1379,60 +1193,83 @@
         } else {
           const data = await Api.createStore(payload);
           dialog.close();
-          UI.toast('Tu rincón está abierto.', 'success');
-          navigate('/tienda/' + data.store.slug);
+          UI.toast('Tienda creada. Ahora cargale productos.', 'success');
+          navigate('/admin?tab=tiendas' + (data.store ? '&store=' + data.store.id : ''));
         }
       } catch (error) {
         UI.toast(error.message, 'error');
         button.disabled = false;
-        button.textContent = store ? 'Guardar cambios' : 'Abrir tienda';
+        button.textContent = store ? 'Guardar cambios' : 'Crear tienda';
       }
     });
   }
 
-  function productFormHtml(store, product, meta) {
+  function productFormHtml(store, product, meta, stores) {
     const categories = meta.categories || [];
+    const currentStore = store || (stores && stores[0]) || null;
+    const gallery = product ? (product.images && product.images.length ? product.images : (product.imageUrl ? [product.imageUrl] : [])) : [];
+    const storeField = product || !stores || stores.length <= 1
+      ? '<input type="hidden" name="storeId" value="' + (currentStore ? currentStore.id : '') + '" />'
+      : '<label class="field full"><span>Tienda</span><select name="storeId" required>' + stores.map(function (item) {
+          return '<option value="' + item.id + '"' + (currentStore && Number(currentStore.id) === Number(item.id) ? ' selected' : '') + '>' + esc(item.emoji + ' ' + item.name) + '</option>';
+        }).join('') + '</select></label>';
     return '<form id="productModalForm">' +
-      '<p class="tiny muted mb-16">En ' + esc(store.name) + '</p>' +
+      storeField +
       '<div class="form-grid">' +
-        '<label class="field full"><span>Nombre del producto</span><input class="input" name="name" required minlength="2" maxlength="100" value="' + esc(product ? product.name : '') + '" placeholder="Ej. Lámpara de escritorio" /></label>' +
+        '<label class="field full"><span>Nombre del producto</span><input class="input" name="name" required minlength="2" maxlength="100" value="' + esc(product ? product.name : '') + '" placeholder="Qué es y cómo se reconoce" /></label>' +
         '<label class="field"><span>Precio</span><input class="input" name="price" type="number" min="1" step="0.01" required value="' + (product ? product.price : '') + '" placeholder="0" /></label>' +
         '<label class="field"><span>Stock</span><input class="input" name="stock" type="number" min="0" max="9999" step="1" required value="' + (product ? product.stock : 1) + '" /></label>' +
         '<label class="field"><span>Categoría</span><select name="category">' + categories.map(function (category) {
           return '<option value="' + esc(category) + '"' + ((product ? product.category : 'Otros') === category ? ' selected' : '') + '>' + esc(category) + '</option>';
         }).join('') + '</select></label>' +
-        (product ? '<label class="field"><span>Estado</span><select name="status"><option value="activo"' + (product.status === 'activo' ? ' selected' : '') + '>Activo</option><option value="pausado"' + (product.status === 'pausado' ? ' selected' : '') + '>Pausado</option></select></label>' : '') +
+        '<label class="field"><span>Estado</span><select name="status"><option value="activo"' + (!product || product.status === 'activo' ? ' selected' : '') + '>Activo</option><option value="pausado"' + (product && product.status === 'pausado' ? ' selected' : '') + '>Pausado</option></select></label>' +
         '<label class="field full"><span>Descripción</span><textarea class="textarea" name="description" maxlength="900" placeholder="Detalles, medidas, estado, lo que sea útil.">' + esc(product ? product.description : '') + '</textarea></label>' +
-        '<div class="field full"><span>Emoji (si no subís foto)</span>' + pickerHtml(PRODUCT_EMOJIS, 'emoji', product ? product.emoji : '📦', 'emoji') + '</div>' +
-        '<label class="field full"><span>Link de imagen (opcional)</span><input class="input" name="imageUrl" type="url" value="' + esc(product ? product.imageUrl : '') + '" placeholder="https://…" /></label>' +
-        (product ? '' : '<label class="file-drop"><input type="file" name="images" accept="image/*" /><span>' + icon('upload', 16) + ' Subir una foto (opcional, hasta 3)</span></label>') +
+        '<div class="field full"><span>Emoji (si no hay fotos)</span>' + pickerHtml(PRODUCT_EMOJIS, 'emoji', product ? product.emoji : '📦', 'emoji') + '</div>' +
+        (gallery.length ? '<div class="field full"><span>Fotos actuales</span><div class="admin-gallery">' + gallery.map(function (src) { return '<img src="' + esc(src) + '" alt="" />'; }).join('') + '</div></div>' : '') +
+        '<label class="file-drop"><input type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple /><span>' + icon('upload', 16) + ' Subir hasta 3 fotos</span></label>' +
+        '<div class="image-preview" id="imagePreview"></div>' +
+        '<label class="field full"><span>O pegá un link de imagen</span><input class="input" name="imageUrl" type="url" value="" placeholder="https://… (reemplaza la galería)" /></label>' +
       '</div>' +
+      '<p class="tiny muted">JPG, PNG o WebP. Hasta 3 imágenes por producto; si subís nuevas, reemplazan a las anteriores.</p>' +
       '<div class="modal-foot"><button class="btn btn-ghost" type="button" data-modal-close>Cancelar</button>' +
-      '<button class="btn btn-turbo" type="submit">' + (product ? 'Guardar cambios' : 'Sumar producto') + '</button></div>' +
+      '<button class="btn btn-turbo" type="submit">' + (product ? 'Guardar cambios' : 'Cargar producto') + '</button></div>' +
     '</form>';
   }
 
+  function bindImagePreview(form) {
+    const input = form.querySelector('input[name="images"]');
+    const wrap = form.querySelector('#imagePreview');
+    if (!input || !wrap) return;
+    input.addEventListener('change', function () {
+      wrap.innerHTML = '';
+      const files = Array.prototype.slice.call(input.files || [], 0, 3);
+      if (input.files && input.files.length > 3) UI.toast('Tomamos las primeras 3 fotos.', 'error');
+      files.forEach(function (file) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.alt = file.name;
+        wrap.appendChild(img);
+      });
+    });
+  }
+
   async function openProductModal(store, product) {
-    if (!store) {
-      UI.toast('Primero abrí una tienda.', 'error');
+    const stores = state.adminStores || [];
+    const currentStore = store || (product && stores.find(function (item) { return Number(item.id) === Number(product.storeId); })) || stores[0];
+    if (!currentStore) {
+      UI.toast('Primero creá una tienda.', 'error');
       return;
     }
     const meta = await getMeta();
-    const dialog = UI.modal(productFormHtml(store, product || null, meta), {
-      title: product ? 'Editar producto' : 'Sumar producto',
-      subtitle: 'Lo que cargues aparece en tu vidriera al instante.',
+    const dialog = UI.modal(productFormHtml(currentStore, product || null, meta, stores), {
+      title: product ? 'Editar producto' : 'Cargar producto',
+      subtitle: product ? 'Actualizá precios, stock, fotos y estado.' : 'Se publica en la tienda apenas lo guardes.',
       label: product ? 'Editar producto' : 'Nuevo producto'
     });
     const form = document.getElementById('productModalForm');
     if (!form) return;
     bindPicker(form);
-    const file = form.querySelector('input[type="file"]');
-    if (file) {
-      file.addEventListener('change', function () {
-        const label = file.parentElement.querySelector('span');
-        if (label && file.files.length) label.textContent = file.files[0].name;
-      });
-    }
+    bindImagePreview(form);
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
       if (!form.reportValidity()) return;
@@ -1440,21 +1277,20 @@
       button.disabled = true;
       button.textContent = 'Guardando…';
       try {
-        if (product) {
-          await Api.updateProduct(product.id, UI.formDataToObject(form));
-        } else {
-          await Api.createProduct(new FormData(form));
-        }
+        const data = new FormData(form);
+        if (product) await Api.updateProduct(product.id, data);
+        else await Api.createProduct(data);
         dialog.close();
-        UI.toast(product ? 'Producto actualizado.' : 'Producto sumado a la vidriera.', 'success');
+        UI.toast(product ? 'Producto actualizado.' : 'Producto publicado.', 'success');
         renderRoute();
       } catch (error) {
         UI.toast(error.message, 'error');
         button.disabled = false;
-        button.textContent = product ? 'Guardar cambios' : 'Sumar producto';
+        button.textContent = product ? 'Guardar cambios' : 'Cargar producto';
       }
     });
   }
+
   /* -------------------------------- router --------------------------------- */
 
   function copyText(value) {
@@ -1500,9 +1336,7 @@
     { re: /^\/carrito$/, view: viewCart, nav: 'carrito' },
     { re: /^\/pedido\/([^/]+)$/, view: viewOrder, nav: 'carrito' },
     { re: /^\/seguimiento$/, view: viewTracking, nav: 'carrito' },
-    { re: /^\/vender$/, view: viewSell, nav: 'vender' },
-    { re: /^\/panel$/, view: viewPanel, nav: 'panel' },
-    { re: /^\/entrar$/, view: viewAuth, nav: 'panel' }
+    { re: /^\/admin$/, view: viewAdmin, nav: 'admin' }
   ];
 
   function notFoundView() {
@@ -1535,7 +1369,7 @@
   /* --------------------------- acciones globales --------------------------- */
 
   function findStore(id) {
-    const stores = state.sellerStores || [];
+    const stores = state.adminStores || [];
     const found = stores.find(function (store) { return Number(store.id) === Number(id); });
     if (found) return found;
     if (state.currentStore && Number(state.currentStore.id) === Number(id)) return state.currentStore;
@@ -1576,13 +1410,13 @@
 
     if (action === 'new-product') {
       const storeId = Number(trigger.getAttribute('data-store') || 0);
-      const store = findStore(storeId) || (state.sellerStores || [])[0];
+      const store = findStore(storeId) || (state.adminStores || [])[0];
       openProductModal(store);
       return;
     }
 
     if (action === 'edit-product') {
-      const product = (state.sellerProducts || []).find(function (item) { return Number(item.id) === id; });
+      const product = (state.adminProducts || []).find(function (item) { return Number(item.id) === id; });
       if (!product) return;
       const store = findStore(product.storeId);
       openProductModal(store, product);
@@ -1590,11 +1424,13 @@
     }
 
     if (action === 'toggle-product') {
-      const product = (state.sellerProducts || []).find(function (item) { return Number(item.id) === id; });
+      const product = (state.adminProducts || []).find(function (item) { return Number(item.id) === id; });
       if (!product) return;
       const nextStatus = product.status === 'activo' ? 'pausado' : 'activo';
+      const data = new FormData();
+      data.append('status', nextStatus);
       trigger.disabled = true;
-      Api.updateProduct(id, { status: nextStatus }).then(function () {
+      Api.updateProduct(id, data).then(function () {
         UI.toast(nextStatus === 'activo' ? 'Producto activo de nuevo.' : 'Producto pausado.', 'success');
         renderRoute();
       }).catch(function (error) {
@@ -1605,11 +1441,11 @@
     }
 
     if (action === 'delete-product') {
-      const product = (state.sellerProducts || []).find(function (item) { return Number(item.id) === id; });
+      const product = (state.adminProducts || []).find(function (item) { return Number(item.id) === id; });
       if (!product) return;
       UI.confirm({
         title: 'Eliminar producto',
-        text: 'Se va a borrar "' + product.name + '" de tu vidriera. No se puede deshacer.',
+        text: 'Se va a borrar "' + product.name + '" del catálogo. No se puede deshacer.',
         confirmLabel: 'Eliminar',
         danger: true
       }).then(function (ok) {
@@ -1619,6 +1455,45 @@
           renderRoute();
         }).catch(function (error) { UI.toast(error.message, 'error'); });
       });
+      return;
+    }
+
+    if (action === 'delete-store') {
+      const store = findStore(id);
+      if (!store) return;
+      UI.confirm({
+        title: 'Eliminar tienda',
+        text: 'Se va a borrar "' + store.name + '" junto con sus productos y pedidos. No se puede deshacer.',
+        confirmLabel: 'Eliminar tienda',
+        danger: true
+      }).then(function (ok) {
+        if (!ok) return;
+        Api.deleteStore(id).then(function () {
+          UI.toast('Tienda eliminada.', 'success');
+          navigate('/admin?tab=tiendas');
+        }).catch(function (error) { UI.toast(error.message, 'error'); });
+      });
+      return;
+    }
+
+    if (action === 'toggle-admin') {
+      const nextAdmin = trigger.getAttribute('data-admin') !== 'true';
+      const username = String(trigger.closest('.admin-row') ? trigger.closest('.admin-row').querySelector('b').textContent : 'esta cuenta');
+      UI.confirm({
+        title: nextAdmin ? 'Dar acceso de admin' : 'Quitar acceso de admin',
+        text: nextAdmin
+          ? username + ' va a poder entrar al panel y cargar tiendas y productos.'
+          : username + ' ya no va a poder entrar al panel.',
+        confirmLabel: nextAdmin ? 'Dar acceso' : 'Quitar acceso',
+        danger: !nextAdmin
+      }).then(function (ok) {
+        if (!ok) return;
+        Api.setAdmin(id, nextAdmin).then(function () {
+          UI.toast(nextAdmin ? 'Permiso de administración otorgado.' : 'Permiso de administración retirado.', 'success');
+          renderRoute();
+        }).catch(function (error) { UI.toast(error.message, 'error'); });
+      });
+      return;
     }
   });
 
@@ -1691,7 +1566,7 @@
     renderRoute();
     refreshStatus();
     getMeta().catch(function () {});
-    ensureUser();
+    ensureAdmin().catch(function () {});
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

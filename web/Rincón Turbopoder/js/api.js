@@ -74,7 +74,7 @@
     return String(value);
   }
 
-  async function request(path, options) {
+  async function send(url, options) {
     const opts = options || {};
     const headers = Object.assign({ Accept: 'application/json' }, opts.headers || {});
     const body = opts.body;
@@ -89,7 +89,7 @@
 
     let response;
     try {
-      response = await fetch(base + '/turbopoder' + path, {
+      response = await fetch(url, {
         method: opts.method || 'GET',
         headers: headers,
         body: body && !(typeof FormData !== 'undefined' && body instanceof FormData) ? JSON.stringify(body) : body,
@@ -117,6 +117,14 @@
       throw err;
     }
     return data;
+  }
+
+  function request(path, options) {
+    return send(base + '/turbopoder' + path, options);
+  }
+
+  function requestRoot(path, options) {
+    return send(base + path, options);
   }
 
   function qs(params) {
@@ -147,29 +155,30 @@
     health: function () { return request('/health', { timeout: 8000 }); },
     meta: function () { return request('/meta'); },
 
-    register: function (payload) { return request('/register', json('POST', payload)); },
-    login: function (payload) { return request('/login', json('POST', payload)); },
+    surfaceLogin: function (payload) { return requestRoot('/surface/login', json('POST', payload)); },
     me: function () { return request('/me'); },
 
     stores: function (params) { return request('/stores' + qs(params)); },
     store: function (slug) { return request('/stores/' + encodeURIComponent(slug)); },
     createStore: function (payload) { return request('/stores', json('POST', payload)); },
     updateStore: function (id, payload) { return request('/stores/' + id, json('PATCH', payload)); },
+    deleteStore: function (id) { return request('/stores/' + id, { method: 'DELETE' }); },
 
     products: function (params) { return request('/products' + qs(params)); },
     product: function (id) { return request('/products/' + id); },
     createProduct: function (formData) { return request('/products', { method: 'POST', body: formData }); },
-    updateProduct: function (id, payload) { return request('/products/' + id, json('PATCH', payload)); },
+    updateProduct: function (id, formData) { return request('/products/' + id, { method: 'PATCH', body: formData }); },
     deleteProduct: function (id) { return request('/products/' + id, { method: 'DELETE' }); },
-    addReview: function (id, payload) { return request('/products/' + id + '/reviews', json('POST', payload)); },
 
     checkout: function (payload) { return request('/orders', json('POST', payload)); },
     orderByCode: function (code, email) { return request('/orders/' + encodeURIComponent(code) + qs({ email: email })); },
-    myOrders: function () { return request('/orders'); },
-    sellerSummary: function () { return request('/seller/summary'); },
-    sellerProducts: function (storeId) { return request('/seller/products' + qs({ storeId: storeId })); },
-    sellerOrders: function () { return request('/seller/orders'); },
-    updateOrderStatus: function (id, status) { return request('/orders/' + id + '/status', json('PATCH', { status: status })); }
+
+    adminSummary: function () { return request('/admin/summary'); },
+    adminProducts: function (storeId) { return request('/admin/products' + qs({ storeId: storeId })); },
+    adminOrders: function (params) { return request('/admin/orders' + qs(params)); },
+    updateOrderStatus: function (id, status) { return request('/admin/orders/' + id + '/status', json('PATCH', { status: status })); },
+    admins: function (search) { return request('/admin/admins' + qs({ search: search })); },
+    setAdmin: function (id, isAdmin) { return request('/admin/admins/' + id, json('PATCH', { isAdmin: isAdmin })); }
   };
 
   window.TPApi = api;

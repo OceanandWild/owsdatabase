@@ -207,6 +207,9 @@ export function registerTurboPoder(app, deps) {
   }
 
   const router = express.Router();
+  // La API se monta antes del parser JSON global de server.js. Sin esto, las
+  // tiendas y los cambios de estado (que viajan como JSON) llegan sin body.
+  router.use(express.json({ limit: '1mb' }));
   app.use('/turbopoder', router);
 
   const OWNER_USERNAME = String(process.env.TURBOPODER_OWNER_USERNAME || 'OceanandWild').trim().toLowerCase();

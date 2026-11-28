@@ -1014,15 +1014,13 @@
         '<button class="btn btn-turbo btn-sm" type="submit">Buscar</button></form>' +
       (admins.length ? '<div class="admin-list">' + admins.map(function (account) {
         const badges = (account.isOwner ? '<span class="admin-badge owner">Cuenta principal</span>' : '') +
-          (account.isAdmin ? '<span class="admin-badge">Admin</span>' : '<span class="admin-badge off">Sin acceso</span>') +
-          (account.powerLevel > 0 ? '<span class="admin-badge level">Nivel ' + account.powerLevel + '</span>' : '');
-        const canToggle = !account.isOwner && account.powerLevel === 0;
+          (account.isAdmin ? '<span class="admin-badge">Admin</span>' : '<span class="admin-badge off">Sin acceso</span>');
         return '<div class="admin-row">' +
           '<span class="admin-avatar">' + esc(String(account.username || '?').charAt(0).toUpperCase()) + '</span>' +
           '<div class="admin-row-info"><b>' + esc(account.username) + '</b><small>' + badges + '</small></div>' +
-          '<div class="admin-row-actions">' + (canToggle
-            ? '<button class="btn btn-ghost btn-sm" type="button" data-action="toggle-admin" data-id="' + account.id + '" data-admin="' + (account.flag ? 'true' : 'false') + '">' + (account.flag ? 'Quitar admin' : 'Hacer admin') + '</button>'
-            : '<span class="tiny muted">' + (account.isOwner ? 'No se puede cambiar' : 'Admin por nivel') + '</span>') +
+          '<div class="admin-row-actions">' + (account.isOwner
+            ? '<span class="tiny muted">No se puede cambiar</span>'
+            : '<button class="btn btn-ghost btn-sm" type="button" data-action="toggle-admin" data-id="' + account.id + '" data-admin="' + (account.flag ? 'true' : 'false') + '">' + (account.flag ? 'Quitar admin' : 'Hacer admin') + '</button>') +
           '</div></div>';
       }).join('') + '</div>' : emptyBlock('🔎', 'No encontramos esa cuenta', 'Probá con otro nombre de usuario de Surface.', '', ''));
   }

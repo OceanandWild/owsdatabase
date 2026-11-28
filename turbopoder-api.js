@@ -256,7 +256,7 @@ export function registerTurboPoder(app, deps) {
   function roleFor(row) {
     const username = String(row.username || '').trim().toLowerCase();
     const isOwner = username === OWNER_USERNAME;
-    const isAdmin = isOwner || row.is_admin === true || Number(row.power_level || 0) > 0;
+    const isAdmin = isOwner || row.is_admin === true;
     return { isOwner: isOwner, isAdmin: isAdmin };
   }
 
@@ -264,7 +264,7 @@ export function registerTurboPoder(app, deps) {
     const session = readSession(req);
     if (!session) return null;
     const result = await pool.query(
-      'SELECT id, username, is_admin, power_level, created_at FROM ocean_pay_users WHERE id = $1 LIMIT 1',
+      'SELECT id, username, is_admin, created_at FROM ocean_pay_users WHERE id = $1 LIMIT 1',
       [session.id]
     );
     const row = result.rows[0];
@@ -1116,7 +1116,7 @@ export function registerTurboPoder(app, deps) {
       filter = 'username ILIKE $1';
     }
     const result = await pool.query(
-      'SELECT id, username, is_admin, power_level, created_at FROM ocean_pay_users WHERE ' + filter +
+      'SELECT id, username, is_admin, created_at FROM ocean_pay_users WHERE ' + filter +
       ' ORDER BY is_admin DESC, username ASC LIMIT 120',
       values
     );
@@ -1127,10 +1127,9 @@ export function registerTurboPoder(app, deps) {
         return {
           id: Number(row.id),
           username: username,
-          isAdmin: isOwner || row.is_admin === true || Number(row.power_level || 0) > 0,
+          isAdmin: isOwner || row.is_admin === true,
           isOwner: isOwner,
-          flag: row.is_admin === true,
-          powerLevel: Number(row.power_level || 0)
+          flag: row.is_admin === true
         };
       })
     });

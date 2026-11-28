@@ -312,7 +312,7 @@
       if (!product) return '';
       return '<div class="hero-card ' + klass + '">' +
         '<span class="emoji" aria-hidden="true">' + esc(product.emoji) + '</span>' +
-        '<div><b>' + esc(UI.truncate(product.name, 20)) + '</b><br /><small>' + esc(UI.truncate(product.storeName, 18)) + '</small></div>' +
+        '<div><b>' + esc(product.name) + '</b><br /><small>' + esc(UI.truncate(product.storeName, 24)) + '</small></div>' +
       '</div>';
     }).join('');
 

@@ -3,19 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#05080f" />
+    <meta name="theme-color" content="#02060f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="wavernote-version" content="1.2.9" />
+    <meta name="wavernote-version" content="1.3.0" />
     <meta
       name="description"
       content="WaverNote: tu biblioteca musical personal. Subí tus propios archivos y escuchalos desde tu cuenta Surface."
     />
     <title>WaverNote — Tu música</title>
+    <script>
+      try {
+        const savedTheme = JSON.parse(localStorage.getItem("wavernote.theme.v1") || '"blue"');
+        document.documentElement.dataset.theme = ["blue", "green", "red"].includes(savedTheme)
+          ? savedTheme
+          : "blue";
+      } catch (err) {
+        document.documentElement.dataset.theme = "blue";
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="icon" type="image/png" href="app-icon.png" />
@@ -27,6 +37,7 @@
     <link rel="stylesheet" href="trends.css" />
     <link rel="stylesheet" href="catalog.css" />
     <link rel="stylesheet" href="android.css" />
+    <link rel="stylesheet" href="revamp.css" />
   </head>
   <body>
     <!-- Sprite de iconos -->
@@ -46,6 +57,14 @@
         <symbol id="i-next" viewBox="0 0 24 24">
           <path d="M18 5v14" />
           <path d="M5.4 6.9v10.2a.9.9 0 0 0 1.4.8l7.4-5.1a.9.9 0 0 0 0-1.6L6.8 6.1a.9.9 0 0 0-1.4.8Z" />
+        </symbol>
+        <symbol id="i-seek-back" viewBox="0 0 24 24">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </symbol>
+        <symbol id="i-seek-forward" viewBox="0 0 24 24">
+          <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
         </symbol>
         <symbol id="i-shuffle" viewBox="0 0 24 24">
           <path d="M4 7h3.1c1.3 0 2.3.5 3.1 1.7l3.6 5.5c.8 1.2 1.8 1.8 3.2 1.8H20" />
@@ -184,6 +203,11 @@
           <path d="m15.4 4.6 4 4L8 20H4v-4L15.4 4.6Z" />
           <path d="m13.4 6.6 4 4" />
         </symbol>
+        <symbol id="i-lyrics" viewBox="0 0 24 24">
+          <path d="M6.5 3.5h7.2L18.5 8v12.5h-12z" />
+          <path d="M13.7 3.5V8h4.8" />
+          <path d="M9.4 12h6.2M9.4 15.4h6.2M9.4 8.4h2.1" />
+        </symbol>
         <symbol id="i-trash" viewBox="0 0 24 24">
           <path d="M4 7h16" />
           <path d="M9.5 7V4.8h5V7" />
@@ -219,6 +243,10 @@
           <circle cx="6.5" cy="18" r="2.5" />
           <circle cx="16.5" cy="16" r="2.5" />
         </symbol>
+        <symbol id="i-video" viewBox="0 0 24 24">
+          <rect x="3.5" y="6" width="12.5" height="12" rx="2.2" />
+          <path d="m16 10.6 4.5-2.4v7.6L16 13.4" />
+        </symbol>
         <symbol id="i-folder" viewBox="0 0 24 24">
           <path d="M3.5 7.4A1.6 1.6 0 0 1 5.1 5.8h4l1.9 2.2h8a1.6 1.6 0 0 1 1.6 1.6v8.3a1.6 1.6 0 0 1-1.6 1.6H5.1a1.6 1.6 0 0 1-1.6-1.6V7.4Z" />
         </symbol>
@@ -229,6 +257,9 @@
             d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.177A7.547 7.547 0 0 1 6.648 6.61a.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.546 3.75 3.75 0 0 1 3.255 3.718Z"
           />
         </symbol>
+        <symbol id="i-crown" viewBox="0 0 24 24">
+          <path d="M4.2 18.4 2.9 7.6a.62.62 0 0 1 .99-.58L8.3 10.2l3.1-5.5a.68.68 0 0 1 1.2 0l3.1 5.5 4.41-3.18a.62.62 0 0 1 .99.58l-1.3 10.8H4.2Z" />
+        </symbol>
         <symbol id="i-sliders" viewBox="0 0 24 24">
           <path d="M4 7h9M18 7h2M4 12h4M13 12h7M4 17h11" />
           <circle cx="15.5" cy="7" r="2.2" />
@@ -238,8 +269,37 @@
       </defs>
     </svg>
 
+    <!-- ================= Arranque ================= -->
+    <div class="boot" id="bootGate" aria-busy="true">
+      <span class="boot__aurora" aria-hidden="true"></span>
+      <svg class="boot__waves" viewBox="0 0 1440 420" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M-40 278C180 206 356 326 612 276S1036 182 1480 246" />
+        <path d="M-40 322C214 248 392 372 648 318S1084 224 1480 292" />
+        <path d="M-40 366C248 294 432 414 700 358S1120 268 1480 338" />
+      </svg>
+      <div class="boot__stage">
+        <div class="boot__scene" aria-hidden="true">
+          <span class="boot__halo"></span>
+          <span class="boot__ring boot__ring--one"></span>
+          <span class="boot__ring boot__ring--two"></span>
+          <span class="boot__ring boot__ring--three"></span>
+          <span class="boot__mark">
+            <img src="app-icon.png" alt="" width="128" height="128" draggable="false" />
+          </span>
+        </div>
+        <div class="boot__copy" role="status" aria-live="polite">
+          <span class="boot__eyebrow">WaverNote</span>
+          <p class="boot__title" id="bootTitle">Preparando tu biblioteca</p>
+          <p class="boot__hint" id="bootHint">Revisando si hay una sesión guardada.</p>
+        </div>
+        <span class="boot__bars" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i>
+        </span>
+      </div>
+    </div>
+
     <!-- ================= Acceso ================= -->
-    <div class="auth" id="authGate">
+    <div class="auth" id="authGate" hidden aria-hidden="true">
       <span class="auth__aurora" aria-hidden="true"></span>
       <div class="auth__card">
         <section class="auth__intro">
@@ -303,7 +363,7 @@
       </div>
     </div>
 
-    <div class="app" id="app">
+    <div class="app" id="app" aria-hidden="true">
       <div class="ambient" aria-hidden="true">
         <span class="ambient__blob ambient__blob--one"></span>
         <span class="ambient__blob ambient__blob--two"></span>
@@ -322,6 +382,11 @@
           </span>
         </a>
 
+        <button class="side-upload" data-action="open-upload">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"></use></svg>
+          <span>Subir música</span>
+        </button>
+
         <nav class="nav" aria-label="Navegación principal">
           <button class="nav__item is-active" data-action="nav-home" data-nav="home">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-compass"></use></svg>
@@ -332,6 +397,13 @@
             <span>Buscar</span>
             <kbd class="nav__kbd">/</kbd>
           </button>
+          <button class="nav__item" data-action="nav-library" data-nav="library">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-library"></use></svg>
+            <span>Tu biblioteca</span>
+          </button>
+
+          <p class="nav__label">Descubrir</p>
+
           <button class="nav__item" data-action="nav-trends" data-nav="trends">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-fire"></use></svg>
             <span>Tendencias</span>
@@ -344,16 +416,14 @@
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>Recomendaciones</span>
           </button>
-          <button class="nav__item" data-action="nav-library" data-nav="library">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-library"></use></svg>
-            <span>Tu biblioteca</span>
+
+          <span class="nav__divider" aria-hidden="true"></span>
+
+          <button class="nav__item" data-action="nav-settings" data-nav="settings">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sliders"></use></svg>
+            <span>Configuración</span>
           </button>
         </nav>
-
-        <button class="side-upload" data-action="open-upload">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-upload"></use></svg>
-          <span>Subir música</span>
-        </button>
 
         <section class="side-section" aria-label="Tus playlists">
           <div class="side-section__head">
@@ -378,7 +448,7 @@
         <button class="side-version" type="button" data-action="open-updates" data-wavernote-update title="Buscar actualizaciones">
           <span class="side-version__dot" aria-hidden="true"></span>
           <span class="side-version__meta">
-            <strong data-wavernote-version>v1.2.9</strong>
+            <strong data-wavernote-version>v1.3.0</strong>
             <small>Actualizaciones</small>
           </span>
         </button>
@@ -411,7 +481,7 @@
             <span class="brand__mark brand__mark--small" aria-hidden="true">
               <img src="app-icon.png" alt="" width="128" height="128" draggable="false" />
             </span>
-            <span>WaverNote</span>
+            <span class="topbar__wordmark">Waver<span>Note</span></span>
           </a>
 
           <label class="search" id="searchWrap" for="searchInput">
@@ -528,6 +598,9 @@
           <button class="np__tab" type="button" role="tab" aria-selected="false" data-action="np-tab" data-tab="queue">
             Cola <span class="np__tab-count" id="npTabCount"></span>
           </button>
+          <button class="np__tab" type="button" role="tab" aria-selected="false" data-action="np-tab" data-tab="lyrics">
+            Letra
+          </button>
         </div>
 
         <div class="np__panes">
@@ -580,7 +653,15 @@
 
             <div class="np__timeline">
               <span class="time" id="npCurTime">0:00</span>
+              <button class="icon-btn seek-btn" type="button" data-action="seek-back" aria-label="Retroceder 5 segundos" title="Retroceder 5 segundos">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seek-back"></use></svg>
+                <span class="seek-btn__step" data-seek-step-label>5</span>
+              </button>
               <input id="npSeek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" />
+              <button class="icon-btn seek-btn" type="button" data-action="seek-forward" aria-label="Avanzar 5 segundos" title="Avanzar 5 segundos">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seek-forward"></use></svg>
+                <span class="seek-btn__step" data-seek-step-label>5</span>
+              </button>
               <span class="time" id="npDurTime">0:00</span>
             </div>
 
@@ -633,6 +714,10 @@
               </p>
               <ol class="queue" id="npQueue"></ol>
             </div>
+          </section>
+
+          <section class="np__pane np__pane--lyrics" data-np-pane="lyrics" aria-label="Letra de la canción">
+            <div class="np__lyrics" id="npLyrics"></div>
           </section>
         </div>
       </aside>
@@ -696,6 +781,10 @@
             <button class="icon-btn" id="shuffleBtn" data-action="shuffle" aria-label="Activar aleatorio" aria-pressed="false">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-shuffle"></use></svg>
             </button>
+            <button class="icon-btn seek-btn" type="button" data-action="seek-back" aria-label="Retroceder 5 segundos" title="Retroceder 5 segundos">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seek-back"></use></svg>
+              <span class="seek-btn__step" data-seek-step-label>5</span>
+            </button>
             <button class="icon-btn" id="prevBtn" data-action="prev-track" aria-label="Anterior">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-prev"></use></svg>
             </button>
@@ -705,22 +794,21 @@
             <button class="icon-btn" id="nextBtn" data-action="next-track" aria-label="Siguiente">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next"></use></svg>
             </button>
+            <button class="icon-btn seek-btn" type="button" data-action="seek-forward" aria-label="Avanzar 5 segundos" title="Avanzar 5 segundos">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-seek-forward"></use></svg>
+              <span class="seek-btn__step" data-seek-step-label>5</span>
+            </button>
             <button class="icon-btn" id="repeatBtn" data-action="repeat" aria-label="Activar repetición" aria-pressed="false">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-repeat"></use></svg>
             </button>
           </div>
-          <div class="player__timeline">
-            <span class="time" id="curTime">0:00</span>
-            <input id="seek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" title="Doble toque para abrir Ahora suena" />
-            <span class="time" id="durTime">0:00</span>
-          </div>
         </div>
 
-        <button class="icon-btn player__quick-add" type="button" data-action="open-queue-add" aria-label="Agregar canción a la cola" title="Agregar a la cola">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-queue-add"></use></svg>
-        </button>
-
         <div class="player__tools">
+          <button class="icon-btn player__quick-add" type="button" data-action="open-queue-add" aria-label="Agregar canción a la cola" title="Agregar a la cola">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-queue-add"></use></svg>
+          </button>
+          <span class="player__tools-divider" aria-hidden="true"></span>
           <button class="icon-btn" id="queueBtn" data-action="toggle-panel" data-tab="queue" aria-label="Ver cola" aria-expanded="false">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-list"></use></svg>
           </button>
@@ -730,6 +818,12 @@
             </button>
             <input id="volume" class="range range--volume" type="range" min="0" max="100" step="1" value="72" aria-label="Volumen" />
           </div>
+        </div>
+
+        <div class="player__timeline">
+          <span class="time" id="curTime">0:00</span>
+          <input id="seek" class="range" type="range" min="0" max="1000" step="1" value="0" aria-label="Progreso de la canción" title="Doble toque para abrir Ahora suena" />
+          <span class="time" id="durTime">0:00</span>
         </div>
       </footer>
 
@@ -787,6 +881,8 @@
     <script src="cloud.js"></script>
     <script src="updater.js"></script>
     <script src="metadata.js"></script>
+    <script src="vendor/lame.min.js"></script>
+    <script src="video.js"></script>
     <script src="watch-core.js"></script>
     <script src="watched-folder.js"></script>
     <script src="recommend.js"></script>

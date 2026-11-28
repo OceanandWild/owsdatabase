@@ -18,6 +18,7 @@ const FILES = [
   "trends.css",
   "catalog.css",
   "android.css",
+  "revamp.css",
   "audio-engine.js",
   "offline.js",
   "core.js",
@@ -25,6 +26,10 @@ const FILES = [
   "cloud.js",
   "updater.js",
   "metadata.js",
+  "vendor/lame.min.js",
+  "vendor/lamejs-LICENSE.txt",
+  "vendor/README.txt",
+  "video.js",
   "watch-core.js",
   "watched-folder.js",
   "recommend.js",
@@ -41,7 +46,9 @@ await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 
 for (const file of FILES) {
-  await cp(path.join(root, file), path.join(out, file));
+  const target = path.join(out, file);
+  await mkdir(path.dirname(target), { recursive: true });
+  await cp(path.join(root, file), target);
 }
 
 // Recursos opcionales (portadas locales, fuentes, etc.) si algún día se suman.

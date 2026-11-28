@@ -267,25 +267,43 @@ const viewHome = () => {
   const playlists = state.playlists;
   const palette = paletteFor(latest.title);
   const total = tracks.reduce((sum, track) => sum + (Number(track.duration) || 0), 0);
-  const trends = trendItems();
+  const homeTrendSet = trendActiveSet();
+  const homeTrendFrame = normalizeTrendFrame(homeTrendSet.frame);
+  const homeTrendColor = homeTrendSet.color;
+  const trends = trendRankedItems(trendItemsForSet(homeTrendSet));
   const recentAdditions = recentlyAddedTracks();
   const quickListen = quickListenTracks();
 
   return `
-    <section class="page-head">
-      <div>
+    <section class="page-head page-head--home">
+      <div class="page-head__title">
         <p class="eyebrow">${todayLabel()}</p>
         <h1>${greeting()}${escapeHTML(userName)}<span class="dot-accent">.</span></h1>
-        <p class="page-head__sub">${plural(tracks.length, "canción", "canciones")} · ${plural(albums.length, "álbum", "álbumes")} · ${formatTotal(total)} en tu biblioteca.</p>
       </div>
-      ${uploadAction()}
+      <div class="home-stats" aria-label="Resumen de tu biblioteca">
+        <div class="home-stat">
+          <span class="home-stat__label">${icon("music")}${tracks.length === 1 ? "Canción" : "Canciones"}</span>
+          <strong class="home-stat__value">${tracks.length}</strong>
+        </div>
+        <div class="home-stat">
+          <span class="home-stat__label">${icon("disc")}${albums.length === 1 ? "Álbum" : "Álbumes"}</span>
+          <strong class="home-stat__value">${albums.length}</strong>
+        </div>
+        <div class="home-stat">
+          <span class="home-stat__label">${icon("clock")}Duración</span>
+          <strong class="home-stat__value">${formatTotal(total)}</strong>
+        </div>
+      </div>
     </section>
 
     <section class="hero" style="--p1:${palette[0]};--p2:${palette[1]};--p3:${palette[2]}">
       <span class="hero__glow hero__glow--one"></span>
       <span class="hero__glow hero__glow--two"></span>
       <div class="hero__copy">
-        <span class="pill">${icon("sparkles")} Última subida</span>
+        <div class="hero__badges">
+          <span class="pill">${icon("sparkles")} Última subida</span>
+          <span class="hero__chip">${icon("cloud")} En tu cuenta</span>
+        </div>
         <h2>${escapeHTML(latest.title)}</h2>
         <p class="hero__by">${escapeHTML(latest.artist || "Artista desconocido")} <span>·</span> ${escapeHTML(albumNameOf(latest))}</p>
         <p class="hero__desc">Agregada el ${escapeHTML(dateLabel(latest.createdAt))}${latest.genre ? ` · ${escapeHTML(latest.genre)}` : ""}.</p>
@@ -293,15 +311,13 @@ const viewHome = () => {
           <button class="btn btn--primary" data-action="play-album" data-id="${escapeHTML(latestAlbum.id)}">
             ${icon("play", "icon--fill")} Reproducir
           </button>
-          <button class="btn btn--ghost" data-action="open-album" data-id="${escapeHTML(latestAlbum.id)}">
+          <button class="btn btn--soft" data-action="open-album" data-id="${escapeHTML(latestAlbum.id)}">
             Ver álbum ${icon("arrow-right")}
           </button>
         </div>
-        <p class="hero__note">${icon("disc")} ${plural(tracks.length, "pista", "pistas")} · ${formatTotal(total)} · tu música, en tu cuenta</p>
       </div>
       <div class="hero__art">
         ${coverHTML(latest, "cover--hero")}
-        <span class="hero__sticker">${icon("cloud")} Guardada en tu cuenta</span>
       </div>
       <svg class="hero__tide" viewBox="0 0 1200 240" preserveAspectRatio="none" aria-hidden="true">
         <path d="M0 150 C 150 100 260 200 420 150 S 700 90 860 150 S 1080 200 1200 140" fill="none" stroke="var(--p3)" stroke-width="1" opacity=".26"/>
@@ -330,12 +346,12 @@ const viewHome = () => {
             <div>
               <p class="eyebrow">Tendencias</p>
               <h2>Lo que está en llamas</h2>
-              <p class="section__sub">Una canción por categoría, elegida por tu forma de escuchar.</p>
+              <p class="section__sub">Según tu set «${escapeHTML(homeTrendSet.name)}» · Semana del ${trendWeekLabel()}.</p>
             </div>
             <button class="link-btn" data-action="nav-trends">Ver tendencias ${icon("arrow-right")}</button>
           </div>
           <div class="trend-strip">
-            ${trends.slice(0, 6).map((item) => trendCard(item, { compact: true })).join("")}
+            ${trends.slice(0, 6).map((item) => trendCard(item, { compact: true, frame: homeTrendFrame, color: homeTrendColor })).join("")}
           </div>
         </section>`
       : ""}
@@ -504,12 +520,101 @@ const viewSearch = () => {
    ------------------------------------------------------------ */
 
 const libraryTabs = [
-  ["songs", "Canciones"],
-  ["most-played", "Más escuchadas"],
-  ["albums", "Álbumes"],
-  ["playlists", "Playlists"],
-  ["pending", "Pendientes"]
+  { id: "songs", label: "Canciones", icon: "music" },
+  { id: "most-played", label: "Más escuchadas", icon: "wave" },
+  { id: "albums", label: "Álbumes", icon: "disc" },
+  { id: "playlists", label: "Playlists", icon: "list" },
+  { id: "pending", label: "Pendientes", icon: "cloud" }
 ];
+
+// La píldora activa se mide sobre el botón real: acompaña etiquetas de distinto
+// ancho y sigue alineada cuando la tira se desplaza en horizontal.
+const syncLibraryTabThumb = (rail) => {
+  if (!rail) return;
+  const active = rail.querySelector(".lib-tab.is-active");
+  if (!active) return;
+  const railRect = rail.getBoundingClientRect();
+  const tabRect = active.getBoundingClientRect();
+  const border = parseFloat(getComputedStyle(rail).borderLeftWidth) || 0;
+  rail.style.setProperty("--thumb-x", `${tabRect.left - railRect.left - border + rail.scrollLeft}px`);
+  rail.style.setProperty("--thumb-w", `${tabRect.width}px`);
+};
+
+const centerLibraryTab = (rail) => {
+  const active = rail?.querySelector(".lib-tab.is-active");
+  if (!rail || !active || rail.scrollWidth <= rail.clientWidth + 1) return;
+  const railRect = rail.getBoundingClientRect();
+  const tabRect = active.getBoundingClientRect();
+  rail.scrollLeft += tabRect.left - railRect.left - (railRect.width - tabRect.width) / 2;
+};
+
+// La barra se pega arriba de la vista. El fondo translúcido y la línea
+// inferior solo aparecen cuando hay contenido pasando por detrás.
+const syncLibraryTabsStuck = () => {
+  if (state.route.view !== "library") return;
+  const view = $("#view");
+  const tabs = view?.querySelector(".lib-tabs");
+  if (!view || !tabs) return;
+  tabs.classList.toggle(
+    "is-stuck",
+    tabs.getBoundingClientRect().top <= view.getBoundingClientRect().top + 1
+  );
+};
+
+// Las etiquetas cambian de ancho cuando termina de cargar la tipografía o
+// cuando cambia el tamaño de la ventana: la píldora se vuelve a medir.
+const refreshLibraryTabLayout = () => {
+  const rail = $(".lib-tabs__rail");
+  if (!rail) return;
+  syncLibraryTabThumb(rail);
+  centerLibraryTab(rail);
+};
+
+const libraryTabStrip = () => {
+  const pending = state.pending?.length || 0;
+  return `<div class="lib-tabs">
+    <div class="lib-tabs__rail" role="tablist" aria-label="Secciones de la biblioteca">
+      <span class="lib-tabs__thumb" aria-hidden="true"></span>
+      ${libraryTabs
+        .map(({ id, label, icon: iconName }) => {
+          const active = state.libraryTab === id;
+          return `<button class="lib-tab${active ? " is-active" : ""}" type="button" role="tab" id="lib-tab-${id}" aria-selected="${active}" aria-controls="library-panel" tabindex="${active ? "0" : "-1"}" data-action="library-tab" data-tab="${id}">
+            ${icon(iconName, "lib-tab__icon")}
+            <span class="lib-tab__label">${label}</span>
+            ${id === "pending" && pending ? `<span class="lib-tab__count">${pending}</span>` : ""}
+          </button>`;
+        })
+        .join("")}
+    </div>
+  </div>`;
+};
+
+// Cambiar de sección no vuelve a dibujar la página entera: la tira se queda
+// montada, la píldora se desliza y solo se reemplaza el contenido de abajo.
+const setLibraryTab = (tab) => {
+  state.libraryTab = tab;
+  const rail = $(".lib-tabs__rail");
+  const panel = $("[data-library-panel]");
+  if (!rail || !panel) {
+    renderView({ resetScroll: true });
+    return;
+  }
+  rail.querySelectorAll(".lib-tab").forEach((button) => {
+    const active = button.dataset.tab === tab;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  panel.setAttribute("aria-labelledby", `lib-tab-${tab}`);
+  panel.innerHTML = libraryPanel();
+  panel.classList.remove("is-entering");
+  void panel.offsetWidth;
+  panel.classList.add("is-entering");
+  refreshLibraryTabLayout();
+  if (typeof updateHighlights === "function") updateHighlights();
+  const view = $("#view");
+  if (view) view.scrollTop = 0;
+};
 
 const mostPlayedIndicator = ({ iconName = "wave", title, text, action = "" }) => `
   <div class="plays-indicator" role="status">
@@ -668,24 +773,17 @@ const offlineLibraryBar = ({ saved = 0, total = 0, missing = 0, bytes = 0 }) => 
   </div>`;
 };
 
-const viewLibrary = () => {
+const librarySnapshot = () => {
   const albums = allAlbums();
   const favorites = likedTracks();
   const favoritesTotal = favorites.reduce((total, track) => total + (Number(track.duration) || 0), 0);
   const recent = recentTracks().slice(0, 8);
   const pending = state.pending || [];
+  return { albums, favorites, favoritesTotal, recent, pending };
+};
 
-  const offlineAudio = state.tracks.filter((track) => track.audioUrl);
-  const offlineSaved =
-    typeof waOffline === "undefined"
-      ? 0
-      : offlineAudio.filter((track) => waOffline.has(track.id)).length;
-  const offlineStats = {
-    saved: offlineSaved,
-    total: offlineAudio.length,
-    missing: Math.max(0, offlineAudio.length - offlineSaved),
-    bytes: typeof waOffline === "undefined" ? 0 : waOffline.summary().bytes
-  };
+const libraryPanel = (snapshot = librarySnapshot()) => {
+  const { albums, favorites, favoritesTotal, recent, pending } = snapshot;
 
   let content = "";
 
@@ -793,6 +891,25 @@ const viewLibrary = () => {
         : ""}`;
   }
 
+  return content;
+};
+
+const viewLibrary = () => {
+  const snapshot = librarySnapshot();
+  const { albums, favorites, pending } = snapshot;
+
+  const offlineAudio = state.tracks.filter((track) => track.audioUrl);
+  const offlineSaved =
+    typeof waOffline === "undefined"
+      ? 0
+      : offlineAudio.filter((track) => waOffline.has(track.id)).length;
+  const offlineStats = {
+    saved: offlineSaved,
+    total: offlineAudio.length,
+    missing: Math.max(0, offlineAudio.length - offlineSaved),
+    bytes: typeof waOffline === "undefined" ? 0 : waOffline.summary().bytes
+  };
+
   return `
     <section class="page-head page-head--compact">
       <div>
@@ -809,17 +926,8 @@ const viewLibrary = () => {
       </div>
     </section>
     ${offlineLibraryBar(offlineStats)}
-    <div class="tabs tabs--library" role="tablist" aria-label="Secciones de la biblioteca">
-      ${libraryTabs
-        .map(
-          ([id, label]) =>
-            `<button class="tab ${state.libraryTab === id ? "is-active" : ""}" role="tab" aria-selected="${state.libraryTab === id}" data-action="library-tab" data-tab="${id}">${
-              id === "pending" && pending.length ? `${label} · ${pending.length}` : label
-            }</button>`
-        )
-        .join("")}
-    </div>
-    ${content}`;
+    ${libraryTabStrip()}
+    <div class="library-panel" id="library-panel" role="tabpanel" aria-labelledby="lib-tab-${state.libraryTab}" data-library-panel>${libraryPanel(snapshot)}</div>`;
 };
 
 /* ------------------------------------------------------------
@@ -932,22 +1040,30 @@ const viewPlaylist = (id) => {
    Tendencias
    ------------------------------------------------------------ */
 
-const trendCard = (item, { compact = false } = {}) => {
+const trendPlayAttrs = (item) => {
+  const isGroup = Boolean(item.subject);
+  return isGroup
+    ? `data-action="catalog-play" data-kind="${escapeHTML(item.kind || "artist")}" data-name="${escapeHTML(item.subject)}"`
+    : `data-action="play-trend" data-id="${item.track.id}"`;
+};
+
+const trendCard = (item, { compact = false, frame = "none", color = "", rank = 0 } = {}) => {
   // Las tendencias de artista y género muestran su propia imagen (o el
   // mosaico de sus canciones) en vez de la carátula de un tema suelto.
   const isGroup = Boolean(item.subject);
-  const playAttrs = isGroup
-    ? `data-action="catalog-play" data-kind="${escapeHTML(item.kind || "artist")}" data-name="${escapeHTML(item.subject)}"`
-    : `data-action="play-trend" data-id="${item.track.id}"`;
+  const playAttrs = trendPlayAttrs(item);
   const playLabel = escapeHTML(isGroup ? item.subject : item.track.title);
+  const framed = normalizeTrendFrame(frame) !== "none";
+  const frameStyle = framed ? trendFrameStyle(frame, color) : "";
+  const rankClass = rank === 1 ? " trend-card--rank-1" : "";
 
   return `
-  <article class="trend-card${compact ? " trend-card--compact" : ""}${isGroup ? " trend-card--group" : ""}">
+  <article class="trend-card${compact ? " trend-card--compact" : ""}${isGroup ? " trend-card--group" : ""}${framed ? ` trend-card--framed ${trendFrameClass(frame)}` : ""}${rankClass}"${frameStyle}>
     <div class="trend-card__art">
       <button class="trend-card__open" ${playAttrs} aria-label="Reproducir ${playLabel}">
         ${item.art || coverHTML(item.track)}
       </button>
-      <span class="trend-flame">${icon("fire", "icon--fill")} En llamas</span>
+      ${rank ? `<span class="trend-card__rank" aria-label="Puesto ${rank}">${rank === 1 ? icon("crown", "icon--fill") : String(rank)}</span>` : ""}
       <button class="trend-card__play" ${playAttrs} aria-label="Reproducir ${playLabel}" tabindex="-1">
         ${icon("play", "icon--fill")}
       </button>
@@ -964,6 +1080,73 @@ const trendCard = (item, { compact = false } = {}) => {
   </article>`;
 };
 
+const trendSetChip = (set, { active = false, count = 0 } = {}) => {
+  const frame = normalizeTrendFrame(set.frame);
+  const hint = set.preset ? set.hint : "Set propio";
+
+  return `
+  <article class="trend-set ${trendFrameClass(frame)}${active ? " is-active" : ""}" data-trend-set="${escapeHTML(set.id)}"${trendFrameStyle(frame, set.color)}>
+    <button type="button" class="trend-set__select" data-action="trend-set-select" data-id="${escapeHTML(set.id)}" aria-pressed="${active}">
+      <span class="trend-set__swatch" aria-hidden="true"></span>
+      <span class="trend-set__copy">
+        <strong>${escapeHTML(set.name)}</strong>
+        <small>${escapeHTML(hint)}</small>
+      </span>
+      <span class="trend-set__count">${count}</span>
+    </button>
+    ${set.preset
+      ? ""
+      : `<span class="trend-set__actions">
+          <button type="button" class="trend-set__action" data-action="trend-set-edit" data-id="${escapeHTML(set.id)}" title="Editar set" aria-label="Editar ${escapeHTML(set.name)}">${icon("edit")}</button>
+          <button type="button" class="trend-set__action trend-set__action--danger" data-action="trend-set-delete" data-id="${escapeHTML(set.id)}" title="Eliminar set" aria-label="Eliminar ${escapeHTML(set.name)}">${icon("trash")}</button>
+        </span>`}
+  </article>`;
+};
+
+const trendChampionHTML = (item, frame, color = "") => {
+  const isGroup = Boolean(item.subject);
+  const playAttrs = trendPlayAttrs(item);
+  const title = item.subject || item.track.title;
+  const artist = isGroup ? item.subtitle || "" : item.track.artist || "Artista desconocido";
+
+  return `
+  <section class="trends-champion ${trendFrameClass(frame)}"${trendFrameStyle(frame, color)}>
+    <span class="trends-champion__glow" aria-hidden="true"></span>
+    <div class="trends-champion__art">
+      <button class="trends-champion__open" ${playAttrs} aria-label="Reproducir ${escapeHTML(title)}">
+        ${item.art || coverHTML(item.track, "cover--hero")}
+      </button>
+      <span class="trends-champion__crown">${icon("crown", "icon--fill")} N.º 1</span>
+    </div>
+    <div class="trends-champion__copy">
+      <span class="trends-champion__label">${icon("fire", "icon--fill")} ${escapeHTML(item.label)}</span>
+      <h2>${escapeHTML(title)}</h2>
+      <p class="trends-champion__artist">${escapeHTML(artist)}</p>
+      <p class="trends-champion__reason">${escapeHTML(item.reason)}</p>
+      <div class="trends-champion__stats">
+        <strong>${item.count}</strong>
+        <span>${item.count === 1 ? "reproducción" : "reproducciones"}</span>
+      </div>
+      <button class="btn btn--primary trends-champion__play" ${playAttrs}>${icon("play", "icon--fill")} Reproducir</button>
+    </div>
+  </section>`;
+};
+
+const trendRankRow = (entry, frame, color = "") => `
+  <li class="trend-rank${entry.rank === 1 ? " is-first" : ""}${entry.rank === 1 ? ` ${trendFrameClass(frame)}` : ""}"${entry.rank === 1 ? trendFrameStyle(frame, color) : ""}>
+    <span class="trend-rank__num" aria-label="Puesto ${entry.rank}">${entry.rank}</span>
+    <span class="trend-rank__art">${coverHTML(entry.track)}</span>
+    <span class="trend-rank__info">
+      <span class="trend-rank__title-line">
+        <strong>${escapeHTML(entry.track.title)}</strong>
+        ${entry.rank === 1 ? `<span class="trend-rank__top">${icon("crown", "icon--fill")} N.º 1</span>` : ""}
+      </span>
+      <small>${escapeHTML(entry.track.artist || "Artista desconocido")}</small>
+    </span>
+    <span class="trend-rank__count">${plural(entry.count, "reproducción", "reproducciones")}</span>
+    <button class="trend-rank__play" type="button" data-action="play-trend" data-id="${entry.track.id}" aria-label="Reproducir ${escapeHTML(entry.track.title)}">${icon("play", "icon--fill")}</button>
+  </li>`;
+
 const viewTrends = () => {
   if (!state.tracks.length) {
     return `
@@ -978,66 +1161,107 @@ const viewTrends = () => {
       ${emptyState(
         "Todavía no hay nada en llamas",
         "Cuando escuches tus canciones, acá vas a ver la más repetida, el artista que no soltás y muchos patrones más.",
-        `<div class="empty__actions">${uploadAction("Subir mi primera canción")}</div>`,
+        "",
         "fire"
       )}`;
   }
 
-  const items = trendItems();
+  const weekLabel = trendWeekLabel();
+  const allItems = trendItems();
+  const activeSet = trendActiveSet();
+  const frame = normalizeTrendFrame(activeSet.frame);
+  const frameColor = activeSet.color;
+  const setItems = trendRankedItems(trendItemsForSet(activeSet, allItems));
   const summary = trendSummary();
-  const lead = items.length
-    ? `${plural(items.length, "categoría encendida", "categorías encendidas")} con ${plural(summary.total, "reproducción", "reproducciones")} registradas en ${plural(summary.days, "día", "días")}. Cada una muestra lo que manda en ese patrón: la canción, o la imagen del artista o del género.`
-    : "Todavía no hay suficientes reproducciones para encender una categoría. Dale play a lo que más te guste y volvé en un rato.";
+  const sets = trendAllSets();
+  const ranking = trendTrackRanking(5);
+  const champion = setItems[0] || null;
+  const setPlays = setItems.reduce((sum, item) => sum + item.count, 0);
+
+  const lead = setItems.length
+    ? `${plural(setItems.length, "categoría encendida", "categorías encendidas")} con ${plural(setPlays, "reproducción", "reproducciones")} en ${plural(summary.days, "día", "días")} de esta semana.`
+    : "Todavía no hay reproducciones esta semana para encender una categoría de este set.";
 
   return `
     <section class="page-head">
       <div>
-        <p class="eyebrow">${todayLabel()} · Tendencias</p>
+        <p class="eyebrow">Semana del ${weekLabel} · Tendencias</p>
         <h1>Lo que está en llamas<span class="dot-accent">.</span></h1>
-        <p class="page-head__sub">Tus patrones de escucha, canción por canción: la más repetida, tu artista del momento y mucho más.</p>
+        <p class="page-head__sub">Elegí un set y mirá qué canción manda esta semana. Las categorías se renuevan cada lunes.</p>
       </div>
       <div class="page-head__actions">
-        <button class="btn btn--primary" data-action="play-trends" ${items.length ? "" : "disabled"}>${icon("play", "icon--fill")} Reproducir tendencias</button>
+        <button class="btn btn--soft" data-action="trend-set-create">${icon("plus")} Nuevo set</button>
+        <button class="btn btn--primary" data-action="play-trends" ${setItems.length ? "" : "disabled"}>${icon("play", "icon--fill")} Reproducir set</button>
       </div>
     </section>
 
-    <section class="trends-hero">
-      <div class="trends-hero__copy">
-        <span class="pill">${icon("fire", "icon--fill")} Tu mapa de calor</span>
-        <h2>Todo lo que repite tu oído</h2>
-        <p class="trends-hero__lead">${lead}</p>
-        <div class="trends-hero__stats">
-          <div><strong>${items.length}</strong><span>en llamas</span></div>
-          <div><strong>${summary.total}</strong><span>reproducciones</span></div>
-          <div><strong>${summary.artists}</strong><span>artistas</span></div>
+    <section class="trends-sets">
+      <div class="trends-sets__head">
+        <div>
+          <p class="eyebrow">Sets</p>
+          <h2>Elegí qué tendencias mirar</h2>
         </div>
+        <span class="count-label">${plural(sets.length, "set", "sets")}</span>
       </div>
-      <div class="trends-hero__art" aria-hidden="true">
-        <span class="trends-hero__ring trends-hero__ring--one"></span>
-        <span class="trends-hero__ring trends-hero__ring--two"></span>
-        <span class="trends-hero__flame">${icon("fire", "icon--fill")}</span>
-        <span class="trends-hero__badge">${icon("fire", "icon--fill")} ${plural(items.length, "canción elegida", "canciones elegidas")}</span>
+      <div class="trends-sets__rail">
+        ${sets
+          .map((set) =>
+            trendSetChip(set, {
+              active: set.id === activeSet.id,
+              count: trendSetCount(set, allItems)
+            })
+          )
+          .join("")}
       </div>
     </section>
 
-    ${items.length
+    ${champion ? trendChampionHTML(champion, frame, frameColor) : ""}
+
+    ${champion
+      ? `<div class="trends-summary">
+          <div><strong>${setItems.length}</strong><span>tendencias</span></div>
+          <div><strong>${setPlays}</strong><span>reproducciones</span></div>
+          <div><strong>${summary.days}</strong><span>días</span></div>
+          <div><strong>${summary.artists}</strong><span>artistas</span></div>
+        </div>`
+      : ""}
+
+    ${ranking.length
+      ? `<section class="section trends-ranking">
+          <div class="section__head">
+            <div>
+              <h2>Top de la semana</h2>
+              <p class="section__sub">Lo más escuchado de la semana, con la corona para el primer puesto.</p>
+            </div>
+            <span class="count-label">${plural(ranking.length, "puesto", "puestos")}</span>
+          </div>
+          <ol class="trend-rank-list">${ranking.map((entry) => trendRankRow(entry, frame, frameColor)).join("")}</ol>
+        </section>`
+      : ""}
+
+    ${setItems.length
       ? `<section class="section">
           <div class="section__head">
             <div>
-              <h2>Lo que está mandando en cada categoría</h2>
-              <p class="section__sub">Los artistas y los géneros usan su propia imagen; el resto muestra el tema que mejor representa la tendencia.</p>
+              <h2>${escapeHTML(activeSet.name)}</h2>
+              <p class="section__sub">${escapeHTML(lead)}</p>
             </div>
-            <span class="count-label">${plural(items.length, "tendencia", "tendencias")}</span>
+            <span class="count-label">${plural(setItems.length, "tendencia", "tendencias")}</span>
           </div>
-          <div class="trends-grid">${items.map((item) => trendCard(item)).join("")}</div>
+          <div class="trends-grid">${setItems
+            .map((item) => trendCard(item, { frame, color: frameColor, rank: item.rank }))
+            .join("")}</div>
         </section>`
       : `<section class="section">
-          <div class="trends-note">${icon("fire")}<span><strong>Todavía no hay categorías encendidas.</strong> Necesitamos al menos dos reproducciones de una canción, artista, álbum o género para marcar una tendencia. Seguí escuchando.</span></div>
+          <div class="trends-note">${icon("fire")}<span><strong>${escapeHTML(activeSet.name)} todavía no tiene categorías encendidas.</strong> ${activeSet.preset ? "Seguí escuchando o elegí otro set." : "Sumale categorías o canciones desde el editor del set."}</span></div>
+          ${activeSet.preset
+            ? ""
+            : `<div class="trends-empty-actions"><button class="btn btn--soft" data-action="trend-set-edit" data-id="${escapeHTML(activeSet.id)}">${icon("edit")} Editar set</button></div>`}
         </section>`}
 
     <footer class="trends-foot">
-      ${icon("fire", "icon--fill")}
-      <p>Las tendencias son tuyas: se calculan con tus reproducciones guardadas en este navegador y se renuevan con cada play.</p>
+      ${icon("crown", "icon--fill")}
+      <p>Los sets no tocan tu historial: solo agrupan lo que ya escuchaste.</p>
     </footer>`;
 };
 
@@ -1297,6 +1521,154 @@ const viewNotFound = () => `
   ${emptyState("Volvamos a la costa", "Probá de nuevo desde el inicio.", `<div class="empty__actions"><button class="btn btn--primary" data-action="nav-home">${icon("compass")} Ir al inicio</button></div>`)}`;
 
 /* ------------------------------------------------------------
+   Configuración
+   ------------------------------------------------------------ */
+
+const nextCardOptionHTML = (option, activeTiming) => {
+  const active = option.value === activeTiming;
+  return `<button class="settings-option${active ? " is-active" : ""}" type="button" role="radio" aria-checked="${active}" data-action="next-card-timing" data-value="${option.value}">
+    <span class="settings-option__copy">
+      <strong>${escapeHTML(option.label)}</strong>
+      ${option.hint ? `<small>${escapeHTML(option.hint)}</small>` : ""}
+    </span>
+    <span class="settings-option__check" aria-hidden="true">${active ? icon("check") : ""}</span>
+  </button>`;
+};
+
+const seekStepOptionHTML = (option, activeValue) => {
+  const active = option.value === activeValue;
+  return `<button class="settings-option${active ? " is-active" : ""}" type="button" role="radio" aria-checked="${active}" data-action="seek-step" data-value="${option.value}">
+    <span class="settings-option__copy">
+      <strong>${escapeHTML(option.label)}</strong>
+      ${option.hint ? `<small>${escapeHTML(option.hint)}</small>` : ""}
+    </span>
+    <span class="settings-option__check" aria-hidden="true">${active ? icon("check") : ""}</span>
+  </button>`;
+};
+
+const themeOptionHTML = (option, activeTheme) => {
+  const active = option.value === activeTheme;
+  return `<button class="settings-option settings-option--theme${active ? " is-active" : ""}" type="button" role="radio" aria-checked="${active}" data-action="set-theme" data-value="${option.value}">
+    <span class="theme-swatch theme-swatch--${option.value}" aria-hidden="true"></span>
+    <span class="settings-option__copy">
+      <strong>${escapeHTML(option.label)}</strong>
+      ${option.hint ? `<small>${escapeHTML(option.hint)}</small>` : ""}
+    </span>
+    <span class="settings-option__check" aria-hidden="true">${active ? icon("check") : ""}</span>
+  </button>`;
+};
+
+const autoQueueOptionHTML = (option, activeValue) => {
+  const active = option.value === activeValue;
+  return `<button class="settings-option${active ? " is-active" : ""}" type="button" role="radio" aria-checked="${active}" data-action="set-auto-queue" data-value="${option.value}">
+    <span class="settings-option__copy">
+      <strong>${escapeHTML(option.label)}</strong>
+      ${option.hint ? `<small>${escapeHTML(option.hint)}</small>` : ""}
+    </span>
+    <span class="settings-option__check" aria-hidden="true">${active ? icon("check") : ""}</span>
+  </button>`;
+};
+
+const viewSettings = () => {
+  const activeTiming = normalizeNextCardTiming(state.nextCardTiming);
+  const activeSeekStep = normalizeSeekStep(state.seekStep);
+  const activeTheme = normalizeTheme(state.theme);
+  const activeAutoQueue = normalizeAutoQueue(state.autoQueue);
+  const excludedCount = randomExcludedCount();
+
+  return `
+  <section class="page-head page-head--compact">
+    <div>
+      <p class="eyebrow">WaverNote</p>
+      <h1>Configuración<span class="dot-accent">.</span></h1>
+      <p class="page-head__sub">Preferencias de la app que se guardan en tu cuenta.</p>
+    </div>
+  </section>
+
+  <section class="section section--tight settings-page">
+    <article class="settings-card">
+      <div class="settings-block__head">
+        <span class="settings-block__icon">${icon("wave")}</span>
+        <div class="settings-block__copy">
+          <strong>Tema de color</strong>
+        </div>
+      </div>
+      <div class="settings-options settings-options--theme" role="radiogroup" aria-label="Tema de color">
+        ${THEME_OPTIONS.map((option) => themeOptionHTML(option, activeTheme)).join("")}
+      </div>
+    </article>
+
+    <article class="settings-card">
+      <div class="settings-block__head">
+        <span class="settings-block__icon">${icon("music")}</span>
+        <div class="settings-block__copy">
+          <strong>Abrir «Ahora suena» al elegir una canción</strong>
+          <p>Activo, el panel se abre al instante para mover la canción. Apagado, se abre con doble toque en la barra de progreso.</p>
+        </div>
+        <button class="switch" type="button" role="switch" aria-checked="${Boolean(state.openNowPlayingOnSelect)}" aria-label="Abrir «Ahora suena» al elegir una canción" data-action="toggle-open-now-on-select">
+          <span class="switch__thumb" aria-hidden="true"></span>
+        </button>
+      </div>
+    </article>
+
+    <article class="settings-card">
+      <div class="settings-block__head">
+        <span class="settings-block__icon">${icon("clock")}</span>
+        <div class="settings-block__copy">
+          <strong>Salto de reproducción</strong>
+          <p>Cuántos segundos mueven los botones de salto y las flechas del teclado.</p>
+        </div>
+      </div>
+      <div class="settings-options settings-options--triple" role="radiogroup" aria-label="Segundos que retrocede o avanza la canción">
+        ${SEEK_STEP_OPTIONS.map((option) => seekStepOptionHTML(option, activeSeekStep)).join("")}
+      </div>
+    </article>
+
+    <article class="settings-card">
+      <div class="settings-block__head">
+        <span class="settings-block__icon">${icon("sliders")}</span>
+        <div class="settings-block__copy">
+          <strong>Aviso «A continuación»</strong>
+          <p>Cuándo aparece la tarjeta de la próxima canción sobre el progreso.</p>
+        </div>
+      </div>
+      <div class="settings-options" role="radiogroup" aria-label="Cuándo mostrar el aviso de próxima canción">
+        ${NEXT_CARD_OPTIONS.map((option) => nextCardOptionHTML(option, activeTiming)).join("")}
+      </div>
+    </article>
+
+    <article class="settings-card">
+      <div class="settings-block__head">
+        <span class="settings-block__icon">${icon("queue-add")}</span>
+        <div class="settings-block__copy">
+          <strong>Cola automática</strong>
+          <p>Qué hace la app cuando termina la última canción de la cola.</p>
+        </div>
+      </div>
+      <div class="settings-options" role="radiogroup" aria-label="Qué hacer cuando termina la cola">
+        ${AUTO_QUEUE_OPTIONS.map((option) => autoQueueOptionHTML(option, activeAutoQueue)).join("")}
+      </div>
+    </article>
+
+    <article class="settings-card">
+      <div class="settings-block__head">
+        <span class="settings-block__icon">${icon("shuffle")}</span>
+        <div class="settings-block__copy">
+          <strong>Canciones fuera del aleatorio</strong>
+          <p>No entran cuando el modo aleatorio arma la cola ni cuando la app crea una cola nueva al azar.</p>
+        </div>
+        <button class="btn btn--soft btn--small" type="button" data-action="random-exclusions">${icon("edit")} Elegir</button>
+      </div>
+      <p class="settings-hint" id="randomExcludedSummary">${
+        excludedCount
+          ? `${plural(excludedCount, "canción fuera", "canciones fuera")} del aleatorio.`
+          : "Toda tu biblioteca entra en el aleatorio."
+      }</p>
+    </article>
+  </section>`;
+};
+
+/* ------------------------------------------------------------
    Render + navegación visual
    ------------------------------------------------------------ */
 
@@ -1330,6 +1702,9 @@ const renderView = ({ resetScroll = true } = {}) => {
     case "playlist":
       content = viewPlaylist(route.id);
       break;
+    case "settings":
+      content = viewSettings();
+      break;
     default:
       content = viewHome();
   }
@@ -1340,15 +1715,24 @@ const renderView = ({ resetScroll = true } = {}) => {
   view.innerHTML = `<div class="view-inner">${content}</div>`;
   view.scrollTop = resetScroll ? 0 : scrollTop;
 
-  // En pantallas chicas la tira de pestañas se desplaza en horizontal:
-  // dejamos centrada la pestaña activa para que no quede cortada.
-  const activeTab = view.querySelector(".tabs--library .tab.is-active");
-  const tabStrip = activeTab?.closest(".tabs--library");
-  if (tabStrip && tabStrip.scrollWidth > tabStrip.clientWidth + 1) {
-    const stripRect = tabStrip.getBoundingClientRect();
-    const tabRect = activeTab.getBoundingClientRect();
-    tabStrip.scrollLeft +=
-      tabRect.left - stripRect.left - (stripRect.width - tabRect.width) / 2;
+  // La píldora de la biblioteca se mide después de montar la vista: queda
+  // alineada con la pestaña activa y centrada cuando la tira se desplaza.
+  const libraryRail = view.querySelector(".lib-tabs__rail");
+  if (libraryRail) {
+    refreshLibraryTabLayout();
+    requestAnimationFrame(() => libraryRail.classList.add("is-live"));
+    syncLibraryTabsStuck();
+  }
+
+  // El set activo puede quedar fuera de la vista cuando la tira tiene varios
+  // sets propios: lo centramos para que se vea cuál está elegido.
+  const activeTrendSet = view.querySelector(".trend-set.is-active");
+  const trendRail = activeTrendSet?.closest(".trends-sets__rail");
+  if (trendRail && trendRail.scrollWidth > trendRail.clientWidth + 1) {
+    const railRect = trendRail.getBoundingClientRect();
+    const chipRect = activeTrendSet.getBoundingClientRect();
+    trendRail.scrollLeft +=
+      chipRect.left - railRect.left - (railRect.width - chipRect.width) / 2;
   }
 
   if (typeof updateHighlights === "function") updateHighlights();
@@ -1368,9 +1752,11 @@ const updateNavUI = () => {
             ? "catalog"
             : route.view === "library"
               ? "library"
-              : route.view === "home"
-                ? "home"
-                : "";
+              : route.view === "settings"
+                ? "settings"
+                : route.view === "home"
+                  ? "home"
+                  : "";
 
   $$(".nav__item").forEach((item) => {
     item.classList.toggle("is-active", item.dataset.nav === active);
@@ -1379,7 +1765,9 @@ const updateNavUI = () => {
   $$(".mobile-nav__item").forEach((item) => {
     const nav = item.dataset.mobileNav;
     if (!nav) return;
-    const moreActive = nav === "more" && (active === "catalog" || active === "recommendations");
+    const moreActive =
+      nav === "more" &&
+      (active === "catalog" || active === "recommendations" || active === "settings");
     item.classList.toggle("is-active", nav === active || moreActive);
   });
 
@@ -1389,3 +1777,7 @@ const updateNavUI = () => {
 
   updateHistoryButtons();
 };
+
+$("#view")?.addEventListener("scroll", syncLibraryTabsStuck, { passive: true });
+window.addEventListener("resize", refreshLibraryTabLayout);
+document.fonts?.ready.then(refreshLibraryTabLayout);

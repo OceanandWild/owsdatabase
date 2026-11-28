@@ -6,6 +6,9 @@
 const searchInput = $("#searchInput");
 const scrim = $("#scrim");
 const authGate = $("#authGate");
+const bootGate = $("#bootGate");
+const bootTitleEl = $("#bootTitle");
+const bootHintEl = $("#bootHint");
 const authForm = $("#authForm");
 const authErrorEl = $("#authError");
 const authSubmit = $("#authSubmit");
@@ -18,6 +21,11 @@ let authMode = "login";
 let pendingFiles = [];
 let uploadPrefill = null;
 
+// El loader de arranque se queda visible hasta que la sesión anterior termina
+// de resolverse. El mínimo evita que aparezca y desaparezca en un parpadeo.
+const BOOT_MIN_MS = 900;
+const bootStartedAt = performance.now();
+
 const SCAN_CONSENT_KEY = "wavernote.scanConsent.v1";
 const SCAN_FILE_LIMIT = 400;
 // En Android el WebView no entiende `webkitdirectory` ni tiene File System
@@ -26,6 +34,8 @@ const SCAN_FILE_LIMIT = 400;
 // archivos elegidos.
 const IS_ANDROID = /Android/i.test(navigator.userAgent || "");
 const AUDIO_ACCEPT = "audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.webm";
+const VIDEO_ACCEPT = "video/mp4,video/quicktime,video/webm,.mp4,.m4v,.mov,.webm";
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
 
 let uploadMode = "manual";
 let scanItems = [];
@@ -35,6 +45,17 @@ let scanTruncated = false;
 let scanRunId = 0;
 let scanCoverUrls = [];
 let pendingCoverPreviewUrl = "";
+// Imagen elegida para la portada de la subida manual. Se guarda aparte del
+// input para que también funcione al arrastrarla desde el explorador.
+let pendingUploadCoverFile = null;
+let pendingVideoCover = null;
+let pendingVideoCoverUrl = "";
+let pendingVideoCoverKey = "";
+let pendingVideoCoverLoading = false;
+let pendingVideoCoverSource = "";
+let pendingVideoMeta = null;
+let pendingVideoAutoFields = {};
+let videoCoverRunId = 0;
 let scanConsent = readJSON(SCAN_CONSENT_KEY, null);
 
 // Canciones que había en la biblioteca antes de la última subida: sirve para
@@ -127,7 +148,61 @@ const renderSidebarPlaylists = () => {
     .join("");
 };
 
+const setBootMessage = (title, hint = "") => {
+  if (bootTitleEl) bootTitleEl.textContent = title;
+  if (bootHintEl) bootHintEl.textContent = hint;
+};
+
+const bootWait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+let bootHidePromise = null;
+let bootHideResolve = null;
+let bootHideTimer = 0;
+
+const finishBootHide = () => {
+  window.clearTimeout(bootHideTimer);
+  if (bootGate) bootGate.hidden = true;
+  if (bootHideResolve) {
+    bootHideResolve();
+    bootHideResolve = null;
+  }
+};
+
+const hideBoot = (immediate = false) => {
+  if (!bootGate || bootGate.hidden) return Promise.resolve();
+
+  bootGate.setAttribute("aria-busy", "false");
+  bootGate.setAttribute("aria-hidden", "true");
+  bootGate.classList.add("is-done");
+
+  // Al entrar desde el formulario, el loader ya cumplió su función: se retira
+  // en el acto para que su mensaje no quede flotando sobre la app.
+  if (immediate) {
+    finishBootHide();
+    bootHidePromise = Promise.resolve();
+    return bootHidePromise;
+  }
+
+  if (bootHidePromise) return bootHidePromise;
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  bootHidePromise = new Promise((resolve) => {
+    bootHideResolve = resolve;
+    bootHideTimer = window.setTimeout(finishBootHide, reduced ? 0 : 380);
+  });
+  return bootHidePromise;
+};
+
+// Si la sesión se resuelve muy rápido, el loader se queda un instante para que
+// el cambio no parezca un error de carga.
+const settleBoot = async () => {
+  if (!bootGate || bootGate.hidden || bootGate.classList.contains("is-done")) return;
+  const remaining = BOOT_MIN_MS - (performance.now() - bootStartedAt);
+  if (remaining > 0) await bootWait(remaining);
+};
+
 const showAuth = (mode = "login") => {
+  hideBoot();
   window.WaverNoteWatched?.stop();
   setAuthMode(mode);
   authGate.hidden = false;
@@ -137,9 +212,11 @@ const showAuth = (mode = "login") => {
 };
 
 const hideAuth = () => {
+  const fromForm = !authGate.hidden;
   authGate.hidden = true;
   authGate.setAttribute("aria-hidden", "true");
   $("#app")?.removeAttribute("aria-hidden");
+  hideBoot(fromForm);
 };
 
 const setAuthError = (message) => {
@@ -213,6 +290,7 @@ const enterApp = async (user) => {
     /* el caché local ya está aplicado */
   }
 
+  await settleBoot();
   state.ready = true;
   hideAuth();
   window.WaverNoteWatched?.start();
@@ -221,6 +299,7 @@ const enterApp = async (user) => {
   updateOfflineUI();
   resetNavigation();
   applyCloudRestore();
+  setNpTab(state.npTab, { persist: false });
 
   engine.setVolume(state.volume);
   engine.setMuted(state.muted);
@@ -233,6 +312,9 @@ const enterApp = async (user) => {
   setupMediaSession();
   startUiLoop();
 
+  // La app ya está lista: el loader termina de irse antes de abrir avisos que
+  // tapan la pantalla.
+  await hideBoot();
   // Si hay una actualización pendiente, su changelog se muestra solo una vez
   // por arranque: al entrar puede ser el momento de verlo.
   window.WaverNoteUpdater?.maybeShowChangelogModal();
@@ -245,6 +327,8 @@ const enterApp = async (user) => {
 const bootAuth = async () => {
   const token = getToken();
   if (!token) {
+    setBootMessage("No hay una sesión guardada", "Te llevamos al acceso.");
+    await bootWait(900);
     showAuth("login");
     return;
   }
@@ -256,24 +340,47 @@ const bootAuth = async () => {
     id: resolveUserId(stored, token),
     username: stored?.username || ""
   };
-  setAuthBusy(true);
+
+  setBootMessage(
+    "Recuperando tu sesión",
+    storedUser.username
+      ? `Buscando la cuenta @${storedUser.username}.`
+      : "Buscando tu cuenta de Surface."
+  );
+
   try {
     const session = await validateSurfaceSession();
     saveSession(session.token, session.user);
+    setBootMessage("Recuperando tu sesión", "Cargando tu biblioteca y tus preferencias.");
     await enterApp(session.user);
   } catch (err) {
     // Si falla la red pero hay una sesión guardada, se entra igual con la
     // copia local. Un 401 real sí cierra la sesión.
     if (isOfflineError(err) && storedUser.id) {
+      setBootMessage(
+        "Entrando con tu copia guardada",
+        "El servidor no respondió; tu biblioteca está en este dispositivo."
+      );
       await enterApp(storedUser);
-      toast("No pudimos conectar con el servidor: entraste con tu biblioteca guardada.");
-    } else {
-      clearSession();
-      showAuth("login");
-      if (err.status !== 401) setAuthError(friendlyError(err));
+      if (state.ready) {
+        toast("No pudimos conectar con el servidor: entraste con tu biblioteca guardada.");
+      }
+      return;
     }
-  } finally {
-    setAuthBusy(false);
+
+    clearSession();
+    if (err.status === 401) {
+      setBootMessage("Tu sesión expiró", "Te llevamos al acceso para que entres de nuevo.");
+      await bootWait(1200);
+      showAuth("login");
+      setAuthError("Tu sesión expiró. Entrá de nuevo con tu cuenta Surface.");
+      return;
+    }
+
+    setBootMessage("No pudimos abrir tu sesión", "Revisá tu conexión e intentá de nuevo.");
+    await bootWait(1000);
+    showAuth("login");
+    setAuthError(friendlyError(err));
   }
 };
 
@@ -385,7 +492,61 @@ const formatBytes = (bytes) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+const releaseVideoCover = () => {
+  videoCoverRunId += 1;
+  pendingVideoCover = null;
+  pendingVideoCoverSource = "";
+  pendingVideoMeta = null;
+  pendingVideoCoverKey = "";
+  pendingVideoCoverLoading = false;
+
+  if (pendingVideoCoverUrl) {
+    try {
+      URL.revokeObjectURL(pendingVideoCoverUrl);
+    } catch (err) {
+      /* noop */
+    }
+    pendingVideoCoverUrl = "";
+  }
+};
+
+const VIDEO_FORM_FIELDS = [
+  ["title", "#uploadTitle"],
+  ["artist", "#uploadArtist"],
+  ["album", "#uploadAlbum"],
+  ["genre", "#uploadGenre"]
+];
+
+// Borra solo los valores que puso la app al leer el video. Si el usuario
+// escribió encima, ese texto se queda.
+const clearAutoFilledVideoFields = () => {
+  VIDEO_FORM_FIELDS.forEach(([key, selector]) => {
+    const input = $(selector);
+    if (!input) return;
+    if (pendingVideoAutoFields[key] && input.value === pendingVideoAutoFields[key]) {
+      input.value = "";
+    }
+  });
+  pendingVideoAutoFields = {};
+};
+
+const applyVideoMetadataToForm = (metadata) => {
+  if (!metadata) return;
+
+  VIDEO_FORM_FIELDS.forEach(([key, selector]) => {
+    const input = $(selector);
+    if (!input) return;
+
+    const value = String(metadata[key] || "").trim();
+    if (!value || input.value.trim()) return;
+
+    input.value = value;
+    pendingVideoAutoFields[key] = value;
+  });
+};
+
 const releaseScanArtwork = () => {
+  pendingUploadCoverFile = null;
   scanCoverUrls.forEach((url) => {
     try {
       URL.revokeObjectURL(url);
@@ -403,6 +564,45 @@ const releaseScanArtwork = () => {
     }
     pendingCoverPreviewUrl = "";
   }
+
+  releaseVideoCover();
+};
+
+// Zona de portada que acepta una imagen arrastrada desde el explorador. El
+// contador evita que el borde parpadee al pasar sobre los hijos del bloque.
+const bindCoverDropZone = (zone, onFile) => {
+  if (!zone) return;
+
+  const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+
+  zone.addEventListener("dragenter", (event) => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    zone.classList.add("is-dragging");
+  });
+
+  zone.addEventListener("dragover", (event) => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    zone.classList.add("is-dragging");
+  });
+
+  zone.addEventListener("dragleave", (event) => {
+    // Al pasar sobre la portada o el selector la salida es hacia un hijo:
+    // el resaltado tiene que seguir puesto.
+    if (event.relatedTarget && zone.contains(event.relatedTarget)) return;
+    zone.classList.remove("is-dragging");
+  });
+
+  zone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    zone.classList.remove("is-dragging");
+    const file = event.dataTransfer?.files?.[0] || null;
+    if (file) onFile(file);
+  });
 };
 
 const scanConsentNote = () => {
@@ -559,13 +759,22 @@ const uploadModalHTML = () => `
 
     <section class="upload-pane" id="manualPane" aria-label="Carga manual">
       <label class="dropzone" id="dropzone" tabindex="0">
-        <input id="uploadFiles" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.webm" multiple hidden />
+        <input id="uploadFiles" type="file" accept="${AUDIO_ACCEPT},${VIDEO_ACCEPT}" multiple hidden />
         <span class="dropzone__icon">${icon("upload")}</span>
         <strong>Elegí archivos o arrastralos acá</strong>
-        <span class="dropzone__hint">MP3, WAV, OGG, M4A, AAC, FLAC u OPUS · hasta 50 MB por archivo</span>
+        <span class="dropzone__hint">MP3, WAV, OGG, M4A, AAC, FLAC u OPUS · videos MP4, MOV o WEBM · audio hasta 50 MB, video hasta 150 MB</span>
       </label>
 
       <div class="upload-list" id="uploadList" hidden></div>
+
+      <div class="upload-video-note" id="uploadVideoNote" hidden>
+        ${icon("video")}
+        <p>
+          <strong>El video se convierte a MP3 de 320 kbps en tu dispositivo.</strong>
+          La conversión puede demorar varios minutos. Subir el audio usa datos de tu conexión
+          y, en redes móviles, puede generar cargos según tu plan. Duración máxima: 10 minutos.
+        </p>
+      </div>
 
       <div class="form-grid upload-fields">
         <label class="field">
@@ -584,11 +793,11 @@ const uploadModalHTML = () => `
           <span>Género</span>
           <input id="uploadGenre" name="genre" maxlength="60" placeholder="Opcional" />
         </label>
-        <div class="upload-cover">
+        <div class="upload-cover" id="uploadCoverDrop">
           <label class="field">
             <span>Miniatura / portada</span>
             <input id="uploadCover" type="file" accept="image/jpeg,image/png,image/webp" />
-            <small class="field__hint" id="uploadCoverHint">JPG, PNG o WEBP · una canción a la vez.</small>
+            <small class="field__hint" id="uploadCoverHint">JPG, PNG o WEBP · arrastrá una imagen o elegí un archivo.</small>
           </label>
           <div class="cover-preview" id="uploadCoverPreview" hidden>
             <img alt="Vista previa de la portada" />
@@ -597,9 +806,14 @@ const uploadModalHTML = () => `
         </div>
       </div>
 
+      <label class="field lyrics-field">
+        <span>Letra</span>
+        <textarea id="uploadLyrics" name="lyrics" rows="8" maxlength="20000" placeholder="Opcional · pegá la letra" disabled></textarea>
+      </label>
+
       <p class="form__hint">
         En manual elegís todo: archivo, miniatura, artista, álbum y género. Si no escribís el título,
-        sale del nombre del archivo («Artista - Título» se separa solo).
+        se toma de las etiquetas del archivo o del nombre («Artista - Título» se separa solo).
       </p>
     </section>
 
@@ -621,11 +835,28 @@ const uploadModalHTML = () => `
   </form>`;
 
 const setPendingFiles = (files) => {
-  const incoming = Array.from(files || []);
-  const tooBig = incoming.filter((file) => file.size > 50 * 1024 * 1024);
-  const accepted = incoming.filter((file) => file.size <= 50 * 1024 * 1024 && !tooBig.includes(file));
+  const all = Array.from(files || []);
+  const incoming = all.filter(
+    (file) => WNMetadata.isAudioFile(file) || WNVideo.isVideoFile(file)
+  );
+  const limitOf = (file) => (WNVideo.isVideoFile(file) ? WNVideo.MAX_VIDEO_BYTES : MAX_AUDIO_BYTES);
+  const tooBig = incoming.filter((file) => file.size > limitOf(file));
+  const accepted = incoming.filter((file) => file.size <= limitOf(file));
 
-  if (tooBig.length) toast(`${plural(tooBig.length, "archivo supera", "archivos superan")} los 50 MB.`, "error");
+  if (all.length && !incoming.length) {
+    toast("Elegí canciones o videos para subir.", "error");
+    return;
+  }
+
+  if (tooBig.length) {
+    const everyVideo = tooBig.every((file) => WNVideo.isVideoFile(file));
+    const everyAudio = tooBig.every((file) => !WNVideo.isVideoFile(file));
+    const limit = everyVideo ? "150 MB para video" : everyAudio ? "50 MB" : "el límite permitido";
+    toast(
+      `${plural(tooBig.length, "archivo supera", "archivos superan")} ${limit}.`,
+      "error"
+    );
+  }
   pendingFiles = accepted.slice(0, 30);
   if (accepted.length > 30) toast("Se agregaron los primeros 30 archivos.");
 
@@ -657,15 +888,179 @@ const updateUploadSubmitState = () => {
     return;
   }
 
-  submit.disabled = !pendingFiles.length;
+  const count = pendingFiles.length;
+  const hasVideo = pendingFiles.some((file) => WNVideo.isVideoFile(file));
+
+  submit.disabled = !count;
   if (label) {
-    label.textContent =
-      pendingFiles.length === 0
-        ? "Subir"
-        : pendingFiles.length === 1
-          ? "Subir canción"
-          : `Subir ${pendingFiles.length} canciones`;
+    if (!count) {
+      label.textContent = "Subir";
+    } else if (hasVideo) {
+      label.textContent = count === 1 ? "Convertir y subir" : `Convertir y subir ${count}`;
+    } else {
+      label.textContent = count === 1 ? "Subir canción" : `Subir ${count} canciones`;
+    }
   }
+};
+
+const selectedUploadCover = () => {
+  const input = $("#uploadCover");
+  return pendingUploadCoverFile || input?.files?.[0] || null;
+};
+
+// Valida y deja lista la imagen de portada. La usan tanto el selector como
+// el arrastre sobre el campo.
+const applyUploadCoverFile = (file) => {
+  if (!file) {
+    pendingUploadCoverFile = null;
+    const input = $("#uploadCover");
+    if (input) input.value = "";
+    updateUploadCoverHint();
+    updateCoverPreview();
+    return false;
+  }
+
+  if (pendingFiles.length !== 1) {
+    toast("La miniatura se aplica a una canción a la vez.", "error");
+    return false;
+  }
+
+  if (file.size > 25 * 1024 * 1024) {
+    toast("La imagen es demasiado grande. Probá con una de menos de 25 MB.", "error");
+    return false;
+  }
+
+  if (
+    !/^image\//i.test(String(file.type || "")) &&
+    !/\.(jpe?g|png|webp)$/i.test(file.name || "")
+  ) {
+    toast("La miniatura tiene que ser una imagen JPG, PNG o WEBP.", "error");
+    return false;
+  }
+
+  pendingUploadCoverFile = file;
+  const input = $("#uploadCover");
+  if (input) input.value = "";
+  updateUploadCoverHint();
+  updateCoverPreview();
+  return true;
+};
+
+const updateUploadCoverHint = () => {
+  const hint = $("#uploadCoverHint");
+  if (!hint) return;
+
+  const single = pendingFiles.length === 1;
+
+  if (!single) {
+    hint.textContent = pendingFiles.length
+      ? "Solo para una canción a la vez."
+      : "JPG, PNG o WEBP · una canción a la vez.";
+    return;
+  }
+
+  const file = pendingFiles[0];
+  const hasCoverFile = Boolean(selectedUploadCover());
+
+  if (hasCoverFile) {
+    hint.textContent = "Se va a usar esta imagen.";
+    return;
+  }
+
+  if (pendingVideoCover) {
+    hint.textContent =
+      pendingVideoCoverSource === "embedded"
+        ? "Portada incluida en el video. Arrastrá otra imagen para cambiarla."
+        : "Miniatura tomada del video. Arrastrá otra imagen para cambiarla.";
+    return;
+  }
+
+  if (WNVideo.isVideoFile(file)) {
+    hint.textContent = pendingVideoCoverLoading
+      ? "Tomando la miniatura del video…"
+      : "Video sin miniatura · arrastrá una imagen JPG, PNG o WEBP.";
+    return;
+  }
+
+  if (uploadPrefill?.coverUrl) {
+    hint.textContent = "Se usa la portada importada. Arrastrá una imagen para cambiarla.";
+    return;
+  }
+
+  hint.textContent = "JPG, PNG o WEBP · arrastrá una imagen o elegí un archivo.";
+};
+
+const syncPendingVideo = () => {
+  const video =
+    pendingFiles.length === 1 && WNVideo.isVideoFile(pendingFiles[0]) ? pendingFiles[0] : null;
+  const key = video ? `${video.name}|${video.size}|${video.lastModified}` : "";
+
+  if (key === pendingVideoCoverKey) {
+    updateUploadCoverHint();
+    updateCoverPreview();
+    return;
+  }
+
+  releaseVideoCover();
+  clearAutoFilledVideoFields();
+  pendingVideoCoverKey = key;
+
+  if (!video) {
+    updateUploadCoverHint();
+    updateCoverPreview();
+    return;
+  }
+
+  const runId = ++videoCoverRunId;
+  pendingVideoCoverLoading = true;
+  updateUploadCoverHint();
+  updateCoverPreview();
+
+  // Las etiquetas y la miniatura se leen una sola vez, en paralelo. Si el
+  // video trae portada embebida se usa esa; si no, queda el fotograma.
+  Promise.all([
+    WNMetadata.readTrackMetadata(video).catch(() => null),
+    WNVideo.extractThumbnail(video).catch(() => null)
+  ])
+    .then(async ([metadata, frame]) => {
+      if (runId !== videoCoverRunId) return;
+
+      pendingVideoMeta = metadata;
+      applyVideoMetadataToForm(metadata);
+
+      let cover = null;
+      let source = "";
+      if (metadata?.coverBlob) {
+        try {
+          cover = await WNMetadata.prepareCoverForUpload(metadata.coverBlob, video.name);
+          if (cover) source = "embedded";
+        } catch (err) {
+          cover = null;
+        }
+      }
+      if (!cover) {
+        cover = frame;
+        source = cover ? "frame" : "";
+      }
+
+      if (runId !== videoCoverRunId) return;
+      pendingVideoCoverLoading = false;
+
+      if (cover) {
+        pendingVideoCover = cover;
+        pendingVideoCoverSource = source;
+        pendingVideoCoverUrl = URL.createObjectURL(cover);
+      }
+
+      updateUploadCoverHint();
+      updateCoverPreview();
+    })
+    .catch(() => {
+      if (runId !== videoCoverRunId) return;
+      pendingVideoCoverLoading = false;
+      updateUploadCoverHint();
+      updateCoverPreview();
+    });
 };
 
 const renderPendingFiles = () => {
@@ -673,26 +1068,32 @@ const renderPendingFiles = () => {
   const input = $("#uploadFiles");
   const cover = $("#uploadCover");
   const title = $("#uploadTitle");
-  const coverHint = $("#uploadCoverHint");
+  const lyrics = $("#uploadLyrics");
   const preview = $("#uploadCoverPreview");
 
   if (input) input.value = "";
+  // Al cambiar la selección de audio se empieza de cero con la miniatura.
+  pendingUploadCoverFile = null;
 
   if (list) {
     list.hidden = !pendingFiles.length;
     list.innerHTML = pendingFiles
-      .map(
-        (file, index) => `<div class="upload-file">
-          <span class="upload-file__icon">${icon("music")}</span>
+      .map((file, index) => {
+        const video = WNVideo.isVideoFile(file);
+        return `<div class="upload-file">
+          <span class="upload-file__icon${video ? " is-video" : ""}">${icon(video ? "video" : "music")}</span>
           <span class="upload-file__meta">
             <strong>${escapeHTML(file.name)}</strong>
-            <small>${formatBytes(file.size)}</small>
+            <small>${formatBytes(file.size)}${video ? " · Se convierte a MP3" : ""}</small>
           </span>
           <button class="icon-btn icon-btn--tiny" type="button" data-remove-file="${index}" aria-label="Quitar ${escapeHTML(file.name)}">${icon("x")}</button>
-        </div>`
-      )
+        </div>`;
+      })
       .join("");
   }
+
+  const note = $("#uploadVideoNote");
+  if (note) note.hidden = !pendingFiles.some((file) => WNVideo.isVideoFile(file));
 
   const single = pendingFiles.length === 1;
 
@@ -701,17 +1102,13 @@ const renderPendingFiles = () => {
     if (!single && cover.value) cover.value = "";
   }
   if (title) title.disabled = pendingFiles.length > 1;
-  if (coverHint) {
-    const hasCoverFile = Boolean(cover?.files?.[0]);
-    coverHint.textContent = single
-      ? uploadPrefill?.coverUrl && !hasCoverFile
-        ? "Se usa la portada importada. Elegí un archivo para cambiarla."
-        : "JPG, PNG o WEBP · se aplica a esta canción."
-      : "Solo para una canción a la vez.";
+  if (lyrics) {
+    lyrics.disabled = !single;
+    if (!single && lyrics.value) lyrics.value = "";
   }
   if (preview && !single) preview.hidden = true;
 
-  updateCoverPreview();
+  syncPendingVideo();
 
   updateUploadSubmitState();
 
@@ -720,7 +1117,6 @@ const renderPendingFiles = () => {
 };
 
 const updateCoverPreview = () => {
-  const input = $("#uploadCover");
   const preview = $("#uploadCoverPreview");
 
   if (pendingCoverPreviewUrl) {
@@ -734,21 +1130,34 @@ const updateCoverPreview = () => {
 
   if (!preview) return;
 
-  const file = input?.files?.[0];
-  const remote = !file ? uploadPrefill?.coverUrl || "" : "";
-  if ((!file && !remote) || (file && pendingFiles.length !== 1)) {
+  const file = selectedUploadCover();
+  const single = pendingFiles.length === 1;
+  let src = "";
+
+  if (single && file) {
+    pendingCoverPreviewUrl = URL.createObjectURL(file);
+    src = pendingCoverPreviewUrl;
+  } else if (single && pendingVideoCoverUrl) {
+    src = pendingVideoCoverUrl;
+  } else if (single) {
+    src = uploadPrefill?.coverUrl || "";
+  }
+
+  if (!src) {
     preview.hidden = true;
     const oldImage = preview.querySelector("img");
     if (oldImage) oldImage.removeAttribute("src");
     return;
   }
 
-  if (file) {
-    pendingCoverPreviewUrl = URL.createObjectURL(file);
+  const image = preview.querySelector("img");
+  if (image) image.src = src;
+
+  const caption = preview.querySelector("span");
+  if (caption) {
+    caption.textContent = !file && pendingVideoCover ? "Del video" : "Así se va a ver.";
   }
 
-  const image = preview.querySelector("img");
-  if (image) image.src = pendingCoverPreviewUrl || remote;
   preview.hidden = false;
 };
 
@@ -903,7 +1312,12 @@ const collectMusicFiles = async (directory, output, depth = 0) => {
     if (entry.kind === "file") {
       if (!WNMetadata.isAudioFile(entry.name)) continue;
       try {
-        output.push(await entry.getFile());
+        const file = await entry.getFile();
+        // .mp4 y .webm también pueden ser video. El escaneo de Música es
+        // solo para audio: los videos se agregan desde la carga manual,
+        // donde se convierten a MP3 y se les toma la miniatura.
+        if (WNVideo.isVideoFile(file)) continue;
+        output.push(file);
       } catch (err) {
         /* archivo ilegible, seguimos con el resto */
       }
@@ -946,7 +1360,9 @@ const pickFolderWithInput = () =>
       if (settled) return;
       settled = true;
 
-      const audio = Array.from(files || []).filter((file) => WNMetadata.isAudioFile(file));
+      const audio = Array.from(files || []).filter(
+        (file) => WNMetadata.isAudioFile(file) && !WNVideo.isVideoFile(file)
+      );
       const first = audio[0];
       const relative = first?.webkitRelativePath || "";
       cleanup();
@@ -1054,7 +1470,9 @@ const startScan = async (preselectedFiles = null, options = {}) => {
 
   const previous = append ? scanItems.slice() : [];
   const seen = new Set(previous.map((item) => scanFileKey(item.file)));
-  const incoming = (picked.files || []).filter((file) => WNMetadata.isAudioFile(file));
+  const incoming = (picked.files || []).filter(
+    (file) => WNMetadata.isAudioFile(file) && !WNVideo.isVideoFile(file)
+  );
   const fresh = [];
   let repeated = 0;
   let overflow = false;
@@ -1223,6 +1641,7 @@ const openUpload = (prefill = null) => {
       : null;
 
   releaseScanArtwork();
+  pendingVideoAutoFields = {};
   openModal({ title: "Agregar música", eyebrow: "Tu biblioteca", body: uploadModalHTML() });
   modal.querySelector(".modal__panel")?.classList.add("modal__panel--upload");
 
@@ -1238,7 +1657,7 @@ const openUpload = (prefill = null) => {
     const hint = $("#uploadCoverHint");
     if (hint) {
       hint.textContent = uploadPrefill.coverUrl
-        ? "Se usa la portada importada. Elegí un archivo para cambiarla."
+        ? "Se usa la portada importada. Arrastrá una imagen para cambiarla."
         : hint.textContent;
     }
   }
@@ -1313,7 +1732,20 @@ const openUpload = (prefill = null) => {
     renderPendingFiles();
   });
 
-  coverInput?.addEventListener("change", updateCoverPreview);
+  coverInput?.addEventListener("change", () => {
+    const file = coverInput.files?.[0] || null;
+    if (file) {
+      applyUploadCoverFile(file);
+      return;
+    }
+    pendingUploadCoverFile = null;
+    updateUploadCoverHint();
+    updateCoverPreview();
+  });
+
+  // La portada también se puede soltar directamente sobre su campo, sin
+  // abrir el selector del dispositivo.
+  bindCoverDropZone($("#uploadCoverDrop"), applyUploadCoverFile);
 
   $("#autoPane")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-scan-action]");
@@ -1496,10 +1928,11 @@ const runAutoUpload = async () => {
 
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
+    const isVideo = WNVideo.isVideoFile(item.file);
     setUploadProgress(index / items.length, `Preparando ${index + 1} de ${items.length}: ${item.title}`);
 
-    const duration = item.duration || (await readAudioDuration(item.file));
-
+    let fileToUpload = item.file;
+    let duration = item.duration;
     let cover = null;
     try {
       cover = await WNMetadata.prepareCoverForUpload(item.coverBlob, item.file.name);
@@ -1507,9 +1940,33 @@ const runAutoUpload = async () => {
       cover = null;
     }
 
+    // El escaneo automático ya deja los videos afuera. Si alguno llegara
+    // igual, se convierte y se le toma la miniatura en vez de subirlo tal cual.
+    if (isVideo) {
+      try {
+        if (!cover) cover = await WNVideo.extractThumbnail(item.file);
+        const converted = await WNVideo.convertToMp3(item.file, {
+          onProgress: (ratio) => {
+            const total = (index + ratio * 0.7) / items.length;
+            setUploadProgress(
+              total,
+              `Convirtiendo ${index + 1} de ${items.length}: ${item.title} · ${Math.round(ratio * 100)}%`
+            );
+          }
+        });
+        fileToUpload = converted.file;
+        duration = converted.duration;
+      } catch (err) {
+        failures.push({ name: item.title, message: friendlyError(err) });
+        continue;
+      }
+    } else if (!duration) {
+      duration = await readAudioDuration(item.file);
+    }
+
     try {
       await uploadTrackFile({
-        file: item.file,
+        file: fileToUpload,
         cover,
         fields: {
           title: item.title,
@@ -1519,8 +1976,14 @@ const runAutoUpload = async () => {
           duration
         },
         onProgress: (ratio) => {
-          const total = (index + ratio) / items.length;
-          setUploadProgress(total, `Subiendo ${index + 1} de ${items.length}: ${item.title} · ${Math.round(ratio * 100)}%`);
+          // En un video, la conversión ocupa el primer 70% de su tramo.
+          const shared = isVideo ? 0.7 : 0;
+          const span = isVideo ? 0.3 : 1;
+          const total = (index + shared + ratio * span) / items.length;
+          setUploadProgress(
+            total,
+            `Subiendo ${index + 1} de ${items.length}${isVideo ? " (MP3)" : ""}: ${item.title} · ${Math.round(ratio * 100)}%`
+          );
         }
       });
       uploaded += 1;
@@ -1550,8 +2013,9 @@ const runUpload = async () => {
   const artist = $("#uploadArtist")?.value.trim() || "";
   const album = $("#uploadAlbum")?.value.trim() || "";
   const genre = $("#uploadGenre")?.value.trim() || "";
-  const coverInput = $("#uploadCover");
-  const cover = files.length === 1 && coverInput?.files?.[0] ? coverInput.files[0] : null;
+  const lyrics = files.length === 1 ? $("#uploadLyrics")?.value || "" : "";
+  const cover = files.length === 1 ? selectedUploadCover() : null;
+  const hasVideos = files.some((file) => WNVideo.isVideoFile(file));
 
   state.uploading = true;
   setUploadModeLocked(true);
@@ -1560,7 +2024,7 @@ const runUpload = async () => {
   if (submit) {
     submit.disabled = true;
     const span = submit.querySelector("span");
-    if (span) span.textContent = "Subiendo…";
+    if (span) span.textContent = hasVideos ? "Convirtiendo…" : "Subiendo…";
   }
 
   // Se guarda qué había en la biblioteca para detectar las nuevas al terminar.
@@ -1571,24 +2035,102 @@ const runUpload = async () => {
 
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
-    setUploadProgress(index / files.length, `Preparando ${index + 1} de ${files.length}…`);
+    const single = files.length === 1;
+    const isVideo = WNVideo.isVideoFile(file);
+    let fileToUpload = file;
+    let duration = 0;
+    let fileCover = single ? cover : null;
+    let fieldsTitle = title;
+    let fieldsArtist = artist;
+    let fieldsAlbum = album;
+    let fieldsGenre = genre;
 
-    const duration = await readAudioDuration(file);
+    if (isVideo) {
+      // Los tags del video mandan cuando el usuario no escribió nada. Se
+      // leen antes de convertir para que el MP3 no pierda título ni artista.
+      let metadata = single ? pendingVideoMeta : null;
+      if (!metadata) {
+        try {
+          metadata = await WNMetadata.readTrackMetadata(file);
+        } catch (err) {
+          metadata = null;
+        }
+      }
+
+      if (!fieldsTitle && metadata?.title) fieldsTitle = metadata.title;
+      if (!fieldsArtist && metadata?.artist) fieldsArtist = metadata.artist;
+      if (!fieldsAlbum && metadata?.album) fieldsAlbum = metadata.album;
+      if (!fieldsGenre && metadata?.genre) fieldsGenre = metadata.genre;
+
+      // La miniatura ya se tomó al elegir el video. En una tanda, cada
+      // video trae la suya.
+      if (single && !fileCover && pendingVideoCover) fileCover = pendingVideoCover;
+
+      try {
+        if (!fileCover && metadata?.coverBlob) {
+          try {
+            fileCover = await WNMetadata.prepareCoverForUpload(metadata.coverBlob, file.name);
+          } catch (err) {
+            fileCover = null;
+          }
+        }
+
+        if (!fileCover) {
+          setUploadProgress(
+            index / files.length,
+            files.length > 1
+              ? `Tomando la miniatura ${index + 1} de ${files.length}…`
+              : "Tomando la miniatura del video…"
+          );
+          fileCover = await WNVideo.extractThumbnail(file);
+        }
+
+        const converted = await WNVideo.convertToMp3(file, {
+          onProgress: (ratio) => {
+            const total = (index + ratio * 0.7) / files.length;
+            const label =
+              files.length === 1
+                ? `Convirtiendo el video a MP3 · ${Math.round(ratio * 100)}%`
+                : `Convirtiendo ${index + 1} de ${files.length}: ${file.name} · ${Math.round(ratio * 100)}%`;
+            setUploadProgress(total, label);
+          }
+        });
+
+        fileToUpload = converted.file;
+        duration = converted.duration;
+      } catch (err) {
+        failures.push({ name: file.name, message: friendlyError(err) });
+        setUploadProgress((index + 1) / files.length, "Seguimos con el resto…");
+        continue;
+      }
+    } else {
+      setUploadProgress(index / files.length, `Preparando ${index + 1} de ${files.length}…`);
+      duration = await readAudioDuration(file);
+    }
+
     try {
       await uploadTrackFile({
-        file,
-        cover,
+        file: fileToUpload,
+        cover: fileCover,
         fields: {
-          pendingId: files.length === 1 ? uploadPrefill?.pendingId || "" : "",
-          title,
-          artist,
-          album,
-          genre,
+          pendingId: single ? uploadPrefill?.pendingId || "" : "",
+          title: fieldsTitle,
+          artist: fieldsArtist,
+          album: fieldsAlbum,
+          genre: fieldsGenre,
+          lyrics: single ? lyrics : "",
           duration
         },
         onProgress: (ratio) => {
-          const total = (index + ratio) / files.length;
-          setUploadProgress(total, `Subiendo ${index + 1} de ${files.length}… ${Math.round(ratio * 100)}%`);
+          // En un video, la conversión ocupa el primer 70% de su tramo.
+          const shared = isVideo ? 0.7 : 0;
+          const span = isVideo ? 0.3 : 1;
+          const total = (index + shared + ratio * span) / files.length;
+          const label =
+            files.length === 1
+              ? `${isVideo ? "Subiendo el MP3" : "Subiendo"} · ${Math.round(ratio * 100)}%`
+              : `Subiendo ${index + 1} de ${files.length}${isVideo ? " (MP3)" : ""} · ${Math.round(ratio * 100)}%`;
+          setUploadProgress(total, label);
         }
       });
       uploaded += 1;
@@ -1639,6 +2181,9 @@ const openTrackMenu = (trackId, playlistId = "") => {
               ${icon("x")} <span>Quitar de esta playlist</span>
             </button>`
           : ""}
+        <button class="menu-item" data-action="menu-lyrics" data-id="${track.id}">
+          ${icon("lyrics")} <span>${String(track.lyrics || "").trim() ? "Editar letra" : "Agregar letra"}</span>
+        </button>
         <button class="menu-item" data-action="menu-edit" data-id="${track.id}">
           ${icon("edit")} <span>Editar detalles</span>
         </button>
@@ -1912,6 +2457,113 @@ const openQueueAdd = (intent = "add") => {
   renderQueuePickerList();
 };
 
+const RANDOM_EXCLUDE_LIMIT = 80;
+let randomExcludeQuery = "";
+
+const randomExcludeMatches = () => {
+  const term = normalize(randomExcludeQuery);
+  return state.tracks.filter((track) => {
+    if (!term) return true;
+    const haystack = normalize(
+      `${track.title || ""} ${track.artist || ""} ${track.album || ""} ${track.genre || ""}`
+    );
+    return haystack.includes(term);
+  });
+};
+
+const randomExcludeRow = (track) => {
+  const excluded = isRandomExcluded(track.id);
+  const label = `Incluir «${track.title}» en el aleatorio`;
+
+  return `<li class="queue-pick random-pick${excluded ? " is-excluded" : ""}" data-random-pick="${track.id}">
+    <button class="queue-pick__row" type="button" role="switch" aria-checked="${!excluded}" data-action="random-exclude-toggle" data-id="${track.id}" aria-label="${escapeHTML(label)}">
+      <span class="queue-pick__art">${coverHTML(track)}</span>
+      <span class="queue-pick__info">
+        <strong>${escapeHTML(track.title)}</strong>
+        <small>${escapeHTML(track.artist || "Artista desconocido")}</small>
+      </span>
+      <span class="switch random-pick__switch" aria-hidden="true"><span class="switch__thumb"></span></span>
+    </button>
+  </li>`;
+};
+
+const syncRandomExcludedSettings = () => {
+  const node = $("#randomExcludedSummary");
+  if (!node) return;
+  const count = randomExcludedCount();
+  node.textContent = count
+    ? `${plural(count, "canción fuera", "canciones fuera")} del aleatorio.`
+    : "Toda tu biblioteca entra en el aleatorio.";
+};
+
+const renderRandomExclusions = () => {
+  const list = $("#randomExcludeList");
+  if (!list) return;
+
+  const matches = randomExcludeMatches();
+  const excluded = matches.filter((track) => isRandomExcluded(track.id));
+  const included = matches.filter((track) => !isRandomExcluded(track.id));
+  const shown = [...excluded, ...included].slice(0, RANDOM_EXCLUDE_LIMIT);
+
+  list.innerHTML = shown.length
+    ? shown.map(randomExcludeRow).join("")
+    : `<li class="queue-pick-empty">${icon("search")} <span>No hay canciones con esa búsqueda.</span></li>`;
+
+  const meta = $("#randomExcludeMeta");
+  if (meta) {
+    meta.textContent = matches.length
+      ? `${plural(matches.length, "coincidencia", "coincidencias")}${
+          matches.length > RANDOM_EXCLUDE_LIMIT ? ` · mostrando ${RANDOM_EXCLUDE_LIMIT}` : ""
+        }`
+      : "Sin coincidencias";
+  }
+
+  const count = randomExcludedCount();
+  const total = state.tracks.length;
+  const summary = $("#randomExcludeSummary");
+  if (summary) {
+    summary.textContent = total
+      ? `${Math.max(0, total - count)} de ${total} canciones entran en el aleatorio`
+      : "Todavía no hay canciones en tu biblioteca";
+  }
+
+  const clearAll = modalBody.querySelector('[data-action="random-exclude-clear-all"]');
+  if (clearAll) clearAll.disabled = count === 0;
+};
+
+const openRandomExclusions = () => {
+  randomExcludeQuery = "";
+
+  openModal({
+    title: "Canciones fuera del aleatorio",
+    eyebrow: "Configuración",
+    body: `
+      <div class="queue-picker">
+        <label class="queue-picker__search">
+          ${icon("search")}
+          <input id="randomExcludeSearch" type="search" placeholder="Buscar en tu biblioteca…" autocomplete="off" spellcheck="false" aria-label="Buscar canciones para el aleatorio" data-autofocus />
+          <button class="queue-picker__clear" type="button" data-action="random-exclude-search-clear" aria-label="Limpiar búsqueda">${icon("x")}</button>
+        </label>
+        <p class="queue-picker__meta" id="randomExcludeMeta"></p>
+        <ul class="queue-picker__list" id="randomExcludeList"></ul>
+        <div class="queue-picker__foot">
+          <span class="queue-picker__summary" id="randomExcludeSummary" aria-live="polite"></span>
+          <div class="queue-picker__foot-actions">
+            <button class="btn btn--ghost btn--small" type="button" data-action="random-exclude-clear-all">Incluir todas</button>
+            <button class="btn btn--primary btn--small" type="button" data-action="close-modal">Listo</button>
+          </div>
+        </div>
+      </div>`
+  });
+
+  const input = $("#randomExcludeSearch");
+  input?.addEventListener("input", () => {
+    randomExcludeQuery = input.value;
+    renderRandomExclusions();
+  });
+  renderRandomExclusions();
+};
+
 /* ------------------------------------------------------------
    Menú contextual de tarjetas
    ------------------------------------------------------------ */
@@ -2100,18 +2752,40 @@ const openCardMenu = (card, x, y) => {
   menu.focus({ preventScroll: true });
 };
 
-const openTrackEdit = (trackId) => {
+const openTrackEdit = (trackId, { focusLyrics = false } = {}) => {
   const track = trackById(trackId);
   if (!track) return;
+
+  const originalCoverUrl = String(track.coverUrl || "");
+  let editCoverFile = null;
+  let editCoverPreview = "";
+  let editCoverRemoved = false;
+
+  const coverArtHTML = (coverUrl) =>
+    coverHTML({ title: track.title, coverUrl: String(coverUrl || "") });
 
   openModal({
     title: "Editar canción",
     eyebrow: "Detalles",
     body: `
       <form class="form" id="editForm">
+        <div class="catalog-edit" id="editCoverDrop">
+          <div class="catalog-edit__art" id="editTrackArt">${coverArtHTML(originalCoverUrl)}</div>
+          <div class="catalog-edit__fields">
+            <p class="catalog-edit__hint"><strong>Miniatura</strong></p>
+            <div class="catalog-edit__actions">
+              <label class="btn btn--soft btn--small catalog-edit__pick">
+                <input type="file" id="editCoverInput" accept="image/jpeg,image/png,image/webp" class="catalog-edit__input" />
+                ${icon("upload")} <span>Cambiar imagen</span>
+              </label>
+              <button type="button" class="btn btn--ghost btn--small" id="editCoverClear" ${originalCoverUrl ? "" : "hidden"}>Quitar</button>
+            </div>
+            <p class="catalog-edit__note">Arrastrá una imagen sobre la portada o elegí un archivo. JPG, PNG o WEBP.</p>
+          </div>
+        </div>
         <label class="field">
           <span>Título</span>
-          <input name="title" maxlength="160" value="${escapeHTML(track.title)}" required data-autofocus />
+          <input name="title" maxlength="160" value="${escapeHTML(track.title)}" required ${focusLyrics ? "" : "data-autofocus"} />
         </label>
         <div class="form-grid">
           <label class="field">
@@ -2127,6 +2801,10 @@ const openTrackEdit = (trackId) => {
             <input name="genre" maxlength="60" value="${escapeHTML(track.genre)}" />
           </label>
         </div>
+        <label class="field lyrics-field">
+          <span>Letra</span>
+          <textarea name="lyrics" rows="10" maxlength="20000" placeholder="Pegá la letra de la canción" ${focusLyrics ? "data-autofocus" : ""}>${escapeHTML(track.lyrics || "")}</textarea>
+        </label>
         <div class="modal__actions">
           <button type="button" class="btn btn--ghost" data-action="close-modal">Cancelar</button>
           <button type="submit" class="btn btn--primary">${icon("check")} Guardar</button>
@@ -2134,9 +2812,92 @@ const openTrackEdit = (trackId) => {
       </form>`
   });
 
-  $("#editForm")?.addEventListener("submit", async (event) => {
+  // Al entrar desde «Agregar letra», la letra queda a la vista y no al final
+  // de un formulario largo.
+  if (focusLyrics) {
+    requestAnimationFrame(() => {
+      $("#editForm")?.querySelector('[name="lyrics"]')?.scrollIntoView({
+        block: "center",
+        behavior: "smooth"
+      });
+    });
+  }
+
+  const form = $("#editForm");
+  const coverInput = $("#editCoverInput");
+  const coverClear = $("#editCoverClear");
+  const art = $("#editTrackArt");
+
+  const refreshCoverArt = () => {
+    if (!art) return;
+    if (editCoverPreview) {
+      art.innerHTML = `<img class="cover cover--photo" src="${escapeHTML(editCoverPreview)}" alt="" />`;
+      return;
+    }
+    art.innerHTML = coverArtHTML(editCoverRemoved ? "" : originalCoverUrl);
+  };
+
+  const refreshCoverClear = () => {
+    if (!coverClear) return;
+    coverClear.hidden = !(editCoverFile || (originalCoverUrl && !editCoverRemoved));
+  };
+
+  // La imagen queda lista apenas se elige o se suelta. La vista previa puede
+  // tardar unos milisegundos y no debe decidir si la miniatura se guarda o no.
+  const applyEditCoverFile = (file) => {
+    if (!file) return false;
+    if (file.size > 25 * 1024 * 1024) {
+      toast("La imagen es demasiado grande. Probá con una de menos de 25 MB.", "error");
+      if (coverInput) coverInput.value = "";
+      return false;
+    }
+    if (!/^image\//i.test(String(file.type || "")) && !/\.(jpe?g|png|webp)$/i.test(file.name || "")) {
+      toast("La miniatura tiene que ser una imagen JPG, PNG o WEBP.", "error");
+      if (coverInput) coverInput.value = "";
+      return false;
+    }
+
+    editCoverFile = file;
+    editCoverRemoved = false;
+    refreshCoverClear();
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (editCoverFile !== file) return;
+      editCoverPreview = String(reader.result || "");
+      refreshCoverArt();
+    };
+    reader.onerror = () => {
+      if (editCoverFile !== file) return;
+      editCoverFile = null;
+      editCoverPreview = "";
+      if (coverInput) coverInput.value = "";
+      refreshCoverArt();
+      refreshCoverClear();
+      toast("No se pudo leer la imagen. Probá con otra.", "error");
+    };
+    reader.readAsDataURL(file);
+    return true;
+  };
+
+  coverInput?.addEventListener("change", () => {
+    applyEditCoverFile(coverInput.files?.[0] || null);
+  });
+
+  // Soltar una imagen sobre la portada evita abrir el selector del sistema.
+  bindCoverDropZone($("#editCoverDrop"), applyEditCoverFile);
+
+  coverClear?.addEventListener("click", () => {
+    editCoverFile = null;
+    editCoverPreview = "";
+    editCoverRemoved = true;
+    if (coverInput) coverInput.value = "";
+    refreshCoverArt();
+    refreshCoverClear();
+  });
+
+  form?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = event.currentTarget;
     const title = form.title.value.trim();
     if (!title) {
       toast("La canción necesita un título.", "error");
@@ -2147,15 +2908,42 @@ const openTrackEdit = (trackId) => {
     if (submit) submit.disabled = true;
 
     try {
-      await api(`/wavernote/tracks/${track.id}`, {
-        method: "PATCH",
-        body: {
+      const cover = editCoverFile
+        ? await WNMetadata.prepareCoverForUpload(editCoverFile, title)
+        : null;
+      if (editCoverFile && !cover) {
+        throw new Error("La miniatura tiene que ser una imagen JPG, PNG o WEBP.");
+      }
+
+      const result = await updateTrackDetails({
+        trackId: track.id,
+        fields: {
           title,
           artist: form.artist.value.trim(),
           album: form.album.value.trim(),
-          genre: form.genre.value.trim()
-        }
+          genre: form.genre.value.trim(),
+          lyrics: form.lyrics.value
+        },
+        cover,
+        removeCover: editCoverRemoved
       });
+
+      // Sin una URL nueva no hay miniatura que mostrar: mejor avisar que
+      // cerrar el formulario con un éxito que no ocurrió.
+      if (cover && (!result?.track?.coverUrl || result.track.coverUrl === originalCoverUrl)) {
+        throw new Error("No se pudo guardar la miniatura. Probá de nuevo.");
+      }
+
+      // La copia sin conexión tiene que mostrar la miniatura nueva antes de
+      // volver a pintar la biblioteca.
+      if ((cover || editCoverRemoved) && typeof waOffline !== "undefined" && waOffline.updateTrackCover) {
+        try {
+          await waOffline.updateTrackCover(track.id, result?.track?.coverUrl || "");
+        } catch (err) {
+          /* la copia local se puede volver a descargar */
+        }
+      }
+
       await refreshLibrary();
       renderSidebarPlaylists();
       renderView({ resetScroll: false });
@@ -2576,17 +3364,6 @@ const runOfflineSaveAll = async () => {
    Ajustes de reproducción
    ------------------------------------------------------------ */
 
-const nextCardOptionHTML = (option, activeTiming) => {
-  const active = option.value === activeTiming;
-  return `<button class="settings-option${active ? " is-active" : ""}" type="button" role="radio" aria-checked="${active}" data-action="next-card-timing" data-value="${option.value}">
-    <span class="settings-option__copy">
-      <strong>${escapeHTML(option.label)}</strong>
-      ${option.hint ? `<small>${escapeHTML(option.hint)}</small>` : ""}
-    </span>
-    <span class="settings-option__check" aria-hidden="true">${active ? icon("check") : ""}</span>
-  </button>`;
-};
-
 const openPlaybackSettings = () => {
   const activeTiming = normalizeNextCardTiming(state.nextCardTiming);
   const next = nextUpTrack();
@@ -2690,10 +3467,10 @@ if (typeof mobilePlayerQuery.addEventListener === "function") {
   mobilePlayerQuery.addListener(handleMobilePlayerChange);
 }
 
-const setNpTab = (tab = "now") => {
-  const next = tab === "queue" ? "queue" : "now";
+const setNpTab = (tab = "now", { persist = true } = {}) => {
+  const next = ["now", "queue", "lyrics"].includes(tab) ? tab : "now";
   state.npTab = next;
-  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+  if (persist && typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
 
   $$(".np__tab").forEach((button) => {
     const active = button.dataset.tab === next;
@@ -2714,6 +3491,8 @@ const openPanel = (tab = "now") => {
     const panel = $("#nowPlaying");
     if (tab === "queue") {
       $(".np__queue")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else if (tab === "lyrics") {
+      $("#npLyrics")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     } else {
       panel?.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -2767,11 +3546,11 @@ const openMoreMenu = () => {
           </span>
           ${icon("chevron-right")}
         </button>
-        <button class="more-menu__item" type="button" data-action="open-playback-settings">
+        <button class="more-menu__item" type="button" data-action="nav-settings">
           <span class="more-menu__icon">${icon("sliders")}</span>
           <span class="more-menu__copy">
-            <strong>Ajustes de reproducción</strong>
-            <small>Aviso «A continuación»: ${escapeHTML(nextCardTimingLabel(state.nextCardTiming))}</small>
+            <strong>Configuración</strong>
+            <small>«Ahora suena» y aviso «A continuación»</small>
           </span>
           ${icon("chevron-right")}
         </button>
@@ -2958,6 +3737,11 @@ const handleAction = async (actionEl) => {
       closePanel();
       navigate({ view: "library" });
       break;
+    case "nav-settings":
+      closeModal(true);
+      closePanel();
+      navigate({ view: "settings" });
+      break;
     case "open-library": {
       closeModal(true);
       closePanel();
@@ -3067,6 +3851,30 @@ const handleAction = async (actionEl) => {
       startQueue(ids, { startIndex: index < 0 ? 0 : index });
       break;
     }
+    case "trend-set-select": {
+      if (!selectTrendSet(actionEl.dataset.id || "")) break;
+      renderView({ resetScroll: false });
+      haptic(6);
+      break;
+    }
+    case "trend-set-create":
+      openTrendSetEditor();
+      break;
+    case "trend-set-edit":
+      openTrendSetEditor(actionEl.dataset.id || "");
+      break;
+    case "trend-set-delete":
+      confirmTrendSetDelete(actionEl.dataset.id || "");
+      break;
+    case "trend-set-delete-confirm": {
+      const id = actionEl.dataset.id || "";
+      if (!deleteTrendSet(id)) break;
+      closeModal(true);
+      renderView({ resetScroll: false });
+      haptic(8);
+      toast("Set eliminado.");
+      break;
+    }
     case "play-trends": {
       const ids = trendTrackIds();
       if (ids.length) startQueue(ids, { startIndex: 0 });
@@ -3166,6 +3974,12 @@ const handleAction = async (actionEl) => {
     case "prev-track":
       previousTrack();
       break;
+    case "seek-back":
+      seekBy(-seekStepSeconds());
+      break;
+    case "seek-forward":
+      seekBy(seekStepSeconds());
+      break;
     case "shuffle":
       toggleShuffle();
       break;
@@ -3178,13 +3992,19 @@ const handleAction = async (actionEl) => {
     case "like-current":
       await toggleLike(state.currentTrackId);
       break;
-    case "library-tab":
-      state.libraryTab = actionEl.dataset.tab || "songs";
-      if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
-      if (state.route.view !== "library") navigate({ view: "library" });
-      else renderView({ resetScroll: true });
+    case "library-tab": {
+      const tab = actionEl.dataset.tab || "songs";
+      if (state.route.view !== "library") {
+        state.libraryTab = tab;
+        if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+        navigate({ view: "library" });
+      } else if (state.libraryTab !== tab) {
+        if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+        setLibraryTab(tab);
+      }
       updateNavUI();
       break;
+    }
     case "clear-search":
       clearSearch();
       break;
@@ -3212,7 +4032,7 @@ const handleAction = async (actionEl) => {
       state.nextCardTiming = value;
       saveNextCardTiming();
       updateNextCard();
-      $$(".settings-option", modalBody).forEach((option) => {
+      $$('[data-action="next-card-timing"]').forEach((option) => {
         const active = option.dataset.value === value;
         option.classList.toggle("is-active", active);
         option.setAttribute("aria-checked", String(active));
@@ -3221,6 +4041,88 @@ const handleAction = async (actionEl) => {
       });
       haptic(6);
       toast(`Aviso «A continuación»: ${nextCardTimingLabel(value)}`);
+      break;
+    }
+    case "toggle-open-now-on-select": {
+      state.openNowPlayingOnSelect = !state.openNowPlayingOnSelect;
+      saveOpenNowOnSelect();
+      $$('[data-action="toggle-open-now-on-select"]').forEach((node) => {
+        node.setAttribute("aria-checked", String(state.openNowPlayingOnSelect));
+      });
+      haptic(6);
+      break;
+    }
+    case "seek-step": {
+      const value = normalizeSeekStep(actionEl.dataset.value);
+      if (value === state.seekStep) break;
+      state.seekStep = value;
+      saveSeekStep();
+      updateSeekControls();
+      $$('[data-action="seek-step"]').forEach((option) => {
+        const active = option.dataset.value === value;
+        option.classList.toggle("is-active", active);
+        option.setAttribute("aria-checked", String(active));
+        const check = option.querySelector(".settings-option__check");
+        if (check) check.innerHTML = active ? icon("check") : "";
+      });
+      haptic(6);
+      toast(`Salto de reproducción: ${value} segundos`);
+      break;
+    }
+    case "set-theme": {
+      const value = normalizeTheme(actionEl.dataset.value);
+      if (value === state.theme) break;
+      state.theme = value;
+      saveTheme();
+      haptic(6);
+      break;
+    }
+    case "set-auto-queue": {
+      const value = normalizeAutoQueue(actionEl.dataset.value);
+      if (value === state.autoQueue) break;
+      state.autoQueue = value;
+      saveAutoQueue();
+      $$('[data-action="set-auto-queue"]').forEach((option) => {
+        const active = option.dataset.value === value;
+        option.classList.toggle("is-active", active);
+        option.setAttribute("aria-checked", String(active));
+        const check = option.querySelector(".settings-option__check");
+        if (check) check.innerHTML = active ? icon("check") : "";
+      });
+      haptic(6);
+      toast(
+        `Cola automática: ${
+          AUTO_QUEUE_OPTIONS.find((option) => option.value === value)?.label || "Preguntar"
+        }`
+      );
+      break;
+    }
+    case "random-exclusions":
+      openRandomExclusions();
+      break;
+    case "random-exclude-toggle": {
+      const trackId = Number(actionEl.dataset.id);
+      if (!setRandomExcluded(trackId, !isRandomExcluded(trackId))) break;
+      renderRandomExclusions();
+      syncRandomExcludedSettings();
+      haptic(6);
+      break;
+    }
+    case "random-exclude-clear-all":
+      if (!clearRandomExcluded()) break;
+      renderRandomExclusions();
+      syncRandomExcludedSettings();
+      haptic(6);
+      toast("Todas las canciones vuelven al aleatorio.");
+      break;
+    case "random-exclude-search-clear": {
+      randomExcludeQuery = "";
+      const input = $("#randomExcludeSearch");
+      if (input) {
+        input.value = "";
+        input.focus({ preventScroll: true });
+      }
+      renderRandomExclusions();
       break;
     }
     case "open-now":
@@ -3459,8 +4361,14 @@ const handleAction = async (actionEl) => {
     case "menu-add-playlist":
       openAddToPlaylist(actionEl.dataset.id);
       break;
+    case "menu-lyrics":
+      openTrackEdit(actionEl.dataset.id, { focusLyrics: true });
+      break;
     case "menu-edit":
       openTrackEdit(actionEl.dataset.id);
+      break;
+    case "edit-lyrics":
+      openTrackEdit(actionEl.dataset.id, { focusLyrics: true });
       break;
     case "menu-delete":
       openDeleteTrack(actionEl.dataset.id);
@@ -3492,6 +4400,7 @@ const handleAction = async (actionEl) => {
       }
       state.queue = state.queue.filter((trackId) => Number(trackId) !== Number(id));
       state.queueIndex = Math.min(state.queueIndex, Math.max(0, state.queue.length - 1));
+      forgetRandomExcluded(id);
       await refreshLibrary();
       renderSidebarPlaylists();
       renderView({ resetScroll: false });
@@ -4023,6 +4932,24 @@ document.addEventListener("keydown", (event) => {
 
   if (typing) return;
 
+  // La tira de la biblioteca se recorre con las flechas sin mover la canción.
+  const libraryTab = target instanceof HTMLElement ? target.closest(".lib-tab") : null;
+  if (libraryTab) {
+    const tabs = [...(libraryTab.closest(".lib-tabs__rail")?.querySelectorAll(".lib-tab") || [])];
+    const index = tabs.indexOf(libraryTab);
+    let nextIndex = null;
+    if (key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+    else if (key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+    else if (key === "Home") nextIndex = 0;
+    else if (key === "End") nextIndex = tabs.length - 1;
+    if (nextIndex !== null) {
+      event.preventDefault();
+      tabs[nextIndex].focus();
+      tabs[nextIndex].click();
+      return;
+    }
+  }
+
   const nativeControl =
     target instanceof HTMLElement && target.closest("button, a, input, select, textarea, [role='button']");
 
@@ -4036,13 +4963,13 @@ document.addEventListener("keydown", (event) => {
 
   if (key === "ArrowRight") {
     event.preventDefault();
-    seekTo(state.currentTime + 5);
+    seekBy(seekStepSeconds());
     return;
   }
 
   if (key === "ArrowLeft") {
     event.preventDefault();
-    seekTo(state.currentTime - 5);
+    seekBy(-seekStepSeconds());
     return;
   }
 
@@ -4137,6 +5064,28 @@ const watchConnection = () => {
   });
 };
 
+// Las tendencias se arman por semana. Si la app queda abierta cuando cambia
+// el lunes, la vista se vuelve a pintar con la semana nueva.
+const watchTrendWeek = () => {
+  if (typeof trendWeekKey !== "function") return;
+  let currentKey = trendWeekKey();
+
+  const refresh = () => {
+    if (!state.ready) return;
+    const key = trendWeekKey();
+    if (key === currentKey) return;
+    currentKey = key;
+    if (state.route.view === "home" || state.route.view === "trends") {
+      renderView({ resetScroll: false });
+    }
+  };
+
+  window.setInterval(refresh, 60000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refresh();
+  });
+};
+
 const init = () => {
   const root = document.documentElement;
   const android = IS_ANDROID || /Android/i.test(navigator.platform || "");
@@ -4166,6 +5115,7 @@ const init = () => {
   document.documentElement.classList.add("is-ready");
   registerServiceWorker();
   watchConnection();
+  watchTrendWeek();
   window.WaverNoteUpdater?.init();
   bootAuth();
 };

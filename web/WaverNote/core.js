@@ -267,6 +267,12 @@ const validateSurfaceSession = async () => {
 const STORAGE = {
   volume: "wavernote.volume.v2",
   nextCard: "wavernote.next-card.v1",
+  seekStep: "wavernote.seek-step.v1",
+  openNowOnSelect: "wavernote.open-now-on-select.v1",
+  theme: "wavernote.theme.v1",
+  trends: "wavernote.trends.v1",
+  autoQueue: "wavernote.auto-queue.v1",
+  randomExcluded: "wavernote.random-excluded.v1",
   recentPrefix: "wavernote.recent.v2.",
   playsPrefix: "wavernote.plays.v2.",
   cloudPrefix: "wavernote.cloud.v3.",
@@ -304,8 +310,75 @@ const nextCardTimingLabel = (value) =>
   NEXT_CARD_OPTIONS.find((option) => option.value === normalizeNextCardTiming(value))?.label ||
   "20 segundos antes";
 
+// Los botones de salto y las flechas mueven la canción unos segundos. El
+// valor se guarda como texto para que viaje a la cuenta igual que el resto
+// de las preferencias.
+const DEFAULT_SEEK_STEP = "5";
+const SEEK_STEP_OPTIONS = [
+  { value: "5", label: "5 segundos" },
+  { value: "10", label: "10 segundos" },
+  { value: "15", label: "15 segundos" }
+];
+const SEEK_STEP_VALUES = new Set(SEEK_STEP_OPTIONS.map((option) => option.value));
+
+const normalizeSeekStep = (value) => {
+  const key = String(value ?? "");
+  return SEEK_STEP_VALUES.has(key) ? key : DEFAULT_SEEK_STEP;
+};
+
+const seekStepSeconds = () => Number(normalizeSeekStep(state.seekStep)) || Number(DEFAULT_SEEK_STEP);
+
+// El tema se guarda como texto para que viaje tal cual a la cuenta. Azul
+// Oceánico es el predeterminado y los otros dos son variantes completas.
+const DEFAULT_THEME = "blue";
+const THEME_OPTIONS = [
+  { value: "blue", label: "Azul Oceánico", hint: "Predeterminado" },
+  { value: "green", label: "Verde" },
+  { value: "red", label: "Rojo" }
+];
+const THEMES = new Set(THEME_OPTIONS.map((option) => option.value));
+
+const normalizeTheme = (value) => {
+  const key = String(value ?? "");
+  return THEMES.has(key) ? key : DEFAULT_THEME;
+};
+
+// Cuando la cola termina, la app puede armar otra con canciones al azar.
+// Preguntar es el comportamiento predeterminado: rellenar la cola sin avisar
+// cambia lo que el usuario eligió escuchar.
+const DEFAULT_AUTO_QUEUE = "ask";
+const AUTO_QUEUE_OPTIONS = [
+  { value: "ask", label: "Preguntar", hint: "Avisa antes de sumar canciones al azar" },
+  { value: "always", label: "Siempre", hint: "Rellena la cola sin preguntar" },
+  { value: "never", label: "Nunca", hint: "La cola queda vacía al terminar" }
+];
+const AUTO_QUEUE_VALUES = new Set(AUTO_QUEUE_OPTIONS.map((option) => option.value));
+
+const normalizeAutoQueue = (value) => {
+  const key = String(value ?? "");
+  return AUTO_QUEUE_VALUES.has(key) ? key : DEFAULT_AUTO_QUEUE;
+};
+
+// Canciones que el usuario saca del modo aleatorio. Se guardan solo los ids:
+// si una canción se borra, el id deja de coincidir y no afecta a la cola.
+const normalizeRandomExcluded = (value) => {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value
+        .map(Number)
+        .filter((id) => Number.isInteger(id) && id > 0)
+    )
+  ].slice(0, 10000);
+};
+
 const savedVolume = readJSON(STORAGE.volume, 0.72);
 const savedNextCardTiming = readJSON(STORAGE.nextCard, DEFAULT_NEXT_CARD_TIMING);
+const savedSeekStep = readJSON(STORAGE.seekStep, DEFAULT_SEEK_STEP);
+const savedOpenNowOnSelect = readJSON(STORAGE.openNowOnSelect, false);
+const savedTheme = readJSON(STORAGE.theme, DEFAULT_THEME);
+const savedAutoQueue = readJSON(STORAGE.autoQueue, DEFAULT_AUTO_QUEUE);
+const savedRandomExcluded = readJSON(STORAGE.randomExcluded, []);
 
 const state = {
   ready: false,
@@ -338,6 +411,13 @@ const state = {
   volume: Number.isFinite(Number(savedVolume)) ? clamp(Number(savedVolume), 0, 1) : 0.72,
   muted: false,
   nextCardTiming: normalizeNextCardTiming(savedNextCardTiming),
+  seekStep: normalizeSeekStep(savedSeekStep),
+  openNowPlayingOnSelect: Boolean(savedOpenNowOnSelect),
+  theme: normalizeTheme(savedTheme),
+  trendSets: [],
+  trendActiveSet: "all",
+  autoQueue: normalizeAutoQueue(savedAutoQueue),
+  randomExcluded: new Set(normalizeRandomExcluded(savedRandomExcluded)),
   baseQueue: null,
   baseIndex: 0,
   panelOpen: false,
@@ -347,6 +427,30 @@ const state = {
   isBuffering: false,
   offline: false
 };
+
+// El atributo data-theme en <html> activa la paleta; el CSS resuelve el resto.
+const syncThemeOptions = () => {
+  $$('[data-action="set-theme"]').forEach((option) => {
+    const active = option.dataset.value === state.theme;
+    option.classList.toggle("is-active", active);
+    option.setAttribute("aria-checked", String(active));
+    const check = option.querySelector(".settings-option__check");
+    if (check) check.innerHTML = active ? icon("check") : "";
+  });
+};
+
+const applyTheme = (theme = state.theme) => {
+  state.theme = normalizeTheme(theme);
+  document.documentElement.dataset.theme = state.theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    const deep = getComputedStyle(document.documentElement).getPropertyValue("--bg-deep").trim();
+    if (deep) meta.setAttribute("content", deep);
+  }
+  syncThemeOptions();
+};
+
+applyTheme();
 
 // Agrupar la biblioteca por álbum recorre y ordena todas las canciones: si se
 // hace una vez por fila, abrir la lista completa se vuelve cuadrático. El
@@ -607,6 +711,66 @@ const saveNextCardTiming = () => {
   if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
 };
 
+const saveSeekStep = () => {
+  state.seekStep = normalizeSeekStep(state.seekStep);
+  writeJSON(STORAGE.seekStep, state.seekStep);
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+};
+
+const saveOpenNowOnSelect = () => {
+  state.openNowPlayingOnSelect = Boolean(state.openNowPlayingOnSelect);
+  writeJSON(STORAGE.openNowOnSelect, state.openNowPlayingOnSelect);
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+};
+
+const saveTheme = () => {
+  state.theme = normalizeTheme(state.theme);
+  writeJSON(STORAGE.theme, state.theme);
+  applyTheme();
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+};
+
+const saveAutoQueue = () => {
+  state.autoQueue = normalizeAutoQueue(state.autoQueue);
+  writeJSON(STORAGE.autoQueue, state.autoQueue);
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+};
+
+const isRandomExcluded = (id) => state.randomExcluded.has(Number(id));
+
+const randomExcludedCount = () =>
+  state.tracks.reduce(
+    (total, track) => total + (state.randomExcluded.has(Number(track.id)) ? 1 : 0),
+    0
+  );
+
+const saveRandomExcluded = () => {
+  writeJSON(STORAGE.randomExcluded, [...state.randomExcluded]);
+  if (typeof scheduleCloudSync === "function") scheduleCloudSync("settings");
+};
+
+const setRandomExcluded = (id, excluded) => {
+  const trackId = Number(id);
+  if (!state.trackById.has(trackId)) return false;
+  if (excluded) state.randomExcluded.add(trackId);
+  else state.randomExcluded.delete(trackId);
+  saveRandomExcluded();
+  return true;
+};
+
+const clearRandomExcluded = () => {
+  if (!state.randomExcluded.size) return false;
+  state.randomExcluded.clear();
+  saveRandomExcluded();
+  return true;
+};
+
+const forgetRandomExcluded = (id) => {
+  const trackId = Number(id);
+  if (!state.randomExcluded.delete(trackId)) return;
+  saveRandomExcluded();
+};
+
 const applyLibraryPayload = (data) => {
   state.tracks = Array.isArray(data?.tracks) ? data.tracks : [];
   state.pending = Array.isArray(data?.pending) ? data.pending : [];
@@ -666,18 +830,20 @@ const refreshLibrary = async ({ silent = false, retry = false } = {}) => {
 };
 
 /* ------------------------------------------------------------
-   Portadas: imagen subida o degradado estable por título
+   Portadas: imagen subida o arte generativo estable por título
    ------------------------------------------------------------ */
 
 const COVER_PALETTES = [
-  ["#0f6b78", "#06121f", "#6be8d2"],
-  ["#1c3f8f", "#080f21", "#8fb7ff"],
-  ["#7a3d2e", "#160b0a", "#ffb08a"],
-  ["#2c6350", "#07130f", "#9af0c9"],
-  ["#5b3b7a", "#100a1a", "#d6b4ff"],
-  ["#2f5f7a", "#08131a", "#a4dcff"],
-  ["#7a5a24", "#171006", "#ffe1a1"],
-  ["#6b2f55", "#170812", "#ffa8d5"]
+  ["#0f7a88", "#05111f", "#63e6c8"],
+  ["#2449a8", "#070d20", "#8fb7ff"],
+  ["#8c3e2e", "#160a09", "#ff9e82"],
+  ["#236b55", "#06140f", "#8cf2cb"],
+  ["#623d8a", "#0f091c", "#d6b4ff"],
+  ["#26688a", "#07131c", "#8be0ff"],
+  ["#8a6122", "#160f05", "#ffd98c"],
+  ["#782d5e", "#160712", "#ff9ed0"],
+  ["#33489c", "#080b1d", "#7ce8ff"],
+  ["#1b6a6b", "#051416", "#a6ffde"]
 ];
 
 const hashString = (value) => {
@@ -692,6 +858,72 @@ const hashString = (value) => {
 
 const paletteFor = (value) => COVER_PALETTES[hashString(value) % COVER_PALETTES.length];
 
+const coverMotifSVG = (hash) => {
+  const variant = (hash >>> 3) % 5;
+  const shift = ((hash >>> 7) % 18) - 9;
+
+  if (variant === 0) {
+    // Ondas acústicas + horizonte luminoso
+    return `
+      <span class="cover-orb cover-orb--soft"></span>
+      <svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 ${74 + shift} C 22 ${54 + shift} 38 ${86 + shift} 58 ${70 + shift} S 90 ${50 + shift} 120 ${66 + shift} V120 H0Z" fill="var(--c1)" opacity=".72"/>
+        <path d="M0 ${90 + shift * 0.5} C 26 ${74 + shift * 0.5} 44 ${102 + shift * 0.5} 68 ${88 + shift * 0.5} S 100 ${70 + shift * 0.5} 120 ${82 + shift * 0.5} V120 H0Z" fill="var(--c2)" opacity=".88"/>
+        <path d="M0 ${70 + shift} C 22 ${50 + shift} 38 ${82 + shift} 58 ${66 + shift} S 90 ${46 + shift} 120 ${62 + shift}" fill="none" stroke="var(--c3)" stroke-width="1.1" opacity=".62"/>
+        <path d="M0 ${84 + shift * 0.5} C 26 ${68 + shift * 0.5} 44 ${96 + shift * 0.5} 68 ${82 + shift * 0.5} S 100 ${64 + shift * 0.5} 120 ${76 + shift * 0.5}" fill="none" stroke="var(--c3)" stroke-width=".55" opacity=".32"/>
+      </svg>`;
+  }
+
+  if (variant === 1) {
+    // Anillos concéntricos + eclipse
+    return `
+      <span class="cover-glow"></span>
+      <span class="cover-orb cover-orb--sun"></span>
+      <span class="cover-ring cover-ring--1"></span>
+      <span class="cover-ring cover-ring--2"></span>
+      <span class="cover-ring cover-ring--3"></span>
+      <span class="cover-horizon"></span>`;
+  }
+
+  if (variant === 2) {
+    // Espectro prismático vertical
+    const bars = Array.from({ length: 9 }, (_, i) => {
+      const h = 24 + (((hash >> ((i * 3) % 24)) & 15) * 3.4);
+      const y = 96 - h;
+      const x = 14 + i * 10.5;
+      const op = (0.28 + (i % 3) * 0.18).toFixed(2);
+      return `<rect x="${x}" y="${y}" width="5.2" height="${h}" rx="2.6" fill="var(--c3)" opacity="${op}"/>`;
+    }).join("");
+    return `
+      <span class="cover-glow"></span>
+      <svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
+        ${bars}
+        <line x1="12" y1="98" x2="108" y2="98" stroke="var(--c3)" stroke-width=".8" opacity=".4"/>
+      </svg>`;
+  }
+
+  if (variant === 3) {
+    // Destello radial + orbe flotante
+    return `
+      <span class="cover-bloom"></span>
+      <span class="cover-orb"></span>
+      <svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
+        <circle cx="${60 + shift}" cy="${60 - shift * 0.5}" r="36" fill="none" stroke="var(--c3)" stroke-width=".7" stroke-dasharray="3 4" opacity=".45"/>
+      </svg>`;
+  }
+
+  // Arcos orbitales + marea sutil
+  return `
+    <span class="cover-orb cover-orb--soft"></span>
+    <svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
+      <circle cx="94" cy="26" r="24" fill="var(--c3)" opacity=".18"/>
+      <circle cx="94" cy="26" r="14" fill="var(--c3)" opacity=".32"/>
+      <path d="M-10 86 Q 42 ${44 + shift} 130 78" fill="none" stroke="var(--c3)" stroke-width="1.2" opacity=".52"/>
+      <path d="M-10 98 Q 48 ${58 + shift} 130 92" fill="none" stroke="var(--c3)" stroke-width=".7" opacity=".3"/>
+      <path d="M-10 108 Q 54 ${72 + shift} 130 104 L 130 120 L -10 120 Z" fill="var(--c1)" opacity=".45"/>
+    </svg>`;
+};
+
 const coverHTML = (item, className = "") => {
   const title = item?.title || item?.name || "WaverNote";
 
@@ -705,15 +937,11 @@ const coverHTML = (item, className = "") => {
     return `<img class="cover cover--photo ${className}" src="${escapeHTML(src)}" alt="" loading="lazy" onerror="this.style.display='none'" />`;
   }
 
-  const [c1, c2, c3] = paletteFor(title);
+  const hash = hashString(title);
+  const [c1, c2, c3] = COVER_PALETTES[hash % COVER_PALETTES.length];
   return `<div class="cover ${className}" style="--c1:${c1};--c2:${c2};--c3:${c3}" aria-hidden="true">
     <span class="cover__wash"></span>
-    <svg class="cover-svg" viewBox="0 0 120 120" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0 78 C 20 60 34 88 52 74 S 86 56 120 70 V120 H0Z" fill="var(--c1)" opacity=".7"/>
-      <path d="M0 92 C 24 76 40 100 64 88 S 98 72 120 84 V120 H0Z" fill="var(--c2)" opacity=".85"/>
-      <path d="M0 74 C 20 56 34 84 52 70 S 86 52 120 66" fill="none" stroke="var(--c3)" stroke-width=".8" opacity=".5"/>
-      <path d="M0 88 C 24 72 40 96 64 84 S 98 68 120 80" fill="none" stroke="var(--c3)" stroke-width=".4" opacity=".28"/>
-    </svg>
+    ${coverMotifSVG(hash)}
     <span class="cover__grain"></span>
   </div>`;
 };
@@ -795,6 +1023,57 @@ const uploadTrackFile = ({ file, fields, cover, onProgress }) =>
 
     xhr.send(form);
   });
+
+// Edición de la ficha de una canción. Solo usa multipart cuando hay una
+// miniatura nueva o se quita la actual; el resto viaja como JSON liviano.
+const updateTrackDetails = async ({ trackId, fields, cover = null, removeCover = false }) => {
+  const id = Number(trackId);
+  if (!id) throw new Error("Canción inválida.");
+
+  const headers = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let body;
+  if (cover || removeCover) {
+    body = new FormData();
+    Object.entries(fields || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) body.append(key, String(value));
+    });
+    if (cover) body.append("cover", cover, cover.name || "cover.jpg");
+    if (removeCover) body.append("removeCover", "true");
+  } else {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(fields || {});
+  }
+
+  const response = await fetch(`${API_BASE}/wavernote/tracks/${id}`, {
+    method: "PATCH",
+    headers,
+    body
+  });
+
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (err) {
+    data = {
+      error: apiErrorMessage(response.status, text, `No se pudo guardar la canción (${response.status}).`)
+    };
+  }
+
+  if (!response.ok) {
+    const error = new Error(
+      data?.error || `No se pudo guardar la canción (${response.status}).`
+    );
+    error.status = response.status;
+    error.code = data?.code || "";
+    throw error;
+  }
+
+  return data;
+};
 
 /* ------------------------------------------------------------
    Toasts

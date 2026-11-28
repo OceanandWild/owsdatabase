@@ -25,6 +25,7 @@ fn app_info() -> serde_json::Value {
 /// plugin updater (`{ event, data }`) para que el frontend tenga un solo lector.
 #[derive(Clone, serde::Serialize)]
 #[serde(tag = "event", content = "data")]
+#[cfg_attr(target_os = "android", allow(dead_code))] // en Android lo llena Kotlin
 enum ApkDownloadEvent {
     #[serde(rename = "Started")]
     Started {
@@ -56,6 +57,7 @@ fn safe_apk_name(file_name: Option<String>) -> String {
     name
 }
 
+#[cfg(not(target_os = "android"))]
 fn sha256_hex(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     Sha256::digest(bytes)
@@ -67,10 +69,13 @@ fn sha256_hex(bytes: &[u8]) -> String {
 /// Intentos de descarga antes de rendirse. Una conexión móvil puede cortar el
 /// stream a mitad de camino y dejar el APK incompleto; reintentar evita que el
 /// usuario tenga que volver a empezar desde cero.
+#[cfg(not(target_os = "android"))]
 const APK_DOWNLOAD_ATTEMPTS: u32 = 3;
+#[cfg(not(target_os = "android"))]
 const APK_DOWNLOAD_RETRY_DELAY_SECS: u64 = 2;
 
 /// Una pasada de descarga: escribe el APK y valida tamaño y SHA-256.
+#[cfg(not(target_os = "android"))]
 async fn download_apk_once(
     client: &reqwest::Client,
     url: &str,
@@ -174,69 +179,96 @@ async fn apk_download(
             "La actualización no incluye un SHA-256 válido. No se descargará.".to_string()
         })?;
 
-    let dir = app
-        .path()
-        .app_cache_dir()
-        .map_err(|err| format!("No se pudo preparar la carpeta de descargas: {err}"))?
-        .join("updates");
-    tokio::fs::create_dir_all(&dir)
-        .await
-        .map_err(|err| format!("No se pudo preparar la carpeta de descargas: {err}"))?;
+    // En Android la descarga la hace el plugin nativo con HttpURLConnection:
+    // usa la pila de red del sistema (TLS, proxy y DNS del dispositivo),
+    // reanuda desde el último byte recibido si la conexión se corta y valida
+    // el SHA-256 antes de devolver la ruta del APK.
+    #[cfg(target_os = "android")]
+    {
+        let state = app.state::<MobileUpdaterHandle>();
+        return state
+            .0
+            .run_mobile_plugin_async::<String>(
+                "downloadApk",
+                serde_json::json!({
+                    "url": url,
+                    "sha256": expected,
+                    "sizeBytes": size_bytes.unwrap_or(0),
+                    "fileName": safe_apk_name(file_name),
+                    "onEvent": on_event,
+                }),
+            )
+            .await
+            .map_err(|err| err.to_string());
+    }
 
-    let dest = dir.join(safe_apk_name(file_name));
-    let _ = tokio::fs::remove_file(&dest).await;
+    // En escritorio queda la descarga en Rust, útil para pruebas locales.
+    #[cfg(not(target_os = "android"))]
+    {
+        let dir = app
+            .path()
+            .app_cache_dir()
+            .map_err(|err| format!("No se pudo preparar la carpeta de descargas: {err}"))?
+            .join("updates");
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .map_err(|err| format!("No se pudo preparar la carpeta de descargas: {err}"))?;
 
-    // En Android, reqwest con rustls usaría rustls-platform-verifier, que
-    // necesita inicialización JNI y un componente Kotlin extra. Para no
-    // depender de eso, se configura rustls con las raíces de webpki, que ya
-    // vienen compiladas en la app y funcionan igual en todas las plataformas.
-    let mut roots = rustls::RootCertStore::empty();
-    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    let provider = std::sync::Arc::new(rustls::crypto::ring::default_provider());
-    let tls = rustls::ClientConfig::builder_with_provider(provider)
-        .with_safe_default_protocol_versions()
-        .map_err(|err| format!("No se pudo preparar la conexión segura: {err}"))?
-        .with_root_certificates(roots)
-        .with_no_client_auth();
-
-    let client = reqwest::Client::builder()
-        .user_agent(concat!("WaverNote/", env!("CARGO_PKG_VERSION")))
-        .tls_backend_preconfigured(tls)
-        .build()
-        .map_err(|err| format!("No se pudo iniciar la descarga: {err}"))?;
-
-    let expected_size = size_bytes.filter(|value| *value > 0);
-
-    let mut last_error = String::from("La descarga no se completó.");
-    for attempt in 1..=APK_DOWNLOAD_ATTEMPTS {
+        let dest = dir.join(safe_apk_name(file_name));
         let _ = tokio::fs::remove_file(&dest).await;
 
-        match download_apk_once(&client, &url, &dest, &expected, expected_size, &on_event).await {
-            Ok(()) => {
-                let _ = on_event.send(ApkDownloadEvent::Finished);
-                return Ok(dest.to_string_lossy().to_string());
-            }
-            Err(err) => {
-                last_error = err;
-                let _ = tokio::fs::remove_file(&dest).await;
-                if attempt < APK_DOWNLOAD_ATTEMPTS {
-                    // Reinicia el progreso en la UI y deja pasar un momento
-                    // antes de pedir el APK otra vez.
-                    let _ = on_event.send(ApkDownloadEvent::Started {
-                        content_length: expected_size,
-                    });
-                    tokio::time::sleep(std::time::Duration::from_secs(
-                        APK_DOWNLOAD_RETRY_DELAY_SECS,
-                    ))
-                    .await;
+        // Se configura rustls con las raíces de webpki para no depender del
+        // verificador de certificados del sistema.
+        let mut roots = rustls::RootCertStore::empty();
+        roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        let provider = std::sync::Arc::new(rustls::crypto::ring::default_provider());
+        let tls = rustls::ClientConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .map_err(|err| format!("No se pudo preparar la conexión segura: {err}"))?
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+
+        let client = reqwest::Client::builder()
+            .user_agent(concat!("WaverNote/", env!("CARGO_PKG_VERSION")))
+            .tls_backend_preconfigured(tls)
+            .build()
+            .map_err(|err| format!("No se pudo iniciar la descarga: {err}"))?;
+
+        let expected_size = size_bytes.filter(|value| *value > 0);
+
+        let mut last_error = String::from("La descarga no se completó.");
+        for attempt in 1..=APK_DOWNLOAD_ATTEMPTS {
+            let _ = tokio::fs::remove_file(&dest).await;
+
+            match download_apk_once(&client, &url, &dest, &expected, expected_size, &on_event)
+                .await
+            {
+                Ok(()) => {
+                    let _ = on_event.send(ApkDownloadEvent::Finished);
+                    return Ok(dest.to_string_lossy().to_string());
+                }
+                Err(err) => {
+                    last_error = err;
+                    let _ = tokio::fs::remove_file(&dest).await;
+                    if attempt < APK_DOWNLOAD_ATTEMPTS {
+                        // Reinicia el progreso en la UI y deja pasar un momento
+                        // antes de pedir el APK otra vez.
+                        let _ = on_event.send(ApkDownloadEvent::Started {
+                            content_length: expected_size,
+                        });
+                        tokio::time::sleep(std::time::Duration::from_secs(
+                            APK_DOWNLOAD_RETRY_DELAY_SECS,
+                        ))
+                        .await;
+                    }
                 }
             }
         }
-    }
 
-    Err(format!(
-        "{last_error} Se intentó {APK_DOWNLOAD_ATTEMPTS} veces; revisá la conexión y volvé a probar."
-    ))
+        Err(format!(
+            "{last_error} Se intentó {APK_DOWNLOAD_ATTEMPTS} veces; revisá la conexión y volvé a probar."
+        ))
+    }
 }
 
 /// Abre el instalador de Android para el APK ya descargado.

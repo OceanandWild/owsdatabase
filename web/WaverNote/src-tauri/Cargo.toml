@@ -1,6 +1,6 @@
 [package]
 name = "wavernote"
-version = "1.2.9"
+version = "1.3.0"
 description = "WaverNote — biblioteca musical personal"
 authors = ["Ocean & Wild Studios"]
 edition = "2021"
@@ -17,6 +17,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# En Android la descarga la hace el plugin nativo (HttpURLConnection), así que
+# las dependencias de red y criptografía quedan solo para escritorio.
+[target.'cfg(not(target_os = "android"))'.dependencies]
 futures-util = "0.3"
 reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
@@ -26,7 +30,6 @@ tokio = { version = "1", features = ["fs", "io-util", "time"] }
 
 # El plugin updater de Tauri no soporta Android: en móvil la app usa el canal
 # APK propio. Se compila solo en escritorio para no arrastrarlo al build móvil.
-[target.'cfg(not(target_os = "android"))'.dependencies]
 tauri-plugin-updater = "2"
 tauri-plugin-dialog = "2"
 

@@ -32,6 +32,7 @@ const els = {
   npQueue: $("#npQueue"),
   npQueueCount: $("#npQueueCount"),
   npQueueHint: $("#npQueueHint"),
+  npLyrics: $("#npLyrics"),
   npTabCount: $("#npTabCount"),
   npPlay: $("#npPlayBtn"),
   npShuffle: $("#npShuffleBtn"),
@@ -74,6 +75,7 @@ const queueUpcomingCount = () => Math.max(0, state.queue.length - state.queueInd
 
 let pendingPlayId = null;
 let libraryRefreshScheduled = false;
+let trackIntroTimer = 0;
 
 // La cola, la posición y las preferencias se guardan en la cuenta: desde
 // cualquier otro dispositivo la sesión se retoma donde quedó.
@@ -287,6 +289,7 @@ const updateBufferingUI = () => {
   if (!artist) return;
   if (buffering) {
     artist.dataset.buffering = "1";
+    if (els.player?.classList.contains("is-track-intro")) return;
     artist.textContent = "Cargando…";
     return;
   }
@@ -938,6 +941,42 @@ const fillNextCard = (track) => {
   });
 };
 
+// La letra se muestra tal cual la escribió el usuario: solo se escapa el
+// texto para que el navegador no interprete etiquetas.
+const updateLyricsPane = (track) => {
+  const box = els.npLyrics;
+  if (!box) return;
+
+  if (!track) {
+    box.innerHTML = `
+      <div class="np__lyrics-head"><h3>Letra</h3></div>
+      <p class="np__lyrics-empty">Elegí una canción para ver su letra.</p>`;
+    return;
+  }
+
+  const lyrics = String(track.lyrics || "").replace(/\r\n?/g, "\n").trim();
+  if (!lyrics) {
+    box.innerHTML = `
+      <div class="np__lyrics-head"><h3>Letra</h3></div>
+      <div class="np__lyrics-empty">
+        <p>Todavía no agregaste la letra de esta canción.</p>
+        <button class="btn btn--soft btn--small" type="button" data-action="edit-lyrics" data-id="${track.id}">
+          ${icon("lyrics")} Agregar letra
+        </button>
+      </div>`;
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="np__lyrics-head">
+      <h3>Letra</h3>
+      <button class="btn btn--ghost btn--small" type="button" data-action="edit-lyrics" data-id="${track.id}">
+        ${icon("edit")} Editar
+      </button>
+    </div>
+    <div class="np__lyrics-text">${escapeHTML(lyrics)}</div>`;
+};
+
 const setCardHidden = (node, hidden) => {
   if (node && node.hidden !== hidden) node.hidden = hidden;
 };
@@ -983,7 +1022,7 @@ const setNextTrack = (id) => {
     return false;
   }
   if (!state.queue.length) {
-    startQueue([trackId]);
+    startQueue([trackId], { startIndex: 0 });
     return true;
   }
 
@@ -1005,14 +1044,39 @@ const setNextTrack = (id) => {
   return true;
 };
 
+const updateSeekControls = () => {
+  const step = seekStepSeconds();
+  $$('[data-action="seek-back"]').forEach((button) => {
+    button.setAttribute("aria-label", `Retroceder ${step} segundos`);
+    button.title = `Retroceder ${step} segundos`;
+  });
+  $$('[data-action="seek-forward"]').forEach((button) => {
+    button.setAttribute("aria-label", `Avanzar ${step} segundos`);
+    button.title = `Avanzar ${step} segundos`;
+  });
+  $$("[data-seek-step-label]").forEach((label) => {
+    label.textContent = String(step);
+  });
+};
+
 const updateNowPlaying = () => {
   const track = currentTrack();
   updateQuickPlayer(track);
+  updateSeekControls();
 
   if (!track) {
     // Sin canción no hay nada que mostrar arriba del pie: cerramos el panel
     // rápido para que no quede abierto con datos viejos.
+    els.app?.classList.remove("has-track");
+    els.app?.style.removeProperty("--np1");
+    els.app?.style.removeProperty("--np2");
+    els.app?.style.removeProperty("--np3");
     els.player?.classList.remove("is-quick-open");
+    clearTimeout(trackIntroTimer);
+    if (els.player) {
+      els.player.classList.remove("is-track-intro");
+      delete els.player.dataset.trackId;
+    }
     els.quickPlayer?.setAttribute("aria-hidden", "true");
     if (els.playerCover) {
       els.playerCover.innerHTML = `<span class="player__cover-empty">${icon("music")}</span>`;
@@ -1033,6 +1097,7 @@ const updateNowPlaying = () => {
     }
     if (els.npEmpty) els.npEmpty.hidden = !state.ready || Boolean(state.tracks.length);
     if (els.npFacts) els.npFacts.innerHTML = "";
+    updateLyricsPane(null);
     queueAdvanceFrom = -1;
     queueRendered = 0;
     queueRenderIndex = -1;
@@ -1056,6 +1121,27 @@ const updateNowPlaying = () => {
   }
 
   const album = albumByTrack(track);
+  const [np1, np2, np3] = typeof paletteFor === "function" ? paletteFor(track.title) : ["#0f7a88", "#05111f", "#63e6c8"];
+  if (els.app) {
+    els.app.classList.add("has-track");
+    els.app.style.setProperty("--np1", np1);
+    els.app.style.setProperty("--np2", np2);
+    els.app.style.setProperty("--np3", np3);
+  }
+
+  // La entrada de pista se reproduce una vez por canción: primero la portada
+  // y después el texto. El temporizador retira la clase al terminar.
+  if (els.player && els.player.dataset.trackId !== String(track.id)) {
+    els.player.dataset.trackId = String(track.id);
+    els.player.classList.remove("is-track-intro");
+    void els.player.offsetWidth;
+    els.player.classList.add("is-track-intro");
+    clearTimeout(trackIntroTimer);
+    trackIntroTimer = window.setTimeout(() => {
+      els.player?.classList.remove("is-track-intro");
+      updateBufferingUI();
+    }, 2700);
+  }
 
   if (els.npEmpty) els.npEmpty.hidden = true;
   if (els.playerCover) els.playerCover.innerHTML = coverHTML(track);
@@ -1077,6 +1163,7 @@ const updateNowPlaying = () => {
   }
 
   updateFacts(track);
+  updateLyricsPane(track);
   updatePlayerLike();
   updateHighlights();
   renderQueue();
@@ -1122,12 +1209,12 @@ const requestShuffleStart = (ids, options, count) => {
     eyebrow: "Antes de reproducir",
     body: `
       <div class="listen-reminder">
-        <p class="listen-reminder__lead">El modo aleatorio quedó activado de la última vez. ¿Querés que arme la cola de ${plural(count, "canción", "canciones")} en orden aleatorio?</p>
-        <p class="listen-reminder__lead">Si elegís en orden, el aleatorio se desactiva para no mezclar la cola sin avisarte.</p>
+        <p class="listen-reminder__lead">El modo aleatorio quedó activado de la última vez. La cola tiene ${plural(count, "canción", "canciones")}.</p>
+        <p class="listen-reminder__lead">Si elegís en orden, el aleatorio se desactiva.</p>
       </div>
       <div class="modal__actions">
         <button class="btn btn--ghost" type="button" data-shuffle-start="order">Reproducir en orden</button>
-        <button class="btn btn--primary" type="button" data-shuffle-start="random" data-autofocus>Sí, en aleatorio</button>
+        <button class="btn btn--primary" type="button" data-shuffle-start="random" data-autofocus>Reproducir al azar</button>
       </div>`
   });
 
@@ -1142,6 +1229,16 @@ const requestShuffleStart = (ids, options, count) => {
 
 window.WaverNoteShuffleGuard = { dismiss: dismissShuffleStart };
 
+// Elegir una canción puede abrir «Ahora suena» al instante para mover la
+// reproducción sin pasos extra. En escritorio el panel ya está a la vista, así
+// que la preferencia solo actúa cuando el panel funciona como capa.
+const revealNowPlayingForSelection = () => {
+  if (!state.openNowPlayingOnSelect) return;
+  if (typeof openPanel !== "function" || typeof isOverlay !== "function") return;
+  if (!isOverlay()) return;
+  openPanel("now");
+};
+
 const startQueue = (ids, options = {}) => {
   let queue = (ids || []).map(Number).filter((id) => state.trackById.has(id));
   if (!queue.length) {
@@ -1155,11 +1252,26 @@ const startQueue = (ids, options = {}) => {
     return;
   }
 
+  const shuffle = options.shuffle ?? state.shuffle;
   let index = clamp(Number(options.startIndex) || 0, 0, queue.length - 1);
+
+  if (shuffle) {
+    // La canción elegida a mano manda aunque esté fuera del aleatorio: el
+    // filtro se aplica al resto de la cola, no a lo que el usuario tocó.
+    const hasStart = options.startIndex !== undefined && options.startIndex !== null;
+    const anchor = hasStart ? queue[index] : null;
+    const allowed = queue.filter((id) => !isRandomExcluded(id) || id === anchor);
+    if (!allowed.length) {
+      toast("Todas las canciones de esta selección están fuera del aleatorio.", "error");
+      return;
+    }
+    queue = allowed;
+    if (anchor) index = Math.max(0, queue.indexOf(anchor));
+  }
+
   if (options.randomStart) index = Math.floor(Math.random() * queue.length);
 
   if (options.shuffle === true) shuffleConsent = true;
-  const shuffle = options.shuffle ?? state.shuffle;
   if (shuffle) {
     const first = queue[index];
     const rest = queue.filter((id) => id !== first);
@@ -1173,6 +1285,7 @@ const startQueue = (ids, options = {}) => {
   state.queue = queue;
   state.queueIndex = index;
   playCurrent();
+  revealNowPlayingForSelection();
 };
 
 const playbackFailureMessage = (track, fallback) => {
@@ -1295,6 +1408,96 @@ const seekTo = (seconds) => {
   syncPlaybackState();
 };
 
+const seekBy = (seconds) => {
+  if (!currentTrack()) return;
+  seekTo(state.currentTime + Number(seconds || 0));
+};
+
+/* ------------------------------------------------------------
+   Relleno automático de la cola con permiso
+   ------------------------------------------------------------ */
+
+// Al terminar la última canción, la app puede armar otra cola con canciones
+// al azar. Nunca lo hace sin consultar (salvo que el usuario lo haya pedido
+// en Configuración): si dice que no, la cola queda vacía.
+const autoQueueCandidates = (count = 24) => {
+  const currentId = Number(state.currentTrackId);
+  const recent = new Set((state.recent || []).map(Number));
+  const pool = state.tracks
+    .map((track) => Number(track.id))
+    .filter((id) => Number.isFinite(id) && id !== currentId && !isRandomExcluded(id));
+  if (!pool.length) return [];
+
+  const fresh = pool.filter((id) => !recent.has(id));
+  const base = fresh.length >= Math.min(4, pool.length) ? fresh : pool;
+  return shuffleArray(base.slice()).slice(0, Math.max(1, Math.min(count, base.length)));
+};
+
+const startAutoQueue = () => {
+  const ids = autoQueueCandidates(24);
+  if (!ids.length) return false;
+
+  shuffleArray(ids);
+  state.shuffle = false;
+  state.baseQueue = null;
+  state.queue = ids;
+  state.queueIndex = 0;
+  playCurrent();
+  revealNowPlayingForSelection();
+  haptic(8);
+  toast("Cola nueva con canciones al azar");
+  return true;
+};
+
+const requestAutoQueue = () => {
+  if (state.autoQueue === "never") return;
+  if (!autoQueueCandidates(1).length) return;
+  if (state.autoQueue === "always") {
+    startAutoQueue();
+    return;
+  }
+  if (document.body.classList.contains("modal-open")) return;
+
+  openModal({
+    title: "Se terminó la cola",
+    eyebrow: "Seguir escuchando",
+    body: `
+      <div class="listen-reminder">
+        <p class="listen-reminder__lead">No quedan canciones en espera.</p>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" type="button" data-auto-queue="no">Dejar vacía</button>
+        <button class="btn btn--primary" type="button" data-auto-queue="yes" data-autofocus>Seguir al azar</button>
+      </div>`
+  });
+
+  const body = $("#modalBody");
+  body?.querySelector('[data-auto-queue="no"]')?.addEventListener("click", () => {
+    closeModal(true);
+  });
+  body?.querySelector('[data-auto-queue="yes"]')?.addEventListener("click", () => {
+    closeModal(true);
+    startAutoQueue();
+  });
+};
+
+const stopAtQueueEnd = () => {
+  engine.stop();
+  state.isPlaying = false;
+  state.currentTime = state.duration;
+  // La cola queda solo con la canción que acaba de sonar: lo que sigue vacío
+  // es la fila de reproducción, no el historial de la biblioteca.
+  if (state.queueIndex >= 0 && state.queue.length) {
+    state.queue = state.queue.slice(0, state.queueIndex + 1);
+  }
+  updatePlayButton();
+  updateHighlights();
+  updateProgressUI();
+  renderQueue();
+  syncMediaSessionState();
+  syncPlaybackState();
+};
+
 const handleTrackEnd = () => {
   if (state.ending) return;
   state.ending = true;
@@ -1309,15 +1512,8 @@ const handleTrackEnd = () => {
     state.queueIndex = 0;
     playCurrent();
   } else {
-    engine.stop();
-    state.isPlaying = false;
-    state.currentTime = state.duration;
-    updatePlayButton();
-    updateHighlights();
-    updateProgressUI();
-    renderQueue();
-    syncMediaSessionState();
-    syncPlaybackState();
+    stopAtQueueEnd();
+    requestAutoQueue();
   }
 
   window.setTimeout(() => {
@@ -1367,17 +1563,28 @@ const previousTrack = () => {
 };
 
 const toggleShuffle = () => {
+  if (!state.queue.length) {
+    toast("La cola está vacía.");
+    return;
+  }
+
   const currentId = state.currentTrackId;
   if (!state.shuffle) {
     state.shuffle = true;
     shuffleConsent = true;
     state.baseQueue = state.queue.slice();
     state.baseIndex = state.queueIndex;
-    const rest = state.queue.filter((id) => id !== currentId);
+    const rest = state.queue.filter(
+      (id) => Number(id) !== Number(currentId) && !isRandomExcluded(id)
+    );
     shuffleArray(rest);
     state.queue = currentId ? [currentId, ...rest] : rest;
     state.queueIndex = 0;
-    toast("Aleatorio activado");
+    toast(
+      rest.length
+        ? "Aleatorio activado"
+        : "Aleatorio activado · no hay otras canciones disponibles"
+    );
   } else {
     state.shuffle = false;
     if (state.baseQueue && state.baseQueue.includes(currentId)) {
@@ -1535,6 +1742,7 @@ const playTrackNow = (id) => {
     state.queue = [track.id];
     state.queueIndex = 0;
     playCurrent();
+    revealNowPlayingForSelection();
     return;
   }
 
@@ -1542,6 +1750,7 @@ const playTrackNow = (id) => {
   if (existing >= state.queueIndex) {
     state.queueIndex = existing;
     playCurrent();
+    revealNowPlayingForSelection();
     return;
   }
 
@@ -1555,6 +1764,7 @@ const playTrackNow = (id) => {
   state.queue.splice(state.queueIndex + 1, 0, track.id);
   state.queueIndex += 1;
   playCurrent();
+  revealNowPlayingForSelection();
 };
 
 const queueCollection = (ids, label, options = {}) => {
@@ -1823,8 +2033,8 @@ const setupMediaSession = () => {
     },
     previoustrack: previousTrack,
     nexttrack: nextTrack,
-    seekbackward: (details) => seekTo(state.currentTime - (details?.seekOffset || 5)),
-    seekforward: (details) => seekTo(state.currentTime + (details?.seekOffset || 5)),
+    seekbackward: () => seekBy(-seekStepSeconds()),
+    seekforward: () => seekBy(seekStepSeconds()),
     seekto: (details) => {
       if (typeof details?.seekTime !== "number") return;
       seekTo(details.seekTime);
@@ -1858,6 +2068,30 @@ let vizGradientContext = null;
 let vizHalo = null;
 let vizHaloHeight = 0;
 let vizHaloContext = null;
+let vizThemeKey = "";
+let vizThemeColors = null;
+let vizGradientTheme = "";
+let vizHaloTheme = "";
+
+// El visualizador dibuja en canvas: los colores del tema se leen del CSS y se
+// guardan hasta que cambia el tema para no consultar estilos en cada cuadro.
+const readVizThemeColors = () => {
+  const key = state.theme;
+  if (key === vizThemeKey && vizThemeColors) return vizThemeColors;
+  const style = getComputedStyle(document.documentElement);
+  const rgb = (name, fallback) =>
+    (style.getPropertyValue(name).trim() || fallback)
+      .split(",")
+      .map((part) => Number(part.trim()));
+  vizThemeKey = key;
+  vizThemeColors = {
+    accent: rgb("--accent-rgb", "74, 168, 255"),
+    accent2: rgb("--accent-2-rgb", "92, 225, 230"),
+    rim: rgb("--accent-rim-bright-rgb", "220, 238, 255"),
+    accent2Strong: style.getPropertyValue("--accent-2-strong").trim() || "#a7f3f0"
+  };
+  return vizThemeColors;
+};
 let vizObserver = null;
 let vizVisible = true;
 
@@ -1985,36 +2219,53 @@ const drawVisualizer = (now) => {
   const release = 1 - Math.exp(-dt / 0.18);
 
   const gap = count > 44 ? 2 : 3;
-  const barWidth = Math.max(1.2, (rect.width - gap * (count - 1)) / count);
-  const usableHeight = rect.height - 6;
+  const barWidth = Math.max(1.4, (rect.width - gap * (count - 1)) / count);
+  const baseLineY = rect.height - 9;
+  const usableHeight = baseLineY - 5;
 
-  // Los degradados se recrean solo cuando cambia la altura del canvas: crear
-  // uno por cuadro es caro y se nota en el hilo principal.
-  if (!vizGradient || vizGradientHeight !== rect.height || vizGradientContext !== ctx) {
-    vizGradient = ctx.createLinearGradient(0, rect.height, 0, 0);
-    vizGradient.addColorStop(0, "rgba(72, 210, 184, 0.25)");
-    vizGradient.addColorStop(0.35, "rgba(99, 230, 200, 0.75)");
-    vizGradient.addColorStop(0.72, "rgba(112, 196, 236, 0.92)");
-    vizGradient.addColorStop(1, "rgba(150, 172, 255, 0.98)");
+  // Los degradados se recrean solo cuando cambia la altura del canvas o el
+  // tema: crear uno por cuadro es caro y se nota en el hilo principal.
+  const themeColors = readVizThemeColors();
+  if (
+    !vizGradient ||
+    vizGradientHeight !== rect.height ||
+    vizGradientContext !== ctx ||
+    vizGradientTheme !== vizThemeKey
+  ) {
+    const [ar, ag, ab] = themeColors.accent;
+    const [br, bg, bb] = themeColors.accent2;
+    vizGradient = ctx.createLinearGradient(0, baseLineY, 0, 2);
+    vizGradient.addColorStop(0, `rgba(${ar}, ${ag}, ${ab}, 0.36)`);
+    vizGradient.addColorStop(0.32, `rgba(${ar}, ${ag}, ${ab}, 0.84)`);
+    vizGradient.addColorStop(0.7, `rgba(${br}, ${bg}, ${bb}, 0.96)`);
+    vizGradient.addColorStop(1, themeColors.accent2Strong);
     vizGradientHeight = rect.height;
     vizGradientContext = ctx;
+    vizGradientTheme = vizThemeKey;
   }
   const gradient = vizGradient;
 
-  // Halo inferior que respira con el volumen real, detrás de las barras. La
-  // intensidad se ajusta con globalAlpha para no crear otro degradado por
-  // cuadro.
+  // Halo inferior que respira con el volumen real, detrás de las barras.
   if (stats) {
-    if (!vizHalo || vizHaloHeight !== rect.height || vizHaloContext !== ctx) {
-      vizHalo = ctx.createLinearGradient(0, rect.height, 0, rect.height * 0.28);
-      vizHalo.addColorStop(0, "rgba(99, 230, 200, 1)");
-      vizHalo.addColorStop(1, "rgba(99, 230, 200, 0)");
+    if (
+      !vizHalo ||
+      vizHaloHeight !== rect.height ||
+      vizHaloContext !== ctx ||
+      vizHaloTheme !== vizThemeKey
+    ) {
+      const [ar, ag, ab] = themeColors.accent;
+      const [br, bg, bb] = themeColors.accent2;
+      vizHalo = ctx.createLinearGradient(0, baseLineY, 0, rect.height * 0.16);
+      vizHalo.addColorStop(0, `rgba(${ar}, ${ag}, ${ab}, 1)`);
+      vizHalo.addColorStop(0.55, `rgba(${br}, ${bg}, ${bb}, 0.45)`);
+      vizHalo.addColorStop(1, `rgba(${ar}, ${ag}, ${ab}, 0)`);
       vizHaloHeight = rect.height;
       vizHaloContext = ctx;
+      vizHaloTheme = vizThemeKey;
     }
-    ctx.globalAlpha = clamp(0.05 + loudness * 0.08, 0, 1);
+    ctx.globalAlpha = clamp(0.06 + loudness * 0.1, 0, 1);
     ctx.fillStyle = vizHalo;
-    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.fillRect(0, 0, rect.width, baseLineY);
     ctx.globalAlpha = 1;
   }
 
@@ -2039,8 +2290,6 @@ const drawVisualizer = (now) => {
 
       if (bins) {
         const mean = sum / bins;
-        // Mezcla de pico y promedio: el pico marca el golpe rítmico y el
-        // promedio le da cuerpo al nivel sostenido.
         const spectral = Math.max(0, max * 0.62 + mean * 0.38 - 0.02);
         const tilt = 1 + 1.5 * Math.pow(i / Math.max(1, count - 1), 1.2);
         target = clamp(Math.pow(spectral, 1.15) * tilt * loudness + punch, 0, 1);
@@ -2052,43 +2301,51 @@ const drawVisualizer = (now) => {
     const next = current + (target - current) * factor;
     vizBars[i] = next;
 
-    // El pico queda colgado un instante y baja lento, como en un ecualizador
-    // real: marca el techo de cada golpe sin temblar cuadro a cuadro.
     let peak = vizPeaks[i] || 0;
     if (next >= peak) peak = next;
-    else peak = Math.max(next, peak - dt * 0.5);
+    else peak = Math.max(next, peak - dt * 0.48);
     vizPeaks[i] = peak;
 
     const barHeight = Math.max(2, next * usableHeight);
     const x = i * (barWidth + gap);
-    const y = rect.height - barHeight;
+    const y = baseLineY - barHeight;
     roundedBar(ctx, x, y, barWidth, barHeight, barWidth / 2);
     ctx.fill();
 
+    // Reflejo tenue en el espejo inferior
+    if (barHeight > 3) {
+      const reflectH = Math.min(7, barHeight * 0.2);
+      ctx.globalAlpha = 0.2;
+      roundedBar(ctx, x, baseLineY + 1.5, barWidth, reflectH, barWidth / 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
     // Reflejo superior tenue: le da el aspecto de vidrio del resto de la app.
-    if (barHeight > 4) {
-      ctx.fillStyle = "rgba(220, 255, 248, 0.32)";
-      roundedBar(ctx, x, y, barWidth, Math.min(1.6, barHeight * 0.22), barWidth / 2);
+    if (barHeight > 5) {
+      ctx.fillStyle = "rgba(235, 255, 250, 0.42)";
+      roundedBar(ctx, x, y, barWidth, Math.min(1.8, barHeight * 0.22), barWidth / 2);
       ctx.fill();
       ctx.fillStyle = gradient;
     }
   }
 
   // Tapas de pico, apenas por encima de cada barra.
-  ctx.fillStyle = "rgba(178, 250, 238, 0.75)";
+  const [rr, rg, rb] = themeColors.rim;
+  ctx.fillStyle = `rgba(${rr}, ${rg}, ${rb}, 0.85)`;
   for (let i = 0; i < count; i += 1) {
     const peak = vizPeaks[i] || 0;
     if (peak <= 0.03 || peak * usableHeight < 4) continue;
     const x = i * (barWidth + gap);
-    const y = rect.height - peak * usableHeight - 2.5;
+    const y = baseLineY - peak * usableHeight - 2.6;
     roundedBar(ctx, x, y, barWidth, 1.6, barWidth / 2);
     ctx.fill();
   }
 
-  // Línea de reposo: cuando no suena nada queda una base serena, sin fingir
-  // que hay música.
-  ctx.fillStyle = "rgba(99, 230, 200, 0.09)";
-  ctx.fillRect(0, rect.height - 1, rect.width, 1);
+  // Línea base luminosa: serena en reposo, nítida en reproducción.
+  const [br, bg, bb] = themeColors.accent;
+  ctx.fillStyle = stats ? `rgba(${br}, ${bg}, ${bb}, 0.24)` : "rgba(148, 178, 212, 0.12)";
+  ctx.fillRect(0, baseLineY, rect.width, 1);
 };
 
 let uiLoopStarted = false;

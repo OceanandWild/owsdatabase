@@ -1,0 +1,45 @@
+﻿WaverNote 1.3.0 - Changelog
+
+=== ESPAÑOL ===
+Versión: 1.3.0
+Plataformas: Windows y Android
+Fecha: 2026-11-25
+
+Novedades:
+- La carga manual acepta videos MP4, MOV y WEBM. El audio se convierte a MP3 de 320 kbps en el dispositivo, sin subir el video a ningún servidor.
+- La portada se toma automáticamente de un fotograma del video y se puede cambiar antes de subir, igual que con cualquier otra canción.
+- La pantalla de carga avisa que la conversión puede demorar y que subir el audio consume datos de la conexión, con posibles cargos en redes móviles.
+- Los videos tienen un límite de 10 minutos y 150 MB. La conversión muestra el progreso y, si un video falla, el resto de la tanda sigue subiéndose.
+- La miniatura de una canción se puede cambiar o quitar desde "Editar canción". Las copias sin conexión también muestran la nueva.
+- Renovación visual completa de la aplicación: superficies translúcidas con bordes iluminados, mejor contraste y una jerarquía más clara en inicio, biblioteca, tendencias, recomendaciones, artistas, acceso, modales y móvil.
+- El reproductor, el panel «Ahora suena» y el fondo ambiental adaptan sutilmente su color al de la canción que suena, y el visualizador de audio suma reflejo y un acabado más definido.
+- Las canciones y álbumes sin portada propia ahora generan ilustraciones variadas con cinco diseños distintos y diez paletas de color.
+- La biblioteca estrena una barra de secciones que queda a la vista al desplazarse, con íconos y un indicador que se desliza hacia la pestaña activa. También se puede recorrer con las flechas del teclado.
+- La barra superior en móvil ahora tiene dos niveles: la marca y los accesos de notificaciones y perfil arriba, y el buscador a todo el ancho debajo. La marca vuelve a verse en pantallas angostas y el panel de avisos se abre justo debajo de la barra.
+
+Arreglos:
+- La actualización de Android descarga el APK con la red del propio dispositivo, reanuda la descarga si se corta y comprueba que el archivo esté completo antes de instalar.
+- El indicador de modo sin conexión ya no queda visible cuando la app está conectada.
+- La fila de estadísticas de la biblioteca se adapta a pantallas angostas sin recortar la última cifra.
+
+=== ENGLISH ===
+Version: 1.3.0
+Platforms: Windows and Android
+Date: 2026-11-25
+
+What's new:
+- Manual upload now accepts MP4, MOV and WEBM videos. The audio is converted to a 320 kbps MP3 on the device, and the video itself is never uploaded.
+- The cover is taken automatically from a video frame and can be replaced before uploading, just like any other track.
+- The upload screen warns that conversion may take a while and that uploading the audio uses connection data, with possible charges on mobile networks.
+- Videos are limited to 10 minutes and 150 MB. Conversion shows progress, and if one video fails the rest of the batch keeps uploading.
+- A track's thumbnail can be changed or removed from "Edit track". Offline copies show the new one too.
+- Full visual overhaul across the app: frosted glass surfaces with crisp highlights, refined contrast and clearer hierarchy across home, library, trends, recommendations, artists, sign-in, modals and mobile.
+- The player bar, Now Playing panel and ambient backdrop subtly adapt their tint to the active track, and the audio visualizer adds a soft reflection and sharper finish.
+- Tracks and albums without custom artwork now generate varied covers using five distinct designs and ten color palettes.
+- The library has a new section bar that stays in view while scrolling, with icons and an indicator that slides to the active tab. It can also be navigated with the arrow keys.
+- The mobile top bar now has two levels: brand and notification/profile access on top, and a full-width search below. The brand is visible again on narrow screens, and the notifications panel opens right under the bar.
+
+Fixes:
+- The Android update downloads the APK with the device's own network, resumes the download if it drops and verifies the file is complete before installing.
+- The offline indicator no longer stays visible while the app is connected.
+- The library stats row adapts to narrow screens without clipping the last figure.

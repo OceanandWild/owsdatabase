@@ -357,6 +357,7 @@ const offlineEntryFromRecord = (trackId, record) => {
     artist: String(track.artist || ""),
     album: String(track.album || ""),
     genre: String(track.genre || ""),
+    lyrics: String(track.lyrics || ""),
     duration: Number(track.duration) || 0,
     cover: ""
   };
@@ -696,6 +697,7 @@ const offlineStoreTrackBlob = async (track, blob, { cover = "", savedAt = Date.n
     artist: track.artist || "",
     album: track.album || "",
     genre: track.genre || "",
+    lyrics: track.lyrics || "",
     duration: Number(track.duration) || 0,
     coverUrl: track.coverUrl || "",
     audioUrl: track.audioUrl || ""
@@ -723,6 +725,26 @@ const offlineStoreTrackBlob = async (track, blob, { cover = "", savedAt = Date.n
   await offlineSaveDownloadEntry(entry);
 
   return { already: false, size: normalized.size };
+};
+
+// La miniatura puede cambiar desde "Editar canción". Si la canción está
+// guardada sin conexión, se reemplaza la copia local para que no siga
+// mostrando la portada anterior.
+const offlineUpdateTrackCover = async (trackId, coverUrl) => {
+  const id = Number(trackId) || 0;
+  if (!id || !waOffline.userId) return false;
+
+  const entry = waOffline.downloads.get(id);
+  if (!entry) return false;
+
+  const cover = coverUrl ? await offlineFetchCover(coverUrl) : "";
+  if (cover) waOffline.coverUrls.set(id, cover);
+  else waOffline.coverUrls.delete(id);
+
+  const next = { ...entry, coverUrl: String(coverUrl || ""), cover: cover || "" };
+  waOffline.downloads.set(id, next);
+  await offlineSaveDownloadEntry(next);
+  return true;
 };
 
 const offlineDownloadTrack = async (track, onProgress) => {
@@ -828,6 +850,7 @@ const offlineLibraryFromDownloads = () => {
       artist: entry.artist || "Artista desconocido",
       album: entry.album || "Sin álbum",
       genre: entry.genre || "",
+      lyrics: entry.lyrics || "",
       duration: Number(entry.duration) || 0,
       coverUrl: "",
       audioUrl: "",
@@ -858,5 +881,6 @@ Object.assign(waOffline, {
   libraryFromDownloads: offlineLibraryFromDownloads,
   downloadTrack: offlineDownloadTrack,
   saveUploadedTrack: offlineSaveUploadedTrack,
+  updateTrackCover: offlineUpdateTrackCover,
   removeTrack: offlineRemoveTrack
 });

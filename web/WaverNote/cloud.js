@@ -46,8 +46,15 @@ const cloudSettingsSnapshot = () => ({
     ? state.libraryTab
     : "songs",
   catalogTab: state.catalogTab === "genre" ? "genre" : "artist",
-  npTab: state.npTab === "queue" ? "queue" : "now",
+  npTab: ["now", "queue", "lyrics"].includes(state.npTab) ? state.npTab : "now",
   nextCardTiming: normalizeNextCardTiming(state.nextCardTiming),
+  seekStep: normalizeSeekStep(state.seekStep),
+  openNowPlayingOnSelect: Boolean(state.openNowPlayingOnSelect),
+  theme: normalizeTheme(state.theme),
+  trendSets: typeof trendSetsSnapshot === "function" ? trendSetsSnapshot() : [],
+  trendActiveSet: typeof trendActiveSetId === "function" ? trendActiveSetId() : "all",
+  autoQueue: normalizeAutoQueue(state.autoQueue),
+  randomExcluded: [...state.randomExcluded],
   route: { ...state.route }
 });
 
@@ -327,7 +334,7 @@ const normalizeCloudRoute = (raw) => {
 
   const view = String(raw.view || "");
   if (view === "home") return { view: "home" };
-  if (["trends", "recommendations", "catalog", "library"].includes(view)) return { view };
+  if (["trends", "recommendations", "catalog", "library", "settings"].includes(view)) return { view };
 
   if (view === "search") {
     const q = String(raw.q || "").slice(0, 160);
@@ -467,11 +474,33 @@ const applyCloudRestore = () => {
     state.libraryTab = settings.libraryTab;
   }
   if (["artist", "genre"].includes(settings.catalogTab)) state.catalogTab = settings.catalogTab;
-  if (["now", "queue"].includes(settings.npTab)) state.npTab = settings.npTab;
+  if (["now", "queue", "lyrics"].includes(settings.npTab)) state.npTab = settings.npTab;
   if (typeof settings.nextCardTiming === "string") {
     state.nextCardTiming = normalizeNextCardTiming(settings.nextCardTiming);
     writeJSON(STORAGE.nextCard, state.nextCardTiming);
   }
+  if (typeof settings.seekStep === "string" || typeof settings.seekStep === "number") {
+    state.seekStep = normalizeSeekStep(settings.seekStep);
+    writeJSON(STORAGE.seekStep, state.seekStep);
+  }
+  if (typeof settings.openNowPlayingOnSelect === "boolean") {
+    state.openNowPlayingOnSelect = settings.openNowPlayingOnSelect;
+    writeJSON(STORAGE.openNowOnSelect, state.openNowPlayingOnSelect);
+  }
+  if (typeof settings.theme === "string") {
+    state.theme = normalizeTheme(settings.theme);
+    writeJSON(STORAGE.theme, state.theme);
+    applyTheme();
+  }
+  if (typeof settings.autoQueue === "string") {
+    state.autoQueue = normalizeAutoQueue(settings.autoQueue);
+    writeJSON(STORAGE.autoQueue, state.autoQueue);
+  }
+  if (Array.isArray(settings.randomExcluded)) {
+    state.randomExcluded = new Set(normalizeRandomExcluded(settings.randomExcluded));
+    writeJSON(STORAGE.randomExcluded, [...state.randomExcluded]);
+  }
+  if (typeof applyTrendSettings === "function") applyTrendSettings(settings);
 
   const playback =
     restore.playback && typeof restore.playback === "object" && !Array.isArray(restore.playback)

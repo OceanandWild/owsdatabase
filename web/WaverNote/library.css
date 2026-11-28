@@ -5,7 +5,7 @@
 mark {
   padding: 0 2px;
   border-radius: 3px;
-  background: rgba(99, 230, 200, 0.16);
+  background: rgba(var(--accent-rgb), 0.16);
   color: var(--mint);
 }
 
@@ -54,23 +54,27 @@ mark {
 
 .track-row {
   position: relative;
-  height: 58px;
+  height: 60px;
   padding: 0 12px;
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: 13px;
   cursor: pointer;
-  transition: background 0.18s;
+  transition: background 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.18s var(--ease);
   /* Igual que el ranking: las filas fuera de pantalla no necesitan layout ni
      pintura hasta que el usuario se acerca a ellas. */
   content-visibility: auto;
-  contain-intrinsic-size: auto 58px;
+  contain-intrinsic-size: auto 60px;
 }
 
 .track-row:hover {
-  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(154, 184, 222, 0.08);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .track-row.is-current {
-  background: linear-gradient(90deg, rgba(99, 230, 200, 0.08), rgba(99, 230, 200, 0.015));
+  border-color: rgba(var(--accent-rgb), 0.16);
+  background: linear-gradient(95deg, rgba(var(--accent-rgb), 0.11), rgba(var(--accent-rgb), 0.025) 75%, transparent);
+  box-shadow: inset 3px 0 0 var(--mint);
 }
 
 .track-row__index {
@@ -248,9 +252,19 @@ mark {
 }
 
 .track-row__plays {
-  color: var(--faint);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 8px;
+  border: 1px solid rgba(154, 184, 222, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .track-row__duration {
@@ -373,8 +387,11 @@ mark {
 
 .detail__cover .cover {
   height: 100%;
-  border-radius: 20px;
-  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.88);
+  border-radius: 22px;
+  box-shadow:
+    0 32px 68px -22px rgba(0, 0, 0, 0.92),
+    0 16px 40px -24px color-mix(in srgb, var(--p1, var(--accent-deep)) 48%, transparent),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .detail__cover--stack .cover {
@@ -494,16 +511,17 @@ mark {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .tab {
-  height: 32px;
+  height: 33px;
   padding: 0 16px;
   border-radius: 999px;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 11.5px;
   font-weight: 600;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
 .tab:hover {
@@ -511,15 +529,15 @@ mark {
 }
 
 .tab.is-active {
-  background: rgba(255, 255, 255, 0.09);
-  color: var(--text);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.18), rgba(122, 167, 255, 0.12));
+  color: var(--mint-strong);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.28), 0 4px 14px -6px rgba(var(--accent-rgb), 0.5);
 }
 
 .library-stats {
   display: flex;
   flex: none;
-  gap: 26px;
+  gap: 10px;
   padding-bottom: 4px;
 }
 
@@ -528,11 +546,16 @@ mark {
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--glass-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .library-stats strong {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 500;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -554,14 +577,15 @@ mark {
   align-items: center;
   gap: 14px;
   margin: 2px 0 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
+  padding: 15px 18px;
+  border: 1px solid rgba(154, 184, 222, 0.16);
   border-radius: var(--radius-lg);
-  background: linear-gradient(110deg, rgba(99, 230, 200, 0.08), rgba(122, 167, 255, 0.05) 60%, rgba(255, 255, 255, 0.02));
+  background: linear-gradient(115deg, rgba(var(--accent-rgb), 0.1), rgba(122, 167, 255, 0.06) 60%, rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 36px -28px rgba(0, 0, 0, 0.85);
 }
 
 .offline-bar.is-complete {
-  background: rgba(99, 230, 200, 0.05);
+  background: rgba(var(--accent-rgb), 0.05);
 }
 
 .offline-bar__icon {
@@ -571,7 +595,7 @@ mark {
   height: 38px;
   place-items: center;
   border-radius: 50%;
-  background: rgba(99, 230, 200, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   color: var(--mint);
 }
 
@@ -651,8 +675,8 @@ mark {
 }
 
 .chip:hover {
-  border-color: rgba(99, 230, 200, 0.25);
-  background: rgba(99, 230, 200, 0.08);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--text);
   transform: translateY(-1px);
 }
@@ -675,7 +699,7 @@ mark {
   height: 54px;
   margin-bottom: 16px;
   border-radius: 16px;
-  background: rgba(99, 230, 200, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--mint);
 }
 
@@ -758,10 +782,10 @@ mark {
   padding: 12px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 20px;
-  background: linear-gradient(165deg, rgba(15, 21, 33, 0.97), rgba(8, 12, 20, 0.93));
-  box-shadow: 0 22px 48px -40px rgba(0, 0, 0, 0.95);
-  transition: transform 0.24s var(--ease), border-color 0.24s var(--ease), box-shadow 0.24s var(--ease);
+  border-radius: 21px;
+  background: linear-gradient(165deg, rgba(16, 23, 38, 0.96), rgba(8, 12, 22, 0.92));
+  box-shadow: 0 22px 48px -36px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform 0.26s var(--ease), border-color 0.24s var(--ease), box-shadow 0.26s var(--ease);
   /* Con cientos de tarjetas, dejar que el navegador saltee las que están
      fuera de pantalla evita repintar todo el ranking en cada cuadro. */
   content-visibility: auto;
@@ -774,7 +798,7 @@ mark {
   inset: -45% 25% 55% -25%;
   z-index: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(99, 230, 200, 0.13), transparent 68%);
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.13), transparent 68%);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s;
@@ -782,8 +806,8 @@ mark {
 
 .plays-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(99, 230, 200, 0.3);
-  box-shadow: 0 34px 58px -36px rgba(99, 230, 200, 0.32);
+  border-color: rgba(var(--accent-rgb), 0.3);
+  box-shadow: 0 34px 58px -36px rgba(var(--accent-rgb), 0.32);
 }
 
 .plays-card:hover::before {
@@ -791,19 +815,25 @@ mark {
 }
 
 .plays-card--podium {
-  border-color: rgba(99, 230, 200, 0.18);
+  border-color: rgba(var(--accent-rgb), 0.18);
 }
 
 .plays-card--1 {
-  border-color: rgba(99, 230, 200, 0.4);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  background:
+    radial-gradient(90% 80% at 15% 0%, rgba(var(--accent-rgb), 0.12), transparent 60%),
+    linear-gradient(165deg, rgba(16, 25, 40, 0.97), rgba(8, 12, 22, 0.93));
 }
 
 .plays-card--2 {
-  border-color: rgba(99, 230, 200, 0.27);
+  border-color: rgba(122, 167, 255, 0.34);
+  background:
+    radial-gradient(90% 80% at 15% 0%, rgba(122, 167, 255, 0.1), transparent 60%),
+    linear-gradient(165deg, rgba(16, 23, 38, 0.97), rgba(8, 12, 22, 0.93));
 }
 
 .plays-card--3 {
-  border-color: rgba(99, 230, 200, 0.18);
+  border-color: rgba(var(--accent-rgb), 0.24);
 }
 
 .plays-card__art {
@@ -860,28 +890,28 @@ mark {
 
 .plays-card--1 .plays-card__rank {
   border-color: transparent;
-  background: linear-gradient(135deg, #a5f7e3, #63e6c8);
-  color: #04110f;
-  box-shadow: 0 8px 20px -8px rgba(99, 230, 200, 0.8);
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  color: var(--accent-ink);
+  box-shadow: 0 8px 20px -8px rgba(var(--accent-rgb), 0.8);
 }
 
 .plays-card--2 .plays-card__rank {
   border-color: transparent;
-  background: linear-gradient(135deg, #d9fff6, #8ef2dc);
-  color: #04110f;
+  background: linear-gradient(135deg, var(--ink), var(--accent-strong));
+  color: var(--accent-ink);
   opacity: 0.92;
 }
 
 .plays-card--3 .plays-card__rank {
   border-color: transparent;
-  background: linear-gradient(135deg, #f0fffb, #65c9b8);
-  color: #04110f;
+  background: linear-gradient(135deg, var(--ink), var(--accent));
+  color: var(--accent-ink);
   opacity: 0.82;
 }
 
 .plays-card.is-current {
-  border-color: rgba(99, 230, 200, 0.45);
-  box-shadow: 0 26px 52px -34px rgba(99, 230, 200, 0.35);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  box-shadow: 0 26px 52px -34px rgba(var(--accent-rgb), 0.35);
 }
 
 .plays-card__now {
@@ -894,7 +924,7 @@ mark {
   gap: 6px;
   height: 24px;
   padding: 0 9px;
-  border: 1px solid rgba(99, 230, 200, 0.3);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
   border-radius: 999px;
   background: rgba(4, 10, 16, 0.74);
   color: var(--mint);
@@ -921,9 +951,9 @@ mark {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, #a5f7e3, #63e6c8);
-  color: #04110f;
-  box-shadow: 0 12px 26px -10px rgba(99, 230, 200, 0.8);
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  color: var(--accent-ink);
+  box-shadow: 0 12px 26px -10px rgba(var(--accent-rgb), 0.8);
   opacity: 0;
   transform: translateY(8px);
   cursor: pointer;
@@ -1020,8 +1050,8 @@ mark {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgba(99, 230, 200, 0.45), var(--mint));
-  box-shadow: 0 0 10px rgba(99, 230, 200, 0.45);
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.45), var(--mint));
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.45);
 }
 
 .plays-card.is-unplayed .plays-card__meter span {
@@ -1070,7 +1100,7 @@ mark {
   border: 1px dashed var(--line-strong);
   border-radius: 20px;
   background:
-    radial-gradient(120% 160% at 0% 0%, rgba(99, 230, 200, 0.08), transparent 55%),
+    radial-gradient(120% 160% at 0% 0%, rgba(var(--accent-rgb), 0.08), transparent 55%),
     rgba(255, 255, 255, 0.017);
 }
 
@@ -1081,9 +1111,9 @@ mark {
   place-items: center;
   width: 48px;
   height: 48px;
-  border: 1px solid rgba(99, 230, 200, 0.18);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
   border-radius: 15px;
-  background: rgba(99, 230, 200, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--mint);
 }
 
@@ -1100,7 +1130,7 @@ mark {
   height: 7px;
   border-radius: 50%;
   background: var(--mint);
-  box-shadow: 0 0 0 0 rgba(99, 230, 200, 0.45);
+  box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.45);
   animation: playsBeacon 2.1s ease-out infinite;
 }
 
@@ -1154,35 +1184,17 @@ mark {
 
 @keyframes playsBeacon {
   0% {
-    box-shadow: 0 0 0 0 rgba(99, 230, 200, 0.45);
+    box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.45);
   }
   70% {
-    box-shadow: 0 0 0 9px rgba(99, 230, 200, 0);
+    box-shadow: 0 0 0 9px rgba(var(--accent-rgb), 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(99, 230, 200, 0);
+    box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0);
   }
 }
 
 @media (max-width: 767px) {
-  .tabs--library {
-    display: flex;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tabs--library::-webkit-scrollbar {
-    display: none;
-  }
-
-  .tabs--library .tab {
-    flex: 0 0 auto;
-  }
-
   .plays-section .section__head {
     flex-direction: column;
     align-items: stretch;
@@ -1390,7 +1402,7 @@ mark {
   max-width: 130px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(99, 230, 200, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--mint);
   font-size: 9.5px;
   font-weight: 600;
@@ -1429,12 +1441,12 @@ mark {
   border: 1px solid var(--line);
   border-radius: 14px;
   background:
-    radial-gradient(circle at top left, rgba(99, 230, 200, 0.07), transparent 44%),
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.07), transparent 44%),
     rgba(255, 255, 255, 0.025);
 }
 
 .watch-card--configured {
-  border-color: rgba(99, 230, 200, 0.18);
+  border-color: rgba(var(--accent-rgb), 0.18);
 }
 
 .watch-card__icon {
@@ -1443,9 +1455,9 @@ mark {
   justify-content: center;
   width: 42px;
   height: 42px;
-  border: 1px solid rgba(99, 230, 200, 0.18);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
   border-radius: 12px;
-  background: rgba(99, 230, 200, 0.07);
+  background: rgba(var(--accent-rgb), 0.07);
   color: var(--mint);
 }
 
@@ -1597,7 +1609,7 @@ mark {
 }
 
 .watch-pill--active {
-  background: rgba(99, 230, 200, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   color: var(--mint);
 }
 
@@ -1612,7 +1624,7 @@ mark {
 }
 
 .watch-pill--busy {
-  background: rgba(99, 230, 200, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   color: var(--mint);
 }
 
@@ -1725,8 +1737,8 @@ mark {
 }
 
 .scan-report__stat--ok {
-  border-color: rgba(99, 230, 200, 0.24);
-  background: rgba(99, 230, 200, 0.07);
+  border-color: rgba(var(--accent-rgb), 0.24);
+  background: rgba(var(--accent-rgb), 0.07);
   color: var(--mint);
 }
 
@@ -1848,7 +1860,7 @@ mark {
 }
 
 .scan-report__status--ok {
-  background: rgba(99, 230, 200, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   color: var(--mint);
 }
 
@@ -1986,7 +1998,7 @@ mark {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(99, 230, 200, 0.035);
+  background: rgba(var(--accent-rgb), 0.035);
 }
 
 .import-link-row {
@@ -2020,7 +2032,7 @@ mark {
   width: 12px;
   height: 12px;
   flex: none;
-  border: 2px solid rgba(99, 230, 200, 0.2);
+  border: 2px solid rgba(var(--accent-rgb), 0.2);
   border-top-color: var(--mint);
   border-radius: 50%;
   animation: import-spin 0.8s linear infinite;

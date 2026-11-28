@@ -109,6 +109,9 @@ const WNMetadata = (() => {
   const isAudioFile = (file) => {
     const name = typeof file === "string" ? file : file?.name || "";
     const type = typeof file === "string" ? "" : file?.type || "";
+    // MP4 y WEBM pueden ser video: el escaneo de Música no los mezcla con
+    // las canciones. Los videos se eligen desde la carga manual.
+    if (/^video\//i.test(type)) return false;
     return AUDIO_EXTENSIONS.has(extensionOf(name)) || /^audio\//i.test(type);
   };
 
@@ -552,6 +555,8 @@ const WNMetadata = (() => {
     if (!moov) return { tags: {}, picture: null };
 
     let ilst = null;
+    const tags = {};
+    let picture = null;
 
     const visitMeta = async (start, end) => {
       await forEachAtom(file, start + 4, end, async (type, childStart, childEnd) => {
@@ -559,21 +564,49 @@ const WNMetadata = (() => {
       });
     };
 
+    // QuickTime puede guardar los textos directamente en udta (©nam, ©ART…)
+    // en vez de usar meta/ilst. El formato es: tamaño de texto (2 bytes),
+    // idioma (2 bytes) y el texto. Los MP4 modernos usan ilst, pero los MOV
+    // de cámara o edición suelen quedarse con esta variante.
+    const UDTA_TAGS = {
+      "\u00A9nam": "title",
+      "\u00A9ART": "artist",
+      "aART": "albumArtist",
+      "\u00A9alb": "album",
+      "\u00A9gen": "genre",
+      "\u00A9day": "year"
+    };
+
+    const readUdtaTag = async (type, start, end) => {
+      const key = UDTA_TAGS[type];
+      if (!key) return;
+
+      const raw = await readSlice(file, start, end);
+      if (raw.length <= 4) return;
+
+      const value = cleanValue(utf8(raw.subarray(4)));
+      if (!value) return;
+
+      if (key === "year") tags.year = value.slice(0, 4);
+      else if (!tags[key]) tags[key] = value;
+    };
+
     await forEachAtom(file, moov.start, moov.end, async (type, start, end) => {
       if (type === "udta") {
         await forEachAtom(file, start, end, async (childType, childStart, childEnd) => {
           if (childType === "meta") await visitMeta(childStart, childEnd);
           if (childType === "ilst") ilst = { start: childStart, end: childEnd };
+          await readUdtaTag(childType, childStart, childEnd);
         });
       }
       if (type === "meta") await visitMeta(start, end);
       if (type === "ilst") ilst = { start, end };
     });
 
-    if (!ilst) return { tags: {}, picture: null };
-
-    const tags = {};
-    let picture = null;
+    if (!ilst) {
+      if (tags.genre) tags.genre = parseGenre(tags.genre);
+      return { tags, picture };
+    }
 
     await forEachAtom(file, ilst.start, ilst.end, async (type, start, end) => {
       await forEachAtom(file, start, end, async (dataType, dataStart, dataEnd) => {
@@ -604,6 +637,7 @@ const WNMetadata = (() => {
       });
     });
 
+    if (tags.genre) tags.genre = parseGenre(tags.genre);
     return { tags, picture };
   };
 
@@ -627,6 +661,203 @@ const WNMetadata = (() => {
 
     const comments = parseVorbisComments(bytes.subarray(start));
     return { tags: tagsFromVorbis(comments), picture: vorbisPicture(comments) };
+  };
+
+  /* ------------------------------------------------------------
+     WEBM / MATROSKA (EBML)
+     ------------------------------------------------------------ */
+
+  const EBML = {
+    HEADER: 0x1a45dfa3,
+    SEGMENT: 0x18538067,
+    INFO: 0x1549a966,
+    TITLE: 0x7ba9,
+    TAGS: 0x1254c367,
+    TAG: 0x7373,
+    SIMPLE_TAG: 0x67c8,
+    TAG_NAME: 0x45a3,
+    TAG_STRING: 0x4487,
+    ATTACHMENTS: 0x1941a469,
+    ATTACHED_FILE: 0x61a7,
+    FILE_MIME: 0x4660,
+    FILE_DATA: 0x465c
+  };
+
+  const ebmlLength = (first) => {
+    if (!first) return 0;
+    if (first & 0x80) return 1;
+    if (first & 0x40) return 2;
+    if (first & 0x20) return 3;
+    if (first & 0x10) return 4;
+    if (first & 0x08) return 5;
+    if (first & 0x04) return 6;
+    if (first & 0x02) return 7;
+    if (first & 0x01) return 8;
+    return 0;
+  };
+
+  const ebmlElement = async (file, pos, end) => {
+    if (pos >= end) return null;
+
+    const bytes = await readSlice(file, pos, Math.min(pos + 12, end));
+    if (bytes.length < 2) return null;
+
+    const idLength = ebmlLength(bytes[0]);
+    if (!idLength || bytes.length < idLength + 1) return null;
+
+    let id = 0;
+    for (let i = 0; i < idLength; i += 1) id = id * 256 + bytes[i];
+
+    const sizeLength = ebmlLength(bytes[idLength]);
+    if (!sizeLength || bytes.length < idLength + sizeLength) return null;
+
+    const mask = 0xff >>> sizeLength;
+    let size = bytes[idLength] & mask;
+    let unknown = size === mask;
+    for (let i = 1; i < sizeLength; i += 1) {
+      const byte = bytes[idLength + i];
+      size = size * 256 + byte;
+      if (byte !== 0xff) unknown = false;
+    }
+
+    const dataStart = pos + idLength + sizeLength;
+    return {
+      id,
+      size: unknown ? -1 : size,
+      dataStart,
+      dataEnd: unknown ? end : Math.min(end, dataStart + size)
+    };
+  };
+
+  const ebmlChildren = async (file, start, end, callback) => {
+    let pos = start;
+    while (pos < end) {
+      const element = await ebmlElement(file, pos, end);
+      if (!element) break;
+      await callback(element);
+      if (element.size < 0) break;
+      const next = element.dataStart + element.size;
+      if (next <= pos) break;
+      pos = next;
+    }
+  };
+
+  const ebmlText = async (file, element) => {
+    if (element.dataEnd <= element.dataStart) return "";
+    return cleanValue(utf8(await readSlice(file, element.dataStart, element.dataEnd)));
+  };
+
+  const WEBM_TAGS = {
+    TITLE: "title",
+    ARTIST: "artist",
+    ALBUM: "album",
+    GENRE: "genre",
+    DATE: "year",
+    DATE_RELEASED: "year",
+    YEAR: "year"
+  };
+
+  const readWebm = async (file) => {
+    const tags = {};
+    let picture = null;
+
+    const readSimpleTag = async (element) => {
+      let name = "";
+      let value = "";
+      const nested = [];
+
+      await ebmlChildren(file, element.dataStart, element.dataEnd, async (child) => {
+        if (child.id === EBML.TAG_NAME) name = await ebmlText(file, child);
+        else if (child.id === EBML.TAG_STRING) value = await ebmlText(file, child);
+        else if (child.id === EBML.SIMPLE_TAG) nested.push(child);
+      });
+
+      const key = WEBM_TAGS[name.toUpperCase()];
+      if (key && value) {
+        if (key === "year") tags.year = value.slice(0, 4);
+        else if (!tags[key]) tags[key] = value;
+      }
+
+      for (const child of nested) await readSimpleTag(child);
+    };
+
+    const readAttachedFile = async (element) => {
+      let mime = "";
+      let data = null;
+
+      await ebmlChildren(file, element.dataStart, element.dataEnd, async (child) => {
+        if (child.id === EBML.FILE_MIME) mime = (await ebmlText(file, child)).toLowerCase();
+        else if (child.id === EBML.FILE_DATA) data = child;
+      });
+
+      if (
+        picture ||
+        !data ||
+        !/^image\//.test(mime) ||
+        data.size <= 32 ||
+        data.size > 6 * 1024 * 1024
+      ) {
+        return;
+      }
+
+      try {
+        picture = {
+          mime: normalizeImageMime(mime),
+          picType: 3,
+          data: await readSlice(file, data.dataStart, data.dataEnd)
+        };
+      } catch (err) {
+        picture = null;
+      }
+    };
+
+    const root = await ebmlElement(file, 0, file.size);
+    if (!root || root.id !== EBML.HEADER) return { tags, picture };
+
+    let segment = null;
+    let pos = root.size < 0 ? root.dataStart : root.dataEnd;
+
+    for (let i = 0; i < 4 && pos < file.size; i += 1) {
+      const element = await ebmlElement(file, pos, file.size);
+      if (!element) break;
+      if (element.id === EBML.SEGMENT) {
+        segment = element;
+        break;
+      }
+      if (element.size < 0) break;
+      pos = element.dataEnd;
+    }
+
+    if (!segment) return { tags, picture };
+
+    const end = segment.size < 0 ? file.size : segment.dataEnd;
+    await ebmlChildren(file, segment.dataStart, end, async (child) => {
+      if (child.id === EBML.INFO) {
+        // En WEBM el título global vive en Info, no en Tags. Artist, álbum
+        // y género sí están en Tags, por eso se leen las dos secciones.
+        await ebmlChildren(file, child.dataStart, child.dataEnd, async (info) => {
+          if (info.id === EBML.TITLE) {
+            const title = await ebmlText(file, info);
+            if (title && !tags.title) tags.title = title;
+          }
+        });
+      } else if (child.id === EBML.TAGS) {
+        await ebmlChildren(file, child.dataStart, child.dataEnd, async (tag) => {
+          if (tag.id === EBML.TAG) {
+            await ebmlChildren(file, tag.dataStart, tag.dataEnd, async (simple) => {
+              if (simple.id === EBML.SIMPLE_TAG) await readSimpleTag(simple);
+            });
+          }
+        });
+      } else if (child.id === EBML.ATTACHMENTS) {
+        await ebmlChildren(file, child.dataStart, child.dataEnd, async (attached) => {
+          if (attached.id === EBML.ATTACHED_FILE) await readAttachedFile(attached);
+        });
+      }
+    });
+
+    if (tags.genre) tags.genre = parseGenre(tags.genre);
+    return { tags, picture };
   };
 
   /* ------------------------------------------------------------
@@ -812,14 +1043,28 @@ const WNMetadata = (() => {
   const readTrackMetadata = async (file) => {
     const extension = extensionOf(file.name);
     const mime = String(file.type || "").toLowerCase();
+    const isVideo = typeof WNVideo !== "undefined" && WNVideo.isVideoFile(file);
     let parsed = { tags: {}, picture: null };
 
     try {
-      if (extension === "mp3" || mime.includes("mpeg")) {
+      if (isVideo) {
+        // Los videos MP4/MOV guardan las etiquetas en los mismos átomos que
+        // un M4A. WEBM/MKV usa EBML. En ambos casos se leen del contenedor
+        // antes de convertir el audio, así no se pierden título ni artista.
+        parsed =
+          extension === "webm" || mime.includes("webm")
+            ? await readWebm(file)
+            : await readMp4(file);
+      } else if (extension === "mp3" || mime.includes("mpeg")) {
         parsed = await readMp3(file);
       } else if (extension === "flac" || mime.includes("flac")) {
         parsed = await readFlac(file);
-      } else if (["m4a", "mp4", "aac"].includes(extension) || mime.includes("mp4") || mime.includes("aac")) {
+      } else if (
+        ["m4a", "mp4", "m4v", "mov", "aac"].includes(extension) ||
+        mime.includes("mp4") ||
+        mime.includes("quicktime") ||
+        mime.includes("aac")
+      ) {
         parsed = await readMp4(file);
       } else if (["ogg", "oga", "opus"].includes(extension) || mime.includes("ogg") || mime.includes("opus")) {
         parsed = await readOgg(file);
@@ -832,7 +1077,19 @@ const WNMetadata = (() => {
 
     const tags = parsed.tags || {};
     const guessed = guessFromFilename(file.name);
-    const duration = await readDuration(file);
+
+    // Para un video, el elemento <audio> no siempre informa la duración.
+    // El propio video sí, y además es la duración real del MP3 resultante.
+    let duration = 0;
+    if (isVideo) {
+      try {
+        const info = await WNVideo.readInfo(file);
+        duration = Math.round(Number(info?.duration) || 0);
+      } catch (err) {
+        duration = 0;
+      }
+    }
+    if (!duration) duration = await readDuration(file);
 
     let coverBlob = null;
     if (parsed.picture?.data?.length > 32) {

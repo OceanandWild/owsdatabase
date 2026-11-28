@@ -29,7 +29,7 @@ El acceso usa la misma cuenta que Surface / Ocean Pay:
 
 El token queda en `ocean_pay_token` y el usuario en `ocean_pay_user`, así que la sesión se comparte con el resto del ecosistema OWS en el mismo navegador.
 
-Todo lo que hacés en WaverNote queda en tu cuenta y te sigue a cualquier dispositivo: favoritos, playlists, cola, canción y posición actuales, historial reciente, conteos de reproducción, volumen, silencio, aleatorio, repetición y preferencias de la interfaz (última pestaña y última pantalla). La app guarda una copia local para arrancar al instante y sincroniza en segundo plano; si el servidor no responde, sigue funcionando con esa copia y reintenta después.
+Todo lo que hacés en WaverNote queda en tu cuenta y te sigue a cualquier dispositivo: favoritos, playlists, cola, canción y posición actuales, historial reciente, conteos de reproducción, volumen, silencio, aleatorio, repetición y preferencias de la interfaz (última pestaña, última pantalla y si «Ahora suena» se abre al elegir una canción). La app guarda una copia local para arrancar al instante y sincroniza en segundo plano; si el servidor no responde, sigue funcionando con esa copia y reintenta después.
 
 La cola y la posición se restauran en pausa: al entrar desde otro dispositivo ves dónde quedaste, pero el audio no arranca solo.
 
@@ -116,13 +116,14 @@ El conteo vive en la cuenta (`wavernote_plays` en PostgreSQL) y se replica en `l
 
 Al abrir la subida podés elegir entre dos modos:
 
-- **Manual:** elegís uno o varios archivos, escribís título, artista, álbum y género, y agregás una miniatura. Los metadatos que completás se aplican a lo que subas.
+- **Manual:** elegís uno o varios archivos, escribís título, artista, álbum y género, y agregás una miniatura. Los metadatos que completás se aplican a lo que subas. También acepta videos: el audio se convierte a MP3 de 320 kbps en el dispositivo y la miniatura sale de un fotograma, que después podés cambiar.
 - **Automático:** la app pide permiso para escanear la carpeta Música y lee los archivos de audio que encuentre. Detecta título, artista, álbum, género, duración y portada embebida, y después te muestra la lista para que marques cuáles querés agregar a tu biblioteca. Las canciones que ya tenés aparecen marcadas y no se seleccionan.
 
 El permiso se pide siempre al entrar en modo automático, aunque el sistema indique que no hace falta o ya lo hayas dado antes. Si el dispositivo muestra su propio aviso de «Permitir», se responde una sola vez y no vuelve a aparecer.
 
-- Formatos: MP3, WAV, OGG, M4A, AAC, FLAC, OPUS y WEBM.
-- Límite: 50 MB por archivo.
+- Formatos de audio: MP3, WAV, OGG, M4A, AAC, FLAC, OPUS y WEBM.
+- Videos: MP4, MOV y WEBM, hasta 10 minutos y 150 MB. La conversión a MP3 corre en el dispositivo y no sube el video.
+- Límite de audio: 50 MB por archivo.
 - En manual, el título sale del nombre del archivo si lo dejás vacío. Si el nombre tiene la forma `Artista - Título`, se separa solo.
 - En automático, las etiquetas del archivo tienen prioridad sobre el nombre; si no hay etiquetas, se usa el nombre.
 - El audio se guarda en Cloudinary (`resource_type: "video"`, que incluye audio) y los metadatos, favoritos y playlists en PostgreSQL, siempre asociados a tu usuario.
@@ -134,7 +135,7 @@ El permiso se pide siempre al entrar en modo automático, aunque el sistema indi
 | `GET` | `/wavernote/health` | Estado del servicio |
 | `GET` | `/wavernote/library` | Canciones, playlists y favoritos del usuario |
 | `POST` | `/wavernote/tracks` | Subir audio (`multipart/form-data`: `audio`, `cover`, `artist`, `album`, `genre`, `duration`) |
-| `PATCH` | `/wavernote/tracks/:id` | Editar título, artista, álbum o género |
+| `PATCH` | `/wavernote/tracks/:id` | Editar título, artista, álbum o género; también la miniatura (`multipart/form-data`: `cover` o `removeCover`) |
 | `DELETE` | `/wavernote/tracks/:id` | Eliminar canción y sus archivos |
 | `POST` | `/wavernote/tracks/:id/like` | Marcar favorito |
 | `DELETE` | `/wavernote/tracks/:id/like` | Quitar favorito |
@@ -179,6 +180,8 @@ sw.js             Service worker del shell para abrir sin red
 core.js           Sesión Surface, API, estado y navegación
 cloud.js          Sincronización de la cuenta (estado y reproducciones)
 metadata.js       Lectura de etiquetas y portadas de archivos locales
+video.js          Conversión de videos a MP3 y miniatura del fotograma
+vendor/           lamejs 1.2.1 (codificador MP3, LGPL-3.0) y su licencia
 recommend.js      Motor de recomendaciones diario
 trends.js         Motor de tendencias por categoría
 views.js          Render de las pantallas

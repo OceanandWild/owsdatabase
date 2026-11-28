@@ -429,11 +429,18 @@
       const data = message?.data || {};
       if (event === "Started") {
         total = Number(data.contentLength) || total;
-        done = 0;
-        state.progress = 0;
+        const received = Number(data.received);
+        done = Number.isFinite(received) && received > 0 ? received : 0;
+        state.progress = total > 0 ? Math.min(99, (done / total) * 100) : 0;
         paint();
       } else if (event === "Progress") {
-        done += Number(data.chunkLength) || 0;
+        // La descarga de Android informa el total acumulado para que la barra
+        // no retroceda cuando la descarga se reanuda tras un corte.
+        const received = Number(data.received);
+        done =
+          Number.isFinite(received) && received >= 0
+            ? received
+            : done + (Number(data.chunkLength) || 0);
         state.progress = total > 0 ? Math.min(99, (done / total) * 100) : 0;
         state.message =
           total > 0
@@ -658,9 +665,11 @@
     openChangelogModal();
   };
 
-  // Mientras la pantalla de acceso esté tapando la app no tiene sentido abrir
-  // el modal: se reintenta cuando el usuario entra.
+  // Mientras el loader de arranque o la pantalla de acceso estén tapando la
+  // app no tiene sentido abrir el modal: se reintenta cuando el usuario entra.
   const isAppReady = () => {
+    const boot = document.getElementById("bootGate");
+    if (boot && !boot.hidden) return false;
     const gate = document.getElementById("authGate");
     if (!gate) return true;
     return gate.hidden === true;

@@ -5,7 +5,7 @@
    conexión, el usuario recibe la última versión.
    ============================================================ */
 
-const WA_SW_VERSION = "1.2.9";
+const WA_SW_VERSION = "1.3.0";
 const WA_SW_SHELL = `wavernote-shell-${WA_SW_VERSION}`;
 const WA_SW_IMAGES = "wavernote-images-v1";
 
@@ -21,6 +21,7 @@ const WA_SW_FILES = [
   "trends.css",
   "catalog.css",
   "android.css",
+  "revamp.css",
   "audio-engine.js",
   "offline.js",
   "core.js",
@@ -28,6 +29,8 @@ const WA_SW_FILES = [
   "cloud.js",
   "updater.js",
   "metadata.js",
+  "vendor/lame.min.js",
+  "video.js",
   "watch-core.js",
   "watched-folder.js",
   "recommend.js",

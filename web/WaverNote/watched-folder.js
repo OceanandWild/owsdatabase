@@ -425,6 +425,7 @@
     queued: { label: "En espera", tone: "wait" },
     ambiguous: { label: "Para revisar", tone: "warn" },
     failed: { label: "No se pudo subir", tone: "error" },
+    skipped: { label: "Omitido", tone: "muted" },
     duplicate: { label: "Copia repetida", tone: "soft" },
     empty: { label: "Archivo vacío", tone: "error" },
     unmatched: { label: "Sin coincidencia", tone: "muted" },
@@ -437,6 +438,7 @@
     "queued",
     "ambiguous",
     "failed",
+    "skipped",
     "duplicate",
     "library",
     "known",
@@ -471,6 +473,8 @@
         return "Coincide con más de una canción pendiente; no se subió para no elegir mal";
       case "failed":
         return item.detail || "No se pudo subir; se reintenta más adelante";
+      case "skipped":
+        return item.detail || "No se procesó en este escaneo";
       case "duplicate":
         return item.detail || "Otra copia de esta canción ya se estaba subiendo";
       case "empty":
@@ -528,6 +532,7 @@
       ["queued", "en espera"],
       ["ambiguous", "para revisar"],
       ["failed", "con error"],
+      ["skipped", "omitidos"],
       ["duplicate", "copias repetidas"],
       ["empty", "vacíos"],
       ["unmatched", "sin coincidencia"],
@@ -1225,6 +1230,16 @@
       const record = records.get(file.path);
       if (!record) return;
 
+      // En Android no hay conversión nativa de video: se omite para no subir
+      // el archivo tal cual. Desde la carga manual sí se convierte y se le
+      // toma la portada.
+      if (IS_ANDROID && typeof WNVideo !== "undefined" && WNVideo.isVideoFile(file)) {
+        record.status = "skipped";
+        record.detail = "Los videos se agregan desde la carga manual.";
+        matchedFiles.add(file.path);
+        return;
+      }
+
       const result = Core.matchPendingForFile(file, index, tags);
 
       if (result?.ambiguous) {
@@ -1392,15 +1407,35 @@
       }
     }
 
+    // La carpeta vigilada también puede encontrar un video con el mismo
+    // nombre que una canción pendiente. Se convierte a MP3 y se le toma la
+    // miniatura, igual que en la carga manual, en vez de subirlo tal cual.
+    let uploadFile = file;
+    let duration = fields.duration || metadata?.duration || 0;
+
+    if (typeof WNVideo !== "undefined" && WNVideo.isVideoFile(file)) {
+      if (!cover) {
+        try {
+          cover = await WNVideo.extractThumbnail(file);
+        } catch (err) {
+          cover = null;
+        }
+      }
+
+      const converted = await WNVideo.convertToMp3(file);
+      uploadFile = converted.file;
+      duration = converted.duration || duration;
+    }
+
     return uploadTrackFile({
-      file,
+      file: uploadFile,
       fields: {
         ...fields,
         title: fields.title || metadata?.title || "",
         artist: fields.artist || metadata?.artist || "",
         album: fields.album || metadata?.album || "",
         genre: fields.genre || metadata?.genre || "",
-        duration: fields.duration || metadata?.duration || 0
+        duration
       },
       cover,
       onProgress: () => {}

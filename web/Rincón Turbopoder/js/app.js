@@ -28,7 +28,8 @@
     cart: loadCart(),
     productIndex: {},
     renderSeq: 0,
-    lastOrders: readLastOrders()
+    lastOrders: readLastOrders(),
+    checkoutDraft: {}
   };
 
   let metaPromise = null;
@@ -801,6 +802,7 @@
 
     const totals = cartTotals();
     const savedEmail = Api.lastEmail();
+    const draft = state.checkoutDraft || {};
     const count = cartCount();
     const shippingLines = totals.groups.map(function (group) {
       return '<div class="summary-row"><span>' + esc(group.storeName) + '</span><strong class="' + (group.shipping ? '' : 'free-text') + '">' + (group.shipping ? money(group.shipping) : 'Gratis') + '</strong></div>';
@@ -825,11 +827,11 @@
           '<form id="checkoutForm" class="checkout-card" novalidate>' +
             '<div class="checkout-section-head"><span class="checkout-step">01</span><div><h2>Datos de entrega</h2><p>Contanos quién recibe y a dónde va el pedido.</p></div></div>' +
             '<div class="form-grid">' +
-              '<label class="field"><span>Nombre y apellido</span><input class="input" name="buyerName" required minlength="2" placeholder="Quién recibe" /></label>' +
-              '<label class="field"><span>Correo</span><input class="input" name="buyerEmail" type="email" required value="' + esc(savedEmail) + '" placeholder="vos@correo.com" /></label>' +
-              '<label class="field"><span>Teléfono</span><input class="input" name="buyerPhone" value="" placeholder="Opcional, para coordinar" /></label>' +
-              '<label class="field"><span>Dirección</span><input class="input" name="address" required minlength="5" placeholder="Calle, número, piso" /></label>' +
-              '<label class="field full"><span>Nota para la tienda</span><textarea class="textarea" name="note" maxlength="500" placeholder="Horarios, referencias, algún detalle"></textarea></label>' +
+              '<label class="field"><span>Nombre y apellido</span><input class="input" name="buyerName" required minlength="2" value="' + esc(draft.buyerName || '') + '" placeholder="Quién recibe" /></label>' +
+              '<label class="field"><span>Correo</span><input class="input" name="buyerEmail" type="email" required value="' + esc(draft.buyerEmail || savedEmail || '') + '" placeholder="vos@correo.com" /></label>' +
+              '<label class="field"><span>Teléfono</span><input class="input" name="buyerPhone" value="' + esc(draft.buyerPhone || '') + '" placeholder="Opcional, para coordinar" /></label>' +
+              '<label class="field"><span>Dirección</span><input class="input" name="address" required minlength="5" value="' + esc(draft.address || '') + '" placeholder="Calle, número, piso" /></label>' +
+              '<label class="field full"><span>Nota para la tienda</span><textarea class="textarea" name="note" maxlength="500" placeholder="Horarios, referencias, algún detalle">' + esc(draft.note || '') + '</textarea></label>' +
             '</div>' +
             '<div class="checkout-callout">' +
               '<span class="checkout-callout-icon">' + icon('package', 18) + '</span>' +
@@ -856,6 +858,9 @@
     const form = document.getElementById('checkoutForm');
     const button = document.getElementById('checkoutBtn');
     if (!form || !button) return;
+    form.addEventListener('input', function () {
+      state.checkoutDraft = UI.formDataToObject(form);
+    });
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
       if (!form.reportValidity()) return;
@@ -876,6 +881,7 @@
         state.lastOrders = { codes: orders.map(function (order) { return order.code; }), email: payload.buyerEmail, at: Date.now() };
         try { sessionStorage.setItem('turbopoder_last_orders', JSON.stringify(state.lastOrders)); } catch (error) {}
         state.cart = [];
+        state.checkoutDraft = {};
         saveCart();
         UI.toast('Pedido confirmado. Te dejamos el detalle.', 'success');
         if (orders.length) navigate('/pedido/' + orders[0].code + '?email=' + encodeURIComponent(payload.buyerEmail));
